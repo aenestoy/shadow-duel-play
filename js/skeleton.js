@@ -208,9 +208,11 @@
     ks_zanLow: mk({ hx: 8, hy: -62, lean: 0.4, hd: 0.15, ax: 40, ay: 36, sw: 0.35, f1x: 56, f2x: -40 }),
     ks_chiburi: mk({ hx: 6, hy: -76, lean: 0.15, hd: 0.08, ax: 44, ay: 30, sw: 1.0, grip: 0, gx: -10, gy: 34, f1x: 40, f2x: -30 }),
     // --- kodachi / tantō: tight inside deflection, short cut or stab
-    kd_in: mk({ hx: 8, hy: -76, lean: 0.3, hd: 0.1, ax: 16, ay: -10, sw: -1.7, f1x: 50, f2x: -26 }),
-    kd_cut: mk({ hx: 26, hy: -72, lean: 0.5, hd: 0.2, ax: 40, ay: 20, sw: 0.7, f1x: 70, f2x: -20 }),
-    kd_fol: mk({ hx: 22, hy: -72, lean: 0.45, hd: 0.2, ax: 24, ay: 40, sw: 1.8, f1x: 70, f2x: -22 }),
+    // Short blade counter: sink under the attacking arm, then rise through an open-handed reverse cut.
+    // The ordinary light attack stays upright and cuts down; these silhouettes must differ without effects.
+    kd_in: mk({ hx: 2, hy: -56, lean: 0.5, hd: 0.18, ax: 24, ay: 24, sw: 1.0, grip: 0, gx: -24, gy: -28, f1x: 48, f2x: -38 }),
+    kd_cut: mk({ hx: 24, hy: -78, lean: 0.25, hd: -0.1, ax: 50, ay: -12, sw: -0.7, grip: 0, gx: -32, gy: 20, f1x: 68, f2x: -24 }),
+    kd_fol: mk({ hx: 16, hy: -88, lean: -0.04, hd: -0.2, ax: 12, ay: -44, sw: -2.1, grip: 0, gx: -30, gy: 18, f1x: 66, f2x: -26 }),
     kd_in2: mk({ hx: 8, hy: -74, lean: 0.3, hd: 0.1, ax: 20, ay: -16, sw: -2.1, f1x: 48, f2x: -26 }),
     kd_stab: mk({ hx: 30, hy: -72, lean: 0.52, hd: 0.2, ax: 56, ay: 6, sw: 0.05, grip: 0, gx: -30, gy: 10, f1x: 80, f2x: -20 }),
     // --- bō (both ends strike: sw beyond ±π turns the rear end forward)
@@ -2192,6 +2194,8 @@
   }
 
   // Tek yolda birleşik siluet (hayaletler / efektler için): gövde, baş, uzuvlar, ayaklar
+  // limb pairs for the ghost silhouette (built once, not per call: afterimages draw it several times a frame)
+  const NP_LEGS = [['knB', 'ftB'], ['knF', 'ftF']], NP_ARMS = [['elB', 'haB'], ['elF', 'haF']];
   ND.ninjaPath = function (ctx, j) {
     torsoFrame(j);
     const h = j.head, R = L.headR;
@@ -2199,11 +2203,11 @@
     const hrx = R * Math.max(0.2, Math.abs(j.dir));
     ctx.moveTo(h.x + hrx, h.y); ctx.ellipse(h.x, h.y, hrx, R * 1.08, 0, 0, TAU);
     capPath(ctx, j.neck.x, j.neck.y, h.x, h.y, 6, 6);
-    for (const [k, f] of [['knB', 'ftB'], ['knF', 'ftF']]) {
+    for (const [k, f] of NP_LEGS) {
       capPath(ctx, j.hip.x, j.hip.y, j[k].x, j[k].y, 10, 10.6); capPath(ctx, j[k].x, j[k].y, j[f].x, j[f].y, 7.4, 5);
       footFrame(j[f], j[k], j.dir, 1); capPath(ctx, FX(-2, -2.5), FY(-2, -2.5), FX(10, -3.5), FY(10, -3.5), 3.8, 2.8);
     }
-    for (const [e, a] of [['elB', 'haB'], ['elF', 'haF']]) { capPath(ctx, j.sh.x, j.sh.y, j[e].x, j[e].y, 7.2, 6.8); capPath(ctx, j[e].x, j[e].y, j[a].x, j[a].y, 5, 4.6); }
+    for (const [e, a] of NP_ARMS) { capPath(ctx, j.sh.x, j.sh.y, j[e].x, j[e].y, 7.2, 6.8); capPath(ctx, j[e].x, j[e].y, j[a].x, j[a].y, 5, 4.6); }
   };
 
   // Parlayan göz halesi (kapüşon / oni). Işık katmanı saydam olduğundan 'lighter' parıltı siluetin

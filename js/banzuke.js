@@ -627,9 +627,9 @@
     renderFoot() {
       const S = T(), f = $('hallFoot'); if (!f) return;
       const st = $('hallSt'); if (st) { st.textContent = LB().statusText(); st.dataset.st = LB().statusKey(); }
-      if (f.querySelector('form.nick')) return; // ad yazılırken altlığı yeniden kurma (form kapanmasın)
+      if (f.querySelector('form.nick') && !LB().nameLocked) return;
       f.textContent = '';
-      if (LB().adapter.needsName && ND.lbUI) f.appendChild(ND.lbUI.nickLine(() => { LB().hallClear(); this.renderHall(); }));
+      if ((LB().nameLocked || LB().adapter.needsName) && ND.lbUI) f.appendChild(ND.lbUI.nickLine(() => { LB().hallClear(); this.renderHall(); }));
       const pend = LB().pending();
       if (pend) f.appendChild(h('small', { class: 'hall-pend' }, S.hall.pending(pend)));
       f.appendChild(h('button', { type: 'button', class: 'mini', on: { click: () => this.openClassic() } }, S.hall.classic));

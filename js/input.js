@@ -25,6 +25,7 @@
         this.lastTap[a] = t;
       }
       if (a === 'dodge') this.tapDir = 0;
+      if (this.onPress) { try { this.onPress(a, t); } catch (e) { /* listener (combo trial) must never break input */ } }
     }
     release(a, src = 'k') { const s = this.srcs[a]; if (s) s.delete(src); }
     held(a) { const s = this.srcs[a]; return !!(s && s.size); }
@@ -195,10 +196,13 @@
       }
       initStick();
       initActs();
+      initDpad();
     },
 
     // Tüm dokunmatik basışları bırak (kumanda gizlenince / sekme arka plana geçince)
-    touchReset() { if (stick) stick.reset(); if (acts) acts.reset(); },
+    touchReset() { if (stick) stick.reset(); if (acts) acts.reset(); if (dpad) dpad.reset(); },
+    // Controls moved (resize, rotation) while fingers may be down: keep the presses, measure the boxes on the next touch
+    touchRelayout() { if (acts) acts.relayout(); if (dpad) dpad.relayout(); if (stick) stick.relayout(); },
 
     lockForAd(on) {
       input.adLocked = !!on;
@@ -265,14 +269,28 @@
   };
   const wake = () => { try { ND.audio.init(); } catch (e) { /* yok */ } };
 
-  // ---------------------------------------------------------------- sanal yön çubuğu (sol başparmak)
-  // Ekranın sol bölgesinde nereye dokunulursa taban oraya gelir; sürükleyince yön. Yukarı = zıpla, aşağı = gard,
-  // yana hızlıca iki kez it = atılma (Ctrl'ün çift dokunma algısı). Parmak çok uzaklaşırsa taban onu izler.
+  // ---------------------------------------------------------------- TOUCH PAD (touch.js places every control, the editor moves them)
+  // Movement: a stick ('float': the base jumps to where the thumb lands inside its zone; 'fixed': the base stays put)
+  // or d-pad buttons ◀ ▶ ▲ ▼. Both press the same logical keys as the keyboard (left / right / up / guard), so every
+  // direction-dependent move (forward/back + attack, forward + HEAVY launcher, double-tap dash, dash direction) works
+  // the same in every mode. Buttons: each finger (pointerId) is tracked on its own → multi-touch (hold guard + attack).
+  // Handlers only read what was measured at the first touch; nothing here lays the page out per move.
+  const T_PREF = () => ND.touchPrefs || {};
+  // Easy assist, tap to parry: a parry needs guard pressed shortly before the blow AND still held when it lands. A
+  // keyboard player presses and holds; a thumb tap often lifts first. So a short GUARD tap is held for at least the
+  // parry window (GUARD_MIN, real time). The window itself is not changed: same timing as holding the key.
+  const GUARD_MIN = 180;
+  // D-pad "tap to step": a quick tap on ◀ / ▶ walks for at least STEP_MS (one short step, same walk speed as holding)
+  const STEP_MS = 170;
+
+  // ---------------------------------------------------------------- sanal yön çubuğu
+  // Yukarı = zıpla, aşağı = gard, yana hızlıca iki kez it = atılma (Ctrl'ün çift dokunma algısı). Yüzen çubukta parmak
+  // çok uzaklaşırsa taban onu izler; sabit çubukta taban yerinde kalır.
   let stick = null;
   function initStick() {
     const zone = document.getElementById('tStick'), base = document.getElementById('tBase'), knob = document.getElementById('tKnob');
     if (!zone || !base || !knob) return;
-    const S = stick = { id: null, cx: 0, cy: 0, r: null, dirs: { left: false, right: false, up: false, guard: false } };
+    const S = stick = { id: null, cx: 0, cy: 0, r: null, fixed: false, dirs: { left: false, right: false, up: false, guard: false } };
     const setDir = (a, on) => {
       if (S.dirs[a] === on) return;
       S.dirs[a] = on;
@@ -280,11 +298,15 @@
       if (on) { input.p1.press(a, 'ts'); if (a === 'up' || a === 'guard') buzz(); } else input.p1.release(a, 'ts');
       base.classList.toggle('d-' + a, on);
     };
-    const place = () => { base.style.left = (S.cx - base.offsetWidth / 2) + 'px'; base.style.top = (S.cy - base.offsetHeight / 2) + 'px'; base.style.bottom = 'auto'; };
+    // zone-relative centre of the base; the rest spot comes from touch.js (zone._nd)
+    // base diameter from touch.js (the pad may still be hidden, where offsetWidth reads 0)
+    const bd = () => (zone._nd && zone._nd.d) || base.offsetWidth;
+    const place = () => { const h = bd() / 2; base.style.translate = `${(S.cx - h).toFixed(1)}px ${(S.cy - h).toFixed(1)}px`; };
+    const rest = () => { const g = zone._nd; if (g) { S.cx = g.rx; S.cy = g.ry; place(); } };
     const move = (e) => {
-      const r = S.r, R = base.offsetWidth * 0.4, far = R * 1.45;
+      const r = S.r, R = bd() * 0.4, far = R * 1.45;
       let dx = e.clientX - r.left - S.cx, dy = e.clientY - r.top - S.cy, d = Math.hypot(dx, dy);
-      if (d > far) { const k = (d - far) / d; S.cx += dx * k; S.cy += dy * k; dx -= dx * k; dy -= dy * k; d = far; place(); }
+      if (!S.fixed && d > far) { const k = (d - far) / d; S.cx += dx * k; S.cy += dy * k; dx -= dx * k; dy -= dy * k; d = far; place(); }
       const kd = d > R ? R / d : 1;
       knob.style.transform = `translate(${(dx * kd).toFixed(1)}px, ${(dy * kd).toFixed(1)}px)`;
       const vx = dx / R, vy = dy / R, ax = Math.abs(vx), ay = Math.abs(vy), D = S.dirs;
@@ -300,17 +322,21 @@
       S.id = null;
       for (const a in S.dirs) setDir(a, false);
       knob.style.transform = '';
-      base.style.left = base.style.top = base.style.bottom = '';
       base.classList.remove('live');
+      rest();
     };
+    S.relayout = () => { if (S.id == null) rest(); };
     zone.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       if (S.id != null) return;
       S.id = e.pointerId;
       try { zone.setPointerCapture(e.pointerId); } catch (_) { /* yok */ }
-      const r = S.r = zone.getBoundingClientRect(), h = base.offsetWidth / 2;
-      S.cx = clamp(e.clientX - r.left, h, Math.max(h, r.width - h));
-      S.cy = clamp(e.clientY - r.top, h, Math.max(h, r.height - h));
+      const r = S.r = zone.getBoundingClientRect(), h = bd() / 2, g = zone._nd || {};
+      S.fixed = !!g.fixed;
+      if (S.fixed) { S.cx = g.rx; S.cy = g.ry; } else {
+        S.cx = clamp(e.clientX - r.left, h, Math.max(h, r.width - h));
+        S.cy = clamp(e.clientY - r.top, h, Math.max(h, r.height - h));
+      }
       place(); base.classList.add('live');
       move(e); wake();
     });
@@ -319,19 +345,55 @@
     zone.addEventListener('pointerup', (e) => { up(e); wake(); });
     zone.addEventListener('pointercancel', up);
     zone.addEventListener('lostpointercapture', up);
+    rest();
   }
 
-  // ---------------------------------------------------------------- aksiyon düğmeleri (sağ başparmak)
-  // Tek kap üzerinden: her parmak (pointerId) ayrı izlenir → çoklu dokunma (gard tut + saldır). İlk dokunuş en yakın
-  // düğmeye bağışlayıcı bir yarıçapla gider; parmak kaydırılınca başka düğmeye geçer (gard → hafif = karşılık).
+  // ---------------------------------------------------------------- button groups (action buttons, d-pad)
+  // Each button catches its own first touch (a hit margin around it makes it forgiving) and keeps the finger
+  // (pointer capture); the group's handler then picks the nearest button of the group from boxes measured once per
+  // gesture, so a finger can slide from one button to another (GUARD → ATTACK = counter; ▶ → ▲ = jump forward).
+  function group(boxId, onDown, onMove, onUp) {
+    const box = document.getElementById(boxId);
+    if (!box) return null;
+    const G = { box, ptr: new Map(), rects: null };
+    // hidden buttons (display: none) have no box: they can't be picked
+    G.measure = () => (G.rects = [...box.querySelectorAll('button')].map((b) => {
+      const r = b.getBoundingClientRect();
+      return { b, x: r.left + r.width / 2, y: r.top + r.height / 2, rad: r.width / 2 };
+    }).filter((q) => q.rad > 1));
+    G.relayout = () => { if (G.ptr.size === 0) G.rects = null; else G.stale = true; };
+    box.addEventListener('pointerdown', (e) => {
+      const b = e.target && e.target.closest && e.target.closest('button');
+      if (!b || !box.contains(b)) return;
+      e.preventDefault();
+      if (G.ptr.size === 0 || !G.rects || G.stale) { G.stale = false; G.measure(); }
+      wake();
+      try { b.setPointerCapture(e.pointerId); } catch (_) { /* yok */ }
+      onDown(e);
+    });
+    box.addEventListener('pointermove', (e) => { if (G.ptr.has(e.pointerId)) onMove(e); });
+    const up = (e) => { if (G.ptr.has(e.pointerId)) onUp(e); };
+    box.addEventListener('pointerup', (e) => { up(e); wake(); });
+    box.addEventListener('pointercancel', up);
+    box.addEventListener('lostpointercapture', up);
+    return G;
+  }
+
+  // ---------------------------------------------------------------- aksiyon düğmeleri
+  // İlk dokunuş en yakın düğmeye bağışlayıcı bir yarıçapla gider; parmak kaydırılınca başka düğmeye geçer.
   let acts = null;
   function initActs() {
-    const box = document.getElementById('tActs');
-    if (!box) return;
-    const btns = [...box.querySelectorAll('[data-act]')];
-    const A = acts = { ptr: new Map(), rects: null, rep: new Map() };
-    // hidden buttons (kick / shuriken in the simple layout) have no box: they can't be picked
-    const measure = () => (A.rects = btns.map((b) => { const r = b.getBoundingClientRect(); return { b, x: r.left + r.width / 2, y: r.top + r.height / 2, rad: r.width / 2 }; }).filter((q) => q.rad > 1));
+    const A = acts = group('tActs', (e) => {
+      const b = pick(e.clientX, e.clientY, true);
+      if (!b) return;
+      A.ptr.set(e.pointerId, b); on(b, e.pointerId);
+    }, (e) => {
+      const cur = A.ptr.get(e.pointerId);
+      const nb = pick(e.clientX, e.clientY, false);
+      if (nb && nb !== cur) { A.ptr.set(e.pointerId, nb); off(cur, e.pointerId); on(nb, e.pointerId); }
+    }, (e) => { const b = A.ptr.get(e.pointerId); A.ptr.delete(e.pointerId); off(b, e.pointerId); });
+    if (!A) return;
+    A.rep = new Map();
     // Easy assist, hold to chain: while ATTACK stays held it is pressed again every 0.15 s (a quick human mash), after a
     // first 0.26 s so a normal tap never counts twice. The fighter's own chain windows decide what comes out, exactly
     // as when a keyboard player mashes F: nothing about the rules changes, only how often the thumb has to tap.
@@ -348,14 +410,10 @@
     };
     const pick = (x, y, loose) => {
       let best = null, bd = Infinity;
-      for (const q of A.rects || measure()) { const d = Math.hypot(x - q.x, y - q.y) / q.rad; if (d < bd) { bd = d; best = q.b; } }
+      for (const q of A.rects || A.measure()) { const d = Math.hypot(x - q.x, y - q.y) / q.rad; if (d < bd) { bd = d; best = q.b; } }
       return bd <= (loose ? 1.4 : 0.98) ? best : null;
     };
     const held = (b) => { for (const v of A.ptr.values()) if (v === b) return true; return false; };
-    // Easy assist, tap to parry: a parry needs guard pressed shortly before the blow AND still held when it lands. A
-    // keyboard player presses and holds; a thumb tap often lifts first. So a short GUARD tap is held for at least the
-    // parry window (GUARD_MIN, real time). The window itself is not changed: same timing as holding the key.
-    const GUARD_MIN = 180;
     const t0 = new Map();
     const on = (b, id) => {
       if (input.adLocked) return;
@@ -373,25 +431,72 @@
       }
       input.p1.release(act, src); if (!held(b)) b.classList.remove('on');
     };
-    box.addEventListener('pointerdown', (e) => {
-      e.preventDefault();
-      if (A.ptr.size === 0) measure();
-      const b = pick(e.clientX, e.clientY, true);
-      wake();
-      if (!b) return;
-      try { box.setPointerCapture(e.pointerId); } catch (_) { /* yok */ }
-      A.ptr.set(e.pointerId, b); on(b, e.pointerId);
-    });
-    box.addEventListener('pointermove', (e) => {
-      const cur = A.ptr.get(e.pointerId); if (!cur) return;
-      const nb = pick(e.clientX, e.clientY, false);
-      if (nb && nb !== cur) { A.ptr.set(e.pointerId, nb); off(cur, e.pointerId); on(nb, e.pointerId); }
-    });
-    const up = (e) => { const b = A.ptr.get(e.pointerId); if (!b) return; A.ptr.delete(e.pointerId); off(b, e.pointerId); };
-    box.addEventListener('pointerup', (e) => { up(e); wake(); });
-    box.addEventListener('pointercancel', up);
-    box.addEventListener('lostpointercapture', up);
-    A.reset = () => { for (const [id, b] of [...A.ptr]) { A.ptr.delete(id); off(b, id, true); } for (const id of [...A.rep.keys()]) stopRep(id); btns.forEach((b) => b.classList.remove('on')); A.rects = null; };
+    A.reset = () => {
+      for (const [id, b] of [...A.ptr]) { A.ptr.delete(id); off(b, id, true); }
+      for (const id of [...A.rep.keys()]) stopRep(id);
+      A.box.querySelectorAll('button').forEach((b) => b.classList.remove('on'));
+      A.rects = null;
+    };
+  }
+
+  // ---------------------------------------------------------------- d-pad ◀ ▶ ▲ ▼
+  // Hold to walk / guard, ▲ jumps. A finger between two buttons presses both (▶ + ▲ = jump forward). Two quick taps
+  // on ◀ or ▶ dash (the same double-tap rule as the keyboard). With "tap to step" a quick tap still walks one short
+  // step (STEP_MS); with easy assist a quick ▼ tap lasts long enough to parry (GUARD_MIN).
+  let dpad = null;
+  function initDpad() {
+    const P = dpad = group('tDpad', (e) => { P.ptr.set(e.pointerId, pickDirs(e.clientX, e.clientY, true)); sync(); },
+      (e) => { const n = pickDirs(e.clientX, e.clientY, false); if (n !== P.ptr.get(e.pointerId)) { P.ptr.set(e.pointerId, n); sync(); } },
+      (e) => { P.ptr.delete(e.pointerId); sync(); });
+    if (!P) return;
+    const DIRS = ['left', 'right', 'up', 'guard'];
+    const st = {};
+    for (const a of DIRS) st[a] = { on: false, t0: 0, timer: 0 };
+    // the directions under one finger, as a sorted key ('right+up'): nearest button, plus a neighbour when the finger
+    // sits between the two
+    const pickDirs = (x, y, first) => {
+      const list = [];
+      for (const q of P.rects || P.measure()) list.push({ a: q.b.dataset.dir, d: Math.hypot(x - q.x, y - q.y) / q.rad });
+      list.sort((m, n) => m.d - n.d);
+      const a = list[0], b = list[1];
+      if (!a) return '';
+      const opp = b && ((a.a === 'left' && b.a === 'right') || (a.a === 'right' && b.a === 'left') || (a.a === 'up' && b.a === 'guard') || (a.a === 'guard' && b.a === 'up'));
+      // between two neighbours (about as close to both): both
+      if (b && !opp && a.d <= 1.65 && b.d <= 1.65 && b.d <= a.d * 1.3) return [a.a, b.a].sort().join('+');
+      return a.d <= (first ? 1.4 : 1.25) ? a.a : '';
+    };
+    const btn = (a) => P.box.querySelector(`[data-dir="${a}"]`);
+    const down = (a) => {
+      const s = st[a];
+      if (s.timer) { clearTimeout(s.timer); s.timer = 0; input.p1.release(a, 'td'); } // a new tap during a step: a new press
+      if (input.adLocked) return;
+      s.on = true; s.t0 = performance.now();
+      input.p1.press(a, 'td'); buzz();
+      const b = btn(a); if (b) b.classList.add('on');
+    };
+    const up = (a, now) => {
+      const s = st[a];
+      s.on = false;
+      const min = now ? 0 : a === 'guard' ? (pref('assist', true) ? GUARD_MIN : 0) : (a === 'left' || a === 'right') && T_PREF().dtap ? STEP_MS : 0;
+      const left = min - (performance.now() - s.t0);
+      const done = () => { s.timer = 0; input.p1.release(a, 'td'); const b = btn(a); if (b) b.classList.remove('on'); };
+      if (left > 0) s.timer = setTimeout(done, left); else done();
+    };
+    // union of every finger on the pad → press what was added, release what was lifted
+    const sync = () => {
+      const want = new Set();
+      for (const k of P.ptr.values()) if (k) k.split('+').forEach((a) => want.add(a));
+      for (const a of DIRS) {
+        if (want.has(a) && !st[a].on) down(a);
+        else if (!want.has(a) && st[a].on) up(a);
+      }
+    };
+    P.reset = () => {
+      P.ptr.clear();
+      for (const a of DIRS) { const s = st[a]; if (s.timer) clearTimeout(s.timer); s.timer = 0; s.on = false; input.p1.release(a, 'td'); }
+      P.box.querySelectorAll('button').forEach((b) => b.classList.remove('on'));
+      P.rects = null;
+    };
   }
 
   // ---------------------------------------------------------------- klavye düzeni (AZERTY / QWERTZ etiketleri)

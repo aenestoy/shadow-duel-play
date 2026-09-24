@@ -134,6 +134,7 @@
         nickAskOnline: 'Nickname for the online leaderboard:',
         savedLocal: (r) => (r ? `#${r} on the local leaderboard` : 'Saved to the local leaderboard'),
         rejected: 'Your score couldn’t be saved — local leaderboard only',
+        savedLocalAccount: (r) => (r ? `#${r} on this device · online ranking for accounts coming soon` : 'Saved on this device · online ranking for accounts coming soon'),
         quota: 'Online leaderboard is full — score saved locally only',
         open: 'Leaderboard',
         keys: '<kbd>←</kbd> <kbd>→</kbd> board · <kbd>↑</kbd> <kbd>↓</kbd> ninja · <kbd>⌫</kbd> back',
@@ -259,7 +260,7 @@
         ['Fwd+<kbd>F</kbd>', 'Sweep', 'counter · at the legs'],
         ['Back+<kbd>F</kbd>', 'Cross-up', 'counter · slip past them'],
         ['<kbd>G</kbd>', 'Heavy counter', 'counter · knocks down'],
-        ['Rally', 'Rally', 'block the counter, counter again; 5th counter is a finisher'],
+        ['Rally', 'Rally', 'block the counter, counter again; your 3rd counter is a finisher'],
         ['<kbd>F</kbd>/<kbd>G</kbd>!!', 'Blade lock', 'mash during the lock to push them back'],
       ],
       touch: {
@@ -319,7 +320,7 @@
         ['Fwd+<i class="tb tb-light">ATTACK</i>', 'Sweep', 'counter · at the legs'],
         ['Back+<i class="tb tb-light">ATTACK</i>', 'Cross-up', 'counter · slip past them'],
         ['<i class="tb">HEAVY</i>', 'Heavy counter', 'counter · knocks down'],
-        ['Rally', 'Rally', 'block the counter, counter again; 5th counter is a finisher'],
+        ['Rally', 'Rally', 'block the counter, counter again; your 3rd counter is a finisher'],
         ['<i class="tb tb-light">ATTACK</i>!!', 'Blade lock', 'mash ATTACK during the lock to push them back'],
       ],
       moveSpecialTouch: '<i class="tb ki">KI</i>',
@@ -346,7 +347,7 @@
         { id: 'block', t: 'Guard', d: 'The dummy is attacking. Hold <kbd>S</kbd> to block a slash.' },
         { id: 'parry', t: 'Parry', d: 'Press <kbd>S</kbd> just before the blow lands. The moment the blue ring shrinks is the perfect time.' },
         { id: 'counter', t: 'Counter', d: 'Right after a guard or parry, <kbd>F</kbd>: counter-slash. Also try forward/back + <kbd>F</kbd> or <kbd>G</kbd>.' },
-        { id: 'rally', t: 'Rally', d: 'The dummy counters too. Attack it, block its counter and counter again: build a 3-hit rally.' },
+        { id: 'rally', t: 'Rally', d: 'The dummy counters too. Attack it, block its counter and counter again: reach 2× with two of your own replies.' },
         { id: 'special', t: 'Ki technique', d: 'Your ki bar is full. Use {sp} with <kbd>E</kbd>.' },
       ],
     });
@@ -452,7 +453,7 @@
         ren: ['Ren hung Shura’s broken mask beside the other oni mask. Two oni, one winner.', 'The village sang that night; the loudest laugh, as always, was Ren’s.', 'By morning, Ren was already on the road. Off to the next brawl.'],
         kage: ['When Shura fell, Kage’s shadow quietly settled over the fallen demon.', 'No trace, no sound; only one extra shadow stretching out in the moonlight.', 'Perhaps it was always there. Perhaps it never existed at all.'],
         shura: ['On the castle roof, only one remained standing: the one who wore the same mask, only darker.', 'Shura no longer seeks rivals. Rivals seek Shura.'],
-        def: ['The last master has fallen. The way of shadows is yours now.', 'Sheathe your blade; the legend begins now.'],
+        def: ['The last master has fallen. The way of shadows is yours now.', 'Sheayour blade; the legend begins now.'],
         tora: ['The rattle of a chain announced Shura’s fall.', 'Tora hung the broken mask from the chain: a new hunting trophy.', 'From that day on, no one in the forest took the tiger’s roar for a fairy tale.'],
         jin: ['Jin knelt beside the fallen Shura and prayed.', 'On the road back to the temple, not a single drop of blood marked the staff.', 'That night the mountain bells rang again; this time not in mourning, but for peace.'],
         mai: ['As Shura fell, Mai snapped the fan shut and bowed.', 'The night market still talks about that dance.', 'The curtain fell. But Mai never left the stage.'],
@@ -655,8 +656,8 @@
         '<b>Parry:</b> press guard just before the blow lands; your opponent staggers.',
       '<b>Karşılık (返し技):</b> gard ya da savuşturmanın hemen ardından saldırı tuşu → anında karşı kesik. <b>İleri</b> + hafif = bacağa süpürme, <b>geri</b> + hafif = yanından dönüp arkadan kesme, <b>ağır</b> = güçlü karşı darbe.':
         '<b>Counter (返し技):</b> attack right after a guard or parry → instant counter slash. <b>Forward</b> + light = leg sweep, <b>back</b> + light = cross-up that slashes from behind, <b>heavy</b> = powerful counter strike.',
-      '<b>Karşılıklı seri:</b> karşılık da karşılanabilir. Her turda vuruşlar hızlanır ve güçlenir; 5. karşılık üç vuruşluk sinematik bir bitirişe dönüşür. Seriyi kıran darbe ağır çekimde iner.':
-        '<b>Rally:</b> counters can be countered too. Every exchange gets faster and harder; the 5th counter turns into a three-hit cinematic finisher. The blow that breaks the rally lands in slow motion.',
+      '<b>Karşılıklı seri:</b> karşılık da karşılanabilir. Her turda vuruşlar hızlanır ve güçlenir; kendi 3. karşılığın üç vuruşluk sinematik bir bitirişe dönüşür. Seriyi kıran darbe ağır çekimde iner.':
+        '<b>Rally:</b> counters can be countered too. Every exchange gets faster and harder; your 3rd counter turns into a three-hit cinematic finisher. The blow that breaks the rally lands in slow motion.',
       '<b>Kılıç kilidi:</b> kılıçlar çarpışınca kilitlenebilir. Hafif/ağır tuşuna hızlı basan rakibini iter.':
         '<b>Blade lock:</b> clashing blades can lock. Whoever mashes light/heavy faster shoves the other away.',
       '<b>Ki barı</b> vurdukça, yedikçe ve savuşturdukça dolar. Dolunca her ninjanın kendine özgü ki tekniği açılır (Antrenman’daki hareket listesinde görebilirsin).':
@@ -704,6 +705,49 @@
         attackT: (l) => `Tap ${l} · keep tapping: combo`,
         guardT: (l, g) => `Hold ${g} to guard`,
         parryT: (l, g) => `Tap ${g} just before a hit lands: parry`,
+      },
+    });
+
+    // ================================================================ VOLUME: sliders on the menu card and in pause (js/volume.js)
+    merge(EN.STR, {
+      vol: {
+        title: 'Volume', master: 'Master', music: 'Music', sfx: 'Effects', sound: 'Sound',
+        pct: (n) => `${n}%`,
+        muted: 'Sound is off. Move a slider to turn it back on.',
+      },
+    });
+
+    // ================================================================ TOUCH LAYOUT EDITOR: movement modes + "Customize controls"
+    // (js/touch.js settings rows, js/touch-editor.js; Turkish source in i18n.js, block "touch movement modes + layout editor")
+    merge(EN.STR, {
+      tedit: {
+        move: 'Movement',
+        moves: { float: 'Stick', fixed: 'Fixed stick', dpad: 'D-pad' },
+        mnote: {
+          float: 'The stick appears wherever your thumb lands.',
+          fixed: 'The stick stays where you put it; push from its centre.',
+          dpad: 'Separate buttons: hold to walk, double-tap to dash. Press between two buttons for both (▶ + ▲ = jump forward).',
+          dtap: 'Separate buttons: a quick tap on ◀ ▶ takes one short step, hold to walk, double-tap to dash.',
+        },
+        dtap: 'Tap to step',
+        edit: 'Customize controls',
+        title: 'Customize controls',
+        hint: 'Drag a button anywhere. Tap it for size, opacity or to hide it.',
+        rotate: 'Turn your screen sideways to arrange the fight controls.',
+        shapes: { phone: 'Phone', tablet: 'Tablet', portrait: 'Portrait' },
+        screenNote: 'The layout is saved for this screen shape: phones and tablets each keep their own.',
+        save: 'Save', cancel: 'Cancel', options: 'Options', done: 'Done', close: 'Close',
+        size: 'Size', sizes: { s: 'S', m: 'M', l: 'L', xl: 'XL' },
+        opacity: 'Opacity', opacityAll: 'Opacity (all)',
+        hide: 'Hide', show: 'Show', hidden: 'Hidden',
+        snap: 'Snap to grid',
+        presets: 'Presets', pRight: 'Right hand', pLeft: 'Left hand', pSplit: 'Guard on left',
+        reset: 'Reset to default', resetDone: 'Default layout is back (applies when you save).',
+        overlap: 'Buttons can’t overlap: moved to the nearest free spot.',
+        noRoom: 'No room there: the button went back.',
+        saved: 'Controls saved',
+        throwName: 'SHURIKEN',
+        dirs: { dl: '◀ Left', dr: 'Right ▶', du: '▲ Jump', dd: '▼ Guard' },
       },
     });
 
@@ -801,7 +845,7 @@
       'Dalış': 'Plunge',
       'Havadan aşağı dalış kesiği; yere serer.': 'A diving slash from the air; knocks down.',
       'Kaeshi-waza (karşılık)': 'Kaeshi-waza (counter)',
-      'Gard ya da savuşturmanın hemen ardından karşılık: nötr Suriage, ileri Harai (yere serer), geri Nuki (arkaya geçer), ağır Uchiotoshi. Beşinci karşılık seri bitirişidir.': 'Counter right after a guard or parry: neutral Suriage, forward Harai (knocks down), back Nuki (slips behind), heavy Uchiotoshi. The fifth counter in a rally is the finisher.',
+      'Gard ya da savuşturmanın hemen ardından karşılık: nötr Suriage, ileri Harai (yere serer), geri Nuki (arkaya geçer), ağır Uchiotoshi. Kendi üçüncü karşılığın seri bitirişidir; savuşturulursa zincir devam eder.': 'Counter right after a guard or parry: neutral Suriage, forward Harai (knocks down), back Nuki (slips behind), heavy Uchiotoshi. Your third reply is the finisher; if parried, the rally continues.',
       'Fırlatıcı isabet edince HAFİF: rakibin peşinden sıçrayıp havada keser. Ardından AĞIR ile yere çakar. Havadaki rakip en çok üç vuruş alır.': 'When the launcher hits, LIGHT: leap after the opponent and cut in the air. Then HEAVY slams them down. An airborne opponent takes at most three hits.',
       'Üç vuruşluk hafif seri. İkinci ve üçüncü vuruş ki doluyken tekniğe bağlanır.': 'A three-hit light chain. With full ki, the second and third hits cancel into the ki technique.',
       'Ağır vuruş: yavaş ama yere serer.': 'Heavy strike: slow, but knocks down.',
@@ -857,6 +901,120 @@
       'Geri + AĞIR da ok atar (basılı tut: güçlü atış); ok kalmadıysa tantō ile tepeden iner.': 'Back + HEAVY also shoots an arrow (hold for a power shot); out of arrows, she comes down from above with the tantō.',
       // combat pop-ups
       'KI İPTALİ!': 'KI CANCEL!', 'HAVAYA!': 'LAUNCH!',
+    });
+
+    // ================================================================ COUNTER CINEMATIC + COMBO TRIAL (combat feel pass)
+    // js/kaeshi-cine.js STR.kaeshi, js/combo-trial.js STR.trial, js/coach.js combo/counter tips, move list legend
+    {
+      const tb = (t, c) => `<i class="tb${c ? ' ' + c : ''}">${t}</i>`;
+      merge(EN.STR, {
+        kaeshi: {
+          head: 'KAESHI-WAZA', strike: 'STRIKE!', hits: 'HITS',
+          labels: {
+            suriage: 'Slide up their blade, cut down across',
+            harai: 'Beat their blade aside, cut the legs',
+            nuki: 'Slip the blow, cut from behind',
+            uchiotoshi: 'Smash their blade down, drive through',
+            sandan: "Three-cut counter sequence",
+          },
+        },
+        trial: {
+          title: 'Combo trial',
+          btn: { prev: 'Previous combo', next: 'Next combo', retry: 'Start over', close: 'Close' },
+          names: { chain: 'Basic string', s1: 'String ender', s2: 'Kick string', launch: 'Launcher', s3: 'Long combo' },
+          desc: {
+            chain: '{L} three times. Press each one as the previous hit lands; the string ends in a named finisher.',
+            s1: '{L} twice, then {H}: the string ends with a heavy cut.',
+            s2: '{L}, kick {K}, then {H}.',
+            launch: '{D} + {H} launches; while they fly, {L}, then {H}.',
+            s3: 'Two {L}, {D} + {H} to launch, {L}, {H}: five hits.',
+          },
+          ready: (w) => `Start: ${w}`,
+          startWith: (w) => `This combo starts with ${w}.`,
+          early: 'Too early: press as the previous hit lands.',
+          late: 'Too late: press before the move finishes, right as the hit lands.',
+          wrong: (got, want) => `Wrong button: ${got}, this step needs ${want}.`,
+          dir: (want) => `Direction missing: ${want}. Hold the direction, then press.`,
+          miss: 'Missed: the hit didn’t land. Get closer to the dummy.',
+          clear: 'COMBO CLEAR!', clearPop: 'COMBO CLEAR!',
+          all: 'Every combo trial for this ninja is clear!',
+        },
+        coach: {
+          combo: (l) => `${l} ${l} ${l} quickly: a 3-hit combo`,
+          comboT: (l) => `Tap ${l} three times in a row: combo`,
+          counter: (l) => `After a guard or parry, press ${l} when STRIKE! appears: counter`,
+          counterT: (l) => `After a guard or parry, tap ${l} when STRIKE! appears`,
+        },
+      });
+      const L = Array.isArray(EN.STR.lessons) && EN.STR.lessons.find((l) => l.id === 'counter');
+      if (L) L.d = 'After a guard or parry, <b>STRIKE!</b> appears over your head: press <kbd>F</kbd> before its bar runs out. Forward/back + <kbd>F</kbd> or <kbd>G</kbd> are other counters.';
+      if (EN.STR.lessonsTouch) EN.STR.lessonsTouch.counter = `After a guard or parry, <b>STRIKE!</b> appears over your head: tap ${tb('ATTACK', 'tb-light')} before its bar runs out. Stick forward/back + ${tb('ATTACK', 'tb-light')} or ${tb('HEAVY')} are other counters.`;
+      merge(EN.PHRASES, {
+        'KOMBO TAMAM!': 'COMBO CLEAR!',
+        'Nasıl okunur': 'How to read',
+        '→ rakibe doğru, ← rakipten uzağa demek: o yön tuşunu (A / D ya da ok tuşları; rakip sağındaysa D) basılı tut ve saldırı tuşuna bas. Virgül: tuşlara sırayla bas. F hafif, G ağır, R tekme, S gard.':
+          '→ means toward the opponent, ← away: hold that direction key (A / D or the arrow keys; D when the opponent is on your right) and press the attack key. A comma: press the keys one after another. F light, G heavy, R kick, S guard.',
+        '▶ rakibe doğru, ◀ rakipten uzağa: yön çubuğunu o yana itip düğmeye dokun. Virgül: düğmelere sırayla dokun. Antrenmandaki Kombo denemesi her seriyi adım adım gösterir.':
+          '▶ toward the opponent, ◀ away: push the stick that way and tap the button. A comma: tap the buttons one after another. The Combo trial in Training shows every string step by step.',
+        'Gard ya da savuşturmanın ardından ekranda VUR! çıkar: altındaki çubuk bitmeden HAFİF’e bas. Yalnız HAFİF: Suriage. İleri + HAFİF: Harai (yere serer). Geri + HAFİF: Nuki (arkaya geçer). AĞIR: Uchiotoshi. Kendi üçüncü karşılığın seri bitirişidir; savuşturulursa zincir devam eder.':
+          'After a guard or parry, STRIKE! appears: press LIGHT before its bar runs out. LIGHT alone: Suriage. Forward + LIGHT: Harai (knocks down). Back + LIGHT: Nuki (slips behind). HEAVY: Uchiotoshi. Your third reply is the finisher; if parried, the rally continues.',
+      });
+    }
+
+    // ================================================================ GRAPHICS QUALITY: the Graphics setting (js/gfx.js)
+    // (Turkish source in i18n.js, block "graphics quality")
+    merge(EN.STR, {
+      gfx: {
+        title: 'Graphics',
+        levels: { auto: 'Auto', high: 'High', medium: 'Medium', low: 'Low' },
+        note: {
+          auto: 'Picks for your device and lowers itself if a fight stutters.',
+          high: 'Every light and effect. For strong devices.',
+          medium: 'Light glow, no shadows. For most phones.',
+          low: 'Smoothest. For older phones.',
+        },
+        now: (lv) => `Now: ${lv}`,
+      },
+    });
+
+    // ================================================================ LANGUAGE PICKER (js/lang-ui.js; Turkish source in i18n.js)
+    // Language names are not translated: each one is written in its own language (ND.i18n.names).
+    merge(EN.STR, { lang: { title: 'Language', change: 'Change language', close: 'Close' } });
+
+    // ================================================================ TOUCH HELP PER MOVEMENT MODE
+    // (game.js touchHelp(): the menu's touch help follows the movement mode; Turkish source in i18n.js, block
+    // "touch help per movement mode")
+    merge(EN.STR, {
+      thelp: {
+        title: { float: 'Joystick', fixed: 'Fixed joystick', dpad: 'D-pad' },
+        float: { walk: 'Put your thumb on the free half and slide: walk', jump: 'Push up: jump', guard: 'Pull down: guard', dash: 'Flick sideways twice: dash' },
+        fixed: { walk: 'Hold the stick by its centre and push sideways: walk', jump: 'Push up: jump', guard: 'Pull down: guard', dash: 'Flick sideways twice: dash' },
+        dpad: {
+          walk: 'Hold: walk', step: 'Quick tap: one short step', jump: 'Tap: jump', guard: 'Hold: guard',
+          dash: 'Double-tap: dash', both: 'Press between two buttons for both (▶ + ▲ = jump forward)',
+        },
+        edit: (b) => `${b}: drag any button where you like and set its size and opacity. In the touch settings below and in the pause menu.`,
+      },
+    });
+
+    // ================================================================ SHARED LABELS (static HTML / move list text that is the same word in Turkish)
+    merge(EN.PHRASES, { 'Shuriken': 'Shuriken', 'KI': 'KI' });
+
+    // Persistent character journeys.
+    merge(EN.STR, { menu: { arcadeDesc: "An eight-fight journey for each ninja. Resume your next rival, unlock the character ending and the Master seal." }, sel: { title: { arcade: "Arcade · Character journey" } },
+      journey: {
+        start: "Start journey",
+        resume: (i, n) => "Continue · " + i + "/" + n + "",
+        ending: "Watch ending",
+        replay: "Replay journey",
+        badge: "Master seal",
+        completed: "Journey complete",
+        progress: (i, n) => "" + i + "/" + n + " fights completed · Progress saved",
+        reward: "Reward: character ending and permanent Master seal",
+        saved: "Each win is saved. Leaving a fight counts as a retry.",
+        menu: (done, active) => "" + done + " journeys completed · " + active + " in progress",
+        clearReward: "Master seal earned · Character ending unlocked"
+      }
     });
 
     void dec; void fmtTime; void num;

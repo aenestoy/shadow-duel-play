@@ -13,6 +13,6 @@
 // İkisi de boş kalırsa oyun çevrimiçi tabloyu kullanmaz: yerel tabloya (ya da claude.ai içinde Claude tablosuna) düşer.
 window.ND = window.ND || {};
 window.ND.CONFIG = Object.assign({
-  SUPABASE_URL: '',
-  SUPABASE_ANON_KEY: '',
+  SUPABASE_URL: 'https://cjaewbrifdqlykasrkds.supabase.co',
+  SUPABASE_ANON_KEY: 'sb_publishable_rRU01BBLtAH5ecd6nGEWDw_JiUWDrjI',
 }, window.ND.CONFIG || {});

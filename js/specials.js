@@ -34,6 +34,31 @@
     clear() { this.list.length = 0; },
   };
 
+  // ------------------------------------------------------------ CACHED GRADIENTS
+  // Specials stay on screen for many frames, so their soft glows are not rebuilt every frame: each gradient is made
+  // once per kind (and colour) around the origin and moved into place with translate / scale. Alpha that used to
+  // sit in the colour stops (fading with the effect) is applied as globalAlpha instead: same pixels.
+  // cgrad(ctx, kind, col, make): make(ctx, col) builds it the first time (module-level functions, no closures).
+  const GRADS = new Map();
+  function cgrad(ctx, kind, col, make) {
+    let m = GRADS.get(kind);
+    if (!m) GRADS.set(kind, (m = new Map()));
+    let g = m.get(col);
+    if (!g) m.set(col, (g = make(ctx, col)));
+    return g;
+  }
+  function stops(g, a) { for (let i = 0; i < a.length; i += 2) g.addColorStop(a[i], a[i + 1]); return g; }
+  // unit-radius glow ring (glow()), scaled to the ring's radius
+  const mkGlow = (ctx, col) => stops(ctx.createRadialGradient(0, 0, 0, 0, 0, 1), [0, `rgba(${col},1)`, 0.4, `rgba(${col},.35)`, 1, `rgba(${col},0)`]);
+  // wind blade halo and tornado haze at full strength (the projectile's alpha goes to globalAlpha), shock wave
+  const mkWind = (ctx, col) => stops(ctx.createRadialGradient(0, 0, 0, 0, 0, 80), [0, `rgba(${col},0.35)`, 1, `rgba(${col},0)`]);
+  const mkShock = (ctx, col) => stops(ctx.createRadialGradient(0, 0, 0, 0, 0, 60), [0, `rgba(${col},.9)`, 0.5, `rgba(${col},.25)`, 1, `rgba(${col},0)`]);
+  const mkTornado = (ctx, col) => stops(ctx.createRadialGradient(0, -110, 10, 0, -110, 140), [0, `rgba(${col},0.22)`, 1, `rgba(${col},0)`]);
+  // fighter auras, centred on the origin (drawn translated to the fighter's chest)
+  const mkTetsu = (ctx) => stops(ctx.createRadialGradient(0, 0, 10, 0, 0, 110), [0, 'rgba(255,205,110,.9)', 0.5, 'rgba(255,170,60,.25)', 1, 'rgba(255,150,40,0)']);
+  const mkRen = (ctx) => stops(ctx.createRadialGradient(0, 0, 8, 0, 0, 105), [0, 'rgba(255,120,40,.9)', 0.5, 'rgba(220,60,20,.25)', 1, 'rgba(200,40,10,0)']);
+  const mkJin = (ctx) => stops(ctx.createRadialGradient(0, 0, 10, 0, 0, 120), [0, 'rgba(255,220,130,.9)', 0.5, 'rgba(255,190,80,.22)', 1, 'rgba(255,170,60,0)']);
+
   // --- parçacık: k = petal | ember | flake | rock | smoke | leaf | streak | spark
   function partUpd(dt) {
     this.vy += this.g * dt;
@@ -128,9 +153,10 @@
       draw(ctx) {
         const u = this.t / this.life, a = a0 * (1 - u);
         ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = a;
-        const g = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.r * (0.6 + u * 0.6));
-        g.addColorStop(0, `rgba(${this.col},1)`); g.addColorStop(0.4, `rgba(${this.col},.35)`); g.addColorStop(1, `rgba(${this.col},0)`);
-        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(this.x, this.y, this.r * (0.6 + u * 0.6), 0, TAU); ctx.fill();
+        const R = this.r * (0.6 + u * 0.6);
+        if (!(R > 0)) return;
+        ctx.translate(this.x, this.y); ctx.scale(R, R);
+        ctx.fillStyle = cgrad(ctx, 'glow', this.col, mkGlow); ctx.beginPath(); ctx.arc(0, 0, 1, 0, TAU); ctx.fill();
       },
     });
   }
@@ -245,9 +271,10 @@
     const s = Math.sign(p.vx) || 1, ph = p.rot % 1000, col = p.col || '150,210,255', A = p.alpha ?? 1;
     ctx.save(); ctx.translate(p.x, p.y); ctx.scale(s, 1 + Math.sin(ph * 2) * 0.04);
     ctx.globalCompositeOperation = 'lighter';
-    const gl = ctx.createRadialGradient(0, 0, 0, 0, 0, 80);
-    gl.addColorStop(0, `rgba(${col},${0.35 * A})`); gl.addColorStop(1, `rgba(${col},0)`);
-    ctx.fillStyle = gl; ctx.beginPath(); ctx.ellipse(-10, 0, 80, 70, 0, 0, TAU); ctx.fill();
+    const A0 = ctx.globalAlpha;
+    ctx.globalAlpha = A0 * A;
+    ctx.fillStyle = cgrad(ctx, 'wind', col, mkWind); ctx.beginPath(); ctx.ellipse(-10, 0, 80, 70, 0, 0, TAU); ctx.fill();
+    ctx.globalAlpha = A0;
     for (let k = 3; k >= 1; k--) {
       ctx.globalAlpha = A * 0.18 * (4 - k) / 3; ctx.fillStyle = `rgb(${col})`;
       ctx.save(); ctx.translate(-50 - k * 22, 0); crescent(ctx, 70, 0, 1.08, 20); ctx.fill(); ctx.restore();
@@ -267,9 +294,7 @@
     const s = Math.sign(p.vx) || 1, ph = p.rot % 1000, col = p.col || '185,160,255', A = p.alpha ?? 1;
     ctx.save(); ctx.translate(p.x, 0); ctx.scale(s, 1);
     ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = A * 0.7;
-    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 60);
-    g.addColorStop(0, `rgba(${col},.9)`); g.addColorStop(0.5, `rgba(${col},.25)`); g.addColorStop(1, `rgba(${col},0)`);
-    ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(0, 0, 60, 46, 0, Math.PI, TAU); ctx.fill();
+    ctx.fillStyle = cgrad(ctx, 'shock', col, mkShock); ctx.beginPath(); ctx.ellipse(0, 0, 60, 46, 0, Math.PI, TAU); ctx.fill();
     ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = A;
     for (let i = 0; i < 3; i++) {
       const h = 26 + 14 * Math.abs(Math.sin(ph * 2 + i * 1.7)) - i * 5, x0 = -i * 16 + 6;
@@ -620,9 +645,8 @@
       draw(ctx) {
         const k = this.k(), f = this.f, pul = 0.75 + 0.25 * Math.sin(this.t * 22);
         ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.38 * k * pul;
-        const g = ctx.createRadialGradient(f.x, f.y - 90, 10, f.x, f.y - 90, 110);
-        g.addColorStop(0, 'rgba(255,205,110,.9)'); g.addColorStop(0.5, 'rgba(255,170,60,.25)'); g.addColorStop(1, 'rgba(255,150,40,0)');
-        ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(f.x, f.y - 90, 80, 115, 0, 0, TAU); ctx.fill();
+        ctx.translate(f.x, f.y - 90);
+        ctx.fillStyle = cgrad(ctx, 'tetsu', '', mkTetsu); ctx.beginPath(); ctx.ellipse(0, 0, 80, 115, 0, 0, TAU); ctx.fill();
       },
     });
   }
@@ -703,9 +727,9 @@
       draw(ctx) {
         const k = this.k(), f = this.f, pul = 0.7 + 0.3 * Math.sin(this.t * 30);
         ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.32 * k * pul;
-        const g = ctx.createRadialGradient(f.x, f.y - 95, 8, f.x, f.y - 95, 105);
-        g.addColorStop(0, 'rgba(255,120,40,.9)'); g.addColorStop(0.5, 'rgba(220,60,20,.25)'); g.addColorStop(1, 'rgba(200,40,10,0)');
-        ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(f.x, f.y - 95, 75, 110, 0, 0, TAU); ctx.fill();
+        ctx.save(); ctx.translate(f.x, f.y - 95);
+        ctx.fillStyle = cgrad(ctx, 'ren', '', mkRen); ctx.beginPath(); ctx.ellipse(0, 0, 75, 110, 0, 0, TAU); ctx.fill();
+        ctx.restore();
         // maske gözleri
         const h = f.j.head;
         if (h) { ctx.globalAlpha = k * pul; ctx.fillStyle = '#ffcf6a'; ctx.beginPath(); ctx.arc(h.x + f.dir * 6, h.y - 2, 2.2, 0, TAU); ctx.fill(); ctx.globalAlpha = 0.4 * k; ctx.beginPath(); ctx.arc(h.x + f.dir * 6, h.y - 2, 7, 0, TAU); ctx.fill(); }
@@ -781,6 +805,10 @@
   // Her kesik, belireceği noktada kızıl bir parıltıyla önceden haber verilir; herhangi bir kesiği savuşturmak
   // tekniği bitirir (Şura sendeler). Gard tutar ama dengeye ağır hasar verir. Son kesik havaya fırlatır.
   const SH_COL = '225,24,48', SH_HOT = '255,120,110';
+  // Shura's cached gradients (see "CACHED GRADIENTS"): ground mark, unit-radius spark halo, aura
+  const mkShMark = (ctx) => stops(ctx.createRadialGradient(0, 0, 0, 0, 0, 70), [0, `rgba(${SH_COL},.9)`, 1, `rgba(${SH_COL},0)`]);
+  const mkShSpark = (ctx) => stops(ctx.createRadialGradient(0, 0, 0, 0, 0, 1), [0, `rgba(${SH_COL},.6)`, 1, `rgba(${SH_COL},0)`]);
+  const mkShAura = (ctx) => stops(ctx.createRadialGradient(0, 0, 8, 0, 0, 115), [0, `rgba(${SH_COL},.9)`, 0.5, 'rgba(160,10,30,.25)', 1, 'rgba(120,0,20,0)']);
   const shRoar = 0.3, shHide = 0.18, shWind = 0.05, shAct = [0.08, 0.08, 0.1], shRec = 0.05;
   const shCuts = [];
   {
@@ -944,9 +972,9 @@
         ctx.globalCompositeOperation = 'lighter';
         // yerde kızıl leke ve ince ışık sütunu
         ctx.globalAlpha = 0.5 * u * k;
-        const g = ctx.createRadialGradient(this.x, -2, 0, this.x, -2, 70);
-        g.addColorStop(0, `rgba(${SH_COL},.9)`); g.addColorStop(1, `rgba(${SH_COL},0)`);
-        ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(this.x, -2, 70, 10, 0, 0, TAU); ctx.fill();
+        ctx.save(); ctx.translate(this.x, -2);
+        ctx.fillStyle = cgrad(ctx, 'shMark', '', mkShMark); ctx.beginPath(); ctx.ellipse(0, 0, 70, 10, 0, 0, TAU); ctx.fill();
+        ctx.restore();
         ctx.globalAlpha = 0.22 * u * k; ctx.fillStyle = `rgb(${SH_COL})`;
         ctx.fillRect(this.x - 1.5, -210, 3, 208);
         // dört köşeli parıltı
@@ -961,9 +989,8 @@
         ctx.beginPath(); ctx.arc(0, 0, 2 + 3 * u, 0, TAU); ctx.fill();
         ctx.rotate(-this.t * 2 * (f.dir || 1));
         const r0 = 18 + 40 * u;
-        const gg = ctx.createRadialGradient(0, 0, 0, 0, 0, r0);
-        gg.addColorStop(0, `rgba(${SH_COL},.6)`); gg.addColorStop(1, `rgba(${SH_COL},0)`);
-        ctx.globalAlpha = 0.8 * k; ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(0, 0, r0, 0, TAU); ctx.fill();
+        ctx.scale(r0, r0);
+        ctx.globalAlpha = 0.8 * k; ctx.fillStyle = cgrad(ctx, 'shSpark', '', mkShSpark); ctx.beginPath(); ctx.arc(0, 0, 1, 0, TAU); ctx.fill();
       },
     });
   }
@@ -1003,9 +1030,9 @@
         if (f.hidden) return;
         const k = this.k(), pul = 0.7 + 0.3 * Math.sin(this.t * 26);
         ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.34 * k * pul;
-        const g = ctx.createRadialGradient(f.x, f.y - 95, 8, f.x, f.y - 95, 115);
-        g.addColorStop(0, `rgba(${SH_COL},.9)`); g.addColorStop(0.5, 'rgba(160,10,30,.25)'); g.addColorStop(1, 'rgba(120,0,20,0)');
-        ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(f.x, f.y - 95, 80, 118, 0, 0, TAU); ctx.fill();
+        ctx.save(); ctx.translate(f.x, f.y - 95);
+        ctx.fillStyle = cgrad(ctx, 'shAura', '', mkShAura); ctx.beginPath(); ctx.ellipse(0, 0, 80, 118, 0, 0, TAU); ctx.fill();
+        ctx.restore();
         const h = f.j.head;
         if (h) { ctx.globalAlpha = k * pul; ctx.fillStyle = '#ff4a5a'; ctx.beginPath(); ctx.arc(h.x + f.dir * 6, h.y - 2, 2.4, 0, TAU); ctx.fill(); ctx.globalAlpha = 0.45 * k; ctx.beginPath(); ctx.arc(h.x + f.dir * 6, h.y - 2, 8, 0, TAU); ctx.fill(); }
       },
@@ -1314,9 +1341,10 @@
     if (A <= 0.01) return;
     ctx.save(); ctx.translate(p.x, 0);
     ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
-    const g = ctx.createRadialGradient(0, -110, 10, 0, -110, 140);
-    g.addColorStop(0, `rgba(${col},${0.22 * A})`); g.addColorStop(1, `rgba(${col},0)`);
-    ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(0, -110, 90, 140, 0, 0, TAU); ctx.fill();
+    const A0 = ctx.globalAlpha;
+    ctx.globalAlpha = A0 * A;
+    ctx.fillStyle = cgrad(ctx, 'tornado', col, mkTornado); ctx.beginPath(); ctx.ellipse(0, -110, 90, 140, 0, 0, TAU); ctx.fill();
+    ctx.globalAlpha = A0;
     for (let i = 0; i < 8; i++) {
       const u = i / 7, y = -8 - u * 225, rx = 16 + u * u * 70 + Math.sin(ph * 3 + i) * 4, ry = 4 + u * 9, off = Math.sin(ph * 2 + i * 0.9) * 10 * u, a0 = ph * 4 + i * 1.3;
       ctx.globalAlpha = A * (0.55 - u * 0.2); ctx.strokeStyle = i % 2 ? `rgb(${col})` : '#f3eeff'; ctx.lineWidth = 3.2 - u * 1.4;
@@ -1443,7 +1471,7 @@
     let dx = o.x - A.x, dy = (o.y - 105) - A.y; const d = Math.hypot(dx, dy) || 1; dx /= d; dy /= d;
     if (dx * f.dir < 0.35) { dx = f.dir * 0.8; dy = 0.6; }
     const g = game();
-    if (g.projs) g.projs.push(new Arrow(f, A.x + dx * 20, A.y + dy * 20, dx, dy, 1400, { dmg: 10, post: 14, kb: 200, stun: 0.4, kind: 'arrow' }, { g: 200 }));
+    if (g.projs) g.projs.push(new Arrow(f, A.x + dx * 20, A.y + dy * 20, dx, dy, 1400, { dmg: 10, post: 14, kb: 200, stun: 0.4, kind: 'arrow', air: true }, { g: 200 }));
     snd2.twang(f.pan, 1.15);
   }
   DEF.ts_shot = {
@@ -1578,9 +1606,8 @@
       draw(ctx) {
         const k = this.k(), f = this.f, pul = 0.75 + 0.25 * Math.sin(this.t * 18);
         ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.3 * k * pul;
-        const g = ctx.createRadialGradient(f.x, f.y - 100, 10, f.x, f.y - 100, 120);
-        g.addColorStop(0, 'rgba(255,220,130,.9)'); g.addColorStop(0.5, 'rgba(255,190,80,.22)'); g.addColorStop(1, 'rgba(255,170,60,0)');
-        ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(f.x, f.y - 100, 90, 120, 0, 0, TAU); ctx.fill();
+        ctx.translate(f.x, f.y - 100);
+        ctx.fillStyle = cgrad(ctx, 'jin', '', mkJin); ctx.beginPath(); ctx.ellipse(0, 0, 90, 120, 0, 0, TAU); ctx.fill();
       },
     });
   }
@@ -2193,6 +2220,10 @@
       tsubame: { str1: 'KAESHI BANE', str2: 'HAYABUSA', chaseEnd: 'TSUBAME OTOSHI' },
       shura: { str1: 'ASHURA RENGEKI', str2: 'RASETSU GURUMA', chaseEnd: 'JIGOKU OTOSHI' },
     };
+    // light3: the basic string's own finisher, so mashing LIGHT alone also ends in a named combo
+    const L3 = { akane: 'SANDAN IAI', aoi: 'HAYATE SANREN', kuro: 'SANDAN GIRI', yuki: 'KITSUNE SANREN', hana: 'HANA SANREN', tetsu: 'SANDAN BARAI',
+      ren: 'TOBI HIZA', kage: 'KAGE FUMI', tora: 'KUSARI SANREN', jin: 'ASA SANREN', mai: 'OGI SANREN', tsubame: 'TSUBAME SANREN', shura: 'SHURA SANDAN' };
+    for (const id in L3) if (CN[id]) CN[id].light3 = L3[id];
     ND.comboName = (f, name) => { const T = CN[f.ch.id]; return (T && T[name]) || null; };
 
     Object.assign(ND.TXT, { kiCancel: 'KI İPTALİ!', launch: 'HAVAYA!', iaiCatch: 'IAI GAESHI!' });
@@ -2209,7 +2240,7 @@
     const ent = (name, input, keys, desc, tags) => ({ get name() { return tr(name); }, nameTr: name, input, keys, get desc() { return tr(desc); }, descTr: desc, tags });
     const K = { L: ['light'], H: ['heavy'], K: ['kick'], T: ['throw'], FL: ['fwd', 'light'], BL: ['back', 'light'], FH: ['fwd', 'heavy'], BH: ['back', 'heavy'], U: ['up'] };
     const IN = { chain: 'F, F, F', heavy: 'G', kick: 'R', throw: 'T', fl: '→ + F', bl: '← + F', fh: '→ + G', bh: '← + G', dash: '→ → + F', dashH: '→ → + G',
-      s1: 'F, F, G', s2: 'F, R, G', s3: 'F, F, → + G, F, G', air: 'W, F', plunge: 'W, G', counter: 'S, F · S, → + F · S, ← + F · S, G', special: 'E' };
+      s1: 'F, F, G', s2: 'F, R, G', s3: 'F, F, → + G, F, G', air: 'W, F', plunge: 'W, G', counter: 'S › F', special: 'E' };
     const KY = { chain: [K.L, K.L, K.L], s1: [K.L, K.L, K.H], s2: [K.L, K.K, K.H], s3: [K.L, K.L, K.FH, K.L, K.H], dash: [['fwd'], ['fwd', 'light']], dashH: [['fwd'], ['fwd', 'heavy']] };
     // descriptions shared by every fighter
     const D0 = {
@@ -2218,7 +2249,7 @@
       air: 'Havada hafif kesik. Havaya fırlatılmış rakibe de vurur.',
       plunge: 'Havadan aşağı dalış kesiği; yere serer.',
       chase: 'Fırlatıcı isabet edince HAFİF: rakibin peşinden sıçrayıp havada keser. Ardından AĞIR ile yere çakar. Havadaki rakip en çok üç vuruş alır.',
-      counter: 'Gard ya da savuşturmanın hemen ardından karşılık: nötr Suriage, ileri Harai (yere serer), geri Nuki (arkaya geçer), ağır Uchiotoshi. Beşinci karşılık seri bitirişidir.',
+      counter: 'Gard ya da savuşturmanın ardından ekranda VUR! çıkar: altındaki çubuk bitmeden HAFİF’e bas. Yalnız HAFİF: Suriage. İleri + HAFİF: Harai (yere serer). Geri + HAFİF: Nuki (arkaya geçer). AĞIR: Uchiotoshi. Kendi üçüncü karşılığın seri bitirişidir; savuşturulursa zincir devam eder.',
       special: 'Ki barı doluyken karakterin ki tekniği. Ki doluyken seri bitirişleri ve fırlatıcı isabet ettiği an E ile tekniğe bağlanır.',
     };
     // family-template descriptions (fighters without a hand-made kit)
@@ -2341,6 +2372,19 @@
       for (let i = 0; i < L.length; i++) if (d[L[i].nameTr]) { const r = L[i]; L[i] = ent(r.nameTr, r.input, r.keys, d[r.nameTr], r.tags.concat(['strike'])); }
       const s2 = L.findIndex((r) => r.nameTr === CN.shura.str2);
       if (s2 >= 0) L[s2] = ent(CN.shura.str2, IN.s2, KY.s2, 'Tekmenin ardından dönen topuk tekmesi; yere serer.', ['string', 'strike', 'knockdown', 'kiCancel']);
+    }
+    // First row of every list: how to read the notation (→ is "toward the opponent", not "the right arrow"),
+    // with its own touch wording (stick + buttons)
+    {
+      const LEG = {
+        name: 'Nasıl okunur',
+        kb: '→ rakibe doğru, ← rakipten uzağa demek: o yön tuşunu (A / D ya da ok tuşları; rakip sağındaysa D) basılı tut ve saldırı tuşuna bas. Virgül: tuşlara sırayla bas. F hafif, G ağır, R tekme, S gard.',
+        touch: '▶ rakibe doğru, ◀ rakipten uzağa: yön çubuğunu o yana itip düğmeye dokun. Virgül: düğmelere sırayla dokun. Antrenmandaki Kombo denemesi her seriyi adım adım gösterir.',
+      };
+      const tOn = () => !!(ND.touch && ND.touch.active);
+      const legend = { get name() { return tr(LEG.name); }, nameTr: LEG.name, input: '→ ←', keys: [['fwd'], ['back']],
+        get desc() { return tr(tOn() ? LEG.touch : LEG.kb); }, get descTr() { return tOn() ? LEG.touch : LEG.kb; }, tags: [], legend: true };
+      for (const id in ND.MOVELIST) ND.MOVELIST[id].unshift(legend);
     }
   }
 

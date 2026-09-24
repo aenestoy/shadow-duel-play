@@ -12,7 +12,8 @@
     init() {
       if (this.ready || !au.ready) return;
       const c = au.ctx;
-      this.bus = c.createGain(); this.bus.gain.value = this.enabled ? 0.38 : 0;
+      // bus level = on/off switch × music slider (ND.audio.vol.music); the reverb send is taken after it
+      this.bus = c.createGain(); this.bus.gain.value = this.level();
       this.bus.connect(au.master);
       const send = c.createGain(); send.gain.value = 0.45; this.bus.connect(send); send.connect(au.rev);
       // koto örneklerini önceden üret (2,5 oktav)
@@ -25,10 +26,13 @@
       this.timer = setInterval(() => this.schedule(), 30);
     },
 
+    level() { return this.enabled ? 0.38 * au.curve(au.vol.music) : 0; },
     setEnabled(v) {
       this.enabled = v;
-      if (this.bus) this.bus.gain.setTargetAtTime(v ? 0.38 : 0, au.ctx.currentTime, 0.3);
+      if (this.bus) au.ramp(this.bus.gain, this.level(), 0.3);
     },
+    // music slider moved (ND.audio.setVolume): short glide, no clicks
+    applyVolume() { if (this.bus) au.ramp(this.bus.gain, this.level(), 0.04); },
     setMode(m) { this.nextMode = m; if (this.mode === 'off' || m === 'off' || m === 'ko') { this.mode = m; this.step = 0; } },
 
     freq(i) { const oct = Math.floor(i / 5), deg = SCALE[((i % 5) + 5) % 5]; return BASE * Math.pow(2, (oct * 12 + deg) / 12); },

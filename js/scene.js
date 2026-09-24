@@ -6,9 +6,15 @@
   // blood: opt-in (game.js loads the saved choice); off → ink & shadow hits. ND.bloodAllowed() (core.js) gates it per portal.
   ND.settings = { blood: false, sound: true };
   const bloodOn = () => !!ND.settings.blood && (!ND.bloodAllowed || ND.bloodAllowed());
+  // Active graphics tier flags (js/gfx.js); without it everything is drawn as on High
+  const GFX_ALL = { rays: true, motes: 1, weather: 1, reflect: true };
+  const gfxF = () => (ND.gfx ? ND.gfx.f : GFX_ALL);
+  // lightFighter: cached gradients (LF_MAX ≥ the brightest light factor, so the flicker fits in globalAlpha ≤ 1)
+  const LF_MAX = 2;
+  let AO_G = null;
   ND.bloodOn = bloodOn;
   // Ink palette: sumi core, a cold moonlit rim so the ink reads on night arenas, cloth scraps in muted dye colours
-  const INK = '#07080e', INK_RIM = '198,208,236', CLOTH = ['#1b1e2b', '#2a2f42', '#3a3346', '#cfc6b2', '#262231'];
+  const INK = '#07080e', INK_RIM = '198,208,236', INK_RIM_C = 'rgb(198,208,236)', CLOTH = ['#1b1e2b', '#2a2f42', '#3a3346', '#cfc6b2', '#262231'];
   ND.ARENA = 880;
 
   function seeded(seed) {
@@ -106,6 +112,11 @@
   };
 
   // ------------------------------------------------------------ EFEKTLER
+  // particle colours 'r,g,b' → 'rgb(r,g,b)' made once per colour (no new string per particle per frame)
+  const RGBC = new Map();
+  const rgbC = (c) => { let v = RGBC.get(c); if (!v) { v = 'rgb(' + c + ')'; RGBC.set(c, v); } return v; };
+  // brush-stroke outline scratch (fx.drawStroke), reused every call
+  const STK_T = [], STK_B = [];
   const fx = ND.fx = {
     parts: [], decals: [], texts: [],
     clear() { this.parts.length = 0; this.decals.length = 0; this.texts.length = 0; },
@@ -234,7 +245,7 @@
         } else if (p.k === 'i') { // ink droplet: rimmed streak
           ctx.globalCompositeOperation = 'source-over'; ctx.lineCap = 'round';
           const tx = p.x - p.vx * 0.016, ty = p.y - p.vy * 0.016;
-          ctx.globalAlpha = 0.2; ctx.strokeStyle = `rgb(${INK_RIM})`; ctx.lineWidth = p.r * 1.9 + 1;
+          ctx.globalAlpha = 0.2; ctx.strokeStyle = INK_RIM_C; ctx.lineWidth = p.r * 1.9 + 1;
           ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(tx, ty); ctx.stroke();
           ctx.globalAlpha = 1; ctx.strokeStyle = INK; ctx.lineWidth = p.r * 1.9;
           ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(tx, ty); ctx.stroke();
@@ -247,7 +258,7 @@
           ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.scale(1, 0.35 + 0.65 * Math.abs(Math.cos(p.ph)));
           ctx.fillStyle = p.c; ctx.beginPath();
           ctx.moveTo(-p.w / 2, -p.h / 2); ctx.lineTo(p.w / 2, -p.h / 2 + 1); ctx.lineTo(p.w / 2 - 1.5, p.h / 2); ctx.lineTo(-p.w / 2 + 2, p.h / 2 - 0.5); ctx.closePath(); ctx.fill();
-          ctx.globalAlpha *= 0.5; ctx.strokeStyle = `rgb(${INK_RIM})`; ctx.lineWidth = 0.8; ctx.stroke();
+          ctx.globalAlpha *= 0.5; ctx.strokeStyle = INK_RIM_C; ctx.lineWidth = 0.8; ctx.stroke();
           ctx.restore();
         } else if (p.k === 'm') {
           ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = t * 0.5;
@@ -259,7 +270,7 @@
           ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 6.283); ctx.fill();
         } else if (p.k === 's') {
           ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = Math.min(1, t * 2);
-          ctx.strokeStyle = `rgb(${p.c})`; ctx.lineWidth = 2; ctx.lineCap = 'round';
+          ctx.strokeStyle = rgbC(p.c); ctx.lineWidth = 2; ctx.lineCap = 'round';
           ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x - p.vx * 0.022, p.y - p.vy * 0.022); ctx.stroke();
         } else if (p.k === 'f') {
           ctx.save();
@@ -273,7 +284,7 @@
           ctx.restore();
         } else if (p.k === 'r') {
           ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = t;
-          ctx.strokeStyle = `rgb(${p.c})`; ctx.lineWidth = 3 * t + 0.5;
+          ctx.strokeStyle = rgbC(p.c); ctx.lineWidth = 3 * t + 0.5;
           ctx.beginPath(); ctx.arc(p.x, p.y, p.size * (1.15 - t), 0, 6.283); ctx.stroke();
         }
       }
@@ -286,7 +297,7 @@
       const u = age / (p.max - (p.delay || 0)), grow = Math.min(1, u / 0.18), fade = u < 0.45 ? 1 : 1 - (u - 0.45) / 0.55;
       const L = p.len * (0.35 + 0.65 * ND.M.ease.outCubic(grow)), W = p.w * (0.55 + 0.45 * fade);
       const c = Math.cos(p.a), s = Math.sin(p.a), nx = -s, ny = c, N = 14;
-      const top = [], bot = [];
+      const top = STK_T, bot = STK_B; top.length = 0; bot.length = 0;
       for (let i = 0; i <= N; i++) {
         const q = i / N, along = (q - 0.5) * L, off = Math.sin(q * Math.PI) * p.bend * L * 0.25;
         // dry-brush edge: pressure swells early, frays at the tail
@@ -301,10 +312,10 @@
         ctx.closePath();
       };
       ctx.globalCompositeOperation = 'source-over';
-      ctx.globalAlpha = 0.5 * fade; ctx.strokeStyle = `rgb(${INK_RIM})`; ctx.lineWidth = 2.2; ctx.lineJoin = 'round'; path(); ctx.stroke();
+      ctx.globalAlpha = 0.5 * fade; ctx.strokeStyle = INK_RIM_C; ctx.lineWidth = 2.2; ctx.lineJoin = 'round'; path(); ctx.stroke();
       ctx.globalAlpha = 0.95 * fade; ctx.fillStyle = INK; path(); ctx.fill();
       // a hair-thin cold highlight along the stroke's spine, like wet ink catching moonlight
-      ctx.globalAlpha = 0.35 * fade; ctx.strokeStyle = `rgb(${INK_RIM})`; ctx.lineWidth = 1;
+      ctx.globalAlpha = 0.35 * fade; ctx.strokeStyle = INK_RIM_C; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(p.x - c * L * 0.32, p.y - s * L * 0.32); ctx.lineTo(p.x + c * L * 0.2, p.y + s * L * 0.2); ctx.stroke();
     },
     // Sumi splash: a round core with spikes, bursting out fast and fading
@@ -321,7 +332,7 @@
         }
       };
       ctx.globalCompositeOperation = 'source-over';
-      ctx.globalAlpha = 0.32 * a; ctx.fillStyle = `rgb(${INK_RIM})`; path(1.1); ctx.fill();
+      ctx.globalAlpha = 0.32 * a; ctx.fillStyle = INK_RIM_C; path(1.1); ctx.fill();
       ctx.globalAlpha = 0.92 * a; ctx.fillStyle = INK; path(1); ctx.fill();
     },
     drawTexts(ctx) {
@@ -815,13 +826,21 @@
       const lc = this.theme.lantern;
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
-      const g = ctx.createRadialGradient(x, -96, 4, x, -96, 260);
-      g.addColorStop(0, `rgba(${lc},${0.35 * fl})`); g.addColorStop(0.4, `rgba(${lc},${0.08 * fl})`); g.addColorStop(1, `rgba(${lc},0)`);
-      ctx.fillStyle = g; ctx.fillRect(x - 260, -360, 520, 420);
-      ctx.translate(x, 14); ctx.scale(1, 0.2);
-      const pool = ctx.createRadialGradient(0, 0, 0, 0, 0, 260);
-      pool.addColorStop(0, `rgba(${lc},${0.26 * fl})`); pool.addColorStop(1, `rgba(${lc},0)`);
-      ctx.fillStyle = pool; ctx.beginPath(); ctx.arc(0, 0, 260, 0, 6.283); ctx.fill();
+      // halo + floor pool: gradients made once per theme and moved to the lantern; the flicker (fl ≤ 1) scales the
+      // stop alphas linearly, i.e. globalAlpha (same pixels as rebuilding them every frame)
+      const C = tc(this.theme);
+      if (!C.lanG || C.lanC !== lc) {
+        C.lanC = lc;
+        C.lanG = ctx.createRadialGradient(0, -96, 4, 0, -96, 260);
+        C.lanG.addColorStop(0, `rgba(${lc},0.35)`); C.lanG.addColorStop(0.4, `rgba(${lc},0.08)`); C.lanG.addColorStop(1, `rgba(${lc},0)`);
+        C.lanP = ctx.createRadialGradient(0, 0, 0, 0, 0, 260);
+        C.lanP.addColorStop(0, `rgba(${lc},0.26)`); C.lanP.addColorStop(1, `rgba(${lc},0)`);
+      }
+      ctx.globalAlpha *= fl;
+      ctx.translate(x, 0);
+      ctx.fillStyle = C.lanG; ctx.fillRect(-260, -360, 520, 420);
+      ctx.translate(0, 14); ctx.scale(1, 0.2);
+      ctx.fillStyle = C.lanP; ctx.beginPath(); ctx.arc(0, 0, 260, 0, 6.283); ctx.fill();
       ctx.restore();
       ctx.fillStyle = this.themeId === 'snow' ? '#4a4f68' : '#1c1f2b';
       ctx.fillRect(x - 26, -18, 52, 18); ctx.fillRect(x - 8, -70, 16, 54); ctx.fillRect(x - 22, -80, 44, 10);
@@ -975,7 +994,7 @@
     // Ay/güneşten süzülen hacimsel ışık huzmeleri
     drawRays(ctx) {
       const th = this.theme;
-      if (!th.rays || !th.orb || !ND.settings.hq) return;
+      if (!th.rays || !th.orb || !gfxF().rays) return;
       const W = cam.W, H = cam.H, ox = W * th.orb.x - cam.x * 0.02 * cam.s, oy = H * th.orb.y;
       ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalCompositeOperation = 'lighter';
       for (let i = 0; i < 6; i++) {
@@ -993,13 +1012,17 @@
     },
     drawMotes(ctx) {
       const th = this.theme;
-      if (!th.motes || !ND.settings.hq) return;
+      const share = gfxF().motes;
+      if (!th.motes || !(share > 0)) return;
       cam.world(ctx);
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
-      for (const m of this.motes) {
+      ctx.fillStyle = tc(th).moteC || (tc(th).moteC = `rgb(${th.motes})`);
+      // Medium draws every other mote
+      const M = this.motes, step = share >= 1 ? 1 : Math.round(1 / share);
+      for (let i = 0; i < M.length; i += step) {
+        const m = M[i];
         const x = m.x + Math.sin(this.t * 0.3 + m.p) * 30 + cam.x * 0.2, y = m.y + Math.sin(this.t * 0.5 + m.p * 2) * 14;
         ctx.globalAlpha = 0.25 + 0.25 * Math.sin(this.t * 1.7 + m.p * 3);
-        ctx.fillStyle = `rgb(${th.motes})`;
         ctx.beginPath(); ctx.arc(x, y, m.r, 0, 6.283); ctx.fill();
       }
       ctx.restore();
@@ -1011,9 +1034,11 @@
     drawWeather(ctx, front) {
       cam.world(ctx);
       const th = this.theme, v = this.view(1), X0 = v.x0 - 40, X1 = v.x1 + 40, Y0 = v.y0 - 40, Y1 = v.y1 + 40;
+      // Low draws every other particle (the simulation still moves them all)
+      const P = this.parts, st = gfxF().weather || 1;
       if (th.weather === 'rain') {
         ctx.strokeStyle = front ? 'rgba(190,205,225,.42)' : 'rgba(160,180,205,.22)'; ctx.lineWidth = front ? 1.4 : 1;
-        for (const p of this.parts) {
+        for (let i = 0; i < P.length; i += st) { const p = P[i];
           if (p.front !== front || p.x < X0 || p.x > X1 || p.y < Y0 || p.y > Y1) continue;
           const k = p.len / p.vy;
           ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x - p.vx * k, p.y - p.vy * k); ctx.stroke();
@@ -1022,7 +1047,7 @@
       }
       if (th.weather === 'snow') {
         ctx.fillStyle = front ? 'rgba(250,252,255,.9)' : 'rgba(235,238,250,.6)';
-        for (const p of this.parts) {
+        for (let i = 0; i < P.length; i += st) { const p = P[i];
           if (p.front !== front || p.x < X0 || p.x > X1 || p.y < Y0 || p.y > Y1) continue;
           ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 6.283); ctx.fill();
         }
@@ -1035,7 +1060,7 @@
           for (let pass = 0; pass < 2; pass++) {
             ctx.globalAlpha = pass ? 0.9 * fl : 0.16 * fl;
             ctx.fillStyle = pass ? (g ? 'rgb(255,214,140)' : 'rgb(255,150,60)') : 'rgb(255,90,20)';
-            for (const p of this.parts) {
+            for (let i = 0; i < P.length; i += st) { const p = P[i];
               if (p.front !== front || p.g !== g || p.x < X0 || p.x > X1 || p.y < Y0 || p.y > Y1) continue;
               const r = p.r * (pass ? 1 : 3.4) * Math.sin(Math.PI * clamp(p.l / p.lt, 0, 1));
               if (r <= 0) continue;
@@ -1048,7 +1073,7 @@
       }
       if (th.weather === 'spray') {
         ctx.fillStyle = front ? 'rgba(240,250,250,.5)' : 'rgba(230,245,245,.3)';
-        for (const p of this.parts) {
+        for (let i = 0; i < P.length; i += st) { const p = P[i];
           if (p.front !== front || p.x < X0 || p.x > X1 || p.y < Y0 || p.y > Y1) continue;
           const r = p.r * Math.sin(Math.PI * clamp(p.l / p.lt, 0, 1));
           if (r <= 0) continue;
@@ -1058,14 +1083,14 @@
       }
       if (th.weather === 'gust') {
         ctx.strokeStyle = front ? 'rgba(200,210,240,.2)' : 'rgba(170,185,220,.12)'; ctx.lineWidth = front ? 1.6 : 1;
-        for (const p of this.parts) {
+        for (let i = 0; i < P.length; i += st) { const p = P[i];
           if (p.front !== front || p.leaf || p.y < Y0 || p.y > Y1) continue;
           const x1 = p.x - Math.sign(p.vx) * p.len;
           if (Math.max(p.x, x1) < X0 || Math.min(p.x, x1) > X1) continue;
           ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(x1, p.y); ctx.stroke();
         }
         ctx.fillStyle = front ? '#15161e' : 'rgba(30,32,44,.8)';
-        for (const p of this.parts) {
+        for (let i = 0; i < P.length; i += st) { const p = P[i];
           if (p.front !== front || !p.leaf || p.x < X0 || p.x > X1 || p.y < Y0 || p.y > Y1) continue;
           const rx = p.r * 1.8, ry = p.r * (0.3 + 0.6 * Math.abs(Math.sin(p.a * 1.3)));
           ctx.beginPath(); ctx.ellipse(p.x, p.y, rx, ry, p.a, 0, 6.283); ctx.fill();
@@ -1074,7 +1099,7 @@
       }
       if (th.weather !== 'petal') return;
       ctx.fillStyle = front ? 'rgba(236,170,190,.85)' : 'rgba(200,150,175,.55)';
-      for (const p of this.parts) {
+      for (let i = 0; i < P.length; i += st) { const p = P[i];
         if (p.front !== front || p.x < X0 || p.x > X1 || p.y < Y0 || p.y > Y1) continue;
         ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.a); ctx.scale(1, Math.abs(Math.sin(p.a * 1.7)) * 0.8 + 0.2);
         ctx.beginPath(); ctx.ellipse(0, 0, p.r * 1.6, p.r, 0, 0, 6.283); ctx.fill();
@@ -1738,20 +1763,33 @@
     lightFighter(c, f, x0, y0, x1, y1) {
       const th = this.theme;
       c.globalCompositeOperation = 'source-atop';
+      // Gradients are made once per light / theme and reused (no new gradient objects every frame). The lantern
+      // flicker scales the stop alphas linearly, so it is applied as globalAlpha on stops made at LF_MAX × the base:
+      // same pixels as building the gradient with 0.42·f / 0.12·f each frame.
+      const C = tc(th), A0 = c.globalAlpha;
       for (const L of this.lights()) {
         const d = Math.abs(L.x - f.x);
         if (d > 520) continue;
-        const g = c.createRadialGradient(L.x, L.y, 10, L.x, L.y, 520);
-        g.addColorStop(0, `rgba(${L.c},${0.42 * L.f})`); g.addColorStop(0.45, `rgba(${L.c},${0.12 * L.f})`); g.addColorStop(1, `rgba(${L.c},0)`);
+        // lights() reuses its objects across themes: the gradient is kept on the light with what it was made for
+        let g = L._g;
+        if (!g || L._gt !== th || L._gc !== L.c || L._gx !== L.x || L._gy !== L.y) {
+          g = L._g = c.createRadialGradient(L.x, L.y, 10, L.x, L.y, 520);
+          g.addColorStop(0, `rgba(${L.c},${0.42 * LF_MAX})`); g.addColorStop(0.45, `rgba(${L.c},${0.12 * LF_MAX})`); g.addColorStop(1, `rgba(${L.c},0)`);
+          L._gt = th; L._gc = L.c; L._gx = L.x; L._gy = L.y;
+        }
+        c.globalAlpha = A0 * clamp(L.f / LF_MAX, 0, 1);
         c.fillStyle = g; c.fillRect(x0, y0, x1 - x0, y1 - y0);
       }
+      c.globalAlpha = A0;
       const k = th.key, cx = (x0 + x1) / 2;
-      const kg = c.createLinearGradient(cx + k.from * 40, 0, cx - k.from * 20, 0);
-      kg.addColorStop(0, `rgba(${k.c},${k.a})`); kg.addColorStop(1, `rgba(${k.c},0)`);
-      c.fillStyle = kg; c.fillRect(x0, y0, x1 - x0, y1 - y0);
-      const ao = c.createLinearGradient(0, 0, 0, -70);
-      ao.addColorStop(0, 'rgba(0,0,0,.35)'); ao.addColorStop(1, 'rgba(0,0,0,0)');
-      c.fillStyle = ao; c.fillRect(x0, -70, x1 - x0, 80);
+      // key light: one gradient per theme, moved to the fighter's centre
+      let kg = C.keyG;
+      if (!kg) { kg = C.keyG = c.createLinearGradient(k.from * 40, 0, -k.from * 20, 0); kg.addColorStop(0, `rgba(${k.c},${k.a})`); kg.addColorStop(1, `rgba(${k.c},0)`); }
+      c.save(); c.translate(cx, 0);
+      c.fillStyle = kg; c.fillRect(x0 - cx, y0, x1 - x0, y1 - y0);
+      c.restore();
+      c.fillStyle = AO_G || (AO_G = (() => { const ao = c.createLinearGradient(0, 0, 0, -70); ao.addColorStop(0, 'rgba(0,0,0,.35)'); ao.addColorStop(1, 'rgba(0,0,0,0)'); return ao; })());
+      c.fillRect(x0, -70, x1 - x0, 80);
       if (this.flashL > 0) { c.fillStyle = `rgba(215,228,255,${this.flashL * 0.55})`; c.fillRect(x0, y0, x1 - x0, y1 - y0); }
       if (th.weather === 'snow') { c.fillStyle = 'rgba(255,240,235,.06)'; c.fillRect(x0, y0, x1 - x0, y1 - y0); }
       if (th.tint) { c.fillStyle = `rgba(${th.tint},${0.07 * this.fireF(f.x)})`; c.fillRect(x0, y0, x1 - x0, y1 - y0); }

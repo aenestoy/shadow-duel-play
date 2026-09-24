@@ -4,8 +4,22 @@
   const { clamp, rand, ease, segSeg } = ND.M;
   const PO = ND.POSES, pose = ND.pose, fx = ND.fx, au = ND.audio, cam = ND.cam;
   const GRAV = 2500, JUMP_V = -900, WALK_F = 255, WALK_B = 195, PARRY_WIN = 0.17;
-  // Karaktere özel savuşturma penceresi (ch.parryWin; Mai'nin yelpazeleri daha geniş)
-  const parryWin = (f) => (f && f.ch && f.ch.parryWin) || PARRY_WIN;
+  // Small human-only timing differences. Master is the original tuning; AI and local 2P keep it.
+  const DEFENSE_TIMING = [
+    { parry: 0.2, counter: 0.56, blockCounter: 0.4 },
+    { parry: PARRY_WIN, counter: 0.5, blockCounter: 0.36 },
+    { parry: 0.15, counter: 0.44, blockCounter: 0.32 },
+  ];
+  const playerTiming = (f) => {
+    const g = ND.game;
+    return g && g.matchLevel != null && g.isHuman && g.isHuman(f)
+      ? DEFENSE_TIMING[clamp(g.matchLevel, 0, 2)] : null;
+  };
+  // Preserve character bonuses (Mai's fans) at every difficulty.
+  const parryWin = (f) => {
+    const base = (f && f.ch && f.ch.parryWin) || PARRY_WIN, timing = playerTiming(f);
+    return base + (timing ? timing.parry - PARRY_WIN : 0);
+  };
   ND.parryWin = parryWin;
 
   const ATK = ND.ATK = {
@@ -82,10 +96,20 @@
     if (a.keys && typeof a.keys[0][1] !== 'object') { a.keys = a.keys.map(([t, p, e]) => [t, typeof p === 'string' ? PO[p] : p, e]); a.dur = a.keys[a.keys.length - 1][0]; }
   }
 
-  // ------------------------------------------------------------ KARŞILIK TEKNİĞİ SEÇİMİ (silah ailesi + seri koreografisi)
-  // sets[aile][tür] = varyant listesi. Tür oyuncunun niyetinden gelir (yön/ağır); varyant seri adımından: 3'lü listede
-  // ardışık iki karşılık ve aynı dövüşçünün iki karşılığı hep farklı; 2'li listede her dövüşçü kendi sırasında değişir.
-  // Yeni seri başlarken tohum ilerler: tek tük karşılıklar da dönüşümlü görünür. Belirlenimci (rastgele yok).
+  // A rally follows the attack that was actually defended, not merely two nearby counter inputs.
+  // n remains the exchange count used by scoring; turns counts each fighter's own replies (1x, 2x, 3x).
+  const RALLY = ND.RALLY = {
+    reset(r) { r.n = 0; r.last = null; r.t = 0; r.serial = null; r.turns = [0, 0]; },
+    advance(r, f, source) {
+      const linked = r.n > 0 && r.last !== f && r.t < 1.6 && source && source.counter &&
+        source.from === r.last && source.serial === r.serial;
+      if (!linked) this.reset(r);
+      r.n++; r.turns[f.id]++; r.last = f; r.t = 0; r.serial = null;
+      return r.turns[f.id];
+    },
+  };
+
+  // Weapon-specific choreography progresses on this fighter's replies, independently of the opponent's count.
   const KAESHI = ND.KAESHI = {
     sets: {
       katana: { riposte: ['riposte', 'riposte2', 'riposte3'], sweep: ['sweep', 'sweep2'], mawari: ['mawari', 'mawari2'], kaeshiHeavy: ['kaeshiHeavy', 'kaeshiHeavy2'], finisher: ['finisher'] },
@@ -93,7 +117,6 @@
     },
     // silah malzemesi: kayma kıvılcımı rengi (ahşap sap → talaş)
     wood: { bo: 1, naginata: 1 },
-    seed: -1,
     fam(f) {
       const w = f.wpn || {}, t = w.type || (w.blade > 110 ? 'nodachi' : w.blade < 80 ? 'kodachi' : 'katana');
       if (f.ch && f.ch.kaeshi) return f.ch.kaeshi;
@@ -105,9 +128,27 @@
     pick(f, name) {
       const S = this.sets[this.fam(f)], L = (S && S[name]) || this.sets.katana[name];
       if (!L || !L.length) return name;
-      const R = ND.game && ND.game.rally, n = Math.max(1, (R && R.n) || 1);
-      if (n === 1) this.seed++;
-      const i = L.length === 1 ? 0 : L.length === 2 ? (((n - 1) >> 1) + this.seed) % 2 : (n - 1 + this.seed) % L.length;
+      const stage = Math.max(1, f.counterStage || 1);
+      // Longer rallies alternate two three-cut sequences. Build once per weapon, retaining all hit windows,
+      // damage and travel values. Only the first two physical cuts change; the last cleave still closes it.
+      if (name === 'finisher' && stage >= 4 && stage % 2 === 0) {
+        const base = L[0], alt = base + '_return';
+        if (!ATK[alt]) {
+          const replies = (S && S.riposte) || this.sets.katana.riposte;
+          const one = ATK[replies[1] || replies[0]], two = ATK[replies[0]], a = ATK[base];
+          const keys = a.keys.map(k => k.slice());
+          // Some weapon finishers omit the second wind-up key. Preserve their original timestamps.
+          for (const k of keys) {
+            if (k[0] <= 0.05) k[1] = one.keys[0][1];
+            else if (k[0] <= 0.13) k[1] = one.keys[1][1];
+            else if (k[0] < 0.2) k[1] = two.keys[0][1];
+            else if (k[0] <= 0.25) k[1] = two.keys[1][1];
+          }
+          ATK[alt] = Object.assign({}, a, { keys });
+        }
+        return alt;
+      }
+      const i = (stage - 1) % L.length;
       return ATK[L[i]] ? L[i] : name;
     },
     // temas/zanshin sesleri; specials.js aileye özel olanları ekler. kind: clang | ground | whiff | wrap | zan
@@ -150,6 +191,14 @@
   //   it lands; jugGrav: extra gravity per air hit taken (each pop is shorter). chainMax: moves chained from one opener.
   //   buf: how long (s) a string press is remembered before its window opens (keyboard and touch).
   const COMBO = ND.COMBO = { step: 0.9, floor: 0.5, jugMax: 3, jugGrav: 0.22, jugPop: 0.25, chainMax: 5, buf: 0.3, launchV: -880 };
+  // Human input leniency (keyboard and touch; the AI presses inside the windows and never needs it):
+  //   late: a routed press that comes this long (s, real time) after a chainable move has ended still continues the
+  //         string (players who wait to see the hit land press a beat late); dir: a direction key pressed this long
+  //         after LIGHT/HEAVY still turns the opener into its command normal (→ + G pressed as G then →).
+  const LENIENT = ND.LENIENT = { late: 0.2, dir: 0.08 };
+  // Counter (kaeshi-waza) window in game seconds after a parry / a plain block. The parry's hitstop and slow motion
+  // stretch the parry window to ~0.75 s of real time; the AI's counter timing does not depend on these.
+  const CWIN = ND.CWIN = { parry: 0.5, block: 0.36 };
   // states in which a fighter has recovered (or acts again): the combo against them ends
   const COMBO_RESET = { move: 1, guard: 1, block: 1, parry: 1, atk: 1, dodge: 1, lock: 1, clash: 1, getup: 1, win: 1 };
 
@@ -234,6 +283,17 @@
     return o;
   };
   const RKEYS = JKEYS.concat(['pom']);
+  // Fighter.bounds() scratch: running min/max (x0, y0, x1, y1), no helper closure or point objects per call
+  const BB = [0, 0, 0, 0];
+  const bbXY = (x, y) => { if (x < BB[0]) BB[0] = x; if (y < BB[1]) BB[1] = y; if (x > BB[2]) BB[2] = x; if (y > BB[3]) BB[3] = y; };
+  const bbAdd = (p) => { if (p) bbXY(p.x, p.y); };
+  // Fighter.drawShadow: the contact shadow's gradient, made on first use
+  let SHADOW_G = null;
+  function shadowGrad(ctx) {
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 50);
+    g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(0.6, 'rgba(0,0,0,0.55)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    return g;
+  }
 
   // ------------------------------------------------------------ DÖVÜŞÇÜ
   class Fighter {
@@ -242,6 +302,11 @@
       this.pose = pose.copy(PO.stance); this.entry = pose.copy(PO.stance); this.tmp = {}; this.rkE = pose.copy(PO.stance);
       this.j = {}; this.prevBlade = null; this.ghosts = [];
       this.pdT = { light: null, heavy: null, kick: null }; this.pdD = { light: 0, heavy: 0, kick: 0 }; // direction held at each press
+      // drawing scratch, reused every frame (draw() runs up to 3× per fighter per frame: reflection, cast shadow,
+      // lit pass): one options object for ND.drawNinja, one trail callback, one bounds box
+      this._trailFn = (c) => this.drawTrail(c);
+      this._dopt = { ropes: null, trail: null, glint: 0, wpn: null, acc: null, lod: 'high' };
+      this._bb = [0, 0, 0, 0];
       this.setChar(ND.CHARS[id], false);
       this.reset(id === 0 ? -260 : 260);
     }
@@ -268,6 +333,7 @@
       else if (A === 'aoi') this.tails = [new ND.Rope(7, 8), new ND.Rope(6, 8)]; // haori hem tails flowing behind the hips
       else this.tails = [new ND.Rope(7, 7), new ND.Rope(6, 7.5)];
       this.sash = new ND.Rope(5, 7);
+      this._ropes = null; // rope list (colours + widths) is rebuilt for the new character on the next draw
     }
     reset(x) {
       this.x = x; this.y = 0; this.vx = 0; this.vy = 0; this.dir = this.id === 0 ? 1 : -1; this.onGround = true;
@@ -275,8 +341,8 @@
       this.dead = false; this.rag = null; this.looseSword = null; this.ammo = this.ch.ammo; this.ammoT = 0;
       this.gait = 0; this.walkBlend = 0; this.trail = []; this.inv = 0; this.jit = 0; this.airUsed = false; this.flash = 0;
       this.locked = true; this.damageTaken = 0; this.lastStepQ = [0, 0.5]; this.ghosts = []; this.wallBounced = false;
-      this.ki = this.ki || 0; this.counterUntil = 0; this.counterWin = 0.3; this.aspd = 1; this.roll = 0;
-      this.jug = 0; this.comboN = 0; this.comboHits = 0; this.comboKey = -1; this.comboTxt = null; this.chainN = 0;
+      this.ki = this.ki || 0; this.counterUntil = 0; this.counterWin = 0.3; this.counterSource = null; this.counterStage = 0; this.aspd = 1; this.roll = 0;
+      this.jug = 0; this.comboN = 0; this.comboHits = 0; this.comboKey = -1; this.comboTxt = null; this.chainN = 0; this.late = null; this.cwKind = null;
       if (this.chain) this.chain.init = false;
       pose.copy(this.P.stance, this.pose);
       this.setState('move');
@@ -284,7 +350,6 @@
       this.tails.forEach((r) => (r.init = false)); this.sash.init = false;
       this.prevBlade = null;
       if (this.id === 0 && ND.specialFx) ND.specialFx.clear();
-      if (this.id === 0) KAESHI.seed = -1; // her raund aynı koreografi sırasıyla başlar
     }
     setState(s, extra) {
       this.state = s; this.st = 0; this.hitDone = false; this.sfx = false; this.thrown = false; this.dashFrom = null;
@@ -310,6 +375,8 @@
       }
       let a = ATK[nm] || ATK[name];
       if (!a) { name = /light|Light|dash$/.test(name) ? 'light1' : 'heavy'; a = ATK[name]; } // unknown command: plain normal
+      if (!a.counter) this.counterStage = 0;
+      this.late = null;
       this.setState('atk', { atk: a, atkName: name, keys: [[0, this.entry]].concat(a.keys), aspd: spd });
       if (a.special) { this.ki = 0; ND.game.onSpecial(this); }
     }
@@ -325,25 +392,32 @@
     // String / target-combo routing: ND.routesFor(f)[current logical move] = { light | heavy | kick | fLight | bLight |
     // fHeavy | bHeavy : next logical move }. A direction-qualified route wins when that direction is held. The press is
     // consumed only when a route exists, so an unrouted button stays buffered for the dodge cancel / next opener.
-    route(a) {
-      const c = this.ctrl, R = ND.routesFor ? ND.routesFor(this, this.atkName) : null;
+    // name/landed: the move the press continues from (the current one, or the one that just ended for a late press).
+    // When several routed buttons are buffered they are served in the order they were pressed (the buffer keeps each
+    // button's latest press, so mashing LIGHT and tapping HEAVY once gives the HEAVY step next, not a LIGHT again).
+    route(a, name = this.atkName, landed = this.mem.landed) {
+      const c = this.ctrl, R = ND.routesFor ? ND.routesFor(this, name) : null;
       if (!R) {
         // legacy tables (no routing module): light → next, heavy, kick
-        if (!a.next) return null;
+        if (!a || !a.next) return null;
         if (c.take('light', COMBO.buf)) return a.next;
         if (c.take('heavy', COMBO.buf)) return 'heavy';
         if (c.take('kick', COMBO.buf)) return 'kick';
         return null;
       }
-      if (R.hit && this.mem.landed == null) return null; // launcher follow-ups need a landed hit
+      if (R.hit && landed == null) return null; // launcher follow-ups need a landed hit
+      let best = -1, bestTo = null, bestT = Infinity;
       for (let i = 0; i < 3; i++) {
         const b = BTNS[i];
         if (!c.has(b, COMBO.buf)) continue;
         const d = this.dirFor(b);
         const to = (d > 0 && R[FWD[i]]) || (d < 0 && R[BACK[i]]) || R[b];
-        if (to) { c.take(b, COMBO.buf); return to; }
+        if (!to) continue;
+        if (c.buf[b] < bestT) { bestT = c.buf[b]; best = i; bestTo = to; }
       }
-      return null;
+      if (best < 0) return null;
+      c.take(BTNS[best], COMBO.buf);
+      return bestTo;
     }
     // Iai: is the katana resting in the scabbard? Forced by the move (a.sheath = [t0, t1]) or when the pose is back at
     // the sheathed stance (the hand returning to the hilt reads as nōtō)
@@ -612,12 +686,21 @@
       else if (c.take('light', 0.3)) name = ax < 0 ? 'mawari' : ax > 0 ? 'sweep' : 'riposte';
       if (!name) return false;
       this.counterUntil = 0;
-      const r = ND.game.onCounter(this, name);
+      const r = ND.game.onCounter(this, name, this.counterSource);
+      this.counterSource = null;
       this.dir = this.opp.x >= this.x ? 1 : -1;
       this.startAtk(r.name, r.speed);
+      if (ND.game.rally.last === this) ND.game.rally.serial = this.serial;
+      if (ND.cine) ND.cine.counterStart(this, this.atkName);
       return true;
     }
-    openCounter(win) { this.counterWin = win; this.counterUntil = ND.game.clock + win; }
+    // kind: 'parry' | 'block' (the counter prompt is big after a parry, small after a block)
+    openCounter(win, kind, source) {
+      const timing = playerTiming(this);
+      if (timing) win = kind === 'parry' ? timing.counter : timing.blockCounter;
+      this.counterWin = win; this.counterUntil = ND.game.clock + win; this.cwKind = kind || 'block';
+      this.counterSource = source || null;
+    }
 
     // ---------------------------------------------------- KARŞILIK TEKNİĞİ: temas, kayma, savrulma, isabet hissi
     // Kendi silahımızda u oranındaki nokta. m (slide[4]): 'B' arka eldeki ters tutuşlu bıçak (dirseğe doğru),
@@ -687,13 +770,15 @@
       fx.spark(p.x, p.y, Math.atan2(-1, -this.dir * 0.6), wood ? 1 : 3, wood ? 0.35 : 0.5, wood ? '235,215,180' : '255,236,190');
     }
     // İsabetli karşılık: biraz daha uzun donma + küçük kamera itişi (zoom-in), seri doruğunda daha güçlü
-    counterJuice(a, x, y) {
+    counterJuice(a, x, y, dmg) {
       const G = ND.game, last = !a.hits || this.hitIdx >= a.hits.length - 1;
-      G.hitstop((G.hitstopT || 0) + (last ? (a.fin ? 0.06 : 0.035) : 0.012));
+      // heavier than any normal cut: the counter's hit freezes noticeably longer
+      G.hitstop((G.hitstopT || 0) + (last ? (a.fin ? 0.1 : 0.085) : 0.03));
       if (G.phase === 'fight') {
         const k = last ? (a.fin ? 1.1 : 1.06) : 1.025;
         cam.z = Math.min(2.2, cam.z * k); cam.x += (x - cam.x) * (last ? 0.16 : 0.06); cam.y += (y - cam.y) * 0.08;
       }
+      if (ND.cine) ND.cine.counterHit(this, this.opp, a, x, y, dmg, last);
       if (G.counterFx) G.counterFx(this, this.opp, a, x, y);
     }
 
@@ -708,6 +793,12 @@
         this.setState('dodge', { ddir: d, back: d !== this.dir });
         this.dir = this.opp.x >= this.x ? 1 : -1;
         fx.dust(this.x, 0, 6); au.swoosh(0.5, this.pan); return;
+      }
+      // a press just after a chainable move ended still continues the string (human players only, see LENIENT)
+      const L = this.late;
+      if (L && this.state === 'move' && this.onGround && ND.simClock <= L.until) {
+        const nx = this.route(null, L.name, L.landed);
+        if (nx) { this.late = null; this.chainN = L.chainN + 1; return this.startAtk(nx); }
       }
       // command normals: the direction held at the press (forward / back toward the opponent) picks the move
       if (c.take('heavy')) return this.startOpener(this.cmd('heavy'));
@@ -731,8 +822,20 @@
         else this.mem.rel = true;
       }
       const t = this.st;
+      // late direction: LIGHT/HEAVY pressed a hair before the direction key still gives the command normal
+      if (!this.mem.dirFix && this.chainN === 0 && (this.atkName === 'light1' || this.atkName === 'heavy')) {
+        const ax = c.axis() * this.dir, sinceAtk = t / (this.ch.spd * this.aspd) + 0.01;
+        if (t > LENIENT.dir * this.ch.spd) this.mem.dirFix = true;
+        else if (ax && !this.locked && ND.game.isHuman && ND.game.isHuman(this) && c.since(c.held('right') ? 'right' : 'left') <= sinceAtk) {
+          this.mem.dirFix = true;
+          const nm = this.atkName === 'light1' ? (ax > 0 ? 'fLight' : 'bLight') : (ax > 0 ? 'fHeavy' : 'bHeavy');
+          return this.startOpener(nm);
+        }
+      }
       pose.seq(this.keys, t, this.pose);
       this.drive = false;
+      // counter technique: coloured afterimages trail the body through the cut (reuses the ghost system)
+      if (a.counter && a.active && t < (a.hits ? a.hits[a.hits.length - 1][1] : a.active[1]) + 0.04 && ((t * 60) | 0) % 2 === 0) this.addGhost(0.32, ND.cine && ND.cine.ghostCol(this));
       if (a.lunge && t >= a.lunge[0] && t < a.lunge[1] && this.onGround) {
         const gap = Math.abs(o.x - this.x);
         this.vx = this.dir * a.lunge[2] * (gap < 70 && !a.special && !a.pass ? 0.2 : 1); this.drive = true;
@@ -791,7 +894,7 @@
       }
       if (!this.locked) {
         if (a.chain && t >= a.chain[0] && t <= a.chain[1] && this.chainN < COMBO.chainMax) {
-          const nx = this.route(a);
+          const nx = this.route(a, this.atkName, this.mem.landed);
           if (nx) { this.chainN++; return this.startAtk(nx); }
         }
         if (a.active && !a.special && !a.hits && t > a.active[1] + 0.07 && this.onGround && c.has('dodge', 0.15)) { this.freeInput(); if (this.state !== 'atk') return; }
@@ -804,8 +907,10 @@
       }
       if (t >= a.dur) {
         if (a.special || a.turnEnd) this.dir = o.x >= this.x ? 1 : -1;
+        const late = a.chain && this.onGround && !this.locked && this.chainN < COMBO.chainMax && ND.game.isHuman && ND.game.isHuman(this)
+          ? { name: this.atkName, landed: this.mem.landed, chainN: this.chainN, until: ND.simClock + LENIENT.late } : null;
         if (!this.onGround) { this.setState('air'); this.airUsed = true; }
-        else this.setState('move');
+        else { this.setState('move'); this.late = late; }
       }
     }
 
@@ -814,11 +919,12 @@
       if (!a.hits || !a.knockLast) return a;
       return this.hitIdx >= a.hits.length - 1 ? Object.assign({}, a, { knock: true }, a.lastHit) : a;
     }
-    addGhost(life) {
+    // col: tint (counter afterimages use their technique's colour and appear even without much travel)
+    addGhost(life, col) {
       const last = this.ghosts[this.ghosts.length - 1];
-      if (last && Math.abs(last.x - this.x) < 26) return;
-      this.ghosts.push({ j: ND.cloneJ(this.j), life, max: life, x: this.x });
-      if (this.ghosts.length > 8) this.ghosts.shift();
+      if (last && (col ? last.max - last.life < 0.03 && Math.abs(last.x - this.x) < 8 : Math.abs(last.x - this.x) < 26)) return;
+      this.ghosts.push({ j: ND.cloneJ(this.j), life, max: life, x: this.x, c: col || null });
+      if (this.ghosts.length > (col && !ND.settings.hq ? 2 : 8)) this.ghosts.shift();
     }
 
     landed() {
@@ -948,8 +1054,9 @@
       if (txt) fx.text(x, y - 34, txt, txt === 'KAFA!' ? '#f2d0c8' : '#ffd27a');
       this.gainKi(ND.scaleDmg(dmg, a) * 1.6);
       this.mem.landed = this.hitIdx;
+      const hp0 = o.hp;
       o.takeHit(dmg, a, this, x, y, part, kdir ?? this.dir);
-      if (a.counter && !o.dead) this.counterJuice(a, x, y);
+      if (a.counter) this.counterJuice(a, x, y, hp0 - o.hp);
       // çekme (zincirle yakalama): a.pull = bırakılacak mesafe; rakip saldırana doğru sürüklenir
       if (a.pull && !o.dead && (o.state === 'hurt' || o.state === 'launch')) {
         const gap = (o.x - this.x) * this.dir;
@@ -1021,6 +1128,8 @@
     // Combo counter over the fighter taking the combo ("3 VURUŞ" → "3 HIT"), and the combo's name when a named
     // string / juggle ender lands as the 3rd+ hit. Only one counter text lives at a time (the old one is retired).
     comboFx(from, a) {
+      // big side-of-screen counter with the combo's name (ND.cine); the old floating text is the fallback
+      if (ND.cine && ND.cine.combo(from, this, this.comboHits, this.comboHits >= 3 && from.state === 'atk' && ND.comboName ? ND.comboName(from, from.atkName) : null)) return;
       const T = fx.texts;
       if (this.comboTxt) { this.comboTxt.life = 0; this.comboTxt = null; }
       fx.text(this.x, -262, this.comboHits + ' VURUŞ', from.col.ui);
@@ -1033,17 +1142,22 @@
 
     blocked(a, x, y, isKick, fromX) {
       const o = this.opp, pan = o.pan;
+      // Capture before recoil changes the attacker's serial/state.
+      const source = { from: this, serial: this.serial, counter: !!a.counter };
       this.hitDone = true;
       o.sinceHit = 0;
       if (!isKick && o.ctrl.since('guard') <= parryWin(o)) {
         // seri içindeki karşılık savuşturulursa kılıç savrulur ama savunma imkânı kalır (film gibi karşılıklı akış)
-        if (!a.knock && !a.special && !a.crush && this.state === 'atk') { this.setState('recoil'); this.vx = -this.dir * 200; this.posture = Math.min(90, this.posture + 12); }
+        if (((!a.knock && !a.special && !a.crush) || (a.counter && a.fin)) && this.state === 'atk') { this.setState('recoil'); this.vx = -this.dir * 200; this.posture = Math.min(90, this.posture + 12); }
         else { this.setState('stagger'); this.vx = -this.dir * 240; this.posture = Math.min(99, this.posture + (a.special ? 60 : 24)); }
         this.sinceHit = 0;
-        o.setState('parry'); o.posture = Math.max(0, o.posture - 14); o.gainKi(18); o.openCounter(0.45);
+        o.setState('parry'); o.posture = Math.max(0, o.posture - 14); o.gainKi(18); o.openCounter(CWIN.parry, 'parry', source);
         fx.spark(x, y, Math.atan2(-1, -this.dir), 26, 1.3); fx.ring(x, y); fx.flash(x, y, -0.6, 70, '255,236,190');
         fx.text(o.x, -205, 'SAVUŞTURMA!', '#ffe3a1');
-        au.parry(pan); cam.punch(8); ND.game.hitstop(0.17);
+        au.parry(pan); cam.punch(8);
+        // the cinematic (slow motion, ring on the defender, "shing", camera nudge, STRIKE! prompt) replaces part of
+        // the old 0.17 s freeze: the counter window runs in game time, so the slow motion stretches it for the eye
+        if (ND.cine) { ND.game.hitstop(0.1); ND.cine.onParry(o, this, x, y); } else ND.game.hitstop(0.17);
         o.parries = (o.parries || 0) + 1;
         return;
       }
@@ -1071,7 +1185,7 @@
         au.clang(1.3, pan, 0.7); cam.punch(9); ND.game.hitstop(0.13);
       } else {
         o.setState('block', { dur: isKick ? 0.38 : 0.16 + a.post * 0.004 });
-        if (!isKick && !midFlurry) o.openCounter(0.3);
+        if (!isKick && !midFlurry) o.openCounter(CWIN.block, 'block', source);
       }
     }
 
@@ -1135,9 +1249,10 @@
       const A = this.state === 'atk' ? this.atk : null;
       const trailOn = this.bladeActive() || (A && A.kind === 'blade' && ((this.st > A.active[0] - 0.04 && this.st < A.active[1] + 0.06) || (A.slide && this.st >= A.slide[0] && this.st <= A.slide[1]))) || (this.state === 'win' && this.st < 0.3);
       if (trailOn && !this.dead) {
-        const k = 0.28;
+        // a counter technique leaves a twice-as-long, wider streak (the ink stroke of the kaeshi-waza)
+        const ctr = A && A.counter, k = ctr ? 0.12 : 0.28;
         this.trail.push([j.haF.x + (j.tip.x - j.haF.x) * k, j.haF.y + (j.tip.y - j.haF.y) * k, j.tip.x, j.tip.y]);
-        if (this.trail.length > 8) this.trail.shift();
+        if (this.trail.length > (ctr ? 16 : 8)) this.trail.shift();
       } else if (this.trail.length) this.trail.shift();
       const R = ND.LEN.headR, th = j.hang + Math.PI / 2, cs = Math.cos(th), sn = Math.sin(th);
       const wind = -this.vx * 5 - 180 + Math.sin(ND.scene.t * 1.3) * 90 + ND.scene.wind;
@@ -1194,15 +1309,19 @@
       const x = this.dead ? this.rag.p.hip.x : this.x;
       const h = this.dead ? 0 : -this.y;
       const w = 50 * Math.max(0.4, 1 - h / 400), a = 0.55 * Math.max(0.3, 1 - h / 300);
-      ctx.save(); ctx.translate(x, 3); ctx.scale(1, 0.16);
-      const g = ctx.createRadialGradient(0, 0, 0, 0, 0, w);
-      g.addColorStop(0, `rgba(0,0,0,${a})`); g.addColorStop(0.6, `rgba(0,0,0,${a * 0.55})`); g.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, w, 0, 6.283); ctx.fill(); ctx.restore();
+      // one gradient made once (radius 50, full strength): the size comes from the scale, the strength from
+      // globalAlpha (same pixels as a new gradient with radius w and stop alphas a / 0.55a every frame)
+      const g = SHADOW_G || (SHADOW_G = shadowGrad(ctx)), k = w / 50;
+      ctx.save(); ctx.translate(x, 3); ctx.scale(k, 0.16 * k);
+      ctx.globalAlpha *= a;
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, 50, 0, 6.283); ctx.fill(); ctx.restore();
     }
     drawTrail(ctx) {
       const T = this.trail;
       if (T.length < 2) return;
-      const sp = this.state === 'atk' && this.atk.special, tc = sp && this.atk.trail, ct = !sp && this.state === 'atk' && this.atk.counter;
+      const sp = this.state === 'atk' && this.atk.special, ct = !sp && this.state === 'atk' && this.atk.counter;
+      // counter streak takes its technique's colour (ND.cine: gold suriage, cyan harai, violet nuki, red uchiotoshi)
+      const tc = (sp && this.atk.trail) || (ct && ND.cine && ND.cine.rgb(this));
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
       for (let i = 1; i < T.length; i++) {
         const a = T[i - 1], b = T[i];
@@ -1217,12 +1336,12 @@
       if (!this.ghosts.length) return;
       ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
       for (const g of this.ghosts) {
-        const j = g.j, a = (g.life / g.max) * 0.22;
-        ctx.strokeStyle = this.col.accent; ctx.globalAlpha = a;
+        const j = g.j, a = (g.life / g.max) * (g.c ? 0.3 : 0.22), gc = g.c || this.col.accent;
+        ctx.strokeStyle = gc; ctx.globalAlpha = a;
         const seg = (p, q, w) => { ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); ctx.stroke(); };
         if (ND.ninjaPath) {
           // tek birleşik siluet: üst üste binen uzuvlar parlak düğümler oluşturmaz
-          ctx.fillStyle = this.col.accent; ctx.globalAlpha = a * 1.15;
+          ctx.fillStyle = gc; ctx.globalAlpha = a * 1.15;
           ctx.beginPath(); ND.ninjaPath(ctx, j); ctx.fill();
           ctx.globalAlpha = a;
         } else {
@@ -1234,7 +1353,15 @@
       }
       ctx.restore();
     }
+    // Ropes to draw (tails + sash) with their colour and width. Made once per character / colour set (setChar), not
+    // every draw; callers only read it (game.js replay recording copies the points).
     ropeList() {
+      const R = this._ropes;
+      if (R && this._ropesCol === this.col && this._ropesTails === this.tails && this._ropesSash === this.sash) return R;
+      this._ropesCol = this.col; this._ropesTails = this.tails; this._ropesSash = this.sash;
+      return (this._ropes = this.makeRopeList());
+    }
+    makeRopeList() {
       const c = this.col;
       if (this.ch.acc === 'scarf') return [{ rope: this.tails[0], col: c.accent, w: 6 }, { rope: this.tails[1], col: c.accentDark, w: 5 }, { rope: this.sash, col: c.accentDark, w: 4 }];
       if (this.ch.acc === 'kasa') return [{ rope: this.tails[0], col: '#6b5a3a', w: 1.4 }, { rope: this.sash, col: c.accent, w: 4 }];
@@ -1262,25 +1389,28 @@
       if (!j.hip || this.hidden) return;
       ctx.save();
       if (this.jit > 0) ctx.translate((Math.random() - 0.5) * 5, 0);
-      ND.drawNinja(ctx, j, this.col, {
-        ropes: this.ropeList(), trail: reflect ? null : (c) => this.drawTrail(c), glint: this.glint(), wpn: this.wpn, acc: this.ch.acc,
-        lod: reflect ? 'low' : 'high',
-      });
+      const o = this._dopt;
+      o.ropes = this.ropeList(); o.trail = reflect ? null : this._trailFn; o.glint = this.glint(); o.wpn = this.wpn; o.acc = this.ch.acc;
+      o.lod = reflect ? 'low' : 'high';
+      ND.drawNinja(ctx, j, this.col, o);
       ctx.restore();
       if (this.looseSword) this.looseSword.draw(ctx, this.col);
     }
     // Ekran uzayında kaba sınır kutusu (ışık katmanı için)
+    // Returns the fighter's own reused array [x0, y0, x1, y1]: read it right away (it changes on the next call).
     bounds() {
       const j = this.dead ? this.rag.j : this.j;
-      let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
-      const add = (p) => { if (!p) return; x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y); x1 = Math.max(x1, p.x); y1 = Math.max(y1, p.y); };
-      for (const k of JKEYS) add(j[k]);
-      for (const r of this.tails) for (const p of r.p) add(p);
-      for (const p of this.sash.p) add(p);
-      if (this.chain && !this.dead && this.chain.init) { const C = this.chain; for (let i = 0; i < C.n; i += 3) { x0 = Math.min(x0, C.x[i]); y0 = Math.min(y0, C.y[i]); x1 = Math.max(x1, C.x[i]); y1 = Math.max(y1, C.y[i]); } x0 = Math.min(x0, C.wx); x1 = Math.max(x1, C.wx); y0 = Math.min(y0, C.wy); }
-      if (this.looseSword) { add(this.looseSword.a); add(this.looseSword.b); }
-      for (const t of this.trail) { add({ x: t[2], y: t[3] }); }
-      return [x0 - 40, y0 - 40, x1 + 40, y1 + 40];
+      BB[0] = 1e9; BB[1] = 1e9; BB[2] = -1e9; BB[3] = -1e9;
+      for (let i = 0; i < JKEYS.length; i++) bbAdd(j[JKEYS[i]]);
+      for (let r = 0; r < this.tails.length; r++) { const P = this.tails[r].p; for (let i = 0; i < P.length; i++) bbAdd(P[i]); }
+      { const P = this.sash.p; for (let i = 0; i < P.length; i++) bbAdd(P[i]); }
+      if (this.chain && !this.dead && this.chain.init) { const C = this.chain; for (let i = 0; i < C.n; i += 3) bbXY(C.x[i], C.y[i]); BB[0] = Math.min(BB[0], C.wx); BB[2] = Math.max(BB[2], C.wx); BB[1] = Math.min(BB[1], C.wy); }
+      if (this.looseSword) { bbAdd(this.looseSword.a); bbAdd(this.looseSword.b); }
+      const T = this.trail;
+      for (let i = 0; i < T.length; i++) bbXY(T[i][2], T[i][3]);
+      const b = this._bb;
+      b[0] = BB[0] - 40; b[1] = BB[1] - 40; b[2] = BB[2] + 40; b[3] = BB[3] + 40;
+      return b;
     }
   }
   ND.Fighter = Fighter;

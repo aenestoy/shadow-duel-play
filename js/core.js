@@ -102,6 +102,12 @@ window.ND = window.ND || {};
     save(k, v) { const a = api(); return a ? a.save(k, v) : Promise.resolve(); },
     load(k) { const a = api(); return a ? a.load(k) : Promise.resolve(undefined); },
     language() { const a = api(); try { return a ? a.language() : (navigator.language || 'en').slice(0, 2).toLowerCase(); } catch (e) { return 'en'; } },
+    // Language the portal makes the game use (Yandex: SDK environment.i18n.lang), or null (the game picks: English).
+    // Only meaningful after `ready` (js/i18n.js waits for it).
+    requiredLanguage() {
+      const a = api();
+      try { return a && a.requiredLanguage ? a.requiredLanguage() : null; } catch (e) { return null; }
+    },
     // fn('start' | 'end'); returns unsubscribe
     onAd(fn) { adFns.add(fn); return () => adFns.delete(fn); },
     // fn(muted) — the portal's own audio switch
@@ -123,10 +129,41 @@ window.ND = window.ND || {};
     // ?mute=1 (tools), and "away" (tab hidden; on localhost also window unfocused).
     portalMuted: false, adMuted: false, paramMuted: qs.get('mute') === '1', away: false,
     audible() { return this.enabled && !this.portalMuted && !this.adMuted && !this.paramMuted && !this.away; },
+    // Player volume sliders, 0..1 (js/volume.js shows them and saves them as whole percents in settings.vol).
+    // Routing: every effect (hits, voices, UI, ambience) → dry/revIn ("sfx" level) → master; music has its own
+    // bus (music.js, "music" level) → master. Master = mute gate × "master" level → compressor → speakers.
+    VOL_DEFAULT: { master: 0.8, music: 0.6, sfx: 0.9 },
+    vol: { master: 0.8, music: 0.6, sfx: 0.9 },
+    // Slider position → gain: squared, so the travel feels even to the ear (about a 40 dB range) and 0 is silence
+    curve(v) { v = clamp(+v || 0, 0, 1); return v * v; },
+    masterLevel() { return this.audible() ? 0.85 * this.curve(this.vol.master) : 0; },
+    // Click-free change: hold the value where it is right now, then glide to the new one
+    ramp(param, v, tc = 0.04) {
+      if (!param || !this.ctx) return;
+      const t = this.ctx.currentTime;
+      try {
+        if (param.cancelAndHoldAtTime) param.cancelAndHoldAtTime(t);
+        else { param.cancelScheduledValues(t); param.setValueAtTime(param.value, t); }
+        param.setTargetAtTime(v, t, tc);
+      } catch (e) { param.value = v; }
+    },
     applyGain(tc = 0.05) {
       if (!this.master || !this.ctx) return;
-      const v = this.audible() ? 0.85 : 0;
-      try { this.master.gain.cancelScheduledValues(this.ctx.currentTime); this.master.gain.setTargetAtTime(v, this.ctx.currentTime, tc); } catch (e) { this.master.gain.value = v; }
+      this.ramp(this.master.gain, this.masterLevel(), tc);
+    },
+    // kind: 'master' | 'music' | 'sfx'; v 0..1. Applies at once (short glide); saving is the caller's job.
+    setVolume(kind, v) {
+      if (!(kind in this.vol)) return;
+      this.vol[kind] = clamp(+v || 0, 0, 1);
+      if (kind === 'master') this.applyGain(0.04);
+      else if (kind === 'sfx') { const g = this.curve(this.vol.sfx); this.ramp(this.dry && this.dry.gain, g); this.ramp(this.revIn && this.revIn.gain, g); }
+      else if (ND.music && ND.music.applyVolume) ND.music.applyVolume();
+    },
+    // Short sample at the current effects level (slider preview). Plays even on the menu, where the demo fight is quiet.
+    previewFx() {
+      if (!this.ready) return;
+      const q = this.quiet; this.quiet = false;
+      try { this.tick(0); } finally { this.quiet = q; }
     },
     // Portal's own audio switch (CrazyGames settings): the in-game toggle cannot lift it
     setPortalMute(v) { this.portalMuted = !!v; this.applyGain(); },
@@ -148,12 +185,16 @@ window.ND = window.ND || {};
       this.ctx = c;
       this.master = c.createGain();
       this.updateAway();
-      this.master.gain.value = this.audible() ? 0.85 : 0;
+      this.master.gain.value = this.masterLevel();
       const comp = c.createDynamicsCompressor();
       comp.threshold.value = -16; comp.ratio.value = 5; comp.attack.value = 0.003; comp.release.value = 0.2;
       this.master.connect(comp); comp.connect(c.destination);
-      this.dry = c.createGain(); this.dry.connect(this.master);
+      // effects level: dry path and reverb send share it (the reverb itself is shared with the music bus, whose
+      // send is taken after the music level, so each slider scales its own reverb tail too)
+      const fx = this.curve(this.vol.sfx);
+      this.dry = c.createGain(); this.dry.gain.value = fx; this.dry.connect(this.master);
       this.rev = c.createConvolver(); this.rev.buffer = this.makeIR(2.6);
+      this.revIn = c.createGain(); this.revIn.gain.value = fx; this.revIn.connect(this.rev);
       const rg = c.createGain(); rg.gain.value = 0.32; this.rev.connect(rg); rg.connect(this.master);
       const len = c.sampleRate * 2;
       this.noiseBuf = c.createBuffer(1, len, c.sampleRate);
@@ -185,7 +226,7 @@ window.ND = window.ND || {};
         g.connect(p); head = p;
       }
       head.connect(this.dry);
-      if (send > 0) { const s = c.createGain(); s.gain.value = send; head.connect(s); s.connect(this.rev); }
+      if (send > 0) { const s = c.createGain(); s.gain.value = send; head.connect(s); s.connect(this.revIn); }
       return g;
     },
 
@@ -283,7 +324,7 @@ window.ND = window.ND || {};
         const bus = c.createGain(); bus.gain.value = 1;
         if (lfoRate) { const l = c.createOscillator(); l.frequency.value = lfoRate; const lg = c.createGain(); lg.gain.value = lfoDepth; l.connect(lg); lg.connect(bus.gain); l.start(); }
         if (fRate) { const l = c.createOscillator(); l.frequency.value = fRate; const lg = c.createGain(); lg.gain.value = fDepth; l.connect(lg); lg.connect(f.frequency); l.start(); }
-        src.connect(f); f.connect(bus); bus.connect(g); g.connect(this.master);
+        src.connect(f); f.connect(bus); bus.connect(g); g.connect(this.dry); // ambience counts as an effect
         src.start(0, Math.random() * 1.5);
         g._level = level;
         return g;

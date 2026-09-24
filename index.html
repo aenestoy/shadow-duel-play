@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
     <meta name="robots" content="noindex, nofollow" />
-<script type="module" crossorigin src="./assets/index-cIl-s5XK.js"></script>
-<link rel="stylesheet" crossorigin href="./assets/index-Bw7-wrdd.css">
+<script type="module" crossorigin src="./assets/index-98i8Mu4J.js"></script>
+<link rel="stylesheet" crossorigin href="./assets/index-CFtILYoN.css">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Gölge Düellosu</title>
+<title>Shadow Duel</title>
 <!-- Fonts ship with the game (no external requests): fonts/fonts.css is written by scripts/font-subset.mjs -->
 <!-- Portal SDK bridge (module, bundled by Vite): publishes window.NDPortal; js/core.js wraps it as ND.portal -->
 <style>
@@ -205,60 +205,48 @@
   #app[data-tsize="l"] { --tb: clamp(62px, 18.5vh, 88px); }
   html, body { overscroll-behavior: none; }
   button { touch-action: manipulation; }
-  #touch { position: absolute; inset: 0; pointer-events: none; -webkit-user-select: none; user-select: none; }
-  .t-zone { position: absolute; left: 0; bottom: 0; top: 24%; width: 44%; pointer-events: auto; touch-action: none; }
-  .t-base { position: absolute; left: calc(var(--sl) + var(--tb) * .35); bottom: calc(var(--tb) * .3); width: calc(var(--tb) * 2.3); height: calc(var(--tb) * 2.3); box-sizing: border-box; border-radius: 50%;
-    background: radial-gradient(circle, rgba(10,12,22,.12) 0 52%, rgba(10,12,22,.42) 72%); border: 1.5px solid rgba(217,179,108,.32); opacity: .6; transition: opacity .18s; pointer-events: none; }
-  .t-base.live { opacity: 1; transition: none; }
-  .t-base i { position: absolute; font: 600 calc(var(--tb) * .17)/1 var(--display); font-style: normal; letter-spacing: .08em; color: rgba(235,230,218,.5); transition: color .08s; }
+  #touch { position: absolute; inset: 0; pointer-events: none; -webkit-user-select: none; user-select: none; --op: 1; }
+  /* Every control is placed by touch.js (left/top 0 + translate, size in px, --r = diameter in --tb units, --o = its own
+     opacity, --op = opacity of all): default layout or the player's own from the layout editor. Positions change only on
+     a settings change / resize, never per frame. */
+  .t-zone { position: absolute; left: 0; top: 24%; width: 44%; height: 76%; pointer-events: auto; touch-action: none; }
+  #touch[data-move="dpad"] .t-zone, #touch:not([data-move="dpad"]) .t-dpad { display: none; }
+  .t-base { --r: 2.3; position: absolute; left: 0; top: 0; width: calc(var(--tb) * 2.3); height: calc(var(--tb) * 2.3); box-sizing: border-box; border-radius: 50%;
+    background: radial-gradient(circle, rgba(10,12,22,.12) 0 52%, rgba(10,12,22,.42) 72%); border: 1.5px solid rgba(217,179,108,.32); opacity: calc(var(--op) * var(--o, 1) * .6); transition: opacity .18s; pointer-events: none; }
+  #touch[data-move="fixed"] .t-base { opacity: calc(var(--op) * var(--o, 1) * .8); }
+  #touch .t-base.live { opacity: calc(var(--op) * var(--o, 1)); transition: none; }
+  .t-base i { position: absolute; font: 600 calc(var(--tb) * var(--r) * .074)/1 var(--display); font-style: normal; letter-spacing: .08em; color: rgba(235,230,218,.5); transition: color .08s; }
   .t-base .u { top: 7%; left: 50%; transform: translateX(-50%); }
   .t-base .d { bottom: 8%; left: 50%; transform: translateX(-50%); }
   .t-base .l { left: 8%; top: 50%; transform: translateY(-50%); }
   .t-base .r { right: 8%; top: 50%; transform: translateY(-50%); }
   .t-base.d-up .u, .t-base.d-guard .d, .t-base.d-left .l, .t-base.d-right .r { color: var(--gold-hi); text-shadow: 0 0 8px rgba(241,214,156,.8); }
-  .t-knob { position: absolute; left: 50%; top: 50%; width: calc(var(--tb) * .95); height: calc(var(--tb) * .95); margin: calc(var(--tb) * -.475) 0 0 calc(var(--tb) * -.475); border-radius: 50%;
+  .t-knob { --k: calc(var(--tb) * var(--r) * .413); position: absolute; left: 50%; top: 50%; width: var(--k); height: var(--k); margin: calc(var(--k) / -2) 0 0 calc(var(--k) / -2); border-radius: 50%;
     background: radial-gradient(circle at 40% 34%, rgba(241,214,156,.5), rgba(110,86,44,.42) 70%); border: 1.5px solid rgba(241,214,156,.65); box-shadow: 0 4px 14px rgba(0,0,0,.45); }
   .t-base:not(.live) .t-knob { transition: transform .12s ease-out; }
-  .t-acts { position: absolute; right: calc(var(--sr) + 6px); bottom: 6px; width: calc(var(--tb) * 4.95); height: calc(var(--tb) * 2.8); pointer-events: auto; touch-action: none; }
-  .t-acts button { --s: 1; position: absolute; box-sizing: border-box; width: calc(var(--tb) * var(--s)); height: calc(var(--tb) * var(--s)); padding: 0;
-    right: calc(var(--tb) * (var(--x) - var(--s) / 2)); bottom: calc(var(--tb) * (var(--y) - var(--s) / 2));
-    display: grid; place-content: center; justify-items: center; gap: 2px; border-radius: 50%; pointer-events: none;
+  .t-acts, .t-dpad { position: absolute; inset: 0; pointer-events: none; }
+  .t-acts button, .t-dpad button { --r: 1; position: absolute; left: 0; top: 0; box-sizing: border-box; width: var(--tb); height: var(--tb); padding: 0;
+    display: grid; place-content: center; justify-items: center; gap: 2px; border-radius: 50%; pointer-events: auto; touch-action: none; opacity: calc(var(--op) * var(--o, 1));
     background: radial-gradient(circle at 50% 35%, rgba(34,38,58,.62), rgba(10,12,22,.55)); border: 1.5px solid rgba(217,179,108,.45); box-shadow: 0 3px 10px rgba(0,0,0,.35);
-    font: 600 calc(var(--tb) * .2)/1 var(--display); letter-spacing: .05em; color: rgba(235,230,218,.92); text-shadow: 0 1px 3px rgba(0,0,0,.8); transition: transform .06s, background-color .06s; }
-  .t-acts button.on { transform: scale(.92); background: rgba(217,179,108,.5); border-color: var(--gold-hi); color: #fff; }
-  .t-acts .ta-light { border-color: rgba(241,214,156,.7); font-size: calc(var(--tb) * .24); }
-  .t-acts .ta-guard { border-color: rgba(150,210,255,.6); }
-  .t-acts .ta-guard.on { background: rgba(110,170,230,.5); }
-  .ta-throw .shu { width: calc(var(--tb) * .3); height: calc(var(--tb) * .3); background: #c9d0dc; clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); }
-  .ta-throw small { font: 600 calc(var(--tb) * .17)/1 var(--display); color: var(--muted); }
-  .ta-throw.empty { opacity: .4; }
-  .t-acts .ta-ki { color: rgba(185,168,238,.75); border-color: rgba(150,130,220,.35); opacity: .75; }
+    font: 600 calc(var(--tb) * (.1 + var(--r) * .1))/1 var(--display); letter-spacing: .05em; color: rgba(235,230,218,.92); text-shadow: 0 1px 3px rgba(0,0,0,.8); transition: transform .06s, background-color .06s; }
+  /* forgiving hit margin around every button (the group handler then picks the nearest one) */
+  .t-acts button::after, .t-dpad button::after { content: ''; position: absolute; inset: -18%; border-radius: 50%; }
+  .t-acts button.on, .t-dpad button.on { transform: scale(.92); background: rgba(217,179,108,.5); border-color: var(--gold-hi); color: #fff; }
+  .t-acts .ta-light { border-color: rgba(241,214,156,.7); }
+  .t-acts .ta-guard, .t-dpad .td-d { border-color: rgba(150,210,255,.6); }
+  .t-acts .ta-guard.on, .t-dpad .td-d.on { background: rgba(110,170,230,.5); }
+  .t-dpad button { border-radius: 28%; font-size: calc(var(--tb) * var(--r) * .3); }
+  .t-dpad .td-d small { font: 600 calc(var(--tb) * var(--r) * .13)/1 var(--display); letter-spacing: .06em; color: #cfe8ff; }
+  .ta-throw .shu { width: calc(var(--tb) * var(--r) * .33); height: calc(var(--tb) * var(--r) * .33); background: #c9d0dc; clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); }
+  .ta-throw small { font: 600 calc(var(--tb) * var(--r) * .19)/1 var(--display); color: var(--muted); }
+  .t-acts .ta-throw.empty { opacity: calc(var(--op) * var(--o, 1) * .4); }
+  .t-acts .ta-ki { color: rgba(185,168,238,.75); border-color: rgba(150,130,220,.35); opacity: calc(var(--op) * var(--o, 1) * .75); }
   .t-acts .ta-ki::before { content: ''; position: absolute; inset: -1.5px; border-radius: 50%; background: conic-gradient(#b99cff calc(var(--ki, 0) * 360deg), transparent 0);
     -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3.5px)); mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3.5px)); }
-  .t-acts .ta-ki.ready { opacity: 1; color: #fff; border-color: #d9c8ff; background: radial-gradient(circle, rgba(199,166,255,.55), rgba(90,60,170,.5)); animation: kiPulse .7s ease-in-out infinite alternate; }
+  .t-acts .ta-ki.ready { opacity: calc(var(--op) * var(--o, 1)); color: #fff; border-color: #d9c8ff; background: radial-gradient(circle, rgba(199,166,255,.55), rgba(90,60,170,.5)); animation: kiPulse .7s ease-in-out infinite alternate; }
   @keyframes kiPulse { from { box-shadow: 0 0 8px rgba(199,166,255,.5); } to { box-shadow: 0 0 26px rgba(199,166,255,.95), 0 0 4px #fff inset; } }
-  /* yerleşim: --x/--y = sağ-alt köşeden merkez uzaklığı, --s = çap (hepsi --tb biriminde). Alçak yay → üst kısım boş, dövüşçüler örtülmez.
-     Tam düzen (7 düğme) */
-  .t-acts .ta-light { --x: .95; --y: .9; --s: 1.3; }
-  .t-acts .ta-heavy { --x: 2.4; --y: .62; }
-  .t-acts .ta-dodge { --x: 3.65; --y: .52; --s: .85; }
-  .t-acts .ta-guard { --x: .8; --y: 2.25; }
-  .t-acts .ta-kick { --x: 2.05; --y: 1.85; }
-  .t-acts .ta-throw { --x: 3.25; --y: 1.6; --s: .85; }
-  .t-acts .ta-ki { --x: 4.45; --y: 1.25; --s: .95; }
-  /* Basit düzen (dokunmatikte varsayılan, 5 düğme): büyük SALDIR köşede, GARD üstünde, AĞIR solunda, KI aralarında, ATIL en solda */
-  #touch.simple .t-acts { width: calc(var(--tb) * 4.2); height: calc(var(--tb) * 3.1); }
-  #touch.simple .ta-light { --x: .98; --y: .95; --s: 1.45; }
-  #touch.simple .ta-heavy { --x: 2.47; --y: .68; --s: 1.05; }
-  #touch.simple .ta-guard { --x: .88; --y: 2.52; --s: 1.15; }
-  #touch.simple .ta-ki { --x: 2.25; --y: 1.98; --s: 1.02; }
-  #touch.simple .ta-dodge { --x: 3.72; --y: .58; --s: .9; }
-  #touch.simple .ta-kick, #touch.simple .ta-throw { display: none; }
-  /* solak: yön çubuğu sağda, düğmeler solda (aynalı) */
-  #app.t-left .t-zone { left: auto; right: 0; }
-  #app.t-left .t-base { left: auto; right: calc(var(--sr) + var(--tb) * .35); }
-  #app.t-left .t-acts { right: auto; left: calc(var(--sl) + 6px); }
-  #app.t-left .t-acts button { right: auto; left: calc(var(--tb) * (var(--x) - var(--s) / 2)); }
+  /* no script yet (first paint): the simple layout keeps KICK and SHURIKEN hidden */
+  #touch.simple .ta-kick:not([style]), #touch.simple .ta-throw:not([style]) { display: none; }
   /* düğme adları metin içinde: kumandadaki renkleriyle */
   .tb.tb-light { border-color: rgba(241,214,156,.85); color: var(--gold-hi); }
   .tb.tb-guard, .tb.tb-down { border-color: rgba(150,210,255,.75); color: #cfe8ff; }
@@ -314,17 +302,164 @@
   .tset .seg { min-width: 44px; }
   .tset .ts-togs { display: flex; gap: 4px 16px; flex-wrap: wrap; }
   .tset .ts-note { margin: 0; font-size: 12px; line-height: 1.35; color: var(--muted); }
-  .tset .ts-fs { justify-self: start; }
+  .tset .ts-acts { display: flex; gap: 8px; flex-wrap: wrap; }
+  .tset .ts-edit { border-color: var(--gold); color: var(--gold-hi, #f1d69c); }
+  /* ---------------- Touch layout editor (js/touch-editor.js builds it inside #app) */
+  .te { position: absolute; inset: 0; z-index: 70; touch-action: none; -webkit-user-select: none; user-select: none; --g: 16px; --fo: 1;
+    background: linear-gradient(rgba(5,6,12,.5), rgba(5,6,12,.62)); }
+  .te [hidden] { display: none !important; }
+  /* while editing: the pause dialog, menus and the real pad step aside (the fight / attract scene stays behind as the backdrop) */
+  #app.t-editing .overlay, #app.t-editing #touch, #app.t-editing #pauseBtn, #app.t-editing .tpanel, #app.t-editing .tp-show { visibility: hidden; }
+  .te-stage { position: absolute; inset: 0; }
+  .te.snap .te-stage { background-image: linear-gradient(rgba(217,179,108,.09) 1px, transparent 1px), linear-gradient(90deg, rgba(217,179,108,.09) 1px, transparent 1px); background-size: var(--g) var(--g); }
+  .te-zone { position: absolute; left: 0; top: 0; border: 1.5px dashed rgba(217,179,108,.28); border-radius: 14px; background: rgba(217,179,108,.04); pointer-events: none; }
+  .te-zone.fixed { border-radius: 50%; }
+  .te-it { --r: 1; position: absolute; left: 0; top: 0; box-sizing: border-box; border-radius: 50%; cursor: grab; touch-action: none; outline: 2px solid transparent; outline-offset: 3px; transition: outline-color .1s; }
+  /* large handle: a finger anywhere near a small control still grabs it */
+  .te-it::after { content: ""; position: absolute; inset: -10px; border-radius: 50%; }
+  .te-face { position: absolute; inset: 0; box-sizing: border-box; display: grid; place-content: center; justify-items: center; gap: 2px; border-radius: inherit; opacity: var(--fo);
+    background: radial-gradient(circle at 50% 35%, rgba(34,38,58,.72), rgba(10,12,22,.66)); border: 1.5px solid rgba(217,179,108,.55); box-shadow: 0 3px 10px rgba(0,0,0,.35);
+    font: 600 calc(var(--tb) * (.1 + var(--r) * .1))/1 var(--display); letter-spacing: .05em; color: rgba(235,230,218,.95); text-shadow: 0 1px 3px rgba(0,0,0,.8); pointer-events: none; }
+  .te-light .te-face { border-color: rgba(241,214,156,.8); }
+  .te-guard .te-face, .te-dd .te-face { border-color: rgba(150,210,255,.7); }
+  .te-special .te-face { color: #d9c8ff; border-color: rgba(185,156,255,.7); }
+  .te-throw .shu { width: calc(var(--tb) * var(--r) * .33); height: calc(var(--tb) * var(--r) * .33); background: #c9d0dc; clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); }
+  .te-throw small, .te-dd small { font: 600 calc(var(--tb) * var(--r) * .15)/1 var(--display); color: var(--muted); }
+  .te-dir, .te-dir .te-face { border-radius: 28%; }
+  .te-dir .te-face { font-size: calc(var(--tb) * var(--r) * .3); }
+  .te-stick .te-face { background: radial-gradient(circle, rgba(10,12,22,.2) 0 52%, rgba(10,12,22,.5) 72%); border-color: rgba(217,179,108,.5); }
+  .te-knob { width: calc(var(--tb) * var(--r) * .413); height: calc(var(--tb) * var(--r) * .413); border-radius: 50%; background: radial-gradient(circle at 40% 34%, rgba(241,214,156,.5), rgba(110,86,44,.42) 70%); border: 1.5px solid rgba(241,214,156,.65); }
+  .te-it.sel { outline-color: var(--gold-hi, #f1d69c); z-index: 2; }
+  .te-it.bad { outline-color: #ff6b6b; }
+  .te-it.off .te-face { opacity: .28; border-style: dashed; }
+  .te-off { display: none; position: absolute; left: 50%; bottom: 9%; transform: translateX(-50%); padding: 2px 4px; background: rgba(8,9,16,.8); font: 600 10px/1 var(--display); font-style: normal; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); white-space: nowrap; pointer-events: none; }
+  .te-it.off .te-off { display: block; }
+  .te.dragging .te-bar, .te.dragging .te-insp { opacity: .25; pointer-events: none; }
+  .te-bar { position: absolute; top: 6px; left: max(8px, var(--sl)); right: max(8px, var(--sr)); z-index: 3; display: flex; align-items: center; gap: 8px; transition: opacity .15s; pointer-events: none; }
+  .te-bar > * { pointer-events: auto; }
+  .te-bar .mini, .te-insp .mini, .te-card .mini { min-height: 40px; padding: 8px 14px; }
+  .te-bar .primary, .te-card .primary { background: var(--gold); color: #17130a; border-color: var(--gold); }
+  .te-hint { flex: 1 1 auto; min-width: 0; margin: 0; padding: 6px 10px; font-size: 12px; line-height: 1.3; color: var(--text); background: rgba(8,9,16,.72); border: 1px solid var(--line); pointer-events: none;
+    overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .te-hint b { font: 600 11px/1 var(--display); letter-spacing: .14em; text-transform: uppercase; color: var(--gold); }
+  .te-insp { position: absolute; top: 56px; left: 50%; transform: translateX(-50%); z-index: 3; width: min(700px, calc(100% - 16px)); box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px;
+    padding: 6px 10px; background: rgba(12,14,24,.92); border: 1px solid var(--gold); box-shadow: 0 6px 24px rgba(0,0,0,.5); transition: opacity .15s; }
+  .te-insp.low { top: auto; bottom: 8px; }
+  .te-name { font: 600 13px/1 var(--display); letter-spacing: .12em; text-transform: uppercase; color: var(--gold-hi, #f1d69c); white-space: nowrap; }
+  .te-row { display: flex; align-items: center; gap: 8px; flex: 1 1 170px; min-width: 150px; }
+  .te-row > span { font: 500 11px/1.2 var(--display); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+  .te-row output { min-width: 2.6em; font: 600 13px/1 var(--display); text-align: right; color: var(--text); }
+  .te-insp .te-x { min-width: 44px; padding: 8px 0; }
+  .te-range { -webkit-appearance: none; appearance: none; flex: 1 1 auto; min-width: 70px; height: 40px; margin: 0; padding: 0; background: transparent; cursor: pointer; touch-action: none; --p: 50%; --th: 26px; }
+  .te-range::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: linear-gradient(90deg, var(--gold) var(--p), rgba(255,255,255,.16) var(--p)); }
+  .te-range::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: var(--th); height: var(--th); margin-top: calc(2px - var(--th) / 2); border-radius: 50%; background: var(--gold-hi, #f1d69c); border: 2px solid #17130a; box-shadow: 0 0 0 1px var(--gold); }
+  .te-range::-moz-range-track { height: 4px; border-radius: 2px; background: rgba(255,255,255,.16); }
+  .te-range::-moz-range-progress { height: 4px; border-radius: 2px; background: var(--gold); }
+  .te-range::-moz-range-thumb { width: var(--th); height: var(--th); border-radius: 50%; background: var(--gold-hi, #f1d69c); border: 2px solid #17130a; box-sizing: border-box; }
+  .te-range:focus { outline: none; }
+  .te-range:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px rgba(241,214,156,.55); }
+  .te-sheet { position: absolute; inset: 0; z-index: 4; display: grid; place-items: center; padding: 8px max(8px, var(--sr)) 8px max(8px, var(--sl)); background: rgba(3,4,8,.55); }
+  .te-card { width: min(520px, 100%); max-height: calc(100% - 4px); box-sizing: border-box; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; display: grid; gap: 8px; padding: 12px 16px; text-align: left; }
+  .te-card h3 { margin: 0; font: 600 12px/1 var(--display); letter-spacing: .22em; text-transform: uppercase; color: var(--gold); }
+  .te-card .ts-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .te-card .ts-row > span { flex: 0 0 6.4em; font: 500 11px/1.2 var(--display); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+  .te-card .seg, .te-card .tog { min-height: 40px; }
+  .te-card .ts-togs { display: flex; gap: 4px 16px; flex-wrap: wrap; }
+  .te-note { margin: 0; font-size: 12px; line-height: 1.35; color: var(--muted); }
+  .te-foot { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .te-msg { position: absolute; left: 50%; top: 42%; z-index: 5; transform: translate(-50%, -50%); max-width: min(440px, calc(100% - 32px)); padding: 9px 14px; font-size: 13px; line-height: 1.35; text-align: center;
+    color: var(--text); background: rgba(12,14,24,.94); border: 1px solid var(--gold); opacity: 0; transition: opacity .2s; pointer-events: none; }
+  .te-msg.on { opacity: 1; }
+  /* portrait: fights are landscape only, so the editor just asks to turn the screen (the hint line says it) */
+  .te.tall .te-stage, .te.tall .te-insp, .te.tall [data-do="opts"], .te.tall [data-do="save"] { display: none; }
+  .te.tall .te-bar { top: 50%; flex-direction: column-reverse; align-items: stretch; transform: translateY(-50%); }
+  .te.tall .te-hint { -webkit-line-clamp: 6; padding: 14px 16px; font-size: 14px; text-align: center; }
   #menuTset { margin: 14px 0 0; padding: 12px 0 0; border-top: 1px solid var(--line); }
   #pauseTset { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+  /* volume sliders (js/volume.js fills them): top of the menu's controls card and in the pause dialog; every device */
+  .vol { display: grid; gap: 4px; text-align: left; }
+  .vol .vhead { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 22px; }
+  .vol h3 { margin: 0; font: 600 13px/1 var(--display); letter-spacing: .24em; text-transform: uppercase; color: var(--gold); }
+  .vol .vhead .tog { font-size: 11.5px; letter-spacing: .1em; }
+  .vol .vrow { display: grid; grid-template-columns: 6.2em minmax(0, 1fr) 3.1em; align-items: center; gap: 10px; }
+  .vol label { font: 500 11px/1.2 var(--display); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+  .vol output { font: 600 13px/1 var(--display); letter-spacing: .04em; text-align: right; font-variant-numeric: tabular-nums; color: var(--text); }
+  .vol .vnote { margin: 2px 0 0; font-size: 12px; line-height: 1.35; color: var(--muted); }
+  .vol.muted .vrow input, .vol .vrow input.off { opacity: .45; }
+  .vol.muted output { color: var(--muted); }
+  #menuVol { margin: 0 0 14px; padding: 0 0 12px; border-bottom: 1px solid var(--line); }
+  #pauseVol { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+  /* graphics choice (game.js fills every [data-gq] row): menu options line and pause dialog; one short line under it */
+  .gq { flex: 1 0 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; text-align: left; }
+  .gq-t { font: 500 13px/1 var(--display); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+  .gq-segs { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+  .gq .seg { padding: 6px 10px; }
+  .gq-n { flex: 1 0 100%; min-height: 1.35em; font-size: 12px; line-height: 1.35; color: var(--muted); }
+  .gq-n b { font-weight: 600; color: var(--gold-hi, #f1d69c); }
+  .gq-n b:not([hidden])::after { content: ' ·'; color: var(--muted); }
+  #pauseGfx { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+  #pauseGfx .gq-t { font-weight: 600; letter-spacing: .24em; color: var(--gold); }
+  #app.touch .gq .seg { min-height: 40px; }
+  /* range: a thin track with the filled part in gold (--p set by volume.js), a round thumb; the element itself is tall so it is easy to hit */
+  .vol input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 28px; margin: 0; padding: 0; background: transparent; cursor: pointer; touch-action: pan-y; --p: 50%; --th: 16px; }
+  .vol input[type="range"]::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: linear-gradient(90deg, var(--gold) var(--p), rgba(255,255,255,.16) var(--p)); }
+  .vol input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: var(--th); height: var(--th); margin-top: calc(2px - var(--th) / 2); border-radius: 50%; background: var(--gold-hi, #f1d69c); border: 2px solid #17130a; box-shadow: 0 0 0 1px var(--gold); }
+  .vol input[type="range"]::-moz-range-track { height: 4px; border-radius: 2px; background: rgba(255,255,255,.16); }
+  .vol input[type="range"]::-moz-range-progress { height: 4px; border-radius: 2px; background: var(--gold); }
+  .vol input[type="range"]::-moz-range-thumb { width: var(--th); height: var(--th); border-radius: 50%; background: var(--gold-hi, #f1d69c); border: 2px solid #17130a; box-shadow: 0 0 0 1px var(--gold); box-sizing: border-box; }
+  .vol input[type="range"]:focus { outline: none; }
+  .vol input[type="range"]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px rgba(241,214,156,.55); }
+  .vol input[type="range"]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px rgba(241,214,156,.55); }
+  .vol input[type="range"]:focus-visible { outline: 1px dashed rgba(241,214,156,.5); outline-offset: 2px; }
+  /* touch: thumb-sized targets */
+  #app.touch .vol { gap: 2px; }
+  #app.touch .vol input[type="range"] { height: 40px; --th: 26px; }
+  #app.touch .vol .vhead .tog { min-height: 36px; }
   /* alçak yatay telefonda duraklatma: düğmeler solda, ayarlar sağda (kaydırmadan sığsın) */
   @media (max-height: 520px) and (min-width: 560px) {
     #app.touch #pause .dialog { width: min(760px, 100%); display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); grid-template-rows: auto 1fr; gap: 0 20px; align-items: start; padding: 14px 18px; }
     #app.touch #pause .bigk { display: none; }
     #app.touch #pause .title { grid-column: 1; grid-row: 1; font-size: 30px; margin: 0 0 10px; }
     #app.touch #pause .btns { grid-column: 1; grid-row: 2; }
-    #app.touch #pauseTset { grid-column: 2; grid-row: 1 / span 2; margin: 0; padding: 0 0 0 18px; border-top: 0; border-left: 1px solid var(--line); }
+    #app.touch #pauseTset { grid-column: 2; grid-row: 1 / span 3; margin: 0; padding: 0 0 0 18px; border-top: 0; border-left: 1px solid var(--line); }
     #app.touch #pause .btn { padding: 11px 14px; }
+    /* volume sliders under the buttons (left column); a bit tighter so everything fits 375 px without scrolling */
+    #app.touch #pause .dialog { grid-template-rows: auto auto 1fr; }
+    #app.touch #pause .title { font-size: 26px; margin: 0 0 8px; }
+    #app.touch #pause .btns .btn { padding: 9px 14px; }
+    #app.touch #pauseVol { grid-column: 1; grid-row: 3; margin-top: 8px; padding-top: 8px; }
+    #app.touch #pauseVol input[type="range"] { height: 36px; --th: 24px; }
+    #app.touch #pauseVol .vhead { min-height: 26px; }
+    #app.touch #pauseVol .vhead .tog { min-height: 26px; padding: 0; }
+    #app.touch #pauseVol .vnote { display: none; } /* the Sound switch right above already shows it is off */
+    /* touch settings column: a little tighter so the movement row and the Customize button fit too */
+    #app.touch #pauseTset { gap: 6px; }
+    #app.touch #pauseTset .seg, #app.touch #pauseTset .tog { min-height: 36px; padding-block: 6px; }
+    /* graphics row: top of the right column (beside the title), the touch settings under it; one line laid out like
+       their rows, "Now: …" (Auto) right after the buttons, no description */
+    #app.touch #pauseGfx { grid-column: 2; grid-row: 1; align-self: start; margin: 0 0 6px; padding: 0 0 0 18px; border-top: 0; border-left: 1px solid var(--line); flex-wrap: nowrap; gap: 6px; }
+    #app.touch #pauseTset { grid-row: 2 / span 2; }
+    #app.touch #pauseGfx .gq-t { flex: 0 0 5.6em; font: 500 11px/1.2 var(--display); letter-spacing: .14em; color: var(--muted); }
+    #app.touch #pauseGfx .gq-segs { flex: 0 1 auto; flex-wrap: nowrap; gap: 4px; }
+    #app.touch #pauseGfx .seg { min-width: 0; min-height: 36px; padding: 6px; }
+    #app.touch #pauseGfx .gq-n { flex: 1 1 0; min-width: 0; min-height: 0; font-size: 11px; line-height: 1.2; overflow-wrap: anywhere; }
+    #app.touch #pauseGfx [data-gq-d] { display: none; }
+    #app.touch #pauseGfx b[data-gq-now]::after { content: none; }
+  }
+  @media (max-width: 700px) and (orientation: landscape) {
+    /* Keep long translated choices on one row without pushing the editor below the screen. */
+    #app.touch #pause .dialog { padding-block: 10px; }
+    #app.touch #pauseTset { gap: 4px; }
+    #app.touch #pauseTset .ts-row { flex-wrap: nowrap; }
+    #app.touch #pauseTset .ts-row > span { flex-basis: 6em; letter-spacing: .06em; }
+    #app.touch #pauseTset .ts-row .seg { flex: 1 1 0; min-width: 0; padding-inline: 4px; font-size: 11px; line-height: 1.15; letter-spacing: .02em; overflow-wrap: anywhere; }
+    #app.touch #pauseTset .ts-acts { flex-wrap: nowrap; }
+    #app.touch #pauseTset .ts-acts .btn { flex: 1 1 0; min-width: 0; padding: 6px; font-size: 11px; line-height: 1.15; overflow-wrap: anywhere; }
+    #app.touch #pauseGfx { flex-wrap: wrap; gap: 4px 6px; }
+    #app.touch #pauseGfx .gq-t { flex-basis: 5em; letter-spacing: .04em; }
+    #app.touch #pauseGfx .gq-segs { flex: 1 1 0; min-width: 0; }
+    #app.touch #pauseGfx .seg { flex: 1 1 0; padding-inline: 3px; font-size: 11px; line-height: 1.15; letter-spacing: 0; overflow-wrap: anywhere; }
+    #app.touch #pauseGfx .gq-n { flex-basis: 100%; }
   }
 
   /* ---------------- Dik ekran uyarısı */
@@ -436,6 +571,14 @@
 
   /* ---------------- Antrenman paneli */
   .tpanel { position: absolute; left: 12px; top: calc(env(safe-area-inset-top, 0px) + 100px); width: clamp(210px, 22vw, 290px); max-height: calc(100% - 210px); min-height: 120px; overflow-y: auto; box-sizing: border-box; padding: 12px; display: grid; gap: 10px; align-content: start; background: rgba(8,9,16,.82); border: 1px solid var(--line); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); font-size: 13px; scrollbar-width: thin; }
+  /* Phones / tablets: no backdrop blur over the live canvas. The menu demo fight and the training fight redraw the
+     canvas every frame, so each blurred panel costs a full extra blur pass per frame on the phone's GPU. Slightly
+     more opaque panels keep the text as readable. (Computers keep the blur.) */
+  @media (pointer: coarse) {
+    .card, .tpanel { backdrop-filter: none; -webkit-backdrop-filter: none; }
+    .card { background: rgba(10, 12, 22, 0.88); }
+    .tpanel { background: rgba(8, 9, 16, 0.9); }
+  }
   .tp-head { display: flex; align-items: center; gap: 8px; }
   .tp-head > b { font: 700 20px/1 var(--jp); color: var(--gold); }
   #trTitle { flex: 1; font: 600 14px/1 var(--display); letter-spacing: .16em; text-transform: uppercase; }
@@ -740,6 +883,7 @@
   .lbp[data-st="warn"] .lbp-st { color: #ffb36b; }
   .lbp[data-st="local"] .lbp-st { color: var(--text); }
   .lbp-ask { color: var(--muted); font-size: 12px; }
+  .lbp-identity { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
   .lbp .mini, .lb-foot .mini { padding: 6px 10px; font-size: 11.5px; }
   .ed-body .lbp { margin: 0; justify-content: flex-start; }
   .nick { display: inline-flex; gap: 6px; align-items: center; }
@@ -874,6 +1018,8 @@
   .bz-k { font: 700 44px/1 var(--jp); color: var(--gold); text-shadow: var(--gold-e), 0 0 26px rgba(217,179,108,.3); flex: none; }
   .bz-tt, .hall-tt { flex: 1; min-width: 0; }
   .bz-tt .title, .hall-tt .title { margin: 0; font: 700 clamp(22px, 3.4vw, 34px)/1 var(--display); letter-spacing: .06em; text-transform: uppercase; }
+  /* long single words (WOCHENTURNIER, ЕЖЕНЕДЕЛЬНЫЙ…) on a narrow phone: tighter tracking, then break rather than overflow */
+  @media (max-width: 420px) { .bz-tt .title, .hall-tt .title { letter-spacing: .02em; overflow-wrap: anywhere; } }
   .bz-tt small { display: block; margin-top: 5px; font: 500 12px/1.3 var(--display); letter-spacing: .1em; color: var(--muted); }
   .bz-tt small b, .hall-sub b { color: var(--gold-hi); font-variant-numeric: tabular-nums; }
   .bz-close { flex: none; padding: 9px 14px; font-size: 14px; }
@@ -884,12 +1030,14 @@
 
   /* turnuva merdiveni */
   .bz-gaunt { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; overflow-y: auto; min-height: 0; flex: 1 1 auto; touch-action: pan-y; overscroll-behavior: contain; scrollbar-width: thin; }
-  .bz-gaunt li { display: grid; grid-template-columns: 1.4em minmax(6.5em, 1fr) minmax(0, 1.25fr) 4.8em minmax(0, 2.2fr); gap: 8px; align-items: center; padding: 5px 8px; background: rgba(15,9,5,.5); border: 1px solid rgba(217,179,108,.2); font-size: 13px; }
+  .bz-gaunt li { display: grid; grid-template-columns: 1.4em minmax(6.5em, 1fr) minmax(0, 1.25fr) minmax(4.8em, max-content) minmax(0, 2.2fr); gap: 8px; align-items: center; padding: 5px 8px; background: rgba(15,9,5,.5); border: 1px solid rgba(217,179,108,.2); font-size: 13px; }
   .bz-gaunt li.boss { border-color: rgba(227,38,60,.6); background: linear-gradient(90deg, rgba(120,10,24,.35), rgba(15,9,5,.5)); }
   .g-n { font: 700 14px/1 var(--display); color: var(--gold); text-align: center; }
   .g-o { display: flex; align-items: baseline; gap: 6px; min-width: 0; font: 600 13px/1.1 var(--display); letter-spacing: .06em; }
   .g-o b { font: 700 18px/1 var(--jp); color: var(--gold-hi); }
   .g-o span, .g-a { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* "Mirror · your own ninja" runs long in every language: two lines instead of an ellipsis */
+  .g-o span { white-space: normal; line-height: 1.15; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
   .g-a { font: 500 12px/1.1 var(--display); letter-spacing: .06em; color: var(--muted); }
   .g-a b { font: 700 14px/1 var(--jp); color: var(--gold); margin-right: 5px; }
   .g-l { font: 600 11px/1 var(--display); letter-spacing: .12em; text-transform: uppercase; color: var(--gold-hi); }
@@ -1024,7 +1172,7 @@
   .lb-row .nm em.dn { margin-left: 7px; vertical-align: 1px; }
 
   @media (max-width: 700px) {
-    .bz-gaunt li { grid-template-columns: 1.3em minmax(0, 1fr) 4.2em; grid-template-areas: 'n o l' 'm m m'; row-gap: 4px; }
+    .bz-gaunt li { grid-template-columns: 1.3em minmax(0, 1fr) minmax(4.2em, max-content); grid-template-areas: 'n o l' 'm m m'; row-gap: 4px; }
     .bz-gaunt .g-n { grid-area: n; } .bz-gaunt .g-o { grid-area: o; } .bz-gaunt .g-l { grid-area: l; } .bz-gaunt .g-m { grid-area: m; }
     .bz-gaunt .g-a { display: none; }
     .dan-grid { grid-template-columns: 1fr; }
@@ -1249,6 +1397,27 @@
     .first-play { padding: 14px 24px; }
     #coach { bottom: auto; top: 24%; padding: 7px 12px; }
   }
+  .journey-panel { border: 1px solid #665433; background: #11121c; padding: 14px; font-family: var(--body); }
+  .journey-heading { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; color: var(--gold); }
+  .journey-heading span, .journey-panel p { font-size: 13px; line-height: 1.5; }
+  .journey-panel p { margin: 10px 0 0; color: #babaca; }
+  .journey-chapters { list-style: none; display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 5px; margin: 12px 0 0; padding: 0; }
+  .journey-chapters li { display: grid; gap: 4px; padding: 7px 2px; text-align: center; border: 1px solid #333441; color: #a6a6b7; }
+  .journey-chapters b { font-size: 22px; font-family: var(--jp); }
+  .journey-chapters span { font-size: 9px; }
+  .journey-chapters .earned, #journeyGoal.earned { color: var(--gold); }
+  .journey-chapters .current { border-color: var(--gold); background: #24202a; }
+  .journey-note { color: var(--gold); font: 14px/1.5 var(--body); padding: 9px 12px; border: 1px solid #655431; background: #11121ce8; }
+  #journeyLook { justify-self: start; font-size: 14px; padding: 9px 14px; }
+  #journeyGoal { grid-column: 1 / -1; justify-self: start; margin-top: -12px; max-width: 65%; padding: 3px 7px; color: #dddce4; background: #10111ad9; font: 12px/1.3 var(--body); }
+  @media (max-width: 600px) { .journey-chapters { grid-template-columns: repeat(4, minmax(0, 1fr)); } .journey-panel { padding: 10px; } }
+  @media (max-height: 500px) { #journeyGoal { font-size: 10px; margin-top: -7px; } }
+  @media (max-height: 500px) and (min-width: 560px) {
+    #vs.journey { padding-block: 8px; }
+    #vs.journey .vs-top .st { font-size: 16px; }
+    #vs.journey .vs-side canvas { height: 25vh; }
+    #journeyVs { font-size: 12px; padding: 5px 8px; }
+  }
 </style>
 </head>
 <body>
@@ -1269,14 +1438,23 @@
       <div class="row"><div class="post" id="pb2"><i id="p2"></i></div><div class="ammo" id="a2"></div><div class="pips" id="w2"><b></b><b></b></div></div>
       <div class="ki-row"><div class="ki" id="kb2"><i id="k2"></i></div>KI</div>
     </div>
+    <div id="journeyGoal" data-i18n-skip aria-live="polite" hidden></div>
   </div>
-  <!-- Dokunmatik kumanda: solda yüzen yön çubuğu, sağda başparmak yayı. Olaylar input.js'te (tek kap, çoklu dokunma). -->
+  <!-- Touch pad: a stick (floating or fixed) or d-pad buttons for movement, the action buttons. touch.js places every
+       control (default layout or the player's own, made in the layout editor, js/touch-editor.js); input.js handles the
+       fingers (multi-touch). -->
   <div id="touch" class="simple" hidden>
     <div class="t-zone" id="tStick" aria-hidden="true">
       <div class="t-base" id="tBase"><i class="u">▲</i><i class="d" data-s="touch.btn.down">GARD</i><i class="l">◀</i><i class="r">▶</i><b class="t-knob" id="tKnob"></b></div>
     </div>
+    <div class="t-dpad" id="tDpad" aria-hidden="true">
+      <button type="button" tabindex="-1" data-dir="left" class="td-l">◀</button>
+      <button type="button" tabindex="-1" data-dir="right" class="td-r">▶</button>
+      <button type="button" tabindex="-1" data-dir="up" class="td-u">▲</button>
+      <button type="button" tabindex="-1" data-dir="guard" class="td-d">▼<small data-s="touch.btn.down">GARD</small></button>
+    </div>
     <div class="t-acts" id="tActs" aria-hidden="true">
-      <!-- yerleşim CSS'te (.ta-* sınıfları): basit düzen 5 düğme, tam düzen 7 düğme (touch.js #touch.simple / .full) -->
+      <!-- basit düzen 5 düğme, tam düzen 7 düğme; yerleri touch.js verir (#touch.simple / .full) -->
       <button type="button" tabindex="-1" data-act="light" class="ta-light"><span data-s="touch.btn.light">SALDIR</span></button>
       <button type="button" tabindex="-1" data-act="heavy" class="ta-heavy"><span data-s="touch.btn.heavy">AĞIR</span></button>
       <button type="button" tabindex="-1" data-act="dodge" class="ta-dodge"><span data-s="touch.btn.dodge">ATIL</span></button>
@@ -1305,7 +1483,7 @@
           </div>
         </div>
         <div class="modes">
-          <button class="mode primary play" id="mplay"><strong data-s="menu.play">Oyna</strong><span id="playSub"></span><kbd>Enter</kbd><b class="mk" aria-hidden="true">始</b></button>
+          <button class="mode primary play" id="mplay"><strong data-s="menu.play">Oyna</strong><span id="playSub" data-s="menu.arcadeDesc"></span><small class="prog" id="arcProg"></small><kbd>Enter</kbd><b class="mk" aria-hidden="true">道</b></button>
           <button class="honor-strip" id="mhonor" type="button" hidden></button>
           <button class="mode" id="m2p"><strong>İki Oyuncu</strong><span>Aynı klavyede ya da iki gamepad ile kafa kafaya</span><em class="need" data-s="touch.need2p"></em></button>
           <div class="mode" id="mcpu" role="button" tabindex="0">
@@ -1316,7 +1494,6 @@
               <button class="seg" data-lv="2" aria-pressed="false">Efsane</button>
             </div>
           </div>
-          <button class="mode arcade" id="marcade"><strong data-s="menu.arcade"></strong><span data-s="menu.arcadeDesc"></span><small class="prog" id="arcProg"></small><b class="mk" aria-hidden="true">道</b></button>
           <div class="mode-row bzrow">
             <button class="mode lbm bzm tour" id="mtour"><strong data-s="bz.menu.tour">Haftalık Turnuva</strong><small class="prog" id="tourStat"></small><b class="mk" aria-hidden="true">週</b></button>
             <button class="mode lbm bzm dan" id="mdan"><strong data-s="bz.menu.dan">Dan Sınavı</strong><small class="prog" id="danStat"></small><b class="mk" aria-hidden="true">段</b></button>
@@ -1338,11 +1515,12 @@
           <button class="tog" id="tMusic" aria-pressed="true"><i></i>Müzik</button>
           <button class="tog" id="tBlood" aria-pressed="true"><i></i>Kan efekti</button>
           <button class="tog" id="tHints" aria-pressed="true"><i></i><span data-t="touch.hints">Tuş ipuçları</span></button>
-          <button class="tog" id="tHq" aria-pressed="true"><i></i>Yüksek grafik</button>
+          <div class="gq" role="group" id="menuGfx" data-gq><span class="gq-t" data-gq-t></span><span class="gq-segs"><button type="button" class="seg" data-gfx="auto" aria-pressed="false"></button><button type="button" class="seg" data-gfx="high" aria-pressed="false"></button><button type="button" class="seg" data-gfx="medium" aria-pressed="false"></button><button type="button" class="seg" data-gfx="low" aria-pressed="false"></button></span><small class="gq-n"><b data-gq-now hidden></b> <span data-gq-d></span></small></div>
           <button class="tog nickb" id="tNick" type="button"><b aria-hidden="true">名</b><span id="tNickT"></span></button>
         </div>
       </section>
       <aside class="card" aria-label="Kontroller">
+        <div class="vol" id="menuVol"></div>
         <h2>Kontroller</h2>
         <div class="touch-help" data-sh="touch.help"></div>
         <div class="tset" id="menuTset"></div>
@@ -1379,7 +1557,7 @@
         <ul class="tips">
           <li><b>Savuşturma:</b> darbe gelmeden hemen önce gard tuşuna bas; rakip sendeler.</li>
           <li><b>Karşılık (返し技):</b> gard ya da savuşturmanın hemen ardından saldırı tuşu → anında karşı kesik. <b>İleri</b> + hafif = bacağa süpürme, <b>geri</b> + hafif = yanından dönüp arkadan kesme, <b>ağır</b> = güçlü karşı darbe.</li>
-          <li><b>Karşılıklı seri:</b> karşılık da karşılanabilir. Her turda vuruşlar hızlanır ve güçlenir; 5. karşılık üç vuruşluk sinematik bir bitirişe dönüşür. Seriyi kıran darbe ağır çekimde iner.</li>
+          <li><b>Karşılıklı seri:</b> karşılık da karşılanabilir. Her turda vuruşlar hızlanır ve güçlenir; kendi 3. karşılığın üç vuruşluk sinematik bir bitirişe dönüşür. Seriyi kıran darbe ağır çekimde iner.</li>
           <li><b>Kılıç kilidi:</b> kılıçlar çarpışınca kilitlenebilir. Hafif/ağır tuşuna hızlı basan rakibini iter.</li>
           <li><b>Ki barı</b> vurdukça, yedikçe ve savuşturdukça dolar. Dolunca her ninjanın kendine özgü ki tekniği açılır (Antrenman’daki hareket listesinde görebilirsin).</li>
           <li><b>Atılma + hafif</b> = atılarak kesik. <b>Havada</b> hafif = hava kesiği, ağır = dalış. Ağır kesik yere serer, duvara çarpan geri seker.</li>
@@ -1397,7 +1575,7 @@
       <div class="vk" aria-hidden="true">影の決闘</div>
       <h1>Gölge<br><em>Düel</em><em>losu</em></h1>
       <button class="btn primary first-play" id="fPlay" type="button"><span data-s="first.play">Oyna</span></button>
-      <p class="first-sub" data-s="first.sub">Tek tıkla dövüşe gir</p>
+      <p class="first-sub" data-s="menu.arcadeDesc"></p>
       <button class="first-menu" id="fMenu" type="button" data-s="first.menu">Tüm modlar</button>
     </div>
   </div>
@@ -1424,6 +1602,8 @@
           <dl class="bars" id="sb2"></dl>
         </div>
       </div>
+      <div class="journey-panel" id="journeyPanel" data-i18n-skip hidden></div>
+      <button class="btn" id="journeyLook" type="button" data-i18n-skip hidden></button>
       <div class="arena-row" id="arenaRow"><span data-s="sel.arena">Arena</span><div class="chips" id="arenaChips"></div></div>
       <div class="sel-actions">
         <button class="btn primary" id="bFight">Dövüşe başla</button>
@@ -1453,6 +1633,7 @@
       <div class="vs-top"><span class="st" id="vsStage"></span><span class="ar" id="vsArena"></span><span class="lv" id="vsLevel"></span></div>
       <div class="ladder" id="vsLadder" aria-hidden="true"></div>
       <div class="vs-mods" id="vsMods" hidden></div>
+      <div class="journey-note" id="journeyVs" data-i18n-skip hidden></div>
       <div class="vs-grid">
         <div class="vs-side l" id="vss1"><canvas id="vs1"></canvas><div class="vs-name"><b class="k" id="vsk1"></b><span id="vsn1"></span><small id="vst1"></small></div></div>
         <div class="vs-mid">VS</div>
@@ -1476,6 +1657,7 @@
         <div class="ed-text" id="edText"></div>
         <div class="ed-stats" id="edStats"></div>
         <div class="ed-unl" id="edUnl"></div>
+        <p class="journey-note" id="journeyReward" data-i18n-skip hidden></p>
         <div class="lbp" id="edRank" hidden aria-live="polite"></div>
         <div class="ed-btns">
           <button class="btn primary" id="edMenu" data-s="ending.menu"></button>
@@ -1494,6 +1676,9 @@
         <button class="btn" id="bRestart">Maçı yeniden başlat</button>
         <button class="btn" id="bMenu">Ana menü</button>
       </div>
+      <div class="vol" id="pauseVol"></div>
+      <!-- Graphics choice, also mid-match (same row as the menu's; game.js fills and wires every [data-gq]) -->
+      <div class="gq" role="group" id="pauseGfx" data-gq><span class="gq-t" data-gq-t></span><span class="gq-segs"><button type="button" class="seg" data-gfx="auto" aria-pressed="false"></button><button type="button" class="seg" data-gfx="high" aria-pressed="false"></button><button type="button" class="seg" data-gfx="medium" aria-pressed="false"></button><button type="button" class="seg" data-gfx="low" aria-pressed="false"></button></span><small class="gq-n"><b data-gq-now hidden></b> <span data-gq-d></span></small></div>
       <div class="tset" id="pauseTset"></div>
     </div>
   </div>
@@ -1582,8 +1767,10 @@
 </div>
 
 <script  src="js/core.js"></script>
+<script  src="js/perf.js"></script>
 <script  src="js/music.js"></script>
 <script  src="js/input.js"></script>
+<script  src="js/gfx.js"></script>
 <script  src="js/scene.js"></script>
 <script  src="js/skeleton.js"></script>
 <script  src="js/characters.js"></script>
@@ -1591,16 +1778,29 @@
 <script  src="js/specials.js"></script>
 <script  src="js/ai.js"></script>
 <script  src="js/honor.js"></script>
+<script  src="js/journey.js"></script>
+<script  src="js/journey-text.js"></script>
 <script  src="js/arcade.js"></script>
 <script  src="js/roster2.js"></script>
 <script  src="js/config.js"></script>
 <script  src="js/leaderboard.js"></script>
+<script  src="js/portal-user.js"></script>
 <script  src="js/banzuke.js"></script>
 <script  src="js/ads.js"></script>
 <script  src="js/coach.js"></script>
+<script  src="js/kaeshi-cine.js"></script>
+<script  src="js/combo-trial.js"></script>
 <script  src="js/touch.js"></script>
+<script  src="js/touch-editor.js"></script>
+<script  src="js/volume.js"></script>
 <script  src="js/i18n-en.js"></script>
+<script  src="js/i18n-es.js"></script>
+<script  src="js/i18n-pt.js"></script>
+<script  src="js/i18n-ru.js"></script>
+<script  src="js/i18n-de.js"></script>
+<script  src="js/i18n-fr.js"></script>
 <script  src="js/i18n.js"></script>
+<script  src="js/lang-ui.js"></script>
 <script  src="js/game.js"></script>
 </body>
 </html>

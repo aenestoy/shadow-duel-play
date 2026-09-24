@@ -13,6 +13,9 @@
     if (c.height < h) c.height = Math.ceil(h / 64) * 64;
   }
   const bc = document.createElement('canvas'), bx = bc.getContext('2d'), bc2 = document.createElement('canvas'), b2 = bc2.getContext('2d');
+  // Medium tier bloom buffers (game.postLite)
+  const blc = document.createElement('canvas'), blx = blc.getContext('2d'), blc2 = document.createElement('canvas'), bl2 = blc2.getContext('2d');
+  const blc3 = document.createElement('canvas'), bl3 = blc3.getContext('2d');
   const HAS_FILTER = typeof ctx.filter === 'string';
   const grain = document.createElement('canvas'); grain.width = grain.height = 128;
   { const gx = grain.getContext('2d'), im = gx.createImageData(128, 128);
@@ -47,11 +50,15 @@
   ND.settings.blood = !!(ND.bloodAllowed && ND.bloodAllowed()) && saved.bloodOptIn === true;
   ND.settings.music = saved.music !== false;
   ND.settings.hints = saved.hints !== false;
-  // Yüksek grafik: kullanıcı elle seçtiyse (hqUser) otomatik düşürme kalıcı kaydedilmez
-  let hqUser = !!saved.hqUser, hqAutoOff = false;
-  // Telefon/tablet: zayıf cihazda (≤4 GB bellek ya da ≤4 çekirdek) kullanıcı seçmediyse düşük grafikle başla
-  const TCH = ND.touch || {}, MOBILE = !!TCH.mobile, LOW_END = !!TCH.lowEnd;
-  ND.settings.hq = hqUser || !LOW_END ? saved.hq !== false : false;
+  // Graphics quality (js/gfx.js): saved choice `gfx`; older saves only had the "High graphics" switch — a switch the
+  // player set by hand (hqUser) becomes High / Low, everything else starts on Auto (device guess + auto ladder).
+  const TCH = ND.touch || {}, MOBILE = !!TCH.mobile;
+  const GFX = ND.gfx;
+  {
+    const lv = GFX.levels.includes(saved.gfx) ? saved.gfx : saved.hqUser ? (saved.hq !== false ? 'high' : 'low') : 'auto';
+    GFX.pref = lv;
+    GFX._setTier(lv === 'auto' ? GFX.guess() : lv, 'init');
+  }
   // Dokunmatik kumandanın görüneceği modlar (2P: 1. oyuncu dokunmatik, 2. oyuncu gamepad olabilir)
   const TOUCH_MODES = { cpu: 1, arcade: 1, train: 1, '2p': 1, tourney: 1, dan: 1, rival: 1 };
   const TOUCH_PHASES = { intro: 1, fight: 1, ko: 1, timeup: 1 };
@@ -62,7 +69,7 @@
   const charOk = (i) => !!ND.CHARS[i] && (!ND.save || ND.save.isCharUnlocked(ND.CHARS[i].id) || ND._trial === ND.CHARS[i].id);
   const arenaOk = (id) => !ND.save || ND.save.isArenaUnlocked(id);
   // Seçilebilir kadro: gizli olmayanlar + açılmış gizliler
-  const visibleChars = () => ND.CHARS.map((c, i) => i).filter((i) => !ND.CHARS[i].hidden || charOk(i));
+  const visibleChars = () => ND.CHARS.map((c, i) => i).filter((i) => !ND.CHARS[i].hidden || charOk(i) || ND.save?.rivalInfo(ND.CHARS[i].id)?.ready);
   const charIdx = (v, def) => { if (typeof v === 'number' && ND.CHARS[v]) return v; const i = ND.CHARS.findIndex((c) => c.id === v); return i >= 0 ? i : def; };
   const randArena = (onlyOpen) => { const list = ND.ARENAS.filter((a) => !onlyOpen || arenaOk(a.id)); return (list.length ? list : ND.ARENAS)[(Math.random() * (list.length || ND.ARENAS.length)) | 0].id; };
   // Seyret/menü arka planı: gizli son patron hariç herkes
@@ -84,7 +91,7 @@
     hit: 10,                                        // rakibe verilen her can puanı (ölçeklenmiş hasar) başına
     comboStep: 0.15, comboMax: 2, comboGap: 3,      // karşılıksız ardışık vuruş: ×(1 + 0.15·(n−1)), en çok ×2; 3 sn ara ya da yenen darbe sıfırlar
     counter: 60, counterMaxN: 6,                    // karşılık (kaeshi-waza) başlatma: 60 × seri adımı (en çok 6)
-    rallyBreak: 120, rallyMaxN: 8, finisher: 300,   // seriyi kıran vuruş: 120 × seri uzunluğu; 5. karşılık bitirişi
+    rallyBreak: 120, rallyMaxN: 8, finisher: 300,   // seriyi kıran vuruş: 120 × seri uzunluğu; kendi 3. karşılığın bitirişi
     parry: 150, gbreak: 250, knock: 100, lock: 150, special: 300,
     styleCap: 2500,                                 // raund başına vuruş dışı (stil) puan tavanı (çarpan öncesi)
     repeatRing: 6, repeatStep: 0.15, repeatMin: 0.25, // son 6 eylemde aynı eylemin her tekrarı −%15 (en az %25)
@@ -122,6 +129,7 @@
     damage(to, from, dmg, a, x, y) {
       if (to === f1) { if (dmg > 0) { this.combo = 0; this.comboT = 0; } return; }
       if (to !== f2 || from !== f1 || !(dmg > 0)) return;
+      if (game.mode === 'arcade') ND.arcade?.observeHit(from, a);
       this.combo = this.comboT > 0 ? this.combo + 1 : 1; this.comboT = SR.comboGap;
       const key = a.kind === 'shuriken' ? 'shuriken' : from.state === 'atk' ? 'a:' + from.atkName : 's:' + from.state + ':' + (a.kind || '');
       const base = dmg * SR.hit * this.dim(key);
@@ -221,6 +229,7 @@
       const r = setSt.apply(this, arguments);
       if (score.on && (s === 'parry' || s === 'gbreak')) {
         try { if (s === 'parry' && this === f1) score.parry(); else if (s === 'gbreak' && this === f2) score.gbreak(); } catch (e) { /* yok */ }
+        if (game.mode === 'arcade' && ((s === 'parry' && this === f1) || (s === 'gbreak' && this === f2))) ND.arcade?.observeDefense(s === 'parry' ? 'parry' : 'break');
       }
       return r;
     };
@@ -245,7 +254,12 @@
 
     // ---------------------------------------------------- mod başlatma
     start(mode, opts = {}) {
+      // a new match (or leaving to the menu) ends any coach still running from the previous fight
+      if (ND.coach && ND.coach.on) ND.coach.stop();
       this.mode = mode;
+      // Campaigns pass their current opponent's level; the saved CPU menu choice can be different.
+      // Training uses Apprentice timing. Local 2P and spectator modes retain the shared base rules.
+      this.matchLevel = mode === 'cpu' ? this.level : RUN_MODES[mode] ? (opts.level ?? 1) : mode === 'train' ? 0 : null;
       // başka moda geçilince etkin koşu biter (arcade/turnuva/Dan)
       if (this.runner && this.runner.mode !== mode) { this.runner.run = null; this.runner = null; }
       if (mode !== 'arcade' && ND.arcade && ND.arcade.run && this.runner !== ND.arcade) ND.arcade.run = null;
@@ -283,29 +297,37 @@
       $('pauseBtn').hidden = attract;
       this.paused = false; this.replay = null;
       input.touchReset(); this.syncTouch();
-      const H = STR.hud || {};
-      let t1 = '1P', t2 = '2P';
-      if (mode === 'watch') t1 = t2 = 'CPU';
-      else if (mode === 'cpu') { t1 = tx(H.you || 'SEN'); t2 = 'CPU · ' + upper(ND.AI_LEVELS[this.level].name); }
-      else if (RUN_MODES[mode] && this.runner) [t1, t2] = this.runner.hudTags();
-      else if (mode === 'train') { t1 = tx(H.you || 'SEN'); t2 = tx(H.dummy || 'KUKLA'); }
-      $('tag1').textContent = t1; $('tag2').textContent = t2;
-      // Dan rütbesi 1P adının yanında (tek oyunculu modlar)
-      const rk = $('rank1');
-      if (rk) { const tag = SOLO[mode] && ND.banzuke ? ND.banzuke.rankTag() : ''; rk.textContent = tag; rk.hidden = !tag; }
-      $('arenaName').textContent = (ND.ARENAS.find((a) => a.id === scene.themeId) || ND.ARENAS[0]).name;
+      this.hudTexts();
       mu.setMode(attract ? 'menu' : 'fight');
       this.startRound();
       if (mode === 'train') ND.training.onStart();
       if (attract && ND.arcade) ND.arcade.refreshMenu();
     },
 
+    // HUD name tags, rank and arena name in the current language (start of a match, and again after a language switch)
+    hudTexts() {
+      const mode = this.mode, H = STR.hud || {}, cpu = tx(H.cpu || 'CPU');
+      let t1 = '1P', t2 = '2P';
+      if (mode === 'watch') t1 = t2 = cpu;
+      else if (mode === 'cpu') { t1 = tx(H.you || 'SEN'); t2 = cpu + ' · ' + upper(ND.AI_LEVELS[this.level].name); }
+      else if (RUN_MODES[mode] && this.runner) [t1, t2] = this.runner.hudTags();
+      else if (mode === 'train') { t1 = tx(H.you || 'SEN'); t2 = tx(H.dummy || 'KUKLA'); }
+      $('tag1').textContent = t1; $('tag2').textContent = t2;
+      $('rlabel').textContent = tx('RAUND ' + this.round);
+      for (const f of F) $('nm' + (f.id + 1)).textContent = f.ch.name;
+      // Dan rütbesi 1P adının yanında (tek oyunculu modlar)
+      const rk = $('rank1');
+      if (rk) { const tag = SOLO[mode] && ND.banzuke ? ND.banzuke.rankTag() : ''; rk.textContent = tag; rk.hidden = !tag; }
+      $('arenaName').textContent = (ND.ARENAS.find((a) => a.id === scene.themeId) || ND.ARENAS[0]).name;
+    },
+
     // Tüm tam ekran katmanları kapat (menü/HUD hariç)
     hideOverlays() {
-      ['end', 'pause', 'select', 'vs', 'ending', 'replayTag', 'lockHint', 'rally', 'lb', 'bzLobby', 'bzRes', 'hall', 'honorOv', 'movesOv', 'reveal'].forEach((id) => { const el = $(id); if (el) el.hidden = true; });
+      ['end', 'pause', 'select', 'vs', 'ending', 'replayTag', 'lockHint', 'rally', 'lb', 'bzLobby', 'bzRes', 'hall', 'honorOv', 'movesOv', 'reveal', 'journeyVs', 'journeyGoal'].forEach((id) => { const el = $(id); if (el) el.hidden = true; });
       if (ND.lbUI) ND.lbUI.open = false;
       if (ND.banzuke) ND.banzuke.onHidden();
       if (ND.training) ND.training.hide();
+      $('vs').classList.remove('journey');
       $('banner').classList.remove('show');
     },
 
@@ -326,13 +348,15 @@
       this.syncTouch();
       this.ensurePv(); this.pvIds = ids;
       const set = (pv, ci, alt, dir) => { pv.setChar(ND.CHARS[ci], alt); pv.reset(0); pv.dir = dir; pv.pvPose = null; };
-      set(this.pv[0], c1, false, 1);
-      if (c2 != null) set(this.pv[1], c2, c1 === c2, -1);
+      const legacy = !!ND.save?.useLegacy(ND.CHARS[c1].id);
+      set(this.pv[0], c1, legacy, 1);
+      if (c2 != null) set(this.pv[1], c2, c1 === c2 && !legacy, -1);
     },
 
     applyChars(i1, i2) {
       const c1 = ND.CHARS[i1], c2 = ND.CHARS[i2];
-      f1.setChar(c1, false); f2.setChar(c2, i1 === i2);
+      const legacy = !['attract', 'watch', '2p'].includes(this.mode) && !!ND.save?.useLegacy(c1.id);
+      f1.setChar(c1, legacy); f2.setChar(c2, i1 === i2 && !legacy);
       for (const n of [1, 2]) {
         const f = F[n - 1];
         $('nm' + n).textContent = f.ch.name; $('kj' + n).textContent = f.ch.kanji; $('kj' + n).style.color = f.col.ui;
@@ -342,11 +366,11 @@
 
     startRound() {
       f1.reset(-260); f2.reset(260);
-      this.projs = []; fx.clear(); ND.specialFx?.clear(); this.lock = null; $('lockHint').hidden = true;
+      this.projs = []; fx.clear(); ND.specialFx?.clear(); ND.cine?.clear(); this.lock = null; $('lockHint').hidden = true;
       this.timer = ROUND_TIME; this.phase = 'intro'; this.pt = 0; this.slow = 1; this.slowT = 0; this.hitstopT = 0; this.dim = 0;
       this.focus = { x: 0, y: -130, z: 0.82 }; this.flags = {}; this.doubleKO = false; this.winner = null;
       this.rec = []; this.koIndex = -1; this.fxEvents = [];
-      this.rally = { n: 0, last: null, t: 0 }; this.cineT = 0; this.rallyHud();
+      this.rally = { n: 0, last: null, t: 0, turns: [0, 0], serial: null }; this.cineT = 0; this.cineZ = 0; this.rallyHud();
       if (ND.mods) ND.mods.roundStart(F); // değiştiriciler: dolu ki, üç kat shuriken, yarım can…
       score.roundStart();
       $('rlabel').textContent = tx('RAUND ' + this.round);
@@ -382,14 +406,12 @@
     },
 
     // ---------------------------------------------------- karşılık serisi (kaeshi-waza)
-    onCounter(f, name) {
+    onCounter(f, name, source) {
       const R = this.rally;
-      if (R.last && R.last !== f && R.t < 1.5) R.n++; else R.n = 1;
-      R.last = f; R.t = 0;
+      const stage = f.counterStage = ND.RALLY.advance(R, f, source);
       let nm = name;
-      if (R.n >= 5 && name !== 'mawari') nm = 'finisher';
+      if (stage >= 3 && name !== 'mawari') nm = 'finisher';
       const speed = 1 + 0.07 * Math.min(R.n - 1, 7);
-      if (R.n >= 2) fx.text(f.x, -236, R.n + '. KARŞILIK', '#ffe3a1');
       if (R.n >= 3 && this.mode !== 'attract') mu.setMode('final');
       if (f === f1) score.counter(R.n);
       if (this.stats && this.phase === 'fight') this.stats[f.id].counters++;
@@ -398,7 +420,7 @@
       return { name: nm, speed };
     },
     onFinisher(f) {
-      this.dim = 0.9; this.slowT = 0.6; this.slowV = 0.5; this.cineT = 0.9; this.cineX = (f.x + f.opp.x) / 2;
+      this.dim = 0.9; this.slowT = 0.6; this.slowV = 0.5; this.cineT = 0.9; this.cineZ = 1.5; this.cineX = (f.x + f.opp.x) / 2;
       fx.text(f.x, -258, 'SON VURUŞ!', f.col.ui);
       au.whoosh(1.5); au.taiko(1.1); cam.punch(5);
       if (f === f1) score.finisher();
@@ -409,17 +431,18 @@
       if (from === f1 && R.n >= 2) score.rallyBreak(R.n, to);
       if (R.n >= 3 && this.stats && this.stats[from.id]) this.stats[from.id].rallies++;
       if (R.n >= 3) {
-        this.slowT = 0.85; this.slowV = 0.25; this.cineT = 0.9; this.cineX = to.x;
+        this.slowT = 0.85; this.slowV = 0.25; this.cineT = 0.9; this.cineZ = 1.5; this.cineX = to.x;
         fx.text(to.x, -262, R.n + ' VURUŞLUK SERİ!', '#ff9b7a');
         au.taiko(1.2); cam.punch(10);
       }
-      R.n = 0; R.last = null; this.rallyHud();
+      ND.RALLY.reset(R); this.rallyHud();
     },
     rallyHud() {
-      const n = this.rally.n, el = $('rally');
+      const R = this.rally, who = SOLO[this.mode] ? f1 : R.last;
+      const n = (who && R.turns && R.turns[who.id]) || 0, el = $('rally');
       if (!el) return;
-      el.hidden = n < 2 || this.mode === 'attract';
-      if (n >= 2) { $('rallyN').textContent = n; el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); el.classList.toggle('hot', n >= 4); }
+      el.hidden = n < 1 || this.mode === 'attract';
+      if (n >= 1) { $('rallyN').textContent = n + '×'; el.style.color = who.col.ui; el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); el.classList.toggle('hot', n >= 3); }
     },
     isHuman(f) { return this.mode === '2p' || (SOLO[this.mode] && f === f1); },
     // Filmdeki gibi tuş istemi: daralan halka doğru anı gösterir
@@ -435,7 +458,10 @@
         const o = f.opp, L = tch ? [tx(TB.light || 'HAFİF'), tx(TB.guard || 'GARD')] : f === f1 ? [keyLabel('KeyF'), keyLabel('KeyS')] : [keyLabel('KeyK'), '↓'];
         let frac = -1, key, label, col;
         const cw = f.counterUntil - this.clock;
-        if (cw > 0 && ['block', 'parry', 'guard', 'move', 'recoil'].includes(f.state)) { frac = cw / f.counterWin; key = L[0]; label = tx('KARŞILIK'); col = '255,210,122'; }
+        if (cw > 0 && ['block', 'parry', 'guard', 'move', 'recoil'].includes(f.state)) {
+          if (ND.cine) continue; // the STRIKE! prompt with its shrinking bar (ND.cine.draw) shows the counter window
+          frac = cw / f.counterWin; key = L[0]; label = tx('KARŞILIK'); col = '255,210,122';
+        }
         // savuşturma istemi: normalde yalnız karşılık hareketlerinde; antrenmanda her kılıç darbesinde
         else if (o.state === 'atk' && (o.atk.counter || (this.mode === 'train' && o.atk.kind === 'blade')) && !o.hitDone) {
           const w = o.curWin(false);
@@ -609,12 +635,15 @@
       this.showScore(null);
       // Onur: maç dökümü (koşu denetleyicisi bonus satırı ekleyebilir, sonra gösterilir)
       let hon = null;
-      if (HONOR_MODES[this.mode] && ND.honor) {
-        try {
-          hon = ND.honor.award({ mode: this.mode, won: w === f1, level: score.level, roundsWon: this.wins[0], parries: s[0].parries, counters: s[0].counters, rallies: s[0].rallies, perfects: s[0].perfect });
-        } catch (e) { console.warn('[honor]', e); }
-      }
-      const handled = this.runner && this.mode === this.runner.mode && this.runner.onMatchEnd(w, res);
+      const settle = () => {
+        if (HONOR_MODES[this.mode] && ND.honor) {
+          try {
+            hon = ND.honor.award({ mode: this.mode, won: w === f1, level: score.level, roundsWon: this.wins[0], parries: s[0].parries, counters: s[0].counters, rallies: s[0].rallies, perfects: s[0].perfect });
+          } catch (e) { console.warn('[honor]', e); }
+        }
+        return this.runner && this.mode === this.runner.mode && this.runner.onMatchEnd(w, res);
+      };
+      const handled = ND.save?.transaction ? ND.save.transaction(settle) : settle();
       if (ND.honor) ND.honor.render($('endHonor'), hon, { challenge: this.mode === 'cpu' });
       if (handled) return;
       if (this.mode === 'cpu' && res) this.cpuResult(res);
@@ -758,20 +787,21 @@
           if (this.hitstopT > 0) break;
         }
         const R = this.rally;
-        if (R.n) { R.t += fdt; if (R.t > 1.6) { R.n = 0; R.last = null; this.rallyHud(); } }
+        if (R.n) { R.t += fdt; if (R.t > 1.6) { ND.RALLY.reset(R); this.rallyHud(); } }
         this.projs = this.projs.filter((p) => !p.dead);
         const stuck = this.projs.filter((p) => p.stuck);
         if (stuck.length > 14) this.projs.splice(this.projs.indexOf(stuck[0]), 1);
       }
       fx.update(fdt > 0 ? gdt : gdt * 0.25);
       ND.specialFx?.update(fdt > 0 ? gdt : gdt * 0.25);
+      if (ND.cine) ND.cine.update(rdt);
       if (this.runner && this.mode === this.runner.mode) this.runner.tick(rdt);
-      else if (this.mode === 'train') ND.training?.tick(rdt);
+      else if (this.mode === 'train') { ND.training?.tick(rdt); ND.comboTrial?.tick(rdt); }
       score.tick(rdt, fdt);
       let focus = this.focus;
       const mid = (f1.x + f2.x) / 2;
       if (!focus && this.lock) focus = { x: mid, y: -115, z: 1.35 };
-      else if (!focus && this.cineT > 0) focus = { x: this.cineX, y: -108, z: 1.55 };
+      else if (!focus && this.cineT > 0) focus = { x: this.cineX, y: -108, z: this.cineZ || 1.55 };
       else if (!focus && this.rally.n >= 2 && Math.abs(f1.x - f2.x) < 420) focus = { x: mid, y: -116, z: Math.min(1.45, 1.08 + 0.06 * this.rally.n) };
       cam.follow(rdt, f1, f2, focus);
       this.bars = ND.M.approach(this.bars, (this.phase === 'ko' && this.pt < 3.5) || this.lock ? 1 : 0, 6, rdt);
@@ -790,6 +820,9 @@
     // A little slack (SLACK of a step) absorbs rAF jitter so a 60 Hz screen gets exactly two steps every frame
     // instead of alternating 1/3; the debt is kept in acc, so over time the speed is exact.
     STEP: 1 / 120,
+    // Safety net only: the frame-time clamp (0.05 s) plus the < 0.8-step remainder already keeps a frame at ≤ 7
+    // steps, so this never changes timing; it guards against a future change to that clamp.
+    MAX_STEPS: 8,
     acc: 0,
     advance(rdt) {
       const STEP = this.STEP, SLACK = 0.2;
@@ -797,6 +830,9 @@
       let n = Math.floor(this.acc / STEP + SLACK);
       if (n <= 0) return 0;
       this.acc -= n * STEP;
+      // Catch-up cap: at most MAX_STEPS steps in one frame, the rest of the debt is dropped, so one slow frame can
+      // never make the next one slower (spiral of death). 60 Hz = 2 steps, 30 Hz = 4, 20 Hz = 6.
+      if (n > this.MAX_STEPS) { n = this.MAX_STEPS; this.acc = Math.min(this.acc, STEP); }
       this.inBatch = true;
       try {
         while (n-- > 0) {
@@ -843,12 +879,14 @@
       if (!withFighters) { scene.drawFront(ctx); PM('front'); return; }
       if (this.dim > 0) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = `rgba(0,0,0,${this.dim * 0.55})`; ctx.fillRect(0, 0, cam.W, cam.H); }
       cam.world(ctx);
-      ctx.save(); ctx.globalAlpha = scene.theme.reflect; ctx.transform(1, 0, 0, -0.55, 0, 0);
-      for (const f of F) f.draw(ctx, true);
-      ctx.restore();
+      if (GFX.f.reflect) {
+        ctx.save(); ctx.globalAlpha = scene.theme.reflect; ctx.transform(1, 0, 0, -0.55, 0, 0);
+        for (const f of F) f.draw(ctx, true);
+        ctx.restore();
+      }
       PM('reflect');
       for (const f of F) f.drawShadow(ctx);
-      if (ND.settings.hq) this.castShadows();
+      if (GFX.f.shadows) this.castShadows();
       PM('shadows');
       scene.drawWeather(ctx, false);
       cam.world(ctx);
@@ -871,6 +909,7 @@
       fx.drawTexts(ctx);
       score.drawPops(ctx);
       this.drawPrompts();
+      if (ND.cine) ND.cine.draw(ctx); // counter prompt, kaeshi-waza banner, screen slash, damage number, combo counter
       this.overlays();
       PM('hud');
     },
@@ -923,7 +962,9 @@
     },
     // Işıma (bloom) + film greni
     post() {
-      if (!ND.settings.hq) return;
+      const bloom = GFX.f.bloom;
+      if (!bloom) return;
+      if (bloom === 1) { this.postLite(); return; }
       const bw = Math.max(1, cam.W >> 2), bh = Math.max(1, cam.H >> 2);
       if (bc.width !== bw || bc.height !== bh) { bc.width = bc2.width = bw; bc.height = bc2.height = bh; }
       bx.globalCompositeOperation = 'copy'; bx.globalAlpha = 1; bx.drawImage(cv, 0, 0, bw, bh);
@@ -938,6 +979,24 @@
       ctx.globalCompositeOperation = 'overlay'; ctx.globalAlpha = 0.07;
       ctx.translate((Math.random() * 128) | 0, (Math.random() * 128) | 0);
       ctx.fillStyle = grainPat; ctx.fillRect(-128, -128, cam.W + 128, cam.H + 128);
+      ctx.restore();
+      PM('post');
+    },
+    // Medium tier bloom: the same bright-pass as High (a 1/4 copy, two multiplies keep only the bright parts), then
+    // softened by halving twice (1/8, 1/16) instead of a blur filter (ctx.filter is slow or missing on phones).
+    // No film grain: its 'overlay' blend is an extra full-screen pass that reads the screen back on many phone GPUs.
+    postLite() {
+      const w4 = Math.max(1, cam.W >> 2), h4 = Math.max(1, cam.H >> 2), w8 = Math.max(1, w4 >> 1), h8 = Math.max(1, h4 >> 1), w16 = Math.max(1, w8 >> 1), h16 = Math.max(1, h8 >> 1);
+      if (blc.width !== w4 || blc.height !== h4) { blc.width = w4; blc.height = h4; }
+      if (blc2.width !== w8 || blc2.height !== h8) { blc2.width = w8; blc2.height = h8; }
+      if (blc3.width !== w16 || blc3.height !== h16) { blc3.width = w16; blc3.height = h16; }
+      blx.globalCompositeOperation = 'copy'; blx.globalAlpha = 1; blx.drawImage(cv, 0, 0, w4, h4);
+      blx.globalCompositeOperation = 'multiply'; blx.drawImage(blc, 0, 0); blx.drawImage(blc, 0, 0);
+      bl2.globalCompositeOperation = 'copy'; bl2.drawImage(blc, 0, 0, w8, h8);
+      bl3.globalCompositeOperation = 'copy'; bl3.drawImage(blc2, 0, 0, w16, h16);
+      ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = scene.theme.bloom ?? 0.5;
+      ctx.drawImage(blc3, 0, 0, cam.W, cam.H);
       ctx.restore();
       PM('post');
     },
@@ -990,7 +1049,8 @@
         $('kb' + n).classList.toggle('full', f.ki >= 100);
         const am = $('a' + n), cap = Math.max(f.ch.ammo, f.ammo), key = f.ammo + '/' + cap;
         if (am._n !== key) { am._n = key; am.innerHTML = Array.from({ length: cap }, (_, k) => `<b class="${k < f.ammo ? 'on' : ''}"></b>`).join(''); }
-        [...$('w' + n).children].forEach((b, k) => b.classList.toggle('on', k < this.wins[i]));
+        const wb = $('w' + n).children; // round-win pips (live list: no array copy per frame)
+        for (let k = 0; k < wb.length; k++) wb[k].classList.toggle('on', k < this.wins[i]);
       }
       const tt = this.mode === 'train' ? '∞' : Math.ceil(this.timer), te = $('timer');
       if (te._t !== tt) { te._t = tt; te.textContent = tt; $('clock').classList.toggle('urgent', tt <= 10); }
@@ -1197,7 +1257,8 @@
     refreshSelect() {
       const S = this.sel;
       for (let i = 0; i < 2; i++) {
-        const ch = ND.CHARS[S.c[i]], n = i + 1, alt = i === 1 && S.c[0] === S.c[1];
+        const ch = ND.CHARS[S.c[i]], n = i + 1, legacy = !['watch', '2p'].includes(this.selMode) && !!ND.save?.useLegacy(ND.CHARS[S.c[0]].id);
+        const alt = i === 0 ? legacy : S.c[0] === S.c[1] && !legacy;
         const col = alt ? ch.alt : ch.col;
         $('sn' + n).textContent = ch.name; $('sk' + n).textContent = ch.kanji; $('sk' + n).style.color = col.ui;
         $('st' + n).textContent = ch.title + ' · ' + ch.weapon; $('sd' + n).textContent = ch.desc; $('sd' + n).classList.remove('lockmsg');
@@ -1213,6 +1274,7 @@
         [...$('ro' + n).children].forEach((b) => b.setAttribute('aria-pressed', String(+b.dataset.k === S.c[i])));
       }
       document.querySelectorAll('#arenaChips [data-arena]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.arena === S.arena)));
+      ND.arcade?.refreshSelect();
     },
     cycle(i, d) {
       const list = visibleChars().filter(charOk); if (!list.length) return;
@@ -1275,39 +1337,25 @@
   // ---------------------------------------------------------------- UI bağlantıları
   function persist() {
     const id = (i) => (ND.CHARS[i] ? ND.CHARS[i].id : i);
-    const hq = hqAutoOff && hqUser ? true : ND.settings.hq;
+    // graphics: the player's choice (Auto's own steps are not saved); hq / hqUser keep older builds reading it right
+    const gfx = GFX.pref, hq = gfx !== 'low', hqUser = gfx !== 'auto';
     // merged into what is stored, so settings kept by other files (touch controls: key "touch", js/touch.js) survive
-    store.set(Object.assign(store.get(), { sound: ND.settings.sound, bloodOptIn: ND.settings.blood, music: ND.settings.music, hints: ND.settings.hints, hq, hqUser, level: game.level, c1: id(game.sel.c[0]), c2: id(game.sel.c[1]), arena: game.sel.arena }));
+    store.set(Object.assign(store.get(), { sound: ND.settings.sound, bloodOptIn: ND.settings.blood, music: ND.settings.music, hints: ND.settings.hints, gfx, hq, hqUser, level: game.level, c1: id(game.sel.c[0]), c2: id(game.sel.c[1]), arena: game.sel.arena }));
   }
   function unlockAudio() { au.init(); au.setEnabled(ND.settings.sound); mu.init(); mu.setEnabled(ND.settings.music); if (mu.mode === 'off') mu.setMode(game.phase === 'fight' ? 'fight' : 'menu'); }
   function choose(mode) { unlockAudio(); au.ui(); if (mode === 'watch') { au.quiet = false; game.start('watch'); } else game.openSelect(mode); }
   function goMenu() { game.start('attract'); mu.setMode('menu'); if ($('first')) $('first').hidden = true; refreshPlay(); setTimeout(() => $('mplay').focus(), 0); }
-  // PLAY: straight into a fight against the CPU with the last ninja (first visit: Akane vs an Apprentice, with 3 tips)
-  function quickPlay(first) {
-    unlockAudio(); au.ui();
-    const open = visibleChars().filter(charOk);
-    const akane = ND.CHARS.findIndex((c) => c.id === 'akane');
-    const c1 = first && akane >= 0 ? akane : charOk(game.sel.c[0]) ? game.sel.c[0] : open[0];
-    const pool = open.filter((i) => i !== c1 && !ND.CHARS[i].hidden);
-    const c2 = first ? (ND.CHARS.findIndex((c) => c.id === 'aoi') >= 0 ? ND.CHARS.findIndex((c) => c.id === 'aoi') : pool[0]) : pool[(Math.random() * pool.length) | 0] ?? open[0];
-    if (first) {
-      game.level = 0;
-      document.querySelectorAll('.seg[data-lv]').forEach((x) => x.setAttribute('aria-pressed', String(+x.dataset.lv === 0)));
-      if (ND.save) { ND.save.p.firstDone = true; ND.save.commit(); }
-    }
-    game.sel.c[0] = c1; game.sel.c[1] = c2;
-    persist();
+  // PLAY opens the saved character journeys. VS CPU remains the single-match entry.
+  function playJourney() {
+    if (ND.save && !ND.save.p.firstDone) { ND.save.p.firstDone = true; ND.save.commit(); }
     if ($('first')) $('first').hidden = true;
-    au.gong();
-    game.start('cpu', { c1, c2, arena: first ? 'temple' : 'random' });
-    if (first && ND.coach) ND.coach.start();
+    choose('arcade');
   }
-  game.quickPlay = quickPlay;
+  game.quickPlay = playJourney;
   function refreshPlay() {
     const el = $('playSub'), M = STR.menu || {};
     if (!el) return;
-    const c = ND.CHARS[charOk(game.sel.c[0]) ? game.sel.c[0] : 0], lv = ND.AI_LEVELS[game.level] || ND.AI_LEVELS[1];
-    el.textContent = M.playSub ? M.playSub(c.name[0] + c.name.slice(1).toLowerCase(), lv.name) : '';
+    el.textContent = M.arcadeDesc || '';
   }
   game.refreshPlay = refreshPlay;
   game.goMenu = goMenu;
@@ -1340,8 +1388,8 @@
     choose('2p');
   };
   $('mwatch').onclick = () => choose('watch');
-  $('mplay').onclick = () => quickPlay(false);
-  if ($('fPlay')) $('fPlay').onclick = () => quickPlay(true);
+  $('mplay').onclick = playJourney;
+  if ($('fPlay')) $('fPlay').onclick = playJourney;
   if ($('fMenu')) $('fMenu').onclick = () => { unlockAudio(); au.ui(); if (ND.save) { ND.save.p.firstDone = true; ND.save.commit(); } $('first').hidden = true; $('menu').hidden = false; refreshPlay(); setTimeout(() => $('mplay').focus(), 0); };
   // Sıralama: menünün üstünde açılır (arka planda gösteri maçı sürer); kapatınca menüye döner
   $('mlb').onclick = () => {
@@ -1351,7 +1399,6 @@
     $('menu').hidden = true;
     ND.lbUI.show(null, { back: () => { if (game.mode === 'attract') { $('menu').hidden = false; setTimeout(() => $('mlb').focus(), 0); } else goMenu(); } });
   };
-  $('marcade').onclick = () => choose('arcade');
   // Rekabet kartları (banzuke.js yoksa gizli)
   ['mtour', 'mdan'].forEach((id) => { const el = $(id); if (el && !ND.banzuke) el.hidden = true; });
   if ($('mtour')) $('mtour').addEventListener('click', unlockAudio);
@@ -1367,13 +1414,130 @@
       document.querySelectorAll('.seg[data-lv]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
     };
   });
-  const toggles = { tSound: 'sound', tBlood: 'blood', tMusic: 'music', tHints: 'hints', tHq: 'hq' };
+  const toggles = { tSound: 'sound', tBlood: 'blood', tMusic: 'music', tHints: 'hints' };
+  // Graphics choice: the [data-gq] rows in the menu's options and the pause dialog (index.html), four .seg buttons
+  // data-gfx="auto|high|medium|low". A press applies and saves (ND.gfx.setQuality → the GFX.onChange listener below
+  // persists). Texts from ND.STR.gfx: title, levels, and one line under the row — on Auto it says which tier is drawn
+  // right now (it can step down during a slow fight). Rebuilt on a language change like the other panels.
+  const gfxRows = () => document.querySelectorAll('[data-gq]');
+  function gfxTexts() {
+    const G = STR.gfx || {}, L = G.levels || {};
+    gfxRows().forEach((row) => {
+      const t = row.querySelector('[data-gq-t]');
+      if (t) t.textContent = G.title || '';
+      row.setAttribute('aria-label', G.title || '');
+      row.querySelectorAll('[data-gfx]').forEach((b) => { b.textContent = L[b.dataset.gfx] || b.dataset.gfx; });
+    });
+    syncGfx();
+  }
+  function syncGfx() {
+    const G = STR.gfx || {}, L = G.levels || {}, N = G.note || {}, pref = GFX.getQuality();
+    let now = '';
+    if (pref === 'auto' && typeof G.now === 'function') { try { now = G.now(L[GFX.active()] || GFX.active()); } catch (e) { now = ''; } }
+    gfxRows().forEach((row) => {
+      row.querySelectorAll('[data-gfx]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.gfx === pref)));
+      const n = row.querySelector('[data-gq-now]'), d = row.querySelector('[data-gq-d]');
+      if (n && n.textContent !== now) n.textContent = now;
+      if (n) n.hidden = !now;
+      const desc = N[pref] || '';
+      if (d && d.textContent !== desc) d.textContent = desc;
+    });
+  }
+  gfxRows().forEach((row) => row.querySelectorAll('[data-gfx]').forEach((b) => {
+    b.onclick = (e) => { e.stopPropagation(); GFX.setQuality(b.dataset.gfx); unlockAudio(); au.ui(); };
+  }));
+  gfxTexts();
+  ND.i18n?.onChange(gfxTexts);
+
+  // Touch help in the menu's Controls card (data-sh="touch.help" = ND.STR.touch.help): its first column follows the
+  // movement mode the player chose (floating stick / fixed stick / d-pad, d-pad with tap to step) and one line under
+  // it points to "Customize controls". Texts ND.STR.thelp. Redrawn when the touch settings change (every change ends
+  // with js/touch.js refreshing the pressed states of the settings panel) or the language does (i18n first refills
+  // the help from the table, then calls its listeners).
+  function touchHelp() {
+    const box = document.querySelector('.touch-help'), H = STR.thelp, src = STR.touch && STR.touch.help;
+    if (!box || !H || typeof src !== 'string') return;
+    const P = ND.touchPrefs || {}, mode = H[P.move] ? P.move : 'float', dtap = mode === 'dpad' && !!P.dtap;
+    const sig = mode + (dtap ? '+tap' : '') + '|' + (ND.i18n ? ND.i18n.lang : '');
+    if (box.dataset.hm === sig && box.querySelector('[data-hm]')) return;
+    const M = H[mode] || {}, tb = (t, c) => `<i class="tb${c ? ' ' + c : ''}">${t}</i>`;
+    const row = (chip, text) => (text ? `<dt>${chip}</dt><dd>${text}</dd>` : '');
+    const rows = mode === 'dpad'
+      ? row(tb('◀ ▶'), M.walk) + (dtap ? row(tb('◀ ▶'), M.step) : '') + row(tb('▲'), M.jump) + row(tb('▼', 'tb-guard'), M.guard) + row(tb('▶▶'), M.dash) + row(tb('▶ ▲'), M.both)
+      : row(tb('◀ ▶'), M.walk) + row(tb('▲'), M.jump) + row(tb('▼', 'tb-guard'), M.guard) + row(tb('▶▶'), M.dash);
+    const col = `<div data-hm><h3>${(H.title && H.title[mode]) || ''}</h3><dl>${rows}</dl></div>`;
+    // the buttons column stays the table's own (trusted HTML, like STR.apply's data-sh)
+    const t = document.createElement('template');
+    t.innerHTML = src;
+    const grid = t.content.querySelector('.th-grid');
+    if (grid && grid.firstElementChild) grid.firstElementChild.outerHTML = col;
+    const ed = STR.tedit && STR.tedit.edit;
+    const line = typeof H.edit === 'function' && ed ? `<p class="note">${H.edit(tb(ed, 'tb-light'))}</p>` : '';
+    box.innerHTML = (grid ? t.innerHTML : col) + line;
+    box.dataset.hm = sig;
+  }
+  touchHelp();
+  ND.i18n?.onChange(touchHelp);
+  if ($('menuTset') && typeof MutationObserver !== 'undefined') {
+    new MutationObserver(touchHelp).observe($('menuTset'), { subtree: true, childList: true, attributes: true, attributeFilter: ['aria-pressed'] });
+  }
+
+  // Training tip bar (#trTip, filled by arcade.js) on touch: the stylesheet's spot fits the default button layout
+  // only. With the pad on screen the bar goes to the lowest band of the screen where it overlaps no placed control
+  // (positions from js/touch.js: ND.touchUI.geo(), the live controls of the movement mode, hidden ones skipped),
+  // centred in the widest free gap of that band. Runs when the tip, the pad or its layout change; not per frame.
+  function placeTip() {
+    const tip = $('trTip'), pad = $('touch'), TU = ND.touchUI;
+    const G = TU && TU.geo ? TU.geo() : null;
+    if (!tip) return;
+    if (tip.hidden || !tOn() || !pad || pad.hidden || !G || !G.items) {
+      if (tip._placed) { tip._placed = false; ['left', 'right', 'bottom', 'width', 'maxWidth', 'margin', 'transform'].forEach((k) => (tip.style[k] = '')); }
+      return;
+    }
+    const { S, items } = G, M = 6; // M: clear space kept around every control
+    const ids = TU.liveIds ? TU.liveIds((ND.touchPrefs || {}).move) : Object.keys(items);
+    const boxes = [];
+    for (const id of ids) { const q = items[id]; if (q && !q.h) boxes.push([q.cx - q.d / 2 - M, q.cy - q.d / 2 - M, q.cx + q.d / 2 + M, q.cy + q.d / 2 + M]); }
+    const x0 = S.sl + 8, x1 = S.W - S.sr - 8, maxW = Math.min(560, x1 - x0), minW = Math.min(maxW, Math.max(240, (x1 - x0) * 0.34));
+    // widest free horizontal gap in the band [top, bottom]
+    const gap = (top, bottom) => {
+      const iv = boxes.filter((b) => b[1] < bottom && b[3] > top).map((b) => [b[0], b[2]]).sort((a, b) => a[0] - b[0]);
+      let best = [x0, x0], from = x0;
+      for (const [a, b] of iv) { if (a > from && Math.min(a, x1) - from > best[1] - best[0]) best = [from, Math.min(a, x1)]; if (b > from) from = b; }
+      if (x1 - from > best[1] - best[0]) best = [from, x1];
+      return best;
+    };
+    tip._placed = true;
+    Object.assign(tip.style, { right: 'auto', maxWidth: 'none', margin: '0', transform: 'none' });
+    let w = maxW, fallback = null;
+    tip.style.width = w + 'px';
+    let h = tip.offsetHeight;
+    for (let b = 8; b <= S.H * 0.6; b += 6) {
+      let g = gap(S.H - b - h, S.H - b), gw = g[1] - g[0];
+      if (!fallback || gw > fallback.gw) fallback = { b, g, gw };
+      if (gw < minW) continue;
+      // narrower bar → taller text: measure again and check the band still fits
+      const nw = Math.min(maxW, gw);
+      if (nw !== w) { w = nw; tip.style.width = w + 'px'; h = tip.offsetHeight; g = gap(S.H - b - h, S.H - b); gw = g[1] - g[0]; if (gw < w) continue; }
+      Object.assign(tip.style, { left: (g[0] + (gw - w) / 2).toFixed(1) + 'px', bottom: b + 'px' });
+      return;
+    }
+    // no band wide enough (very crowded layout): the widest gap found
+    const f = fallback, fw = Math.max(160, Math.min(maxW, f.gw));
+    Object.assign(tip.style, { width: fw + 'px', left: Math.max(x0, f.g[0] + (f.gw - fw) / 2).toFixed(1) + 'px', bottom: f.b + 'px' });
+  }
+  game.placeTip = placeTip;
+  if (typeof MutationObserver !== 'undefined') {
+    if ($('trTip')) new MutationObserver(placeTip).observe($('trTip'), { attributes: true, attributeFilter: ['hidden'], childList: true });
+    if ($('touch')) new MutationObserver(placeTip).observe($('touch'), { attributes: true, attributeFilter: ['hidden', 'class', 'style', 'data-move'] });
+  }
+  ND.touch?.onChange?.(placeTip);
   for (const id in toggles) {
     const key = toggles[id], el = $(id);
+    if (!el) continue;
     el.setAttribute('aria-pressed', String(ND.settings[key]));
     el.onclick = () => {
       ND.settings[key] = !ND.settings[key]; el.setAttribute('aria-pressed', String(ND.settings[key]));
-      if (key === 'hq') { hqUser = true; hqAutoOff = false; perf.done = true; drsReset(); } // elle seçim: otomatik ayar bir daha karışmaz; çözünürlük baştan ölçülür
       unlockAudio(); persist();
       if (key === 'blood' && !ND.settings.blood) fx.decals.length = 0;
     };
@@ -1432,7 +1596,7 @@
     if (input.isPause(e)) { setPause(!game.paused); return true; }
     if (game.mode === 'train' && ND.training?.onKey(e)) return true;
     if (e.code === 'Enter' && !e.repeat && game.mode === 'attract' && (document.activeElement === document.body || !document.activeElement)) {
-      if (!$('first').hidden || !$('menu').hidden) { quickPlay(!$('first').hidden); return true; }
+      if (!$('first').hidden || !$('menu').hidden) { playJourney(); return true; }
     }
     return false;
   };
@@ -1494,58 +1658,92 @@
   mark2p();
 
   // ---------------------------------------------------------------- başlat
-  // Tuval çözünürlüğü = CSS boyutu × DPR (en çok 2) × dinamik ölçek (drs). Çok büyük ekranlarda (5K vb.)
-  // arka tampon ~4K piksel sayısıyla sınırlanır; HUD DOM olduğundan her zaman keskin kalır.
-  // Telefon/tablet: DPR en çok 1.5 (zayıf cihazda 1.25) ve ~2.2 MP; 3× ekranlarda tam çözünürlük pili ve kareyi yer.
-  const MAX_PX = MOBILE ? 2.2e6 : 3840 * 2160, DPR_CAP = MOBILE ? (LOW_END ? 1.25 : 1.5) : 2;
+  // Canvas size = CSS size × pixel ratio (capped per graphics tier, js/gfx.js: computers 2 / 1.5 / 1, phones
+  // 1.5 / 1.25 / 1) × the current rung's scale. Very large screens (5K) stay near 4K pixels, phones near 2.2 MP.
+  // The HUD is DOM, so it stays sharp whatever the canvas size.
+  const MAX_PX = MOBILE ? 2.2e6 : 3840 * 2160;
   function resize() {
     const r = cv.getBoundingClientRect();
     if (r.width < 1 || r.height < 1) return;
-    let dpr = Math.min(window.devicePixelRatio || 1, DPR_CAP);
+    let dpr = Math.min(window.devicePixelRatio || 1, GFX.f.dpr);
     const px = r.width * r.height * dpr * dpr;
     if (px > MAX_PX) dpr *= Math.sqrt(MAX_PX / px);
-    const k = dpr * DRS_LEVELS[drs.i];
+    const k = dpr * aq.R[aq.i].s;
     const w = Math.max(1, Math.round(r.width * k)), h = Math.max(1, Math.round(r.height * k));
     if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
     game.pxr = cv.width / r.width; // tuval pikseli / CSS pikseli (tuş istemi boyutu için)
+    game.dprCap = GFX.f.dpr;       // select-screen previews use the same cap
     scene.resize(cv.width, cv.height);
   }
-  game.dprCap = DPR_CAP;
-  // ---------------------------------------------------------------- dinamik çözünürlük
-  // Dövüşte 1 sn'lik pencerelerde ortalama kare aralığı 20 ms'yi aşarsa (60 Hz'de ~50 fps altı) iç çözünürlük
-  // kademeli düşer (1 → 0.85 → 0.7). Düşüşten sonraki pencere belirgin iyileşme göstermezse (darboğaz çözünürlük
-  // değil; ör. 30 Hz ekran ya da işlemci) geri alınır ve ölçek sabitlenir. Uzun süre hızlı kalınca bir kademe
-  // geri çıkar; çıkış yine yavaşlatırsa o seviyede kilitlenir (gidip gelme olmaz). En düşük seviyede hâlâ yavaşsa
-  // eski otomatik kalite düşürme (perfWatch) devreye girer.
-  const DRS_LEVELS = MOBILE ? [1, 0.85, 0.7, 0.6] : [1, 0.85, 0.7];
-  const drs = { i: 0, t: 0, n: 0, gap: 0, slow: 0, fast: 0, probe: 0, upT: 0, fixed: false, noUp: false, settle: 0 };
-  function drsSet(i) { drs.i = i; drs.settle = 1; resize(); }
-  function drsReset() { Object.assign(drs, { t: 0, n: 0, gap: 0, slow: 0, fast: 0, probe: 0, upT: 0, fixed: false, noUp: false, settle: 0 }); if (drs.i) drsSet(0); }
-  function drsWatch(gapMs) {
+  // ---------------------------------------------------------------- graphics quality ladder (auto quality)
+  // A ladder of rungs { tier, s (resolution scale) }. A fixed choice (High / Medium / Low) only moves between the
+  // resolution scales of its tier. Auto starts at the device guess (computers High, phones Medium, weak phones Low)
+  // and goes down: high 1 → .85 → medium 1 → .85 → low 1 → .85 → .7 (→ .6 on phones).
+  // Measured in 1-second windows of a running fight (not the menu demo, not paused): two slow windows in a row
+  // (average frame gap > 20 ms, i.e. under ~50 fps on a 60 Hz screen) step one rung down. The window after a step
+  // must be at least 8% faster, otherwise the step is undone: a resolution step that did not help switches the
+  // remaining resolution steps of that tier off (the bottleneck is elsewhere: next time the tier itself drops); a
+  // tier step that did not help freezes the ladder (e.g. a phone that holds every page at 30 Hz). After ten fast
+  // windows a resolution step (never a tier) is tried back up; if that makes it slow again it returns and stays.
+  // Auto's own steps are not saved; each session learns again (a hitch at start must not lower it for good).
+  const SCALES = MOBILE ? [1, 0.85, 0.7, 0.6] : [1, 0.85, 0.7];
+  function ladder(pref) {
+    const R = [];
+    if (pref === 'auto') {
+      const T = GFX.tiers.slice(Math.max(0, GFX.tiers.indexOf(GFX.guess())));
+      T.forEach((tier, i) => (i === T.length - 1 ? SCALES : SCALES.slice(0, 2)).forEach((s) => R.push({ tier, s })));
+    } else SCALES.forEach((s) => R.push({ tier: GFX.tiers.includes(pref) ? pref : 'high', s }));
+    return R;
+  }
+  const AQ0 = { i: 0, from: 0, t: 0, n: 0, gap: 0, work: 0, slow: 0, fast: 0, probe: 0, probeTier: false, upT: 0, frozen: false, noUp: false, settle: 0 };
+  const aq = Object.assign({ R: ladder(GFX.pref), resOff: {}, stat: null }, AQ0);
+  function setRung(i) {
+    aq.i = i; aq.settle = 1;
+    const tier = aq.R[i].tier;
+    if (GFX.tier !== tier) GFX._setTier(tier, 'auto'); // the listener below resizes
+    else resize();
+  }
+  function aqReset() { Object.assign(aq, AQ0, { R: ladder(GFX.pref), resOff: {} }); resize(); }
+  GFX.onChange((pref, tier, why) => {
+    if (why === 'user') { aqReset(); persist(); } else resize();
+    syncGfx();
+  });
+  function aqWatch(gapMs, workMs) {
     if (game.paused || game.phase !== 'fight' || game.mode === 'attract' || document.hidden || gapMs > 120) {
-      if (gapMs > 120 || game.phase !== 'fight') { drs.t = drs.n = drs.gap = 0; }
+      if (gapMs > 120 || game.phase !== 'fight') { aq.t = aq.n = aq.gap = aq.work = 0; }
       return;
     }
-    drs.t += gapMs; drs.n++; drs.gap += gapMs;
-    if (drs.t < 1000) return;
-    const g = drs.gap / drs.n; drs.t = drs.n = drs.gap = 0;
-    game.drsStat = { gap: g, scale: DRS_LEVELS[drs.i] };
-    if (drs.settle > 0) { drs.settle--; return; } // yeniden boyutlanmanın ilk penceresi sayılmaz
-    if (drs.probe) { // düşüş işe yaradı mı?
-      if (g > drs.probe * 0.92) { drs.fixed = true; drsSet(drs.i - 1); }
-      drs.probe = 0; return;
+    aq.t += gapMs; aq.n++; aq.gap += gapMs; aq.work += workMs;
+    if (aq.t < 1000) return;
+    const g = aq.gap / aq.n, R = aq.R, cur = R[aq.i];
+    aq.stat = { gap: g, work: aq.work / aq.n, tier: cur.tier, scale: cur.s };
+    aq.t = aq.n = aq.gap = aq.work = 0;
+    if (aq.settle > 0) { aq.settle--; return; } // the first window after a change does not count
+    if (aq.probe) { // did the step down help?
+      if (g > aq.probe * 0.92) {
+        if (aq.probeTier) aq.frozen = true; else aq.resOff[cur.tier] = true;
+        setRung(aq.from); // back to the rung the step came from
+      } else if (aq.probeTier) {
+        const T = STR.toast || {};
+        ND.toast?.(tx(T.perf || 'Performans için grafik düşürüldü'), T.perfK || '軽');
+      }
+      aq.probe = 0; return;
     }
-    if (drs.upT > 0) { drs.upT--; if (g > 20) { drs.noUp = true; drsSet(drs.i + 1); return; } } // çıkış yavaşlattı → geri, kilitle
+    if (aq.upT > 0) { aq.upT--; if (g > 20) { aq.noUp = true; setRung(aq.i + 1); return; } } // going up made it slow: back, and stay
     if (g > 20) {
-      drs.fast = 0;
-      if (!drs.fixed && drs.i < DRS_LEVELS.length - 1 && ++drs.slow >= 2) { drs.slow = 0; drs.probe = g; drsSet(drs.i + 1); }
+      aq.fast = 0;
+      if (!aq.frozen && ++aq.slow >= 2) {
+        aq.slow = 0;
+        let j = aq.i + 1;
+        if (aq.resOff[cur.tier]) while (j < R.length && R[j].tier === cur.tier) j++;
+        if (j < R.length) { aq.probe = g; aq.probeTier = R[j].tier !== cur.tier; aq.from = aq.i; setRung(j); }
+      }
     } else {
-      drs.slow = 0;
-      if (g < 17.8 && drs.i > 0 && !drs.noUp && ++drs.fast >= 10) { drs.fast = 0; drs.upT = 3; drsSet(drs.i - 1); }
+      aq.slow = 0;
+      if (g < 17.8 && aq.i > 0 && !aq.noUp && R[aq.i - 1].tier === cur.tier && ++aq.fast >= 10) { aq.fast = 0; aq.upT = 3; setRung(aq.i - 1); }
     }
   }
-  const drsExhausted = () => drs.fixed || drs.i === DRS_LEVELS.length - 1;
-  game.drs = drs; game._drsWatch = drsWatch; game._drsReset = drsReset; // konsoldan test için
+  game.aq = aq; game._aqWatch = aqWatch; game._aqReset = aqReset; // console tests
   // Adres çubuğu açılıp kapanınca / döndürünce tuval gerilmesin: her boyut değişiminde arka tamponu yeniden ölç
   const onResize = () => { resize(); if (game.syncTouch) game.syncTouch(); };
   window.addEventListener('resize', onResize);
@@ -1566,35 +1764,15 @@
   if ($('first') && ND.save && !ND.save.p.firstDone) { $('first').hidden = false; $('menu').hidden = true; setTimeout(() => $('fPlay') && $('fPlay').focus(), 0); }
   ND.save?.syncPortal?.();
   game.onSaveAdopted = () => { refreshPlay(); if (game.mode === 'attract' && ND.save.p.firstDone && $('first') && !$('first').hidden) { $('first').hidden = true; $('menu').hidden = false; } };
-  ND.i18n?.onChange(() => { ND.arcade?.refreshMenu(); refreshPlay(); if (game.phase === 'select') { game.openSelect(game.selMode); } });
-
-  // ---------------------------------------------------------------- otomatik kalite
-  // Dövüş sırasında 3 sn'lik pencerelerde ortalama kare süresi ölçülür; art arda üç pencere (~9 sn) yavaşsa
-  // (kare aralığı > 22 ms ve iş süresi de belirgin) yüksek grafik kapatılır. Bir kez düşürür, geri açmaz.
-  // Önce dinamik çözünürlük denenir: o tükenmeden (en düşük ölçek ya da sabitlenmiş) sayılmaz.
-  const perf = { done: false, t: 0, n: 0, gap: 0, work: 0, slow: 0 };
-  function perfWatch(gapMs, workMs) {
-    if (perf.done) return;
-    if (!ND.settings.hq || !drsExhausted() || game.paused || game.phase !== 'fight' || game.mode === 'attract' || document.hidden || gapMs > 120) {
-      if (!drsExhausted()) { perf.t = perf.n = perf.gap = perf.work = 0; perf.slow = 0; }
-      if (gapMs > 120 || game.phase !== 'fight') { perf.t = perf.n = perf.gap = perf.work = 0; }
-      return;
-    }
-    perf.t += gapMs; perf.n++; perf.gap += gapMs; perf.work += workMs;
-    if (perf.t < 3000) return;
-    const gap = perf.gap / perf.n, work = perf.work / perf.n;
-    perf.t = perf.n = perf.gap = perf.work = 0;
-    perf.slow = gap > 22 && work > 7 ? perf.slow + 1 : 0;
-    game.perfStat = { gap, work };
-    if (perf.slow < 3) return;
-    perf.done = true; hqAutoOff = true;
-    ND.settings.hq = false; $('tHq').setAttribute('aria-pressed', 'false');
-    drsReset(); // düşük grafikte çözünürlük yeniden tam ölçekten denenir
-    persist();
-    const T = STR.toast || {};
-    ND.toast?.(tx(T.perf || 'Performans için grafik düşürüldü'), T.perfK || '軽');
-  }
-  game.perf = perf; game._perfWatch = perfWatch; // konsoldan test için
+  ND.i18n?.onChange(() => {
+    ND.arcade?.refreshMenu(); refreshPlay();
+    if (game.phase === 'select') game.openSelect(game.selMode);
+    if (game.mode !== 'attract') game.hudTexts();
+    if (game.mode === 'arcade') ND.arcade?.refreshGoal();
+    // Repaint the active tip on resume without restarting the lesson or its timer.
+    if (ND.coach) ND.coach.shown = null;
+    placeTip();
+  });
 
   // Portal gameplay events: "playing" = a match is on screen and running (intro, fight, KO, replay), not paused,
   // not in an ad, tab visible. Menus, select, VS and end screens are stopped. The bridge drops duplicates.
@@ -1623,8 +1801,7 @@
     game.syncTouch();
     game.render();
     if (!loaded) { loaded = true; ND.portal?.loadingFinished(); }
-    drsWatch(gap);
-    perfWatch(gap, performance.now() - w0);
+    aqWatch(gap, performance.now() - w0);
   }
   game._frame = frameBody;
   requestAnimationFrame(frame);

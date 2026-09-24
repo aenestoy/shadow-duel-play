@@ -26,7 +26,7 @@
   const S = () => (ND.STR && ND.STR.lb) || {};
   const fmtNum = (n) => { if (ND.i18n) return ND.i18n.num(n); try { return Math.round(n).toLocaleString('tr-TR'); } catch (e) { return String(Math.round(n)); } };
   const fmtTime = (s) => { if (s == null) return '–'; s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
-  const fmtDate = (d) => { if (!d) return '–'; try { return new Date(d).toLocaleDateString(ND.i18n && ND.i18n.lang !== 'tr' ? 'en-GB' : 'tr-TR', { day: '2-digit', month: '2-digit', year: '2-digit' }); } catch (e) { return '–'; } };
+  const fmtDate = (d) => { if (!d) return '–'; try { return new Date(d).toLocaleDateString(!ND.i18n ? 'tr-TR' : ND.i18n.lang === 'en' ? 'en-GB' : ND.i18n.locale(), { day: '2-digit', month: '2-digit', year: '2-digit' }); } catch (e) { return '–'; } };
   const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 
   // ================================================================ PLATFORM
@@ -52,7 +52,7 @@
   }
   ND.platform = Object.assign(detectPlatform(), ND.platform || {});
 
-  const GAME_V = '1.2', DOC_V = 1;
+  const GAME_V = '1.0.0', DOC_V = 1; // = package.json version (scripts/version-check.mjs)
   const TOP_N = 20, HALL_N = 50, LOCAL_KEEP = 10, MAX_SUBS = 8, SETTLE_MS = 11000, OUT_MAX = 12;
   // Pano tanımları; max = makul üst sınır (üstündeki değerler kurcalanmış sayılır ve gösterilmez)
   const BOARDS = {
@@ -97,10 +97,10 @@
   const cleanTime = (v) => int(v, 0, 86400);
   const cleanDateV = (v) => int(v, EPOCH, Date.now() + DAY);
   const cleanDan = (v) => int(v, 0, 20) || 0;
-  // Takma ad (görüntüleme): kontrol/yön karakterleri ve işaretleme karakterleri atılır, en çok 16 karakter
+  // Display names allow CrazyGames' 20 characters; manually entered nicknames remain limited to 16.
   const cleanName = (s) => Array.from(String(s == null ? '' : s)
     .replace(/[\u0000-\u001f\u007f-\u009f​-‏‪-‮⁦-⁩<>&"'`\\]/g, '')
-    .replace(/\s+/g, ' ').trim()).slice(0, 16).join('').trim();
+    .replace(/\s+/g, ' ').trim()).slice(0, 20).join('').trim();
   // Maç özeti (sunucu makullük denetimi için): yalnız bilinen alanlar
   const SUM_NUM = ['dur', 'fights', 'won', 'rounds', 'rw', 'hits', 'lvl'];
   function cleanSum(s) {
@@ -232,7 +232,7 @@
     async submit(b, e) {
       const L = localData(), list = localList(b);
       const prev = list.length ? list[0].s : 0;
-      const row = { n: cleanName(L.name), s: e.score, c: e.char, t: e.time, d: e.date, v: DOC_V, r: e.dan || 0 };
+      const row = { n: LB.getName(), s: e.score, c: e.char, t: e.time, d: e.date, v: DOC_V, r: e.dan || 0 };
       list.push(row);
       list.sort((x, y) => y.s - x.s || x.d - y.d);
       const rank = list.indexOf(row) + 1;
@@ -255,13 +255,13 @@
       if (!last || (c && last.c !== c)) return null;
       const list = localList(b).filter((r) => !c || r.c === c);
       const i = list.findIndex((r) => r.d === last.d && r.s === last.s);
-      return { key: 'me', uid: null, name: cleanName(L.name) || null, dan: myDan(), score: last.s, char: last.c, time: null, date: last.d, me: true, rank: i >= 0 ? i + 1 : last.r || null };
+      return { key: 'me', uid: null, name: i >= 0 ? list[i].n || null : LB.getName() || null, dan: myDan(), score: last.s, char: last.c, time: null, date: last.d, me: true, rank: i >= 0 ? i + 1 : last.r || null };
     },
     async rank(b, c, s) { return localList(b).filter((r) => (!c || r.c === c) && r.s > s).length + 1; },
     async names() { return {}; },
     // Salon: yalnız bu cihazın kayıtları (aynı cihazda farklı takma adlar ayrı satır)
     async hall(kind, arg) {
-      const myName = cleanName(localData().name);
+      const myName = LB.getName();
       const allWeekly = () => {
         const out = [];
         for (const k of weeklyKeys()) localList(k).forEach((r, i) => out.push(localRow(k, r, i, myName)));
@@ -576,6 +576,9 @@
     A.hasName = () => !!A.pid;
     A.forget = () => { const L = localData(); A.pid = null; A.uid = null; A.nick = ''; delete L.pid; delete L.sname; localCommit(); };
     A.register = async (name) => {
+      // The legacy device-secret backend is not CrazyGames account authentication.
+      if (ND.portalUserReady) await ND.portalUserReady;
+      if (LB.nameLocked) throw mkErr('readonly');
       const pu = LB.platformUser;
       const r = await A.rpc('nd_register', { p_secret: secret(), p_nick: name, p_country: null,
         p_platform: pu && typeof pu.provider === 'string' ? pu.provider : null, p_platform_uid: pu && pu.id != null ? String(pu.id).slice(0, 64) : null });
@@ -597,6 +600,8 @@
     };
     // Kayıtlı değilse yerel takma adla kaydolmayı dener; ad yoksa/geçersizse 'needName'
     const ensure = async () => {
+      if (ND.portalUserReady) await ND.portalUserReady;
+      if (LB.nameLocked) return { ok: false, reason: 'readonly' };
       if (A.pid) return null;
       const nm = checkName(localData().name);
       if (!nm.ok) return { ok: false, reason: 'needName', retry: true };
@@ -714,7 +719,7 @@
   //   ND.leaderboard.registerAdapter('crazygames', async () => adapterObj /* ya da null: kullanılamıyor */);
   //   ND.leaderboard.use('crazygames');
   // ile etkinleştirilir. Platform kullanıcı adı kancası: ND.leaderboard.usePlatformUser({ provider: 'crazygames', id, name })
-  // (şimdilik yalnız takma ad önerisi + sunucuya kayıtta platform alanı; SDK entegrasyonu yok).
+  // Display names are connected by portal-user.js; server account linking remains separate.
   const factories = {};
 
   // ---------------------------------------------------------------- SAHTE ÇALIŞMA ZAMANI (test)
@@ -844,6 +849,7 @@
     get readonly() { return !!cur.readonly; },
     get adapter() { return cur; },
     get online() { return cur !== localAdapter; },
+    get nameLocked() { return !!this.platformUser; },
 
     // yardımcılar (diğer modüller için)
     parseBoard, isoWeek, checkName, cleanName, danShort, weekKeyOf,
@@ -856,13 +862,15 @@
     whenSettled(ms = SETTLE_MS) { return Promise.race([settled, new Promise((r) => setTimeout(r, ms))]); },
 
     needsName() {
+      if (this.nameLocked) return false;
       if (!cur.needsName) return false;
       if (cur.hasName) return !cur.hasName() && !checkName(localData().name).ok;
       return !cleanName(localData().name);
     },
-    getName() { return (cur.nick && cur.hasName && cur.hasName()) ? cur.nick : cleanName(localData().name); },
+    getName() { return this.nameLocked ? this.platformUser.name : (cur.nick && cur.hasName && cur.hasName()) ? cur.nick : cleanName(localData().name); },
     // Eski (senkron) yol: yalnız yerel ad. Yeni formlar saveName kullanır.
     setName(n) {
+      if (this.nameLocked) return this.getName();
       const r = checkName(n);
       if (!r.ok) return '';
       const L = localData();
@@ -875,6 +883,7 @@
     // Takma adı kaydet: kurallar (istemci) → yerel → (varsa) sunucu kaydı → bekleyen gönderimler
     //   → { ok, name } | { ok:false, code: 'nick_length'|'nick_chars'|'nick_bad'|'rate_limited'|'offline'|… }
     async saveName(n) {
+      if (this.nameLocked) return { ok: true, name: this.getName() };
       const r = checkName(n);
       if (!r.ok) return r;
       const L = localData(), prev = L.name;
@@ -894,10 +903,11 @@
       emit();
       return { ok: true, name: this.getName() };
     },
-    // İleride: CrazyGames vb. platform kullanıcısı (kimlik + ad önerisi). Şimdilik yalnız saklanır.
+    // Session display name. Preserve the guest nickname and never accept a client-side account ID.
     usePlatformUser(u) {
-      this.platformUser = u && typeof u === 'object' ? { provider: String(u.provider || '').slice(0, 16), id: u.id != null ? String(u.id).slice(0, 64) : null, name: cleanName(u.name) } : null;
-      if (this.platformUser && this.platformUser.name && !cleanName(localData().name) && checkName(this.platformUser.name).ok) this.setName(this.platformUser.name);
+      const name = u && typeof u.name === 'string' ? u.name : '';
+      this.platformUser = u && u.provider === 'crazygames' && /^[A-Za-z0-9._]{6,20}$/.test(name) ? { provider: 'crazygames', name } : null;
+      this.hallClear();
       emit();
     },
     profile() {
@@ -910,11 +920,12 @@
       if (!e) return { ok: false, reason: 'invalid' };
       if (e.dan == null || !e.dan) e.dan = myDan();
       await this.whenSettled();
+      if (ND.portalUserReady) await ND.portalUserReady;
       const loc = o.skipLocal ? null : await localAdapter.submit(board, e);
       this.hallClear();
       if (cur === localAdapter) {
         // çevrimiçi olabilirdi ama bağlantı yok → sonra gönderilmek üzere sakla
-        if (this.status === 'offline' && this._sbCfg) outAdd(board, e);
+        if (!this.nameLocked && this.status === 'offline' && this._sbCfg) outAdd(board, e);
         return loc || { ok: false, reason: 'offline' };
       }
       let r;
@@ -949,7 +960,7 @@
             if (r && r.ok) { L.out.shift(); localCommit(); this._res[it.b + '|' + it.e.date] = r; this.hallClear(); emit(); continue; }
             if (r && r.reason === 'rate') { scheduleFlush(22000); break; }
             if (r && r.reason === 'offline') { scheduleFlush(60000); break; }
-            if (r && r.reason === 'needName') break; // takma ad girilince yeniden
+            if (r && (r.reason === 'needName' || r.reason === 'readonly')) break;
             this._res[it.b + '|' + it.e.date] = r; L.out.shift(); localCommit(); emit(); // kalıcı ret: bırak
           }
         } finally { this._flushing = null; }
@@ -961,6 +972,8 @@
 
     // Dan rütbesi: yerel kayıt banzuke.js'te; burada yalnız çevrimiçi eşitleme
     async setDan(r, sum) {
+      if (ND.portalUserReady) await ND.portalUserReady;
+      if (this.nameLocked) return { ok: false, stored: 'local', reason: 'readonly' };
       const L = localData();
       if (!cur.setDan) { if (this.status === 'offline' && this._sbCfg) { L.danOut = { r: cleanDan(r), sum: cleanSum(sum), t: Date.now() }; localCommit(); } return { ok: false, stored: 'local' }; }
       L.danOut = { r: cleanDan(r), sum: cleanSum(sum), t: Date.now() }; localCommit();
@@ -968,6 +981,8 @@
       return this.flushDan();
     },
     async flushDan() {
+      if (ND.portalUserReady) await ND.portalUserReady;
+      if (this.nameLocked) return { ok: false, reason: 'readonly', retry: true };
       const L = localData(), d = L.danOut;
       if (!d || !cur.setDan) return null;
       let res;
@@ -1085,10 +1100,12 @@
     _fail(reason) { this.lastError = reason; this._switch(localAdapter, 'local', 'error'); },
     statusText() {
       const T = S().status || {};
-      if (this.status === 'online' && cur.readonly) return T.readonly || '';
+      if (this.status === 'online' && this._viewOnly()) return T.readonly || '';
       return T[this.status] || '';
     },
-    statusKey() { return this.status === 'online' && cur.readonly ? 'readonly' : this.status; },
+    statusKey() { return this.status === 'online' && this._viewOnly() ? 'readonly' : this.status; },
+    // CrazyGames hesabı: sunucu kimlik doğrulaması gelene dek skor yalnız bu cihazda (tablo yalnızca görüntülenir)
+    _viewOnly() { return !!cur.readonly || (this.nameLocked && cur.name === 'supabase'); },
 
     init() {
       const rt = typeof window !== 'undefined' && window.claude;
@@ -1156,6 +1173,7 @@
       $('lbClose').onclick = () => this.close();
       // bağdaştırıcı değişince (ör. claude çalışma zamanı geç geldi) açık sorguyu yeni bağdaştırıcıda bir kez aç
       LB.onChange(() => {
+        if (this.panelNameRefresh) this.panelNameRefresh();
         if (!this.open) return;
         if (this._ad !== LB.adapter) { this._ad = LB.adapter; LB.watch(this.board, this.char); }
         this.render();
@@ -1294,7 +1312,7 @@
     renderFoot() {
       const T = S(), f = $('lbFoot');
       f.textContent = '';
-      if (LB.adapter.needsName) f.appendChild(this.nickLine(() => this.render()));
+      if (LB.nameLocked || LB.adapter.needsName) f.appendChild(this.nickLine(() => this.render()));
       const k = document.createElement('small'); k.className = 'lb-keys';
       k.innerHTML = ND.STR && ND.STR.pickT ? ND.STR.pickT(T.keys || '', '') : T.keys || ''; // tablodaki güvenilir HTML
       f.appendChild(k);
@@ -1303,8 +1321,9 @@
     nickLine(after) {
       const T = S(), box = document.createElement('span'); box.className = 'nick-line';
       const nm = LB.getName();
-      const lab = document.createElement('span'); lab.textContent = (T.nick || '') + ': ';
+      const lab = document.createElement('span'); lab.textContent = (LB.nameLocked ? 'CrazyGames' : T.nick || '') + ': ';
       const v = document.createElement('b'); v.textContent = nm || '—';
+      if (LB.nameLocked) { box.append(lab, v); return box; }
       const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'mini'; btn.textContent = nm ? T.nickEdit : T.nickSave;
       btn.onclick = () => { box.textContent = ''; const fm = this.nickForm(() => { fm.remove(); if (after) after(); }, true); box.appendChild(fm); };
       box.append(lab, v, btn);
@@ -1312,6 +1331,7 @@
     },
     // Takma ad formu: 3–16 karakter, kurallar + küfür denetimi (istemci + sunucu); hata mesajı formun altında
     nickForm(done, focus) {
+      if (LB.nameLocked) return this.nickLine();
       const T = S(), form = document.createElement('form');
       form.className = 'nick';
       const inp = document.createElement('input');
@@ -1352,6 +1372,7 @@
         return r.gap > 0 && T.savedOnlineGap ? T.savedOnlineGap(r.rank, fmtNum(r.gap)) : T.savedOnline(r.rank);
       }
       if (r.ok) return r.rank ? T.savedLocal(r.rank) : T.savedLocal(null);
+      if (r.reason === 'readonly' && LB.nameLocked && T.savedLocalAccount) return T.savedLocalAccount(r.rank);
       const R = T.reason || {};
       if (R[r.reason]) return typeof R[r.reason] === 'function' ? R[r.reason](r) : R[r.reason];
       if (r.reason === 'readonly' || r.reason === 'rejected' || r.reason === 'error') return LB.mode === 'local' ? T.savedLocal(r.rank) : T.rejected;
@@ -1372,23 +1393,34 @@
       el.append(st, open);
       if (opts.noOpen) open.hidden = true;
       const tok = (this.ptok = (this.ptok || 0) + 1);
+      const identity = document.createElement('span'); identity.className = 'lbp-identity';
+      el.insertBefore(identity, open);
+      let result = null, identityKey = null;
+      this.panelNameRefresh = () => {
+        if (tok !== this.ptok || !el.isConnected || !result) return;
+        const key = [LB.nameLocked, LB.getName(), LB.needsName(), LB.online, result.reason].join('|');
+        if (key === identityKey) return;
+        identityKey = key; identity.textContent = '';
+        if (LB.nameLocked) { identity.appendChild(this.nickLine()); return; }
+        if (!LB.needsName() && result.reason !== 'needName') return;
+        const ask = document.createElement('span'); ask.className = 'lbp-ask';
+        ask.textContent = LB.online ? T.nickAskOnline || T.nickAsk || '' : T.nickAsk || '';
+        const form = this.nickForm(() => {
+          identity.textContent = '';
+          const rr = LB.resultFor(board, entry.date);
+          if (rr && tok === this.ptok) { result = rr; show(rr); }
+        }, false);
+        identity.append(ask, form);
+      };
       const show = (r) => {
         st.textContent = this.resultText(r);
-        el.dataset.st = r && (r.stored === 'online' || (r.ok && LB.online)) ? 'online' : r && r.reason && LB.mode !== 'local' ? 'warn' : 'local';
+        el.dataset.st = r && (r.stored === 'online' || (r.ok && LB.online)) ? 'online' : r && r.reason && LB.mode !== 'local' && !(r.reason === 'readonly' && LB.nameLocked) ? 'warn' : 'local';
       };
       LB.submit(board, entry).then((r) => {
         if (tok !== this.ptok) return;
+        result = r;
         show(r);
-        if (LB.needsName() || (r && r.reason === 'needName')) {
-          const ask = document.createElement('span'); ask.className = 'lbp-ask'; ask.textContent = LB.online ? T.nickAskOnline || T.nickAsk || '' : T.nickAsk || '';
-          const f = this.nickForm(() => {
-            ask.remove(); f.remove();
-            // takma ad kaydedilince giden kutusu gönderildi: bu skorun sonucunu göster
-            const rr = LB.resultFor(board, entry.date);
-            if (rr && tok === this.ptok) show(rr);
-          }, false);
-          el.insertBefore(ask, open); el.insertBefore(f, open);
-        }
+        this.panelNameRefresh();
         if (opts.onResult) opts.onResult(r);
       });
     },

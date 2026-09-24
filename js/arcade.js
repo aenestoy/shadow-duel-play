@@ -13,7 +13,7 @@
     menu: {
       brand: (nc, na) => `${nc} savaşçı, ${na} arena ve gizli bir usta. Gerçek zamanlı kılıç çarpışması, kılıç kilitlenmesi, savuşturma, denge kırma, ki teknikleri ve ragdoll fiziği.`,
       arcade: 'Arcade',
-      arcadeDesc: 'Rakipleri sırayla yen, zorluk artsın, sonda gizli usta seni beklesin. En çok onur buradan gelir.',
+      arcadeDesc: 'Her ninjanın sekiz dövüşlük yolculuğu. Kaldığın rakipten devam et, karakterin sonunu ve Usta mührünü aç.',
       arcadeProg: (best, c, ct, a, at) => `${best ? 'Rekor ' + fmtNum(best) + ' · ' : ''}${c}/${ct} ninja · ${a}/${at} arena açık`,
       train: 'Antrenman',
       trainDesc: 'Kuklayla serbest çalış ya da adım adım öğren',
@@ -39,7 +39,7 @@
       parry: (l, g) => `Darbe inmeden hemen önce ${g}: savuştur`,
     },
     sel: {
-      title: { '2p': 'Ninjanı seç', cpu: 'Ninjanı seç', arcade: 'Arcade · Ninjanı seç', train: 'Antrenman · Ninjanı seç', tutorial: 'Eğitim · Ninjanı seç', tourney: 'Haftalık Turnuva · Ninjanı seç', dan: 'Dan Sınavı · Ninjanı seç', rival: 'Meydan Okuma · Ninjanı seç' },
+      title: { '2p': 'Ninjanı seç', cpu: 'Ninjanı seç', arcade: 'Arcade · Karakter yolculuğu', train: 'Antrenman · Ninjanı seç', tutorial: 'Eğitim · Ninjanı seç', tourney: 'Haftalık Turnuva · Ninjanı seç', dan: 'Dan Sınavı · Ninjanı seç', rival: 'Meydan Okuma · Ninjanı seç' },
       who1: { '2p': '1. Oyuncu · A / D ile seç, F ile onayla', def: 'Sen · A / D ile seç, F ile onayla' },
       who2: { '2p': '2. Oyuncu · ← / → ile seç, K ile onayla', cpu: 'Rakip (CPU) · ← / → ile seç', train: 'Kukla · ← / → ile seç' },
       go: { def: 'Dövüşe başla', arcade: 'Arcade’e başla', train: 'Antrenmana başla', tutorial: 'Eğitime başla', tourney: 'Turnuvaya başla', dan: 'Sınava başla', rival: 'Meydan oku' },
@@ -51,6 +51,12 @@
       moves: 'Hareketler',
       movesOf: (name) => `${name} · Hareketler`,
       close: 'Kapat',
+    },
+    journey: {
+      start: 'Yolculuğa başla', resume: (i, n) => `Devam et · ${i}/${n}`, ending: 'Sonu izle', replay: 'Yolculuğu yeniden oyna',
+      badge: 'Usta mührü', completed: 'Yolculuk tamamlandı', progress: (i, n) => `${i}/${n} dövüş tamamlandı · İlerleme kayıtlı`,
+      reward: 'Ödül: karakter sonu ve kalıcı Usta mührü', saved: 'Her galibiyette kaydedilir. Dövüşten çıkmak tekrar denemesi sayılır.',
+      menu: (done, active) => `${done} yolculuk tamamlandı · ${active} devam ediyor`, clearReward: 'Usta mührü kazanıldı · Karakter sonu açıldı',
     },
     hint: {
       honor: (have, need) => `Onur ${fmtNum(Math.min(have, need))}/${fmtNum(need)} → Meydan okuma açılır`,
@@ -215,6 +221,8 @@
       nickAskOnline: 'Çevrimiçi tablo için takma ad:',
       savedLocal: (r) => (r ? `Yerel tabloda #${r}` : 'Yerel tabloya kaydedildi'),
       rejected: 'Skorun kaydedilemedi — yalnızca yerel tabloda',
+      // CrazyGames hesabıyla girmiş oyuncu: skor bu cihazda (çevrimiçi hesap sıralaması henüz yok)
+      savedLocalAccount: (r) => (r ? `Bu cihazda #${r} · hesaplar için çevrimiçi sıralama yakında` : 'Bu cihaza kaydedildi · hesaplar için çevrimiçi sıralama yakında'),
       quota: 'Çevrimiçi tablo dolu — skor yalnızca yerel tabloda',
       open: 'Sıralama',
       keys: '<kbd>←</kbd> <kbd>→</kbd> tablo · <kbd>↑</kbd> <kbd>↓</kbd> ninja · <kbd>⌫</kbd> geri',
@@ -344,7 +352,7 @@
       ['İleri+<kbd>F</kbd>', 'Süpürme', 'karşılık · bacağa'],
       ['Geri+<kbd>F</kbd>', 'Arkadan dönüş', 'karşılık · yanından geç'],
       ['<kbd>G</kbd>', 'Ağır karşılık', 'karşılık · yere serer'],
-      ['Seri', 'Karşılıklı seri', 'karşılığı karşıla, yeniden karşılık ver; 5. karşılık bitiriş'],
+      ['Seri', 'Karşılıklı seri', 'karşılığı karşıla, yeniden karşılık ver; kendi 3. karşılığın bitiriş'],
       ['<kbd>F</kbd>/<kbd>G</kbd>!!', 'Kılıç kilidi', 'kilitte hızlıca bas, rakibi it'],
     ],
     // Dokunmatik arayüz metinleri (ND.touch.active iken klavye metinlerinin yerine geçer). Düğme adı SALDIR (btn.light),
@@ -377,7 +385,7 @@
       { id: 'block', t: 'Gard', d: 'Kukla saldırıyor. <kbd>S</kbd> tuşunu basılı tutarak bir kesiği karşıla.' },
       { id: 'parry', t: 'Savuşturma', d: 'Darbe inmeden hemen önce <kbd>S</kbd>’ye bas. Mavi halka küçülünce tam zamanıdır.' },
       { id: 'counter', t: 'Karşılık', d: 'Gard ya da savuşturmanın hemen ardından <kbd>F</kbd>: karşı kesik. İleri/geri + <kbd>F</kbd> ya da <kbd>G</kbd> de dene.' },
-      { id: 'rally', t: 'Karşılıklı seri', d: 'Kukla da karşılık veriyor. Ona saldır, onun karşılığını karşıla ve yeniden karşılık ver: 3’lük seri yap.' },
+      { id: 'rally', t: 'Karşılıklı seri', d: 'Kukla da karşılık veriyor. Onun vuruşunu savuşturup karşılık ver. O da savuşturup vurunca yeniden karşılık ver: kendi 2× serini yap.' },
       { id: 'special', t: 'Ki tekniği', d: 'Ki barın dolu. <kbd>E</kbd> ile {sp} kullan.' },
     ],
     // Dövüş öncesi karşılıklı sözler: open = önce konuşan, reply = cevap, boss = son patrona
@@ -501,7 +509,6 @@
     });
   }
   const BOSS = 'shura';
-  const bossIndex = () => ND.CHARS.findIndex((c) => c.id === BOSS);
 
   // ================================================================ KAYIT (tek kalıcılık modülü)
   // Tüm localStorage erişimi burada; ileride bir platform SDK'sı ile değiştirilebilir.
@@ -525,26 +532,68 @@
 
   const START_CHARS = ['akane', 'aoi', 'kuro', 'yuki'];
   const START_ARENAS = ['temple', 'rain', 'snow'];
-  // Kilitler (honor.js): her kilitli ninja bir onur eşiğinde meydan okur, düelloyu kazanınca açılır; arenalar onur
-  // eşiğinde açılır. Son patron (Şura) ve kale çatısı: Arcade'de son patronu yen.
+  // Honor opens rival challenges. Three distinct journeys open Shura's challenge; one clear opens the castle.
   const HONOR = ND.HONOR;
+  const J = ND.JOURNEY;
   const BOSS_ARENA = 'castle';
   const bossArena = () => (ND.ARENAS.some((a) => a.id === BOSS_ARENA) ? BOSS_ARENA : ND.ARENAS[ND.ARENAS.length - 1].id);
 
   // SCORE_V: puan modeli sürümü. 2 = tek puan modeli (ND.score); eski ölçekteki rekorlar sıfırlanır (farklı ölçek)
   const SCORE_V = 2;
+  const journeyNumber = (v, hi = 1e9) => typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.min(hi, Math.floor(v))) : 0;
+  // Persist stable IDs only: roster order and live fighter objects must never enter a save.
+  function cleanJourney(r, id) {
+    if (!r || typeof r !== 'object' || !Array.isArray(r.fights) || r.fights.length !== 8) return null;
+    const validChar = (x) => ND.CHARS.some((c) => c.id === x), seen = new Set();
+    if (!validChar(id)) return null;
+    const authored = r.version === J.version ? J.route(id) : null;
+    const fights = [];
+    for (let k = 0; k < r.fights.length; k++) {
+      const f = r.fights[k], boss = k === 7;
+      if (!f || !validChar(f.opp) || !ND.ARENAS.some((a) => a.id === f.arena) ||
+        (authored ? f.opp !== authored[k].opp || f.arena !== authored[k].arena :
+          (boss ? f.opp !== BOSS : f.opp === BOSS || f.opp === id || seen.has(f.opp)))) return null;
+      seen.add(f.opp);
+      fights.push(authored ? authored[k] : { opp: f.opp, arena: boss ? bossArena() : f.arena, level: boss ? 3 : k < 2 ? 0 : k < 5 ? 1 : 2, ...(boss ? { boss: true, alt: id === BOSS } : {}) });
+    }
+    const i = journeyNumber(r.i, 8), out = { version: authored ? J.version : 1, fights, i, won: i, done: i === 8 && r.done === true,
+      needsRetry: i < 8 && !!r.needsRetry, started: i < 8 && !!r.started, contUsed: !!r.contUsed, ranked: !!r.ranked,
+      fightPts: Array.isArray(r.fightPts) ? r.fightPts.slice(0, i).map((v) => journeyNumber(v)) : [],
+      unlocked: Array.isArray(r.unlocked) ? r.unlocked.filter((e) => e && ((e.kind === 'char' && validChar(e.id)) || (e.kind === 'arena' && ND.ARENAS.some((a) => a.id === e.id)))).slice(0, 30).map((e) => ({ kind: e.kind, id: e.id })) : [] };
+    for (const key of ['time', 'score', 'retries', 'perfect', 'rounds', 'rw', 'hits', 'honor']) out[key] = journeyNumber(r[key]);
+    out.time = typeof r.time === 'number' && Number.isFinite(r.time) ? Math.max(0, Math.min(1e9, r.time)) : 0;
+    return out;
+  }
+  function normalizeJourneys(value, bestBy) {
+    const runs = {}, cleared = {}, stars = {}, mastered = {}, looks = {};
+    for (const ch of ND.CHARS) {
+      const r = value && value.runs && cleanJourney(value.runs[ch.id], ch.id);
+      if (r) runs[ch.id] = r;
+      // Existing earned endings remain earned when upgrading an older profile.
+      if ((value && value.cleared && value.cleared[ch.id]) || (bestBy && bestBy[ch.id] > 0) || (r && r.done)) cleared[ch.id] = true;
+      stars[ch.id] = J.mask(value && value.stars && value.stars[ch.id]);
+      if (cleared[ch.id] && J.count(stars[ch.id]) >= J.masteryNeed && value && value.mastered && value.mastered[ch.id] === true) {
+        mastered[ch.id] = true;
+        if (value.looks && value.looks[ch.id] === true) looks[ch.id] = true;
+      }
+    }
+    return { runs, cleared, stars, mastered, looks };
+  }
   function normalize(p) {
     const d = { v: 1, chars: START_CHARS.slice(), arenas: START_ARENAS.slice(), wins: 0, clears: 0, bossWins: 0, best: 0, bestBy: {}, bestTime: 0, tutorial: false, lessons: [],
       scoreV: SCORE_V, cpuBest: {}, lb: { name: '', boards: {}, last: {}, out: [] }, bz: { t: {}, dan: { r: 0, best: 0, strikes: 0, tries: 0, passes: 0 } },
-      hon: { t: 0, f: {} } };
+      hon: { t: 0, f: {} }, journey: { runs: {}, cleared: {}, stars: {}, mastered: {}, looks: {} }, coached: false };
     if (!p || typeof p !== 'object') return d;
     const o = Object.assign(d, p);
+    // Saves from before the coach moved to the journey: anyone past the first screen has already had it.
+    if (typeof p.coached !== 'boolean') o.coached = !!p.firstDone;
     for (const k of ['chars', 'arenas', 'lessons']) if (!Array.isArray(o[k])) o[k] = d[k].slice();
     START_CHARS.forEach((c) => { if (!o.chars.includes(c)) o.chars.push(c); });
     START_ARENAS.forEach((a) => { if (!o.arenas.includes(a)) o.arenas.push(a); });
     if (!o.bestBy || typeof o.bestBy !== 'object') o.bestBy = {};
     if (p.scoreV !== SCORE_V) { o.best = 0; o.bestBy = {}; o.bestTime = 0; o.scoreV = SCORE_V; } // eski kayıt: yeni ölçekle karşılaştırılamaz
     if (!o.cpuBest || typeof o.cpuBest !== 'object') o.cpuBest = {};
+    o.journey = normalizeJourneys(p.journey, p.bestBy);
     // yerel sıralama tablosu (leaderboard.js 'local' bağdaştırıcısı): { name, boards: { pano: [ {n,s,c,t,d,v} ] }, last }
     if (!o.lb || typeof o.lb !== 'object') o.lb = { name: '', boards: {}, last: {} };
     if (typeof o.lb.name !== 'string') o.lb.name = '';
@@ -571,7 +620,7 @@
     const h = o.hon;
     h.t = typeof h.t === 'number' && isFinite(h.t) ? Math.max(0, Math.min(1e7, Math.round(h.t))) : 0;
     if (!h.f || typeof h.f !== 'object') h.f = {};
-    for (const k of Object.keys(h.f)) { const v = h.f[k]; if (!HONOR || !HONOR.rival(k) || typeof v !== 'number' || v <= 0) delete h.f[k]; else h.f[k] = Math.min(99, Math.round(v)); }
+    for (const k of Object.keys(h.f)) { const v = h.f[k]; if (!HONOR || (!HONOR.rival(k) && k !== BOSS) || typeof v !== 'number' || v <= 0) delete h.f[k]; else h.f[k] = Math.min(99, Math.round(v)); }
     // eşiği geçilmiş arenalar her zaman açık (kendini onaran kural)
     if (HONOR) for (const a of HONOR.ARENAS) if (h.t >= a.need && !o.arenas.includes(a.id) && ND.ARENAS.some((x) => x.id === a.id)) o.arenas.push(a.id);
     return o;
@@ -592,7 +641,12 @@
       }
       return this._p;
     },
-    commit() { this.p.ts = Date.now(); const v = JSON.stringify(this.p); rawSet(PKEY, v); mirror(PKEY, v); },
+    commit() { if (this._batch) { this._dirty = true; return; } this.p.ts = Date.now(); const v = JSON.stringify(this.p); rawSet(PKEY, v); mirror(PKEY, v); },
+    transaction(fn) {
+      this._batch = (this._batch || 0) + 1;
+      try { return fn(); }
+      finally { this._batch--; if (!this._batch && this._dirty) { this._dirty = false; this.commit(); } }
+    },
     // Boot: adopt the portal copy when it is newer (another device), otherwise upload ours
     syncPortal() {
       const P = ND.portal;
@@ -612,6 +666,9 @@
     unlockAll() { this.p.chars = ND.CHARS.map((c) => c.id); this.p.arenas = ND.ARENAS.map((a) => a.id); this.commit(); },
     isCharUnlocked(id) { return this.p.chars.includes(id); },
     isArenaUnlocked(id) { return this.p.arenas.includes(id); },
+    useLegacy(id) { return !!(this.p.journey.mastered[id] && this.p.journey.looks[id]); },
+    toggleLegacy(id) { if (!this.p.journey.mastered[id]) return; this.p.journey.looks[id] = !this.useLegacy(id); this.commit(); },
+    distinctClears() { return Object.keys(this.p.journey.cleared).filter((id) => id !== BOSS).length; },
     unlock(kind, id) {
       const list = kind === 'char' ? this.p.chars : this.p.arenas;
       if (!id || list.includes(id)) return null;
@@ -633,6 +690,11 @@
     },
     // Bir ninjanın meydan okuma durumu (kilitli sıradaki ninjalar); kuralda yoksa null
     rivalInfo(id) {
+      if (id === BOSS) {
+        const have = this.distinctClears();
+        return { id, r: { id, lv: 3, hp: 1, arena: bossArena(), need: J.shuraNeed }, need: J.shuraNeed, have,
+          ready: have >= J.shuraNeed, unlocked: this.isCharUnlocked(id), fails: this.p.hon.f[id] | 0, hp: 1 };
+      }
       const r = HONOR && HONOR.rival(id);
       if (!r || !ND.CHARS.some((c) => c.id === id)) return null;
       const t = this.p.hon.t, fails = this.p.hon.f[id] | 0;
@@ -640,17 +702,17 @@
     },
     // Sıradaki kilitli rakip (sırayla); hepsi açıksa null
     nextRival() { if (!HONOR) return null; const r = HONOR.RIVALS.find((x) => !this.isCharUnlocked(x.id) && ND.CHARS.some((c) => c.id === x.id)); return r ? this.rivalInfo(r.id) : null; },
-    readyRivals() { return HONOR ? HONOR.RIVALS.map((r) => this.rivalInfo(r.id)).filter((x) => x && x.ready && !x.unlocked) : []; },
+    readyRivals() { return HONOR ? [this.rivalInfo(BOSS), ...HONOR.RIVALS.map((r) => this.rivalInfo(r.id))].filter((x) => x && x.ready && !x.unlocked) : []; },
     rivalLost(id) { const f = this.p.hon.f; f[id] = Math.min(99, (f[id] | 0) + 1); this.commit(); },
     rivalWon(id) { delete this.p.hon.f[id]; const e = this.unlock('char', id); return e ? [e] : []; },
     charHint(id) {
-      if (id === BOSS) return STR.hint.boss;
+      if (id === BOSS) return this.rivalInfo(id).ready ? STR.hint.ready : J.text().shura;
       const ri = this.rivalInfo(id);
       if (!ri) return STR.hint.clear;
       return ri.ready ? STR.hint.ready : STR.hint.honor(ri.have, ri.need);
     },
     arenaHint(id) {
-      if (id === bossArena()) return STR.hint.boss;
+      if (id === bossArena()) return STR.hint.clear;
       const a = HONOR && HONOR.ARENAS.find((x) => x.id === id);
       return a ? STR.hint.arenaHonor(this.p.hon.t, a.need) : STR.hint.arena;
     },
@@ -660,11 +722,12 @@
       this.commit();
       return [];
     },
-    // Arcade bitti (son patron yenildi): Şura ve kale çatısı
-    recordClear(charId, score, time) {
+    // Completing an authored route opens the castle; legacy routes retain their Shura reward.
+    recordClear(charId, score, time, legacy = false) {
       const p = this.p, ev = [];
       p.clears++; p.bossWins++;
-      ev.push(this.unlock('char', BOSS));
+      // Existing routes keep their promised reward. New journeys earn a separate challenge.
+      if (legacy) ev.push(this.unlock('char', BOSS));
       ev.push(this.unlock('arena', bossArena()));
       const newBest = score > (p.best || 0);
       if (newBest) p.best = score;
@@ -729,10 +792,13 @@
     // Maç sonu: c = { mode, won, level, roundsWon, parries, counters, rallies, perfects } → { total, rows, ev }
     award(c) {
       if (!HONOR) return null;
+      const cur = c.mode === 'arcade' && ND.arcade && ND.arcade.run && ND.arcade.run.cur;
+      if (cur && cur.honorResult) { this.last = cur.honorResult; return this.last; }
       const r = HONOR.match(c);
       r.level = c.level;
       r.ev = save.addHonor(r.total);
       this.last = r;
+      if (cur) cur.honorResult = r;
       toastEvents(r.ev);
       return r;
     },
@@ -756,6 +822,7 @@
     },
     // Bir rakibin çubuğu: bir önceki eşikten bu eşiğe
     pct(id) {
+      if (id === BOSS) return Math.min(1, save.distinctClears() / J.shuraNeed);
       const i = HONOR.RIVALS.findIndex((r) => r.id === id), r = HONOR.RIVALS[i], from = i > 0 ? HONOR.RIVALS[i - 1].need : 0, t = save.honor;
       return Math.max(0, Math.min(1, (t - from) / Math.max(1, r.need - from)));
     },
@@ -802,20 +869,20 @@
     showRoad() {
       const ov = $('honorOv'); if (!ov || !HONOR) return;
       const S = STR.honor, t = save.honor;
-      const riv = HONOR.RIVALS.map((r) => save.rivalInfo(r.id)).filter(Boolean).map((ri) => {
+      const riv = [...HONOR.RIVALS, { id: BOSS }].map((r) => save.rivalInfo(r.id)).filter(Boolean).map((ri) => {
         const ch = ND.CHARS.find((c) => c.id === ri.id);
         const st = ri.unlocked ? `<em class="ok">${esc(S.open)}</em>`
           : ri.ready ? `<button class="btn primary" type="button" data-rival="${esc(ri.id)}">${esc(STR.rival.accept)}</button>`
-          : `<em>${esc(STR.hint.honor(t, ri.need))}</em>${this.bar(this.pct(ri.id))}`;
-        return `<li class="${ri.unlocked ? 'ok' : ri.ready ? 'rdy' : ''}"><b class="k" style="color:${ri.unlocked || ri.ready ? ch.col.ui : 'inherit'}">${esc(ch.kanji)}</b><span class="n">${esc(ch.name)}<small>${esc(fmtNum(ri.need))}</small></span><span class="s">${st}</span></li>`;
+          : `<em>${esc(ri.id === BOSS ? J.text().shura : STR.hint.honor(t, ri.need))}</em>${this.bar(this.pct(ri.id))}`;
+        return `<li class="${ri.unlocked ? 'ok' : ri.ready ? 'rdy' : ''}"><b class="k" style="color:${ri.unlocked || ri.ready ? ch.col.ui : 'inherit'}">${esc(ch.kanji)}</b><span class="n">${esc(ch.name)}<small>${esc(ri.id === BOSS ? Math.min(ri.have, ri.need) + '/' + ri.need : fmtNum(ri.need))}</small></span><span class="s">${st}</span></li>`;
       }).join('');
       const ar = HONOR.ARENAS.filter((a) => ND.ARENAS.some((x) => x.id === a.id)).map((a) => {
         const A = ND.ARENAS.find((x) => x.id === a.id), ok = save.isArenaUnlocked(a.id);
         return `<li class="${ok ? 'ok' : ''}"><b class="k">${esc(A.kanji)}</b><span class="n">${esc(A.name)}<small>${esc(fmtNum(a.need))}</small></span><span class="s">${ok ? `<em class="ok">${esc(S.open)}</em>` : `<em>${esc(STR.hint.arenaHonor(t, a.need))}</em>`}</span></li>`;
       }).join('');
       const ca = ND.ARENAS.find((x) => x.id === bossArena()), cok = ca && save.isArenaUnlocked(ca.id);
-      const castle = ca ? `<li class="${cok ? 'ok' : ''}"><b class="k">${esc(ca.kanji)}</b><span class="n">${esc(ca.name)}</span><span class="s">${cok ? `<em class="ok">${esc(S.open)}</em>` : `<em>${esc(S.castle)}</em>`}</span></li>` : '';
-      const earn = (typeof S.earn === 'function' ? S.earn(HONOR) : []).map(([a, b]) => `<dt>${esc(a)}</dt><dd>${esc(b)}</dd>`).join('');
+      const castle = ca ? `<li class="${cok ? 'ok' : ''}"><b class="k">${esc(ca.kanji)}</b><span class="n">${esc(ca.name)}</span><span class="s">${cok ? `<em class="ok">${esc(S.open)}</em>` : `<em>${esc(STR.hint.clear)}</em>`}</span></li>` : '';
+      const earn = (typeof S.earn === 'function' ? S.earn(HONOR) : []).map(([a, b], i) => `<dt>${esc(a)}</dt><dd>${esc(i === 1 ? b.replace(/Shura|Şura|Шура/g, J.text().rival) : b)}</dd>`).join('');
       $('honorIn').innerHTML = `<div class="hr-head"><b class="k" aria-hidden="true">${esc(S.k)}</b><div><h2>${esc(S.road)}</h2><p>${esc(S.you(t))}</p></div><button class="btn" type="button" id="honorClose">${esc(STR.sel.close)}</button></div>` +
         `<p class="hr-sub">${esc(S.roadSub)}</p><div class="hr-cols"><section><h3>${esc(S.rivalsHead)}</h3><ul class="hr-list">${riv}</ul></section>` +
         `<section><h3>${esc(S.arenasHead)}</h3><ul class="hr-list">${ar}${castle}</ul><h3>${esc(S.earnHead)}</h3><dl class="hr-earn">${earn}</dl></section></div>`;
@@ -849,13 +916,11 @@
   ND.reveal = reveal;
 
   // ================================================================ ARCADE
-  const HOME = { akane: 'temple', aoi: 'rain', kuro: 'waterfall', yuki: 'snow', hana: 'market', tetsu: 'village', ren: 'village', kage: 'market' };
   // Arcade toplamı = kazanılan dövüşlerin maç puanları (ND.score, zorluk çarpanı dahil) + bitiriş bonusu
   //                  + tek kredi bonusu (hiç tekrar yoksa) − tekrar başına ceza; kaybedilen denemenin puanı sayılmaz
   const AS = ND.ARCADE_SCORE = { clear: 10000, noRetry: 5000, retry: 2000 };
   const arcadeTotal = (R) => Math.max(0, R.score + AS.clear + (R.retries ? 0 : AS.noRetry) - R.retries * AS.retry);
 
-  function shuffle(a) { for (let i = a.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; }
 
   const arcade = ND.arcade = {
     run: null, G: null, mode: 'arcade', // koşu denetleyicisi (game.runner): banzuke.js'teki turnuva/Dan da aynı arayüzü kullanır
@@ -866,7 +931,7 @@
       $('vsGo').onclick = () => (G.runner || this).fight();
       $('vsQuit').onclick = () => (G.runner || this).quit();
       $('edMenu').onclick = () => this.quit();
-      $('edAgain').onclick = () => { this.run = null; G.openSelect('arcade'); };
+      $('edAgain').onclick = () => { const R = this.run; if (R && R.done) this.begin(R.me, true); };
       rival.G = G;
       const mh = $('mhonor');
       if (mh) mh.onclick = () => { if (ND.audio) ND.audio.ui(); const g = honor.goal(); if (g.kind === 'ready') rival.offer(g.ch.id); else honor.showRoad(); };
@@ -877,38 +942,74 @@
       if (ND.banzuke && ND.banzuke.ui) ND.banzuke.ui.refreshMenu();
       const el = $('arcProg'); if (!el) return;
       const p = save.p;
-      const vis = ND.CHARS.filter((c) => !c.hidden || save.isCharUnlocked(c.id));
-      el.textContent = STR.menu.arcadeProg(p.best, vis.filter((c) => save.isCharUnlocked(c.id)).length, vis.length + (save.isCharUnlocked(BOSS) ? 0 : 1),
-        ND.ARENAS.filter((a) => save.isArenaUnlocked(a.id)).length, ND.ARENAS.length);
+      el.textContent = STR.journey.menu(Object.keys(p.journey.cleared).length, Object.values(p.journey.runs).filter((r) => !r.done).length);
       const tb = $('mtTut'); if (tb) tb.classList.toggle('done', !!p.tutorial);
       honor.refreshStrip();
       const br = $('brandText'); if (br) br.textContent = STR.menu.brand(numWord(ND.CHARS.filter((c) => !c.hidden).length), ND.i18n ? ND.i18n.lower(numWord(ND.ARENAS.length)) : numWord(ND.ARENAS.length).toLowerCase());
     },
 
-    // Merdiveni kur: diğer karakterler rastgele sırayla + son patron
-    begin(ci) {
-      const me = ND.CHARS[ci];
-      let pool = ND.CHARS.map((c, i) => i).filter((i) => !ND.CHARS[i].hidden && i !== ci);
-      shuffle(pool);
-      if (pool.length > 7) pool = pool.slice(0, 7);
-      const n = pool.length, used = new Set(), bA = bossArena();
-      const fights = pool.map((oi, k) => {
-        // ev arenası: ilk kadro HOME'da, ikinci kadro roster2.js'te (STR.roster2.home)
-        const id = ND.CHARS[oi].id, home = HOME[id] || (STR.roster2 && STR.roster2.home && STR.roster2.home[id]);
-        let arena = home && ND.ARENAS.some((a) => a.id === home) && !used.has(home) && home !== bA ? home : null;
-        if (!arena) {
-          const free = ND.ARENAS.filter((a) => !used.has(a.id) && a.id !== bA);
-          // hepsi kullanıldıysa: son patron arenası hariç rastgele (patron arenası sona saklı kalsın)
-          const nonBoss = ND.ARENAS.filter((a) => a.id !== bA);
-          arena = (free.length ? pick(free) : pick(nonBoss.length ? nonBoss : ND.ARENAS)).id;
+    refreshSelect() {
+      const G = this.G; if (!G || G.phase !== 'select') return;
+      for (let n = 1; n <= 2; n++) {
+        const ch = ND.CHARS[G.sel.c[n - 1]], done = save.p.journey.cleared[ch.id];
+        $('st' + n).textContent = ch.title + ' · ' + ch.weapon + (done ? ' · ◆ ' + STR.journey.badge : '') + (save.p.journey.mastered[ch.id] ? ' · ★ ' + J.text().titles[ch.id] : '');
+        const ro = $('ro' + n);
+        if (ro) for (const b of ro.children) {
+          const c = ND.CHARS[+b.dataset.k], badge = b.querySelector('[data-journey-badge]');
+          if (c && save.p.journey.cleared[c.id]) {
+            b.title = STR.journey.badge; b.setAttribute('aria-label', c.name + ' · ' + STR.journey.badge);
+            if (!badge) { const seal = document.createElement('i'); seal.className = 'rdyb'; seal.dataset.journeyBadge = '1'; seal.textContent = '◆'; seal.setAttribute('aria-hidden', 'true'); b.appendChild(seal); }
+          } else if (badge) { badge.remove(); b.title = ''; if (c) b.setAttribute('aria-label', c.name); }
         }
-        used.add(arena);
-        return { opp: oi, level: k < n * 2 / 7 ? 0 : k < n * 5 / 7 ? 1 : 2, arena };
-      });
-      const bi = bossIndex();
-      fights.push({ opp: bi, level: 3, arena: bA, boss: true, alt: me.id === BOSS });
-      this.run = { me: ci, fights, i: 0, time: 0, score: 0, retries: 0, perfect: 0, won: 0, last: null, cur: null, unlocked: [], rounds: 0, rw: 0, hits: 0 };
+      }
+      const selected = ND.CHARS[G.sel.c[0]], T = J.text(), profile = save.p.journey;
+      const look = $('journeyLook'), panel = $('journeyPanel');
+      if (look) {
+        look.hidden = !profile.mastered[selected.id] || G.selMode === 'watch' || G.selMode === '2p';
+        look.textContent = T.colors + ': ' + (save.useLegacy(selected.id) ? T.legacy : T.classic);
+        look.setAttribute('aria-pressed', String(save.useLegacy(selected.id)));
+        look.onclick = () => { save.toggleLegacy(selected.id); G.refreshSelect(); };
+      }
+      if (panel) panel.hidden = G.selMode !== 'arcade';
+      if (G.selMode !== 'arcade') return;
+      const ch = ND.CHARS[G.sel.c[0]], R = save.p.journey.runs[ch.id], S = STR.journey;
+      const sd = $('sd1'); sd.textContent = R && R.done ? S.completed : R ? S.progress(R.i, R.fights.length) : S.reward;
+      const note = document.createElement('small'); note.className = 'cnote'; note.textContent = R && R.done ? '◆ ' + S.badge : S.saved; sd.appendChild(note);
+      $('bFight').textContent = R ? R.done ? S.ending : S.resume(R.i + 1, R.fights.length) : S.start;
+      if (panel) {
+        const route = R ? R.fights : J.route(ch.id), stars = profile.stars[ch.id] || 0, legacy = R && R.version !== J.version;
+        const final = ND.CHARS.find((c) => c.id === route[7].opp);
+        panel.innerHTML = `<div class="journey-heading"><b>${esc(T.route)} · ${esc(T.titles[ch.id])}</b><span>${esc(T.rival)}: ${esc(final.name)}</span></div>` +
+          `<ol class="journey-chapters">${route.map((f, i) => { const op = ND.CHARS.find((c) => c.id === f.opp), star = !legacy && (stars & (1 << i));
+            return `<li class="${star ? 'earned' : ''} ${R && R.i === i ? 'current' : ''}" title="${esc(op.name + (f.goal ? ' · ' + T.goals[f.goal] + ': ' + f.need : ''))}"><small>${i + 1} ${star ? '★' : '☆'}</small><b>${esc(op.kanji)}</b><span>${esc(op.name)}</span></li>`; }).join('')}</ol>` +
+          `<p>${esc(T.mastery)}: <b>${J.count(stars)} / 8</b> · ${esc(profile.mastered[ch.id] ? T.titles[ch.id] + ' · ' + T.legacy : T.reward)}</p>` +
+          (legacy ? `<p>${esc(T.old)}</p>` : '') + (!save.isCharUnlocked(BOSS) ? `<p>${esc(T.shura)} (${Math.min(J.shuraNeed, save.distinctClears())}/${J.shuraNeed})</p>` : '');
+      }
+    },
+
+    checkpoint() {
+      const R = this.run; if (!R) return;
+      const id = ND.CHARS[R.me].id, i = R.last === 'win' ? Math.min(R.i + 1, R.fights.length) : R.i;
+      const stored = { ...R, i, fights: R.fights.map((f) => ({ ...f, opp: ND.CHARS[f.opp].id })) };
+      save.p.journey.runs[id] = cleanJourney(stored, id);
+      save.commit();
+    },
+
+    // Each character keeps a separate route. Replaying a completed route is an explicit ending-screen action.
+    begin(ci, replay = false) {
+      const me = ND.CHARS[ci];
+      const saved = save.p.journey.runs[me.id];
+      if (saved && !replay) {
+        this.run = { ...saved, me: ci, fights: saved.fights.map((f) => ({ ...f, opp: ND.CHARS.findIndex((c) => c.id === f.opp) })),
+          fightPts: saved.fightPts.slice(), unlocked: saved.unlocked.map((e) => ({ ...e })), needsRetry: saved.needsRetry || saved.started, started: false, last: null, cur: null };
+        this.G.runner = this;
+        if (this.run.i >= this.run.fights.length) return this.showEnding();
+        return this.openVs();
+      }
+      const fights = J.route(me.id).map((f) => ({ ...f, opp: ND.CHARS.findIndex((c) => c.id === f.opp) }));
+      this.run = { version: J.version, me: ci, fights, i: 0, time: 0, score: 0, retries: 0, perfect: 0, won: 0, last: null, cur: null, unlocked: [], rounds: 0, rw: 0, hits: 0 };
       this.G.runner = this;
+      this.checkpoint();
       this.openVs();
     },
 
@@ -921,6 +1022,7 @@
       ND.music.setMode(F.boss ? 'final' : 'menu');
       const vs = $('vs');
       vs.hidden = false; vs.classList.toggle('boss', !!F.boss);
+      vs.classList.toggle('journey', R.version === J.version);
       vs.classList.remove('in'); void vs.offsetWidth; vs.classList.add('in');
       const alt = R.me === F.opp;
       const setSide = (n, ch, a) => {
@@ -929,20 +1031,23 @@
         $('vsn' + n).textContent = ch.name; $('vst' + n).textContent = ch.title + ' · ' + ch.weapon;
         $('vss' + n).style.setProperty('--sc', col.ui);
       };
-      setSide(1, me, false); setSide(2, op, alt);
+      const legacyColors = save.useLegacy(me.id);
+      setSide(1, me, legacyColors); setSide(2, op, alt && !legacyColors);
       const arena = ND.ARENAS.find((a) => a.id === F.arena);
-      $('vsStage').textContent = F.boss ? STR.vs.boss : STR.vs.stage(R.i + 1, R.fights.length);
+      $('vsStage').textContent = R.version === J.version ? (F.boss ? J.text().rival : J.text().stage + ' ' + (R.i + 1) + ' / 8') + ' · ' + J.text().titles[me.id] : F.boss ? STR.vs.boss : STR.vs.stage(R.i + 1, R.fights.length);
       $('vsArena').innerHTML = arena ? `<b>${esc(arena.kanji)}</b>${esc(arena.name)}` : '';
       $('vsLevel').textContent = (ND.AI_LEVELS[F.level] || ND.AI_LEVELS[1]).name;
       $('vsQuit').textContent = STR.vs.quit; // VS ekranı turnuva/Dan ile paylaşılır
       const vm = $('vsMods'); if (vm) vm.hidden = true;
+      const objective = $('journeyVs');
+      if (objective) { objective.hidden = !F.goal; objective.textContent = F.goal ? '☆ ' + J.text().optional + ' · ' + J.text().goals[F.goal] + ': ' + F.need + ' — ' + J.text().win : ''; }
       $('vsKeys').innerHTML = STR.pickT(STR.vs.keys, '');
       $('vsLadder').innerHTML = R.fights.map((f, k) => {
         const ch = ND.CHARS[f.opp], cls = k < R.i ? 'done' : k === R.i ? 'cur' : '';
-        const hideBoss = f.boss && k > R.i;
+        const hideBoss = R.version !== J.version && f.boss && k > R.i;
         return `<i class="${cls}${f.boss ? ' boss' : ''}" title="${hideBoss ? '?' : esc(ch.name)}" style="--sc:${(f.alt ? ch.alt : ch.col).ui}">${hideBoss ? STR.vs.unknown : esc(ch.kanji)}</i>`;
       }).join('');
-      const lines = this.talk(op.id, me.id, F.boss);
+      const lines = this.talk(op.id, me.id, R.version !== J.version && F.boss);
       $('vsTalk').innerHTML = lines.map(([side, id, text], k) => {
         const ch = ND.CHARS.find((c) => c.id === id);
         const col = side === 'r' && alt ? ch.alt.ui : ch.col.ui;
@@ -964,25 +1069,54 @@
     fight() {
       const R = this.run; if (!R) return;
       const F = R.fights[R.i];
+      if (!F || R.done) return;
+      if (R.needsRetry) R.retries++;
+      R.needsRetry = false; R.started = true; R.last = null;
       $('vs').hidden = true;
-      R.cur = { t: 0, lost: 0, perfect: 0 };
+      R.cur = { t: 0, lost: 0, perfect: 0, metrics: {} };
+      this.checkpoint();
       ND.audio.gong();
       this.G.start('arcade', { c1: R.me, c2: F.opp, arena: F.arena, level: F.level });
+      // The very first journey fight carries the five-tip coach (it used to ride on the old quick-play match).
+      if (R.i === 0 && ND.coach && !save.p.coached) { save.p.coached = true; save.commit(); ND.coach.start(); }
+      this.refreshGoal();
     },
-    retry() { const R = this.run; if (!R) return; R.retries++; this.fight(); },
-    quit() { this.run = null; if (this.G.runner === this) this.G.runner = null; $('vs').hidden = true; $('ending').hidden = true; this.G.goMenu(); },
-    abandon() { this.run = null; if (this.G.runner === this) this.G.runner = null; },
+    observeHit(from, a) {
+      const R = this.run;
+      if (!R || !R.cur || R.cur.settled || this.G.mode !== 'arcade' || this.G.phase !== 'fight') return;
+      J.hit(R.cur.metrics, from, a); this.refreshGoal();
+    },
+    observeDefense(kind) {
+      const R = this.run;
+      if (kind !== 'break' || !R || !R.cur || R.cur.settled || this.G.mode !== 'arcade' || this.G.phase !== 'fight') return;
+      const m = R.cur.metrics; m[kind] = Math.min(99, (m[kind] || 0) + 1); this.refreshGoal();
+    },
+    refreshGoal() {
+      const el = $('journeyGoal'), R = this.run, F = this.fightInfo;
+      if (!el) return;
+      el.hidden = !F || !F.goal || !R.cur || this.G.mode !== 'arcade';
+      if (el.hidden) return;
+      const m = R.cur.metrics, n = J.value(F, m, m.parry), ready = n >= F.need, T = J.text();
+      const text = (ready ? '★ ' : '☆ ') + T.goals[F.goal] + ' ' + n + '/' + F.need + (ready ? ' · ' + T.win : '');
+      if (el.textContent !== text) { el.textContent = text; el.classList.toggle('earned', ready); }
+    },
+    retry() { const R = this.run; if (!R) return; if (R.last === 'win') return this.primary(); R.needsRetry = true; this.fight(); },
+    quit() { this.abandon(); $('vs').hidden = true; $('ending').hidden = true; this.G.goMenu(); },
+    abandon() { this.checkpoint(); this.run = null; if (this.G.runner === this) this.G.runner = null; this.refreshMenu(); },
 
     hudTags() {
       const R = this.run, F = R && R.fights[R.i];
       if (!F) return [STR.hud.you, STR.hud.cpu];
       const lv = ND.i18n ? ND.i18n.upper((ND.AI_LEVELS[F.level] || ND.AI_LEVELS[1]).name) : (ND.AI_LEVELS[F.level] || ND.AI_LEVELS[1]).name.toUpperCase();
-      return [STR.hud.you + ' · ' + STR.hud.stage(R.i + 1, R.fights.length), F.boss ? STR.hud.boss : STR.hud.cpu + ' · ' + lv];
+      return [STR.hud.you + ' · ' + STR.hud.stage(R.i + 1, R.fights.length), F.boss ? (R.version === J.version ? J.text().rival : STR.hud.boss) : STR.hud.cpu + ' · ' + lv];
     },
 
     tick(rdt) {
       const R = this.run, G = this.G;
       if (!R || G.mode !== 'arcade' || !R.cur) return;
+      // Some reflected projectiles increment parries without changing the fighter's animation.
+      // Only update DOM when the counter changes, not every frame.
+      if (R.cur.metrics && R.cur.metrics.parry !== (G.F[0].parries || 0)) { R.cur.metrics.parry = G.F[0].parries || 0; this.refreshGoal(); }
       if (G.phase === 'intro' || G.phase === 'fight' || G.phase === 'ko' || G.phase === 'timeup') { R.time += rdt; R.cur.t += rdt; }
     },
 
@@ -999,6 +1133,8 @@
     onMatchEnd(w, res) {
       const R = this.run, G = this.G; if (!R) return false;
       const F = R.fights[R.i], f1 = G.F[0], cur = R.cur || { t: 60, lost: 0, perfect: 0 };
+      if (!F || cur.settled) return true;
+      cur.settled = true; R.started = false;
       const won = w === f1;
       R.last = won ? 'win' : 'loss';
       R.hits = (R.hits || 0) + (ND.mods ? ND.mods.hits : 0);
@@ -1008,17 +1144,22 @@
         R.score += pts; R.won++; R.perfect += cur.perfect;
         R.fightPts = R.fightPts || []; R.fightPts[R.i] = pts;
         R.honor = (R.honor || 0) + (honor.last ? honor.last.total : 0);
+        R.needsRetry = false;
+        cur.star = !!F.goal && J.value(F, cur.metrics || {}, f1.parries || 0) >= F.need;
+        save.transaction(() => {
+          if (cur.star) { const id = ND.CHARS[R.me].id; save.p.journey.stars[id] = (save.p.journey.stars[id] || 0) | (1 << R.i); }
+          save.recordWin(); if (F.boss) this.complete(); else this.checkpoint();
+        });
         if (G.showScore) G.showScore(res, { note: STR.score.arcadeTotal(R.score) });
-        const ev = save.recordWin(ND.scene.themeId);
-        R.unlocked.push(...ev);
-        toastEvents(ev);
-        if (F.boss) { setTimeout(() => this.showEnding(), 900); return true; }
+        if (F.boss) { setTimeout(() => { if (this.run === R && G.phase === 'end') this.showEnding(); }, 900); return true; }
         $('endK').textContent = '勝利';
         $('endTitle').textContent = E.winTitle;
         $('endSub').textContent = E.winSub(R.i + 1, R.fights.length, pts);
+        if (F.goal) $('endSub').textContent += ' · ' + (cur.star ? '★ ' + J.text().earned : J.text().missed);
         $('bRematch').textContent = E.next;
       } else {
         R.honor = (R.honor || 0) + (honor.last ? honor.last.total : 0);
+        R.needsRetry = true; this.checkpoint();
         $('endK').textContent = '敗';
         $('endTitle').textContent = E.lossTitle;
         $('endSub').textContent = E.lossSub(nice(w ? w.ch.name : ND.CHARS[F.opp].name));
@@ -1034,7 +1175,7 @@
             ND.ads.rewarded().then((ok) => {
               if (!ok) { if (ND.toast) ND.toast(A.fail || '', '忍'); return; }
               if (!this.run || this.run !== R) return;
-              R.contUsed = true; bc.hidden = true; this.fight();
+              R.contUsed = true; R.needsRetry = false; bc.hidden = true; this.fight();
             });
           };
         }
@@ -1048,28 +1189,43 @@
     // Bitiş penceresindeki birincil düğme
     primary() {
       const R = this.run; if (!R) return this.G.goMenu();
-      if (R.last === 'win') { R.i++; if (R.i >= R.fights.length) return this.showEnding(); this.openVs(); }
+      if (R.last === 'win') { R.i++; R.last = null; R.cur = null; if (R.i >= R.fights.length) return this.showEnding(); this.openVs(); }
       else this.retry();
     },
 
-    showEnding() {
-      const R = this.run, G = this.G; if (!R || R.done) return; // tek sefer: bitiş kaydı / gönderim iki kez yapılmasın
+    complete() {
+      const R = this.run; if (!R || R.done) return;
       const me = ND.CHARS[R.me];
       const final = arcadeTotal(R);
-      const res = save.recordClear(me.id, final, R.time);
+      let res;
+      save.transaction(() => {
+        R.done = true;
+        res = save.recordClear(me.id, final, R.time, R.version !== J.version);
+        R.unlocked.push(...res.ev);
+        if (HONOR) { honor.bonus('arcadeClear', HONOR.arcadeClear); R.honor = (R.honor || 0) + HONOR.arcadeClear; }
+        save.p.journey.cleared[me.id] = true;
+        if (R.version === J.version && J.count(save.p.journey.stars[me.id]) >= J.masteryNeed) save.p.journey.mastered[me.id] = true;
+        R.newBest = res.newBest;
+        this.checkpoint();
+      });
       if (ND.portal) ND.portal.happyTime();
-      R.unlocked.push(...res.ev);
       toastEvents(res.ev);
-      if (HONOR) { honor.bonus('arcadeClear', HONOR.arcadeClear); R.honor = (R.honor || 0) + HONOR.arcadeClear; }
       if (res.newBest) setTimeout(() => ND.toast(STR.toast.newBest(final), STR.toast.bestK), 350 + res.ev.length * 650);
+    },
+
+    showEnding() {
+      const R = this.run, G = this.G; if (!R || R.won < R.fights.length) return;
+      this.complete();
+      const me = ND.CHARS[R.me], final = arcadeTotal(R), res = { newBest: !!R.newBest };
       $('end').hidden = true;
       G.showStage('ending', ['edPv', null], R.me, null);
       G.pv[0].pvPose = 'victory';
       ND.music.setMode('menu');
-      const S = STR.ending, lines = STR.endings[me.id] || STR.endings.def;
+      const S = STR.ending, lines = R.version === J.version ? [J.text().endings[me.id]] : STR.endings[me.id] || STR.endings.def;
       $('edK').textContent = me.kanji; $('edK').style.color = me.col.ui;
       $('edName').textContent = me.name;
-      $('edHead').textContent = S.head + ' · ' + me.title;
+      $('edHead').textContent = STR.journey.completed + ' · ' + me.title;
+      $('edAgain').textContent = STR.journey.replay;
       $('edText').innerHTML = lines.map((l, k) => `<p style="animation-delay:${0.3 + k * 0.9}s">${esc(l)}</p>`).join('');
       const rows = [
         [S.rows.fights, R.won + ' / ' + R.fights.length],
@@ -1084,16 +1240,23 @@
         cell(S.rows.score, fmtNum(final) + (res.newBest ? `<em>${esc(S.newBest)}</em>` : ''), 'sc') + cell(S.rows.best, fmtNum(save.p.best)) +
         (HONOR ? cell(STR.honor.head, esc(STR.honor.plus(R.honor || 0)) + `<em>${esc(STR.honor.total(save.honor))}</em>`, 'hn') : '');
       // Sıralama: otomatik gönder (yerelde takma ad yoksa tek dokunuşla sorulur), sonra sırayı göster
-      if (ND.lbUI) {
+      if ($('edRank')) $('edRank').hidden = true;
+      if (ND.lbUI && !R.ranked) {
+        R.ranked = true; this.checkpoint();
         const back = () => { const e = $('ending'); if (e) e.hidden = false; setTimeout(() => $('edMenu').focus(), 0); };
         // maç özeti: sunucu makullük denetimi için (süre, dövüş, raund, isabet)
         const sum = { dur: R.time, fights: R.fights.length, won: R.won, rounds: R.rounds || 0, rw: R.rw || 0, hits: R.hits || 0, lvl: 3, mode: 'arcade' };
         ND.lbUI.panel($('edRank'), 'arcade', { score: final, char: me.id, time: Math.round(R.time), date: Date.now(), sum }, { back, onOpen: () => { $('ending').hidden = true; } });
       }
       const un = R.unlocked.map((e) => (e.kind === 'char' ? ND.CHARS.find((c) => c.id === e.id) : ND.ARENAS.find((a) => a.id === e.id))).filter(Boolean);
-      $('edUnl').innerHTML = un.length ? `<span>${esc(S.unlocked)}</span>` + un.map((x) => `<i style="color:${x.col ? x.col.ui : 'var(--gold)'}" title="${esc(x.name)}">${esc(x.kanji)}</i>`).join('') : '';
+      $('edUnl').innerHTML = `<span>◆ ${esc(STR.journey.clearReward)}</span>` + (un.length ? `<span>${esc(S.unlocked)}</span>` + un.map((x) => `<i style="color:${x.col ? x.col.ui : 'var(--gold)'}" title="${esc(x.name)}">${esc(x.kanji)}</i>`).join('') : '');
+      const mastery = $('journeyReward');
+      if (mastery) {
+        const T = J.text(), stars = J.count(save.p.journey.stars[me.id]);
+        mastery.hidden = false;
+        mastery.textContent = R.version !== J.version ? T.old : T.mastery + ': ' + stars + '/8 · ' + (save.p.journey.mastered[me.id] ? '★ ' + T.titles[me.id] + ' · ' + T.legacy : T.reward);
+      }
       const el = $('ending'); el.hidden = false; el.classList.remove('in'); void el.offsetWidth; el.classList.add('in');
-      R.done = true;
       this.refreshMenu();
       setTimeout(() => { if (G.phase === 'ending') $('edMenu').focus(); }, 0);
     },
@@ -1289,17 +1452,24 @@
       wrap('onSpecial', ([f]) => { if (G.mode === 'train' && f === G.F[0]) this.ev.special = true; });
       wrap('onHit', ([from]) => { if (G.mode === 'train' && from === G.F[0]) this.ev.hit = true; });
 
-      const box = $('trBeh');
-      box.innerHTML = Object.keys(STR.train.beh).map((k, i) => `<button class="seg" data-beh="${k}" title="${i + 1}">${esc(STR.train.beh[k])}</button>`).join('');
-      box.querySelectorAll('[data-beh]').forEach((b) => (b.onclick = () => { this.setBeh(b.dataset.beh); b.blur(); }));
+      this.labels();
       $('trInf').onclick = (e) => { this.opts.infHp = !this.opts.infHp; this.refresh(); e.currentTarget.blur(); };
       $('trKi').onclick = (e) => { this.opts.fullKi = !this.opts.fullKi; this.refresh(); e.currentTarget.blur(); };
       $('trReset').onclick = (e) => { this.reset(); e.currentTarget.blur(); };
       $('trHide').onclick = (e) => { this.togglePanel(); e.currentTarget.blur(); };
       $('trShow').onclick = (e) => { this.togglePanel(); e.currentTarget.blur(); };
-      $('trKeys').innerHTML = STR.train.keysHelp;
       // dokunmatik ↔ klavye geçişinde açık ekranların metinlerini yenile
       if (ND.touch) ND.touch.onChange(() => this.retext());
+      // language switched (menu or pause dialog): texts built here and an open training screen follow at once
+      if (ND.i18n && ND.i18n.onChange) ND.i18n.onChange(() => { this.labels(); if (this.G.mode === 'train') $('trTitle').textContent = this.tut ? STR.train.tutTitle : STR.train.title; this.retext(); if (this.G.mode === 'train') this.refresh(); });
+    },
+
+    // Dummy behaviour buttons and the key help line, in the current language
+    labels() {
+      const box = $('trBeh');
+      box.innerHTML = Object.keys(STR.train.beh).map((k, i) => `<button class="seg" data-beh="${k}" title="${i + 1}">${esc(STR.train.beh[k])}</button>`).join('');
+      box.querySelectorAll('[data-beh]').forEach((b) => (b.onclick = () => { this.setBeh(b.dataset.beh); b.blur(); }));
+      $('trKeys').innerHTML = STR.train.keysHelp;
     },
 
     retext() {
@@ -1456,7 +1626,7 @@
         case 'block': ok = f1.state === 'block' || f1.state === 'parry'; break; // tam zamanında basan oyuncu savuşturur: o da gard sayılır
         case 'parry': ok = f1.state === 'parry'; break;
         case 'counter': ok = !!this.ev.counter; break;
-        case 'rally': prog = Math.min(1, G.rally.n / 3); ok = G.rally.n >= 3; break;
+        case 'rally': { const turns = G.rally.turns ? G.rally.turns[0] : 0; prog = Math.min(1, turns / 2); ok = turns >= 2; break; }
         case 'special': ok = !!this.ev.special; break;
       }
       const pe = $('trProg');
