@@ -150,6 +150,27 @@ window.ND = window.ND || {};
     applyGain(tc = 0.05) {
       if (!this.master || !this.ctx) return;
       this.ramp(this.master.gain, this.masterLevel(), tc);
+      this.syncRev();
+    },
+    // The reverb (a 2.6 s convolution, the costliest part of the sound) only runs while something can be heard: when
+    // the game is muted its input is unplugged (after the fade-out), so the browser stops computing it.
+    syncRev() {
+      if (!this.rev || !this.revIn) return;
+      const on = this.masterLevel() > 0;
+      clearTimeout(this.revTimer);
+      if (on === this.revOn) return;
+      const apply = () => {
+        this.revOn = on;
+        try { if (on) this.revIn.connect(this.rev); else this.revIn.disconnect(this.rev); } catch (e) { /* already (dis)connected */ }
+      };
+      if (on) apply(); else this.revTimer = setTimeout(apply, 400);
+    },
+    // Low graphics (weak devices): a shorter reverb tail, about half the convolution work (game.js calls this)
+    setLite(v) {
+      v = !!v;
+      if (v === !!this.lite) return;
+      this.lite = v;
+      if (this.rev) this.rev.buffer = this.makeIR(v ? 1.2 : 2.6);
     },
     // kind: 'master' | 'music' | 'sfx'; v 0..1. Applies at once (short glide); saving is the caller's job.
     setVolume(kind, v) {
@@ -193,14 +214,15 @@ window.ND = window.ND || {};
       // send is taken after the music level, so each slider scales its own reverb tail too)
       const fx = this.curve(this.vol.sfx);
       this.dry = c.createGain(); this.dry.gain.value = fx; this.dry.connect(this.master);
-      this.rev = c.createConvolver(); this.rev.buffer = this.makeIR(2.6);
-      this.revIn = c.createGain(); this.revIn.gain.value = fx; this.revIn.connect(this.rev);
+      this.rev = c.createConvolver(); this.rev.buffer = this.makeIR(this.lite ? 1.2 : 2.6);
+      this.revIn = c.createGain(); this.revIn.gain.value = fx; this.revIn.connect(this.rev); this.revOn = true;
       const rg = c.createGain(); rg.gain.value = 0.32; this.rev.connect(rg); rg.connect(this.master);
       const len = c.sampleRate * 2;
       this.noiseBuf = c.createBuffer(1, len, c.sampleRate);
       const d = this.noiseBuf.getChannelData(0);
       for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
       this.ready = true;
+      this.syncRev();
       this.ambience();
     },
 

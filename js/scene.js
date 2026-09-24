@@ -12,6 +12,24 @@
   // lightFighter: cached gradients (LF_MAX ≥ the brightest light factor, so the flicker fits in globalAlpha ≤ 1)
   const LF_MAX = 2;
   let AO_G = null;
+  // Low's lighting picture (lowLightTex): x relative to the fighter's centre, world y, LL.s world units per pixel
+  const LL = { x0: -320, x1: 320, y0: -898, y1: 42, s: 4 }; // the gradients' ends (x −20, 40; y −70, 10) fall on pixel edges
+  // The key light (horizontal gradient around the fighter), the floor shadow (vertical, world y −70 … 10) and the
+  // snow tint composited once, in the order lightFighter fills them: drawn 'source-atop' over the fighter it gives
+  // the same result as the three fills (the gradients are smooth, 4 units per pixel is plenty).
+  function lowLightTex(th) {
+    const w = Math.round((LL.x1 - LL.x0) / LL.s), h = Math.round((LL.y1 - LL.y0) / LL.s);
+    const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+    const x = cv.getContext('2d'), k = th.key;
+    x.setTransform(1 / LL.s, 0, 0, 1 / LL.s, -LL.x0 / LL.s, -LL.y0 / LL.s);
+    const kg = x.createLinearGradient(k.from * 40, 0, -k.from * 20, 0);
+    kg.addColorStop(0, `rgba(${k.c},${k.a})`); kg.addColorStop(1, `rgba(${k.c},0)`);
+    x.fillStyle = kg; x.fillRect(LL.x0, LL.y0, LL.x1 - LL.x0, LL.y1 - LL.y0);
+    const ao = x.createLinearGradient(0, 0, 0, -70); ao.addColorStop(0, 'rgba(0,0,0,.35)'); ao.addColorStop(1, 'rgba(0,0,0,0)');
+    x.fillStyle = ao; x.fillRect(LL.x0, -70, LL.x1 - LL.x0, 80);
+    if (th.weather === 'snow') { x.fillStyle = 'rgba(255,240,235,.06)'; x.fillRect(LL.x0, LL.y0, LL.x1 - LL.x0, LL.y1 - LL.y0); }
+    return cv;
+  }
   ND.bloodOn = bloodOn;
   // Ink palette: sumi core, a cold moonlit rim so the ink reads on night arenas, cloth scraps in muted dye colours
   const INK = '#07080e', INK_RIM = '198,208,236', INK_RIM_C = 'rgb(198,208,236)', CLOTH = ['#1b1e2b', '#2a2f42', '#3a3346', '#cfc6b2', '#262231'];
@@ -117,6 +135,9 @@
   const rgbC = (c) => { let v = RGBC.get(c); if (!v) { v = 'rgb(' + c + ')'; RGBC.set(c, v); } return v; };
   // brush-stroke outline scratch (fx.drawStroke), reused every call
   const STK_T = [], STK_B = [];
+  // particle / floor-stain limits: Low keeps fewer (each stain is an ellipse drawn every frame)
+  const FX_CAP_LOW = 110;
+  const decalCap = () => (ND.gfx && ND.gfx.tier === 'low' ? 140 : 420);
   const fx = ND.fx = {
     parts: [], decals: [], texts: [],
     clear() { this.parts.length = 0; this.decals.length = 0; this.texts.length = 0; },
@@ -182,6 +203,8 @@
     },
     update(dt) {
       const P = this.parts;
+      // Low: at most FX_CAP_LOW live particles (the oldest go first) and fewer floor stains (decalCap)
+      if (ND.gfx && ND.gfx.tier === 'low' && P.length > FX_CAP_LOW) P.splice(0, P.length - FX_CAP_LOW);
       for (let i = P.length - 1; i >= 0; i--) {
         const p = P[i];
         p.life -= dt;
@@ -189,7 +212,7 @@
           p.vy += 1500 * dt; p.x += p.vx * dt; p.y += p.vy * dt;
           if (p.y > 0 && p.vy > 0) { // lands: faint stain that fades out
             this.decals.push({ x: p.x, y: rand(0, 24), rx: p.r * rand(1.8, 3.4) + Math.abs(p.vx) * 0.004, ry: p.r * rand(0.35, 0.65), a: rand(0.28, 0.45), c: INK, fade: rand(5, 8), age: 0 });
-            if (this.decals.length > 420) this.decals.shift();
+            while (this.decals.length > decalCap()) this.decals.shift();
             p.life = 0;
           }
         } else if (p.k === 'c') { // cloth: drag, flutter, settle on the floor
@@ -205,7 +228,7 @@
             const sat = [];
             for (let k = (Math.random() * 3) | 0; k > 0; k--) sat.push([rand(-1, 1) * p.r * 3, rand(-0.4, 0.4) * p.r, p.r * rand(0.4, 1)]);
             this.decals.push({ x: p.x, y: rand(0, 26), rx: p.r * rand(1.8, 3.6) + Math.abs(p.vx) * 0.004, ry: p.r * rand(0.35, 0.7), a: rand(0.55, 0.9), sat });
-            if (this.decals.length > 420) this.decals.shift();
+            while (this.decals.length > decalCap()) this.decals.shift();
             p.life = 0;
           }
           if (p.k === 's' && p.y > 0) { p.y = 0; p.vy *= -0.35; p.vx *= 0.6; }
@@ -236,6 +259,7 @@
     },
     draw(ctx) {
       ctx.save();
+      const low = S.lowTier();
       for (const p of this.parts) {
         const t = p.life / p.max;
         if (p.k === 'b') {
@@ -245,14 +269,16 @@
         } else if (p.k === 'i') { // ink droplet: rimmed streak
           ctx.globalCompositeOperation = 'source-over'; ctx.lineCap = 'round';
           const tx = p.x - p.vx * 0.016, ty = p.y - p.vy * 0.016;
-          ctx.globalAlpha = 0.2; ctx.strokeStyle = INK_RIM_C; ctx.lineWidth = p.r * 1.9 + 1;
-          ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(tx, ty); ctx.stroke();
+          if (!low) { // Low: no pale rim around the droplet
+            ctx.globalAlpha = 0.2; ctx.strokeStyle = INK_RIM_C; ctx.lineWidth = p.r * 1.9 + 1;
+            ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(tx, ty); ctx.stroke();
+          }
           ctx.globalAlpha = 1; ctx.strokeStyle = INK; ctx.lineWidth = p.r * 1.9;
           ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(tx, ty); ctx.stroke();
         } else if (p.k === 'k') { // calligraphy stroke
-          this.drawStroke(ctx, p);
+          this.drawStroke(ctx, p, low);
         } else if (p.k === 'x') { // sumi splash
-          this.drawSplash(ctx, p);
+          this.drawSplash(ctx, p, low);
         } else if (p.k === 'c') { // cloth scrap
           ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = Math.min(1, t * 3);
           ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.scale(1, 0.35 + 0.65 * Math.abs(Math.cos(p.ph)));
@@ -291,7 +317,8 @@
       ctx.restore();
     },
     // Tapered brush stroke that is drawn on in the first fifth of its life, then thins and fades (world coords)
-    drawStroke(ctx, p) {
+    // low: the ink body only (no moonlit rim, no highlight)
+    drawStroke(ctx, p, low) {
       const age = p.max - p.life - (p.delay || 0);
       if (age < 0) return;
       const u = age / (p.max - (p.delay || 0)), grow = Math.min(1, u / 0.18), fade = u < 0.45 ? 1 : 1 - (u - 0.45) / 0.55;
@@ -312,14 +339,15 @@
         ctx.closePath();
       };
       ctx.globalCompositeOperation = 'source-over';
-      ctx.globalAlpha = 0.5 * fade; ctx.strokeStyle = INK_RIM_C; ctx.lineWidth = 2.2; ctx.lineJoin = 'round'; path(); ctx.stroke();
+      if (!low) { ctx.globalAlpha = 0.5 * fade; ctx.strokeStyle = INK_RIM_C; ctx.lineWidth = 2.2; ctx.lineJoin = 'round'; path(); ctx.stroke(); }
       ctx.globalAlpha = 0.95 * fade; ctx.fillStyle = INK; path(); ctx.fill();
+      if (low) return;
       // a hair-thin cold highlight along the stroke's spine, like wet ink catching moonlight
       ctx.globalAlpha = 0.35 * fade; ctx.strokeStyle = INK_RIM_C; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(p.x - c * L * 0.32, p.y - s * L * 0.32); ctx.lineTo(p.x + c * L * 0.2, p.y + s * L * 0.2); ctx.stroke();
     },
     // Sumi splash: a round core with spikes, bursting out fast and fading
-    drawSplash(ctx, p) {
+    drawSplash(ctx, p, low) {
       const u = 1 - p.life / p.max, e = ND.M.ease.outCubic(Math.min(1, u / 0.35)), a = u < 0.4 ? 1 : 1 - (u - 0.4) / 0.6;
       const R = p.r * (0.45 + 0.75 * e);
       const path = (k) => {
@@ -332,7 +360,7 @@
         }
       };
       ctx.globalCompositeOperation = 'source-over';
-      ctx.globalAlpha = 0.32 * a; ctx.fillStyle = INK_RIM_C; path(1.1); ctx.fill();
+      if (!low) { ctx.globalAlpha = 0.32 * a; ctx.fillStyle = INK_RIM_C; path(1.1); ctx.fill(); }
       ctx.globalAlpha = 0.92 * a; ctx.fillStyle = INK; path(1); ctx.fill();
     },
     drawTexts(ctx) {
@@ -356,6 +384,11 @@
   const BUSH = [[-0.7, 0.15, 0.55], [-0.1, -0.2, 0.7], [0.55, 0.05, 0.6], [0.1, 0.25, 0.8]], BUSH_HI = [[-0.2, -0.45, 0.4], [0.45, -0.2, 0.3]];
   const FALL_DASH = [['rgba(60,118,116,.32)', [70, 45], 380, 0], ['rgba(255,255,255,.6)', [36, 80], 520, 6], ['rgba(210,240,236,.45)', [120, 70], 300, 3]];
   const CRATERS = [[-0.3, -0.1, 0.22], [0.25, 0.2, 0.16], [0.05, -0.4, 0.1], [0.35, -0.25, 0.08]];
+  // arena props whose mid / near layer has no animation at all (drawn into the layer cache on every tier)
+  const MID_STATIC = { castle: 1 }, NEAR_STATIC = { castle: 1 };
+  // Low's backdrop picture (drawBackLow): k = resolution factor, t = redrawn at least this often (s), tol = camera
+  // move that forces a redraw (floor pixels), zoom = zoom change that forces one (ND.scene.bgLow, tunable in the console)
+  const BG_LOW = { k: 0.5, t: 0.2, tol: 2.5, zoom: 0.008 };
   const CPUFF = [[-150, 4, 110, 18], [-70, -10, 80, 26], [20, -16, 95, 32], [110, -4, 90, 22], [190, 6, 80, 14], [0, 10, 230, 14]];
 
   // ------------------------------------------------------------ ARENA TEMALARI
@@ -433,6 +466,7 @@
 
   // ------------------------------------------------------------ SAHNE
   const S = ND.scene = {
+    bgLow: BG_LOW,
     t: 0, wind: 0, flashL: 0, nextBolt: 8, bolt: null, theme: THEMES.temple, themeId: 'temple',
     parts: [], stars: [], ridgeA: [], ridgeB: [], bamboo: [], fgBamboo: [], trees: [], splashes: [],
 
@@ -549,7 +583,7 @@
     footprint(x, dir, big) {
       if (!this.theme.prints) return;
       fx.decals.push({ x: x + rand(-3, 3), y: rand(3, 16), rx: big ? 12 : 7.5, ry: big ? 3 : 2.2, a: 0.45, c: '#7d86a3' });
-      if (fx.decals.length > 420) fx.decals.shift();
+      while (fx.decals.length > decalCap()) fx.decals.shift();
     },
 
     resize(W, H) { cam.W = W; cam.H = H; cam.s = Math.min(H / 720, W / 700); },
@@ -609,10 +643,12 @@
     skyCache() {
       const th = this.theme, W = cam.W, H = cam.H, C = tc(th), o = th.orb;
       const M = Math.ceil(0.02 * cam.s * 1100) + 2;
-      if (C.sky && C.skyW === W && C.skyH === H) return C.sky;
+      const low = this.lowTier();
+      if (C.sky && C.skyW === W && C.skyH === H && C.skyLow === low) return C.sky;
       const c = C.sky || document.createElement('canvas');
-      c.width = W + 2 * M; c.height = H; C.skyW = W; C.skyH = H; C.skyM = M;
-      const x = c.getContext('2d'), g = x.createLinearGradient(0, 0, 0, H);
+      c.width = W + 2 * M; c.height = H; C.skyW = W; C.skyH = H; C.skyM = M; C.skyLow = low;
+      // opaque (the gradient covers it): copying it to the screen needs no blending
+      const x = c.getContext('2d', { alpha: false }), g = x.createLinearGradient(0, 0, 0, H);
       g.addColorStop(0, th.sky[0]); g.addColorStop(0.45, th.sky[1]); g.addColorStop(0.62, th.sky[2]); g.addColorStop(1, th.sky[3]);
       x.fillStyle = g; x.fillRect(0, 0, c.width, H);
       if (o) {
@@ -621,6 +657,8 @@
         halo.addColorStop(0, `rgba(${o.halo},.35)`); halo.addColorStop(0.3, `rgba(${o.halo},.1)`); halo.addColorStop(1, `rgba(${o.halo},0)`);
         x.fillStyle = halo; x.fillRect(mx - mr * 6 - 1, my - mr * 6 - 1, mr * 12 + 2, mr * 12 + 2);
       }
+      // Low: the stars are baked in at their average brightness (no twinkle; they move with the halo's parallax)
+      if (low && th.stars) this.drawStars(x, M, 0, null);
       return (C.sky = c);
     },
     // Kabarık bulut kalıbı: CPUFF elipslerinin birleşimi (yarı saydam renkte tek yol olarak çizilmeli; ayrı ayrı
@@ -637,6 +675,25 @@
       x.fill();
       return (A[key] = s);
     },
+    // Stars: ox = x offset of the target (sky cache margin), sh = halo parallax shift, t = time (null: baked into the
+    // sky cache: average brightness, no camera parallax of their own)
+    drawStars(ctx, ox, sh, t) {
+      const W = cam.W, H = cam.H, th = this.theme, o = th.orb, my = H * o?.y, mr = H * o?.r;
+      ctx.fillStyle = '#dfe6ff';
+      // yıldızlar eskiden halenin altında kalıyordu: hale önbellekte olduğundan örtme payı alfaya yansıtılır
+      const hx = W * o?.x - sh, hr0 = mr * 0.8, hr1 = mr * 2.36, hr2 = mr * 6, cx = t == null ? 0 : cam.x;
+      for (const s of this.stars) {
+        let a = (t == null ? 0.35 : 0.35 + 0.35 * Math.sin(t * 1.3 + s.p)) * th.stars;
+        const sx = ((s.x * W - cx * 0.01 * cam.s) % W + W) % W, sy = s.y * H * 0.8;
+        if (o) {
+          const d = Math.hypot(sx - hx, sy - my);
+          if (d < hr2) a *= 1 - (d <= hr0 ? 0.35 : d <= hr1 ? 0.35 - 0.25 * (d - hr0) / (hr1 - hr0) : 0.1 * (hr2 - d) / (hr2 - hr1));
+        }
+        ctx.globalAlpha = a;
+        ctx.fillRect(sx + ox, sy, s.s, s.s);
+      }
+      ctx.globalAlpha = 1;
+    },
     drawSky(ctx) {
       const W = cam.W, H = cam.H, t = this.t, th = this.theme, o = th.orb;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -644,22 +701,7 @@
       const sh = Math.round(clamp(cam.x * 0.02 * cam.s, -M + 1, M - 1)); // halenin paralaksı (tam piksel)
       ctx.drawImage(sc, M + sh, 0, W, H, 0, 0, W, H);
       const mx = W * o?.x - cam.x * 0.02 * cam.s, my = H * o?.y, mr = H * o?.r;
-      if (th.stars) {
-        ctx.fillStyle = '#dfe6ff';
-        // yıldızlar eskiden halenin altında kalıyordu: hale önbellekte olduğundan örtme payı alfaya yansıtılır
-        const hx = W * o?.x - sh, hr0 = mr * 0.8, hr1 = mr * 2.36, hr2 = mr * 6;
-        for (const s of this.stars) {
-          let a = (0.35 + 0.35 * Math.sin(t * 1.3 + s.p)) * th.stars;
-          const sx = ((s.x * W - cam.x * 0.01 * cam.s) % W + W) % W, sy = s.y * H * 0.8;
-          if (o) {
-            const d = Math.hypot(sx - hx, sy - my);
-            if (d < hr2) a *= 1 - (d <= hr0 ? 0.35 : d <= hr1 ? 0.35 - 0.25 * (d - hr0) / (hr1 - hr0) : 0.1 * (hr2 - d) / (hr2 - hr1));
-          }
-          ctx.globalAlpha = a;
-          ctx.fillRect(sx, sy, s.s, s.s);
-        }
-        ctx.globalAlpha = 1;
-      }
+      if (th.stars && !this.lowTier()) this.drawStars(ctx, 0, sh, t);
       if (o) {
         const mg = ctx.createRadialGradient(mx - mr * 0.3, my - mr * 0.3, mr * 0.1, mx, my, mr);
         mg.addColorStop(0, o.c0); mg.addColorStop(1, o.c1);
@@ -722,7 +764,18 @@
       }, top + base - 4, floorTop());
     },
 
-    drawPagoda(ctx, x, base, col = '#10152a') {
+    // part: 'body' (static, cacheable) | 'lights' (the two flickering windows only) | undefined (both). The windows
+    // sit inside their storey's wall and nothing else overlaps them, so drawing them last gives the same picture.
+    drawPagoda(ctx, x, base, col = '#10152a', part) {
+      if (part === 'lights') {
+        let y = base;
+        for (let i = 0; i < 4; i++) {
+          const h = 52 - i * 3;
+          if (i === 1 || i === 3) { ctx.fillStyle = `rgba(255,170,90,${0.25 + 0.1 * Math.sin(this.t * 3 + i)})`; ctx.fillRect(x - 6, y - h * 0.7, 12, h * 0.35); }
+          y -= h + 14;
+        }
+        return;
+      }
       ctx.fillStyle = col;
       let y = base;
       for (let i = 0; i < 5; i++) {
@@ -734,7 +787,7 @@
         ctx.lineTo(x + w * 0.2, y - h - 18);
         ctx.quadraticCurveTo(x + w * 0.4, y - h + 2, x + w * 0.62, y - h - 4);
         ctx.lineTo(x + w * 0.55, y - h + 4); ctx.lineTo(x - w * 0.55, y - h + 4); ctx.closePath(); ctx.fill();
-        if (i === 1 || i === 3) {
+        if ((i === 1 || i === 3) && part !== 'body') {
           ctx.fillStyle = `rgba(255,170,90,${0.25 + 0.1 * Math.sin(this.t * 3 + i)})`;
           ctx.fillRect(x - 6, y - h * 0.7, 12, h * 0.35);
           ctx.fillStyle = col;
@@ -784,13 +837,17 @@
       ctx.fillRect(x - 118, -300, 4, 300); ctx.fillRect(x + 100, -300, 4, 300);
     },
 
-    drawBambooGrove(ctx) {
-      const t = this.t, [cr, cg, cb] = this.theme.bambooC, wk = 1 + Math.abs(this.wind) / 200, C = tc(this.theme);
+    // still: Low's cached grove — the stalks stand at their resting lean (the arena's base wind, no swaying) and the
+    // visible range is the cache canvas, not the screen
+    drawBambooGrove(ctx, still) {
+      const [cr, cg, cb] = this.theme.bambooC, C = tc(this.theme), wind = still ? this.theme.wind : this.wind, t = still ? 0 : this.t;
+      const wk = 1 + Math.abs(wind) / 200;
       if (!C.bam) { C.bam = []; for (let d = 0; d < 15; d++) C.bam.push(`rgb(${cr + d},${cg + d},${cb + d})`, `rgb(${cr + d - 6},${cg + d - 4},${cb + d - 6})`); }
-      const v = this.view(0.55);
+      let v = this.view(0.55);
+      if (still) { const m = ctx.getTransform(); v = { x0: -m.e / m.a, x1: (ctx.canvas.width - m.e) / m.a }; }
       for (const b of this.bamboo) {
         if (b.x + 110 < v.x0 || b.x - 110 > v.x1) continue; // ekran dışı sap (salınım + yaprak payı)
-        const sway = Math.sin(t * 0.6 * wk + b.p) * 8 * wk + this.wind * 0.03;
+        const sway = still ? wind * 0.03 : Math.sin(t * 0.6 * wk + b.p) * 8 * wk + wind * 0.03;
         const d = (b.shade * 14) | 0;
         ctx.strokeStyle = C.bam[d * 2];
         ctx.lineWidth = b.w;
@@ -869,7 +926,8 @@
       return a;
     },
 
-    drawFloor(ctx) {
+    // noSplash: rain splashes left out (Low draws them live over its cached backdrop)
+    drawFloor(ctx, noSplash) {
       const A = ND.ARENA, th = this.theme;
       if (th.wallStyle === 'river') this.drawRiver(ctx);
       else if (th.wallStyle !== 'none') {
@@ -891,13 +949,7 @@
       }
       if (th.floorStyle) this['floor_' + th.floorStyle](ctx);
       else this.floorJoints(ctx);
-      if (th.weather === 'rain') {
-        ctx.strokeStyle = 'rgba(190,210,230,.25)'; ctx.lineWidth = 1;
-        for (const s of this.splashes) {
-          const k = 1 - s.life / 0.25;
-          ctx.beginPath(); ctx.ellipse(s.x, s.y, 3 + k * 12, 1 + k * 3, 0, 0, 6.283); ctx.stroke();
-        }
-      }
+      if (th.weather === 'rain' && !noSplash) this.drawSplashes(ctx);
       if (th.fence) for (const s of [-1, 1]) {
         ctx.fillStyle = th.fence;
         if (th.fenceStyle === 'broken') { // yanmış, kırık çit
@@ -919,6 +971,14 @@
         }
         ctx.fillRect(s > 0 ? A + 30 : -A - 30 - 260, -120, 260, 7);
         ctx.fillRect(s > 0 ? A + 30 : -A - 30 - 260, -60, 260, 7);
+      }
+    },
+
+    drawSplashes(ctx) { // yağmur sıçramaları (dünya koordinatları)
+      ctx.strokeStyle = 'rgba(190,210,230,.25)'; ctx.lineWidth = 1;
+      for (const s of this.splashes) {
+        const k = 1 - s.life / 0.25;
+        ctx.beginPath(); ctx.ellipse(s.x, s.y, 3 + k * 12, 1 + k * 3, 0, 0, 6.283); ctx.stroke();
       }
     },
 
@@ -947,6 +1007,52 @@
     },
 
     drawBack(ctx) {
+      if (this.lowTier()) { this.drawBackLow(ctx); return; }
+      this.drawBackLayers(ctx, false);
+    },
+    // Low: the whole backdrop (sky → floor, lanterns, plus the front fog and the vignette) is one picture at half the
+    // canvas resolution, copied to the screen in a single scaled draw. It is redrawn only when the camera has moved
+    // (more than ~2.5 px on the floor), zoomed, on a lightning flash, or every 0.2 s (BG_LOW) so lanterns, clouds and
+    // fires keep moving at a lower rate. Floor stains and rain splashes stay live on top (full resolution).
+    // On a phone this replaces 8–10 large blended fills per frame with one copy (the backdrop was about half of a Low frame).
+    drawBackLow(ctx) {
+      const W = cam.W, H = cam.H, B = this._bgl || (this._bgl = { c: document.createElement('canvas') });
+      const P = BG_LOW, bw = Math.max(1, Math.round(W * P.k)), bh = Math.max(1, Math.round(H * P.k));
+      const tol = P.tol / Math.max(0.01, cam.k);
+      const must = B.W !== W || B.H !== H || B.th !== this.theme || this.flashL > 0 || B.flash > 0 || B.k !== P.k;
+      const moved = Math.abs(cam.x - B.x) > tol || Math.abs(cam.y - B.y) > tol || Math.abs(cam.z / B.z - 1) > P.zoom ||
+        Math.abs(cam.shx - B.shx) > P.tol || Math.abs(cam.shy - B.shy) > P.tol;
+      // While the camera keeps moving the picture is redrawn every third frame; in between the previous one is moved
+      // with the floor (the far layers are then off by up to two frames of camera motion, a few pixels).
+      const frame = (B.frame = (B.frame || 0) + 1);
+      const stale = must || !(Math.abs(this.t - B.t) < P.t) || (moved && frame - B.built >= 3);
+      if (stale) {
+        const c = B.c;
+        if (c.width !== bw || c.height !== bh) { c.width = bw; c.height = bh; B.x2 = null; }
+        const x = B.x2 || (B.x2 = c.getContext('2d', { alpha: false }));
+        const sv = { W, H, s: cam.s, shx: cam.shx, shy: cam.shy }, kx = bw / W;
+        cam.W = bw; cam.H = bh; cam.s = sv.s * kx; cam.shx = sv.shx * kx; cam.shy = sv.shy * kx;
+        try {
+          x.setTransform(1, 0, 0, 1, 0, 0); x.globalAlpha = 1; x.globalCompositeOperation = 'source-over';
+          this.drawBackLayers(x, true);
+          this.drawFrontStill(x, false);
+        } finally { cam.W = sv.W; cam.H = sv.H; cam.s = sv.s; cam.shx = sv.shx; cam.shy = sv.shy; }
+        B.W = W; B.H = H; B.th = this.theme; B.x = cam.x; B.y = cam.y; B.z = cam.z; B.shx = cam.shx; B.shy = cam.shy; B.t = this.t; B.flash = this.flashL; B.k = P.k; B.built = frame;
+        this.cacheDraws = (this.cacheDraws || 0) + 1;
+      }
+      if (stale || !moved) ctx.setTransform(1, 0, 0, 1, 0, 0);
+      else { // the old picture, scaled and shifted so its floor (world layer) lines up with the current camera
+        const k0 = cam.s * B.z, k = cam.k, r = k / k0, gy = cam.gy;
+        ctx.setTransform(r, 0, 0, r, W / 2 - (W / 2 + B.shx) * r + (B.x - cam.x) * k + cam.shx, gy - (gy + B.shy) * r + (B.y - cam.y) * k + cam.shy);
+      }
+      ctx.drawImage(B.c, 0, 0, bw, bh, 0, 0, W, H);
+      cam.world(ctx);
+      if (this.theme.weather === 'rain') this.drawSplashes(ctx);
+      fx.drawDecals(ctx);
+      PM('backLow');
+    },
+    // still: drawn into Low's backdrop (no floor stains / rain splashes: those are drawn live)
+    drawBackLayers(ctx, still) {
       const th = this.theme, pr = th.props, C = tc(th);
       this.drawSky(ctx);
       PM('sky');
@@ -956,39 +1062,67 @@
       if (th.ridgeB) this.drawRidge(ctx, this.ridgeB, 0.14, th.ridgeB, -60);
       if (pr && this['far_' + pr]) this['far_' + pr](ctx);
       PM('far');
+      // Mid layer: the trees, the pagoda body and the castle walls never move, so they are drawn once into a layer
+      // cache (layerCache) and only shifted afterwards; the pagoda's flickering windows are drawn live on top.
+      const midC = !!(th.trees || th.pagoda || MID_STATIC[pr]);
+      if (midC) this.layerCache(ctx, 'mid', 0.28, this._midFn || (this._midFn = (x) => this.midStatic(x)), -900, floorTop());
       cam.layer(ctx, 0.28);
-      ctx.fillStyle = th.mid;
-      if (th.trees === 'pine') for (const tr of this.trees) this.drawPine(ctx, tr.x, tr.h * 1.3, tr.w * 0.8, th.mid, 'rgba(230,232,245,.55)', 0);
-      else if (th.trees === 'round') for (const tr of this.trees) this.drawTree(ctx, tr);
-      if (th.pagoda) this.drawPagoda(ctx, 420, -40);
-      if (pr && this['mid_' + pr]) { ctx.save(); this['mid_' + pr](ctx); ctx.restore(); }
+      if (th.pagoda) this.drawPagoda(ctx, 420, -40, undefined, 'lights');
+      if (pr && this['mid_' + pr] && !MID_STATIC[pr]) { ctx.save(); this['mid_' + pr](ctx); ctx.restore(); }
       PM('mid');
-      cam.layer(ctx, 0.55);
-      if (th.near === 'bamboo') this.drawBambooGrove(ctx);
-      else if (th.near === 'pine') {
-        const pc = C.pineC || (C.pineC = `rgb(${th.bambooC.join(',')})`);
-        for (let i = 0; i < this.bamboo.length; i += 3) {
-          const b = this.bamboo[i];
-          this.drawPine(ctx, b.x, b.h * 0.8, 110 + b.w * 6, pc, 'rgba(236,238,248,.8)', Math.sin(this.t * 0.7 + b.p) * 3);
-        }
+      // Near layer: bamboo / pines sway, so they stay live on Medium and High. On Low the sway stops and the whole
+      // layer (grove + torii) comes from a layer cache too; the castle's gables never move and are cached on every tier.
+      if (NEAR_STATIC[pr] || ((th.near || th.torii) && this.lowTier())) {
+        this.layerCache(ctx, 'near', 0.55, this._nearFn || (this._nearFn = (x) => this.nearLayer(x, true)), -1200, floorTop());
+      } else {
+        cam.layer(ctx, 0.55);
+        this.nearLayer(ctx, false);
       }
-      if (th.torii) this.drawTorii(ctx, -520, th.torii);
-      if (pr && this['near_' + pr]) { ctx.save(); this['near_' + pr](ctx); ctx.restore(); }
       PM('near');
       this.drawRays(ctx);
       if (!C.fog2) { C.fog2 = vstrip([[0, `rgba(${th.fog},0)`], [1, `rgba(${th.fog},.3)`]]); C.fog2b = `rgba(${th.fog},.3)`; }
       vgrad(ctx, C.fog2, cam.H * 0.4, cam.gy, C.fog2b, floorTop());
       PM('rays+fog');
       cam.world(ctx);
-      this.drawFloor(ctx);
+      this.drawFloor(ctx, still);
       PM('floor');
       if (pr) { if (this['edge_' + pr]) { ctx.save(); this['edge_' + pr](ctx); ctx.restore(); } }
       else {
         this.drawLantern(ctx, -ND.ARENA + 90);
         this.drawLantern(ctx, ND.ARENA - 90);
       }
-      fx.drawDecals(ctx);
+      if (!still) fx.drawDecals(ctx);
       PM('edge+decals');
+    },
+
+    // Low tier active (foliage stands still, stars are baked into the sky, fighters drop their lighting pass)
+    lowTier() { return !!(ND.gfx && ND.gfx.tier === 'low'); },
+    // Static part of the mid layer (layer 0.28), drawn into the 'mid' layer cache; x has the layer transform.
+    // Trees outside the cache's width are skipped.
+    midStatic(x) {
+      const th = this.theme, pr = th.props, m = x.getTransform(), lx0 = -m.e / m.a - 160, lx1 = (x.canvas.width - m.e) / m.a + 160;
+      x.fillStyle = th.mid;
+      if (th.trees === 'pine') { for (const tr of this.trees) if (tr.x > lx0 && tr.x < lx1) this.drawPine(x, tr.x, tr.h * 1.3, tr.w * 0.8, th.mid, 'rgba(230,232,245,.55)', 0); }
+      else if (th.trees === 'round') { for (const tr of this.trees) if (tr.x > lx0 && tr.x < lx1) this.drawTree(x, tr); }
+      if (th.pagoda) this.drawPagoda(x, 420, -40, undefined, 'body');
+      if (MID_STATIC[pr]) { x.save(); this['mid_' + pr](x); x.restore(); }
+    },
+    // Near layer (layer 0.55): bamboo grove or pines, torii, arena props. still: the Low / cached version (no sway;
+    // stalks outside the cache's width are skipped by the grove itself through view()).
+    nearLayer(ctx, still) {
+      const th = this.theme, pr = th.props, C = tc(th), t = still ? 0 : this.t;
+      if (th.near === 'bamboo') this.drawBambooGrove(ctx, still);
+      else if (th.near === 'pine') {
+        const pc = C.pineC || (C.pineC = `rgb(${th.bambooC.join(',')})`);
+        const m = ctx.getTransform(), lx0 = still ? -m.e / m.a - 400 : -1e9, lx1 = still ? (ctx.canvas.width - m.e) / m.a + 400 : 1e9;
+        for (let i = 0; i < this.bamboo.length; i += 3) {
+          const b = this.bamboo[i];
+          if (b.x < lx0 || b.x > lx1) continue;
+          this.drawPine(ctx, b.x, b.h * 0.8, 110 + b.w * 6, pc, 'rgba(236,238,248,.8)', Math.sin(t * 0.7 + b.p) * 3);
+        }
+      }
+      if (th.torii) this.drawTorii(ctx, -520, th.torii);
+      if (pr && this['near_' + pr]) { ctx.save(); this['near_' + pr](ctx); ctx.restore(); }
     },
 
     // Ay/güneşten süzülen hacimsel ışık huzmeleri
@@ -1099,8 +1233,13 @@
       }
       if (th.weather !== 'petal') return;
       ctx.fillStyle = front ? 'rgba(236,170,190,.85)' : 'rgba(200,150,175,.55)';
+      const low = st > 1;
       for (let i = 0; i < P.length; i += st) { const p = P[i];
         if (p.front !== front || p.x < X0 || p.x > X1 || p.y < Y0 || p.y > Y1) continue;
+        if (low) { // Low: one rotated ellipse, the flutter squashes its height (no save / transform / restore)
+          ctx.beginPath(); ctx.ellipse(p.x, p.y, p.r * 1.6, p.r * (Math.abs(Math.sin(p.a * 1.7)) * 0.8 + 0.2), p.a, 0, 6.283); ctx.fill();
+          continue;
+        }
         ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.a); ctx.scale(1, Math.abs(Math.sin(p.a * 1.7)) * 0.8 + 0.2);
         ctx.beginPath(); ctx.ellipse(0, 0, p.r * 1.6, p.r, 0, 0, 6.283); ctx.fill();
         ctx.restore();
@@ -1122,13 +1261,20 @@
         for (let y = -40; y > -900; y -= 110) ctx.fillRect(b.x + sway * (-y / 900) - b.w * 0.7, y, b.w * 1.4, 5);
       }
       ctx.setTransform(1, 0, 0, 1, 0, 0);
-      const W = cam.W, H = cam.H, t = this.t;
+      if (!this.lowTier()) { this.drawFrontStill(ctx, true); return; }
+      // Low: fog and vignette are part of its backdrop picture (drawBackLow); the lightning flash stays live
+      if (th.weather === 'rain' && this.flashL > 0) { ctx.fillStyle = `rgba(210,225,255,${this.flashL * 0.18})`; ctx.fillRect(0, 0, cam.W, cam.H); }
+    },
+    // ground fog drifting over the floor, lightning flash (flash), vignette (screen space)
+    drawFrontStill(ctx, flash) {
+      const th = this.theme, W = cam.W, H = cam.H, t = this.t;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.fillStyle = `rgba(${th.fog},${th.fogA ?? (th.weather === 'snow' ? 0.1 : 0.05)})`;
       for (let i = 0; i < 4; i++) {
         const x = ((i * 520 + t * (22 - this.wind * 0.1) - cam.x * cam.k * 1.1) % (W + 900) + W + 900) % (W + 900) - 450;
         ctx.beginPath(); ctx.ellipse(x, cam.sy(10), 420 * cam.s, 36 * cam.s, 0, 0, 6.283); ctx.fill();
       }
-      if (th.weather === 'rain' && this.flashL > 0) { ctx.fillStyle = `rgba(210,225,255,${this.flashL * 0.18})`; ctx.fillRect(0, 0, W, H); }
+      if (flash && th.weather === 'rain' && this.flashL > 0) { ctx.fillStyle = `rgba(210,225,255,${this.flashL * 0.18})`; ctx.fillRect(0, 0, W, H); }
       // vinyet: tam çözünürlükte bir kez çizilip önbellekten 1:1 basılır (tam ekran radyal gradyan her karede pahalı)
       const C = tc(th);
       if (!C.vig || C.vigW !== W || C.vigH !== H) {
@@ -1158,7 +1304,8 @@
       if (Y1 <= Y0) return;
       let L = C[key], r = L ? k / L.k : 0;
       const ox = L ? tx - (L.tx - L.x0) * r : 0, oy = L ? ty - (L.ty - L.y0) * r : 0;
-      if (!L || L.W !== W || L.H !== H || Math.abs(r - 1) > 0.015 || ox > 0 || ox + L.c.width * r < W || oy > Y0 || oy + L.c.height * r < Y1) {
+      const q = ND.gfx ? ND.gfx.tier : '';
+      if (!L || L.W !== W || L.H !== H || L.q !== q || Math.abs(r - 1) > 0.015 || ox > 0 || ox + L.c.width * r < W || oy > Y0 || oy + L.c.height * r < Y1) {
         const M = Math.ceil(W * 0.12), MY = Math.ceil(H * 0.12);
         const x0 = -M, y0 = Math.max(-MY, Math.floor(k * ly0 + ty) - 2), y1 = Math.min(H + MY, Math.ceil(Y1) + MY);
         if (!L) L = C[key] = { c: document.createElement('canvas') };
@@ -1168,7 +1315,7 @@
         x.setTransform(k, 0, 0, k, tx - x0, ty - y0);
         x.globalAlpha = 1; x.globalCompositeOperation = 'source-over';
         draw(x);
-        L.W = W; L.H = H; L.k = k; L.tx = tx; L.ty = ty; L.x0 = x0; L.y0 = y0;
+        L.W = W; L.H = H; L.k = k; L.tx = tx; L.ty = ty; L.x0 = x0; L.y0 = y0; L.q = q; this.cacheDraws = (this.cacheDraws || 0) + 1;
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.drawImage(c, x0, y0);
         return;
@@ -1326,9 +1473,14 @@
       ctx.restore();
       for (let i = 0; i < L.length; i += 2) this.drawChochin(ctx, L[i], L[i + 1], r, Math.sin(t * 1.5 + L[i] * 0.02) * 0.08 + this.wind * 0.0003, this.lanternFlicker(L[i]));
     },
-    far_market(ctx) { // uzak çatılar + pagoda silueti
-      const th = this.theme, v = this.view(0.14), S = this.P.sky;
+    // Far rooftops never move: drawn into a layer cache; only the pagoda's windows flicker live on top
+    far_market(ctx) {
+      this.layerCache(ctx, 'farMk', 0.14, this._fmFn || (this._fmFn = (x) => this.farMarketStatic(x)), -900, floorTop());
       cam.layer(ctx, 0.14);
+      ctx.save(); ctx.translate(-760, -300); ctx.scale(0.75, 0.75); this.drawPagoda(ctx, 0, 0, this.theme.skyline, 'lights'); ctx.restore();
+    },
+    farMarketStatic(ctx) { // uzak çatılar + pagoda silueti (x: layer transform of the cache; range = cache width)
+      const th = this.theme, S = this.P.sky, m = ctx.getTransform(), v = { x0: -m.e / m.a, x1: (ctx.canvas.width - m.e) / m.a };
       // binalar tek tek (opak renk: birleşimle aynı; ekran boyu tek yol GPU'da yazılım maskesine düşüyordu)
       ctx.fillStyle = th.skyline;
       for (const b of S) {
@@ -1337,7 +1489,7 @@
         ctx.beginPath(); ctx.moveTo(b.x - b.w / 2 - 12, y + 2); ctx.lineTo(b.x - b.w * 0.2, y - b.w * 0.22); ctx.lineTo(b.x + b.w * 0.2, y - b.w * 0.22); ctx.lineTo(b.x + b.w / 2 + 12, y + 2); ctx.closePath();
         ctx.fill();
       }
-      ctx.save(); ctx.translate(-760, -300); ctx.scale(0.75, 0.75); this.drawPagoda(ctx, 0, 0, th.skyline); ctx.restore();
+      ctx.save(); ctx.translate(-760, -300); ctx.scale(0.75, 0.75); this.drawPagoda(ctx, 0, 0, th.skyline, 'body'); ctx.restore();
       ctx.fillStyle = 'rgba(255,190,120,.45)';
       for (const b of S) { if (!b.win || b.x < v.x0 - 150 || b.x > v.x1 + 150) continue; const y = -300 - b.h; ctx.fillRect(b.x - b.w * 0.3, y + 14, 5, 7); ctx.fillRect(b.x + b.w * 0.1, y + 30, 5, 7); }
     },
@@ -1659,8 +1811,8 @@
       }
       ctx.fill();
     },
-    mid_castle(ctx) { // dış sur, yagura kuleleri, çamlar
-      const v = this.view(0.28), P = this.P;
+    mid_castle(ctx) { // dış sur, yagura kuleleri, çamlar (drawn into the 'mid' layer cache: range = the cache canvas)
+      const m = ctx.getTransform(), v = { x0: -m.e / m.a, x1: (ctx.canvas.width - m.e) / m.a }, P = this.P;
       for (const p of P.cpines) if (p.x > v.x0 - 200 && p.x < v.x1 + 200) this.drawBPine(ctx, p.x, -60, p.h);
       for (const T of P.turrets) {
         if (T.x < v.x0 - T.w * 3 || T.x > v.x1 + T.w * 3) continue;
@@ -1670,8 +1822,8 @@
         this.drawTurret(ctx, T);
       }
     },
-    near_castle(ctx) { // yan tarafta komşu çatı alınları (chidori hafu)
-      const v = this.view(0.55);
+    near_castle(ctx) { // yan tarafta komşu çatı alınları (chidori hafu) — 'near' layer cache: range = the cache canvas
+      const m = ctx.getTransform(), v = { x0: -m.e / m.a, x1: (ctx.canvas.width - m.e) / m.a };
       for (const G of this.P.gables) {
         const { x, w, top } = G;
         if (x + w * 1.2 < v.x0 || x - w * 1.2 > v.x1) continue;
@@ -1782,6 +1934,14 @@
       }
       c.globalAlpha = A0;
       const k = th.key, cx = (x0 + x1) / 2;
+      if (this.lowTier()) { // Low: key light + floor shadow + snow tint as one small cached picture (same pixels, one draw)
+        const T = C.lowLight || (C.lowLight = lowLightTex(th));
+        const u0 = (x0 - cx - LL.x0) / LL.s, u1 = (x1 - cx - LL.x0) / LL.s, v0 = (y0 - LL.y0) / LL.s, v1 = (y1 - LL.y0) / LL.s;
+        const cu0 = Math.max(0, u0), cu1 = Math.min(T.width, u1), cv0 = Math.max(0, v0), cv1 = Math.min(T.height, v1);
+        if (cu1 > cu0 && cv1 > cv0) c.drawImage(T, cu0, cv0, cu1 - cu0, cv1 - cv0, cx + LL.x0 + cu0 * LL.s, LL.y0 + cv0 * LL.s, (cu1 - cu0) * LL.s, (cv1 - cv0) * LL.s);
+        // (lightning and snow never share an arena, so the flash after the snow tint is the same as before it)
+        if (this.flashL > 0) { c.fillStyle = `rgba(215,228,255,${this.flashL * 0.55})`; c.fillRect(x0, y0, x1 - x0, y1 - y0); }
+      } else {
       // key light: one gradient per theme, moved to the fighter's centre
       let kg = C.keyG;
       if (!kg) { kg = C.keyG = c.createLinearGradient(k.from * 40, 0, -k.from * 20, 0); kg.addColorStop(0, `rgba(${k.c},${k.a})`); kg.addColorStop(1, `rgba(${k.c},0)`); }
@@ -1792,6 +1952,7 @@
       c.fillRect(x0, -70, x1 - x0, 80);
       if (this.flashL > 0) { c.fillStyle = `rgba(215,228,255,${this.flashL * 0.55})`; c.fillRect(x0, y0, x1 - x0, y1 - y0); }
       if (th.weather === 'snow') { c.fillStyle = 'rgba(255,240,235,.06)'; c.fillRect(x0, y0, x1 - x0, y1 - y0); }
+      }
       if (th.tint) { c.fillStyle = `rgba(${th.tint},${0.07 * this.fireF(f.x)})`; c.fillRect(x0, y0, x1 - x0, y1 - y0); }
       if (f.flash > 0) { c.fillStyle = `rgba(255,245,240,${f.flash * 0.38})`; c.fillRect(x0, y0, x1 - x0, y1 - y0); }
       c.globalCompositeOperation = 'source-over';

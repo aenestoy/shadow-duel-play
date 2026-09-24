@@ -120,6 +120,29 @@
   ];
   ND.charById = (id) => ND.CHARS.find((c) => c.id === id) || ND.CHARS[0];
 
+  // Champion colors: the Monthly Tournament winner's palette for the ninja they won with (never sold, never earned
+  // any other way). Gilded robe, lacquer-black sash and trousers, crimson accents, a gold rim light; skin and the
+  // ninja's own shapes stay. Visibly different from both the original (col) and the Legacy (alt) palettes.
+  // Built once per ninja on first use (the palette object is a cache key in skeleton.js).
+  function champPal(c) {
+    const o = Object.assign({}, c, {
+      rim: 'rgba(255,214,120,.62)', rimDim: 'rgba(200,150,60,.34)',
+      cloth: '#c99a3e', clothHi: '#f1d58a', clothDark: '#7a5518',
+      wrap: '#18110e', wrapDark: '#0b0706',
+      accent: '#d81f30', accentDark: '#6a0a13', ui: '#ffd35a',
+    });
+    if (c.hakama) { o.hakama = '#1b1310'; o.hakamaDark = '#0d0908'; }
+    if (c.haori) o.haori = '#b3862f';
+    if (c.hood) o.hood = { cloth: '#1c1511', clothHi: '#33271c', clothDark: '#0e0a08' };
+    if (c.armor) o.armor = '#6b4d17';
+    if (c.mask) o.mask = '#a8101d';
+    if (c.glove) o.glove = '#2b1d12';
+    if (c.tabi) o.tabi = '#15100d';
+    return o;
+  }
+  // Palette for an appearance choice: false = original, true = Legacy colors, 'champ' = Champion colors
+  ND.palOf = (ch, look) => (look === 'champ' ? ch.champ || (ch.champ = champPal(ch.col)) : look ? ch.alt : ch.col);
+
   ND.ARENAS = [
     { id: 'temple', name: 'Ay Işığı Tapınağı', kanji: '月' },
     { id: 'rain', name: 'Fırtınalı Bambu Ormanı', kanji: '嵐' },

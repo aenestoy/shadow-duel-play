@@ -317,7 +317,7 @@
   }
   ['fullscreenchange', 'webkitfullscreenchange'].forEach((ev) => doc.addEventListener(ev, () => refresh()));
 
-  // ---------------------------------------------------------------- settings panel (pause dialog + menu card)
+  // ---------------------------------------------------------------- settings rows (Settings panel → Controls tab, js/settings.js)
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const canVibrate = () => typeof navigator.vibrate === 'function';
   function build(box, withNote) {
@@ -365,7 +365,7 @@
       if (fs) { fs.hidden = !fsAllowed(); fs.textContent = fsElement() ? O.exitFullscreen || '' : O.fullscreen || ''; }
     });
   }
-  function buildAll() { build($('pauseTset'), false); build($('menuTset'), true); refresh(); }
+  function buildAll() { build($('setTset'), true); refresh(); }
 
   // ---------------------------------------------------------------- move list: where kick / shuriken went
   // In the simple layout the move list still shows KICK and SHURIKEN moves; one line says where those buttons are.

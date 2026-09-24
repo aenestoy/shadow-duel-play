@@ -13,9 +13,11 @@
 // Skorlar HER ZAMAN önce yerel tabloya yazılır; çevrimiçi gönderim başarısızsa (ağ yok, hız sınırı, takma ad yok)
 // giden kutusuna (outbox) girer ve sonra yeniden denenir.
 //
-// Panolar: 'arcade', 'cpu_efsane' (klasik) ve 'weekly@2026-W39' (haftalık turnuva; hafta anahtarı panonun parçası).
+// Panolar: 'arcade', 'cpu_efsane' (klasik) ve 'weekly@2026-09' (turnuva; dönem anahtarı panonun parçası).
+// Turnuva dönemi bir UTC takvim ayıdır. Eski adlar kaldı ('weekly', week, LB.week()), ama değerler aydır:
+//   id YYYYMM (202609), anahtar 'YYYY-MM' ('2026-09'). Sunucu (setup.sql nd_week_id) aynı numarayı kullanır.
 //
-// Claude DB şeması: koleksiyon `lb_<pano>` (lb_arcade, lb_cpu_efsane), haftalık `lb_w<haftaNo>` (lb_w202639),
+// Claude DB şeması: koleksiyon `lb_<pano>` (lb_arcade, lb_cpu_efsane), turnuva `lb_w<ayNo>` (lb_w202609),
 //   haftalık tüm zamanlar `lb_wall`, Dan `lb_dan`; belge kimliği = izleyicinin opak kimliği (user.id()).
 //   { uid, score, char, time, date, v, gv, dan, wk, by: { <ninja>: { s, t, d } }, cs_<ninja>: s }
 //   Kullanıcı başına pano başına tek belge; yalnız en iyi skor (genel + ninja başına) tutulur. Ad ASLA saklanmaz:
@@ -58,34 +60,31 @@
   const BOARDS = {
     arcade: { max: 1000000, k: '道' },
     cpu_efsane: { max: 200000, k: '鬼' },
-    weekly: { max: 600000, k: '週', weekly: true },
+    weekly: { max: 600000, k: '月', weekly: true }, // aylık turnuva (ad eski sürümden)
     wall: { max: 600000, k: '歴', hidden: true }, // (iç) haftalık turnuvanın tüm zamanlar en iyisi
   };
   const BOARD_IDS = ['arcade', 'cpu_efsane']; // klasik sıralama ekranının sekmeleri
-  const WK_RE = /^(\d{4})-W(\d{2})$/;
-  // 'arcade' → { base:'arcade', id:0 } · 'weekly@2026-W39' → { base:'weekly', wk:'2026-W39', id:202639 }
+  const WK_RE = /^(\d{4})-(0[1-9]|1[0-2])$/;
+  // 'arcade' → { base:'arcade', id:0 } · 'weekly@2026-09' → { base:'weekly', wk:'2026-09', id:202609 }
   function parseBoard(b) {
     if (typeof b !== 'string' || b.length > 40) return null;
     const i = b.indexOf('@');
     if (i < 0) return own(BOARDS, b) && !BOARDS[b].weekly && !BOARDS[b].hidden ? { base: b, wk: null, id: 0 } : null;
     const m = WK_RE.exec(b.slice(i + 1));
-    if (b.slice(0, i) !== 'weekly' || !m || +m[2] < 1 || +m[2] > 53) return null;
+    if (b.slice(0, i) !== 'weekly' || !m) return null;
     return { base: 'weekly', wk: b.slice(i + 1), id: +m[1] * 100 + +m[2] };
   }
-  const weekKeyOf = (id) => Math.floor(id / 100) + '-W' + String(id % 100).padStart(2, '0');
+  const weekKeyOf = (id) => Math.floor(id / 100) + '-' + String(id % 100).padStart(2, '0');
 
-  // ---------------------------------------------------------------- ISO hafta (UTC; Pazartesi 00:00'da başlar)
-  const DAY = 864e5, WEEK = 7 * DAY;
-  function isoWeek(ms) {
-    const d = new Date(ms);
-    const day = (d.getUTCDay() + 6) % 7; // Pazartesi = 0
-    const start = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - day);
-    const thu = new Date(start + 3 * DAY);
-    const year = thu.getUTCFullYear();
-    const jan4 = new Date(Date.UTC(year, 0, 4));
-    const week = 1 + Math.round(((thu - jan4) / DAY - 3 + ((jan4.getUTCDay() + 6) % 7)) / 7);
-    return { year, week, id: year * 100 + week, key: year + '-W' + String(week).padStart(2, '0'), start, end: start + WEEK };
+  // ---------------------------------------------------------------- turnuva dönemi: UTC takvim ayı (ayın 1'i 00:00'da başlar)
+  // { year, week (= ay 1–12, eski ad), month, id: YYYYMM, key: 'YYYY-MM', start, end } (ms)
+  const DAY = 864e5;
+  function period(ms) {
+    const d = new Date(ms), year = d.getUTCFullYear(), month = d.getUTCMonth() + 1;
+    return { year, week: month, month, id: year * 100 + month, key: year + '-' + String(month).padStart(2, '0'),
+      start: Date.UTC(year, month - 1, 1), end: Date.UTC(year, month, 1) };
   }
+  const prevPeriod = (p) => period(p.start - 1);
 
   // ---------------------------------------------------------------- doğrulama
   const EPOCH = Date.UTC(2025, 0, 1);
@@ -200,6 +199,32 @@
   const localData = () => { try { const d = ND.save && ND.save.lb; if (d) return d; } catch (e) { /* yok */ } return memLb; };
   const localCommit = () => { try { if (ND.save && ND.save.commit) ND.save.commit(); } catch (e) { /* yok */ } };
   const myDan = () => { try { return ND.banzuke && ND.banzuke.dan ? cleanDan(ND.banzuke.dan.rank()) : 0; } catch (e) { return 0; } };
+
+  // ---------------------------------------------------------------- unvanlar ve Şampiyon renkleri (aylık turnuva)
+  // Biten her ayın ilk 3'ü kalıcı unvan alır; sunucu söyler (nd_titles, nd_me), istemci yalnız gösterir.
+  //   unvan: { place: 1 | 2 | 3 (en iyi derece), wins (kaç kez 1.), podiums (kaç kez ilk 3) }
+  //   place 1 → "Aylık Şampiyon", 2–3 → "Finalist". Birinci olunan ninjanın Şampiyon renkleri açılır (champ).
+  // Kendi unvanım + champ, ND.save.lb içinde saklanır (lb.title, lb.champ): çevrimdışıyken de görünür. Yalnız
+  // sunucu cevabı yazar; kostüm yalnız görünüştür, tablolara gönderilmez.
+  const cleanTitle = (bp, w, pd) => {
+    const place = int(bp, 1, 3); if (!place) return null;
+    return { place, wins: int(w, 0, 9999) || 0, podiums: Math.max(int(pd, 0, 9999) || 0, 1) };
+  };
+  const cleanChamp = (a) => (Array.isArray(a) ? [...new Set(a.filter(isChar))].slice(0, 40) : []);
+  const TT = () => (ND.STR && ND.STR.bz && ND.STR.bz.ttl) || {};
+  // "Aylık Şampiyon ×2" / "Finalist" (sayı yalnız birden çoksa)
+  function titleLabel(t) {
+    if (!t || !t.place) return '';
+    const B = TT(), n = t.place === 1 ? t.wins : t.podiums;
+    return (t.place === 1 ? B.champ || 'Champion' : B.finalist || 'Finalist') + (n > 1 ? ' ×' + n : '');
+  }
+  function titleEl(t, tag) {
+    if (!t || !t.place || typeof document === 'undefined') return null;
+    const e = document.createElement(tag || 'b');
+    e.className = 'ttl ' + (t.place === 1 ? 'ttl-c' : 'ttl-f');
+    e.textContent = titleLabel(t);
+    return e;
+  }
   function localList(b) {
     const L = localData();
     const raw = Array.isArray(L.boards[b]) ? L.boards[b] : [];
@@ -487,8 +512,8 @@
         return { rows: await named(lists.map((l) => l[0]).filter(Boolean)) };
       }
       if (kind === 'archive') {
-        const cur = LB.week(), ids = [];
-        for (let k = 1; k <= 8; k++) ids.push(isoWeek(cur.start - k * WEEK + DAY).id);
+        const ids = [];
+        for (let p = prevPeriod(LB.week()), k = 0; k < 8; k++, p = prevPeriod(p)) ids.push(p.id);
         const lists = await Promise.all(ids.map((id) => getRows('lb_w' + id, 'score', 10, 'weekly@' + weekKeyOf(id), null).catch(() => [])));
         const weeks = [];
         for (let k = 0; k < ids.length; k++) if (lists[k].length) weeks.push({ id: ids[k], key: weekKeyOf(ids[k]), rows: await named(lists[k]) });
@@ -556,6 +581,49 @@
     };
     const rowsOf = (list, b, danBoard) => (Array.isArray(list) ? list : []).map((r) => normRow(r, b, danBoard)).filter(Boolean);
 
+    // Unvanlar: oturum boyunca önbellekte; salon açılınca tazelenir (LB.refresh). Sunucuda nd_titles yoksa (eski kurulum)
+    // bir daha sorulmaz: unvansız çalışır.
+    A.titles = null; A.titlesP = null; A.titlesOff = false;
+    A.loadTitles = (force) => {
+      if (A.titlesOff) return Promise.resolve(null);
+      if (A.titlesP && !force) return A.titlesP;
+      const p = A.rpc('nd_titles', {}, 7000).then((list) => {
+        const m = new Map();
+        for (const r of Array.isArray(list) ? list : []) {
+          const id = r && int(r.player_id, 1, 9e15), t = r && cleanTitle(r.best_place, r.wins, r.podiums);
+          if (id != null && t) m.set(id, t);
+        }
+        A.titles = m; emit();
+        return m;
+      }, (er) => { if (A.titlesP === p) A.titlesP = null; if (er && er.code === 'not_setup') A.titlesOff = true; throw er; });
+      A.titlesP = p;
+      return p;
+    };
+    A.titleOf = (pid) => (A.titles && A.titles.get(pid)) || null;
+    const withTitles = (res) => {
+      const put = (r) => { r.title = A.titleOf(r.pid); };
+      if (res && Array.isArray(res.rows)) res.rows.forEach(put);
+      if (res && Array.isArray(res.weeks)) res.weeks.forEach((w) => w.rows.forEach(put));
+      return res;
+    };
+    // nd_me cevabındaki kendi unvanım ve Şampiyon ninjalarım (eski sunucu bu alanları göndermezse dokunulmaz)
+    A.applyMe = (me) => {
+      if (!me || typeof me !== 'object' || !Object.prototype.hasOwnProperty.call(me, 'podiums')) return;
+      const L = localData();
+      L.title = cleanTitle(me.best_place, me.wins, me.podiums);
+      L.champ = cleanChamp(me.champ_ninjas);
+      localCommit();
+      LB._announce();
+      emit();
+    };
+    A.refreshMe = async () => {
+      if (!A.pid) return;
+      try {
+        const me = await A.rpc('nd_me', { p_secret: secret() }, 7000);
+        if (me && int(me.player_id, 1, 9e15) === A.pid) A.applyMe(me);
+      } catch (e) { /* ağ yok / eski kurulum: önbellekteki unvan kalır */ }
+    };
+
     A.syncClock = (p) => { if (p && typeof p.now === 'number' && isFinite(p.now)) A.off = p.now - Date.now(); if (p && typeof p.week === 'number') A.week = p.week; };
     A.now = () => Date.now() + A.off;
     A.ping = async () => { const p = await A.rpc('nd_ping', {}, 7000); if (!p || p.ok !== true) throw mkErr('not_setup'); A.syncClock(p); return p; };
@@ -569,7 +637,7 @@
           const me = await A.rpc('nd_me', { p_secret: secret() }, 7000);
           const id = me && int(me.player_id, 1, 9e15);
           if (id == null) A.forget();
-          else { A.pid = id; A.uid = 'p' + id; A.nick = cleanName(me.nick) || A.nick; A.srvDan = cleanDan(me.dan); L.pid = id; L.sname = A.nick; localCommit(); }
+          else { A.pid = id; A.uid = 'p' + id; A.nick = cleanName(me.nick) || A.nick; A.srvDan = cleanDan(me.dan); L.pid = id; L.sname = A.nick; localCommit(); A.applyMe(me); }
         } catch (e) { /* nd_me yoksa (eski kurulum) ya da ağ hatası: önbellekteki kimlikle devam */ }
       }
     };
@@ -616,6 +684,8 @@
             p_time: Math.round(e.time || 0), p_summary: e.sum || {} });
           const me = normMe(r);
           for (const [k2, s] of A.subs) if (k2.startsWith(b + '|')) { s.t = 0; if (me && k2 === b + '|') s.me = me; }
+          // a tournament submit may have engraved last month: pick up a new title / Champion colors
+          if (pb.base === 'weekly') A.refreshMe();
           return { ok: true, stored: 'online', improved: !!(r && r.improved), best: me ? me.score : e.score, rank: me ? me.place : null, total: me ? me.total : null, gap: me ? me.gap : null };
         } catch (er) {
           if (er && er.code === 'unknown_player' && k === 0) { A.forget(); continue; } // sunucu sıfırlanmış: bir kez yeniden kaydol
@@ -648,6 +718,7 @@
       const s = { rows: old ? old.rows : [], me: old ? old.me : null, loading: true, error: null, t: Date.now() };
       s.ready = (async () => {
         try {
+          A.loadTitles().catch(() => null);
           const [rows, me] = await Promise.all([
             A.rpc('nd_top', args(pb, c, TOP_N)),
             A.pid ? A.rpc('nd_my_rank', { p_player: A.pid, p_board: pb.base, p_week: pb.base === 'weekly' ? pb.id : null, p_ninja: c || null }).catch(() => null) : null,
@@ -663,7 +734,7 @@
     A.peek = (b, c) => {
       const s = A.subs.get(b + '|' + (c || ''));
       if (!s) return { rows: [], loading: true, error: null };
-      return { rows: s.rows.map((r) => Object.assign({}, r, { me: !!A.pid && r.pid === A.pid })), loading: s.loading, error: s.error };
+      return { rows: s.rows.map((r) => Object.assign({}, r, { me: !!A.pid && r.pid === A.pid, title: A.titleOf(r.pid) })), loading: s.loading, error: s.error };
     };
     A.mine = (b, c) => {
       const s = A.subs.get(b + '|' + (c || ''));
@@ -673,6 +744,12 @@
     A.rank = async (b, c) => { const s = A.subs.get(b + '|' + (c || '')); if (s) await s.ready; return s && s.me ? s.me.place : null; };
     A.names = async () => ({});
     A.hall = async (kind, arg) => {
+      const tl = A.loadTitles().catch(() => null);
+      const res = await A.hallRows(kind, arg);
+      await tl;
+      return withTitles(res);
+    };
+    A.hallRows = async (kind, arg) => {
       const my = (pb, c) => (A.pid ? A.rpc('nd_my_rank', { p_player: A.pid, p_board: pb.base, p_week: pb.base === 'weekly' && pb.id ? pb.id : null, p_ninja: c || null }).then(normMe).catch(() => null) : Promise.resolve(null));
       if (kind === 'week' || kind === 'alltime' || kind === 'char') {
         const b = kind === 'week' ? 'weekly@' + arg : 'wall';
@@ -797,7 +874,7 @@
       return d;
     };
     if (o.seed) {
-      const now = Date.now(), cw = isoWeek(now);
+      const now = Date.now(), cw = period(now);
       for (let i = 0; i < o.users; i++) {
         const uid = 'u_mock_' + i; names[uid] = NAMES[i % NAMES.length];
         const dan = Math.random() < 0.8 ? 1 + ((Math.random() * 18) | 0) : 0;
@@ -808,12 +885,11 @@
           for (let k = 0; k < n; k++) es.push({ s: Math.round(rnd(lo, hi)), c: chars[(Math.random() * chars.length) | 0], t: Math.round(b === 'arcade' ? rnd(420, 1500) : rnd(45, 170)), d: now - Math.round(rnd(0, 40) * DAY) });
           docs.set('lb_' + b + '/' + uid, mkDoc(uid, b, es, dan));
         }
-        // haftalık turnuva: bu hafta + 6 geçmiş hafta; tüm zamanlar; Dan
+        // aylık turnuva: bu ay + 6 geçmiş ay; tüm zamanlar; Dan
         const all = [];
-        for (let w = 0; w < 7; w++) {
+        for (let w = 0, wk = cw; w < 7; w++, wk = prevPeriod(wk)) {
           if (Math.random() < 0.3) continue;
-          const wk = isoWeek(cw.start - w * WEEK + DAY);
-          const e = { s: Math.round(rnd(20000, 240000)), c: chars[(Math.random() * chars.length) | 0], t: Math.round(rnd(300, 1200)), d: Math.min(now, wk.start + Math.round(rnd(0.1, 6.9) * DAY)), w: wk.key };
+          const e = { s: Math.round(rnd(20000, 240000)), c: chars[(Math.random() * chars.length) | 0], t: Math.round(rnd(300, 1200)), d: Math.min(now, wk.start + Math.round(rnd(0.02, 0.98) * (wk.end - wk.start))), w: wk.key };
           docs.set('lb_w' + wk.id + '/' + uid, mkDoc(uid, 'weekly', [e], dan));
           all.push(e);
         }
@@ -852,9 +928,10 @@
     get nameLocked() { return !!this.platformUser; },
 
     // yardımcılar (diğer modüller için)
-    parseBoard, isoWeek, checkName, cleanName, danShort, weekKeyOf,
+    parseBoard, period, prevPeriod, checkName, cleanName, danShort, weekKeyOf,
     now() { try { return cur.now ? cur.now() : Date.now(); } catch (e) { return Date.now(); } },
-    week(ms) { return isoWeek(ms == null ? this.now() : ms); },
+    // current tournament period (a UTC calendar month; the name is kept from the weekly version)
+    week(ms) { return period(ms == null ? this.now() : ms); },
     weeklyBoard(key) { return 'weekly@' + (key || this.week().key); },
 
     onChange(fn) { fns.add(fn); return () => fns.delete(fn); },
@@ -1021,6 +1098,42 @@
     rank(board, char, score) { return cur.rank(board, char || null, score); },
     names(ids) { return cur.names(ids); },
 
+    // --- unvanlar (aylık turnuvanın ilk 3'ü) ve Şampiyon renkleri. Yerel / Claude tablolarında unvan yok (null).
+    titleOf(pid) { return pid != null && cur.titleOf ? cur.titleOf(pid) : null; },
+    // Kendi unvanım (sunucunun son cevabı; çevrimdışıyken önbellekten). CrazyGames hesabıyla oynarken yok: o hesap
+    // henüz çevrimiçi tabloya yazmıyor.
+    myTitle() {
+      if (this.nameLocked || !this._sbCfg) return null;
+      const t = localData().title;
+      return t && typeof t === 'object' ? cleanTitle(t.place, t.wins, t.podiums) : null;
+    },
+    // Şampiyon renkleri açılmış ninjalar (sunucudan; önbellek)
+    champNinjas() { return cleanChamp(localData().champ); },
+    titleLabel, titleEl,
+    // Yeni gelen unvan / Şampiyon renkleri için bir kez duyuru (ilk görüldüğünde); yeni renkler kendiliğinden giyilir
+    _announce() {
+      const L = localData(), B = TT(), champ = cleanChamp(L.champ);
+      const seen = cleanChamp(L.champSeen), fresh = champ.filter((c) => !seen.includes(c));
+      const msgs = [];
+      if (fresh.length) {
+        if (!L.champUse || typeof L.champUse !== 'object') L.champUse = {};
+        for (const c of fresh) {
+          L.champUse[c] = true;
+          const ch = ND.CHARS.find((x) => x.id === c);
+          if (B.unlocked) msgs.push(B.unlocked(ch ? ch.name : c));
+        }
+        L.champSeen = cleanChamp(seen.concat(fresh));
+      }
+      const t = cleanTitle(L.title && L.title.place, 0, 1), was = int(L.titleSeen, 1, 3);
+      if (t && (!was || t.place < was)) {
+        if (!fresh.length && B.newTitle) msgs.push(B.newTitle(titleLabel({ place: t.place, wins: 1, podiums: 1 })));
+        L.titleSeen = t.place;
+      }
+      localCommit();
+      if (msgs.length && ND.toast) msgs.forEach((m, i) => setTimeout(() => { try { ND.toast(m, '覇', '#ffd35a'); } catch (e) { /* yok */ } }, 400 + i * 2600));
+      if (fresh.length && ND.game && ND.game.phase === 'select' && ND.game.refreshSelect) ND.game.refreshSelect();
+    },
+
     // --- bağdaştırıcı yönetimi
     registerAdapter(name, factory) { if (typeof factory === 'function') factories[name] = factory; },
     async use(name) {
@@ -1066,8 +1179,13 @@
       return srv;
     },
     retryOnline() { if (this._sbCfg && cur === localAdapter && this.status === 'offline') return this.useSupabase(this._sbCfg); return Promise.resolve(cur !== localAdapter); },
-    // Sunucu saatini ve haftayı tazele (salon açılınca)
-    async refresh() { if (cur.ping) { try { await cur.ping(); } catch (e) { /* yok */ } } return this.retryOnline(); },
+    // Sunucu saatini ve dönemi (ay), unvanları ve kendi unvanımı tazele (salon açılınca)
+    async refresh() {
+      if (cur.ping) { try { await cur.ping(); } catch (e) { /* yok */ } }
+      if (cur.loadTitles) cur.loadTitles(true).catch(() => null);
+      if (cur.refreshMe) cur.refreshMe();
+      return this.retryOnline();
+    },
 
     // claude.ai çalışma zamanı: window.claude yalnız use() taşır; namespace sonradan gelir (ya da null)
     connect(rt, label) {
@@ -1142,7 +1260,7 @@
     if (Date.now() - (it.t || 0) > 3 * DAY) return false;
     if (p.base !== 'weekly') return true;
     const w = LB.week();
-    return p.id === w.id || (p.id === isoWeek(w.start - DAY).id && LB.now() < w.start + 15 * 60000);
+    return p.id === w.id || (p.id === prevPeriod(w).id && LB.now() < w.start + 15 * 60000);
   }
   function outAdd(b, e) {
     const L = localData();
@@ -1283,6 +1401,7 @@
       else nm.textContent = r.me ? LB.getName() || T.you || '' : T.you || '';
       const ds = danShort(r.me ? (r.dan || myDan()) : r.dan);
       if (ds) { const d = document.createElement('em'); d.className = 'dn'; d.textContent = ds; nm.appendChild(d); }
+      const tt = titleEl(r.title); if (tt) nm.appendChild(tt);
       if (r.me) { const y = document.createElement('i'); y.textContent = T.youTag || ''; nm.appendChild(y); }
       const ch = ND.CHARS.find((c) => c.id === r.char);
       const k = cell('ck', ch ? ch.kanji : '?');
@@ -1303,7 +1422,7 @@
         document.querySelectorAll('#lb [data-uid]').forEach((e) => {
           if (this.names[e.dataset.uid] === undefined) return;
           const me = e.parentNode && e.parentNode.classList.contains('me');
-          const tags = [...e.querySelectorAll('i, em')];
+          const tags = [...e.querySelectorAll('i, em, b.ttl')];
           e.textContent = this.names[e.dataset.uid] || (me ? T.you : T.player) || '';
           tags.forEach((t) => e.appendChild(t));
         });

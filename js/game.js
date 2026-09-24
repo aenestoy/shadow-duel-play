@@ -318,6 +318,15 @@
       // Dan rütbesi 1P adının yanında (tek oyunculu modlar)
       const rk = $('rank1');
       if (rk) { const tag = SOLO[mode] && ND.banzuke ? ND.banzuke.rankTag() : ''; rk.textContent = tag; rk.hidden = !tag; }
+      // Monthly Tournament title (Monthly Champion / Finalist) under 1P's name; the CPU never has one
+      const tt = $('title1');
+      if (tt) {
+        const t = SOLO[mode] && ND.leaderboard ? ND.leaderboard.myTitle() : null;
+        tt.textContent = '';
+        const el = t && ND.leaderboard.titleEl(t);
+        if (el) tt.appendChild(el);
+        tt.hidden = !el;
+      }
       $('arenaName').textContent = (ND.ARENAS.find((a) => a.id === scene.themeId) || ND.ARENAS[0]).name;
     },
 
@@ -335,6 +344,7 @@
     ensurePv() {
       if (!this.pv) {
         this.pv = [new ND.Fighter(0, new ND.Ctrl()), new ND.Fighter(1, new ND.Ctrl())];
+        this.pv.forEach((pv) => (pv.fullDetail = true)); // select previews keep the detailed model on Low too
         this.pv[0].opp = this.pv[1]; this.pv[1].opp = this.pv[0];
       }
       return this.pv;
@@ -348,14 +358,14 @@
       this.syncTouch();
       this.ensurePv(); this.pvIds = ids;
       const set = (pv, ci, alt, dir) => { pv.setChar(ND.CHARS[ci], alt); pv.reset(0); pv.dir = dir; pv.pvPose = null; };
-      const legacy = !!ND.save?.useLegacy(ND.CHARS[c1].id);
+      const legacy = ND.save?.look ? ND.save.look(ND.CHARS[c1].id) : false; // false | true (Legacy) | 'champ'
       set(this.pv[0], c1, legacy, 1);
       if (c2 != null) set(this.pv[1], c2, c1 === c2 && !legacy, -1);
     },
 
     applyChars(i1, i2) {
       const c1 = ND.CHARS[i1], c2 = ND.CHARS[i2];
-      const legacy = !['attract', 'watch', '2p'].includes(this.mode) && !!ND.save?.useLegacy(c1.id);
+      const legacy = !['attract', 'watch', '2p'].includes(this.mode) && ND.save?.look ? ND.save.look(c1.id) : false;
       f1.setChar(c1, legacy); f2.setChar(c2, i1 === i2 && !legacy);
       for (const n of [1, 2]) {
         const f = F[n - 1];
@@ -744,7 +754,7 @@
     drawSnapFighter(c, s, f) {
       const mkRope = (r) => ({ rope: Object.assign(Object.create(ND.Rope.prototype), { p: r.p }), col: r.col, w: r.w });
       ND.drawNinja(c, s.j, f.col, {
-        ropes: s.ropes.map(mkRope), glint: s.glint, wpn: f.wpn, acc: f.ch.acc,
+        ropes: s.ropes.map(mkRope), glint: s.glint, wpn: f.wpn, acc: f.ch.acc, lod: 'high', bake: GFX.tier === 'low' ? f.bakeCache() : null, layer: true,
         trail: (cc) => { const save = f.trail; f.trail = s.trail; f.drawTrail(cc); f.trail = save; },
       });
       if (s.ls) ND.drawSword(c, s.ls.a.x, s.ls.a.y, Math.atan2(s.ls.b.y - s.ls.a.y, s.ls.b.x - s.ls.a.x), f.col, 0, f.wpn);
@@ -848,6 +858,8 @@
     // ---------------------------------------------------- çizim
     // Işık katmanı yalnız dövüşçünün kutusu kadar küçük bir tuvalde (tam ekran tuvalin anlık görüntüsü her karede
     // kopyalanmasın); tuval yalnız büyür, her karede yeniden boyutlanmaz
+    // Every tier, Low included (there the fighter itself is placed from cached part pictures, bake.js; that is what
+    // makes the lighting affordable on a weak phone).
     drawLit(f, drawFn, fx0) {
       const b = fx0 || f.bounds();
       let sx0 = Math.floor(cam.sx(b[0])), sy0 = Math.floor(cam.sy(b[1])), sx1 = Math.ceil(cam.sx(b[2])), sy1 = Math.ceil(cam.sy(b[3]));
@@ -897,7 +909,7 @@
       cam.world(ctx);
       for (const f of ORD) f.drawGhosts(ctx);
       PM('weather+ghosts');
-      for (const f of ORD) this.drawLit(f, f._litFn || (f._litFn = (c) => f.draw(c, false)));
+      for (const f of ORD) this.drawLit(f, f._litFn || (f._litFn = (c) => f.draw(c, false, true)));
       PM('fighters');
       cam.world(ctx);
       for (const f of ORD) if (!f.dead && !f.hidden) ND.eyeGlow?.(ctx, f.j, f.col, f.ch.acc);
@@ -1061,7 +1073,7 @@
     // Modlar: '2p', 'cpu', 'arcade' (tek slot), 'train' (slot 2 = kukla), 'tutorial' (tek slot)
     openSelect(mode) {
       this.selMode = mode; this.phase = 'select'; this.pt = 0;
-      this.sel.ready = [false, false];
+      this.sel.ready = [false, false]; this.peek = [null, null];
       this.ais = []; F.forEach((f) => (f.locked = true));
       au.quiet = false; this.paused = false;
       const S = this.sel, SS = STR.sel || {}, solo1 = !!RUN_MODES[mode] || mode === 'tutorial';
@@ -1077,8 +1089,7 @@
       this.trialOffer(null);
       this.closeMoves();
       // hazır bir meydan okuma varsa seçim ekranında da kabul düğmesi (meydan okuma / eğitim / 2P hariç)
-      const rd = ND.save && ND.save.readyRivals && !{ rival: 1, tutorial: 1, '2p': 1 }[mode] ? ND.save.readyRivals()[0] : null;
-      this.challengeOffer(rd ? rd.id : null);
+      this.challengeOffer(this.readyRival());
       // kilitli seçimleri düzelt
       const open = visibleChars().filter(charOk);
       for (let i = 0; i < 2; i++) if (!charOk(this.sel.c[i])) S.c[i] = open[Math.min(i, open.length - 1)];
@@ -1089,7 +1100,9 @@
       this.buildRoster(); this.buildArenas();
       this.refreshSelect();
       mu.setMode('menu');
-      setTimeout(() => $('bFight').focus(), 0);
+      // the screen opens at its top (roster and the chosen ninja first); focusing Start must not scroll it down
+      $('select').scrollTop = 0;
+      setTimeout(() => { $('select').scrollTop = 0; $('bFight').focus({ preventScroll: true }); }, 0);
     },
     buildRoster() {
       const SS = STR.sel || {};
@@ -1108,12 +1121,17 @@
           b.innerHTML = `<b style="color:${locked && !(ri && ri.ready) ? 'inherit' : ch.col.ui}">${ch.kanji}</b><span>${ch.name}</span>` + (locked ? '<i class="lk" aria-hidden="true"></i>' : '') + mark;
           if (locked) {
             const hint = ND.save ? ND.save.charHint(ch.id) : '';
-            b.className = 'locked' + (ri && ri.ready ? ' chal' : ''); b.setAttribute('aria-disabled', 'true');
+            b.className = 'locked' + (ri && ri.ready ? ' chal' : ''); // still a button: it previews the ninja (lockInfo)
             b.setAttribute('aria-label', ch.name + ' · ' + tx(SS.locked || 'Kilitli') + ' · ' + hint); b.title = hint;
             b.onclick = () => this.lockInfo(i, k);
           } else {
             b.setAttribute('aria-label', ch.name);
-            b.onclick = () => { this.sel.c[i] = k; this.sel.ready[i] = false; au.ui(); if (i === 0) this.trialOffer(null); this.refreshSelect(); };
+            b.onclick = () => {
+              const was = this.peek[i] != null;
+              this.sel.c[i] = k; this.sel.ready[i] = false; this.peek[i] = null; au.ui();
+              if (i === 0) { this.trialOffer(null); if (was) this.challengeOffer(this.readyRival()); }
+              this.refreshSelect();
+            };
           }
           ro.appendChild(b);
         });
@@ -1159,20 +1177,28 @@
         });
       };
     },
-    // Kilitli ninja kartı: gereksinim + onur çubuğu açıklama alanında; hazırsa meydan okuma düğmesi, reklam varsa deneme
+    // Kilitli ninja kartı: o ninja önizlenir (figür, ad, unvan/silah, değerler, Hareketler listesi) ama "Kilitli" işaretli;
+    // açıklama alanında nasıl açılacağı + onur çubuğu. Başlat düğmesi kapalı; açma yolu varsa onun düğmesi çıkar
+    // (hazır meydan okuma, reklamla tek dövüşlük deneme). Açık bir ninja seçilince önizleme biter.
     lockInfo(i, k) {
-      const ch = ND.CHARS[k], SS = STR.sel || {}, sd = $('sd' + (i + 1)); if (!ch || !sd) return;
-      const hint = ND.save ? ND.save.charHint(ch.id) : '', ri = ND.save && ND.save.rivalInfo ? ND.save.rivalInfo(ch.id) : null;
+      const ch = ND.CHARS[k]; if (!ch || !$('sd' + (i + 1))) return;
+      const ri = ND.save && ND.save.rivalInfo ? ND.save.rivalInfo(ch.id) : null;
       au.tick(0);
-      sd.textContent = SS.lockMsg ? SS.lockMsg(ch.name, hint) : hint;
-      sd.classList.add('lockmsg');
-      if (ri && !ri.ready && !ri.unlocked && ND.honor) sd.insertAdjacentHTML('beforeend', ND.honor.bar(ND.honor.pct(ch.id)));
+      this.peek[i] = k; this.sel.ready[i] = false;
       if (i === 0) {
         this.trialOffer(k);
-        if (ri && ri.ready && !ri.unlocked && this.selMode !== 'rival' && this.selMode !== '2p') this.challengeOffer(ch.id);
+        this.challengeOffer(ri && ri.ready && !ri.unlocked && this.selMode !== 'rival' && this.selMode !== '2p' ? ch.id : this.readyRival());
       }
-      clearTimeout(this._lmT);
-      this._lmT = setTimeout(() => { if (this.phase === 'select') { this.selTexts(); this.refreshSelect(); } }, 5000);
+      this.refreshSelect();
+    },
+    // the roster index shown in slot i: a previewed locked ninja, else the chosen one
+    selShown(i) { return this.peek && this.peek[i] != null ? this.peek[i] : this.sel.c[i]; },
+    // a slot previewing a locked ninja (Start stays off until an open ninja is chosen)
+    selPeeking() { return !!this.peek && [0, 1].some((i) => this.peek[i] != null && !$('slot' + (i + 1)).hidden); },
+    // first rival ready to be challenged (the Challenge button the screen opens with), or null
+    readyRival() {
+      const rd = ND.save && ND.save.readyRivals && !{ rival: 1, tutorial: 1, '2p': 1 }[this.selMode] ? ND.save.readyRivals()[0] : null;
+      return rd ? rd.id : null;
     },
     // Meydan okuma düğmesi (#bChallenge): id = hazır rakip, null = gizle
     challengeOffer(id) {
@@ -1190,7 +1216,7 @@
     },
     // Hareketler paneli (#movesOv): seçili ninjanın hareket listesi (ND.MOVELIST varsa ondan)
     fillMoves() {
-      const ch = ND.CHARS[this.sel.c[0]]; if (!ch || !ND.training || !ND.training.movesHtml || !$('mvList')) return false;
+      const ch = ND.CHARS[this.selShown(0)]; if (!ch || !ND.training || !ND.training.movesHtml || !$('mvList')) return false;
       const SS = STR.sel || {};
       $('mvK').textContent = ch.kanji; $('mvK').style.color = ch.col.ui;
       $('mvTitle').textContent = SS.movesOf ? SS.movesOf(ch.name) : ch.name;
@@ -1255,24 +1281,41 @@
       if (am && (force || am._n !== f1.ammo)) { am._n = f1.ammo; am.textContent = f1.ammo; am.parentNode.classList.toggle('empty', f1.ammo <= 0); }
     },
     refreshSelect() {
-      const S = this.sel;
+      const S = this.sel, SS = STR.sel || {};
+      if (!this.peek) this.peek = [null, null];
       for (let i = 0; i < 2; i++) {
-        const ch = ND.CHARS[S.c[i]], n = i + 1, legacy = !['watch', '2p'].includes(this.selMode) && !!ND.save?.useLegacy(ND.CHARS[S.c[0]].id);
-        const alt = i === 0 ? legacy : S.c[0] === S.c[1] && !legacy;
-        const col = alt ? ch.alt : ch.col;
+        const k = this.selShown(i), peek = this.peek[i] != null;
+        const ch = ND.CHARS[k], n = i + 1, legacy = !peek && !['watch', '2p'].includes(this.selMode) && ND.save?.look ? ND.save.look(ND.CHARS[S.c[0]].id) : false;
+        const alt = i === 0 ? legacy : !peek && S.c[0] === S.c[1] && !legacy;
+        const col = ND.palOf(ch, alt);
         $('sn' + n).textContent = ch.name; $('sk' + n).textContent = ch.kanji; $('sk' + n).style.color = col.ui;
         $('st' + n).textContent = ch.title + ' · ' + ch.weapon; $('sd' + n).textContent = ch.desc; $('sd' + n).classList.remove('lockmsg');
         if (i === 0 && this.movesOpen) this.fillMoves();
+        // a locked ninja previewed: "Locked" badge, how to unlock it (+ honor bar) instead of the description
+        const slot = $('slot' + n);
+        slot.classList.toggle('peek', peek);
+        let lb = slot.querySelector('.lkb');
+        if (!lb) { lb = document.createElement('div'); lb.className = 'lkb'; lb.innerHTML = '<i class="lk" aria-hidden="true"></i><span></span>'; slot.appendChild(lb); }
+        lb.hidden = !peek; lb.lastChild.textContent = tx(SS.locked || 'Kilitli');
+        if (peek) {
+          const sd = $('sd' + n), hint = ND.save ? ND.save.charHint(ch.id) : '', ri = ND.save && ND.save.rivalInfo ? ND.save.rivalInfo(ch.id) : null;
+          sd.textContent = hint; // the name and the Locked badge are right above
+          sd.classList.add('lockmsg');
+          if (ri && !ri.ready && !ri.unlocked && ND.honor) sd.insertAdjacentHTML('beforeend', ND.honor.bar(ND.honor.pct(ch.id)));
+        }
         // ninjaya özel ipuçları (roster2.js: STR.roster2.notes) açıklamanın altında
-        const notes = STR.roster2 && STR.roster2.notes && STR.roster2.notes[ch.id];
+        const notes = !peek && STR.roster2 && STR.roster2.notes && STR.roster2.notes[ch.id];
         if (Array.isArray(notes)) notes.forEach((t) => { const s = document.createElement('small'); s.className = 'cnote'; s.textContent = t; $('sd' + n).appendChild(s); });
         const lab = { hiz: tx('Hız'), guc: tx('Güç'), menzil: tx('Menzil'), can: tx('Can') };
         $('sb' + n).innerHTML = Object.keys(lab).map((k) => `<dt>${lab[k]}</dt><dd>${[1, 2, 3, 4, 5].map((v) => `<i class="${v <= ch.stats[k] ? 'on' : ''}"></i>`).join('')}</dd>`).join('');
         $('slot' + n).style.setProperty('--sc', col.ui);
         $('slot' + n).classList.toggle('ready', S.ready[i]);
         const pv = this.pv[i]; pv.setChar(ch, alt); pv.reset(0); pv.dir = i === 0 ? 1 : -1;
-        [...$('ro' + n).children].forEach((b) => b.setAttribute('aria-pressed', String(+b.dataset.k === S.c[i])));
+        [...$('ro' + n).children].forEach((b) => b.setAttribute('aria-pressed', String(+b.dataset.k === k)));
       }
+      // Start waits for an open ninja
+      const bf = $('bFight'), off = this.selPeeking();
+      bf.disabled = off; bf.setAttribute('aria-disabled', String(off));
       document.querySelectorAll('#arenaChips [data-arena]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.arena === S.arena)));
       ND.arcade?.refreshSelect();
     },
@@ -1280,14 +1323,17 @@
       const list = visibleChars().filter(charOk); if (!list.length) return;
       const k = list.indexOf(this.sel.c[i]);
       this.sel.c[i] = list[k < 0 ? 0 : (k + d + list.length) % list.length];
+      if (this.peek && this.peek[i] != null) { this.peek[i] = null; if (i === 0) { this.trialOffer(null); this.challengeOffer(this.readyRival()); } }
       this.sel.ready[i] = false; au.ui(); this.refreshSelect();
     },
     confirm(i) {
+      if (this.peek && this.peek[i] != null) { au.tick(0); return; } // a locked ninja is only previewed
       this.sel.ready[i] = true; au.taiko(0.5); this.refreshSelect();
       if (this.sel.ready[0] && (this.selMode !== '2p' || this.sel.ready[1])) setTimeout(() => { if (this.phase === 'select') this.fightFromSelect(); }, 350);
     },
     fightFromSelect() {
       const S = this.sel, m = this.selMode;
+      if (this.selPeeking()) { au.tick(0); return; }
       persist();
       if (m === 'arcade') { au.taiko(0.8); return ND.arcade.begin(S.c[0]); }
       if (m === 'tourney' && ND.banzuke) { au.taiko(0.8); return ND.banzuke.tourney.begin(S.c[0]); }
@@ -1478,8 +1524,8 @@
   }
   touchHelp();
   ND.i18n?.onChange(touchHelp);
-  if ($('menuTset') && typeof MutationObserver !== 'undefined') {
-    new MutationObserver(touchHelp).observe($('menuTset'), { subtree: true, childList: true, attributes: true, attributeFilter: ['aria-pressed'] });
+  if ($('setTset') && typeof MutationObserver !== 'undefined') {
+    new MutationObserver(touchHelp).observe($('setTset'), { subtree: true, childList: true, attributes: true, attributeFilter: ['aria-pressed'] });
   }
 
   // Training tip bar (#trTip, filled by arcade.js) on touch: the stylesheet's spot fits the default button layout
@@ -1532,17 +1578,23 @@
     if ($('touch')) new MutationObserver(placeTip).observe($('touch'), { attributes: true, attributeFilter: ['hidden', 'class', 'style', 'data-move'] });
   }
   ND.touch?.onChange?.(placeTip);
+  // Every switch of a setting: the one with the id plus any copy marked data-tog="<key>" (the Settings panel has its own
+  // Sound / Music switches next to the menu's quick ones). A press flips the setting and shows it on all of them.
   for (const id in toggles) {
-    const key = toggles[id], el = $(id);
-    if (!el) continue;
-    el.setAttribute('aria-pressed', String(ND.settings[key]));
-    el.onclick = () => {
-      ND.settings[key] = !ND.settings[key]; el.setAttribute('aria-pressed', String(ND.settings[key]));
+    const key = toggles[id];
+    const els = [$(id), ...document.querySelectorAll(`[data-tog="${key}"]`)].filter(Boolean);
+    const show = () => els.forEach((b) => b.setAttribute('aria-pressed', String(ND.settings[key])));
+    show();
+    els.forEach((el) => (el.onclick = (e) => {
+      if (e) e.stopPropagation();
+      ND.settings[key] = !ND.settings[key]; show();
       unlockAudio(); persist();
       if (key === 'blood' && !ND.settings.blood) fx.decals.length = 0;
-    };
+      // volume.js follows the switches (muted look of the sliders)
+      if ((key === 'sound' || key === 'music') && ND.volumeUI) ND.volumeUI.refresh();
+    }));
   }
-  if (!(ND.bloodAllowed && ND.bloodAllowed())) { const tb = $('tBlood'); if (tb) tb.hidden = true; }
+  if (!(ND.bloodAllowed && ND.bloodAllowed())) document.querySelectorAll('#tBlood, [data-tog="blood"]').forEach((b) => (b.hidden = true));
   document.querySelectorAll('[data-slot]').forEach((b) => (b.onclick = () => game.cycle(+b.dataset.slot, +b.dataset.d)));
   $('bFight').onclick = () => game.fightFromSelect();
   if ($('bMoves')) $('bMoves').onclick = () => (game.movesOpen ? game.closeMoves(true) : game.openMoves());
@@ -1668,7 +1720,7 @@
     let dpr = Math.min(window.devicePixelRatio || 1, GFX.f.dpr);
     const px = r.width * r.height * dpr * dpr;
     if (px > MAX_PX) dpr *= Math.sqrt(MAX_PX / px);
-    const k = dpr * aq.R[aq.i].s;
+    const k = dpr * aq.R[aq.i].s * (game.behind ? BEHIND_SCALE : 1);
     const w = Math.max(1, Math.round(r.width * k)), h = Math.max(1, Math.round(r.height * k));
     if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
     game.pxr = cv.width / r.width; // tuval pikseli / CSS pikseli (tuş istemi boyutu için)
@@ -1679,12 +1731,9 @@
   // A ladder of rungs { tier, s (resolution scale) }. A fixed choice (High / Medium / Low) only moves between the
   // resolution scales of its tier. Auto starts at the device guess (computers High, phones Medium, weak phones Low)
   // and goes down: high 1 → .85 → medium 1 → .85 → low 1 → .85 → .7 (→ .6 on phones).
-  // Measured in 1-second windows of a running fight (not the menu demo, not paused): two slow windows in a row
-  // (average frame gap > 20 ms, i.e. under ~50 fps on a 60 Hz screen) step one rung down. The window after a step
-  // must be at least 8% faster, otherwise the step is undone: a resolution step that did not help switches the
-  // remaining resolution steps of that tier off (the bottleneck is elsewhere: next time the tier itself drops); a
-  // tier step that did not help freezes the ladder (e.g. a phone that holds every page at 30 Hz). After ten fast
-  // windows a resolution step (never a tier) is tried back up; if that makes it slow again it returns and stays.
+  // Measured in ~1-second windows of a running fight or round intro (not the menu demo, not paused), judged by the
+  // median frame gap: slow windows step down, very slow ones jump straight to a lower tier, a step that did not help
+  // is undone, ten fast windows try one rung back up. The rules and thresholds: ladderFrame in js/gfx.js.
   // Auto's own steps are not saved; each session learns again (a hitch at start must not lower it for good).
   const SCALES = MOBILE ? [1, 0.85, 0.7, 0.6] : [1, 0.85, 0.7];
   function ladder(pref) {
@@ -1695,7 +1744,7 @@
     } else SCALES.forEach((s) => R.push({ tier: GFX.tiers.includes(pref) ? pref : 'high', s }));
     return R;
   }
-  const AQ0 = { i: 0, from: 0, t: 0, n: 0, gap: 0, work: 0, slow: 0, fast: 0, probe: 0, probeTier: false, upT: 0, frozen: false, noUp: false, settle: 0 };
+  const AQ0 = { i: 0, from: 0, t: 0, n: 0, slow: 0, fast: 0, probe: 0, probeTier: false, upT: 0, frozen: false, noUp: false, settle: 0 };
   const aq = Object.assign({ R: ladder(GFX.pref), resOff: {}, stat: null }, AQ0);
   function setRung(i) {
     aq.i = i; aq.settle = 1;
@@ -1707,41 +1756,19 @@
   GFX.onChange((pref, tier, why) => {
     if (why === 'user') { aqReset(); persist(); } else resize();
     syncGfx();
+    au.setLite?.(tier === 'low');
   });
+  au.setLite?.(GFX.tier === 'low');
+  const aqAct = {
+    setRung,
+    toast() { const T = STR.toast || {}; ND.toast?.(tx(T.perf || 'Performans için grafik düşürüldü'), T.perfK || '軽'); },
+  };
+  // the decision itself lives in js/gfx.js (ladderFrame), where scripts/auto-quality-check.mjs tests it
   function aqWatch(gapMs, workMs) {
-    if (game.paused || game.phase !== 'fight' || game.mode === 'attract' || document.hidden || gapMs > 120) {
-      if (gapMs > 120 || game.phase !== 'fight') { aq.t = aq.n = aq.gap = aq.work = 0; }
-      return;
-    }
-    aq.t += gapMs; aq.n++; aq.gap += gapMs; aq.work += workMs;
-    if (aq.t < 1000) return;
-    const g = aq.gap / aq.n, R = aq.R, cur = R[aq.i];
-    aq.stat = { gap: g, work: aq.work / aq.n, tier: cur.tier, scale: cur.s };
-    aq.t = aq.n = aq.gap = aq.work = 0;
-    if (aq.settle > 0) { aq.settle--; return; } // the first window after a change does not count
-    if (aq.probe) { // did the step down help?
-      if (g > aq.probe * 0.92) {
-        if (aq.probeTier) aq.frozen = true; else aq.resOff[cur.tier] = true;
-        setRung(aq.from); // back to the rung the step came from
-      } else if (aq.probeTier) {
-        const T = STR.toast || {};
-        ND.toast?.(tx(T.perf || 'Performans için grafik düşürüldü'), T.perfK || '軽');
-      }
-      aq.probe = 0; return;
-    }
-    if (aq.upT > 0) { aq.upT--; if (g > 20) { aq.noUp = true; setRung(aq.i + 1); return; } } // going up made it slow: back, and stay
-    if (g > 20) {
-      aq.fast = 0;
-      if (!aq.frozen && ++aq.slow >= 2) {
-        aq.slow = 0;
-        let j = aq.i + 1;
-        if (aq.resOff[cur.tier]) while (j < R.length && R[j].tier === cur.tier) j++;
-        if (j < R.length) { aq.probe = g; aq.probeTier = R[j].tier !== cur.tier; aq.from = aq.i; setRung(j); }
-      }
-    } else {
-      aq.slow = 0;
-      if (g < 17.8 && aq.i > 0 && !aq.noUp && R[aq.i - 1].tier === cur.tier && ++aq.fast >= 10) { aq.fast = 0; aq.upT = 3; setRung(aq.i - 1); }
-    }
+    // the round intro counts too (the fighters walk in over the full scene): a weak phone steps down before the
+    // first exchange instead of about a second into it
+    const counting = !game.paused && (game.phase === 'fight' || game.phase === 'intro') && game.mode !== 'attract' && !document.hidden;
+    GFX.ladderFrame(aq, gapMs, workMs, counting, aqAct);
   }
   game.aq = aq; game._aqWatch = aqWatch; game._aqReset = aqReset; // console tests
   // Adres çubuğu açılıp kapanınca / döndürünce tuval gerilmesin: her boyut değişiminde arka tamponu yeniden ölç
@@ -1784,6 +1811,22 @@
     if (playing && game.phase === 'fight' && ND.ads) ND.ads.tick(rdt);
     if (ND.coach && ND.coach.on) ND.coach.tick(rdt, game);
   }
+  // Behind the menus (the attract demo under the title / menu screens) and the select, VS and ending screens the
+  // game canvas is only a dimmed backdrop: it is drawn at 3/4 resolution (see resize) and at most ~30 times a
+  // second, and after an expensive draw the next frame skips drawing, so a slow phone keeps half its time for the
+  // menus themselves. The simulation still advances every frame, so the demo moves at its normal speed.
+  const BEHIND_SCALE = 0.75, BEHIND_PHASES = { select: 1, vs: 1, ending: 1 };
+  const isBehind = () => game.mode === 'attract' || !!BEHIND_PHASES[game.phase];
+  let lastDraw = -1e9, skipDraw = false;
+  function drawFrame(w0) {
+    const behind = isBehind();
+    if (behind !== !!game.behind) { game.behind = behind; resize(); lastDraw = -1e9; skipDraw = false; }
+    if (behind && (skipDraw || w0 - lastDraw < 28)) { skipDraw = false; return; }
+    lastDraw = w0;
+    game.render();
+    skipDraw = behind && performance.now() - w0 > 12;
+  }
+  game.isBehind = isBehind;
   let last = performance.now();
   function frame(now) {
     requestAnimationFrame(frame);
@@ -1799,7 +1842,7 @@
     if (!game.paused && !inAd) game.advance(rdt); else game.acc = 0;
     portalTick(rdt, inAd);
     game.syncTouch();
-    game.render();
+    drawFrame(performance.now());
     if (!loaded) { loaded = true; ND.portal?.loadingFinished(); }
     aqWatch(gap, performance.now() - w0);
   }

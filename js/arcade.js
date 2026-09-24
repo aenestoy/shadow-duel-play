@@ -39,7 +39,7 @@
       parry: (l, g) => `Darbe inmeden hemen önce ${g}: savuştur`,
     },
     sel: {
-      title: { '2p': 'Ninjanı seç', cpu: 'Ninjanı seç', arcade: 'Arcade · Karakter yolculuğu', train: 'Antrenman · Ninjanı seç', tutorial: 'Eğitim · Ninjanı seç', tourney: 'Haftalık Turnuva · Ninjanı seç', dan: 'Dan Sınavı · Ninjanı seç', rival: 'Meydan Okuma · Ninjanı seç' },
+      title: { '2p': 'Ninjanı seç', cpu: 'Ninjanı seç', arcade: 'Arcade · Karakter yolculuğu', train: 'Antrenman · Ninjanı seç', tutorial: 'Eğitim · Ninjanı seç', tourney: 'Aylık Turnuva · Ninjanı seç', dan: 'Dan Sınavı · Ninjanı seç', rival: 'Meydan Okuma · Ninjanı seç' },
       who1: { '2p': '1. Oyuncu · A / D ile seç, F ile onayla', def: 'Sen · A / D ile seç, F ile onayla' },
       who2: { '2p': '2. Oyuncu · ← / → ile seç, K ile onayla', cpu: 'Rakip (CPU) · ← / → ile seç', train: 'Kukla · ← / → ile seç' },
       go: { def: 'Dövüşe başla', arcade: 'Arcade’e başla', train: 'Antrenmana başla', tutorial: 'Eğitime başla', tourney: 'Turnuvaya başla', dan: 'Sınava başla', rival: 'Meydan oku' },
@@ -208,7 +208,7 @@
         offline: 'Bağlantı yok — skor saklandı, bağlanınca gönderilecek',
         rate: 'Çok sık gönderim — skor birazdan gönderilecek',
         daily: 'Günlük gönderim sınırı doldu — skor yalnızca yerel tabloda',
-        week: 'Hafta bitti — skor yeni haftaya sayılmaz',
+        week: 'Ay bitti — skor yeni aya sayılmaz',
         invalid: 'Skor geçersiz',
       },
       nickErr: {
@@ -228,20 +228,22 @@
       keys: '<kbd>←</kbd> <kbd>→</kbd> tablo · <kbd>↑</kbd> <kbd>↓</kbd> ninja · <kbd>⌫</kbd> geri',
       k: '番付',
     },
-    // Rekabet katmanı (番付): Haftalık Turnuva, Dan Sınavı, Şampiyonlar Salonu (banzuke.js)
+    // Rekabet katmanı (番付): Aylık Turnuva, Dan Sınavı, Şampiyonlar Salonu (banzuke.js)
     bz: {
       back: 'Geri', toMenu: 'Ana menü', you: 'Sen', youTag: 'sen', newBest: 'Yeni rekor!', seeResult: 'Sonucu gör',
       resetIn: 'Sıfırlanmaya',
       // kalan süre: gün (g) · saat (s) · dakika (d) · saniye (sn)
       left: (ms) => { const t = Math.floor(ms / 1000), d = Math.floor(t / 86400), hh = Math.floor((t % 86400) / 3600), mm = Math.floor((t % 3600) / 60), ss = t % 60; return d ? `${d}g ${hh}s ${mm}d` : hh ? `${hh}s ${mm}d` : `${mm}d ${ss}sn`; },
       leftShort: (ms) => { const t = Math.floor(ms / 60000), d = Math.floor(t / 1440), hh = Math.floor((t % 1440) / 60), mm = t % 60; return d ? `${d}g ${hh}s` : hh ? `${hh}s ${mm}d` : `${mm}d`; },
-      weekName: (w, y) => `${y} · ${w}. Hafta`,
+      // turnuva dönemi = takvim ayı: weekName(ay 1–12, yıl) → "Eylül 2026"
+      weekName: (m, y) => `${['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'][m - 1] || m} ${y}`,
+      monthName: (m) => ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'][m - 1] || String(m),
       rank: (r) => (r <= 0 ? 'Rütbesiz' : r <= 10 ? `${11 - r}. Kyu` : `${r - 10}. Dan`),
       fightOf: (i, n) => `Dövüş ${i}/${n}`,
       hpBonus: (p) => `Rakip canı +%${p}`,
       mirrorOpp: 'Ayna · senin ninjan',
       suddenSub: 'Tek raund · ilk düşen kaybeder',
-      rows: { fights: 'Galibiyet', time: 'Süre', fightPts: 'Dövüş puanları', stage: 'Basamak bonusu', clear: 'Bitiriş bonusu', total: 'Turnuva puanı', weekBest: 'Bu haftaki en iyin' },
+      rows: { fights: 'Galibiyet', time: 'Süre', fightPts: 'Dövüş puanları', stage: 'Basamak bonusu', clear: 'Bitiriş bonusu', total: 'Turnuva puanı', weekBest: 'Bu ayki en iyin' },
       // Kural değiştiriciler (n: ad, d: açıklama)
       mods: {
         rally2x: { n: 'Seri Ateşi', d: 'Karşılık vuruşlarının hasarı ×2' },
@@ -255,24 +257,24 @@
         glass: { n: 'Cam Kılıç', d: 'Tüm hasar ×1,5' },
       },
       menu: {
-        tour: 'Haftalık Turnuva', dan: 'Dan Sınavı', hall: 'Şampiyonlar Salonu',
-        tourRank: (p, left) => `Bu hafta: #${p} · sıfırlanmaya ${left}`,
+        tour: 'Aylık Turnuva', dan: 'Dan Sınavı', hall: 'Şampiyonlar Salonu',
+        tourRank: (p, left) => `Bu ay: #${p} · sıfırlanmaya ${left}`,
         tourBest: (b, left) => `En iyin ${b} · sıfırlanmaya ${left}`,
         tourNew: (left) => `Herkese aynı 8 dövüş · sıfırlanmaya ${left}`,
         danRank: (name, next) => (next ? `Rütben: ${name} · sıradaki: ${next}` : `Rütben: ${name} · zirvedesin`),
         danNew: '10. Kyu’dan 10. Dan’a 20 sınav',
-        hallRank: (p) => `Bu hafta #${p} · rekorlar`,
-        hallDesc: 'Haftanın ilk 10’u ve rekorlar',
+        hallRank: (p) => `Bu ay #${p} · rekorlar`,
+        hallDesc: 'Ayın ilk 10’u ve rekorlar',
         nick: (n) => (n ? `Takma ad: ${n}` : 'Takma ad seç'),
       },
       t: {
-        title: 'Haftalık Turnuva', head: 'Turnuva',
+        title: 'Aylık Turnuva', head: 'Turnuva',
         runNote: (s, st) => `Turnuva toplamı: ${fmtNum(s)} (her galibiyet +${fmtNum(st)} dahil)`,
         lossSub: (name, won) => `${name} turnuvanı bitirdi · ${won} galibiyet`,
         lossNote: (s) => `Bu dövüş sayılmaz · turnuva puanın ${fmtNum(s)}`,
         quit: 'Turnuvayı bitir',
-        myBest: (b, a) => `Bu haftaki en iyin: ${b} puan · ${a} deneme`,
-        noTry: 'Bu hafta henüz denemen yok.',
+        myBest: (b, a) => `Bu ayki en iyin: ${b} puan · ${a} deneme`,
+        noTry: 'Bu ay henüz denemen yok.',
         place: (p, t) => (t ? `#${p} / ${t}` : `#${p}`),
         rules: (n, clear, stage) => `${n} dövüş; herkes için aynı rakipler, arenalar ve kurallar. Yenilince deneme biter; deneme sınırsız, en iyi denemen sayılır. Her galibiyet +${stage}, hepsini yenmek +${clear}.`,
         start: 'Ninjanı seç ve başla', again: 'Yeniden dene', go: 'Turnuvaya gir',
@@ -301,20 +303,29 @@
       },
       hall: {
         title: 'Şampiyonlar Salonu',
-        tabs: { week: { k: '週', n: 'Bu Hafta' }, alltime: { k: '歴', n: 'Tüm Zamanlar' }, archive: { k: '殿', n: 'Şampiyonlar' }, chars: { k: '忍', n: 'Ninjalar' }, dan: { k: '段', n: 'Dan' } },
-        desc: { alltime: 'Haftalık turnuvanın tüm zamanların en iyileri', archive: 'Biten her haftanın ilk 10’u buraya kalıcı olarak kazınır', chars: 'Her ninjanın rekor sahibi · ninjaya dokun, ilk 20’yi gör', dan: 'En yüksek rütbeler' },
+        tabs: { week: { k: '月', n: 'Bu Ay' }, alltime: { k: '歴', n: 'Tüm Zamanlar' }, archive: { k: '殿', n: 'Şampiyonlar' }, chars: { k: '忍', n: 'Ninjalar' }, dan: { k: '段', n: 'Dan' } },
+        desc: { alltime: 'Aylık turnuvanın tüm zamanların en iyileri', archive: 'Biten her ayın ilk 10’u buraya kalıcı olarak kazınır', chars: 'Her ninjanın rekor sahibi · ninjaya dokun, ilk 20’yi gör', dan: 'En yüksek rütbeler' },
         loading: 'Yükleniyor…', error: 'Tablo yüklenemedi.', retry: 'Yeniden dene',
-        empty: 'Henüz kimse yok. İlk sen ol!', emptyDan: 'Henüz rütbeli kimse yok.', emptyArchive: 'Henüz biten bir hafta yok. İlk şampiyonlar bu hafta bitince kazınacak.',
+        empty: 'Henüz kimse yok. İlk sen ol!', emptyDan: 'Henüz rütbeli kimse yok.', emptyArchive: 'Henüz biten bir ay yok. İlk şampiyonlar bu ay bitince kazınacak.',
         anon: 'Oyuncu',
         meTop: (p, s) => `Sen: #${p} · ${s} puan · ilk 10’dasın!`,
         meGap: (p, g, s) => `Sen: #${p} · ${s} puan · ilk 10’a ${g} puan`,
-        meNone: 'Bu hafta henüz puanın yok.',
+        meNone: 'Bu ay henüz puanın yok.',
         meDan: (p, n) => `Sen: #${p} · ${n}`,
         meDanLocal: (n) => `Rütben: ${n}`, meNoDan: 'Henüz rütben yok. İlk sınav: 10. Kyu.',
-        plaqueSub: (y) => `${y} · Hafta`,
         noRecord: 'Rekor yok', allNinjas: 'Tüm ninjalar',
         pending: (n) => `${n} kayıt gönderilmeyi bekliyor`,
         classic: 'Arcade · Efsane tabloları',
+      },
+      // Aylık turnuva ödülleri: kalıcı unvan (ilk 3) ve Şampiyon renkleri (1.) — leaderboard.js / banzuke.js / arcade.js
+      ttl: {
+        champ: 'Aylık Şampiyon', finalist: 'Finalist',
+        reward: 'Her ayın ilk 3’ü kalıcı bir unvan kazanır. Şampiyon, kullandığı ninjanın özel Şampiyon renklerini de kazanır. Unvan için o ay en az 5 oyuncu gerekir.',
+        hall: 'Ayın ilk 3’ü kalıcı unvan kazanır (en az 5 oyuncu) · şampiyona özel Şampiyon renkleri',
+        colors: 'Şampiyon renkleri',
+        how: 'Bu ninjayla bir Aylık Turnuva kazan',
+        unlocked: (name) => `Aylık Şampiyon! ${name} için Şampiyon renkleri açıldı`,
+        newTitle: (t) => `Yeni unvan: ${t}`,
       },
     },
     train: {
@@ -581,7 +592,7 @@
   }
   function normalize(p) {
     const d = { v: 1, chars: START_CHARS.slice(), arenas: START_ARENAS.slice(), wins: 0, clears: 0, bossWins: 0, best: 0, bestBy: {}, bestTime: 0, tutorial: false, lessons: [],
-      scoreV: SCORE_V, cpuBest: {}, lb: { name: '', boards: {}, last: {}, out: [] }, bz: { t: {}, dan: { r: 0, best: 0, strikes: 0, tries: 0, passes: 0 } },
+      scoreV: SCORE_V, cpuBest: {}, lb: { name: '', boards: {}, last: {}, out: [], champ: [], champSeen: [], champUse: {}, title: null }, bz: { t: {}, dan: { r: 0, best: 0, strikes: 0, tries: 0, passes: 0 } },
       hon: { t: 0, f: {} }, journey: { runs: {}, cleared: {}, stars: {}, mastered: {}, looks: {} }, coached: false };
     if (!p || typeof p !== 'object') return d;
     const o = Object.assign(d, p);
@@ -600,11 +611,19 @@
     if (!o.lb.boards || typeof o.lb.boards !== 'object') o.lb.boards = {};
     if (!o.lb.last || typeof o.lb.last !== 'object') o.lb.last = {};
     if (!Array.isArray(o.lb.out)) o.lb.out = []; // çevrimiçi gönderilmeyi bekleyen skorlar (leaderboard.js giden kutusu)
+    // Aylık turnuva: kendi unvanım ve Şampiyon renkleri açık ninjalar (leaderboard.js yalnız sunucu cevabından yazar),
+    // duyurusu yapılmış olanlar, hangi ninjada Şampiyon renklerinin seçili olduğu
+    const cids = (a) => (Array.isArray(a) ? [...new Set(a.filter((x) => ND.CHARS.some((c) => c.id === x)))] : []);
+    o.lb.champ = cids(o.lb.champ); o.lb.champSeen = cids(o.lb.champSeen);
+    if (!o.lb.champUse || typeof o.lb.champUse !== 'object' || Array.isArray(o.lb.champUse)) o.lb.champUse = {};
+    for (const k of Object.keys(o.lb.champUse)) if (o.lb.champUse[k] !== true || !ND.CHARS.some((c) => c.id === k)) delete o.lb.champUse[k];
+    if (o.lb.title != null && (typeof o.lb.title !== 'object' || ![1, 2, 3].includes(o.lb.title.place))) o.lb.title = null;
     // rekabet katmanı (banzuke.js): { t: { '2026-W39': { best, char, att, won, date } }, dan: { r, best, strikes, tries, passes } }
     if (!o.bz || typeof o.bz !== 'object') o.bz = {};
     if (!o.bz.t || typeof o.bz.t !== 'object') o.bz.t = {};
-    const wkRe = /^\d{4}-W\d{2}$/, tk = Object.keys(o.bz.t).filter((k) => wkRe.test(k)).sort();
-    Object.keys(o.bz.t).forEach((k) => { if (!wkRe.test(k) || tk.indexOf(k) < tk.length - 60 || !o.bz.t[k] || typeof o.bz.t[k] !== 'object') delete o.bz.t[k]; }); // en çok 60 hafta
+    // turnuva dönemleri: ay ('2026-09'); eski haftalık kayıtlar ('2026-W39') da korunur. En çok 60 dönem.
+    const wkRe = /^\d{4}-(W\d{2}|0[1-9]|1[0-2])$/, tk = Object.keys(o.bz.t).filter((k) => wkRe.test(k)).sort();
+    Object.keys(o.bz.t).forEach((k) => { if (!wkRe.test(k) || tk.indexOf(k) < tk.length - 60 || !o.bz.t[k] || typeof o.bz.t[k] !== 'object') delete o.bz.t[k]; });
     const dn = o.bz.dan && typeof o.bz.dan === 'object' ? o.bz.dan : {};
     const di = (v, hi) => (typeof v === 'number' && isFinite(v) ? Math.max(0, Math.min(hi, Math.round(v))) : 0);
     o.bz.dan = { r: di(dn.r, 20), best: Math.max(di(dn.best, 20), di(dn.r, 20)), strikes: di(dn.strikes, 2), tries: di(dn.tries, 1e7), passes: di(dn.passes, 1e7) };
@@ -668,6 +687,18 @@
     isArenaUnlocked(id) { return this.p.arenas.includes(id); },
     useLegacy(id) { return !!(this.p.journey.mastered[id] && this.p.journey.looks[id]); },
     toggleLegacy(id) { if (!this.p.journey.mastered[id]) return; this.p.journey.looks[id] = !this.useLegacy(id); this.commit(); },
+    // Şampiyon renkleri: bu ninjayla bir Aylık Turnuva kazanılmış mı (sunucunun cevabı, yerelde önbellek)
+    champOk(id) { const c = this.p.lb.champ; return Array.isArray(c) && c.includes(id); },
+    // Görünüş: false = asıl renkler, true = Miras renkleri (yolculuk ustalığı), 'champ' = Şampiyon renkleri
+    look(id) { const u = this.p.lb.champUse; return this.champOk(id) && !!u && u[id] === true ? 'champ' : this.useLegacy(id); },
+    lookOptions(id) { const a = [false]; if (this.p.journey.mastered[id]) a.push(true); if (this.champOk(id)) a.push('champ'); return a; },
+    setLook(id, v) {
+      const L = this.p.lb;
+      if (!L.champUse || typeof L.champUse !== 'object') L.champUse = {};
+      if (v === 'champ') { if (!this.champOk(id)) return; L.champUse[id] = true; }
+      else { delete L.champUse[id]; if (this.p.journey.mastered[id]) this.p.journey.looks[id] = v === true; }
+      this.commit();
+    },
     distinctClears() { return Object.keys(this.p.journey.cleared).filter((id) => id !== BOSS).length; },
     unlock(kind, id) {
       const list = kind === 'char' ? this.p.chars : this.p.arenas;
@@ -950,8 +981,10 @@
 
     refreshSelect() {
       const G = this.G; if (!G || G.phase !== 'select') return;
+      // a locked ninja previewed on the select screen (game.js lockInfo): its texts, no colors, the journey it will have
+      const shown = (i) => (G.selShown ? G.selShown(i) : G.sel.c[i]), peek = shown(0) !== G.sel.c[0];
       for (let n = 1; n <= 2; n++) {
-        const ch = ND.CHARS[G.sel.c[n - 1]], done = save.p.journey.cleared[ch.id];
+        const ch = ND.CHARS[shown(n - 1)], done = save.p.journey.cleared[ch.id];
         $('st' + n).textContent = ch.title + ' · ' + ch.weapon + (done ? ' · ◆ ' + STR.journey.badge : '') + (save.p.journey.mastered[ch.id] ? ' · ★ ' + J.text().titles[ch.id] : '');
         const ro = $('ro' + n);
         if (ro) for (const b of ro.children) {
@@ -962,19 +995,41 @@
           } else if (badge) { badge.remove(); b.title = ''; if (c) b.setAttribute('aria-label', c.name); }
         }
       }
-      const selected = ND.CHARS[G.sel.c[0]], T = J.text(), profile = save.p.journey;
+      const selected = ND.CHARS[shown(0)], T = J.text(), profile = save.p.journey;
       const look = $('journeyLook'), panel = $('journeyPanel');
       if (look) {
-        look.hidden = !profile.mastered[selected.id] || G.selMode === 'watch' || G.selMode === '2p';
-        look.textContent = T.colors + ': ' + (save.useLegacy(selected.id) ? T.legacy : T.classic);
-        look.setAttribute('aria-pressed', String(save.useLegacy(selected.id)));
-        look.onclick = () => { save.toggleLegacy(selected.id); G.refreshSelect(); };
+        // Appearance slots: Original · Legacy (journey mastery) · Champion (won a Monthly Tournament with this ninja).
+        // In the tournament a locked Champion slot says how to earn it.
+        const id = selected.id, TT = (STR.bz && STR.bz.ttl) || {}, now = save.look(id), opts = save.lookOptions(id);
+        const champLocked = !save.champOk(id) && G.selMode === 'tourney';
+        look.hidden = peek || G.selMode === 'watch' || G.selMode === '2p' || (opts.length < 2 && !champLocked);
+        look.textContent = '';
+        const lab = document.createElement('span'); lab.className = 'look-l'; lab.textContent = T.colors; look.appendChild(lab);
+        const slot = (v, text, locked) => {
+          const b = document.createElement('button');
+          b.type = 'button'; b.className = 'look-slot' + (v === 'champ' ? ' look-champ' : '') + (locked ? ' locked' : ''); b.textContent = text;
+          b.setAttribute('aria-pressed', String(!locked && now === v));
+          if (locked) { b.disabled = true; b.title = TT.how || ''; } else b.onclick = () => { save.setLook(id, v); G.refreshSelect(); };
+          look.appendChild(b);
+          return b;
+        };
+        slot(false, T.classic);
+        if (opts.includes(true)) slot(true, T.legacy);
+        if (opts.includes('champ')) slot('champ', TT.colors || 'Champion');
+        else if (champLocked) {
+          slot('champ', TT.colors || 'Champion', true);
+          const how = document.createElement('small'); how.className = 'look-how'; how.textContent = TT.how || ''; look.appendChild(how);
+        }
       }
       if (panel) panel.hidden = G.selMode !== 'arcade';
+      // journey layout (index.html #select.journey): the ninja and its journey side by side where the screen is short
+      if ($('select')) $('select').classList.toggle('journey', !!panel && !panel.hidden);
       if (G.selMode !== 'arcade') return;
-      const ch = ND.CHARS[G.sel.c[0]], R = save.p.journey.runs[ch.id], S = STR.journey;
-      const sd = $('sd1'); sd.textContent = R && R.done ? S.completed : R ? S.progress(R.i, R.fights.length) : S.reward;
-      const note = document.createElement('small'); note.className = 'cnote'; note.textContent = R && R.done ? '◆ ' + S.badge : S.saved; sd.appendChild(note);
+      const ch = ND.CHARS[shown(0)], R = save.p.journey.runs[ch.id], S = STR.journey;
+      if (!peek) {
+        const sd = $('sd1'); sd.textContent = R && R.done ? S.completed : R ? S.progress(R.i, R.fights.length) : S.reward;
+        const note = document.createElement('small'); note.className = 'cnote'; note.textContent = R && R.done ? '◆ ' + S.badge : S.saved; sd.appendChild(note);
+      }
       $('bFight').textContent = R ? R.done ? S.ending : S.resume(R.i + 1, R.fights.length) : S.start;
       if (panel) {
         const route = R ? R.fights : J.route(ch.id), stars = profile.stars[ch.id] || 0, legacy = R && R.version !== J.version;
@@ -1026,12 +1081,12 @@
       vs.classList.remove('in'); void vs.offsetWidth; vs.classList.add('in');
       const alt = R.me === F.opp;
       const setSide = (n, ch, a) => {
-        const col = a ? ch.alt : ch.col;
+        const col = ND.palOf(ch, a);
         $('vsk' + n).textContent = ch.kanji; $('vsk' + n).style.color = col.ui;
         $('vsn' + n).textContent = ch.name; $('vst' + n).textContent = ch.title + ' · ' + ch.weapon;
         $('vss' + n).style.setProperty('--sc', col.ui);
       };
-      const legacyColors = save.useLegacy(me.id);
+      const legacyColors = save.look(me.id);
       setSide(1, me, legacyColors); setSide(2, op, alt && !legacyColors);
       const arena = ND.ARENAS.find((a) => a.id === F.arena);
       $('vsStage').textContent = R.version === J.version ? (F.boss ? J.text().rival : J.text().stage + ' ' + (R.i + 1) + ' / 8') + ' · ' + J.text().titles[me.id] : F.boss ? STR.vs.boss : STR.vs.stage(R.i + 1, R.fights.length);

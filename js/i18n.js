@@ -13,9 +13,12 @@
 //   1. ?lang=xx in the URL (testing; not saved)
 //   2. the player's own choice, saved in ND.save settings as `lang` (older builds: localStorage nd.lang)
 //   3. a portal that requires its own language: Yandex Games (SDK environment.i18n.lang, via ND.portal.requiredLanguage()
-//      once the SDK answers; until then the browser language is the best guess there)
-//   4. English. Every other portal and every browser language starts in English.
-// Codes map to a supported language with langOf(): ru/be/kk/uk/uz → ru, tr, es, pt, de, fr, anything else → en.
+//      once the SDK answers; until then the device language below is the best guess there)
+//   4. the device language: the first entry of navigator.languages (then navigator.language) that is one of the seven
+//      supported languages, e.g. ['nl-NL', 'fr-FR', 'en'] → fr. CrazyGames and Poki start here too (their SDK locale is
+//      not used: the browser already gives the same answer at once, without a late switch).
+//   5. English, when none of the device languages is supported.
+// Codes map to a supported language with langOf(): ru/be/kk/uk/uz → ru, pt-BR/pt-PT → pt, tr, es, de, fr, en; others: none.
 // Catalogs register as ND.I18N_CATALOGS[lang] = (I, EN) => { ...fill EN... } (see i18n-en.js). A catalog other than
 // English falls back to English for any key it lacks (never to the Turkish source).
 // Load order: after every script that defines a table (arcade, roster2, banzuke…) and the catalogs, before game.js.
@@ -283,15 +286,26 @@
     } catch (e) { /* storage blocked: this session only */ }
     return false;
   }
-  const browserLang = () => { try { return (navigator.languages && navigator.languages[0]) || navigator.language || ''; } catch (e) { return ''; } };
-  // Portals that make the game follow their language (Yandex rule 2.14). Others: English.
+  // The device's languages in the player's order (navigator.languages; older browsers only navigator.language)
+  const browserLangs = () => {
+    try {
+      const list = navigator.languages && navigator.languages.length ? Array.from(navigator.languages) : [];
+      if (navigator.language) list.push(navigator.language);
+      return list;
+    } catch (e) { return []; }
+  };
+  // First device language the game speaks, or null (→ English)
+  const deviceLang = () => { for (const c of browserLangs()) { const l = langOf(c); if (l) return l; } return null; };
+  // Portals that make the game follow their language (Yandex rule 2.14). Others: device language.
   const PORTAL_LANG = { yandex: true };
   function initialLang() {
     try { const q = ND.qs ? ND.qs.get('lang') : new URLSearchParams(location.search).get('lang'); if (q) { explicit = true; from = 'url'; return pick(q); } } catch (e) { /* no URL */ }
     const s = savedLang();
     if (s) { explicit = true; from = 'saved'; return s; }
-    // Yandex: its SDK answers later; the browser language is the closest guess until then
-    if (PORTAL_LANG[ND.portalName]) { from = 'portal-guess'; return pick(browserLang()); }
+    const dev = deviceLang();
+    // Yandex: its SDK answers later; the device language is the closest guess until then
+    if (PORTAL_LANG[ND.portalName]) { from = 'portal-guess'; return dev || DEFAULT; }
+    if (dev) { from = 'device'; return dev; }
     from = 'default';
     return DEFAULT;
   }
@@ -354,7 +368,7 @@
     lang: SOURCE, source: SOURCE, default: DEFAULT, supported: SUPPORTED, names: NAMES, ready: false,
     catalog, merge, t, num, dec, time, upper, lower, src, apply, watch, setLang, audit, langOf, locale: loc,
     get explicit() { return explicit; },
-    // where the language came from: 'url' | 'saved' | 'portal' | 'portal-guess' | 'default'
+    // where the language came from: 'url' | 'saved' | 'portal' | 'portal-guess' | 'device' | 'default'
     get from() { return from; },
     onChange(fn) { fns.push(fn); },
     // Start: pick the language, translate tables + DOM, keep watching the DOM; follow a portal that requires its language
@@ -395,7 +409,7 @@
         assist: 'Kolay yardım', haptic: 'Titreşim',
         fullscreen: 'Tam ekran', exitFullscreen: 'Tam ekrandan çık',
         note: 'Basit: 5 büyük düğme. Tam: tekme ve shuriken de eklenir. Kolay yardım: SALDIR’ı basılı tutunca seri kendiliğinden sürer, GARD’a kısa dokunuş savuşturmaya yetecek kadar sürer, yön çubuğu kazayla zıplatmaz. Yalnız dokunmayı kolaylaştırır; kurallar ve puanlar herkes için aynı.',
-        fullNote: 'TEKME ve SHURIKEN düğmeleri Tam düzende (Duraklat → Dokunmatik kontroller).',
+        fullNote: 'TEKME ve SHURIKEN düğmeleri Tam düzende (Ayarlar → Kontroller).',
       },
       help: '<div class="th-grid">' +
         '<div><h3>Yön çubuğu</h3><dl>' +
@@ -412,7 +426,7 @@
         `<dt>${KI}</dt><dd>Ki tekniği: ki dolunca düğme parlar</dd>` +
         `<dt>${tb('TEKME')} ${tb('SHUR.')}</dt><dd>Tam düzende: tekme ve shuriken</dd>` +
         '</dl></div></div>',
-      note: `Aynı anda birden çok düğmeye basabilirsin: gardı tutup saldır ya da parmağını ${GD}’dan ${ATK}’a kaydır. Ekranın üstündeki <b>II</b> duraklatır; düzen, boyut ve solak ayarı oradadır. Klavye ya da gamepad kullanınca kontroller kendiliğinden onlara geçer.`,
+      note: `Aynı anda birden çok düğmeye basabilirsin: gardı tutup saldır ya da parmağını ${GD}’dan ${ATK}’a kaydır. Ekranın üstündeki <b>II</b> duraklatır; düzen, boyut ve solak ayarı <b>Ayarlar</b>’dadır. Klavye ya da gamepad kullanınca kontroller kendiliğinden onlara geçer.`,
     });
     STR.movesTouch = [
       [tb('◀ ▶'), 'Yürü', 'yön çubuğu · hızlıca iki kez it: atılma'],
@@ -564,6 +578,16 @@
   // Other languages: block "LANGUAGE PICKER" in each js/i18n-*.js. Language names themselves come from ND.i18n.names.
   if (ND.STR) ND.STR.lang = merge(ND.STR.lang || {}, { title: 'Dil', change: 'Dili değiştir', close: 'Kapat' });
 
+  // ---------------------------------------------------------------- Turkish source additions: settings screen
+  // js/settings.js (the ⚙ Settings button on the first screen, the main menu and the pause dialog, and the Settings
+  // panel with its tabs). Other languages: block "SETTINGS SCREEN" in each js/i18n-*.js.
+  if (ND.STR) ND.STR.set = merge(ND.STR.set || {}, {
+    title: 'Ayarlar', close: 'Kapat',
+    tabs: { audio: 'Ses', controls: 'Kontroller', gfx: 'Grafik', lang: 'Dil' },
+    touch: 'Dokunmatik', keys: 'Klavye', pad: 'Gamepad',
+    touchNote: 'Dokunmatik kontrol ayarları, ekrana dokunduğunda burada çıkar.',
+  });
+
   // ---------------------------------------------------------------- Turkish source additions: touch help per movement mode
   // game.js touchHelp(): the first column of the menu's touch help (STR.touch.help) follows the chosen movement mode
   // (js/touch.js prefs.move: float / fixed / dpad, dpad + dtap = tap to step), and a line points to the layout editor.
@@ -577,7 +601,7 @@
       dash: 'İki kez dokun: atılma', both: 'İki düğmenin arasına bas: ikisi birden (▶ + ▲ = ileri zıpla)',
     },
     // b = the editor's button name (STR.tedit.edit), drawn as a chip
-    edit: (b) => `${b}: her düğmeyi istediğin yere sürükle, boyutunu ve görünürlüğünü ayarla. Aşağıdaki dokunmatik ayarlarında ve duraklatma menüsünde.`,
+    edit: (b) => `${b}: her düğmeyi istediğin yere sürükle, boyutunu ve görünürlüğünü ayarla. Ayarlar → Kontroller’de.`,
   });
 
   // Scripts sit at the end of <body>, so the DOM is there: start now unless a page wants to call init() itself

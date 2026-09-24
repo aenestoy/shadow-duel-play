@@ -305,13 +305,14 @@
       // drawing scratch, reused every frame (draw() runs up to 3× per fighter per frame: reflection, cast shadow,
       // lit pass): one options object for ND.drawNinja, one trail callback, one bounds box
       this._trailFn = (c) => this.drawTrail(c);
-      this._dopt = { ropes: null, trail: null, glint: 0, wpn: null, acc: null, lod: 'high' };
+      this._dopt = { ropes: null, trail: null, glint: 0, wpn: null, acc: null, lod: 'high', bake: null, layer: false };
       this._bb = [0, 0, 0, 0];
       this.setChar(ND.CHARS[id], false);
       this.reset(id === 0 ? -260 : 260);
     }
     setChar(ch, alt) {
-      this.ch = ch; this.col = alt ? ch.alt : ch.col; this.wpn = { blade: ch.blade, handle: ch.handle, type: ch.type, twin: ch.twin, dual: ch.type === 'bo', iai: !!ch.iai };
+      // alt: false = original colors, true = Legacy colors, 'champ' = Champion colors (characters.js ND.palOf)
+      this.ch = ch; this.col = ND.palOf ? ND.palOf(ch, alt) : alt ? ch.alt : ch.col; this.wpn = { blade: ch.blade, handle: ch.handle, type: ch.type, twin: ch.twin, dual: ch.type === 'bo', iai: !!ch.iai };
       this.maxHp = ch.hp;
       // karaktere özel duruş/gard pozu (ch.poses = { stance: 'poz adı', guard: ... })
       this.P = PO;
@@ -1311,6 +1312,11 @@
       const w = 50 * Math.max(0.4, 1 - h / 400), a = 0.55 * Math.max(0.3, 1 - h / 300);
       // one gradient made once (radius 50, full strength): the size comes from the scale, the strength from
       // globalAlpha (same pixels as a new gradient with radius w and stop alphas a / 0.55a every frame)
+      if (ND.gfx && ND.gfx.tier === 'low') { // Low: a plain soft-edged ellipse, no gradient
+        ctx.save(); ctx.globalAlpha *= a * 0.6; ctx.fillStyle = '#000';
+        ctx.beginPath(); ctx.ellipse(x, 3, w * 0.8, w * 0.13, 0, 0, 6.283); ctx.fill(); ctx.restore();
+        return;
+      }
       const g = SHADOW_G || (SHADOW_G = shadowGrad(ctx)), k = w / 50;
       ctx.save(); ctx.translate(x, 3); ctx.scale(k, 0.16 * k);
       ctx.globalAlpha *= a;
@@ -1335,7 +1341,9 @@
       if (this.id === 0 && ND.specialFx && !ND.specialFx.drawHooked) ND.specialFx.render(ctx); // game.js çizmiyorsa yedek
       if (!this.ghosts.length) return;
       ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-      for (const g of this.ghosts) {
+      const every = ND.gfx && ND.gfx.tier === 'low' ? 2 : 1; // Low: every other afterimage
+      for (let gi = this.ghosts.length - 1; gi >= 0; gi -= every) {
+        const g = this.ghosts[gi];
         const j = g.j, a = (g.life / g.max) * (g.c ? 0.3 : 0.22), gc = g.c || this.col.accent;
         ctx.strokeStyle = gc; ctx.globalAlpha = a;
         const seg = (p, q, w) => { ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); ctx.stroke(); };
@@ -1384,18 +1392,24 @@
       }
       return 0;
     }
-    draw(ctx, reflect) {
+    // layer: ctx is an empty layer of its own (game.drawLit), which lets the part cache draw back to front faster
+    draw(ctx, reflect, layer) {
       const j = this.dead ? this.rag.j : this.j;
       if (!j.hip || this.hidden) return;
       ctx.save();
       if (this.jit > 0) ctx.translate((Math.random() - 0.5) * 5, 0);
       const o = this._dopt;
       o.ropes = this.ropeList(); o.trail = reflect ? null : this._trailFn; o.glint = this.glint(); o.wpn = this.wpn; o.acc = this.ch.acc;
+      // reflections: the flat two-tone model (skeleton.js drawLow). Low graphics: the same detailed fighter, drawn
+      // from its cached part pictures (bake.js) instead of paths (select-screen previews set fullDetail: paths)
       o.lod = reflect ? 'low' : 'high';
+      o.bake = !reflect && !this.fullDetail && ND.gfx && ND.gfx.tier === 'low' ? this.bakeCache() : null; o.layer = !!layer;
       ND.drawNinja(ctx, j, this.col, o);
       ctx.restore();
       if (this.looseSword) this.looseSword.draw(ctx, this.col);
     }
+    // the fighter's part picture cache (bake.js), made on first use; null without bake.js
+    bakeCache() { return this._bake || (this._bake = ND.bakeCache ? ND.bakeCache() : null); }
     // Ekran uzayında kaba sınır kutusu (ışık katmanı için)
     // Returns the fighter's own reused array [x0, y0, x1, y1]: read it right away (it changes on the next call).
     bounds() {

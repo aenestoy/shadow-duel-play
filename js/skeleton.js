@@ -506,9 +506,11 @@
     }
     // İncelen kumaş şeridi: segment başına çizgi yerine tek dolgu (daha hızlı ve pürüzsüz);
     // hi verilirse ortasından ince bir parlaklık çizgisi geçer.
-    draw(ctx, color, w0, hi) {
+    // only: 1 = the strip alone, 2 = the light line alone (the part cache draws back ropes in reverse order)
+    draw(ctx, color, w0, hi, only) {
       const p = this.p, n = p.length;
       if (n < 2) return;
+      if (only === 2) { if (hi) this.hiLine(ctx, w0, hi); return; }
       ctx.fillStyle = color;
       ctx.beginPath();
       for (let i = 0; i < n; i++) {
@@ -521,12 +523,14 @@
       }
       for (let i = n - 1; i >= 0; i--) ctx.lineTo(RB[i * 2], RB[i * 2 + 1]);
       ctx.closePath(); ctx.fill();
-      if (hi) {
-        ctx.strokeStyle = hi; ctx.lineWidth = Math.max(0.6, w0 * 0.22); ctx.lineCap = 'round';
-        ctx.beginPath(); ctx.moveTo(p[0].x, p[0].y);
-        for (let i = 1; i < n - 1; i++) ctx.lineTo(p[i].x, p[i].y);
-        ctx.stroke();
-      }
+      if (hi && only !== 1) this.hiLine(ctx, w0, hi);
+    }
+    hiLine(ctx, w0, hi) {
+      const p = this.p, n = p.length;
+      ctx.strokeStyle = hi; ctx.lineWidth = Math.max(0.6, w0 * 0.22); ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(p[0].x, p[0].y);
+      for (let i = 1; i < n - 1; i++) ctx.lineTo(p[i].x, p[i].y);
+      ctx.stroke();
     }
   }
   ND.Rope = Rope;
@@ -843,6 +847,9 @@
     ctx.beginPath(); line(ctx, hx + cs * 3, hy + sn * 3, hx + cs * BL, hy + sn * BL); ctx.stroke();
   }
 
+  // Weapon drawing steps (SW.m): 0 = everything (path renderer); the part baker draws 1 = the weapon itself (cached),
+  // 2 = the live bits under it (tessen tassel) and 3 = the live bits over it (sliding blade light, tip glint).
+  const SW = { m: 0 };
   // j (isteğe bağlı): kesirli dir ve silah durumu (yelpaze açıklığı, yay/kiriş) için eklem nesnesi
   function drawSword(ctx, hx, hy, ang, col, glint, wpn = L, lod, j) {
     if (lod === 'low') { swordLow(ctx, hx, hy, ang, wpn, j); return; }
@@ -854,9 +861,12 @@
     if (type === 'kusarigama') { drawKama(ctx, hx, hy, ang, col, glint, wpn, d); return; }
     if (type === 'tessen') { drawTessen(ctx, hx, hy, ang, col, j ? j.wFan || 0 : 0, BL, d, glint); return; }
     if (type === 'yumi') { if (j && j.wBow > 0.5 && j.haB) { drawBow(ctx, j, col, glint); return; } type = 'tanto'; }
+    const body = SW.m <= 1, post = SW.m === 0 || SW.m === 3;
     ctx.lineCap = 'round';
     if (type === 'naginata') {
       const bl = 48, se = BL - bl;
+      const x0 = hx + cs * (se + 2), y0 = hy + sn * (se + 2), tx = hx + cs * BL, ty = hy + sn * BL;
+      if (body) {
       ctx.strokeStyle = '#2b1b12'; ctx.lineWidth = 4.6;
       ctx.beginPath(); ctx.moveTo(hx - cs * HL, hy - sn * HL); ctx.lineTo(hx + cs * se, hy + sn * se); ctx.stroke();
       ctx.strokeStyle = 'rgba(255,215,170,.14)'; ctx.lineWidth = 1.2;
@@ -865,13 +875,16 @@
       for (const d of [-HL + 2, se - 14, se - 8]) { ctx.beginPath(); ctx.moveTo(hx + cs * d, hy + sn * d); ctx.lineTo(hx + cs * (d + 2.5), hy + sn * (d + 2.5)); ctx.stroke(); }
       ctx.fillStyle = '#3b3530';
       ctx.beginPath(); ctx.ellipse(hx + cs * se, hy + sn * se, 2, 6, ang, 0, 6.283); ctx.fill();
-      const x0 = hx + cs * (se + 2), y0 = hy + sn * (se + 2), tx = hx + cs * BL, ty = hy + sn * BL;
       blade(ctx, x0, y0, tx, ty, nx, ny, 7, 1.35, false);
+      }
+      if (post) {
       spec(ctx, x0, y0, tx, ty, ang);
       tipGlint(ctx, tx, ty, glint);
+      }
       return;
     }
     // kabza (tsuka): koyu gövde + çapraz ito sargısı (elmas desen)
+    if (body) {
     ctx.strokeStyle = '#141116'; ctx.lineWidth = type === 'tanto' ? 4.6 : 5.2;
     ctx.beginPath(); ctx.moveTo(hx - cs * HL, hy - sn * HL); ctx.lineTo(hx, hy); ctx.stroke();
     ctx.strokeStyle = col.accentDark; ctx.lineWidth = 1.2;
@@ -895,10 +908,12 @@
       ctx.strokeStyle = 'rgba(255,236,200,.28)'; ctx.lineWidth = 0.8;
       ctx.beginPath(); ctx.ellipse(hx + cs * 1.5, hy + sn * 1.5, 1.4, 6.2, ang, -2.2, -0.6); ctx.stroke();
     }
+    }
     if (j && j.wSheath) return; // iai: the blade rests in the hip scabbard, only the hilt shows
     const w = type === 'nodachi' ? 1.25 : type === 'kodachi' ? 0.85 : type === 'tanto' ? 0.8 : 1;
     const sori = type === 'ninjato' ? 0.4 : type === 'tanto' ? 1 : 3.2 * BL / 96;
     const bx0 = hx + cs * 3, by0 = hy + sn * 3, tx = hx + cs * BL, ty = hy + sn * BL;
+    if (body) {
     blade(ctx, bx0, by0, tx, ty, nx, ny, sori, w, type === 'ninjato');
     if (type !== 'tanto') {
       ctx.strokeStyle = 'rgba(255,255,255,.28)'; ctx.lineWidth = 0.6;
@@ -912,8 +927,11 @@
       ctx.stroke();
     }
     ctx.fillStyle = '#c8b27a'; ctx.fillRect(hx + cs * 2.5 - 1.8, hy + sn * 2.5 - 1.8, 3.6, 3.6);
+    }
+    if (post) {
     spec(ctx, bx0, by0, tx, ty, ang);
     tipGlint(ctx, tx, ty, glint);
+    }
   }
 
   // ---------------------------------------------------------------- YENİ SİLAHLAR (bō, kusarigama, tessen, yumi)
@@ -941,6 +959,7 @@
     const cs = Math.cos(ang), sn = Math.sin(ang), BL = wpn.blade, HL = wpn.handle;
     const ax = hx - cs * HL, ay = hy - sn * HL, bx = hx + cs * BL, by = hy + sn * BL;
     let nx = -sn, ny = cs; if (nx * LT.x + ny * LT.y < 0) { nx = -nx; ny = -ny; }
+    if (SW.m <= 1) {
     ctx.lineCap = 'butt';
     ctx.strokeStyle = '#120c08'; ctx.lineWidth = 6.8;
     ctx.beginPath(); line(ctx, ax - cs * 0.8, ay - sn * 0.8, bx + cs * 0.8, by + sn * 0.8); ctx.stroke();
@@ -970,13 +989,15 @@
     ctx.strokeStyle = '#b3bac6'; ctx.lineWidth = 1;
     ctx.beginPath(); line(ctx, bx - cs * 7 + nx * 1.6, by - sn * 7 + ny * 1.6, bx + nx * 1.6, by + ny * 1.6); line(ctx, ax + nx * 1.6, ay + ny * 1.6, ax + cs * 7 + nx * 1.6, ay + sn * 7 + ny * 1.6); ctx.stroke();
     ctx.lineCap = 'round';
-    tipGlint(ctx, bx, by, glint);
+    }
+    if (SW.m === 0 || SW.m === 3) tipGlint(ctx, bx, by, glint);
   }
 
   // Kusarigama orağı: sargılı ahşap sap, demir bilezik, sapa dik hilal bıçak; zincir kabza ucundaki halkaya bağlı
   function drawKama(ctx, hx, hy, ang, col, glint, wpn, d) {
     wframe(hx, hy, ang, d);
     const HL = wpn.handle, TOP = wpn.blade - 16;
+    if (SW.m === 0 || SW.m === 1) {
     ctx.lineCap = 'round';
     ctx.strokeStyle = '#100b08'; ctx.lineWidth = 6;
     ctx.beginPath(); wl(ctx, -HL, 0, TOP, 0); ctx.stroke();
@@ -1005,18 +1026,22 @@
     ctx.beginPath(); wl(ctx, TOP - 4.5, -1.8, TOP + 0.5, -1.8); ctx.stroke();
     ctx.strokeStyle = '#6d737e'; ctx.lineWidth = 1.6;
     ctx.beginPath(); ctx.arc(WX(-HL - 2.4, 0), WY(-HL - 2.4, 0), 2.6, 0, TAU); ctx.stroke();
-    tipGlint(ctx, WX(TOP - 5, 30), WY(TOP - 5, 30), glint);
+    }
+    if (SW.m === 0 || SW.m === 3) tipGlint(ctx, WX(TOP - 5, 30), WY(TOP - 5, 30), glint);
   }
 
   // Tessen: demir kaburgalı savaş yelpazesi. open 0 = kapalı demir çubuk, 1 = ~150° açık yaprak
   function drawTessen(ctx, hx, hy, ang, col, open, R, d, glint) {
     wframe(hx, hy, ang, d);
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    const tsw = Math.sin((ND.scene ? ND.scene.t : 0) * 4 + hx * 0.05) * 1.5;
-    // püskül (menteşe halkasından sarkar)
-    ctx.strokeStyle = col.accentDark; ctx.lineWidth = 1.2;
-    ctx.beginPath(); ctx.moveTo(WX(-5, 0), WY(-5, 0)); ctx.quadraticCurveTo(WX(-7, 0) + tsw, WY(-7, 0) + 5, WX(-6, 0) + tsw * 1.6, WY(-6, 0) + 10); ctx.stroke();
-    ctx.fillStyle = col.accent; ctx.beginPath(); ctx.ellipse(WX(-6, 0) + tsw * 1.6, WY(-6, 0) + 11.5, 1.5, 3, 0, 0, TAU); ctx.fill();
+    if (SW.m === 0 || SW.m === 2) {
+      const tsw = Math.sin((ND.scene ? ND.scene.t : 0) * 4 + hx * 0.05) * 1.5;
+      // püskül (menteşe halkasından sarkar)
+      ctx.strokeStyle = col.accentDark; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(WX(-5, 0), WY(-5, 0)); ctx.quadraticCurveTo(WX(-7, 0) + tsw, WY(-7, 0) + 5, WX(-6, 0) + tsw * 1.6, WY(-6, 0) + 10); ctx.stroke();
+      ctx.fillStyle = col.accent; ctx.beginPath(); ctx.ellipse(WX(-6, 0) + tsw * 1.6, WY(-6, 0) + 11.5, 1.5, 3, 0, 0, TAU); ctx.fill();
+    }
+    if (SW.m >= 2) { if (SW.m === 3 && glint > 0 && open >= 0.06) tipGlint(ctx, WX(R, 0), WY(R, 0), glint); return; }
     if (open < 0.06) {
       ctx.strokeStyle = '#0c0d10'; ctx.lineWidth = 6.4;
       ctx.beginPath(); wl(ctx, -5, 0, R, 0); ctx.stroke();
@@ -1062,7 +1087,7 @@
     ctx.strokeStyle = 'rgba(255,255,255,.3)'; ctx.lineWidth = 0.8;
     ctx.beginPath(); for (let i = 0; i <= N; i++) { const p = P(i, R - 0.8); if (i) ctx.lineTo(p[0], p[1]); else ctx.moveTo(p[0], p[1]); } ctx.stroke();
     ctx.fillStyle = '#c2ab72'; ctx.beginPath(); ctx.arc(hx, hy, 2, 0, TAU); ctx.fill();
-    if (glint > 0) tipGlint(ctx, WX(R, 0), WY(R, 0), glint);
+    if (glint > 0 && SW.m === 0) tipGlint(ctx, WX(R, 0), WY(R, 0), glint);
   }
 
   // Yumi: asimetrik uzun yay (üst kol uzun), rattan sargılar, kiriş arka ele çekilir; j.wDraw 0..1, j.wArrow, j.wCharge
@@ -1229,12 +1254,20 @@
   }
 
   // ---------------------------------------------------------------- BACAK
-  // Bol hakama: kalçadan dize genişler, dizin altında bir miktar sarkar ve incik sargısında (kyahan) toplanır
-  function drawLeg(ctx, j, front, c, D) {
-    const hip = j.hip, kn = front ? j.knF : j.knB, ft = front ? j.ftF : j.ftB;
-    const s = front ? 1 : 0.94, rimC = front ? c.rim : c.rimDim;
-    const clothC = front ? c.hakama || c.cloth : c.hakamaDark || c.clothDark, wrapC = front ? c.wrap : c.wrapDark;
-    const bx = kn.x + (ft.x - kn.x) * 0.36, by = kn.y + (ft.y - kn.y) * 0.36;
+  // Bol hakama: kalçadan dize genişler, dizin altında bir miktar sarkar ve incik sargısında (kyahan) toplanır.
+  // Drawn in steps (shin, foot, thigh + knee bag, shading, fold lines): the path renderer runs them in this order;
+  // the part baker (bake.js) caches each step as a picture and keeps the same overlaps.
+  const LG = { hip: null, kn: null, ft: null, s: 1, rimC: '', clothC: '', wrapC: '', bx: 0, by: 0, front: true };
+  function legGeom(j, front, c) {
+    LG.hip = j.hip; LG.kn = front ? j.knF : j.knB; LG.ft = front ? j.ftF : j.ftB; LG.front = front;
+    LG.s = front ? 1 : 0.94; LG.rimC = front ? c.rim : c.rimDim;
+    LG.clothC = front ? c.hakama || c.cloth : c.hakamaDark || c.clothDark; LG.wrapC = front ? c.wrap : c.wrapDark;
+    LG.bx = LG.kn.x + (LG.ft.x - LG.kn.x) * 0.36; LG.by = LG.kn.y + (LG.ft.y - LG.kn.y) * 0.36;
+    return LG;
+  }
+  // shin wrap (kyahan) with its crossed bands
+  function legShin(ctx, D) {
+    const { kn, ft, s, rimC, wrapC, bx, by, front } = LG;
     ctx.strokeStyle = D.line; ctx.lineWidth = 2.6;
     // incik sargısı
     ctx.beginPath(); capPath(ctx, kn.x, kn.y, ft.x, ft.y, 6.6 * s, 5 * s); ctx.stroke();
@@ -1260,7 +1293,10 @@
         ctx.stroke();
       }
     }
-    // tabi
+  }
+  // tabi (split-toe sock)
+  function legFoot(ctx, j, D) {
+    const { kn, ft, s, rimC, front } = LG;
     footFrame(ft, kn, j.dir, s);
     ctx.beginPath(); footPath(ctx); ctx.strokeStyle = D.line; ctx.lineWidth = 2.4; ctx.stroke();
     ctx.fillStyle = D.tabi; ctx.fill();
@@ -1272,26 +1308,41 @@
     ctx.strokeStyle = rimC; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(FX(0.5, 3.3), FY(0.5, 3.3)); ctx.quadraticCurveTo(FX(6.5, 1), FY(6.5, 1), FX(11.6, -1.3), FY(11.6, -1.3)); ctx.stroke();
     }
-    // hakama: uyluk + diz torbası
+  }
+  // hakama: thigh (t) and the knee bag hanging over the shin (k) as one shape: outline, then fill
+  function legUpper(ctx, D, t, k, outline, fill) {
+    const { hip, kn, s, clothC, bx, by } = LG;
     ctx.strokeStyle = D.line; ctx.lineWidth = 2.6;
     ctx.beginPath();
-    capPath(ctx, hip.x, hip.y, kn.x, kn.y, 10.2 * s, 10.8 * s);
-    capPath(ctx, kn.x, kn.y, bx, by, 10.8 * s, 7.8 * s);
-    ctx.stroke(); ctx.fillStyle = clothC; ctx.fill();
-    shade(ctx, hip.x, hip.y, kn.x, kn.y, 10.2 * s, 10.8 * s, front ? D.hiA : D.hiB, rimC);
-    shade(ctx, kn.x, kn.y, bx, by, 10.8 * s, 7.8 * s, front ? D.hiA : null, rimC, front ? undefined : 0);
+    if (t) capPath(ctx, hip.x, hip.y, kn.x, kn.y, 10.2 * s, 10.8 * s);
+    if (k) capPath(ctx, kn.x, kn.y, bx, by, 10.8 * s, 7.8 * s);
+    if (outline) ctx.stroke();
+    if (fill) { ctx.fillStyle = clothC; ctx.fill(); }
+  }
+  function legShade(ctx, D, t, k) {
+    const { hip, kn, s, rimC, bx, by, front } = LG;
+    if (t) shade(ctx, hip.x, hip.y, kn.x, kn.y, 10.2 * s, 10.8 * s, front ? D.hiA : D.hiB, rimC);
+    if (k) shade(ctx, kn.x, kn.y, bx, by, 10.8 * s, 7.8 * s, front ? D.hiA : null, rimC, front ? undefined : 0);
+  }
+  // cloth lines: hem over the wrap (hem), thigh pull line + its light line (pull), creases of the bent knee (knee)
+  function legLines(ctx, j, hem, pull, knee) {
+    const { hip, kn, ft, s, bx, by, front } = LG;
+    if (!hem && !pull && !(knee && legBend() > 0.25)) return;
     // paça kenarı (sargının üstüne dökülen kumaş) + kıvrımlar (tek çizim)
     const sx = ft.x - kn.x, sy = ft.y - kn.y, sd0 = Math.hypot(sx, sy) || 1, pnx = -sy / sd0 * 7.6 * s, pny = sx / sd0 * 7.6 * s;
     ctx.lineWidth = 1.1;
     ctx.strokeStyle = front ? 'rgba(0,0,0,.42)' : 'rgba(0,0,0,.32)';
-    ctx.beginPath(); ctx.moveTo(bx + pnx, by + pny); ctx.quadraticCurveTo(bx + sx / sd0 * 2.4, by + sy / sd0 * 2.4, bx - pnx, by - pny);
+    ctx.beginPath();
+    if (hem) { ctx.moveTo(bx + pnx, by + pny); ctx.quadraticCurveTo(bx + sx / sd0 * 2.4, by + sy / sd0 * 2.4, bx - pnx, by - pny); }
     // kıvrımlar: diz bükülmesiyle belirginleşen iç kıvrım + uyluk çekme çizgileri
     const t1x = (kn.x - hip.x), t1y = (kn.y - hip.y), l1 = Math.hypot(t1x, t1y) || 1;
     const ax1 = t1x / l1, ay1 = t1y / l1, ax2 = sx / sd0, ay2 = sy / sd0;
     let ix = ax2 - ax1, iy = ay2 - ay1; const bend = Math.hypot(ix, iy);
-    ctx.moveTo(hip.x + t1x * 0.2 + ay1 * -4 * j.dir, hip.y + t1y * 0.2 - ax1 * -4 * j.dir);
-    ctx.quadraticCurveTo(hip.x + t1x * 0.55 + ay1 * 2, hip.y + t1y * 0.55 - ax1 * 2, hip.x + t1x * 0.86 - ay1 * 3 * j.dir, hip.y + t1y * 0.86 + ax1 * 3 * j.dir);
-    if (bend > 0.25) {
+    if (pull) {
+      ctx.moveTo(hip.x + t1x * 0.2 + ay1 * -4 * j.dir, hip.y + t1y * 0.2 - ax1 * -4 * j.dir);
+      ctx.quadraticCurveTo(hip.x + t1x * 0.55 + ay1 * 2, hip.y + t1y * 0.55 - ax1 * 2, hip.x + t1x * 0.86 - ay1 * 3 * j.dir, hip.y + t1y * 0.86 + ax1 * 3 * j.dir);
+    }
+    if (knee && bend > 0.25) {
       ix /= bend; iy /= bend;
       const k = Math.min(1, (bend - 0.25) * 1.2) * 6;
       const px = kn.x + ix * 4, py = kn.y + iy * 4;
@@ -1299,44 +1350,70 @@
       ctx.moveTo(px - ax1 * k * 0.6 + ix * 5.5, py - ay1 * k * 0.6 + iy * 5.5); ctx.lineTo(px + ix * 2.8, py + iy * 2.8); ctx.lineTo(px + ax2 * k * 0.6 + ix * 5.5, py + ay2 * k * 0.6 + iy * 5.5);
     }
     ctx.stroke();
-    if (front) {
+    if (front && pull) {
       ctx.strokeStyle = 'rgba(255,255,255,.06)'; ctx.lineWidth = 1.1;
       ctx.beginPath(); ctx.moveTo(hip.x + t1x * 0.3 - ay1 * 5 * j.dir, hip.y + t1y * 0.3 + ax1 * 5 * j.dir);
       ctx.quadraticCurveTo(hip.x + t1x * 0.6, hip.y + t1y * 0.6, hip.x + t1x * 0.9 + ay1 * 3 * j.dir, hip.y + t1y * 0.9 - ax1 * 3 * j.dir); ctx.stroke();
     }
   }
+  // how far the knee is bent (0 = straight): the knee creases show from 0.25
+  function legBend() {
+    const { hip, kn, ft } = LG;
+    const t1x = kn.x - hip.x, t1y = kn.y - hip.y, l1 = Math.hypot(t1x, t1y) || 1, sx = ft.x - kn.x, sy = ft.y - kn.y, l2 = Math.hypot(sx, sy) || 1;
+    return Math.hypot(sx / l2 - t1x / l1, sy / l2 - t1y / l1);
+  }
+  function drawLeg(ctx, j, front, c, D) {
+    legGeom(j, front, c);
+    legShin(ctx, D);
+    legFoot(ctx, j, D);
+    legUpper(ctx, D, true, true, true, true);
+    legShade(ctx, D, true, true);
+    legLines(ctx, j, true, true, true);
+  }
 
   // ---------------------------------------------------------------- KOL
   // Bol yen (üst kol) + sargılı önkol (tekko) + el. Yen alt tarafı yerçekimiyle sarkar ve hafifçe dalgalanır.
-  function drawArm(ctx, j, front, c, D, X, wpn, acc) {
+  // Drawn in steps (outline of sleeve + forearm, sleeve, forearm, sleeve mouth, hand) like the leg (see LG).
+  const AG = { sh: null, el: null, ha: null, s: 1, rimC: '', clothC: '', wrapC: '', ux: 0, uy: 0, nx: 0, ny: 0, sag: 0, mx: 0, my: 0, hdx: 0, hdy: 0, fx: 0, fy: 0, front: true };
+  function armGeom(j, front, c) {
     const sh = j.sh, el = front ? j.elF : j.elB, ha = front ? j.haF : j.haB;
-    const s = front ? 1 : 0.93, rimC = front ? c.rim : c.rimDim;
-    const clothC = front ? c.cloth : c.clothDark, wrapC = front ? c.wrap : c.wrapDark;
+    AG.sh = sh; AG.el = el; AG.ha = ha; AG.front = front;
+    AG.s = front ? 1 : 0.93; AG.rimC = front ? c.rim : c.rimDim;
+    AG.clothC = front ? c.cloth : c.clothDark; AG.wrapC = front ? c.wrap : c.wrapDark;
     let ux = el.x - sh.x, uy = el.y - sh.y; const d = Math.hypot(ux, uy) || 1; ux /= d; uy /= d;
     let nx = -uy, ny = ux; if (ny < 0) { nx = -nx; ny = -ny; }
     const horiz = 1 - Math.abs(uy);
     const t = ND.scene.t, amp = 0.7 + Math.min(1.6, Math.abs(j._vs || 0) * 0.25);
     const fl = Math.sin(t * 9 + (front ? 0 : 1.7) + sh.x * 0.03) * amp;
-    const sag = horiz * (4.8 + fl) + 0.6 * fl + 1;
-    const mx = (sh.x + el.x) * 0.5, my = (sh.y + el.y) * 0.5;
-    const P = BUF;
-    const put = (i, x, y) => { P[i * 2] = x; P[i * 2 + 1] = y; };
-    const sleeve = () => {
-      put(0, sh.x - nx * 8.2 * s, sh.y - ny * 8.2 * s);
-      put(1, el.x - nx * 7.4 * s, el.y - ny * 7.4 * s);
-      put(2, el.x + ux * 4.4 - nx * 7 * s, el.y + uy * 4.4 - ny * 7 * s);
-      put(3, el.x + ux * 5 + nx * (9.4 * s + sag), el.y + uy * 5 + ny * (9.4 * s + sag));
-      put(4, mx + nx * (8.4 * s + sag * 0.6), my + ny * (8.4 * s + sag * 0.6));
-      put(5, sh.x + nx * 7.2 * s, sh.y + ny * 7.2 * s);
-      put(6, sh.x - ux * 6, sh.y - uy * 6);
-      blob(ctx, P, 7);
-    };
-    const hdx = ha.x - el.x, hdy = ha.y - el.y, hd = Math.hypot(hdx, hdy) || 1, fx = hdx / hd, fy = hdy / hd;
-    // dış hat
+    AG.sag = horiz * (4.8 + fl) + 0.6 * fl + 1;
+    AG.ux = ux; AG.uy = uy; AG.nx = nx; AG.ny = ny;
+    AG.mx = (sh.x + el.x) * 0.5; AG.my = (sh.y + el.y) * 0.5;
+    const hdx = ha.x - el.x, hdy = ha.y - el.y, hd = Math.hypot(hdx, hdy) || 1;
+    AG.hdx = hdx; AG.hdy = hdy; AG.fx = hdx / hd; AG.fy = hdy / hd;
+    return AG;
+  }
+  const put = (i, x, y) => { BUF[i * 2] = x; BUF[i * 2 + 1] = y; };
+  function sleevePath(ctx) {
+    const { sh, el, s, ux, uy, nx, ny, sag, mx, my } = AG;
+    put(0, sh.x - nx * 8.2 * s, sh.y - ny * 8.2 * s);
+    put(1, el.x - nx * 7.4 * s, el.y - ny * 7.4 * s);
+    put(2, el.x + ux * 4.4 - nx * 7 * s, el.y + uy * 4.4 - ny * 7 * s);
+    put(3, el.x + ux * 5 + nx * (9.4 * s + sag), el.y + uy * 5 + ny * (9.4 * s + sag));
+    put(4, mx + nx * (8.4 * s + sag * 0.6), my + ny * (8.4 * s + sag * 0.6));
+    put(5, sh.x + nx * 7.2 * s, sh.y + ny * 7.2 * s);
+    put(6, sh.x - ux * 6, sh.y - uy * 6);
+    blob(ctx, BUF, 7);
+  }
+  // dış hat: the sleeve (sl) and the forearm (fa) stroked as one shape
+  function armOutline(ctx, D, sl, fa) {
+    const { el, ha, s } = AG;
     ctx.strokeStyle = D.line; ctx.lineWidth = 2.6;
-    ctx.beginPath(); sleeve(); capPath(ctx, el.x, el.y, ha.x, ha.y, 5.2 * s, 4.3 * s); ctx.stroke();
+    ctx.beginPath(); if (sl) sleevePath(ctx); if (fa) capPath(ctx, el.x, el.y, ha.x, ha.y, 5.2 * s, 4.3 * s); ctx.stroke();
+  }
+  function armSleeve(ctx, c, D, acc) {
+    const { sh, el, s, rimC, clothC, ux, uy, nx, ny, sag, mx, my, front } = AG;
     // yen gövdesi
-    ctx.fillStyle = clothC; ctx.beginPath(); sleeve(); ctx.fill();
+    ctx.fillStyle = clothC; ctx.beginPath(); sleevePath(ctx); ctx.fill();
     shade(ctx, sh.x, sh.y, el.x + ux * 2, el.y + uy * 2, 6.8 * s, 6.4 * s, front ? D.hiA : null, rimC);
     if (front) {
       // yen kıvrımları: omuzdan sarkan uca doğru
@@ -1347,7 +1424,10 @@
       ctx.stroke();
     }
     if (acc === 'kabuto') sode(ctx, sh, el, c, D, !front);
-    // önkol (tekko sargısı)
+  }
+  // önkol (tekko sargısı) + bileği örten koyu eldiven manşeti
+  function armFore(ctx, D) {
+    const { el, ha, s, rimC, wrapC, hdx, hdy, fx, fy, front } = AG;
     ctx.fillStyle = wrapC; ctx.beginPath(); capPath(ctx, el.x, el.y, ha.x, ha.y, 5.2 * s, 4.3 * s); ctx.fill();
     shade(ctx, el.x, el.y, ha.x, ha.y, 5.2 * s, 4.3 * s, front ? D.hiW : null, rimC, front ? undefined : 0);
     if (front) {
@@ -1359,19 +1439,20 @@
       }
       ctx.stroke();
     }
-    // tekko: bileği örten koyu eldiven manşeti
     ctx.fillStyle = D.glove; ctx.beginPath(); capPath(ctx, el.x + hdx * 0.72, el.y + hdy * 0.72, ha.x, ha.y, 4.8 * s, 4.4 * s); ctx.fill();
     if (front) {
       ctx.strokeStyle = D.hiW; ctx.lineWidth = 0.9;
       ctx.beginPath(); line(ctx, el.x + hdx * 0.72 - fy * 4.6, el.y + hdy * 0.72 + fx * 4.6, el.x + hdx * 0.72 + fy * 4.6, el.y + hdy * 0.72 - fx * 4.6); ctx.stroke();
     }
-    // yen ağzı (dirseği örten manşet) + içindeki gölge
+  }
+  // yen ağzı (dirseği örten manşet) + içindeki gölge + ağız kenarında ışık
+  function armMouth(ctx, D) {
+    const { el, s, rimC, clothC, ux, uy, nx, ny, sag, front } = AG;
     put(0, el.x - ux * 1.5 - nx * 7.2 * s, el.y - uy * 1.5 - ny * 7.2 * s);
     put(1, el.x + ux * 4.4 - nx * 7 * s, el.y + uy * 4.4 - ny * 7 * s);
     put(2, el.x + ux * 5 + nx * (9.4 * s + sag), el.y + uy * 5 + ny * (9.4 * s + sag));
     put(3, el.x - ux * 1.5 + nx * (8.4 * s + sag * 0.8), el.y - uy * 1.5 + ny * (8.4 * s + sag * 0.8));
-    ctx.fillStyle = clothC; ctx.beginPath(); blob(ctx, P, 4); ctx.fill();
-    // yen ağzının içi (koyu) + ağız kenarında ışık
+    ctx.fillStyle = clothC; ctx.beginPath(); blob(ctx, BUF, 4); ctx.fill();
     ctx.strokeStyle = 'rgba(0,0,0,.6)'; ctx.lineWidth = 1.8;
     ctx.beginPath(); ctx.moveTo(el.x + ux * 3.8 - nx * 5.4 * s, el.y + uy * 3.8 - ny * 5.4 * s);
     ctx.quadraticCurveTo(el.x + ux * 5.8 + nx * 2, el.y + uy * 5.8 + ny * 2, el.x + ux * 4.2 + nx * (7.6 * s + sag), el.y + uy * 4.2 + ny * (7.6 * s + sag)); ctx.stroke();
@@ -1382,37 +1463,63 @@
       ctx.strokeStyle = rimC; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(el.x - ux * 1 - nx * 6.4, el.y - uy * 1 - ny * 6.4); ctx.lineTo(el.x + ux * 3.8 - nx * 6.3, el.y + uy * 3.8 - ny * 6.3); ctx.stroke();
     }
-    // el
-    const sd = j.dir < 0 ? -1 : 1;
+  }
+  // What the hand holds (after armGeom): HD.k = 'fist' | 'open'; for a fist hx/hy = the grip direction; HD.w =
+  // 'tessen' | 'twin' when the back hand also carries a second weapon at angle HD.a2; HD.hi = full detail
+  const HD = { k: 'open', hx: 0, hy: 0, w: null, a2: 0, hi: false };
+  function handInfo(j, wpn) {
+    const { ha, el, fx, fy, front } = AG;
+    HD.w = null; HD.hi = front;
     if (front) {
       if (j.hasSword && j.tip) {
         const bdx = j.tip.x - ha.x, bdy = j.tip.y - ha.y, bl = Math.hypot(bdx, bdy) || 1;
-        fist(ctx, ha.x, ha.y, bdx / bl, bdy / bl, fx, fy, D, rimC, true);
-      } else openHand(ctx, ha.x, ha.y, fx, fy, sd, D, rimC, true);
-      return;
+        HD.k = 'fist'; HD.hx = bdx / bl; HD.hy = bdy / bl;
+      } else HD.k = 'open';
+      return HD;
     }
     if (wpn.type === 'tessen' && j.hasSword) {
       // ikinci yelpaze: ön kolun uzantısında, arka elde
       const a2 = Math.atan2(ha.y - el.y, ha.x - el.x) - j.dir * 0.3;
-      drawTessen(ctx, ha.x, ha.y, a2, c, j.wFanB || 0, wpn.blade * 0.94, j.dir, 0);
-      fist(ctx, ha.x, ha.y, Math.cos(a2), Math.sin(a2), fx, fy, D, rimC, false);
-      return;
+      HD.w = 'tessen'; HD.a2 = a2; HD.k = 'fist'; HD.hx = Math.cos(a2); HD.hy = Math.sin(a2);
+      return HD;
     }
-    if ((wpn.type === 'kusarigama' || (wpn.type === 'yumi' && j.wBow > 0.5)) && j.hasSword) { fist(ctx, ha.x, ha.y, fx, fy, fx, fy, D, rimC, false); return; }
+    if ((wpn.type === 'kusarigama' || (wpn.type === 'yumi' && j.wBow > 0.5)) && j.hasSword) { HD.k = 'fist'; HD.hx = fx; HD.hy = fy; return HD; }
     if (wpn.twin && j.hasSword) {
       // ters tutuşlu ikinci tantō: bıçak ön kol boyunca geriye uzanır
       const a2 = Math.atan2(el.y - ha.y, el.x - ha.x) + j.dir * 0.25;
-      drawSword(ctx, ha.x, ha.y, a2, c, 0, wpn);
-      fist(ctx, ha.x, ha.y, Math.cos(a2), Math.sin(a2), fx, fy, D, rimC, false);
-      return;
+      HD.w = 'twin'; HD.a2 = a2; HD.k = 'fist'; HD.hx = Math.cos(a2); HD.hy = Math.sin(a2);
+      return HD;
     }
     if (j.hasSword && j.tip) {
       const bdx = j.tip.x - j.haF.x, bdy = j.tip.y - j.haF.y, bl = Math.hypot(bdx, bdy) || 1, hx = bdx / bl, hy = bdy / bl;
       // arka el kabzada mı? (kabza doğru parçasına uzaklık)
       const px = ha.x - j.haF.x, py = ha.y - j.haF.y, along = clamp(px * hx + py * hy, -wpn.handle, 0);
-      if (Math.hypot(px - hx * along, py - hy * along) < 6) { fist(ctx, ha.x, ha.y, hx, hy, fx, fy, D, rimC, false); return; }
+      if (Math.hypot(px - hx * along, py - hy * along) < 6) { HD.k = 'fist'; HD.hx = hx; HD.hy = hy; return HD; }
     }
-    openHand(ctx, ha.x, ha.y, fx, fy, sd, D, rimC, false);
+    HD.k = 'open';
+    return HD;
+  }
+  // the hand itself (after handInfo)
+  function armHand(ctx, j, D) {
+    const { ha, fx, fy, rimC } = AG;
+    if (HD.k === 'fist') fist(ctx, ha.x, ha.y, HD.hx, HD.hy, fx, fy, D, rimC, HD.hi);
+    else openHand(ctx, ha.x, ha.y, fx, fy, j.dir < 0 ? -1 : 1, D, rimC, HD.hi);
+  }
+  // the back hand's second weapon (after handInfo; drawn under the fist)
+  function armWeapon(ctx, j, c, wpn) {
+    const { ha } = AG;
+    if (HD.w === 'tessen') drawTessen(ctx, ha.x, ha.y, HD.a2, c, j.wFanB || 0, wpn.blade * 0.94, j.dir, 0);
+    else if (HD.w === 'twin') drawSword(ctx, ha.x, ha.y, HD.a2, c, 0, wpn);
+  }
+  function drawArm(ctx, j, front, c, D, X, wpn, acc) {
+    armGeom(j, front, c);
+    armOutline(ctx, D, true, true);
+    armSleeve(ctx, c, D, acc);
+    armFore(ctx, D);
+    armMouth(ctx, D);
+    handInfo(j, wpn);
+    armWeapon(ctx, j, c, wpn);
+    armHand(ctx, j, D);
   }
 
   // Omuz zırhı (sode): omuzdan sarkan katmanlı plaka, bağcıklı
@@ -1439,56 +1546,84 @@
   }
 
   // ---------------------------------------------------------------- GÖVDE
-  function drawTorso(ctx, j, c, D, acc) {
+  // m (steps): TB_BODY outline, shaded fill and the details inside it, TB_AO shadows of the chin and the front arm
+  // falling on it, TB_RIM its inner rim light, TB_KNOT the sash knot behind. The path renderer draws all four; the
+  // part baker caches BODY and RIM + KNOT and draws the shadows live (they follow the head and the front arm).
+  const TB_BODY = 1, TB_AO = 2, TB_RIM = 4, TB_KNOT = 8, TB_ALL = 15;
+  function drawTorso(ctx, j, c, D, acc, m = TB_ALL) {
     const ln = TF.ln;
-    ctx.beginPath(); torsoPath(ctx);
-    ctx.strokeStyle = D.line; ctx.lineWidth = 2.6; ctx.stroke();
-    const cx = (j.hip.x + j.neck.x) * 0.5, cy = (j.hip.y + j.neck.y) * 0.5;
-    const g = ctx.createLinearGradient(cx + LT.x * 24, cy + LT.y * 24, cx - LT.x * 20, cy - LT.y * 20);
-    g.addColorStop(0, c.clothHi); g.addColorStop(0.5, c.cloth); g.addColorStop(1, c.clothDark);
-    ctx.fillStyle = g; ctx.fill();
-    ctx.save(); ctx.clip();
-    const M = (u, n) => ctx.moveTo(PX(u, n), PY(u, n)), T = (u, n) => ctx.lineTo(PX(u, n), PY(u, n));
-    const Q = (u0, n0, u1, n1) => ctx.quadraticCurveTo(PX(u0, n0), PY(u0, n0), PX(u1, n1), PY(u1, n1));
-    // iç kat (V yaka; zincir zırh izi)
-    ctx.fillStyle = D.inner;
-    ctx.beginPath(); M(ln * 1.02, -1); Q(ln * 0.94, 5, ln * 0.62, 11.5); T(ln * 0.5, 30); T(ln * 1.3, 30); T(ln * 1.3, -1); ctx.fill();
-    // yaka bandı (eri) + altındaki bindirme gölgesi
-    ctx.strokeStyle = 'rgba(0,0,0,.45)'; ctx.lineWidth = 1.4;
-    ctx.beginPath(); M(ln * 1.06, -8.5); Q(ln * 0.9, 1.5, ln * 0.58, 8.5); T(13, 12.5); ctx.stroke();
-    ctx.strokeStyle = D.collar; ctx.lineWidth = 3.4;
-    ctx.beginPath(); M(ln * 1.07, -6.5); Q(ln * 0.94, 3.5, ln * 0.62, 11); T(14, 15.5); ctx.stroke();
-    // göğüs / sırt kütlesi, kumaş çekme kıvrımları, hakama pilileri
-    ctx.strokeStyle = 'rgba(0,0,0,.3)'; ctx.lineWidth = 1.2;
-    ctx.beginPath();
-    M(ln * 0.5, 4); Q(ln * 0.47, 12, ln * 0.55, 20);
-    M(ln * 0.86, -7); Q(ln * 0.7, -12, ln * 0.52, -12.5);
-    M(ln * 0.66, 2); Q(ln * 0.4, -2, 16, -9);
-    M(ln * 0.4, 9); Q(ln * 0.3, 4, 15, 2);
-    M(0, 7); T(-14, 9); M(0, -3); T(-14, -4);
-    ctx.stroke();
-    ctx.strokeStyle = D.hiB; ctx.lineWidth = 1.2;
-    ctx.beginPath(); M(ln * 0.8, -3); Q(ln * 0.6, -7, ln * 0.38, -8); M(ln * 0.62, 6); Q(ln * 0.45, 3, ln * 0.3, 6); ctx.stroke();
-    if (acc === 'kabuto') dou(ctx, c, D, ln);
-    else if (acc === 'monk') kesa(ctx, c, D, ln);
-    // kuşak üstü/altı gölgesi
-    ctx.strokeStyle = 'rgba(0,0,0,.3)'; ctx.lineWidth = 3;
-    ctx.beginPath(); M(-0.5, -30); T(-0.5, 30); M(12.5, -30); T(12.5, 30); ctx.stroke();
-    // obi (kuşak)
-    ctx.fillStyle = c.accent;
-    ctx.beginPath(); M(1, -30); T(1, 30); T(11.5, 30); T(11.5, -30); ctx.fill();
-    ctx.strokeStyle = D.accHi; ctx.lineWidth = 0.9;
-    ctx.beginPath(); M(10.8, -30); T(10.8, 30); ctx.stroke();
-    ctx.strokeStyle = D.accSh; ctx.lineWidth = 1.3;
-    ctx.beginPath(); M(1.8, -30); T(1.8, 30); M(6.2, -30); T(6.2, 30); ctx.stroke();
-    if (acc === 'akane') {
-      // tasuki: crimson cord tying the sleeves back, crossing over the back
-      ctx.strokeStyle = D.accSh; ctx.lineWidth = 3.6;
-      ctx.beginPath(); M(ln * 0.98, -15); T(12, 17); M(ln * 0.9, 16); T(12, -17); ctx.stroke();
-      ctx.strokeStyle = c.accent; ctx.lineWidth = 2.4;
-      ctx.beginPath(); M(ln * 0.98, -15); T(12, 17); M(ln * 0.9, 16); T(12, -17); ctx.stroke();
+    if (m & TB_BODY) {
+      ctx.beginPath(); torsoPath(ctx);
+      ctx.strokeStyle = D.line; ctx.lineWidth = 2.6; ctx.stroke();
+      const cx = (j.hip.x + j.neck.x) * 0.5, cy = (j.hip.y + j.neck.y) * 0.5;
+      const g = ctx.createLinearGradient(cx + LT.x * 24, cy + LT.y * 24, cx - LT.x * 20, cy - LT.y * 20);
+      g.addColorStop(0, c.clothHi); g.addColorStop(0.5, c.cloth); g.addColorStop(1, c.clothDark);
+      ctx.fillStyle = g; ctx.fill();
     }
-    // baş gölgesi (çene altı) + ön kolun gövdeye düşen gölgesi (AO)
+    if (m & (TB_BODY | TB_AO | TB_RIM)) {
+      if (!(m & TB_BODY)) { ctx.beginPath(); torsoPath(ctx); }
+      ctx.save(); ctx.clip();
+      if (m & TB_BODY) {
+        const M = (u, n) => ctx.moveTo(PX(u, n), PY(u, n)), T = (u, n) => ctx.lineTo(PX(u, n), PY(u, n));
+        const Q = (u0, n0, u1, n1) => ctx.quadraticCurveTo(PX(u0, n0), PY(u0, n0), PX(u1, n1), PY(u1, n1));
+        // iç kat (V yaka; zincir zırh izi)
+        ctx.fillStyle = D.inner;
+        ctx.beginPath(); M(ln * 1.02, -1); Q(ln * 0.94, 5, ln * 0.62, 11.5); T(ln * 0.5, 30); T(ln * 1.3, 30); T(ln * 1.3, -1); ctx.fill();
+        // yaka bandı (eri) + altındaki bindirme gölgesi
+        ctx.strokeStyle = 'rgba(0,0,0,.45)'; ctx.lineWidth = 1.4;
+        ctx.beginPath(); M(ln * 1.06, -8.5); Q(ln * 0.9, 1.5, ln * 0.58, 8.5); T(13, 12.5); ctx.stroke();
+        ctx.strokeStyle = D.collar; ctx.lineWidth = 3.4;
+        ctx.beginPath(); M(ln * 1.07, -6.5); Q(ln * 0.94, 3.5, ln * 0.62, 11); T(14, 15.5); ctx.stroke();
+        // göğüs / sırt kütlesi, kumaş çekme kıvrımları, hakama pilileri
+        ctx.strokeStyle = 'rgba(0,0,0,.3)'; ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        M(ln * 0.5, 4); Q(ln * 0.47, 12, ln * 0.55, 20);
+        M(ln * 0.86, -7); Q(ln * 0.7, -12, ln * 0.52, -12.5);
+        M(ln * 0.66, 2); Q(ln * 0.4, -2, 16, -9);
+        M(ln * 0.4, 9); Q(ln * 0.3, 4, 15, 2);
+        M(0, 7); T(-14, 9); M(0, -3); T(-14, -4);
+        ctx.stroke();
+        ctx.strokeStyle = D.hiB; ctx.lineWidth = 1.2;
+        ctx.beginPath(); M(ln * 0.8, -3); Q(ln * 0.6, -7, ln * 0.38, -8); M(ln * 0.62, 6); Q(ln * 0.45, 3, ln * 0.3, 6); ctx.stroke();
+        if (acc === 'kabuto') dou(ctx, c, D, ln);
+        else if (acc === 'monk') kesa(ctx, c, D, ln);
+        // kuşak üstü/altı gölgesi
+        ctx.strokeStyle = 'rgba(0,0,0,.3)'; ctx.lineWidth = 3;
+        ctx.beginPath(); M(-0.5, -30); T(-0.5, 30); M(12.5, -30); T(12.5, 30); ctx.stroke();
+        // obi (kuşak)
+        ctx.fillStyle = c.accent;
+        ctx.beginPath(); M(1, -30); T(1, 30); T(11.5, 30); T(11.5, -30); ctx.fill();
+        ctx.strokeStyle = D.accHi; ctx.lineWidth = 0.9;
+        ctx.beginPath(); M(10.8, -30); T(10.8, 30); ctx.stroke();
+        ctx.strokeStyle = D.accSh; ctx.lineWidth = 1.3;
+        ctx.beginPath(); M(1.8, -30); T(1.8, 30); M(6.2, -30); T(6.2, 30); ctx.stroke();
+        if (acc === 'akane') {
+          // tasuki: crimson cord tying the sleeves back, crossing over the back
+          ctx.strokeStyle = D.accSh; ctx.lineWidth = 3.6;
+          ctx.beginPath(); M(ln * 0.98, -15); T(12, 17); M(ln * 0.9, 16); T(12, -17); ctx.stroke();
+          ctx.strokeStyle = c.accent; ctx.lineWidth = 2.4;
+          ctx.beginPath(); M(ln * 0.98, -15); T(12, 17); M(ln * 0.9, 16); T(12, -17); ctx.stroke();
+        }
+      }
+      if (m & TB_AO) torsoAO(ctx, j);
+      if (m & TB_RIM) {
+        // iç kenar ışığı: ışıktan uzağa kaydırılmış konturun kırpılmış çizgisi
+        ctx.translate(-LT.x * 1.6, -LT.y * 1.6);
+        ctx.beginPath(); torsoPath(ctx);
+        ctx.strokeStyle = c.rim; ctx.lineWidth = 2.2; ctx.stroke();
+      }
+      ctx.restore();
+    }
+    if (!(m & TB_KNOT)) return;
+    // arkada kuşak düğümü
+    const kx = PX(6.5, -16.5), ky = PY(6.5, -16.5);
+    if (acc === 'mai') { obiBow(ctx, c, D, kx, ky); return; }
+    ctx.fillStyle = c.accentDark; ctx.strokeStyle = D.line; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.ellipse(kx, ky, 4.8, 3.8, Math.atan2(TF.uy, TF.ux), 0, TAU); ctx.stroke(); ctx.fill();
+    ctx.fillStyle = c.accent; ctx.beginPath(); ctx.arc(kx, ky, 2, 0, TAU); ctx.fill();
+  }
+  // baş gölgesi (çene altı) + ön kolun gövdeye düşen gölgesi (AO); drawTorso clips it to the torso
+  function torsoAO(ctx, j) {
     ctx.fillStyle = 'rgba(0,0,0,.3)';
     ctx.beginPath();
     ctx.ellipse(j.neck.x + (j.head.x - j.neck.x) * 0.35 - LT.x * 3, j.neck.y + (j.head.y - j.neck.y) * 0.35 + 5, 12, 8, 0, 0, TAU);
@@ -1496,17 +1631,6 @@
     capPath(ctx, j.sh.x + ox, j.sh.y + oy, j.elF.x + ox, j.elF.y + oy, 8.5, 8);
     capPath(ctx, j.elF.x + ox, j.elF.y + oy, j.haF.x + ox, j.haF.y + oy, 6, 5.5);
     ctx.fill();
-    // iç kenar ışığı: ışıktan uzağa kaydırılmış konturun kırpılmış çizgisi
-    ctx.translate(-LT.x * 1.6, -LT.y * 1.6);
-    ctx.beginPath(); torsoPath(ctx);
-    ctx.strokeStyle = c.rim; ctx.lineWidth = 2.2; ctx.stroke();
-    ctx.restore();
-    // arkada kuşak düğümü
-    const kx = PX(6.5, -16.5), ky = PY(6.5, -16.5);
-    if (acc === 'mai') { obiBow(ctx, c, D, kx, ky); return; }
-    ctx.fillStyle = c.accentDark; ctx.strokeStyle = D.line; ctx.lineWidth = 1.4;
-    ctx.beginPath(); ctx.ellipse(kx, ky, 4.8, 3.8, Math.atan2(TF.uy, TF.ux), 0, TAU); ctx.stroke(); ctx.fill();
-    ctx.fillStyle = c.accent; ctx.beginPath(); ctx.arc(kx, ky, 2, 0, TAU); ctx.fill();
   }
   // Kesa: omuzdan kalçaya çapraz inen yamalı keşiş şalı (gövdeye kırpılmış)
   function kesa(ctx, c, D, ln) {
@@ -2185,6 +2309,8 @@
       capPath(ctx, j.hip.x, j.hip.y, j.knF.x, j.knF.y, 10.2, 10.8); capPath(ctx, j.knF.x, j.knF.y, j.ftF.x, j.ftF.y, 7.8, 5);
       ctx.fill();
     }
+    // the swing trail (fighters drawn with the low model on Low graphics; reflections pass none)
+    if (X.trail) X.trail(ctx);
     if (j.hasSword && j.tip) {
       if (wpn.type === 'tessen') swordLow(ctx, j.haB.x, j.haB.y, Math.atan2(j.haB.y - j.elB.y, j.haB.x - j.elB.x) - j.dir * 0.3, wpn, j);
       else if (wpn.twin) swordLow(ctx, j.haB.x, j.haB.y, Math.atan2(j.elB.y - j.haB.y, j.elB.x - j.haB.x) + j.dir * 0.25, wpn);
@@ -2230,6 +2356,8 @@
   ND.drawNinja = function (ctx, j, c, extra) {
     const X = extra || {}, wpn = X.wpn || L, acc = X.acc || 'hachimaki';
     if (X.lod === 'low') { drawLow(ctx, j, c, X, wpn, acc); return; }
+    // X.bake: the fighter's part cache (bake.js); a half-turned fighter (fractional dir) is drawn with paths
+    if (X.bake && ND.drawNinjaBaked && (j.dir === 1 || j.dir === -1) && ND.drawNinjaBaked(ctx, j, c, X, wpn, acc)) return;
     updLight();
     const D = pal(c), t = ND.scene ? ND.scene.t : 0;
     // kumaş dalgalanması için yatay hız tahmini (aynı karede birden çok çizim olabilir)
@@ -2247,6 +2375,22 @@
     // gövde, atkı, boyun, baş
     torsoFrame(j);
     drawTorso(ctx, j, c, D, acc);
+    neckPart(ctx, j, c, D, acc);
+    if (acc === 'monk') juzu(ctx, j, c, D);
+    if (wt === 'yumi' && j.wBow > 0.5 && j.hasSword) tantoSheath(ctx, c, D);
+    drawHead(ctx, j, c, D, acc);
+    // ön bacak
+    drawLeg(ctx, j, true, c, D);
+    if (acc === 'kabuto') { torsoFrame(j); kusazuri(ctx, c, D); }
+    // kılıç + iz
+    if (X.trail) X.trail(ctx);
+    if (j.hasSword && j.tip) drawSword(ctx, j.haF.x, j.haF.y, Math.atan2(j.tip.y - j.haF.y, j.tip.x - j.haF.x), c, X.glint || 0, wpn, 'high', j);
+    if (j.chain && j.hasSword) ND.Chain.prototype.draw.call(j.chain, ctx, c.accent);
+    // ön kol
+    drawArm(ctx, j, true, c, D, X, wpn, acc);
+  };
+  // boyun (ya da atkı): torsoFrame(j) set by the caller
+  function neckPart(ctx, j, c, D, acc) {
     if (acc === 'scarf') {
       const a = Math.atan2(TF.uy, TF.ux) + HP, sx = j.neck.x - TF.ux * 3, sy = j.neck.y - TF.uy * 3;
       ctx.fillStyle = c.accentDark; ctx.strokeStyle = D.line; ctx.lineWidth = 1.6;
@@ -2263,18 +2407,13 @@
       ctx.beginPath(); capPath(ctx, j.neck.x - TF.ux * 2, j.neck.y - TF.uy * 2, j.neck.x + (j.head.x - j.neck.x) * 0.55, j.neck.y + (j.head.y - j.neck.y) * 0.55, 6.2, 5.6);
       ctx.strokeStyle = D.line; ctx.lineWidth = 2.4; ctx.stroke(); ctx.fillStyle = acc === 'monk' || acc === 'akane' ? c.skin : (c.hood || c).clothDark; ctx.fill();
     }
-    if (acc === 'monk') juzu(ctx, j, c, D);
-    if (wt === 'yumi' && j.wBow > 0.5 && j.hasSword) tantoSheath(ctx, c, D);
-    drawHead(ctx, j, c, D, acc);
-    // ön bacak
-    drawLeg(ctx, j, true, c, D);
-    if (acc === 'kabuto') { torsoFrame(j); kusazuri(ctx, c, D); }
-    // kılıç + iz
-    if (X.trail) X.trail(ctx);
-    if (j.hasSword && j.tip) drawSword(ctx, j.haF.x, j.haF.y, Math.atan2(j.tip.y - j.haF.y, j.tip.x - j.haF.x), c, X.glint || 0, wpn, 'high', j);
-    if (j.chain && j.hasSword) ND.Chain.prototype.draw.call(j.chain, ctx, c.accent);
-    // ön kol
-    drawArm(ctx, j, true, c, D, X, wpn, acc);
+  }
+
+  // Drawing steps and helpers shared with the part cache (bake.js)
+  ND._draw = {
+    L, LT, TF, FF, HD, AG, LG, SW, TB: { BODY: TB_BODY, AO: TB_AO, RIM: TB_RIM, KNOT: TB_KNOT }, pal, updLight, torsoFrame, footFrame,
+    legGeom, legShin, legFoot, legUpper, legShade, legLines, armGeom, armOutline, armSleeve, armFore, armMouth, handInfo, armHand,
+    drawTorso, torsoAO, neckPart, juzu, tantoSheath, drawHead, kusazuri, drawSword, drawTessen, saya, sayaHip, quiverBack,
   };
 
   // ---------------------------------------------------------------- RAGDOLL

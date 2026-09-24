@@ -15,7 +15,7 @@
 //   KO → K.O.                         blade lock → lames croisées    light / heavy slash → coupe légère / lourde
 //   kick → coup de pied               sweep → fauchage               cross-up → contournement
 //   knock down → mettre au sol        finisher → coup final          dummy → mannequin
-//   honor → honneur                   rival challenge → défi de rival  tournament → tournoi (hebdo)
+//   honor → honneur                   rival challenge → défi de rival  tournament → tournoi (du mois)
 //   trial → épreuve (Dan / de combo)  leaderboard → classement       nickname → pseudo
 //   HP → PV / vie                     CPU → IA                       Arcade → Arcade
 //   Touch buttons: ATTAQUE · LOURD · PIED · GARDE · RUÉE · SHUR. · KI · SAUT    keyboard labels: LÉGER / LOURD
@@ -43,7 +43,7 @@
         specialKey: 'Technique ki (ki plein)',
       },
       sel: {
-        title: { '2p': 'Choisis ton ninja', cpu: 'Choisis ton ninja', arcade: 'Arcade · Choisis ton ninja', train: 'Entraînement · Choisis ton ninja', tutorial: 'Tutoriel · Choisis ton ninja', tourney: 'Tournoi hebdo · Choisis ton ninja', dan: 'Épreuve Dan · Choisis ton ninja' },
+        title: { '2p': 'Choisis ton ninja', cpu: 'Choisis ton ninja', arcade: 'Arcade · Choisis ton ninja', train: 'Entraînement · Choisis ton ninja', tutorial: 'Tutoriel · Choisis ton ninja', tourney: 'Tournoi du mois · Choisis ton ninja', dan: 'Épreuve Dan · Choisis ton ninja' },
         who1: { '2p': 'Joueur 1 · A / D pour choisir, F pour valider', def: 'Toi · A / D pour choisir, F pour valider' },
         who2: { '2p': 'Joueur 2 · ← / → pour choisir, K pour valider', cpu: 'Adversaire (IA) · ← / → pour choisir', train: 'Mannequin · ← / → pour choisir' },
         go: { def: 'Combattre', arcade: 'Lancer l’Arcade', train: 'S’entraîner', tutorial: 'Lancer le tutoriel', tourney: 'Lancer le tournoi', dan: 'Passer l’épreuve' },
@@ -133,7 +133,7 @@
           offline: 'Pas de connexion — score gardé, il partira dès ton retour en ligne',
           rate: 'Trop d’envois — le score partira sous peu',
           daily: 'Limite d’envois du jour atteinte — score gardé en local',
-          week: 'La semaine est finie — ce score ne compte pas pour la nouvelle',
+          week: 'Le mois est fini — ce score ne compte pas pour le nouveau',
           invalid: 'Score invalide',
         },
         nickErr: {
@@ -157,13 +157,14 @@
         // time left: jours (j) · heures (h) · minutes (min) · secondes (s)
         left: (ms) => { const t = Math.floor(ms / 1000), d = Math.floor(t / 86400), hh = Math.floor((t % 86400) / 3600), mm = Math.floor((t % 3600) / 60), ss = t % 60; return d ? `${d}\u00A0j ${hh}\u00A0h ${mm}\u00A0min` : hh ? `${hh}\u00A0h ${mm}\u00A0min` : `${mm}\u00A0min ${ss}\u00A0s`; },
         leftShort: (ms) => { const t = Math.floor(ms / 60000), d = Math.floor(t / 1440), hh = Math.floor((t % 1440) / 60), mm = t % 60; return d ? `${d}\u00A0j ${hh}\u00A0h` : hh ? `${hh}\u00A0h ${mm}\u00A0min` : `${mm}\u00A0min`; },
-        weekName: (w, y) => `${y} · Semaine ${w}`,
+        weekName: (m, y) => `${['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'][m - 1] || m} ${y}`,
+        monthName: (m) => ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'][m - 1] || String(m),
         rank: (r) => (r <= 0 ? 'Sans rang' : r <= 10 ? `Kyu ${11 - r}` : `Dan ${r - 10}`),
         fightOf: (i, n) => `Combat ${i}/${n}`,
         hpBonus: (p) => `PV adverses +${p}\u00A0%`,
         mirrorOpp: 'Miroir · ton propre ninja',
         suddenSub: 'Un seul round · le premier à tomber perd',
-        rows: { fights: 'Victoires', time: 'Temps', fightPts: 'Points de combat', stage: 'Bonus d’étape', clear: 'Bonus final', total: 'Score du tournoi', weekBest: 'Ton record de la semaine' },
+        rows: { fights: 'Victoires', time: 'Temps', fightPts: 'Points de combat', stage: 'Bonus d’étape', clear: 'Bonus final', total: 'Score du tournoi', weekBest: 'Ton record du mois' },
         mods: {
           rally2x: { n: 'Échanges ardents', d: 'Dégâts des ripostes ×2' },
           fullKi: { n: 'Ki plein', d: 'Chaque round commence ki plein' },
@@ -176,24 +177,24 @@
           glass: { n: 'Lame de verre', d: 'Tous les dégâts ×1,5' },
         },
         menu: {
-          tour: 'Tournoi hebdo', dan: 'Épreuve Dan', hall: 'Salle des champions',
-          tourRank: (p, left) => `Cette semaine\u00A0: #${p} · fin dans ${left}`,
+          tour: 'Tournoi du mois', dan: 'Épreuve Dan', hall: 'Salle des champions',
+          tourRank: (p, left) => `Ce mois-ci\u00A0: #${p} · fin dans ${left}`,
           tourBest: (b, left) => `Ton record ${b} · fin dans ${left}`,
           tourNew: (left) => `Les 8 mêmes combats pour tous · fin dans ${left}`,
           danRank: (name, next) => (next ? `Ton rang\u00A0: ${name} · suivant\u00A0: ${next}` : `Ton rang\u00A0: ${name} · tu es au sommet`),
           danNew: '20 épreuves, de Kyu 10 à Dan 10',
-          hallRank: (p) => `Cette semaine #${p} · records`,
-          hallDesc: 'Le top 10 de la semaine et les records absolus',
+          hallRank: (p) => `Ce mois-ci #${p} · records`,
+          hallDesc: 'Le top 10 du mois et les records absolus',
           nick: (n) => (n ? `Pseudo\u00A0: ${n}` : 'Choisis un pseudo'),
         },
         t: {
-          title: 'Tournoi hebdo', head: 'Tournoi',
+          title: 'Tournoi du mois', head: 'Tournoi',
           runNote: (s, st) => `Total du tournoi\u00A0: ${num(s)} (dont +${num(st)} par victoire)`,
           lossSub: (name, won) => `${name} a mis fin à ta course · ${won} ${won <= 1 ? 'victoire' : 'victoires'}`,
           lossNote: (s) => `Ce combat ne compte pas · score du tournoi ${num(s)}`,
           quit: 'Finir le tournoi',
-          myBest: (b, a) => `Ton record cette semaine\u00A0: ${b} pts · ${a} ${a <= 1 ? 'essai' : 'essais'}`,
-          noTry: 'Aucun essai cette semaine.',
+          myBest: (b, a) => `Ton record ce mois-ci\u00A0: ${b} pts · ${a} ${a <= 1 ? 'essai' : 'essais'}`,
+          noTry: 'Aucun essai ce mois-ci.',
           place: (p, t) => (t ? `#${p} / ${t}` : `#${p}`),
           rules: (n, clear, stage) => `${n} combats\u202F; les mêmes adversaires, arènes et règles pour tous. Une défaite met fin à l’essai\u202F; les essais sont illimités et seul le meilleur compte. Chaque victoire +${stage}, tous les battre +${clear}.`,
           start: 'Choisis ton ninja et commence', again: 'Réessayer', go: 'Entrer dans le tournoi',
@@ -222,20 +223,29 @@
         },
         hall: {
           title: 'Salle des champions',
-          tabs: { week: { n: 'Semaine' }, alltime: { n: 'Historique' }, archive: { n: 'Champions' }, chars: { n: 'Ninjas' }, dan: { n: 'Dan' } },
-          desc: { alltime: 'Les meilleurs scores de l’histoire du Tournoi hebdo', archive: 'Le top 10 de chaque semaine terminée est gravé ici pour toujours', chars: 'Détenteur du record pour chaque ninja · touche un ninja pour voir le top 20', dan: 'Les rangs les plus élevés' },
+          tabs: { week: { n: 'Ce mois' }, alltime: { n: 'Historique' }, archive: { n: 'Champions' }, chars: { n: 'Ninjas' }, dan: { n: 'Dan' } },
+          desc: { alltime: 'Les meilleurs scores de l’histoire du Tournoi du mois', archive: 'Le top 10 de chaque mois terminé est gravé ici pour toujours', chars: 'Détenteur du record pour chaque ninja · touche un ninja pour voir le top 20', dan: 'Les rangs les plus élevés' },
           loading: 'Chargement…', error: 'Impossible de charger le classement.', retry: 'Réessayer',
-          empty: 'Personne ici pour l’instant. Ouvre le bal\u202F!', emptyDan: 'Aucun joueur classé pour l’instant.', emptyArchive: 'Aucune semaine terminée. Les premiers champions seront gravés à la fin de celle-ci.',
+          empty: 'Personne ici pour l’instant. Ouvre le bal\u202F!', emptyDan: 'Aucun joueur classé pour l’instant.', emptyArchive: 'Aucun mois terminé. Les premiers champions seront gravés à la fin de celui-ci.',
           anon: 'Joueur',
           meTop: (p, s) => `Toi\u00A0: #${p} · ${s} pts · tu es dans le top 10\u202F!`,
           meGap: (p, g, s) => `Toi\u00A0: #${p} · ${s} pts · à ${g} pts du top 10`,
-          meNone: 'Pas encore de score cette semaine.',
+          meNone: 'Pas encore de score ce mois-ci.',
           meDan: (p, n) => `Toi\u00A0: #${p} · ${n}`,
           meDanLocal: (n) => `Ton rang\u00A0: ${n}`, meNoDan: 'Pas encore de rang. Première épreuve\u00A0: Kyu 10.',
-          plaqueSub: (y) => `${y} · Semaine`,
           noRecord: 'Aucun record', allNinjas: 'Tous les ninjas',
           pending: (n) => `Envois en attente\u00A0: ${n}`,
           classic: 'Tableaux Arcade · Légende',
+        },
+        // Monthly Tournament rewards: permanent title (top 3) and Champion colors (1st)
+        ttl: {
+          champ: 'Champion du mois', finalist: 'Finaliste',
+          reward: 'Le top 3 de chaque mois gagne un titre permanent. Le champion remporte aussi des couleurs de champion exclusives pour le ninja utilisé. Les titres exigent au moins 5 joueurs dans le mois.',
+          hall: 'Le top 3 du mois gagne un titre permanent (5 joueurs min.) · couleurs de champion pour le vainqueur',
+          colors: 'Couleurs de champion',
+          how: 'Gagne le tournoi avec ce ninja',
+          unlocked: (name) => `Champion du mois\u00A0! Couleurs de champion de ${name} débloquées`,
+          newTitle: (t) => `Nouveau titre\u00A0: ${t}`,
         },
       },
       train: {
@@ -295,7 +305,7 @@
           assist: 'Assistance', haptic: 'Vibration',
           fullscreen: 'Plein écran', exitFullscreen: 'Quitter le plein écran',
           note: 'Simple\u00A0: 5 gros boutons. Complète\u00A0: ajoute coup de pied et shuriken. Assistance\u00A0: maintiens ATTAQUE et le combo continue, une brève touche sur GARDE dure assez pour parer, et le stick ne fait pas sauter par accident. Elle facilite seulement le tactile\u202F; règles et scores sont les mêmes pour tous.',
-          fullNote: 'Les boutons PIED et SHURIKEN sont dans la disposition Complète (Pause → Commandes tactiles).',
+          fullNote: 'Les boutons PIED et SHURIKEN sont dans la disposition Complète (Paramètres → Commandes).',
         },
         help: '<div class="th-grid">' +
           '<div><h3>Joystick</h3><dl>' +
@@ -312,7 +322,7 @@
           '<dt><i class="tb ki">KI</i></dt><dd>Technique ki\u00A0: le bouton brille quand le ki est plein</dd>' +
           '<dt><i class="tb">PIED</i> <i class="tb">SHUR.</i></dt><dd>Disposition Complète\u00A0: coup de pied et shuriken</dd>' +
           '</dl></div></div>',
-        note: 'Tu peux appuyer sur plusieurs boutons à la fois\u00A0: maintiens la garde et attaque, ou glisse le pouce de <i class="tb tb-guard">GARDE</i> à <i class="tb tb-light">ATTAQUE</i>. Le <b>II</b> en haut de l’écran met en pause\u202F; disposition, taille et mode gaucher s’y trouvent. Avec un clavier ou une manette, les commandes basculent dessus automatiquement.',
+        note: 'Tu peux appuyer sur plusieurs boutons à la fois\u00A0: maintiens la garde et attaque, ou glisse le pouce de <i class="tb tb-guard">GARDE</i> à <i class="tb tb-light">ATTAQUE</i>. Le <b>II</b> en haut de l’écran met en pause\u202F; disposition, taille et mode gaucher se trouvent dans les <b>Paramètres</b>. Avec un clavier ou une manette, les commandes basculent dessus automatiquement.',
         keysHelp: '',
       },
       movesTouch: [
@@ -557,7 +567,7 @@
       'Çırak': 'Apprenti',
       'Usta': 'Maître',
       'Efsane': 'Légende',
-      'Haftalık Turnuva': 'Tournoi hebdo',
+      'Aylık Turnuva': 'Tournoi du mois',
       'Dan Sınavı': 'Épreuve Dan',
       'Şampiyonlar Salonu': 'Salle des champions',
       'Seyret': 'Regarder',
@@ -989,6 +999,16 @@
       },
     });
 
+    // ================================================================ SETTINGS SCREEN (js/settings.js; Turkish source in i18n.js)
+    merge(EN.STR, {
+      set: {
+        title: 'Paramètres', close: 'Fermer',
+        tabs: { audio: 'Son', controls: 'Commandes', gfx: 'Graphismes', lang: 'Langue' },
+        touch: 'Tactile', keys: 'Clavier', pad: 'Manette',
+        touchNote: 'Les réglages des commandes tactiles apparaissent ici dès que tu touches l’écran.',
+      },
+    });
+
     // ================================================================ LANGUAGE PICKER (js/lang-ui.js; Turkish source in i18n.js)
     // Language names are not translated: each one is written in its own language (ND.i18n.names).
     merge(EN.STR, { lang: { title: 'Langue', change: 'Changer de langue', close: 'Fermer' } });
@@ -1007,7 +1027,7 @@
           walk: 'Maintiens\u00A0: marcher', step: 'Tape brièvement\u00A0: un petit pas', jump: 'Tape\u00A0: sauter', guard: 'Maintiens\u00A0: garde',
           dash: 'Tape deux fois\u00A0: ruée', both: 'Appuie entre deux boutons pour les deux à la fois (▶ + ▲ = saut en avant)',
         },
-        edit: (b) => `${b}\u00A0: fais glisser chaque bouton où tu veux et règle sa taille et son opacité. Dans les réglages tactiles ci-dessous et dans le menu pause.`,
+        edit: (b) => `${b}\u00A0: fais glisser chaque bouton où tu veux et règle sa taille et son opacité. Dans Paramètres → Commandes.`,
       },
     });
 

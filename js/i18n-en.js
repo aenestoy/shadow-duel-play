@@ -31,7 +31,7 @@
         specialKey: 'Ki technique (full ki)',
       },
       sel: {
-        title: { '2p': 'Choose your ninja', cpu: 'Choose your ninja', arcade: 'Arcade · Choose your ninja', train: 'Training · Choose your ninja', tutorial: 'Tutorial · Choose your ninja', tourney: 'Weekly Tournament · Choose your ninja', dan: 'Dan Trial · Choose your ninja' },
+        title: { '2p': 'Choose your ninja', cpu: 'Choose your ninja', arcade: 'Arcade · Choose your ninja', train: 'Training · Choose your ninja', tutorial: 'Tutorial · Choose your ninja', tourney: 'Monthly Tournament · Choose your ninja', dan: 'Dan Trial · Choose your ninja' },
         who1: { '2p': 'Player 1 · A / D to pick, F to confirm', def: 'You · A / D to pick, F to confirm' },
         who2: { '2p': 'Player 2 · ← / → to pick, K to confirm', cpu: 'Opponent (CPU) · ← / → to pick', train: 'Dummy · ← / → to pick' },
         go: { def: 'Start fight', arcade: 'Start Arcade', train: 'Start training', tutorial: 'Start tutorial', tourney: 'Start tournament', dan: 'Start trial' },
@@ -121,7 +121,7 @@
           offline: 'No connection — score kept, it will be sent once you’re back online',
           rate: 'Too many submissions — score will be sent shortly',
           daily: 'Daily submission limit reached — score saved locally only',
-          week: 'The week is over — this score doesn’t count toward the new week',
+          week: 'The month is over — this score doesn’t count toward the new month',
           invalid: 'Invalid score',
         },
         nickErr: {
@@ -145,13 +145,14 @@
         // time left: days (d) · hours (h) · minutes (m) · seconds (s)
         left: (ms) => { const t = Math.floor(ms / 1000), d = Math.floor(t / 86400), hh = Math.floor((t % 86400) / 3600), mm = Math.floor((t % 3600) / 60), ss = t % 60; return d ? `${d}d ${hh}h ${mm}m` : hh ? `${hh}h ${mm}m` : `${mm}m ${ss}s`; },
         leftShort: (ms) => { const t = Math.floor(ms / 60000), d = Math.floor(t / 1440), hh = Math.floor((t % 1440) / 60), mm = t % 60; return d ? `${d}d ${hh}h` : hh ? `${hh}h ${mm}m` : `${mm}m`; },
-        weekName: (w, y) => `${y} · Week ${w}`,
+        weekName: (m, y) => `${['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][m - 1] || m} ${y}`,
+        monthName: (m) => ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][m - 1] || String(m),
         rank: (r) => (r <= 0 ? 'Unranked' : r <= 10 ? `Kyu ${11 - r}` : `Dan ${r - 10}`),
         fightOf: (i, n) => `Fight ${i}/${n}`,
         hpBonus: (p) => `Enemy HP +${p}%`,
         mirrorOpp: 'Mirror · your own ninja',
         suddenSub: 'One round · first to fall loses',
-        rows: { fights: 'Wins', time: 'Time', fightPts: 'Fight points', stage: 'Stage bonus', clear: 'Clear bonus', total: 'Tournament score', weekBest: 'Your best this week' },
+        rows: { fights: 'Wins', time: 'Time', fightPts: 'Fight points', stage: 'Stage bonus', clear: 'Clear bonus', total: 'Tournament score', weekBest: 'Your best this month' },
         mods: {
           rally2x: { n: 'Rally Fire', d: 'Counter damage ×2' },
           fullKi: { n: 'Full Ki', d: 'Every round starts with full ki' },
@@ -164,24 +165,24 @@
           glass: { n: 'Glass Blade', d: 'All damage ×1.5' },
         },
         menu: {
-          tour: 'Weekly Tournament', dan: 'Dan Trial', hall: 'Hall of Champions',
-          tourRank: (p, left) => `This week: #${p} · resets in ${left}`,
+          tour: 'Monthly Tournament', dan: 'Dan Trial', hall: 'Hall of Champions',
+          tourRank: (p, left) => `This month: #${p} · resets in ${left}`,
           tourBest: (b, left) => `Your best ${b} · resets in ${left}`,
           tourNew: (left) => `Same 8 fights for everyone · resets in ${left}`,
           danRank: (name, next) => (next ? `Your rank: ${name} · next: ${next}` : `Your rank: ${name} · you’re at the summit`),
           danNew: '20 trials from Kyu 10 to Dan 10',
-          hallRank: (p) => `This week #${p} · records`,
-          hallDesc: 'The week’s top 10 and all-time records',
+          hallRank: (p) => `This month #${p} · records`,
+          hallDesc: 'The month’s top 10 and all-time records',
           nick: (n) => (n ? `Nickname: ${n}` : 'Pick a nickname'),
         },
         t: {
-          title: 'Weekly Tournament', head: 'Tournament',
+          title: 'Monthly Tournament', head: 'Tournament',
           runNote: (s, st) => `Tournament total: ${num(s)} (incl. +${num(st)} per win)`,
           lossSub: (name, won) => `${name} ended your run · ${won} wins`,
           lossNote: (s) => `This fight doesn’t count · tournament score ${num(s)}`,
           quit: 'End tournament',
-          myBest: (b, a) => `Your best this week: ${b} pts · ${a} attempts`,
-          noTry: 'No attempts yet this week.',
+          myBest: (b, a) => `Your best this month: ${b} pts · ${a} attempts`,
+          noTry: 'No attempts yet this month.',
           place: (p, t) => (t ? `#${p} / ${t}` : `#${p}`),
           rules: (n, clear, stage) => `${n} fights; the same opponents, arenas and rules for everyone. One loss ends the attempt; attempts are unlimited and your best one counts. Each win +${stage}, beating them all +${clear}.`,
           start: 'Choose your ninja and begin', again: 'Try again', go: 'Enter tournament',
@@ -210,20 +211,29 @@
         },
         hall: {
           title: 'Hall of Champions',
-          tabs: { week: { n: 'This Week' }, alltime: { n: 'All Time' }, archive: { n: 'Champions' }, chars: { n: 'Ninjas' }, dan: { n: 'Dan' } },
-          desc: { alltime: 'The Weekly Tournament’s all-time best', archive: 'Every finished week’s top 10 is engraved here for good', chars: 'Record holder for each ninja · tap a ninja to see the top 20', dan: 'Highest ranks' },
+          tabs: { week: { n: 'This Month' }, alltime: { n: 'All Time' }, archive: { n: 'Champions' }, chars: { n: 'Ninjas' }, dan: { n: 'Dan' } },
+          desc: { alltime: 'The Monthly Tournament’s all-time best', archive: 'Every finished month’s top 10 is engraved here for good', chars: 'Record holder for each ninja · tap a ninja to see the top 20', dan: 'Highest ranks' },
           loading: 'Loading…', error: 'Couldn’t load the leaderboard.', retry: 'Try again',
-          empty: 'Nobody here yet. Be the first!', emptyDan: 'No ranked players yet.', emptyArchive: 'No finished weeks yet. The first champions will be engraved when this week ends.',
+          empty: 'Nobody here yet. Be the first!', emptyDan: 'No ranked players yet.', emptyArchive: 'No finished months yet. The first champions will be engraved when this month ends.',
           anon: 'Player',
           meTop: (p, s) => `You: #${p} · ${s} pts · you’re in the top 10!`,
           meGap: (p, g, s) => `You: #${p} · ${s} pts · ${g} pts to the top 10`,
-          meNone: 'No score yet this week.',
+          meNone: 'No score yet this month.',
           meDan: (p, n) => `You: #${p} · ${n}`,
           meDanLocal: (n) => `Your rank: ${n}`, meNoDan: 'No rank yet. First trial: Kyu 10.',
-          plaqueSub: (y) => `${y} · Week`,
           noRecord: 'No record', allNinjas: 'All ninjas',
           pending: (n) => `Entries waiting to be sent: ${n}`,
           classic: 'Arcade · Legend boards',
+        },
+        // Monthly Tournament rewards: permanent title (top 3) and Champion colors (1st)
+        ttl: {
+          champ: 'Monthly Champion', finalist: 'Finalist',
+          reward: 'Each month’s top 3 earn a permanent title. The champion also wins exclusive Champion colors for the ninja they used. Titles need at least 5 players that month.',
+          hall: 'Top 3 each month earn a permanent title (min. 5 players) · the champion wins Champion colors',
+          colors: 'Champion colors',
+          how: 'Win a Monthly Tournament with this ninja',
+          unlocked: (name) => `Monthly Champion! ${name}’s Champion colors unlocked`,
+          newTitle: (t) => `New title: ${t}`,
         },
       },
       train: {
@@ -283,7 +293,7 @@
           assist: 'Easy assist', haptic: 'Vibration',
           fullscreen: 'Fullscreen', exitFullscreen: 'Exit fullscreen',
           note: 'Simple: 5 big buttons. Full: adds kick and shuriken. Easy assist: hold ATTACK and the combo keeps going, a quick tap on GUARD lasts long enough to parry, and the stick won’t jump by accident. It only makes touching easier; rules and scores are the same for everyone.',
-          fullNote: 'KICK and SHURIKEN buttons are in the Full layout (Pause → Touch controls).',
+          fullNote: 'KICK and SHURIKEN buttons are in the Full layout (Settings → Controls).',
         },
         help: '<div class="th-grid">' +
           '<div><h3>Joystick</h3><dl>' +
@@ -300,7 +310,7 @@
           '<dt><i class="tb ki">KI</i></dt><dd>Ki technique: the button glows when ki is full</dd>' +
           '<dt><i class="tb">KICK</i> <i class="tb">SHUR.</i></dt><dd>Full layout: kick and shuriken</dd>' +
           '</dl></div></div>',
-        note: 'You can press several buttons at once: hold guard and attack, or slide your thumb from <i class="tb tb-guard">GUARD</i> to <i class="tb tb-light">ATTACK</i>. <b>II</b> at the top of the screen pauses; layout, size and left-handed options are there. Use a keyboard or gamepad and the controls switch to it automatically.',
+        note: 'You can press several buttons at once: hold guard and attack, or slide your thumb from <i class="tb tb-guard">GUARD</i> to <i class="tb tb-light">ATTACK</i>. <b>II</b> at the top of the screen pauses; layout, size and left-handed options are in <b>Settings</b>. Use a keyboard or gamepad and the controls switch to it automatically.',
         keysHelp: '',
       },
       movesTouch: [
@@ -545,7 +555,7 @@
       'Çırak': 'Apprentice',
       'Usta': 'Master',
       'Efsane': 'Legend',
-      'Haftalık Turnuva': 'Weekly Tournament',
+      'Aylık Turnuva': 'Monthly Tournament',
       'Dan Sınavı': 'Dan Trial',
       'Şampiyonlar Salonu': 'Hall of Champions',
       'Seyret': 'Watch',
@@ -977,6 +987,16 @@
       },
     });
 
+    // ================================================================ SETTINGS SCREEN (js/settings.js; Turkish source in i18n.js)
+    merge(EN.STR, {
+      set: {
+        title: 'Settings', close: 'Close',
+        tabs: { audio: 'Audio', controls: 'Controls', gfx: 'Graphics', lang: 'Language' },
+        touch: 'Touch', keys: 'Keyboard', pad: 'Gamepad',
+        touchNote: 'Touch control settings show up here once you touch the screen.',
+      },
+    });
+
     // ================================================================ LANGUAGE PICKER (js/lang-ui.js; Turkish source in i18n.js)
     // Language names are not translated: each one is written in its own language (ND.i18n.names).
     merge(EN.STR, { lang: { title: 'Language', change: 'Change language', close: 'Close' } });
@@ -993,7 +1013,7 @@
           walk: 'Hold: walk', step: 'Quick tap: one short step', jump: 'Tap: jump', guard: 'Hold: guard',
           dash: 'Double-tap: dash', both: 'Press between two buttons for both (▶ + ▲ = jump forward)',
         },
-        edit: (b) => `${b}: drag any button where you like and set its size and opacity. In the touch settings below and in the pause menu.`,
+        edit: (b) => `${b}: drag any button where you like and set its size and opacity. In Settings → Controls.`,
       },
     });
 

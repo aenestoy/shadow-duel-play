@@ -16,7 +16,7 @@
 //   kick             Tritt (button TRITT)                    sweep           Beinfeger / Feger
 //   air slash / dive Lufthieb / Sturzhieb                    knocks down     wirft zu Boden
 //   dummy            Puppe                                   honor           Ehre
-//   rival challenge  Rivalenduell                            tournament      (Wochen-)Turnier
+//   rival challenge  Rivalenduell                            tournament      (Monats-)Turnier
 //   trial            Prüfung (Dan-Prüfung); combo trial = Combo-Übung
 //   AI               CPU (never "KI": it would clash with Ki)   HP = LP (Lebenspunkte)   leaderboard = Bestenliste
 //   touch buttons    ANGRIFF (attack) · LEICHT · SCHWER · TRITT · DECKUNG · SPRINT · SHUR. · KI · SPRUNG
@@ -46,7 +46,7 @@
         specialKey: 'Ki-Technik (volles Ki)',
       },
       sel: {
-        title: { '2p': 'Wähle deinen Ninja', cpu: 'Wähle deinen Ninja', arcade: 'Arcade · Wähle deinen Ninja', train: 'Training · Wähle deinen Ninja', tutorial: 'Tutorial · Wähle deinen Ninja', tourney: 'Wochenturnier · Wähle deinen Ninja', dan: 'Dan-Prüfung · Wähle deinen Ninja' },
+        title: { '2p': 'Wähle deinen Ninja', cpu: 'Wähle deinen Ninja', arcade: 'Arcade · Wähle deinen Ninja', train: 'Training · Wähle deinen Ninja', tutorial: 'Tutorial · Wähle deinen Ninja', tourney: 'Monatsturnier · Wähle deinen Ninja', dan: 'Dan-Prüfung · Wähle deinen Ninja' },
         who1: { '2p': 'Spieler 1 · A / D wählen, F bestätigen', def: 'Du · A / D wählen, F bestätigen' },
         who2: { '2p': 'Spieler 2 · ← / → wählen, K bestätigen', cpu: 'Gegner (CPU) · ← / → wählen', train: 'Puppe · ← / → wählen' },
         go: { def: 'Kampf beginnen', arcade: 'Arcade starten', train: 'Training starten', tutorial: 'Tutorial starten', tourney: 'Turnier starten', dan: 'Prüfung starten' },
@@ -136,7 +136,7 @@
           offline: 'Keine Verbindung – Punkte gesichert, sie werden gesendet, sobald du wieder online bist',
           rate: 'Zu viele Einsendungen – die Punkte werden gleich gesendet',
           daily: 'Tageslimit erreicht – Punkte nur lokal gespeichert',
-          week: 'Die Woche ist vorbei – diese Punkte zählen nicht für die neue Woche',
+          week: 'Der Monat ist vorbei – diese Punkte zählen nicht für den neuen Monat',
           invalid: 'Ungültige Punktzahl',
         },
         nickErr: {
@@ -160,13 +160,14 @@
         // time left: Tage (T) · Stunden (Std) · Minuten (Min) · Sekunden (Sek)
         left: (ms) => { const t = Math.floor(ms / 1000), d = Math.floor(t / 86400), hh = Math.floor((t % 86400) / 3600), mm = Math.floor((t % 3600) / 60), ss = t % 60; return d ? `${d} T ${hh} Std ${mm} Min` : hh ? `${hh} Std ${mm} Min` : `${mm} Min ${ss} Sek`; },
         leftShort: (ms) => { const t = Math.floor(ms / 60000), d = Math.floor(t / 1440), hh = Math.floor((t % 1440) / 60), mm = t % 60; return d ? `${d} T ${hh} Std` : hh ? `${hh} Std ${mm} Min` : `${mm} Min`; },
-        weekName: (w, y) => `${y} · Woche ${w}`,
+        weekName: (m, y) => `${['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'][m - 1] || m} ${y}`,
+        monthName: (m) => ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'][m - 1] || String(m),
         rank: (r) => (r <= 0 ? 'Ohne Rang' : r <= 10 ? `Kyu ${11 - r}` : `Dan ${r - 10}`),
         fightOf: (i, n) => `Kampf ${i}/${n}`,
         hpBonus: (p) => `Gegner-LP +${p} %`,
         mirrorOpp: 'Spiegel · dein eigener Ninja',
         suddenSub: 'Eine Runde · wer fällt, verliert',
-        rows: { fights: 'Siege', time: 'Zeit', fightPts: 'Kampfpunkte', stage: 'Stufenbonus', clear: 'Abschlussbonus', total: 'Turnierpunkte', weekBest: 'Dein Wochenrekord' },
+        rows: { fights: 'Siege', time: 'Zeit', fightPts: 'Kampfpunkte', stage: 'Stufenbonus', clear: 'Abschlussbonus', total: 'Turnierpunkte', weekBest: 'Dein Monatsrekord' },
         mods: {
           rally2x: { n: 'Konterfeuer', d: 'Konterschaden ×2' },
           fullKi: { n: 'Volles Ki', d: 'Jede Runde beginnt mit vollem Ki' },
@@ -179,24 +180,24 @@
           glass: { n: 'Gläserne Klinge', d: 'Aller Schaden ×1,5' },
         },
         menu: {
-          tour: 'Wochenturnier', dan: 'Dan-Prüfung', hall: 'Ruhmeshalle',
-          tourRank: (p, left) => `Diese Woche: #${p} · Neustart in ${left}`,
+          tour: 'Monatsturnier', dan: 'Dan-Prüfung', hall: 'Ruhmeshalle',
+          tourRank: (p, left) => `Dieser Monat: #${p} · Neustart in ${left}`,
           tourBest: (b, left) => `Dein Rekord ${b} · Neustart in ${left}`,
           tourNew: (left) => `Dieselben 8 Kämpfe für alle · Neustart in ${left}`,
           danRank: (name, next) => (next ? `Dein Rang: ${name} · als Nächstes: ${next}` : `Dein Rang: ${name} · du stehst an der Spitze`),
           danNew: '20 Prüfungen von Kyu 10 bis Dan 10',
-          hallRank: (p) => `Diese Woche #${p} · Rekorde`,
-          hallDesc: 'Die Top 10 der Woche und die ewigen Rekorde',
+          hallRank: (p) => `Dieser Monat #${p} · Rekorde`,
+          hallDesc: 'Die Top 10 des Monats und die ewigen Rekorde',
           nick: (n) => (n ? `Spitzname: ${n}` : 'Wähle einen Spitznamen'),
         },
         t: {
-          title: 'Wochenturnier', head: 'Turnier',
+          title: 'Monatsturnier', head: 'Turnier',
           runNote: (s, st) => `Turnier gesamt: ${num(s)} (inkl. +${num(st)} pro Sieg)`,
           lossSub: (name, won) => `${name} hat deinen Lauf beendet · ${won} ${won === 1 ? 'Sieg' : 'Siege'}`,
           lossNote: (s) => `Dieser Kampf zählt nicht · Turnierpunkte ${num(s)}`,
           quit: 'Turnier beenden',
-          myBest: (b, a) => `Dein Wochenrekord: ${b} Pkt. · ${a} ${a === 1 ? 'Versuch' : 'Versuche'}`,
-          noTry: 'Diese Woche noch keine Versuche.',
+          myBest: (b, a) => `Dein Monatsrekord: ${b} Pkt. · ${a} ${a === 1 ? 'Versuch' : 'Versuche'}`,
+          noTry: 'Diesen Monat noch keine Versuche.',
           place: (p, t) => (t ? `#${p} / ${t}` : `#${p}`),
           rules: (n, clear, stage) => `${n} Kämpfe; gleiche Gegner, Arenen und Regeln für alle. Eine Niederlage beendet den Versuch; Versuche sind unbegrenzt, dein bester zählt. Jeder Sieg +${stage}, alle besiegt +${clear}.`,
           start: 'Wähle deinen Ninja und leg los', again: 'Noch mal', go: 'Zum Turnier',
@@ -225,20 +226,29 @@
         },
         hall: {
           title: 'Ruhmeshalle',
-          tabs: { week: { n: 'Diese Woche' }, alltime: { n: 'Allzeit' }, archive: { n: 'Sieger' }, chars: { n: 'Ninjas' }, dan: { n: 'Dan' } },
-          desc: { alltime: 'Die Allzeit-Bestwerte des Wochenturniers', archive: 'Die Top 10 jeder abgeschlossenen Woche, hier für immer eingraviert', chars: 'Rekordhalter jedes Ninjas · tippe auf einen Ninja für die Top 20', dan: 'Höchste Ränge' },
+          tabs: { week: { n: 'Dieser Monat' }, alltime: { n: 'Allzeit' }, archive: { n: 'Sieger' }, chars: { n: 'Ninjas' }, dan: { n: 'Dan' } },
+          desc: { alltime: 'Die Allzeit-Bestwerte des Monatsturniers', archive: 'Die Top 10 jedes abgeschlossenen Monats, hier für immer eingraviert', chars: 'Rekordhalter jedes Ninjas · tippe auf einen Ninja für die Top 20', dan: 'Höchste Ränge' },
           loading: 'Lädt…', error: 'Die Bestenliste konnte nicht geladen werden.', retry: 'Noch mal versuchen',
-          empty: 'Noch niemand hier. Sei die Nummer eins!', emptyDan: 'Noch keine Spieler mit Rang.', emptyArchive: 'Noch keine abgeschlossenen Wochen. Die ersten Sieger werden eingraviert, wenn diese Woche endet.',
+          empty: 'Noch niemand hier. Sei die Nummer eins!', emptyDan: 'Noch keine Spieler mit Rang.', emptyArchive: 'Noch keine abgeschlossenen Monate. Die ersten Sieger werden eingraviert, wenn dieser Monat endet.',
           anon: 'Spieler',
           meTop: (p, s) => `Du: #${p} · ${s} Pkt. · du bist in den Top 10!`,
           meGap: (p, g, s) => `Du: #${p} · ${s} Pkt. · noch ${g} Pkt. bis zu den Top 10`,
-          meNone: 'Diese Woche noch keine Punkte.',
+          meNone: 'Diesen Monat noch keine Punkte.',
           meDan: (p, n) => `Du: #${p} · ${n}`,
           meDanLocal: (n) => `Dein Rang: ${n}`, meNoDan: 'Noch kein Rang. Erste Prüfung: Kyu 10.',
-          plaqueSub: (y) => `${y} · Woche`,
           noRecord: 'Kein Rekord', allNinjas: 'Alle Ninjas',
           pending: (n) => `Einträge warten auf Versand: ${n}`,
           classic: 'Arcade · Legende-Listen',
+        },
+        // Monthly Tournament rewards: permanent title (top 3) and Champion colors (1st)
+        ttl: {
+          champ: 'Monatschampion', finalist: 'Finalist',
+          reward: 'Die Top 3 jedes Monats erhalten einen dauerhaften Titel. Der Champion gewinnt außerdem exklusive Championfarben für den Ninja, mit dem er gesiegt hat. Titel gibt es erst ab 5 Spielern im Monat.',
+          hall: 'Die Top 3 des Monats erhalten einen dauerhaften Titel (ab 5 Spielern) · der Champion Championfarben',
+          colors: 'Championfarben',
+          how: 'Gewinne ein Monatsturnier mit diesem Ninja',
+          unlocked: (name) => `Monatschampion! Championfarben für ${name} freigeschaltet`,
+          newTitle: (t) => `Neuer Titel: ${t}`,
         },
       },
       train: {
@@ -298,7 +308,7 @@
           assist: 'Leichte Hilfe', haptic: 'Vibration',
           fullscreen: 'Vollbild', exitFullscreen: 'Vollbild beenden',
           note: 'Einfach: 5 große Tasten. Voll: dazu Tritt und Shuriken. Leichte Hilfe: Halte ANGRIFF und die Combo läuft weiter, ein kurzes Tippen auf DECKUNG hält lange genug für eine Parade, und der Stick springt nicht aus Versehen. Das erleichtert nur die Bedienung; Regeln und Punkte sind für alle gleich.',
-          fullNote: 'Die Tasten TRITT und SHURIKEN gibt es im vollen Layout (Pause → Touch-Steuerung).',
+          fullNote: 'Die Tasten TRITT und SHURIKEN gibt es im vollen Layout (Einstellungen → Steuerung).',
         },
         help: '<div class="th-grid">' +
           '<div><h3>Joystick</h3><dl>' +
@@ -315,7 +325,7 @@
           '<dt><i class="tb ki">KI</i></dt><dd>Ki-Technik: Die Taste leuchtet, wenn das Ki voll ist</dd>' +
           '<dt><i class="tb">TRITT</i> <i class="tb">SHUR.</i></dt><dd>Volles Layout: Tritt und Shuriken</dd>' +
           '</dl></div></div>',
-        note: 'Du kannst mehrere Tasten gleichzeitig drücken: Deckung halten und angreifen, oder den Daumen von <i class="tb tb-guard">DECKUNG</i> zu <i class="tb tb-light">ANGRIFF</i> ziehen. <b>II</b> oben am Bildschirm pausiert; dort findest du Layout, Größe und die Linkshänder-Option. Nimmst du Tastatur oder Gamepad, schaltet die Steuerung automatisch um.',
+        note: 'Du kannst mehrere Tasten gleichzeitig drücken: Deckung halten und angreifen, oder den Daumen von <i class="tb tb-guard">DECKUNG</i> zu <i class="tb tb-light">ANGRIFF</i> ziehen. <b>II</b> oben am Bildschirm pausiert; Layout, Größe und die Linkshänder-Option findest du in den <b>Einstellungen</b>. Nimmst du Tastatur oder Gamepad, schaltet die Steuerung automatisch um.',
         keysHelp: '',
       },
       movesTouch: [
@@ -560,7 +570,7 @@
       'Çırak': 'Lehrling',
       'Usta': 'Meister',
       'Efsane': 'Legende',
-      'Haftalık Turnuva': 'Wochenturnier',
+      'Aylık Turnuva': 'Monatsturnier',
       'Dan Sınavı': 'Dan-Prüfung',
       'Şampiyonlar Salonu': 'Ruhmeshalle',
       'Seyret': 'Zuschauen',
@@ -992,6 +1002,16 @@
       },
     });
 
+    // ================================================================ SETTINGS SCREEN (js/settings.js; Turkish source in i18n.js)
+    merge(EN.STR, {
+      set: {
+        title: 'Einstellungen', close: 'Schließen',
+        tabs: { audio: 'Ton', controls: 'Steuerung', gfx: 'Grafik', lang: 'Sprache' },
+        touch: 'Touch', keys: 'Tastatur', pad: 'Gamepad',
+        touchNote: 'Die Touch-Einstellungen erscheinen hier, sobald du den Bildschirm berührst.',
+      },
+    });
+
     // ================================================================ LANGUAGE PICKER (js/lang-ui.js; Turkish source in i18n.js)
     // Language names are not translated: each one is written in its own language (ND.i18n.names).
     merge(EN.STR, { lang: { title: 'Sprache', change: 'Sprache ändern', close: 'Schließen' } });
@@ -1010,7 +1030,7 @@
           walk: 'Halten: gehen', step: 'Kurz tippen: ein kleiner Schritt', jump: 'Tippen: springen', guard: 'Halten: Deckung',
           dash: 'Doppeltippen: Sprint', both: 'Zwischen zwei Tasten drücken löst beide aus (▶ + ▲ = Sprung nach vorn)',
         },
-        edit: (b) => `${b}: Zieh jede Taste, wohin du willst, und stell Größe und Deckkraft ein. In den Touch-Einstellungen unten und im Pausenmenü.`,
+        edit: (b) => `${b}: Zieh jede Taste, wohin du willst, und stell Größe und Deckkraft ein. Unter Einstellungen → Steuerung.`,
       },
     });
 

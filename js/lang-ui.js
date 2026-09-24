@@ -1,10 +1,8 @@
 // Shadow Duel — language picker (ND.langUI).
-// Where it shows:
-//   - a small globe button with the current language code: top-right corner of the first screen (#first) and next to
-//     the title on the main menu (#menu .brand);
-//   - a "Language" row in the main menu's controls card (before the Controls heading) and in the pause dialog
-//     (before the touch settings).
-// Every one of them opens the same list (#langOv): the seven languages, each written in its own language. Choosing one
+// Where it shows: a small globe button with the current language code beside the ⚙ Settings button, top-right on the
+// first screen (#firstTop) and on the main menu (#menuTop, next to the title). The Settings panel's Language tab
+// (js/settings.js) lists the same languages and calls the same ND.i18n.setLang(lang, { save: true }).
+// Every globe opens the same list (#langOv): the seven languages, each written in its own language. Choosing one
 // calls ND.i18n.setLang(lang, { save: true }): the whole game switches at once (tables, DOM, canvas texts; listeners
 // registered with ND.i18n.onChange re-render their screens) and the choice is kept in ND.save settings (`lang`).
 // Texts: ND.STR.lang (Turkish source in i18n.js, the other languages in js/i18n-*.js, block "LANGUAGE PICKER").
@@ -27,29 +25,10 @@
   .lang-globe:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
   .lang-globe b { font-weight: 600; }
   .lg-ic { width: 16px; height: 16px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
-  #first .lang-globe { top: calc(env(safe-area-inset-top, 0px) + 12px); right: calc(env(safe-area-inset-right, 0px) + 14px); }
-  #menu .brand { position: relative; }
-  #menu .brand > div:last-child { padding-right: 70px; }
-  #menu .brand .lang-globe { top: 2px; right: 0; }
+  /* outside a .topbtns row (index.html) the globe sits in the corner of its parent */
+  #first > .lang-globe { top: calc(env(safe-area-inset-top, 0px) + 12px); right: calc(env(safe-area-inset-right, 0px) + 14px); }
+  #menu .brand > .lang-globe { top: 2px; right: 0; }
   #app.touch .lang-globe { height: 36px; padding: 0 12px 0 10px; }
-  .langrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; text-align: left; }
-  .langrow h3 { margin: 0; font: 600 13px/1 var(--display); letter-spacing: .24em; text-transform: uppercase; color: var(--gold); }
-  .langrow .lang-pick { display: inline-flex; align-items: center; gap: 8px; min-height: 32px; max-width: 60%; padding: 6px 12px; background: rgba(255,255,255,.04);
-    border: 1px solid var(--line); cursor: pointer; color: var(--text); font: 500 14px/1 var(--display); letter-spacing: .06em; }
-  .langrow .lang-pick span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .langrow .lang-pick i { font-style: normal; color: var(--muted); font-size: 11px; }
-  .langrow .lang-pick:hover, .langrow .lang-pick:focus-visible { border-color: var(--gold); color: var(--gold-hi, #f1d69c); }
-  #app.touch .langrow .lang-pick { min-height: 38px; }
-  aside.card > .langrow { margin: 14px 0 16px; padding-top: 14px; border-top: 1px solid var(--line); }
-  #pause .langrow { margin: 10px 0 0; }
-  /* low landscape phone, touch: the pause dialog is two columns sized to fit 375 px without scrolling; the language
-     button sits in the title row (title left, button right) instead of adding a row */
-  @media (max-height: 520px) and (min-width: 560px) {
-    #app.touch #pause .title { justify-self: start; text-align: left; }
-    #app.touch #pauseLang { grid-column: 1; grid-row: 1; justify-self: end; align-self: start; margin: 0; }
-    #app.touch #pauseLang h3 { display: none; }
-    #app.touch #pauseLang .lang-pick { min-height: 34px; max-width: none; padding: 4px 10px; font-size: 13px; }
-  }
   #langOv { z-index: 65; display: flex; align-items: center; justify-content: center; background: rgba(5,6,12,.86); }
   #langOv[hidden] { display: none; }
   #langOv .lang-card { width: min(460px, 100%); box-sizing: border-box; margin: auto; padding: 18px; }
@@ -166,25 +145,9 @@
     b.onclick = (e) => { e.stopPropagation(); open(); };
     parent.appendChild(b);
   }
-  function row(parent, before, id) {
-    if (!parent || $(id)) return;
-    const r = document.createElement('div');
-    r.id = id;
-    r.className = 'langrow';
-    r.setAttribute('data-i18n-skip', '');
-    r.innerHTML = `<h3></h3><button type="button" class="lang-pick" aria-haspopup="dialog">${GLOBE}<span></span><i aria-hidden="true">▾</i></button>`;
-    r.querySelector('button').onclick = (e) => { e.stopPropagation(); open(); };
-    if (before && before.parentNode === parent) parent.insertBefore(r, before); else parent.appendChild(r);
-  }
   function mount() {
-    const first = $('first');
-    globe(first, 'langFirst');
-    const brand = document.querySelector('#menu .brand');
-    globe(brand, 'langMenu');
-    const card = document.querySelector('#menu aside.card');
-    if (card) row(card, [...card.children].find((c) => c.tagName === 'H2'), 'menuLang');
-    const dlg = document.querySelector('#pause .dialog');
-    if (dlg) row(dlg, $('pauseTset'), 'pauseLang');
+    globe($('firstTop') || $('first'), 'langFirst');
+    globe($('menuTop') || document.querySelector('#menu .brand'), 'langMenu');
   }
   function refresh() {
     const i = I();
@@ -194,13 +157,6 @@
       b.innerHTML = `${GLOBE}<b>${l.toUpperCase()}</b>`;
       b.setAttribute('aria-label', label);
       b.title = label;
-    });
-    document.querySelectorAll('.langrow').forEach((r) => {
-      r.querySelector('h3').textContent = O.title || 'Language';
-      const s = r.querySelector('.lang-pick span');
-      s.textContent = name(l);
-      s.setAttribute('lang', l);
-      r.querySelector('.lang-pick').setAttribute('aria-label', label);
     });
     if (ov && !ov.hidden) { const f = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.lang : null; fillOverlay(); const b = f && ov.querySelector(`[data-lang="${f}"]`); if (b) b.focus(); }
   }

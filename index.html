@@ -374,8 +374,6 @@
   .te.tall .te-stage, .te.tall .te-insp, .te.tall [data-do="opts"], .te.tall [data-do="save"] { display: none; }
   .te.tall .te-bar { top: 50%; flex-direction: column-reverse; align-items: stretch; transform: translateY(-50%); }
   .te.tall .te-hint { -webkit-line-clamp: 6; padding: 14px 16px; font-size: 14px; text-align: center; }
-  #menuTset { margin: 14px 0 0; padding: 12px 0 0; border-top: 1px solid var(--line); }
-  #pauseTset { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
   /* volume sliders (js/volume.js fills them): top of the menu's controls card and in the pause dialog; every device */
   .vol { display: grid; gap: 4px; text-align: left; }
   .vol .vhead { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 22px; }
@@ -387,7 +385,6 @@
   .vol .vnote { margin: 2px 0 0; font-size: 12px; line-height: 1.35; color: var(--muted); }
   .vol.muted .vrow input, .vol .vrow input.off { opacity: .45; }
   .vol.muted output { color: var(--muted); }
-  #menuVol { margin: 0 0 14px; padding: 0 0 12px; border-bottom: 1px solid var(--line); }
   #pauseVol { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
   /* graphics choice (game.js fills every [data-gq] row): menu options line and pause dialog; one short line under it */
   .gq { flex: 1 0 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; text-align: left; }
@@ -397,8 +394,6 @@
   .gq-n { flex: 1 0 100%; min-height: 1.35em; font-size: 12px; line-height: 1.35; color: var(--muted); }
   .gq-n b { font-weight: 600; color: var(--gold-hi, #f1d69c); }
   .gq-n b:not([hidden])::after { content: ' ·'; color: var(--muted); }
-  #pauseGfx { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
-  #pauseGfx .gq-t { font-weight: 600; letter-spacing: .24em; color: var(--gold); }
   #app.touch .gq .seg { min-height: 40px; }
   /* range: a thin track with the filled part in gold (--p set by volume.js), a round thumb; the element itself is tall so it is easy to hit */
   .vol input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 28px; margin: 0; padding: 0; background: transparent; cursor: pointer; touch-action: pan-y; --p: 50%; --th: 16px; }
@@ -415,51 +410,107 @@
   #app.touch .vol { gap: 2px; }
   #app.touch .vol input[type="range"] { height: 40px; --th: 26px; }
   #app.touch .vol .vhead .tog { min-height: 36px; }
-  /* alçak yatay telefonda duraklatma: düğmeler solda, ayarlar sağda (kaydırmadan sığsın) */
+  /* alçak yatay telefonda duraklatma: başlık ve düğmeler solda, ses düzeyi sağda (kaydırmadan sığsın) */
   @media (max-height: 520px) and (min-width: 560px) {
-    #app.touch #pause .dialog { width: min(760px, 100%); display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); grid-template-rows: auto 1fr; gap: 0 20px; align-items: start; padding: 14px 18px; }
+    #app.touch #pause .dialog { width: min(720px, 100%); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: auto 1fr; gap: 0 20px; align-items: start; padding: 14px 18px; }
     #app.touch #pause .bigk { display: none; }
-    #app.touch #pause .title { grid-column: 1; grid-row: 1; font-size: 30px; margin: 0 0 10px; }
+    #app.touch #pause .title { grid-column: 1; grid-row: 1; font-size: 26px; margin: 0 0 8px; }
     #app.touch #pause .btns { grid-column: 1; grid-row: 2; }
-    #app.touch #pauseTset { grid-column: 2; grid-row: 1 / span 3; margin: 0; padding: 0 0 0 18px; border-top: 0; border-left: 1px solid var(--line); }
-    #app.touch #pause .btn { padding: 11px 14px; }
-    /* volume sliders under the buttons (left column); a bit tighter so everything fits 375 px without scrolling */
-    #app.touch #pause .dialog { grid-template-rows: auto auto 1fr; }
-    #app.touch #pause .title { font-size: 26px; margin: 0 0 8px; }
     #app.touch #pause .btns .btn { padding: 9px 14px; }
-    #app.touch #pauseVol { grid-column: 1; grid-row: 3; margin-top: 8px; padding-top: 8px; }
+    #app.touch #pauseVol { grid-column: 2; grid-row: 1 / span 2; align-self: center; margin: 0; padding: 0 0 0 18px; border-top: 0; border-left: 1px solid var(--line); }
     #app.touch #pauseVol input[type="range"] { height: 36px; --th: 24px; }
-    #app.touch #pauseVol .vhead { min-height: 26px; }
-    #app.touch #pauseVol .vhead .tog { min-height: 26px; padding: 0; }
     #app.touch #pauseVol .vnote { display: none; } /* the Sound switch right above already shows it is off */
-    /* touch settings column: a little tighter so the movement row and the Customize button fit too */
-    #app.touch #pauseTset { gap: 6px; }
-    #app.touch #pauseTset .seg, #app.touch #pauseTset .tog { min-height: 36px; padding-block: 6px; }
-    /* graphics row: top of the right column (beside the title), the touch settings under it; one line laid out like
-       their rows, "Now: …" (Auto) right after the buttons, no description */
-    #app.touch #pauseGfx { grid-column: 2; grid-row: 1; align-self: start; margin: 0 0 6px; padding: 0 0 0 18px; border-top: 0; border-left: 1px solid var(--line); flex-wrap: nowrap; gap: 6px; }
-    #app.touch #pauseTset { grid-row: 2 / span 2; }
-    #app.touch #pauseGfx .gq-t { flex: 0 0 5.6em; font: 500 11px/1.2 var(--display); letter-spacing: .14em; color: var(--muted); }
-    #app.touch #pauseGfx .gq-segs { flex: 0 1 auto; flex-wrap: nowrap; gap: 4px; }
-    #app.touch #pauseGfx .seg { min-width: 0; min-height: 36px; padding: 6px; }
-    #app.touch #pauseGfx .gq-n { flex: 1 1 0; min-width: 0; min-height: 0; font-size: 11px; line-height: 1.2; overflow-wrap: anywhere; }
-    #app.touch #pauseGfx [data-gq-d] { display: none; }
-    #app.touch #pauseGfx b[data-gq-now]::after { content: none; }
   }
-  @media (max-width: 700px) and (orientation: landscape) {
-    /* Keep long translated choices on one row without pushing the editor below the screen. */
-    #app.touch #pause .dialog { padding-block: 10px; }
-    #app.touch #pauseTset { gap: 4px; }
-    #app.touch #pauseTset .ts-row { flex-wrap: nowrap; }
-    #app.touch #pauseTset .ts-row > span { flex-basis: 6em; letter-spacing: .06em; }
-    #app.touch #pauseTset .ts-row .seg { flex: 1 1 0; min-width: 0; padding-inline: 4px; font-size: 11px; line-height: 1.15; letter-spacing: .02em; overflow-wrap: anywhere; }
-    #app.touch #pauseTset .ts-acts { flex-wrap: nowrap; }
-    #app.touch #pauseTset .ts-acts .btn { flex: 1 1 0; min-width: 0; padding: 6px; font-size: 11px; line-height: 1.15; overflow-wrap: anywhere; }
-    #app.touch #pauseGfx { flex-wrap: wrap; gap: 4px 6px; }
-    #app.touch #pauseGfx .gq-t { flex-basis: 5em; letter-spacing: .04em; }
-    #app.touch #pauseGfx .gq-segs { flex: 1 1 0; min-width: 0; }
-    #app.touch #pauseGfx .seg { flex: 1 1 0; padding-inline: 3px; font-size: 11px; line-height: 1.15; letter-spacing: 0; overflow-wrap: anywhere; }
-    #app.touch #pauseGfx .gq-n { flex-basis: 100%; }
+
+  /* ---------------- Settings (js/settings.js): ⚙ buttons and the panel */
+  .set-ic { width: 18px; height: 18px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 3.2; }
+  .set-ic .t { stroke-width: 3.2; stroke-dasharray: 3.38 3.38; }
+  .set-open { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 14px 0 11px; background: rgba(8,9,16,.62); border: 1px solid var(--gold); border-radius: 18px;
+    cursor: pointer; color: var(--gold-hi); font: 600 13px/1 var(--display); letter-spacing: .12em; text-transform: uppercase; white-space: nowrap;
+    transition: background-color .15s, color .15s; }
+  .set-open:hover, .set-open:focus-visible { background: var(--gold); color: #17130a; }
+  #app.touch .set-open { min-height: 40px; }
+  /* a row of top-right buttons: Settings and the language globe (lang-ui.js puts the globe in) */
+  .topbtns { position: absolute; z-index: 3; top: 0; right: 0; display: flex; align-items: center; gap: 8px; }
+  .topbtns .lang-globe { position: static; height: 36px; }
+  #app.touch .topbtns .lang-globe { height: 40px; }
+  #first .topbtns { top: calc(env(safe-area-inset-top, 0px) + 12px); right: calc(env(safe-area-inset-right, 0px) + 14px); }
+  #menu .brand { position: relative; }
+  #menu .brand > div:last-child { padding-right: 250px; }
+  /* the options line has its own Settings button for layouts where the brand is narrow (below) */
+  .opts .set-wide { display: none; }
+  .opts { align-items: center; }
+  /* low landscape phone: brand + options on the left are narrow; Settings leads the options line (under the title),
+     the globe stays beside the title */
+  @media (max-height: 500px) and (min-width: 560px) {
+    #menuSet { display: none; }
+    .opts .set-wide { display: inline-flex; }
+    #menu .brand > div:last-child { padding-right: 64px; }
+  }
+  @media (max-width: 560px) {
+    #menu .brand > div:last-child { padding-right: 0; padding-top: 44px; }
+  }
+
+  #setOv { z-index: 60; display: flex; align-items: center; justify-content: center; padding-block: 16px; background: rgba(5,6,12,.86); }
+  #setOv[hidden] { display: none; }
+  .set-card { box-sizing: border-box; width: min(760px, 100%); max-height: 100%; margin: auto; padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
+  .set-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .set-head h2 { display: flex; align-items: center; gap: 10px; margin: 0; font: 600 20px/1 var(--display); letter-spacing: .14em; text-transform: uppercase; color: var(--gold-hi); }
+  .set-head h2 .set-ic { width: 22px; height: 22px; color: var(--gold); }
+  .set-close { padding: 9px 16px; font-size: 14px; }
+  .set-body { display: grid; grid-template-columns: minmax(130px, auto) minmax(0, 1fr); gap: 16px; min-height: 0; flex: 1 1 auto; }
+  .set-tabs { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .set-tabs [role="tab"] { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 8px 12px; background: rgba(255,255,255,.035); border: 1px solid var(--line); cursor: pointer;
+    color: var(--muted); font: 600 15px/1.1 var(--display); letter-spacing: .08em; text-transform: uppercase; text-align: left; }
+  .set-tabs [role="tab"] b { font: 700 16px/1 var(--jp); color: var(--gold); opacity: .75; }
+  .set-tabs [role="tab"]:hover { border-color: var(--gold); color: var(--text); }
+  .set-tabs [role="tab"][aria-selected="true"] { background: rgba(217,179,108,.16); border-color: var(--gold); color: var(--gold-hi); box-shadow: inset 3px 0 0 var(--gold); }
+  .set-tabs [role="tab"][aria-selected="true"] b { opacity: 1; }
+  .set-panes { min-width: 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; scrollbar-width: thin; padding-right: 4px; }
+  .set-pane { display: grid; gap: 14px; align-content: start; text-align: left; }
+  .set-pane:focus { outline: none; }
+  .set-pane h3 { margin: 0; font: 600 13px/1 var(--display); letter-spacing: .24em; text-transform: uppercase; color: var(--gold); }
+  .set-togs { display: flex; flex-wrap: wrap; gap: 6px 22px; }
+  .set-togs .tog { font-size: 14px; min-height: 36px; }
+  #app.touch .set-togs .tog { min-height: 42px; }
+  .set-pane .gq-t { font-weight: 600; letter-spacing: .24em; color: var(--gold); }
+  .set-pane .gq .seg { min-height: 36px; }
+  #app.touch .set-pane .tset .seg, #app.touch .set-pane .tset .tog { min-height: 40px; }
+  .set-note { margin: 0; font-size: 12.5px; line-height: 1.35; color: var(--muted); }
+  #app.touch .set-note { display: none; }
+  .set-kb { display: grid; gap: 10px; }
+  #app.touch .set-kb { display: none; }
+  .set-keys .keys { grid-template-columns: 1fr 1fr; }
+  .set-padnote p { margin: 0; font-size: 13px; line-height: 1.45; color: var(--muted); }
+  .set-langs { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
+  .set-langs button { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; padding: 8px 12px; background: rgba(255,255,255,.04);
+    border: 1px solid var(--line); cursor: pointer; color: var(--text); font: 500 16px/1.1 var(--display); letter-spacing: .03em; text-align: left; }
+  .set-langs button small { font: 600 10.5px/1 var(--display); letter-spacing: .14em; color: var(--muted); }
+  .set-langs button:hover { border-color: var(--gold); }
+  .set-langs button[aria-pressed="true"] { border-color: var(--gold); background: rgba(217,179,108,.16); color: var(--gold-hi); }
+  /* the pause dialog's Settings button */
+  .btn.set-btn { display: flex; align-items: center; justify-content: center; gap: 10px; }
+  .btn.set-btn .set-ic { color: var(--gold); }
+  /* low landscape phone (667×375, 812×375, 740×360): a tighter panel, the tabs stay a column on the left */
+  @media (max-height: 500px) {
+    #setOv { padding-block: 8px; }
+    .set-card { padding: 10px 14px; gap: 8px; }
+    .set-head h2 { font-size: 17px; }
+    .set-close { padding: 8px 14px; }
+    .set-body { gap: 12px; grid-template-columns: minmax(118px, auto) minmax(0, 1fr); }
+    .set-tabs { gap: 5px; }
+    .set-tabs [role="tab"] { min-height: 42px; padding: 6px 10px; font-size: 14px; gap: 8px; }
+    .set-pane { gap: 10px; }
+    .set-langs { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 6px; }
+    .set-langs button { min-height: 42px; padding: 6px 10px; font-size: 15px; }
+  }
+  /* upright phone: tabs become a row over the pane */
+  @media (max-width: 559px) {
+    .set-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+    .set-tabs { flex-direction: row; overflow-x: auto; scrollbar-width: none; }
+    .set-tabs [role="tab"] { flex: 1 0 auto; justify-content: center; }
+    .set-tabs [role="tab"] b { display: none; }
+    .set-keys .keys { grid-template-columns: 1fr; }
   }
 
   /* ---------------- Dik ekran uyarısı */
@@ -505,6 +556,25 @@
   .chip .lk { position: relative; display: inline-block; top: 0; right: 0; margin-left: 8px; vertical-align: 0; }
   .lockmsg { color: var(--gold-hi) !important; }
   .sel-grid.solo { grid-template-columns: minmax(0, 520px); justify-content: center; }
+  /* a locked ninja previewed on the select screen (game.js lockInfo): dimmed figure, "Locked" badge, Start off */
+  .slot .lkb { position: absolute; top: 10px; right: 12px; display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px 3px 6px; border: 1px solid var(--muted);
+    background: rgba(8,9,16,.8); font: 600 11px/1 var(--display); letter-spacing: .16em; text-transform: uppercase; color: var(--text); }
+  .slot .lkb .lk { position: relative; top: 1px; right: 0; }
+  .slot.peek { --sc: #6d7084 !important; }
+  .slot.peek canvas { filter: grayscale(.6) brightness(.85); }
+  .slot.peek .cn b { opacity: .8; }
+  .slot.peek .rdy { display: none; }
+  .roster button.locked[aria-pressed="true"] { opacity: 1; border-color: var(--gold-hi); box-shadow: inset 0 -2px 0 var(--gold-hi); }
+  #bFight:disabled { opacity: .4; cursor: not-allowed; filter: grayscale(.6); }
+  @media (max-height: 500px) and (min-width: 560px) {
+    .slot .lkb { top: 6px; right: 8px; padding: 2px 6px 2px 5px; font-size: 9.5px; }
+    /* a previewed locked ninja: how to unlock it takes the place of the stat bars next to the (dimmed) figure, so the
+       whole figure stays visible and the screen keeps the height it has with an open ninja */
+    .sel-grid .slot.peek .bars { display: none; }
+    .sel-grid .slot.peek p.lockmsg { grid-column: 2; grid-row: 3; align-self: center; margin: 0; padding: 5px 7px;
+      background: rgba(8,9,16,.78); border-left: 2px solid var(--line); font-size: 11px; line-height: 1.3; }
+    .sel-grid .slot.peek p.lockmsg .hbar { margin-top: 4px; }
+  }
 
   /* ---------------- VS ekranı */
   #vs { display: grid; place-items: center; background: radial-gradient(ellipse at 50% 55%, rgba(5,6,12,.3), rgba(5,6,12,.9)); }
@@ -797,15 +867,15 @@
     .th-grid { grid-template-columns: 1fr; gap: 10px; }
 
     /* Seçim ekranı: iki slot yan yana; önizleme solda, ad + değerler sağda, kadro altta */
-    #select.overlay { padding-block: 8px; }
-    .sel-wrap { gap: 7px; }
+    #select.overlay { padding-block: 6px; }
+    .sel-wrap { gap: 5px; }
     .sel-title { font-size: 20px; }
     .sel-grid { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 10px; }
     .sel-grid.solo { grid-template-columns: minmax(0, 560px); }
     .vs { justify-self: auto; font-size: 26px; }
     .slot { grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 6px 10px; padding: 8px 10px; align-items: center; }
     .slot .who { grid-column: 1 / -1; grid-row: 1; font-size: 10px; padding-right: 50px; }
-    .slot canvas { grid-column: 1; grid-row: 2 / span 2; height: clamp(90px, 33vh, 170px); }
+    .slot canvas { grid-column: 1; grid-row: 2 / span 2; height: clamp(88px, 26vh, 170px); }
     .slot .nav { grid-column: 2; grid-row: 2; grid-template-columns: 38px 1fr 38px; gap: 4px; }
     .slot .nav button { height: 38px; }
     .slot .bars { grid-column: 2; grid-row: 3; gap: 3px 8px; font-size: 10px; }
@@ -820,9 +890,9 @@
     .arena-row { flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
     .arena-row::-webkit-scrollbar { display: none; }
     .arena-row > span { flex: none; }
-    .chip { flex: none; padding: 9px 12px; font-size: 13px; }
+    .chip { flex: none; padding: 8px 12px; font-size: 13px; }
     .sel-actions { gap: 8px; }
-    .sel-actions .btn { min-width: 150px; padding: 11px 14px; }
+    .sel-actions .btn { min-width: 150px; padding: 10px 14px; }
     .sel-hint { font-size: 11px; }
 
     /* VS: iki yan + orta; konuşma satırları kısa */
@@ -988,6 +1058,17 @@
   .roster button span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   @media (hover: none) { .roster button { min-height: 40px; } }
 
+  /* ---------------- Monthly Tournament titles: Monthly Champion (gold) / Finalist (silver), next to names on the
+     boards and under 1P's name in the HUD */
+  .ttl { flex: none; display: inline-block; padding: 2px 5px; border: 1px solid rgba(200,205,220,.6); background: rgba(0,0,0,.45); font: 600 9.5px/1 var(--display); font-style: normal; letter-spacing: .1em; text-transform: uppercase; color: #e3e6ef; white-space: nowrap; }
+  .ttl.ttl-c { border-color: #f1c65a; background: linear-gradient(180deg, #f6d77e, #c28f2c); color: #231505; }
+  .ttl.ttl-c::before { content: '覇'; font: 700 1em/1 var(--jp); margin-right: 4px; color: #6a0a13; }
+  .lb-row .nm .ttl { margin-left: 7px; vertical-align: 1px; }
+  .plq li .n .ttl { margin-left: 5px; vertical-align: 1px; font-size: 8.5px; padding: 1px 4px; }
+  .ttl-hud { justify-self: start; margin-top: 1px; }
+  .ttl-hud .ttl { font-size: 10.5px; box-shadow: 0 2px 6px rgba(0,0,0,.6); }
+  @media (max-height: 500px) { .ttl-hud .ttl { font-size: 8.5px; padding: 1px 4px; } }
+
   /* ---------------- HUD: 1P'nin Dan rütbesi */
   .nm .rk1 { flex: none; padding: 2px 5px; border: 1px solid rgba(217,179,108,.6); background: rgba(0,0,0,.45); font: 600 9.5px/1 var(--display); letter-spacing: .1em; color: var(--gold-hi); }
 
@@ -1026,6 +1107,11 @@
   .bz-me { margin: 0; flex: none; font: 600 14px/1.3 var(--display); letter-spacing: .04em; color: #f3e6c8; }
   .bz-me b { color: var(--gold-hi); }
   .bz-rules { margin: 0; flex: none; font-size: 12.5px; line-height: 1.4; color: var(--muted); }
+  /* what the Monthly Tournament's top 3 win: stays visible on phones (the rules line is hidden there) */
+  .bz-reward, .hall-reward { margin: 0; flex: none; font: 600 12.5px/1.35 var(--body); color: #ffd35a; }
+  .bz-reward::before, .hall-reward::before { content: '覇'; margin-right: 6px; font: 700 1em/1 var(--jp); color: #f1c65a; }
+  .hall-reward { margin: -2px 0 8px; font-size: 12px; }
+  @media (max-height: 500px) { .bz-reward { font-size: 11px; line-height: 1.25; } .hall-reward { margin-bottom: 5px; font-size: 10.5px; } }
   .bz-card .sel-actions { flex: none; }
 
   /* turnuva merdiveni */
@@ -1408,9 +1494,54 @@
   .journey-chapters .earned, #journeyGoal.earned { color: var(--gold); }
   .journey-chapters .current { border-color: var(--gold); background: #24202a; }
   .journey-note { color: var(--gold); font: 14px/1.5 var(--body); padding: 9px 12px; border: 1px solid #655431; background: #11121ce8; }
-  #journeyLook { justify-self: start; font-size: 14px; padding: 9px 14px; }
+  /* Appearance slots on the select screen: Original · Legacy · Champion (locked slot says how to earn it) */
+  .look-row { justify-self: start; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; max-width: 100%; }
+  .look-row .look-l { font: 600 12px/1 var(--display); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+  .look-row .look-slot { padding: 7px 11px; border: 1px solid #5d5140; background: #11121c; color: #d9d2c2; font: 600 13px/1 var(--body); cursor: pointer; }
+  .look-row .look-slot[aria-pressed="true"] { border-color: var(--gold); color: var(--gold-hi); box-shadow: inset 0 0 0 1px var(--gold); }
+  .look-row .look-champ { border-color: #b88a2c; color: #ffd35a; background: linear-gradient(180deg, #2a1d0c, #120c05); }
+  .look-row .look-champ::before { content: '覇'; font-family: var(--jp); margin-right: 5px; color: #ffd35a; }
+  .look-row .look-champ[aria-pressed="true"] { background: linear-gradient(180deg, #f6d77e, #c28f2c); color: #231505; border-color: #f1c65a; box-shadow: 0 0 10px rgba(255,211,90,.35); }
+  .look-row .look-champ[aria-pressed="true"]::before { color: #6a0a13; }
+  .look-row .look-slot.locked { opacity: .6; border-style: dashed; cursor: default; background: #11121c; color: #a99a78; }
+  .look-row .look-how { font: 12px/1.3 var(--body); color: #c9b98f; }
+  @media (max-height: 500px) { .look-row .look-slot { padding: 5px 9px; font-size: 12px; } .look-row .look-how { font-size: 11px; } }
   #journeyGoal { grid-column: 1 / -1; justify-self: start; margin-top: -12px; max-width: 65%; padding: 3px 7px; color: #dddce4; background: #10111ad9; font: 12px/1.3 var(--body); }
   @media (max-width: 600px) { .journey-chapters { grid-template-columns: repeat(4, minmax(0, 1fr)); } .journey-panel { padding: 10px; } }
+  /* Journey (PLAY): the ninja and its journey side by side, so the roster, the chosen ninja and Start fit on the
+     screen without scrolling (arcade.js sets #select.journey while the journey panel is shown) */
+  @media (min-width: 900px) and (min-height: 501px) {
+    #select.journey .sel-wrap { max-width: 1180px; grid-template-columns: minmax(0, 500px) minmax(0, 1fr); column-gap: 18px; align-items: start; }
+    #select.journey .sel-wrap > * { grid-column: 1 / -1; }
+    #select.journey .sel-grid { grid-column: 1; grid-row: 2 / span 2; grid-template-columns: minmax(0, 1fr); }
+    #select.journey .journey-panel { grid-column: 2; grid-row: 2; align-self: start; }
+    #select.journey .look-row { grid-column: 2; grid-row: 3; align-self: start; }
+  }
+  /* shorter desktop / tablet screens (1280×720): smaller figures and gaps so two ninjas, the arena row and Start fit */
+  @media (min-height: 501px) and (max-height: 820px) {
+    #select.overlay { padding-block: 16px; }
+    .sel-wrap { gap: 12px; }
+    .sel-title { font-size: clamp(26px, 4vw, 38px); }
+    .slot { padding: 10px 12px; gap: 6px; }
+    .slot canvas { height: clamp(140px, 21vh, 240px); }
+  }
+  @media (max-height: 500px) and (min-width: 560px) {
+    #select.journey .sel-wrap { grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr); column-gap: 10px; align-items: start; }
+    #select.journey .sel-wrap > * { grid-column: 1 / -1; }
+    #select.journey .sel-grid { grid-column: 1; grid-row: 2 / span 2; grid-template-columns: minmax(0, 1fr); }
+    #select.journey .slot { grid-template-columns: minmax(0, .75fr) minmax(0, 1.25fr); }
+    #select.journey .journey-panel { grid-column: 2; grid-row: 2; align-self: stretch; padding: 7px 9px; }
+    #select.journey .look-row { grid-column: 2; grid-row: 3; }
+    #select.journey .journey-heading { gap: 2px 8px; }
+    #select.journey .journey-heading b { font-size: 12.5px; line-height: 1.25; }
+    #select.journey .journey-heading span, #select.journey .journey-panel p { font-size: 11px; line-height: 1.3; }
+    #select.journey .journey-panel p { margin-top: 5px; }
+    #select.journey .journey-chapters { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 3px; margin-top: 6px; }
+    #select.journey .journey-chapters li { padding: 2px 1px 3px; gap: 0; }
+    #select.journey .journey-chapters small { font-size: 9px; }
+    #select.journey .journey-chapters b { font-size: 15px; line-height: 1.1; }
+    #select.journey .journey-chapters span { font-size: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  }
   @media (max-height: 500px) { #journeyGoal { font-size: 10px; margin-top: -7px; } }
   @media (max-height: 500px) and (min-width: 560px) {
     #vs.journey { padding-block: 8px; }
@@ -1430,6 +1561,7 @@
       <div class="hp" id="hpb1"><i class="ghost" id="g1"></i><i class="fill" id="h1"></i></div>
       <div class="row"><div class="post" id="pb1"><i id="p1"></i></div><div class="ammo" id="a1"></div><div class="pips" id="w1"><b></b><b></b></div></div>
       <div class="ki-row"><div class="ki" id="kb1"><i id="k1"></i></div>KI</div>
+      <div class="ttl-hud" id="title1" data-i18n-skip hidden></div>
     </div>
     <div class="clock" id="clock"><span id="timer">60</span><small id="rlabel">RAUND 1</small><small class="arena" id="arenaName"></small></div>
     <div class="side p2">
@@ -1476,6 +1608,7 @@
     <div class="menu-wrap">
       <section>
         <div class="brand">
+          <div class="topbtns" id="menuTop"><button class="set-open" id="menuSet" type="button" data-set-open aria-haspopup="dialog"><svg class="set-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle class="t" cx="12" cy="12" r="8.6"/><circle cx="12" cy="12" r="5.6"/></svg><span data-s="set.title">Ayarlar</span></button></div>
           <div class="vk" aria-hidden="true">影の決闘</div>
           <div>
             <h1>Gölge<br><em>Düel</em><em>losu</em></h1>
@@ -1495,7 +1628,7 @@
             </div>
           </div>
           <div class="mode-row bzrow">
-            <button class="mode lbm bzm tour" id="mtour"><strong data-s="bz.menu.tour">Haftalık Turnuva</strong><small class="prog" id="tourStat"></small><b class="mk" aria-hidden="true">週</b></button>
+            <button class="mode lbm bzm tour" id="mtour"><strong data-s="bz.menu.tour">Aylık Turnuva</strong><small class="prog" id="tourStat"></small><b class="mk" aria-hidden="true">月</b></button>
             <button class="mode lbm bzm dan" id="mdan"><strong data-s="bz.menu.dan">Dan Sınavı</strong><small class="prog" id="danStat"></small><b class="mk" aria-hidden="true">段</b></button>
             <button class="mode lbm bzm hallm" id="mlb"><strong data-s="bz.menu.hall">Şampiyonlar Salonu</strong><small class="prog" id="hallStat" data-s="bz.menu.hallDesc"></small><b class="mk" aria-hidden="true">殿堂</b></button>
           </div>
@@ -1510,20 +1643,17 @@
             <button class="mode" id="mwatch"><strong>Seyret</strong><span data-s="menu.watchShort">Rastgele iki ninja, Efsane yapay zekâ</span></button>
           </div>
         </div>
+        <!-- Options line: the Settings button (every setting, js/settings.js) and quick Sound / Music switches -->
         <div class="opts">
+          <button class="set-open set-wide" id="optSet" type="button" data-set-open aria-haspopup="dialog"><svg class="set-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle class="t" cx="12" cy="12" r="8.6"/><circle cx="12" cy="12" r="5.6"/></svg><span data-s="set.title">Ayarlar</span></button>
           <button class="tog" id="tSound" aria-pressed="true"><i></i>Ses</button>
           <button class="tog" id="tMusic" aria-pressed="true"><i></i>Müzik</button>
-          <button class="tog" id="tBlood" aria-pressed="true"><i></i>Kan efekti</button>
-          <button class="tog" id="tHints" aria-pressed="true"><i></i><span data-t="touch.hints">Tuş ipuçları</span></button>
-          <div class="gq" role="group" id="menuGfx" data-gq><span class="gq-t" data-gq-t></span><span class="gq-segs"><button type="button" class="seg" data-gfx="auto" aria-pressed="false"></button><button type="button" class="seg" data-gfx="high" aria-pressed="false"></button><button type="button" class="seg" data-gfx="medium" aria-pressed="false"></button><button type="button" class="seg" data-gfx="low" aria-pressed="false"></button></span><small class="gq-n"><b data-gq-now hidden></b> <span data-gq-d></span></small></div>
           <button class="tog nickb" id="tNick" type="button"><b aria-hidden="true">名</b><span id="tNickT"></span></button>
         </div>
       </section>
       <aside class="card" aria-label="Kontroller">
-        <div class="vol" id="menuVol"></div>
         <h2>Kontroller</h2>
         <div class="touch-help" data-sh="touch.help"></div>
-        <div class="tset" id="menuTset"></div>
         <div class="keys">
           <div class="a">
             <h3>1. Oyuncu</h3>
@@ -1571,6 +1701,7 @@
 
   <!-- İlk açılış: tek büyük OYNA → hazır seçili karakterle ilk dövüş (game.js quickPlay). Sonraki açılışlarda menü. -->
   <div id="first" class="overlay" hidden>
+    <div class="topbtns" id="firstTop"><button class="set-open" id="firstSet" type="button" data-set-open aria-haspopup="dialog"><svg class="set-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle class="t" cx="12" cy="12" r="8.6"/><circle cx="12" cy="12" r="5.6"/></svg><span data-s="set.title">Ayarlar</span></button></div>
     <div class="first-wrap">
       <div class="vk" aria-hidden="true">影の決闘</div>
       <h1>Gölge<br><em>Düel</em><em>losu</em></h1>
@@ -1603,7 +1734,7 @@
         </div>
       </div>
       <div class="journey-panel" id="journeyPanel" data-i18n-skip hidden></div>
-      <button class="btn" id="journeyLook" type="button" data-i18n-skip hidden></button>
+      <div class="look-row" id="journeyLook" role="group" data-i18n-skip hidden></div>
       <div class="arena-row" id="arenaRow"><span data-s="sel.arena">Arena</span><div class="chips" id="arenaChips"></div></div>
       <div class="sel-actions">
         <button class="btn primary" id="bFight">Dövüşe başla</button>
@@ -1673,13 +1804,63 @@
       <p class="title">Duraklatıldı</p>
       <div class="btns">
         <button class="btn primary" id="bResume">Devam et</button>
+        <button class="btn set-btn" id="bSettings" type="button" data-set-open aria-haspopup="dialog"><svg class="set-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle class="t" cx="12" cy="12" r="8.6"/><circle cx="12" cy="12" r="5.6"/></svg><span data-s="set.title">Ayarlar</span></button>
         <button class="btn" id="bRestart">Maçı yeniden başlat</button>
         <button class="btn" id="bMenu">Ana menü</button>
       </div>
       <div class="vol" id="pauseVol"></div>
-      <!-- Graphics choice, also mid-match (same row as the menu's; game.js fills and wires every [data-gq]) -->
-      <div class="gq" role="group" id="pauseGfx" data-gq><span class="gq-t" data-gq-t></span><span class="gq-segs"><button type="button" class="seg" data-gfx="auto" aria-pressed="false"></button><button type="button" class="seg" data-gfx="high" aria-pressed="false"></button><button type="button" class="seg" data-gfx="medium" aria-pressed="false"></button><button type="button" class="seg" data-gfx="low" aria-pressed="false"></button></span><small class="gq-n"><b data-gq-now hidden></b> <span data-gq-d></span></small></div>
-      <div class="tset" id="pauseTset"></div>
+    </div>
+  </div>
+
+  <!-- Settings (js/settings.js): every setting in one place, one tab per group. Opened from the first screen, the main
+       menu and the pause dialog (a fight is always paused behind it). The controls are the same ones the rest of the
+       game uses: switches wired by game.js (ids, data-tog), [data-gq] graphics row (game.js), .vol sliders
+       (volume.js), .tset touch settings (touch.js); the language buttons and the keyboard list are built by settings.js. -->
+  <div id="setOv" class="overlay" hidden role="dialog" aria-modal="true" aria-labelledby="setTitle">
+    <div class="set-card card">
+      <div class="set-head">
+        <h2 id="setTitle"><svg class="set-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle class="t" cx="12" cy="12" r="8.6"/><circle cx="12" cy="12" r="5.6"/></svg><span data-s="set.title">Ayarlar</span></h2>
+        <button class="btn set-close" id="setClose" type="button" data-s="set.close">Kapat</button>
+      </div>
+      <div class="set-body">
+        <div class="set-tabs" role="tablist" aria-labelledby="setTitle">
+          <button type="button" role="tab" id="setTab-audio" data-tab="audio" aria-controls="setPane-audio" aria-selected="true"><b aria-hidden="true">音</b><span data-s="set.tabs.audio">Ses</span></button>
+          <button type="button" role="tab" id="setTab-controls" data-tab="controls" aria-controls="setPane-controls" aria-selected="false" tabindex="-1"><b aria-hidden="true">操</b><span data-s="set.tabs.controls">Kontroller</span></button>
+          <button type="button" role="tab" id="setTab-gfx" data-tab="gfx" aria-controls="setPane-gfx" aria-selected="false" tabindex="-1"><b aria-hidden="true">画</b><span data-s="set.tabs.gfx">Grafik</span></button>
+          <button type="button" role="tab" id="setTab-lang" data-tab="lang" aria-controls="setPane-lang" aria-selected="false" tabindex="-1"><b aria-hidden="true">語</b><span data-s="set.tabs.lang">Dil</span></button>
+        </div>
+        <div class="set-panes">
+          <section class="set-pane" role="tabpanel" id="setPane-audio" aria-labelledby="setTab-audio" tabindex="-1">
+            <div class="set-togs">
+              <button class="tog" type="button" data-tog="sound" aria-pressed="true"><i></i><span data-s="vol.sound">Ses</span></button>
+              <button class="tog" type="button" data-tog="music" aria-pressed="true"><i></i><span data-s="vol.music">Müzik</span></button>
+            </div>
+            <div class="vol" id="setVol"></div>
+          </section>
+          <section class="set-pane" role="tabpanel" id="setPane-controls" aria-labelledby="setTab-controls" tabindex="-1" hidden>
+            <div class="set-togs">
+              <button class="tog" id="tHints" aria-pressed="true"><i></i><span data-t="touch.hints">Tuş ipuçları</span></button>
+            </div>
+            <div class="tset" id="setTset"></div>
+            <div class="set-kb">
+              <p class="set-note" data-s="set.touchNote"></p>
+              <h3 data-s="set.keys">Klavye</h3>
+              <div class="set-keys" id="setKeys" data-i18n-skip></div>
+              <h3 data-s="set.pad">Gamepad</h3>
+              <div class="set-padnote" id="setPad" data-i18n-skip></div>
+            </div>
+          </section>
+          <section class="set-pane" role="tabpanel" id="setPane-gfx" aria-labelledby="setTab-gfx" tabindex="-1" hidden>
+            <div class="gq" role="group" id="setGfx" data-gq><span class="gq-t" data-gq-t></span><span class="gq-segs"><button type="button" class="seg" data-gfx="auto" aria-pressed="false"></button><button type="button" class="seg" data-gfx="high" aria-pressed="false"></button><button type="button" class="seg" data-gfx="medium" aria-pressed="false"></button><button type="button" class="seg" data-gfx="low" aria-pressed="false"></button></span><small class="gq-n"><b data-gq-now hidden></b> <span data-gq-d></span></small></div>
+            <div class="set-togs">
+              <button class="tog" id="tBlood" aria-pressed="true"><i></i>Kan efekti</button>
+            </div>
+          </section>
+          <section class="set-pane" role="tabpanel" id="setPane-lang" aria-labelledby="setTab-lang" tabindex="-1" hidden>
+            <div class="set-langs" id="setLangs" role="group" aria-labelledby="setTab-lang" data-i18n-skip></div>
+          </section>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1773,6 +1954,7 @@
 <script  src="js/gfx.js"></script>
 <script  src="js/scene.js"></script>
 <script  src="js/skeleton.js"></script>
+<script  src="js/bake.js"></script>
 <script  src="js/characters.js"></script>
 <script  src="js/fighter.js"></script>
 <script  src="js/specials.js"></script>
@@ -1801,6 +1983,7 @@
 <script  src="js/i18n-fr.js"></script>
 <script  src="js/i18n.js"></script>
 <script  src="js/lang-ui.js"></script>
+<script  src="js/settings.js"></script>
 <script  src="js/game.js"></script>
 </body>
 </html>

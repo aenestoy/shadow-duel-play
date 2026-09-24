@@ -1,4 +1,4 @@
-// Shadow Duel — volume sliders (Master / Music / Effects) on the main menu card and in the pause dialog.
+// Shadow Duel — volume sliders (Master / Music / Effects) in the Settings panel (Audio tab) and in the pause dialog.
 // Levels live in ND.audio.vol (core.js does the routing and the click-free glide); here they are shown, changed
 // and saved with the other settings (ND.save, key "vol": whole percents). The "Sound" switch stays the mute:
 // it silences the master without touching the slider values; moving a slider while muted turns sound back on
@@ -105,7 +105,7 @@
       if (n) n.hidden = !off || !O.muted;
     });
   }
-  function buildAll() { build($('menuVol'), false); build($('pauseVol'), true); refresh(); }
+  function buildAll() { build($('setVol'), false); build($('pauseVol'), true); refresh(); }
 
   ND.volumeUI = { refresh, rebuild: buildAll, read };
   // texts come from ND.STR, which i18n translates after this file runs: build once everything has loaded
@@ -113,7 +113,7 @@
     buildAll();
     if (ND.i18n && ND.i18n.onChange) ND.i18n.onChange(buildAll);
     // the switches are wired by game.js; follow them (this listener runs after their own click handler)
-    ['tSound', 'tMusic'].forEach((id) => { const el = $(id); if (el) el.addEventListener('click', () => setTimeout(refresh, 0)); });
+    document.querySelectorAll('#tSound, #tMusic, [data-tog="sound"], [data-tog="music"]').forEach((el) => el.addEventListener('click', () => setTimeout(refresh, 0)));
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else setTimeout(start, 0);
 })(window.ND);

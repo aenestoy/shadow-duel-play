@@ -1,7 +1,9 @@
-// Gölge Düellosu — rekabet katmanı (番付 Banzuke): Haftalık Turnuva, Dan rütbesi, kural değiştiriciler, Şampiyonlar Salonu
+// Gölge Düellosu — rekabet katmanı (番付 Banzuke): Aylık Turnuva, Dan rütbesi, kural değiştiriciler, Şampiyonlar Salonu
+//   Turnuva dönemi bir UTC takvim ayıdır (leaderboard.js period). Kod içindeki "week" adları eski sürümden kaldı.
+//   Biten ayın ilk 3'ü kalıcı unvan alır (Aylık Şampiyon / Finalist); şampiyon, kullandığı ninjanın Şampiyon renklerini açar.
 //
 //   ND.MODS / ND.mods   — kural değiştirici tablosu + çalışma zamanı (dövüşçü yöntemlerini sarar; fighter.js'e dokunmaz)
-//   ND.banzuke.gen(key) — hafta anahtarından (2026-W39) TOHUMLU üretilen 8 dövüşlük merdiven (herkes için aynı; Math.random yok)
+//   ND.banzuke.gen(key) — ay anahtarından (2026-09) TOHUMLU üretilen 8 dövüşlük merdiven (herkes için aynı; Math.random yok)
 //   ND.banzuke.tourney  — turnuva koşusu (arcade gibi bir "koşu denetleyicisi": game.runner)
 //   ND.banzuke.danRun   — Dan sınavı koşusu; ND.banzuke.dan — rütbe durumu (ND.save)
 //   ND.banzuke.ui       — lobi (turnuva / Dan), sonuç ekranı, Şampiyonlar Salonu, menü durumu
@@ -159,10 +161,10 @@
     },
   };
 
-  // ================================================================ HAFTALIK TURNUVA: tohumlu merdiven
+  // ================================================================ AYLIK TURNUVA: tohumlu merdiven
   const TOUR = ND.TOURNEY = { fights: 8, clear: 15000, stage: 1000, levels: [0, 1, 1, 1, 2, 2, 2, 3] };
   const BOSS = 'shura', BOSS_ARENA = 'castle';
-  // Aynı hafta anahtarı + aynı kadro → herkes için aynı merdiven (Math.random kullanılmaz)
+  // Aynı ay anahtarı + aynı kadro → herkes için aynı merdiven (Math.random kullanılmaz)
   function gen(key) {
     const rng = mulberry32(hash32('nd-tourney-v1|' + key));
     const pick = (arr) => arr[Math.floor(rng() * arr.length) % arr.length];
@@ -176,7 +178,7 @@
     for (let i = arOrder.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [arOrder[i], arOrder[j]] = [arOrder[j], arOrder[i]]; }
     const bag = []; MOD_IDS.forEach((id) => { for (let k = 0; k < MODS[id].w; k++) bag.push(id); });
     const fights = [];
-    let mirrorUsed = false; // ayna haftada en çok bir kez
+    let mirrorUsed = false; // ayna merdivende en çok bir kez
     for (let i = 0; i < TOUR.fights; i++) {
       const last = i === TOUR.fights - 1;
       const boss = last && hasBoss && rng() < 0.5;
@@ -302,12 +304,13 @@
         vs.classList.remove('in'); void vs.offsetWidth; vs.classList.add('in');
         const alt = R.me === F.oppIdx;
         const side = (n, ch, a) => {
-          const col = a ? ch.alt : ch.col;
+          const col = ND.palOf(ch, a);
           $('vsk' + n).textContent = ch.kanji; $('vsk' + n).style.color = col.ui;
           $('vsn' + n).textContent = ch.name; $('vst' + n).textContent = ch.title + ' · ' + ch.weapon;
           $('vss' + n).style.setProperty('--sc', col.ui);
         };
-        side(1, me, false); side(2, op, alt);
+        const look = ND.save && ND.save.look ? ND.save.look(me.id) : false; // Legacy / Champion colors
+        side(1, me, look); side(2, op, alt && !look);
         const arena = ND.ARENAS.find((a) => a.id === F.arena);
         $('vsStage').textContent = (mode === 'tourney' ? S.t.head : S.d.trialOf(dan.name(R.target))) + ' · ' + S.fightOf(R.i + 1, R.fights.length);
         const ar = $('vsArena'); ar.textContent = '';
@@ -327,7 +330,7 @@
         const lines = ND.arcade && ND.arcade.talk ? ND.arcade.talk(op.id, me.id, !!F.boss) : [];
         lines.forEach(([sd, id, text], k) => {
           const ch = ND.CHARS.find((c) => c.id === id); if (!ch) return;
-          const col = sd === 'r' && alt ? ch.alt.ui : ch.col.ui;
+          const col = sd === 'r' && alt && !look ? ch.alt.ui : sd === 'l' ? ND.palOf(ch, look).ui : ch.col.ui;
           tb.appendChild(h('p', { class: 'ln ' + sd, style: '--lc:' + col + ';animation-delay:' + (0.35 + k * 0.75) + 's' }, h('b', null, ch.name), h('span', null, text)));
         });
         setTimeout(() => { if (G.phase === 'vs') $('vsGo').focus(); }, 0);
@@ -359,7 +362,7 @@
         const R = this.run; if (!R || R.shown) return;
         const o = this.record(cleared);
         if (silent) {
-          if (mode === 'tourney' && o.total > 0 && LB()) { LB().submit(LB().weeklyBoard(R.week), o.entry); if (ND.toast) ND.toast(T().t.savedToast(fmtNum(o.total)), '週'); }
+          if (mode === 'tourney' && o.total > 0 && LB()) { LB().submit(LB().weeklyBoard(R.week), o.entry); if (ND.toast) ND.toast(T().t.savedToast(fmtNum(o.total)), '月'); }
           if (mode === 'dan' && ND.toast) ND.toast(T().d.leftToast, '段');
           this.run = null; return;
         }
@@ -410,7 +413,10 @@
       return h('span', { class: 'bz-mod', title: d.d }, h('b', { 'aria-hidden': 'true' }, m ? m.k : '?'), h('span', null, d.n), full && d.d ? h('small', null, d.d) : null);
     },
     countdown(ms) { const S = T(); return S.left ? S.left(Math.max(0, ms)) : ''; },
-    weekLabel(key) { const S = T(), m = /^(\d{4})-W(\d{2})$/.exec(key || ''); return m && S.weekName ? S.weekName(+m[2], +m[1]) : key; },
+    // '2026-09' → "September 2026" (the tournament period is a calendar month)
+    weekLabel(key) { const S = T(), m = /^(\d{4})-(\d{2})$/.exec(key || ''); return m && S.weekName ? S.weekName(+m[2], +m[1]) : key; },
+    // Title tag (Monthly Champion / Finalist) for a leaderboard row; null when the player has none
+    titleTag(t) { return LB() && LB().titleEl ? LB().titleEl(t) : null; },
 
     // --- tam ekran katmanı aç/kapat (menü arkada gösteri maçı sürerken)
     showLayer(id, openKey, back) {
@@ -454,7 +460,7 @@
       box.textContent = '';
       const rec = myWeek(W.key);
       const head = h('header', { class: 'bz-head' },
-        h('b', { class: 'bz-k', 'aria-hidden': 'true' }, '週'),
+        h('b', { class: 'bz-k', 'aria-hidden': 'true' }, '月'),
         h('div', { class: 'bz-tt' },
           h('p', { class: 'title', id: 'bzLobbyTitle' }, S.t.title),
           h('small', null, this.weekLabel(W.key), ' · ', S.resetIn, ' ', h('b', { 'data-bz-clock': '' }, this.countdown(W.end - LB().now())))),
@@ -477,10 +483,11 @@
           h('span', { class: 'g-m' }, f.mods.map((id) => this.modChip(id, false)))));
       });
       const rules = h('p', { class: 'bz-rules' }, S.t.rules(TOUR.fights, fmtNum(TOUR.clear), fmtNum(TOUR.stage)));
+      const reward = S.ttl && S.ttl.reward ? h('p', { class: 'bz-reward' }, S.ttl.reward) : null;
       const acts = h('div', { class: 'sel-actions' },
         h('button', { class: 'btn primary', type: 'button', id: 'bzGo', on: { click: () => { au().ui(); ND.game.openSelect('tourney'); } } }, rec ? S.t.again : S.t.start),
         h('button', { class: 'btn', type: 'button', on: { click: () => { au().ui(); this.showHall('week', () => this.lobbyTourney()); } } }, S.hall.title));
-      add(box, head, me, list, rules, acts);
+      add(box, head, me, list, rules, reward, acts);
       setTimeout(() => { const b = $('bzGo'); if (b && this.open === 'lobby-tourney') b.focus(); }, 0);
       // sıralamayı arka planda tazele → gelince BİR KEZ yeniden çiz (again = yeniden çizim; tekrar istek yok)
       if (!again && rec) LB().hall('week', W.key).then(() => { if (this.open === 'lobby-tourney') this.lobbyTourney(null, true); }, () => {});
@@ -650,6 +657,8 @@
       // sekme başlığı
       if (this.tab === 'week') body.appendChild(h('div', { class: 'hall-sub' }, h('b', null, this.weekLabel(W.key)), h('span', null, S.resetIn, ' ', h('b', { 'data-bz-clock': '' }, this.countdown(W.end - LB().now())))));
       else if (S.hall.desc[this.tab]) body.appendChild(h('p', { class: 'hall-sub' }, S.hall.desc[this.tab]));
+      // what the top 3 win (This Month and Champions tabs)
+      if ((this.tab === 'week' || this.tab === 'archive') && S.ttl && S.ttl.hall) body.appendChild(h('p', { class: 'hall-reward' }, S.ttl.hall));
       body.appendChild(loading);
       this.renderFoot();
       let data;
@@ -686,6 +695,7 @@
       const nm = h('span', { class: 'hr-nm' }, h('span', { class: 'n' }, r.name || (r.me ? LB().getName() || S.you : S.hall.anon)));
       const ds = LB().danShort(r.me && !dn ? (r.dan || dan.rank()) : r.dan);
       if (ds && !dn) nm.appendChild(h('em', { class: 'dn' }, ds));
+      const tt = this.titleTag(r.title); if (tt) nm.appendChild(tt);
       if (r.me) nm.appendChild(h('i', null, S.youTag));
       if (this.tab === 'alltime' && r.week) nm.appendChild(h('small', null, this.weekLabel(LB().weekKeyOf(r.week))));
       li.appendChild(nm);
@@ -720,18 +730,18 @@
       if (!weeks.length) { body.appendChild(h('p', { class: 'lb-empty' }, S.hall.emptyArchive)); return; }
       const grid = h('div', { class: 'plq-grid' });
       for (const w of weeks) {
-        const m = /^(\d{4})-W(\d{2})$/.exec(w.key) || [];
+        const m = /^(\d{4})-(\d{2})$/.exec(w.key) || [];
         const ol = h('ol', null);
         w.rows.forEach((r, i) => {
           const ch = ND.CHARS.find((c) => c.id === r.char);
           ol.appendChild(h('li', { class: (i < 3 ? 'p' + (i + 1) : '') + (r.me ? ' me' : '') },
             h('span', { class: 'pl' }, i < 3 ? ['壱', '弐', '参'][i] : String(i + 1)),
-            h('span', { class: 'n' }, r.name || S.hall.anon, LB().danShort(r.dan) ? h('em', { class: 'dn' }, LB().danShort(r.dan)) : null),
+            h('span', { class: 'n' }, r.name || S.hall.anon, LB().danShort(r.dan) ? h('em', { class: 'dn' }, LB().danShort(r.dan)) : null, this.titleTag(r.title)),
             h('span', { class: 'c', style: ch ? 'color:' + ch.col.ui : '' }, ch ? ch.kanji : ''),
             h('span', { class: 's' }, fmtNum(r.score))));
         });
         grid.appendChild(h('article', { class: 'plq' },
-          h('header', null, h('b', null, m[2] ? String(+m[2]) : '?'), h('span', null, S.hall.plaqueSub(m[1] || ''))),
+          h('header', null, h('b', null, m[2] && S.monthName ? S.monthName(+m[2]) : '?'), h('span', null, m[1] || '')),
           ol));
       }
       body.appendChild(grid);
@@ -786,7 +796,7 @@
       return true;
     },
 
-    // ---------------------------------------------------- MENÜ: "Bu hafta: #12 · sıfırlanmaya 3g 4s"
+    // ---------------------------------------------------- MENÜ: "Bu ay: #12 · sıfırlanmaya 3g 4s"
     refreshMenu() {
       const S = T(); if (!S.t || !LB()) return;
       const W = weekNow(), ts = $('tourStat'), ds = $('danStat');
