@@ -1,6 +1,7 @@
 {
-  "source": "e4a340b",
+  "source": "8f9b10e",
   "baseline": "1066a45",
   "date": "2026-09-25",
-  "purpose": "Same-quality match preparation and cache lifetime preview"
+  "purpose": "Same-quality match preparation with opt-in phone performance reports",
+  "report": "shadow-duel-phone-v2"
 }
