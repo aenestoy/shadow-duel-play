@@ -739,6 +739,9 @@
         title: 'Volume', master: 'Geral', music: 'Música', sfx: 'Efeitos', sound: 'Som',
         pct: (n) => `${n}%`,
         muted: 'O som está desligado. Mexa num controle para religar.',
+        // Settings > Audio: character / announcer voices switch (js/voice.js) and the courtesy credit under it
+        voice: 'Vozes',
+        credit: 'Vozes: ユーフルカ (youfulca.com) · 効果音ラボ · すぱらんど',
       },
     });
 

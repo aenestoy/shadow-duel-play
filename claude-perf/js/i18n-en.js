@@ -724,6 +724,9 @@
         title: 'Volume', master: 'Master', music: 'Music', sfx: 'Effects', sound: 'Sound',
         pct: (n) => `${n}%`,
         muted: 'Sound is off. Move a slider to turn it back on.',
+        // Settings > Audio: character / announcer voices switch (js/voice.js) and the courtesy credit under it
+        voice: 'Voices',
+        credit: 'Voices: ユーフルカ (youfulca.com) · 効果音ラボ · すぱらんど',
       },
     });
 

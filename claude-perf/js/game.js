@@ -113,6 +113,8 @@
   // Blood is opt-in (new key, so old saves that had it on by default start in ink mode) and portal-gated (core.js)
   ND.settings.blood = !!(ND.bloodAllowed && ND.bloodAllowed()) && saved.bloodOptIn === true;
   ND.settings.music = saved.music !== false;
+  // Voices (Settings > Audio): fighters' shouts and the announcer (js/voice.js); on unless the player turned them off
+  ND.settings.voice = saved.voice !== false;
   ND.settings.hints = saved.hints !== false;
   // Show FPS (Settings → Graphics): the small frame-rate readout, off unless the player turned it on (fpsMeter below)
   ND.settings.showFps = saved.showFps === true;
@@ -1596,7 +1598,7 @@
     // graphics: the player's choice (Auto's own steps are not saved); hq / hqUser keep older builds reading it right
     const gfx = GFX.pref, hq = gfx !== 'low', hqUser = gfx !== 'auto';
     // merged into what is stored, so settings kept by other files (touch controls: key "touch", js/touch.js) survive
-    store.set(Object.assign(store.get(), { sound: ND.settings.sound, bloodOptIn: ND.settings.blood, music: ND.settings.music, hints: ND.settings.hints, showFps: ND.settings.showFps || undefined, gfx, hq, hqUser, fps: game.fpsPref || undefined, level: game.level, c1: id(game.sel.c[0]), c2: id(game.sel.c[1]), arena: game.sel.arena }));
+    store.set(Object.assign(store.get(), { sound: ND.settings.sound, bloodOptIn: ND.settings.blood, music: ND.settings.music, voice: ND.settings.voice, hints: ND.settings.hints, showFps: ND.settings.showFps || undefined, gfx, hq, hqUser, fps: game.fpsPref || undefined, level: game.level, c1: id(game.sel.c[0]), c2: id(game.sel.c[1]), arena: game.sel.arena }));
   }
   function unlockAudio() { au.init(); au.setEnabled(ND.settings.sound); mu.init(); mu.setEnabled(ND.settings.music); if (mu.mode === 'off') mu.setMode(game.phase === 'fight' ? 'fight' : 'menu'); }
   function choose(mode) { unlockAudio(); au.ui(); if (mode === 'watch') { au.quiet = false; game.start('watch'); } else game.openSelect(mode); }
@@ -1670,7 +1672,7 @@
       document.querySelectorAll('.seg[data-lv]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
     };
   });
-  const toggles = { tSound: 'sound', tBlood: 'blood', tMusic: 'music', tHints: 'hints', tFps: 'showFps' };
+  const toggles = { tSound: 'sound', tBlood: 'blood', tMusic: 'music', tHints: 'hints', tFps: 'showFps', tVoice: 'voice' };
   // Graphics choice: the [data-gq] rows in the menu's options and the pause dialog (index.html), four .seg buttons
   // data-gfx="auto|high|medium|low". A press applies and saves (ND.gfx.setQuality → the GFX.onChange listener below
   // persists). Texts from ND.STR.gfx: title, levels, and one line under the row — on Auto it says which tier is drawn
@@ -1834,6 +1836,7 @@
       unlockAudio(); persist();
       if (key === 'blood' && !ND.settings.blood) fx.decals.length = 0;
       if (key === 'showFps') fpsMeter.set(ND.settings.showFps);
+      if (key === 'voice' && ND.voice && ND.voice.setEnabled) ND.voice.setEnabled(ND.settings.voice);
       // volume.js follows the switches (muted look of the sliders)
       if ((key === 'sound' || key === 'music') && ND.volumeUI) ND.volumeUI.refresh();
     }));

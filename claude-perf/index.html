@@ -8,7 +8,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Shadow Duel</title>
 <!-- Fonts ship with the game (no external requests): fonts/fonts.css is written by scripts/font-subset.mjs -->
+
 <!-- Portal SDK bridge (module, bundled by Vite): publishes window.NDPortal; js/core.js wraps it as ND.portal -->
+
 <style>
   #matchLoading { position: absolute; inset: 0; z-index: 1000; display: grid; place-items: center; background: #0c0d15; color: #ebe6da; }
   #matchLoading[hidden] { display: none; }
@@ -573,6 +575,7 @@
   #app.touch .set-pane .tset .seg, #app.touch .set-pane .tset .tog { min-height: 40px; }
   .set-note { margin: 0; font-size: 12.5px; line-height: 1.35; color: var(--muted); }
   #app.touch .set-note { display: none; }
+  .set-credit { margin: 10px 0 0; font-size: 11px; line-height: 1.35; color: var(--muted); opacity: .8; }
   .set-kb { display: grid; gap: 10px; }
   #app.touch .set-kb { display: none; }
   .set-keys .keys { grid-template-columns: 1fr 1fr; }
@@ -1934,8 +1937,10 @@
             <div class="set-togs">
               <button class="tog" type="button" data-tog="sound" aria-pressed="true"><i></i><span data-s="vol.sound">Ses</span></button>
               <button class="tog" type="button" data-tog="music" aria-pressed="true"><i></i><span data-s="vol.music">Müzik</span></button>
+              <button class="tog" type="button" data-tog="voice" aria-pressed="true"><i></i><span data-s="vol.voice">Seslendirme</span></button>
             </div>
             <div class="vol" id="setVol"></div>
+            <p class="set-credit" data-s="vol.credit"></p>
           </section>
           <section class="set-pane" role="tabpanel" id="setPane-controls" aria-labelledby="setTab-controls" tabindex="-1" hidden>
             <div class="set-togs">
@@ -2091,7 +2096,7 @@
 <script  src="js/gl2d.js?v=gl-1"></script>
 <script  src="js/gl-render.js?v=gl-1"></script>
 <script  src="js/game.js?v=phone-perf-4"></script>
-<!-- voices: stub, inactive unless ?voice=log (docs/SES-PLANI.md) -->
+<!-- voices: fighters and announcer, files in voice/ (docs/SES-PLANI.md); ?voice=off silences, ?voice=log logs -->
 <script  src="js/voice.js"></script>
 </body>
 </html>

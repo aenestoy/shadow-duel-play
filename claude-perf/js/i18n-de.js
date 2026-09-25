@@ -739,6 +739,9 @@
         title: 'Lautstärke', master: 'Gesamt', music: 'Musik', sfx: 'Effekte', sound: 'Ton',
         pct: (n) => `${n} %`,
         muted: 'Der Ton ist aus. Beweg einen Regler, um ihn wieder einzuschalten.',
+        // Settings > Audio: character / announcer voices switch (js/voice.js) and the courtesy credit under it
+        voice: 'Stimmen',
+        credit: 'Stimmen: ユーフルカ (youfulca.com) · 効果音ラボ · すぱらんど',
       },
     });
 

@@ -523,6 +523,9 @@
     title: 'Ses düzeyi', master: 'Genel', music: 'Müzik', sfx: 'Efektler', sound: 'Ses',
     pct: (n) => `%${n}`,
     muted: 'Ses kapalı. Bir sürgüyü oynatınca yeniden açılır.',
+    // Ayarlar > Ses: karakter ve sunucu sesleri anahtarı (js/voice.js) ve altındaki teşekkür satırı
+    voice: 'Seslendirme',
+    credit: 'Seslendirme: ユーフルカ (youfulca.com) · 効果音ラボ · すぱらんど',
   });
 
   // ---------------------------------------------------------------- Turkish source additions: touch movement modes + layout editor

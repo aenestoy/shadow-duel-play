@@ -736,6 +736,9 @@
         title: 'Volume', master: 'Général', music: 'Musique', sfx: 'Effets', sound: 'Son',
         pct: (n) => `${n}\u00A0%`,
         muted: 'Le son est coupé. Bouge un curseur pour le rallumer.',
+        // Settings > Audio: character / announcer voices switch (js/voice.js) and the courtesy credit under it
+        voice: 'Voix',
+        credit: 'Voix: ユーフルカ (youfulca.com) · 効果音ラボ · すぱらんど',
       },
     });
 

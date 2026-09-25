@@ -735,6 +735,9 @@
         title: 'Volumen', master: 'General', music: 'Música', sfx: 'Efectos', sound: 'Sonido',
         pct: (n) => `${n} %`,
         muted: 'El sonido está desactivado. Mueve un control para volver a activarlo.',
+        // Settings > Audio: character / announcer voices switch (js/voice.js) and the courtesy credit under it
+        voice: 'Voces',
+        credit: 'Voces: ユーフルカ (youfulca.com) · 効果音ラボ · すぱらんど',
       },
     });
 

@@ -749,6 +749,9 @@
         title: 'Громкость', master: 'Общая', music: 'Музыка', sfx: 'Эффекты', sound: 'Звук',
         pct: (n) => `${n}${NB}%`,
         muted: 'Звук выключен. Сдвинь любой ползунок, чтобы включить его.',
+        // Settings > Audio: character / announcer voices switch (js/voice.js) and the courtesy credit under it
+        voice: 'Голоса',
+        credit: 'Голоса: ユーフルカ (youfulca.com) · 効果音ラボ · すぱらんど',
       },
     });
 
