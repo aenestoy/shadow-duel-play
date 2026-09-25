@@ -1,7 +1,8 @@
 {
-  "source": "8f9b10e",
+  "source": "d51813b",
   "baseline": "1066a45",
   "date": "2026-09-25",
-  "purpose": "Same-quality match preparation with opt-in phone performance reports",
-  "report": "shadow-duel-phone-v2"
+  "purpose": "Independent fighter render surfaces with High visuals preserved",
+  "report": "shadow-duel-phone-v2",
+  "renderer": "fighter-surfaces-v1"
 }

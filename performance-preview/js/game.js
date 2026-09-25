@@ -3,10 +3,14 @@
   'use strict';
   const $ = (id) => document.getElementById(id);
   const cv = $('cv'), ctx = cv.getContext('2d');
-  const lc = document.createElement('canvas'), lctx = lc.getContext('2d');
-  // Gölge silüeti tuvali + yardımcılar
-  const shc = document.createElement('canvas'), shx = shc.getContext('2d'), SHA = [], SH_RES = 0.5;
-  lc.width = lc.height = shc.width = shc.height = 64;
+  function renderLayer() {
+    const canvas = document.createElement('canvas'); canvas.width = canvas.height = 64;
+    return { canvas, ctx: canvas.getContext('2d') };
+  }
+  // Keep a source stable after drawImage consumes it. Sharing a scratch canvas between fighters overwrites
+  // the first fighter's source before the frame is submitted, which can force snapshot preservation/copies.
+  const lightLayers = [renderLayer(), renderLayer()], shadowLayers = [renderLayer(), renderLayer()];
+  const SHA = [], SH_RES = 0.5;
   // Tuvali gerekirse büyüt (64'ün katlarına; küçültme yok → her karede yeniden ayırma olmaz)
   function growCanvas(c, w, h) {
     if (c.width < w) c.width = Math.ceil(w / 64) * 64;
@@ -244,6 +248,7 @@
   });
 
   const game = ND.game = {
+    renderVersion: 'fighter-surfaces-v1',
     mode: 'attract', level: [0, 1, 2].includes(saved.level) ? saved.level : 1, phase: 'menu', pt: 0, projs: [], hitstopT: 0, slow: 1, slowT: 0,
     round: 1, wins: [0, 0], timer: ROUND_TIME, focus: null, paused: false, bars: 0, ais: [], bannerT: 0, dim: 0,
     stats: null, flags: {}, lock: null, clock: 0, rally: { n: 0, last: null, t: 0 }, slowV: 0.35, cineT: 0, cineX: 0, recording: false, fxEvents: [], rec: [], koIndex: -1, replay: null,
@@ -899,10 +904,12 @@
       sx0 = Math.max(0, sx0); sy0 = Math.max(0, sy0); sx1 = Math.min(cam.W, sx1); sy1 = Math.min(cam.H, sy1);
       const w = sx1 - sx0, h = sy1 - sy0;
       if (w <= 0 || h <= 0) return;
+      const { canvas: lc, ctx: lctx } = lightLayers[f.id === 1 ? 1 : 0];
       growCanvas(lc, w, h);
       lctx.setTransform(1, 0, 0, 1, 0, 0);
       lctx.globalCompositeOperation = 'source-over'; lctx.globalAlpha = 1;
-      lctx.clearRect(0, 0, w, h);
+      // Discard the entire previous surface, including unused capacity. No old pixels need preserving.
+      lctx.clearRect(0, 0, lc.width, lc.height);
       const k = cam.k;
       lctx.setTransform(k, 0, 0, k, cam.W / 2 - cam.x * k + cam.shx - sx0, cam.gy - cam.y * k + cam.shy - sy0);
       drawFn(lctx);
@@ -981,9 +988,10 @@
         const u0 = -0.13 * b[3], u1 = -0.13 * b[1]; // basık uzayda (u = −0.13·y) dikey aralık
         const w = Math.ceil((b[2] - b[0]) * sc) + P * 2, h = Math.ceil((u1 - u0) * sc) + P * 2;
         if (w < 3 || h < 3) continue;
+        const { canvas: shc, ctx: shx } = shadowLayers[f.id === 1 ? 1 : 0];
         growCanvas(shc, w, h);
         shx.setTransform(1, 0, 0, 1, 0, 0); shx.globalCompositeOperation = 'source-over'; shx.globalAlpha = 1;
-        shx.clearRect(0, 0, w, h);
+        shx.clearRect(0, 0, shc.width, shc.height);
         shx.setTransform(sc, 0, 0, -0.13 * sc, P - b[0] * sc, P - u0 * sc);
         shx.globalAlpha = amax;
         f.draw(shx, true);
@@ -1068,7 +1076,7 @@
           if (fs.hidden) return;
           const f = F[i];
           const b = [fs.x - 200, -320, fs.x + 200, 40];
-          this.drawLit({ x: fs.x, flash: fs.flash }, (c) => this.drawSnapFighter(c, fs, f), b);
+          this.drawLit({ id: i, x: fs.x, flash: fs.flash }, (c) => this.drawSnapFighter(c, fs, f), b);
         });
         cam.world(ctx);
         s.fs.forEach((fs, i) => { if (!fs.hidden && !fs.dead) ND.eyeGlow?.(ctx, fs.j, F[i].col, F[i].ch.acc); });

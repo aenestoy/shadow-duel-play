@@ -143,6 +143,7 @@ window.ND = window.ND || {};
       const windows = this.history.filter((s) => this.isFight(s)).slice(-10);
       return {
         report: 'shadow-duel-phone-v2',
+        renderer: ND.game?.renderVersion || 'shared-surfaces',
         note: 'Frame callback rate and synchronous CPU/Canvas submission only; GPU/display time is not measured. hudDom is included in sim and TOTAL.',
         device: { userAgent: navigator.userAgent, dpr: window.devicePixelRatio, cores: navigator.hardwareConcurrency, memoryGB: navigator.deviceMemory },
         probeCopies: FLUSH_ALL ? 'per-mark' : FLUSH ? 'per-frame' : 'off',
