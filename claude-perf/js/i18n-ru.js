@@ -1007,6 +1007,21 @@
       },
     });
 
+    // ================================================================ FRAME RATE: Settings → Graphics (js/gfx.js makePacer)
+    // (Turkish source in i18n.js, block "frame rate"; the numbers themselves are not translated)
+    merge(EN.STR, {
+      fps: {
+        title: 'Частота кадров',
+        levels: { max: 'Макс' },
+        note: {
+          60: 'Ровно и без нагрева. Лучше для большинства телефонов.',
+          90: 'Плавнее, если экран это поддерживает. Тратит больше заряда.',
+          120: 'Плавнее всего на экранах 120 Гц. Тратит больше заряда.',
+          max: 'Так быстро, как позволяет экран.',
+        },
+      },
+    });
+
     // ================================================================ SETTINGS SCREEN (js/settings.js; Turkish source in i18n.js)
     merge(EN.STR, {
       set: {

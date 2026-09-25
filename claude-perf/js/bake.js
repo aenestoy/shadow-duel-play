@@ -330,7 +330,8 @@ window.ND = window.ND || {};
     x0 = Math.floor(x0); y0 = Math.floor(y0); x1 = Math.ceil(x1); y1 = Math.ceil(y1);
     const w = x1 - x0, h = y1 - y0;
     if (w <= 0 || h <= 0 || w > 4096 || h > 4096) return;
-    if (!scr) { scr = newCanvas(w, h); scx = scr.getContext('2d'); }
+    // (WebGL2 renderer: a CPU canvas, so its copy into a texture every frame never waits for the GPU)
+    if (!scr) { scr = newCanvas(w, h); scx = scr.getContext('2d', ND.glHooked ? { willReadFrequently: true } : undefined); }
     if (scr.width < w || scr.height < h) { scr.width = Math.max(scr.width, w); scr.height = Math.max(scr.height, h); scx = scr.getContext('2d'); }
     scx.setTransform(1, 0, 0, 1, 0, 0); scx.globalCompositeOperation = 'source-over'; scx.globalAlpha = 1;
     scx.clearRect(0, 0, w, h);

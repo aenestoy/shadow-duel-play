@@ -78,7 +78,7 @@ window.ND = window.ND || {};
   let installed = false;
   function install() {
     if (installed || typeof CanvasRenderingContext2D === 'undefined') return;
-    installed = true;
+    installed = true; ND.glHooked = true;
     const protos = [CanvasRenderingContext2D.prototype];
     if (typeof OffscreenCanvasRenderingContext2D !== 'undefined') protos.push(OffscreenCanvasRenderingContext2D.prototype);
     for (const P of protos) {
@@ -128,7 +128,19 @@ window.ND = window.ND || {};
 
   ND.createGL2D = function (gl, opts = {}) {
     install();
-    const R = { gl, unsupported: '', stats: null };
+    const R = { gl, unsupported: '', stats: null, prof: null };
+    // ---------------------------------------------------------------- profiling (render-check page / ?perf=1 only)
+    // R.profile(true): every frame fills R.prof (one reused object): tessellation, text, picture and buffer upload
+    // times and counts, and why each picture was uploaded. Off (default): no timing calls at all.
+    const now = () => performance.now();
+    let P = null;
+    const stackOf = () => String(new Error().stack).split('\n').slice(3, 7).map((l) => l.trim().replace(/^at /, '').replace(/https?:\/\/[^/]+\//, '').replace(/\?[^:]*/, '')).join(' < ');
+    function profReset() {
+      if (!P) return;
+      P.tessMs = 0; P.tessCalls = 0; P.texts = 0; P.textMs = 0; P.textPx = 0; P.textEvict = 0; P.ramps = 0; P.rampRows = 0;
+      P.imgUploads = 0; P.imgPx = 0; P.imgMs = 0; P.imgWhy.length = 0; P.textWhy.length = 0;
+      P.bufBytes = 0; P.bufMs = 0; P.bufAlloc = 0; P.endMs = 0; P.postMs = 0; P.runMs = 0; P.grow = 0; P.layerRegrow = 0; P.targetsNew = 0; P.textAtlasFull = 0;
+    }
     let wantSamples = opts.samples == null ? 4 : opts.samples | 0;
 
     // ---------------------------------------------------------------- per-frame geometry
@@ -137,38 +149,73 @@ window.ND = window.ND || {};
     let IX = new Uint32Array(capI);
     let nv = 0, ni = 0;
     function growV(need) {
+      if (P) P.grow++;
       let c = capV; while (c < need) c *= 2;
       const nb = new ArrayBuffer(c * STRIDE * 4); new Uint32Array(nb).set(VU.subarray(0, nv * STRIDE));
       VB = nb; VF = new Float32Array(nb); VU = new Uint32Array(nb); capV = c;
     }
     function growI(need) {
+      if (P) P.grow++;
       let c = capI; while (c < need) c *= 2;
       const n = new Uint32Array(c); n.set(IX.subarray(0, ni)); IX = n; capI = c;
     }
-    // current emission state
-    let Z = 0, COL = 0, PAINT = 0, OX = 0, OY = 0, UVM = 0;
-    let IA = 1, IBB = 0, IC = 0, ID = 1, IE = 0, IF = 0; // inverse transform (device → user) for gradient paints
-    let zc = 0;
+    // Current emission state, kept in typed arrays: a fractional number held in a closure variable, or passed to a
+    // function that is not inlined, becomes a new heap object every time (≈ 800 KB of garbage per fight frame
+    // before this). Points to emit go through QX/QY (or SX/SY, TX/TY) and whole runs are written by emit().
+    // ES: 0 depth, 1-2 layer slot offset, 3-8 inverse transform device → user (gradient paints),
+    //     9-14 transform of user-space strokes, 15 stroke half width, 16 same in device px, 17 round-join step angle
+    const ES = new Float64Array(20); ES[3] = 1; ES[6] = 1; ES[9] = 1; ES[12] = 1;
+    const EU = new Uint32Array(2); // 0 colour (premultiplied RGBA8), 1 paint
+    let UVM = 0, zc = 0;
+    let SU = false; // stroke in user space (non-uniform transform): positions through ES[9..14], uv = the user point
     const ZSTEP = 1 / (1 << 21);
-    const nextZ = () => { Z = 1 - (++zc) * ZSTEP; };
-    function vtx(x, y) {
-      if (nv >= capV) growV(nv + 1);
-      const o = nv * STRIDE;
-      VF[o] = x + OX; VF[o + 1] = y + OY; VF[o + 2] = Z;
-      if (UVM) { VF[o + 3] = IA * x + IC * y + IE; VF[o + 4] = IBB * x + ID * y + IF; } else { VF[o + 3] = 0; VF[o + 4] = 0; }
-      VU[o + 5] = COL; VU[o + 6] = PAINT;
-      return nv++;
+    const nextZ = () => { ES[0] = 1 - (++zc) * ZSTEP; };
+    const QX = new Float64Array(1100), QY = new Float64Array(1100), QU = new Float64Array(4), QV = new Float64Array(4);
+    // n points of X/Y from i0 → id of the first vertex
+    function emit(X, Y, i0, n) {
+      if (nv + n > capV) growV(nv + n);
+      const base = nv, z = ES[0], ox = ES[1], oy = ES[2], col = EU[0], paint = EU[1], end = i0 + n;
+      let o = nv * STRIDE;
+      if (SU) {
+        const a = ES[9], b = ES[10], c = ES[11], d = ES[12], e = ES[13] + ox, f = ES[14] + oy;
+        for (let i = i0; i < end; i++, o += STRIDE) {
+          const x = X[i], y = Y[i];
+          VF[o] = a * x + c * y + e; VF[o + 1] = b * x + d * y + f; VF[o + 2] = z; VF[o + 3] = x; VF[o + 4] = y; VU[o + 5] = col; VU[o + 6] = paint;
+        }
+      } else if (UVM) {
+        const a = ES[3], b = ES[4], c = ES[5], d = ES[6], e = ES[7], f = ES[8];
+        for (let i = i0; i < end; i++, o += STRIDE) {
+          const x = X[i], y = Y[i];
+          VF[o] = x + ox; VF[o + 1] = y + oy; VF[o + 2] = z; VF[o + 3] = a * x + c * y + e; VF[o + 4] = b * x + d * y + f; VU[o + 5] = col; VU[o + 6] = paint;
+        }
+      } else {
+        for (let i = i0; i < end; i++, o += STRIDE) {
+          VF[o] = X[i] + ox; VF[o + 1] = Y[i] + oy; VF[o + 2] = z; VF[o + 3] = 0; VF[o + 4] = 0; VU[o + 5] = col; VU[o + 6] = paint;
+        }
+      }
+      nv += n;
+      return base;
     }
-    function vtxUV(x, y, u, v) {
-      if (nv >= capV) growV(nv + 1);
-      const o = nv * STRIDE;
-      VF[o] = x + OX; VF[o + 1] = y + OY; VF[o + 2] = Z; VF[o + 3] = u; VF[o + 4] = v;
-      VU[o + 5] = COL; VU[o + 6] = PAINT;
-      return nv++;
+    // quad QX/QY[0..4) (device px) with texture coordinates QU/QV
+    function emitUV4() {
+      if (nv + 4 > capV) growV(nv + 4);
+      const base = nv, z = ES[0], ox = ES[1], oy = ES[2], col = EU[0], paint = EU[1];
+      let o = nv * STRIDE;
+      for (let i = 0; i < 4; i++, o += STRIDE) {
+        VF[o] = QX[i] + ox; VF[o + 1] = QY[i] + oy; VF[o + 2] = z; VF[o + 3] = QU[i]; VF[o + 4] = QV[i]; VU[o + 5] = col; VU[o + 6] = paint;
+      }
+      nv += 4;
+      if (ni + 6 > capI) growI(ni + 6);
+      IX[ni++] = base; IX[ni++] = base + 1; IX[ni++] = base + 2; IX[ni++] = base; IX[ni++] = base + 2; IX[ni++] = base + 3;
+      return base;
     }
     function tri(a, b, c) {
       if (ni + 3 > capI) growI(ni + 3);
       IX[ni++] = a; IX[ni++] = b; IX[ni++] = c;
+    }
+    function fan(base, n) {
+      if (ni + 3 * n > capI) growI(ni + 3 * n);
+      for (let i = 1; i + 1 < n; i++) { IX[ni++] = base; IX[ni++] = base + i; IX[ni++] = base + i + 1; }
     }
     const pack = (r, g, b, a) => ((r + 0.5) & 255 | ((g + 0.5) & 255) << 8 | ((b + 0.5) & 255) << 16 | ((a + 0.5) & 255) << 24) >>> 0;
 
@@ -211,6 +258,7 @@ window.ND = window.ND || {};
         ramps.delete(old[0]); row = old[1].row;
       }
       ramps.set(key, { row, used: frameNo });
+      if (P) P.ramps++;
       // stops sorted by offset (stable), unpremultiplied linear interpolation, padded ends
       const S = [];
       for (let i = 0; i < m.stops.length; i += 2) {
@@ -258,32 +306,76 @@ window.ND = window.ND || {};
       e.used = frameNo;
       const w = img.width, h = img.height;
       if (e.v !== v || e.w !== w || e.h !== h || !e.tex) {
-        if (!e.pending) { e.pending = true; pendingUploads.push(e); }
+        if (!e.pending) {
+          e.pending = true; pendingUploads.push(e);
+          if (P && P.imgWhy.length < 8) P.imgWhy.push((!e.tex ? 'new ' : e.w !== w || e.h !== h ? 'resized ' : 'redrawn ') + w + 'x' + h + (img.id ? ' #' + img.id : '') + (P.stacks ? ' @ ' + stackOf() : ''));
+        }
         e.nw = w; e.nh = h; e.nv = v;
       }
       return e;
     }
 
     // ---------------------------------------------------------------- text atlas
-    const TA_W = 1024, TA_H = 512;
-    const texts = new Map(); // key → { x, y, w, h, used }
-    let taX = 0, taY = 0, taRow = 0, textUploads = 0;
+    // Shelves (rows) of text pictures. When the atlas is full, the least recently used shelf that no text of this
+    // frame is on is emptied (texts still on screen are never drawn again). Each new text is drawn by Canvas 2D on a
+    // CPU canvas (willReadFrequently): its copy into the atlas is a plain pixel upload that never waits for the GPU
+    // (a GPU canvas has to be finished by the GPU first; on phones that stalled whole frames).
+    const TA_W = 1024, TA_H = 1024;
+    const texts = new Map(); // key → { x, y, w, h, ox, oy, used, shelf }
+    const shelves = []; // { y, h, x, used, keys }
+    let shelfTop = 0, textUploads = 0;
     let textCanvas = null, textCtx = null, measureCtx = null;
+    function textClear() { texts.clear(); shelves.length = 0; shelfTop = 0; }
     function textScratch(w, h) {
       if (!textCanvas) { textCanvas = document.createElement('canvas'); textCtx = null; }
       if (textCanvas.width < w || textCanvas.height < h) {
         textCanvas.width = Math.max(textCanvas.width, Math.ceil(w / 64) * 64); textCanvas.height = Math.max(textCanvas.height, Math.ceil(h / 32) * 32); textCtx = null;
       }
-      if (!textCtx) textCtx = textCanvas.getContext('2d', { willReadFrequently: false });
+      if (!textCtx) textCtx = textCanvas.getContext('2d', { willReadFrequently: true });
       return textCtx;
     }
     function measurer() { return measureCtx || (measureCtx = document.createElement('canvas').getContext('2d')); }
     function textAlloc(w, h) {
-      if (taX + w + 1 > TA_W) { taX = 0; taY += taRow + 1; taRow = 0; }
-      if (taY + h + 1 > TA_H) return null;
-      const r = { x: taX, y: taY };
-      taX += w + 1; if (h > taRow) taRow = h;
-      return r;
+      let best = null;
+      for (const s of shelves) if (s.h >= h && s.h <= h * 1.25 + 4 && s.x + w + 1 <= TA_W && (!best || s.h < best.h)) best = s;
+      if (!best && shelfTop + h + 1 <= TA_H) {
+        const sh = Math.min(TA_H - shelfTop - 1, Math.ceil(h / 8) * 8);
+        best = { y: shelfTop, h: sh, x: 0, used: frameNo, keys: [] };
+        shelves.push(best); shelfTop += sh + 1;
+      }
+      if (!best) {
+        // the least recently used shelf not needed in this frame: of a similar height first, else any tall enough
+        for (const s of shelves) if (s.h >= h && s.h <= h * 2 + 8 && s.used < frameNo && (!best || s.used < best.used)) best = s;
+        if (!best) for (const s of shelves) if (s.h >= h && s.used < frameNo && (!best || s.used < best.used)) best = s;
+        if (best) textEvict(best);
+      }
+      if (!best) best = textMerge(h);
+      if (!best) return null;
+      const x = best.x;
+      best.x += w + 1; best.used = frameNo;
+      return { shelf: best, x, y: best.y };
+    }
+    function textEvict(s) { for (const k of s.keys) texts.delete(k); s.keys.length = 0; s.x = 0; if (P) P.textEvict++; }
+    // no single shelf fits: neighbouring shelves not needed in this frame (the last one with the free rows below it),
+    // together at least h tall, least recently used first, are emptied and joined into one shelf
+    function textMerge(h) {
+      let bi = -1, bj = -1, bu = Infinity;
+      for (let i = 0; i < shelves.length; i++) {
+        let u = -1, ok = false, j = i;
+        for (; j < shelves.length && shelves[j].used < frameNo; j++) {
+          if (shelves[j].used > u) u = shelves[j].used;
+          const end = j === shelves.length - 1 ? TA_H - 1 : shelves[j].y + shelves[j].h;
+          if (end - shelves[i].y >= h) { ok = true; break; }
+        }
+        if (ok && u < bu) { bu = u; bi = i; bj = j; }
+      }
+      if (bi < 0) return null;
+      const first = shelves[bi], lastShelf = bj === shelves.length - 1, end = lastShelf ? TA_H - 1 : shelves[bj].y + shelves[bj].h;
+      for (let k = bi; k <= bj; k++) textEvict(shelves[k]);
+      first.h = end - first.y;
+      shelves.splice(bi + 1, bj - bi);
+      if (lastShelf) shelfTop = TA_H;
+      return first;
     }
 
     // ---------------------------------------------------------------- layers (first pass atlas)
@@ -312,9 +404,9 @@ window.ND = window.ND || {};
       TX = new Float64Array(c); TY = new Float64Array(c); LP = new Int32Array(c); LN = new Int32Array(c); RF = new Uint8Array(c);
     }
     // ear clipping of SX/SY[0..n) (counter-clockwise in math orientation = positive shoelace area), vertex ids base+i
+    const cross = (a, b, c) => (SX[b] - SX[a]) * (SY[c] - SY[b]) - (SY[b] - SY[a]) * (SX[c] - SX[b]);
     function earClip(n, base) {
       for (let i = 0; i < n; i++) { LP[i] = i === 0 ? n - 1 : i - 1; LN[i] = i === n - 1 ? 0 : i + 1; }
-      const cross = (a, b, c) => (SX[b] - SX[a]) * (SY[c] - SY[b]) - (SY[b] - SY[a]) * (SX[c] - SX[b]);
       for (let i = 0; i < n; i++) RF[i] = cross(LP[i], i, LN[i]) <= 0 ? 1 : 0;
       let left = n, i = 0, stall = 0, area = 0;
       while (left > 3) {
@@ -359,13 +451,25 @@ window.ND = window.ND || {};
     }
 
     // ---------------------------------------------------------------- the context
-    const STATE_KEYS = ['a', 'b', 'c', 'd', 'e', 'f', 'ga', 'op', 'opb', 'fs', 'fsRaw', 'ss', 'ssRaw', 'lw', 'cap', 'join', 'miter', 'dash', 'dashOff', 'font', 'align', 'baseline', 'clp', 'smooth'];
+    // save() / restore(): the saved states are reused objects of one shape (no new object per save)
+    function copyState(d, s) {
+      d.a = s.a; d.b = s.b; d.c = s.c; d.d = s.d; d.e = s.e; d.f = s.f; d.ga = s.ga; d.op = s.op; d.opb = s.opb;
+      d.fs = s.fs; d.fsRaw = s.fsRaw; d.ss = s.ss; d.ssRaw = s.ssRaw; d.lw = s.lw; d.cap = s.cap; d.join = s.join; d.miter = s.miter;
+      d.dash = s.dash; d.dashOff = s.dashOff; d.font = s.font; d.align = s.align; d.baseline = s.baseline; d.clp = s.clp; d.smooth = s.smooth;
+    }
+    const blankState = () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0, ga: 1, op: '', opb: 0, fs: null, fsRaw: null, ss: null, ssRaw: null, lw: 1, cap: 0, join: 0,
+      miter: 10, dash: null, dashOff: 0, font: '', align: '', baseline: '', clp: null, smooth: true });
     const CAPS = { butt: 0, round: 1, square: 2 }, JOINS = { miter: 0, round: 1, bevel: 2 };
     const CAP_N = ['butt', 'round', 'square'], JOIN_N = ['miter', 'round', 'bevel'];
     const BLACK = { t: 0, c: [0, 0, 0, 1] };
+    const SOLIDS = new Map(); // colour string → paint style (one object per colour)
     function styleOf(v) {
-      if (typeof v === 'string') { const c = parseColor(v); return c ? { t: 0, c } : null; }
-      if (v && v.__gl) return { t: v.__gl.t, g: v.__gl };
+      if (typeof v === 'string') {
+        let st = SOLIDS.get(v);
+        if (st === undefined) { const c = parseColor(v); st = c ? { t: 0, c } : null; if (SOLIDS.size > 4096) SOLIDS.clear(); SOLIDS.set(v, st); }
+        return st;
+      }
+      if (v && v.__gl) return v.__gl.style || (v.__gl.style = { t: v.__gl.t, g: v.__gl });
       if (v && typeof CanvasPattern !== 'undefined' && v instanceof CanvasPattern) return { t: -1 };
       return null;
     }
@@ -373,7 +477,7 @@ window.ND = window.ND || {};
     class Ctx {
       constructor(pass, sc, w, h) {
         this.pass = pass; this.sc = sc; this.W = w; this.H = h; this.isGL = true;
-        this.stack = [];
+        this.stack = []; this.sp = 0; // saved states (pool) and their count
         this.px = new Float64Array(512); this.py = new Float64Array(512); this.n = 0;
         this.sub = new Int32Array(64); this.cl = new Uint8Array(64); this.ns = 0;
         this.open = false; this.sx0 = 0; this.sy0 = 0;
@@ -386,19 +490,17 @@ window.ND = window.ND || {};
         this.fs = BLACK; this.fsRaw = '#000000'; this.ss = BLACK; this.ssRaw = '#000000';
         this.lw = 1; this.cap = 0; this.join = 0; this.miter = 10; this.dash = null; this.dashOff = 0;
         this.font = '10px sans-serif'; this.align = 'start'; this.baseline = 'alphabetic'; this.clp = null; this.smooth = true;
-        this.stack.length = 0; this.n = 0; this.ns = 0; this.open = false;
+        this.sp = 0; this.n = 0; this.ns = 0; this.open = false;
       }
       get canvas() { return this._canvas; }
       // -------------------------------------------------- state
       save() {
-        const s = {};
-        for (const k of STATE_KEYS) s[k] = this[k];
-        this.stack.push(s);
+        const s = this.stack[this.sp] || (this.stack[this.sp] = blankState());
+        copyState(s, this); this.sp++;
       }
       restore() {
-        const s = this.stack.pop();
-        if (!s) return;
-        for (const k of STATE_KEYS) this[k] = s[k];
+        if (!this.sp) return;
+        copyState(this, this.stack[--this.sp]);
       }
       get globalAlpha() { return this.ga; }
       set globalAlpha(v) { v = +v; if (v >= 0 && v <= 1) this.ga = v; }
@@ -477,9 +579,10 @@ window.ND = window.ND || {};
       // -------------------------------------------------- path
       beginPath() { this.n = 0; this.ns = 0; this.open = false; }
       _pt(x, y) {
-        if (this.n >= this.px.length) { const c = this.px.length * 2, a = new Float64Array(c), b = new Float64Array(c); a.set(this.px); b.set(this.py); this.px = a; this.py = b; }
+        if (this.n >= this.px.length) this._grow();
         this.px[this.n] = x; this.py[this.n] = y; this.n++;
       }
+      _grow() { const c = this.px.length * 2, a = new Float64Array(c), b = new Float64Array(c); a.set(this.px); b.set(this.py); this.px = a; this.py = b; }
       _sub(x, y) {
         if (this.ns >= this.sub.length) { const s = new Int32Array(this.sub.length * 2), c = new Uint8Array(this.sub.length * 2); s.set(this.sub); c.set(this.cl); this.sub = s; this.cl = c; }
         this.sub[this.ns] = this.n; this.cl[this.ns] = 0; this.ns++;
@@ -516,13 +619,14 @@ window.ND = window.ND || {};
         this._pt(X2, Y2);
       }
       bezierCurveTo(c1x, c1y, c2x, c2y, x, y) {
-        if (![c1x, c1y, c2x, c2y, x, y].every(Number.isFinite)) return;
+        if (!(Number.isFinite(c1x) && Number.isFinite(c1y) && Number.isFinite(c2x) && Number.isFinite(c2y) && Number.isFinite(x) && Number.isFinite(y))) return;
         const X1 = this.a * c1x + this.c * c1y + this.e, Y1 = this.b * c1x + this.d * c1y + this.f;
         const X2 = this.a * c2x + this.c * c2y + this.e, Y2 = this.b * c2x + this.d * c2y + this.f;
         const X3 = this.a * x + this.c * y + this.e, Y3 = this.b * x + this.d * y + this.f;
         if (!this.open) this._sub(X1, Y1);
         const X0 = this.px[this.n - 1], Y0 = this.py[this.n - 1];
-        const d1 = Math.hypot(X0 - 2 * X1 + X2, Y0 - 2 * Y1 + Y2), d2 = Math.hypot(X1 - 2 * X2 + X3, Y1 - 2 * Y2 + Y3);
+        const ex = X0 - 2 * X1 + X2, ey = Y0 - 2 * Y1 + Y2, gx = X1 - 2 * X2 + X3, gy = Y1 - 2 * Y2 + Y3;
+        const d1 = Math.sqrt(ex * ex + ey * ey), d2 = Math.sqrt(gx * gx + gy * gy);
         const m = Math.min(256, Math.max(1, Math.ceil(Math.sqrt((0.75 * Math.max(d1, d2)) / TOL))));
         for (let i = 1; i < m; i++) {
           const t = i / m, u = 1 - t, A = u * u * u, B = 3 * u * u * t, C = 3 * u * t * t, D = t * t * t;
@@ -535,7 +639,7 @@ window.ND = window.ND || {};
         this.ellipse(x, y, r, r, 0, a0, a1, ccw);
       }
       ellipse(x, y, rx, ry, rot, a0, a1, ccw) {
-        if (![x, y, rx, ry, rot, a0, a1].every(Number.isFinite)) return;
+        if (!(Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(rx) && Number.isFinite(ry) && Number.isFinite(rot) && Number.isFinite(a0) && Number.isFinite(a1))) return;
         if (rx < 0 || ry < 0) throw new DOMException('The radius provided is negative.', 'IndexSizeError');
         let sweep;
         if (!ccw && a1 - a0 >= TAU) sweep = TAU;
@@ -543,7 +647,7 @@ window.ND = window.ND || {};
         else if (!ccw) { sweep = (a1 - a0) % TAU; if (sweep < 0) sweep += TAU; }
         else { sweep = (a0 - a1) % TAU; if (sweep < 0) sweep += TAU; sweep = -sweep; }
         const a = this.a, b = this.b, c = this.c, d = this.d, e = this.e, f = this.f;
-        const s = Math.max(Math.hypot(a, b), Math.hypot(c, d)), R = Math.max(rx, ry) * s;
+        const s = Math.sqrt(Math.max(a * a + b * b, c * c + d * d)), R = Math.max(rx, ry) * s;
         let m;
         if (R <= TOL) m = 4;
         else { const dt = 2 * Math.acos(Math.max(-1, 1 - TOL / R)); m = Math.ceil(Math.abs(sweep) / dt); }
@@ -560,7 +664,7 @@ window.ND = window.ND || {};
         }
       }
       rect(x, y, w, h) {
-        if (![x, y, w, h].every(Number.isFinite)) return;
+        if (!(Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(w) && Number.isFinite(h))) return;
         this.moveTo(x, y); this.lineTo(x + w, y); this.lineTo(x + w, y + h); this.lineTo(x, y + h); this.closePath();
       }
       roundRect(x, y, w, h) { this.rect(x, y, w, h); fail('roundRect'); }
@@ -575,18 +679,18 @@ window.ND = window.ND || {};
         const al = this.ga * mul;
         if (style.t === 0) {
           const k = style.c, a = k[3] * al;
-          COL = pack(k[0] * a, k[1] * a, k[2] * a, a * 255); PAINT = PT_SOLID; UVM = 0;
+          EU[0] = pack(k[0] * a, k[1] * a, k[2] * a, a * 255); EU[1] = PT_SOLID; UVM = 0;
           return true;
         }
         if (style.t === 1 || style.t === 2) {
           const g = style.g;
-          if (style.t === 1 && g.x0 === g.x1 && g.y0 === g.y1) { COL = 0; PAINT = PT_NONE; UVM = 0; return true; }
+          if (style.t === 1 && g.x0 === g.x1 && g.y0 === g.y1) { EU[0] = 0; EU[1] = PT_NONE; UVM = 0; return true; }
           const rec = paintRecord(g);
-          COL = pack(al * 255, al * 255, al * 255, al * 255); PAINT = (style.t === 1 ? PT_LIN : PT_RAD) | (rec << 3); UVM = 1;
+          EU[0] = pack(al * 255, al * 255, al * 255, al * 255); EU[1] = (style.t === 1 ? PT_LIN : PT_RAD) | (rec << 3); UVM = 1;
           const det = this.a * this.d - this.b * this.c;
-          if (!det) { PAINT = PT_NONE; UVM = 0; return true; }
-          IA = this.d / det; IBB = -this.b / det; IC = -this.c / det; ID = this.a / det;
-          IE = (this.c * this.f - this.d * this.e) / det; IF = (this.b * this.e - this.a * this.f) / det;
+          if (!det) { EU[1] = PT_NONE; UVM = 0; return true; }
+          ES[3] = this.d / det; ES[4] = -this.b / det; ES[5] = -this.c / det; ES[6] = this.a / det;
+          ES[7] = (this.c * this.f - this.d * this.e) / det; ES[8] = (this.b * this.e - this.a * this.f) / det;
           return true;
         }
         fail('pattern paint');
@@ -651,9 +755,8 @@ window.ND = window.ND || {};
             if (lastdy && fy && lastdy !== fy) py++;
             if (px > 2 || py > 2) convex = false;
             void turns;
-            const base = nv;
-            for (let i = 0; i < n; i++) vtx(SX[i], SY[i]);
-            if (convex) { for (let i = 1; i + 1 < n; i++) tri(base, base + i, base + i + 1); continue; }
+            const base = emit(SX, SY, 0, n);
+            if (convex) { fan(base, n); continue; }
             let A = 0;
             for (let i = 0, j = n - 1; i < n; j = i++) A += SX[j] * SY[i] - SX[i] * SY[j];
             const ti = ni, got = earClip(n, base);
@@ -667,9 +770,7 @@ window.ND = window.ND || {};
         for (let s = 0; s < this.ns; s++) {
           const n = this._collect(s);
           if (n < 3) continue;
-          const base = nv;
-          for (let i = 0; i < n; i++) vtx(SX[i], SY[i]);
-          for (let i = 1; i + 1 < n; i++) tri(base, base + i, base + i + 1);
+          fan(emit(SX, SY, 0, n), n);
         }
         if (ni > first) cmds.push({ k: K_SFILL, pass, blend, tex: null, clip, sc, first, count: ni - first, evenodd });
         bStart = ni;
@@ -695,13 +796,15 @@ window.ND = window.ND || {};
         // stroke space: device (similar transform) or user space (then every vertex is mapped by the transform)
         SU = !sim;
         let hw;
+        const ME = this.e, MF = this.f, IA2 = d / det, IB2 = -b / det, IC2 = -c / det, ID2 = a / det;
         if (sim) hw = wdev / 2;
         else {
           hw = (wdev / s) / 2;
-          MA = a; MB = b; MC = c; MD = d; ME = this.e; MF = this.f;
-          IA2 = d / det; IB2 = -b / det; IC2 = -c / det; ID2 = a / det;
+          ES[9] = a; ES[10] = b; ES[11] = c; ES[12] = d; ES[13] = ME; ES[14] = MF;
         }
         const hwDev = sim ? hw : hw * s;
+        ES[15] = hw; ES[16] = hwDev; ES[19] = this.miter; CAP = this.cap; JOIN = this.join;
+        strokeWidth(hwDev);
         const dash = this.dash, dk = sim ? s : 1;
         for (let si = 0; si < P.ns; si++) {
           const i0 = P.sub[si], i1 = si + 1 < P.ns ? P.sub[si + 1] : P.n;
@@ -717,17 +820,17 @@ window.ND = window.ND || {};
           let closed = !!P.cl[si];
           if (closed && n > 1 && SX[n - 1] === SX[0] && SY[n - 1] === SY[0]) n--;
           if (n === 1) {
-            if (i1 - i0 >= 2 || closed) dot(SX[0], SY[0], hw, hwDev, this.cap);
+            if (i1 - i0 >= 2 || closed) dot(SX, SY, 0);
             continue;
           }
-          if (dash) strokeDashed(n, closed, hw, hwDev, this, dash, this.dashOff * dk, dk);
-          else strokeLine(SX, SY, 0, n, closed, hw, hwDev, this.cap, this.join, this.miter);
+          if (dash) strokeDashed(n, closed, dash, this.dashOff * dk, dk);
+          else strokeLine(SX, SY, 0, n, closed);
         }
         SU = false;
       }
       // -------------------------------------------------- rectangles
       fillRect(x, y, w, h) {
-        if (![x, y, w, h].every(Number.isFinite) || !w || !h) return;
+        if (!(Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(w) && Number.isFinite(h)) || !w || !h) return;
         const blend = this._blend();
         if (!this._paint(this.fs, 1)) return;
         this._quad(x, y, w, h, blend);
@@ -737,22 +840,21 @@ window.ND = window.ND || {};
         useState(this.pass, blend, null, this.clp, this.sc);
         const a = this.a, b = this.b, c = this.c, d = this.d, e = this.e, f = this.f;
         const x1 = x + w, y1 = y + h;
-        const p = vtx(a * x + c * y + e, b * x + d * y + f);
-        vtx(a * x1 + c * y + e, b * x1 + d * y + f);
-        vtx(a * x1 + c * y1 + e, b * x1 + d * y1 + f);
-        vtx(a * x + c * y1 + e, b * x + d * y1 + f);
+        QX[0] = a * x + c * y + e; QY[0] = b * x + d * y + f; QX[1] = a * x1 + c * y + e; QY[1] = b * x1 + d * y + f;
+        QX[2] = a * x1 + c * y1 + e; QY[2] = b * x1 + d * y1 + f; QX[3] = a * x + c * y1 + e; QY[3] = b * x + d * y1 + f;
+        const p = emit(QX, QY, 0, 4);
         tri(p, p + 1, p + 2); tri(p, p + 2, p + 3);
       }
       strokeRect(x, y, w, h) {
-        if (![x, y, w, h].every(Number.isFinite)) return;
+        if (!(Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(w) && Number.isFinite(h))) return;
         const T = tmpPath;
         T.a = this.a; T.b = this.b; T.c = this.c; T.d = this.d; T.e = this.e; T.f = this.f;
         T.beginPath(); T.rect(x, y, w, h);
         this._stroke(T);
       }
       clearRect(x, y, w, h) {
-        if (![x, y, w, h].every(Number.isFinite) || !w || !h) return;
-        COL = 0; PAINT = PT_SOLID; UVM = 0;
+        if (!(Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(w) && Number.isFinite(h)) || !w || !h) return;
+        EU[0] = 0; EU[1] = PT_SOLID; UVM = 0;
         this._quad(x, y, w, h, OP_CLEAR);
       }
       // -------------------------------------------------- clip
@@ -760,13 +862,11 @@ window.ND = window.ND || {};
         if (a && typeof a === 'object') { fail('Path2D clip'); return; }
         closeBatch();
         const first = ni;
-        const sv = UVM; UVM = 0; COL = 0; PAINT = PT_SOLID;
+        const sv = UVM; UVM = 0; EU[0] = 0; EU[1] = PT_SOLID;
         for (let s = 0; s < this.ns; s++) {
           const n = this._collect(s);
           if (n < 3) continue;
-          const base = nv;
-          for (let i = 0; i < n; i++) vtx(SX[i], SY[i]);
-          for (let i = 1; i + 1 < n; i++) tri(base, base + i, base + i + 1);
+          fan(emit(SX, SY, 0, n), n);
         }
         UVM = sv;
         bStart = ni;
@@ -783,7 +883,7 @@ window.ND = window.ND || {};
         else if (n === 5) { sx = 0; sy = 0; sw = iw; sh = ih; dx = a1; dy = a2; dw = a3; dh = a4; }
         else if (n === 9) { sx = a1; sy = a2; sw = a3; sh = a4; dx = a5; dy = a6; dw = a7; dh = a8; }
         else return;
-        if (![sx, sy, sw, sh, dx, dy, dw, dh].every(Number.isFinite) || !sw || !sh || !dw || !dh) return;
+        if (!(Number.isFinite(sx) && Number.isFinite(sy) && Number.isFinite(sw) && Number.isFinite(sh) && Number.isFinite(dx) && Number.isFinite(dy) && Number.isFinite(dw) && Number.isFinite(dh)) || !sw || !sh || !dw || !dh) return;
         if (sw < 0) { sx += sw; sw = -sw; } if (sh < 0) { sy += sh; sh = -sh; }
         if (dw < 0) { dx += dw; dw = -dw; } if (dh < 0) { dy += dh; dh = -dh; }
         // clip the source rectangle to the image, moving the destination with it (Canvas rule)
@@ -806,16 +906,15 @@ window.ND = window.ND || {};
           u0 = sx / iw; u1 = (sx + sw) / iw; v0 = sy / ih; v1 = (sy + sh) / ih;
         }
         const al = this.ga;
-        COL = pack(al * 255, al * 255, al * 255, al * 255); PAINT = PT_TEX; UVM = 0;
+        EU[0] = pack(al * 255, al * 255, al * 255, al * 255); EU[1] = PT_TEX; UVM = 0;
         nextZ();
         useState(this.pass, blend, tex, this.clp, this.sc);
         const a = this.a, b = this.b, c = this.c, d = this.d, e = this.e, f = this.f;
         const x1 = dx + dw, y1 = dy + dh;
-        const p = vtxUV(a * dx + c * dy + e, b * dx + d * dy + f, u0, v0);
-        vtxUV(a * x1 + c * dy + e, b * x1 + d * dy + f, u1, v0);
-        vtxUV(a * x1 + c * y1 + e, b * x1 + d * y1 + f, u1, v1);
-        vtxUV(a * dx + c * y1 + e, b * dx + d * y1 + f, u0, v1);
-        tri(p, p + 1, p + 2); tri(p, p + 2, p + 3);
+        QX[0] = a * dx + c * dy + e; QY[0] = b * dx + d * dy + f; QX[1] = a * x1 + c * dy + e; QY[1] = b * x1 + d * dy + f;
+        QX[2] = a * x1 + c * y1 + e; QY[2] = b * x1 + d * y1 + f; QX[3] = a * dx + c * y1 + e; QY[3] = b * dx + d * y1 + f;
+        QU[0] = u0; QV[0] = v0; QU[1] = u1; QV[1] = v0; QU[2] = u1; QV[2] = v1; QU[3] = u0; QV[3] = v1;
+        emitUV4();
       }
       createLinearGradient(x0, y0, x1, y1) { return gradCtx().createLinearGradient(x0, y0, x1, y1); }
       createRadialGradient(x0, y0, r0, x1, y1, r1) { return gradCtx().createRadialGradient(x0, y0, r0, x1, y1, r1); }
@@ -837,6 +936,7 @@ window.ND = window.ND || {};
           col.join(',') + '|' + (stroke ? this.lw + this.join + '/' + this.miter : '') + '|' + a.toFixed(4) + ',' + b.toFixed(4) + ',' + c.toFixed(4) + ',' + d.toFixed(4) + '|' + fx + '|' + t;
         let e = texts.get(key);
         if (!e) {
+          const tt = P ? now() : 0;
           const m = measurer(); m.font = this.font; m.textAlign = this.align; m.textBaseline = this.baseline;
           const mt = m.measureText(t);
           let w0 = mt.width, sxk = 1;
@@ -855,7 +955,8 @@ window.ND = window.ND || {};
           if (!r0) {
             // full: start the atlas again; texts placed earlier in this frame may be overwritten, so this frame is
             // drawn with Canvas 2D (rare: the atlas holds a few hundred distinct texts)
-            texts.clear(); taX = taY = taRow = 0;
+            textClear();
+            if (P) P.textAtlasFull++;
             fail('text atlas full');
             return;
           }
@@ -867,7 +968,8 @@ window.ND = window.ND || {};
           const cs = `rgba(${col[0]},${col[1]},${col[2]},${col[3]})`;
           if (stroke) { tc.strokeStyle = cs; tc.lineWidth = this.lw; tc.lineJoin = JOIN_N[this.join]; tc.miterLimit = this.miter; if (mw !== undefined) tc.strokeText(t, 0, 0, mw); else tc.strokeText(t, 0, 0); }
           else { tc.fillStyle = cs; if (mw !== undefined) tc.fillText(t, 0, 0, mw); else tc.fillText(t, 0, 0); }
-          e = { x: r0.x, y: r0.y, w, h, ox, oy, used: frameNo };
+          e = { x: r0.x, y: r0.y, w, h, ox, oy, used: frameNo, shelf: r0.shelf };
+          r0.shelf.keys.push(key);
           // straight into the atlas (a GPU copy; the scratch canvas is reused by the next text)
           if (E.ready) {
             gl.bindTexture(gl.TEXTURE_2D, textTex);
@@ -877,51 +979,70 @@ window.ND = window.ND || {};
             textUploads++;
           }
           texts.set(key, e);
+          if (P) { P.texts++; P.textPx += w * h; P.textMs += now() - tt; if (P.textWhy.length < 6) P.textWhy.push(P.stacks ? key : t.slice(0, 24) + ' ' + w + 'x' + h); }
         }
-        e.used = frameNo;
+        e.used = frameNo; e.shelf.used = frameNo;
         const blend = this._blend(), al = this.ga;
-        COL = pack(al * 255, al * 255, al * 255, al * 255); PAINT = PT_TEX; UVM = 0;
+        EU[0] = pack(al * 255, al * 255, al * 255, al * 255); EU[1] = PT_TEX; UVM = 0;
         nextZ();
         useState(this.pass, blend, TEXT_TEX, this.clp, this.sc);
         const x0 = ix - e.ox, y0 = iy - e.oy, u0 = e.x / TA_W, v0 = e.y / TA_H, u1 = (e.x + e.w) / TA_W, v1 = (e.y + e.h) / TA_H;
-        const p = vtxUV(x0, y0, u0, v0);
-        vtxUV(x0 + e.w, y0, u1, v0); vtxUV(x0 + e.w, y0 + e.h, u1, v1); vtxUV(x0, y0 + e.h, u0, v1);
-        tri(p, p + 1, p + 2); tri(p, p + 2, p + 3);
+        QX[0] = x0; QY[0] = y0; QX[1] = x0 + e.w; QY[1] = y0; QX[2] = x0 + e.w; QY[2] = y0 + e.h; QX[3] = x0; QY[3] = y0 + e.h;
+        QU[0] = u0; QV[0] = v0; QU[1] = u1; QV[1] = v0; QU[2] = u1; QV[2] = v1; QU[3] = u0; QV[3] = v1;
+        emitUV4();
       }
       // -------------------------------------------------- layers
       // A transparent picture of w×h device pixels (like a new canvas), drawn in the first pass; place it with
       // drawImage(layer, ...). `key` keeps one context (and its Canvas state) per use across frames.
       layer(w, h, key) { return R.layer(w, h, key); }
     }
-    // stroke-space helpers (SU: user space mode with transform MA..MF)
-    let SU = false, MA = 1, MB = 0, MC = 0, MD = 1, ME = 0, MF = 0, IA2 = 1, IB2 = 0, IC2 = 0, ID2 = 1;
-    function sv(x, y) {
-      if (!SU) return vtx(x, y);
-      return vtxUV(MA * x + MC * y + ME, MB * x + MD * y + MF, x, y);
+    // stroke helpers. Points are in stroke space (device px, or user space when SU); the half width is ES[15] (ES[16]
+    // in device px); round pieces advance ES[17] radians per step (TOL at this width), ES[18] = cos(ES[17]),
+    // ES[19] = miter limit.
+    let CAP = 0, JOIN = 0, STEPCAP = false;
+    const SW = new Float64Array(1); SW[0] = -1; // device half width the round step was computed for
+    function strokeWidth(hwDev) {
+      if (hwDev === SW[0]) return; // same width as the previous stroke (rain, outlines): step already known
+      SW[0] = hwDev;
+      if (hwDev <= TOL) { ES[17] = 1.6; STEPCAP = false; } else { ES[17] = 2 * Math.acos(Math.max(-1, 1 - TOL / hwDev)); STEPCAP = true; }
+      ES[18] = Math.cos(ES[17]);
     }
-    function arcSteps(hwDev, ang) {
-      if (hwDev <= TOL) return Math.max(1, Math.ceil(Math.abs(ang) / 1.6));
-      const dt = 2 * Math.acos(Math.max(-1, 1 - TOL / hwDev));
-      return Math.min(128, Math.max(1, Math.ceil(Math.abs(ang) / dt)));
+    const WP = new Float64Array(8); // wedge: 0-1 centre, 2-3 unit start direction, 4 signed angle, 5-6 unit end direction, 7 end known
+    // fan wedge around WP centre, radius = half width, from the start direction over the angle
+    function wedge() {
+      const cx = WP[0], cy = WP[1], hw = ES[15], ang = WP[4];
+      let m;
+      if (WP[7]) m = 1;
+      else { m = Math.ceil(Math.abs(ang) / ES[17]); if (m < 1) m = 1; if (STEPCAP && m > 128) m = 128; }
+      let co = WP[2], si = WP[3];
+      QX[0] = cx; QY[0] = cy; QX[1] = cx + co * hw; QY[1] = cy + si * hw;
+      if (WP[7]) { QX[2] = cx + WP[5] * hw; QY[2] = cy + WP[6] * hw; }
+      else {
+        const cd = Math.cos(ang / m), sd = Math.sin(ang / m);
+        for (let i = 1; i <= m; i++) {
+          const n = co * cd - si * sd; si = si * cd + co * sd; co = n;
+          QX[i + 1] = cx + co * hw; QY[i + 1] = cy + si * hw;
+        }
+      }
+      const base = emit(QX, QY, 0, m + 2);
+      if (ni + 3 * m > capI) growI(ni + 3 * m);
+      for (let i = 1; i <= m; i++) { IX[ni++] = base; IX[ni++] = base + i; IX[ni++] = base + i + 1; }
     }
-    // fan wedge around (cx, cy), radius hw, from angle t0 over `ang`
-    function wedge(cx, cy, hw, hwDev, t0, ang) {
-      const m = arcSteps(hwDev, ang), c0 = sv(cx, cy), cd = Math.cos(ang / m), sd = Math.sin(ang / m);
-      let co = Math.cos(t0), si = Math.sin(t0);
-      let prev = sv(cx + co * hw, cy + si * hw);
-      for (let i = 1; i <= m; i++) {
-        const n = co * cd - si * sd; si = si * cd + co * sd; co = n;
-        const q = sv(cx + co * hw, cy + si * hw);
-        tri(c0, prev, q); prev = q;
+    // one point (a subpath that is a single point): round or square cap shape
+    function dot(X, Y, i) {
+      const x = X[i], y = Y[i], hw = ES[15];
+      if (CAP === 1) { WP[0] = x; WP[1] = y; WP[2] = 1; WP[3] = 0; WP[4] = TAU; WP[7] = 0; wedge(); }
+      else if (CAP === 2) {
+        QX[0] = x - hw; QY[0] = y - hw; QX[1] = x + hw; QY[1] = y - hw; QX[2] = x + hw; QY[2] = y + hw; QX[3] = x - hw; QY[3] = y + hw;
+        const p = emit(QX, QY, 0, 4); tri(p, p + 1, p + 2); tri(p, p + 2, p + 3);
       }
     }
-    function dot(x, y, hw, hwDev, cap) {
-      if (cap === 1) wedge(x, y, hw, hwDev, 0, TAU);
-      else if (cap === 2) { const p = sv(x - hw, y - hw); sv(x + hw, y - hw); sv(x + hw, y + hw); sv(x - hw, y + hw); tri(p, p + 1, p + 2); tri(p, p + 2, p + 3); }
-    }
     // polyline X/Y[i0 .. i0+n) (deduplicated)
-    function strokeLine(X, Y, i0, n, closed, hw, hwDev, cap, join, miter) {
+    function strokeLine(X, Y, i0, n, closed) {
+      const hw = ES[15], cap = CAP, join = JOIN;
       const segs = closed ? n : n - 1;
+      // segment quads, emitted in runs of up to 256
+      let q = 0;
       for (let s = 0; s < segs; s++) {
         const i = i0 + s, j = i0 + ((s + 1) % n);
         const x0 = X[i], y0 = Y[i], x1 = X[j], y1 = Y[j];
@@ -930,10 +1051,12 @@ window.ND = window.ND || {};
         const nx = -dy * hw, ny = dx * hw;
         let ex0 = 0, ey0 = 0, ex1 = 0, ey1 = 0;
         if (!closed && cap === 2) { if (s === 0) { ex0 = -dx * hw; ey0 = -dy * hw; } if (s === segs - 1) { ex1 = dx * hw; ey1 = dy * hw; } }
-        const p = sv(x0 + nx + ex0, y0 + ny + ey0);
-        sv(x0 - nx + ex0, y0 - ny + ey0); sv(x1 + nx + ex1, y1 + ny + ey1); sv(x1 - nx + ex1, y1 - ny + ey1);
-        tri(p, p + 1, p + 2); tri(p + 2, p + 1, p + 3);
+        QX[q] = x0 + nx + ex0; QY[q] = y0 + ny + ey0; QX[q + 1] = x0 - nx + ex0; QY[q + 1] = y0 - ny + ey0;
+        QX[q + 2] = x1 + nx + ex1; QY[q + 2] = y1 + ny + ey1; QX[q + 3] = x1 - nx + ex1; QY[q + 3] = y1 - ny + ey1;
+        q += 4;
+        if (q === 1024) { segQuads(q); q = 0; }
       }
+      if (q) segQuads(q);
       // joins
       const j0 = closed ? 0 : 1, j1 = closed ? n : n - 1;
       for (let k = j0; k < j1; k++) {
@@ -948,36 +1071,43 @@ window.ND = window.ND || {};
         const n0x = -ay * sg, n0y = ax * sg, n1x = -by * sg, n1y = bx * sg;
         const cx = X[i], cy = Y[i];
         if (join === 1) {
-          const t0 = Math.atan2(n0y, n0x);
-          let ang = Math.atan2(n1y, n1x) - t0;
-          if (ang > Math.PI) ang -= TAU; else if (ang < -Math.PI) ang += TAU;
-          if (Math.abs(cr) < 1e-9) ang = Math.PI;
-          wedge(cx, cy, hw, hwDev, t0, ang);
+          WP[0] = cx; WP[1] = cy; WP[2] = n0x; WP[3] = n0y;
+          // the turn is within one round step (cos of the turn ≥ cos of the step): one triangle, no angle needed
+          if (Math.abs(cr) >= 1e-9 && n0x * n1x + n0y * n1y >= ES[18]) { WP[5] = n1x; WP[6] = n1y; WP[7] = 1; }
+          else { WP[4] = Math.abs(cr) < 1e-9 ? Math.PI : Math.atan2(n0x * n1y - n0y * n1x, n0x * n1x + n0y * n1y); WP[7] = 0; }
+          wedge();
         } else {
-          const c0 = sv(cx, cy), o0 = sv(cx + n0x * hw, cy + n0y * hw), o1 = sv(cx + n1x * hw, cy + n1y * hw);
+          QX[0] = cx; QY[0] = cy; QX[1] = cx + n0x * hw; QY[1] = cy + n0y * hw; QX[2] = cx + n1x * hw; QY[2] = cy + n1y * hw;
           const cosHalf = Math.sqrt(Math.max(0, (1 + dt) / 2));
-          if (join === 0 && cosHalf > 1e-6 && 1 / cosHalf <= miter) {
+          if (join === 0 && cosHalf > 1e-6 && 1 / cosHalf <= ES[19]) {
             let mx = n0x + n1x, my = n0y + n1y; const ml = Math.sqrt(mx * mx + my * my);
             mx /= ml; my /= ml;
-            const mp = sv(cx + mx * hw / cosHalf, cy + my * hw / cosHalf);
-            tri(c0, o0, mp); tri(c0, mp, o1);
-          } else tri(c0, o0, o1);
+            QX[3] = cx + mx * hw / cosHalf; QY[3] = cy + my * hw / cosHalf;
+            const c0 = emit(QX, QY, 0, 4);
+            tri(c0, c0 + 1, c0 + 3); tri(c0, c0 + 3, c0 + 2);
+          } else { const c0 = emit(QX, QY, 0, 3); tri(c0, c0 + 1, c0 + 2); }
         }
       }
       // caps
       if (!closed && cap === 1) {
         let dx = X[i0 + 1] - X[i0], dy = Y[i0 + 1] - Y[i0]; let L = Math.sqrt(dx * dx + dy * dy) || 1;
-        wedge(X[i0], Y[i0], hw, hwDev, Math.atan2(dx / L, -dy / L), Math.PI);
+        WP[0] = X[i0]; WP[1] = Y[i0]; WP[2] = -dy / L; WP[3] = dx / L; WP[4] = Math.PI; WP[7] = 0; wedge();
         const e = i0 + n - 1;
         dx = X[e] - X[e - 1]; dy = Y[e] - Y[e - 1]; L = Math.sqrt(dx * dx + dy * dy) || 1;
-        wedge(X[e], Y[e], hw, hwDev, Math.atan2(-dx / L, dy / L), Math.PI);
+        WP[0] = X[e]; WP[1] = Y[e]; WP[2] = dy / L; WP[3] = -dx / L; WP[4] = Math.PI; WP[7] = 0; wedge();
       }
     }
-    function strokeDashed(n, closed, hw, hwDev, ctx, dash, off, dk) {
+    // q/4 segment quads in QX/QY: (p, p+1, p+2) and (p+2, p+1, p+3)
+    function segQuads(q) {
+      const base = emit(QX, QY, 0, q);
+      if (ni + q * 3 / 2 > capI) growI(ni + q * 3 / 2);
+      for (let p = base, e = base + q; p < e; p += 4) { IX[ni++] = p; IX[ni++] = p + 1; IX[ni++] = p + 2; IX[ni++] = p + 2; IX[ni++] = p + 1; IX[ni++] = p + 3; }
+    }
+    function strokeDashed(n, closed, dash, off, dk) {
       // walk the polyline, emitting "on" pieces into TX/TY
       let total = 0;
-      for (const v of dash) total += v * dk;
-      if (!(total > 0)) { strokeLine(SX, SY, 0, n, closed, hw, hwDev, ctx.cap, ctx.join, ctx.miter); return; }
+      for (let i = 0; i < dash.length; i++) total += dash[i] * dk;
+      if (!(total > 0)) { strokeLine(SX, SY, 0, n, closed); return; }
       let pos = ((off % total) + total) % total, di = 0;
       while (pos >= dash[di] * dk) { pos -= dash[di] * dk; di = (di + 1) % dash.length; }
       let left = dash[di] * dk - pos, on = !(di & 1), m = 0;
@@ -985,26 +1115,26 @@ window.ND = window.ND || {};
       if (on) { TX[0] = SX[0]; TY[0] = SY[0]; m = 1; }
       for (let s = 0; s < segs; s++) {
         const x0 = SX[s], y0 = SY[s], x1 = SX[(s + 1) % n], y1 = SY[(s + 1) % n];
-        const L = Math.hypot(x1 - x0, y1 - y0);
+        const L = Math.sqrt((x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0));
         let t = 0;
         while (L - t > left) {
           t += left;
           const x = x0 + ((x1 - x0) * t) / L, y = y0 + ((y1 - y0) * t) / L;
-          if (on) { TX[m] = x; TY[m] = y; m++; emitDash(m, hw, hwDev, ctx); m = 0; }
+          if (on) { TX[m] = x; TY[m] = y; m++; emitDash(m); m = 0; }
           else { TX[0] = x; TY[0] = y; m = 1; }
           on = !on; di = (di + 1) % dash.length; left = dash[di] * dk;
         }
         left -= L - t;
-        if (on) { if (m >= TX.length - 1) { emitDash(m, hw, hwDev, ctx); TX[0] = TX[m - 1]; TY[0] = TY[m - 1]; m = 1; } TX[m] = x1; TY[m] = y1; m++; }
+        if (on) { if (m >= TX.length - 1) { emitDash(m); TX[0] = TX[m - 1]; TY[0] = TY[m - 1]; m = 1; } TX[m] = x1; TY[m] = y1; m++; }
       }
-      if (on && m > 1) emitDash(m, hw, hwDev, ctx);
+      if (on && m > 1) emitDash(m);
     }
-    function emitDash(m, hw, hwDev, ctx) {
+    function emitDash(m) {
       // deduplicate
       let k = 0;
       for (let i = 0; i < m; i++) { if (k && TX[i] === TX[k - 1] && TY[i] === TY[k - 1]) continue; TX[k] = TX[i]; TY[k] = TY[i]; k++; }
-      if (k === 1) { dot(TX[0], TY[0], hw, hwDev, ctx.cap); return; }
-      strokeLine(TX, TY, 0, k, false, hw, hwDev, ctx.cap, ctx.join, ctx.miter);
+      if (k === 1) { dot(TX, TY, 0); return; }
+      strokeLine(TX, TY, 0, k, false);
     }
     let gctx = null;
     function gradCtx() { return gctx || (gctx = document.createElement('canvas').getContext('2d')); }
@@ -1020,25 +1150,26 @@ window.ND = window.ND || {};
         // grow for the next frame (this one is drawn with Canvas 2D): the shorter side doubles, and both fit this layer
         if (AW <= AH) wantAW = Math.min(4096, AW * 2); else wantAH = Math.min(4096, AH * 2);
         wantAW = Math.max(wantAW, Math.min(4096, Math.ceil((w + 4) / 64) * 64)); wantAH = Math.max(wantAH, Math.min(4096, Math.ceil((h + 4) / 64) * 64));
+        if (P) P.layerRegrow++;
         fail('layer atlas too small');
         return null;
       }
       let cx = key != null ? layerCtxs.get(key) : null;
       if (!cx) { cx = new Ctx(0, null, w, h); if (key != null) layerCtxs.set(key, cx); }
       cx.sc = r; cx._canvas = { width: w, height: h }; cx.W = w; cx.H = h;
-      cx.clp = null; cx.stack.length = 0; cx.beginPath();
+      cx.clp = null; cx.sp = 0; cx.beginPath();
       return { __glLayer: true, x: r.x, y: r.y, w, h, width: w, height: h, frame: frameNo, ctx: cx };
     };
-    // Layer contexts record with the offset of their atlas slot: vtx() adds OX/OY for pass 0 draws.
+    // Layer contexts record with the offset of their atlas slot: emit() adds ES[1..2] for pass 0 draws.
     const origPaint = Ctx.prototype._paint;
     Ctx.prototype._paint = function (style, mul) {
-      if (this.pass === 0) { OX = this.sc.x; OY = this.sc.y; } else { OX = 0; OY = 0; }
+      if (this.pass === 0) { ES[1] = this.sc.x; ES[2] = this.sc.y; } else { ES[1] = 0; ES[2] = 0; }
       return origPaint.call(this, style, mul);
     };
     for (const k of ['clip', 'clearRect', 'drawImage', '_text']) {
       const o = Ctx.prototype[k];
       Ctx.prototype[k] = function () {
-        if (this.pass === 0) { OX = this.sc.x; OY = this.sc.y; } else { OX = 0; OY = 0; }
+        if (this.pass === 0) { ES[1] = this.sc.x; ES[2] = this.sc.y; } else { ES[1] = 0; ES[2] = 0; }
         return o.apply(this, arguments);
       };
     }
@@ -1048,7 +1179,7 @@ window.ND = window.ND || {};
       R.unsupported = '';
       // text atlas more than half full: start it again before this frame places any text (moving, growing texts
       // keep making new pictures; only the current ones are needed)
-      if (taY + taRow > TA_H / 2) { texts.clear(); taX = taY = taRow = 0; }
+      profReset();
       // layer atlas: room for two fighter layers and their shadow silhouettes at this screen size from the start
       if (W !== R.W || H !== R.H) {
         wantAW = Math.max(wantAW, Math.min(2048, Math.max(512, Math.ceil((W * 0.8) / 64) * 64)));
@@ -1058,7 +1189,7 @@ window.ND = window.ND || {};
       shelfX = shelfY = shelfH = usedW = usedH = 0;
       if (!main) main = new Ctx(1, null, W, H);
       main.W = W; main.H = H; main._canvas = { width: W, height: H };
-      main.clp = null; main.stack.length = 0; main.beginPath();
+      main.clp = null; main.sp = 0; main.beginPath();
       R.W = W; R.H = H;
       return main;
     };
@@ -1067,6 +1198,24 @@ window.ND = window.ND || {};
       return { vertices: nv, indices: ni, commands: cmds.length, paints: np, layersUsed: usedW * usedH };
     };
     R.main = () => main;
+    // timed wrappers of the tessellating calls (installed only while profiling)
+    const TIMED = ['_fillPath', '_stroke', 'clip'], untimed = {};
+    // opts.tess: false = no tessellation timing (its wrappers cost a little on every path); opts.stacks: upload causes
+    // with the calling code
+    let timedOn = false;
+    R.profile = function (on, opts = {}) {
+      if (on && !P) { P = R.prof = { imgWhy: [], textWhy: [], stacks: false }; profReset(); }
+      const tess = !!P && on && opts.tess !== false;
+      if (tess && !timedOn) {
+        for (const k of TIMED) {
+          const o = untimed[k] = Ctx.prototype[k];
+          Ctx.prototype[k] = function () { const t = now(); try { return o.apply(this, arguments); } finally { P.tessMs += now() - t; P.tessCalls++; } };
+        }
+        timedOn = true;
+      } else if (!tess && timedOn) { for (const k of TIMED) Ctx.prototype[k] = untimed[k]; timedOn = false; }
+      if (!on && P) P = R.prof = null;
+      if (P) P.stacks = !!opts.stacks;
+    };
     // tests: copy of the recorded frame (x, y per vertex, triangle indices, commands)
     R.dump = () => {
       const xy = new Float64Array(nv * 2);
@@ -1076,7 +1225,7 @@ window.ND = window.ND || {};
 
     // ---------------------------------------------------------------- GL executor
     const E = R.exec = {};
-    let emptyTex = null, prog = null, vao = null, vbo = null, ibo = null, rampTex = null, paintTex = null, textTex = null, quadProg = null, quadVao = null, quadBuf = null;
+    let emptyTex = null, prog = null, vao = null, rampTex = null, paintTex = null, textTex = null, quadProg = null, quadVao = null, quadBuf = null;
     let U = {};
     const targets = { 0: null, 1: null };
     E.samples = 0;
@@ -1135,6 +1284,13 @@ window.ND = window.ND || {};
       return p;
     }
     E.compile = compile;
+    const ring = [];
+    let ringI = 0;
+    // (the pair's VAO must be bound: the index buffer belongs to it)
+    function ringSize(o, v, i) {
+      if (o.vcap < v) { o.vcap = v; gl.bindBuffer(gl.ARRAY_BUFFER, o.vbo); gl.bufferData(gl.ARRAY_BUFFER, v * STRIDE * 4, gl.DYNAMIC_DRAW); if (P) P.bufAlloc++; }
+      if (o.icap < i) { o.icap = i; gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, i * 4, gl.DYNAMIC_DRAW); if (P) P.bufAlloc++; }
+    }
     function tex2d(w, h, internal, format, type, filter, data) {
       const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
@@ -1149,15 +1305,23 @@ window.ND = window.ND || {};
       U = { view: gl.getUniformLocation(prog, 'u_view'), tex: gl.getUniformLocation(prog, 'u_tex'), ramp: gl.getUniformLocation(prog, 'u_ramp'),
         paint: gl.getUniformLocation(prog, 'u_paint'), rampH: gl.getUniformLocation(prog, 'u_rampH') };
       quadProg = compile(QVS, QFS);
-      vao = gl.createVertexArray(); gl.bindVertexArray(vao);
-      vbo = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-      ibo = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
-      const S = STRIDE * 4;
-      gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, S, 0);
-      gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 1, gl.FLOAT, false, S, 8);
-      gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 2, gl.FLOAT, false, S, 12);
-      gl.enableVertexAttribArray(3); gl.vertexAttribPointer(3, 4, gl.UNSIGNED_BYTE, true, S, 20);
-      gl.enableVertexAttribArray(4); gl.vertexAttribIPointer(4, 1, gl.UNSIGNED_INT, S, 24);
+      // three vertex/index buffer pairs used in turn, each sized once (grown only when a frame needs more): a
+      // frame's data goes into a pair the GPU finished two frames ago (no reallocation, no wait)
+      ring.length = 0; ringI = 0;
+      for (let r = 0; r < 3; r++) {
+        const o = { vao: gl.createVertexArray(), vbo: gl.createBuffer(), ibo: gl.createBuffer(), vcap: 0, icap: 0 };
+        gl.bindVertexArray(o.vao);
+        gl.bindBuffer(gl.ARRAY_BUFFER, o.vbo); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, o.ibo);
+        const S = STRIDE * 4;
+        gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, S, 0);
+        gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 1, gl.FLOAT, false, S, 8);
+        gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 2, gl.FLOAT, false, S, 12);
+        gl.enableVertexAttribArray(3); gl.vertexAttribPointer(3, 4, gl.UNSIGNED_BYTE, true, S, 20);
+        gl.enableVertexAttribArray(4); gl.vertexAttribIPointer(4, 1, gl.UNSIGNED_INT, S, 24);
+        ringSize(o, capV, capI);
+        ring.push(o);
+      }
+      vao = ring[0].vao;
       gl.bindVertexArray(null);
       quadVao = gl.createVertexArray(); gl.bindVertexArray(quadVao);
       quadBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
@@ -1176,7 +1340,7 @@ window.ND = window.ND || {};
       targets[0] = targets[1] = null;
       for (const e of images.values()) { e.tex = null; e.v = -1; e.pending = false; }
       images.clear(); pendingUploads = [];
-      texts.clear(); taX = taY = taRow = 0; textUploads = 0;
+      textClear(); textUploads = 0;
       ramps.clear(); rampFree = []; for (let i = RAMP_ROWS - 1; i >= 0; i--) rampFree.push(i); rampDirty = [];
       E.ready = true;
     };
@@ -1193,6 +1357,7 @@ window.ND = window.ND || {};
       let t = targets[i];
       if (t && t.w === w && t.h === h && t.samples === E.samples) return t;
       freeTarget(i);
+      if (P) P.targetsNew++;
       t = { w, h, samples: E.samples };
       t.tex = tex2d(w, h, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, gl.LINEAR, null);
       t.fbTex = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, t.fbTex);
@@ -1228,6 +1393,11 @@ window.ND = window.ND || {};
       return BL[i];
     }
     function uploadImage(e) {
+      const t0 = P ? now() : 0;
+      uploadImage0(e);
+      if (P) { P.imgUploads++; P.imgPx += e.w * e.h; P.imgMs += now() - t0; }
+    }
+    function uploadImage0(e) {
       e.pending = false;
       const src = e.src;
       if (!e.tex || e.w !== e.nw || e.h !== e.nh) {
@@ -1251,6 +1421,12 @@ window.ND = window.ND || {};
     }
     // executes the recorded frame into target 1 (and target 0 for layers); returns the resolved scene texture
     E.run = function () {
+      const t0 = P ? now() : 0;
+      run0();
+      if (P) P.runMs += now() - t0;
+      return targets[1].tex;
+    };
+    function run0() {
       const st = R.stats = { draws: 0, stencilFills: 0, clips: 0, uploads: 0, passes: 0, vertices: nv, indices: ni, paints: np };
       if (R._layerResize) { R._layerResize = false; freeTarget(0); }
       gl.disable(gl.DITHER); gl.disable(gl.CULL_FACE);
@@ -1263,14 +1439,20 @@ window.ND = window.ND || {};
       if (rampDirty.length) {
         gl.bindTexture(gl.TEXTURE_2D, rampTex);
         for (const row of rampDirty) gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, row, RAMP_W, 1, gl.RGBA, gl.UNSIGNED_BYTE, rampData, row * RAMP_W * 4);
+        if (P) P.rampRows += rampDirty.length;
         rampDirty = [];
       }
       if (np) { gl.bindTexture(gl.TEXTURE_2D, paintTex); gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 2, np, gl.RGBA, gl.FLOAT, paintData, 0); }
+      const tb = P ? now() : 0;
+      ringI = (ringI + 1) % ring.length;
+      const rb = ring[ringI];
+      vao = rb.vao;
       gl.bindVertexArray(vao);
-      gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-      gl.bufferData(gl.ARRAY_BUFFER, new Uint8Array(VB, 0, nv * STRIDE * 4), gl.STREAM_DRAW);
-      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
-      gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, IX.subarray(0, ni), gl.STREAM_DRAW);
+      if (rb.vcap < nv || rb.icap < ni) ringSize(rb, Math.max(rb.vcap, capV), Math.max(rb.icap, capI));
+      gl.bindBuffer(gl.ARRAY_BUFFER, rb.vbo);
+      if (nv) gl.bufferSubData(gl.ARRAY_BUFFER, 0, VU, 0, nv * STRIDE);
+      if (ni) gl.bufferSubData(gl.ELEMENT_ARRAY_BUFFER, 0, IX, 0, ni);
+      if (P) { P.bufMs += now() - tb; P.bufBytes += nv * STRIDE * 4 + ni * 4; }
       gl.useProgram(prog);
       gl.uniform1i(U.tex, 0); gl.uniform1i(U.ramp, 1); gl.uniform1i(U.paint, 2); gl.uniform1f(U.rampH, RAMP_ROWS);
       gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, rampTex);
@@ -1282,8 +1464,7 @@ window.ND = window.ND || {};
       runPass(1, R.W, R.H, R.W, R.H);
       gl.bindVertexArray(null);
       sweepImages();
-      return targets[1].tex;
-    };
+    }
     function runPass(pass, w, h, uw, uh) {
       const t = target(pass, w, h), st = R.stats;
       st.passes++;
@@ -1339,16 +1520,20 @@ window.ND = window.ND || {};
       gl.disable(gl.SCISSOR_TEST); gl.disable(gl.STENCIL_TEST); gl.disable(gl.DEPTH_TEST); gl.disable(gl.BLEND);
       gl.stencilMask(0xff);
       if (t.samples) {
+        // depth/stencil are not needed any more: dropped before the resolve, so a tiled GPU does not write the
+        // multisampled depth/stencil out to memory
+        gl.invalidateFramebuffer(gl.FRAMEBUFFER, DS_ATT);
         gl.bindFramebuffer(gl.READ_FRAMEBUFFER, t.fbMS); gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, t.fbTex);
         const y0 = h - uh;
         gl.blitFramebuffer(0, y0, uw, h, 0, y0, uw, h, gl.COLOR_BUFFER_BIT, gl.NEAREST);
-        gl.invalidateFramebuffer(gl.READ_FRAMEBUFFER, [gl.COLOR_ATTACHMENT0, gl.DEPTH_STENCIL_ATTACHMENT]);
+        gl.invalidateFramebuffer(gl.READ_FRAMEBUFFER, COLOR_ATT);
         gl.bindFramebuffer(gl.READ_FRAMEBUFFER, null); gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
       } else {
-        gl.invalidateFramebuffer(gl.FRAMEBUFFER, [gl.DEPTH_STENCIL_ATTACHMENT]);
+        gl.invalidateFramebuffer(gl.FRAMEBUFFER, DS_ATT);
       }
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     }
+    const DS_ATT = [gl.DEPTH_STENCIL_ATTACHMENT], COLOR_ATT = [gl.COLOR_ATTACHMENT0];
     // stencil bit 7 = inside every clip of the chain (built root first), low 7 bits = scratch winding counter
     function buildClip(clip, h, sc) {
       R.stats.clips++;
@@ -1377,7 +1562,7 @@ window.ND = window.ND || {};
     E.quad = () => { gl.bindVertexArray(quadVao); gl.drawArrays(gl.TRIANGLES, 0, 3); gl.bindVertexArray(null); };
     E.lose = function () {
       E.ready = false; prog = quadProg = null; targets[0] = targets[1] = null;
-      images.clear(); pendingUploads = []; texts.clear(); taX = taY = taRow = 0; textUploads = 0; ramps.clear(); rampDirty = [];
+      images.clear(); pendingUploads = []; textClear(); textUploads = 0; ramps.clear(); rampDirty = [];
       BL.length = 0;
     };
     R.info = () => ({ samples: E.samples, maxSamples: E.maxSamples, layerAtlas: [AW, AH], textAtlas: [TA_W, TA_H], rampRows: RAMP_ROWS, images: images.size });

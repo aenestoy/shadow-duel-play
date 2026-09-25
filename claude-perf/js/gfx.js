@@ -74,7 +74,9 @@ window.ND = window.ND || {};
   // that did not help freezes the ladder. Ten fast windows (< 17.8 ms) try one rung up: within a tier always, into
   // the tier above only when the frame's own work is small (median < 6 ms, lots of room left); if the next windows
   // are slow again it goes back and stays.
-  const LAD = { SLOW: 20, VSLOW: 36, SEVERE: 55, FAST: 17.8, WORK_UP: 6, WIN: 1000, MIN_N: 4 };
+  // The thresholds are for a 60 fps target. aq.targetMs (a higher frame-rate target the player chose, Auto only; see
+  // game.js) scales them down: at 120 fps (8.3 ms) a 16.7 ms median is slow, 25 ms very slow, 33 ms far too slow.
+  const LAD = { SLOW: 20, VSLOW: 36, SEVERE: 55, FAST: 17.8, WORK_UP: 6, WIN: 1000, MIN_N: 4, TARGET: 1000 / 60 };
   function med(a, n) {
     const s = a.slice(0, n).sort((x, y) => x - y);
     return n & 1 ? s[n >> 1] : (s[(n >> 1) - 1] + s[n >> 1]) / 2;
@@ -87,6 +89,8 @@ window.ND = window.ND || {};
     aq.t += Math.min(gapMs, 250);
     if (aq.t < LAD.WIN || aq.n < LAD.MIN_N) return;
     const n = aq.n, g = med(aq.gaps, n), w = med(aq.works, n), R = aq.R, cur = R[aq.i];
+    const k = aq.targetMs > 0 ? Math.min(1, aq.targetMs / LAD.TARGET) : 1;
+    const SLOW = LAD.SLOW * k, VSLOW = LAD.VSLOW * k, SEVERE = LAD.SEVERE * k, FAST = LAD.FAST * k, WORK_UP = LAD.WORK_UP * k;
     aq.t = aq.n = 0;
     aq.stat = { gap: g, work: w, tier: cur.tier, scale: cur.s };
     if (aq.settle > 0) { aq.settle--; return; } // the first window after a change does not count
@@ -97,11 +101,11 @@ window.ND = window.ND || {};
       } else if (aq.probeTier) act.toast();
       aq.probe = 0; return;
     }
-    if (aq.upT > 0) { aq.upT--; if (g > LAD.SLOW) { aq.noUp = true; aq.upT = 0; act.setRung(aq.i + 1); return; } } // going up made it slow: back, and stay
-    if (g > LAD.SLOW) {
+    if (aq.upT > 0) { aq.upT--; if (g > SLOW) { aq.noUp = true; aq.upT = 0; act.setRung(aq.i + 1); return; } } // going up made it slow: back, and stay
+    if (g > SLOW) {
       aq.fast = 0;
       if (aq.frozen) return;
-      const sev = g > LAD.SEVERE ? 2 : g > LAD.VSLOW ? 1 : 0;
+      const sev = g > SEVERE ? 2 : g > VSLOW ? 1 : 0;
       if (sev === 0 && ++aq.slow < 2) return;
       aq.slow = 0;
       let j = aq.i + 1;
@@ -112,7 +116,7 @@ window.ND = window.ND || {};
       if (j < R.length) { aq.probe = g; aq.probeTier = R[j].tier !== cur.tier; aq.from = aq.i; act.setRung(j); }
     } else {
       aq.slow = 0;
-      const up = aq.i > 0 && !aq.noUp && g < LAD.FAST && (R[aq.i - 1].tier === cur.tier || w < LAD.WORK_UP);
+      const up = aq.i > 0 && !aq.noUp && g < FAST && (R[aq.i - 1].tier === cur.tier || w < WORK_UP);
       if (!up) { aq.fast = 0; return; }
       if (++aq.fast >= 10) { aq.fast = 0; aq.upT = 3; act.setRung(aq.i - 1); }
     }
@@ -132,17 +136,26 @@ window.ND = window.ND || {};
   // refresh of n·p; the remainder carries over (phase lock), so drawn frames stay on a steady beat. When drawing is
   // slower than the target, every callback is already late and nothing is skipped: the cap only removes frames that
   // would come faster than ~60 per second.
+  // Other targets (the Frame rate setting, game.js): 0 = Max, no cap (every refresh is drawn; the refresh period is
+  // still estimated for the quality ladder). 90 / 120: when the target is a whole number of refreshes (90 on 90 Hz,
+  // 120 on 120 Hz) it is the same even beat; otherwise (90 on 120 Hz) drawn frames average the target (3 of every 4
+  // refreshes), the price of a rate the screen cannot show evenly. The 60 cap keeps its rule above (never uneven).
   const PACE = { TARGET: 1000 / 60, WIN: 24 };
-  function makePacer() {
+  function makePacer(fps = 60) {
     const gaps = new Float64Array(PACE.WIN), sorted = new Float64Array(PACE.WIN);
-    let n = 0, k = 0, prev = -1, acc = 0, period = PACE.TARGET, div = 1, runs = 0, skips = 0;
+    let n = 0, k = 0, prev = -1, acc = 0, period = PACE.TARGET, div = 1, even = true, runs = 0, skips = 0;
+    let T = fps > 0 ? 1000 / fps : 0;
     function estimate() {
       const m = Math.min(n, PACE.WIN);
       if (m < 6) return;
       sorted.set(gaps);
       const s = sorted.subarray(0, m).sort();
       period = s[m >> 2];
-      div = Math.max(1, Math.floor(PACE.TARGET / period + 0.25));
+      if (!T) { div = 1; even = true; return; }
+      const r = T / period;
+      div = Math.max(1, Math.floor(r + 0.25));
+      // uneven beat only above 60 and when the ratio is not near a whole number
+      even = T >= PACE.TARGET - 0.01 || r < 1 || Math.abs(r - Math.round(r)) <= 0.25;
     }
     return {
       due(now) {
@@ -151,6 +164,15 @@ window.ND = window.ND || {};
         if (!(gap > 0) || gap > 250) { acc = 0; runs++; return true; } // stall, hidden tab, clock jump: start over
         gaps[k] = gap; k = (k + 1) % PACE.WIN; if (n < PACE.WIN) n++;
         estimate();
+        if (!T) { runs++; return true; } // Max: every refresh
+        if (!even) {
+          // average the target over refreshes: run once the carried time reaches the target (within half a refresh)
+          acc = Math.max(acc, -period / 2) + gap;
+          if (acc < T - period / 2) { skips++; return false; }
+          acc = Math.min(Math.max(acc - T, -period / 2), period / 2);
+          runs++;
+          return true;
+        }
         if (div === 1) { acc = 0; runs++; return true; } // 60 Hz, 90 Hz or drawing slower than the cap: run all
         // (a carried negative remainder is bounded by the current refresh period, which may have just changed)
         acc = Math.max(acc, -period / 2) + gap;
@@ -162,9 +184,18 @@ window.ND = window.ND || {};
         return true;
       },
       reset() { prev = -1; acc = 0; },
-      stat() { return { periodMs: +period.toFixed(2), every: div, runs, skips }; },
+      // new target (fps; 0 = Max) without losing the refresh estimate
+      setTarget(f) { T = f > 0 ? 1000 / f : 0; acc = 0; estimate(); },
+      get target() { return T ? Math.round(1000 / T) : 0; },
+      get period() { return period; }, // estimated refresh period (ms)
+      stat() { return { periodMs: +period.toFixed(2), every: div, even, target: T ? Math.round(1000 / T) : 0, runs, skips }; },
     };
   }
   G.makePacer = makePacer;
   G.PACE = PACE;
+  // Frame rate setting (game.js / Settings → Graphics): '60' | '90' | '120' | 'max'. Phones default to 60 (steady and
+  // cool), computers to Max (one frame per refresh, as before). fpsOf('max') = 0 = no cap.
+  G.FPS = ['60', '90', '120', 'max'];
+  G.fpsDefault = () => (MOBILE ? '60' : 'max');
+  G.fpsOf = (v) => (v === 'max' ? 0 : +v || 60);
 })(window.ND);

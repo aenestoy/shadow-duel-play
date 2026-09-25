@@ -987,6 +987,21 @@
       },
     });
 
+    // ================================================================ FRAME RATE: Settings → Graphics (js/gfx.js makePacer)
+    // (Turkish source in i18n.js, block "frame rate"; the numbers themselves are not translated)
+    merge(EN.STR, {
+      fps: {
+        title: 'Frame rate',
+        levels: { max: 'Max' },
+        note: {
+          60: 'Steady and cool. Best for most phones.',
+          90: 'Smoother where the screen supports it. Uses more battery.',
+          120: 'Smoothest on 120 Hz screens. Uses more battery.',
+          max: 'As fast as your screen allows.',
+        },
+      },
+    });
+
     // ================================================================ SETTINGS SCREEN (js/settings.js; Turkish source in i18n.js)
     merge(EN.STR, {
       set: {

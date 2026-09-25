@@ -43,12 +43,15 @@
   }
   let gpuShown = false;
   const showGpu = (on) => { if (gpuPost?.present && on !== gpuShown) { gpuShown = on; gpuPost.canvas.style.visibility = on ? 'visible' : 'hidden'; } };
-  // ?renderer=gl: the fight (intro, fight, KO, replay on High) is drawn with WebGL2 (js/gl2d.js + js/gl-render.js) into
-  // a canvas lying over #cv, shown only on frames it drew. Menus, select / VS / ending screens, Medium and Low stay on
-  // Canvas 2D, and so does every frame the GL renderer cannot draw (no WebGL2, lost context, unsupported call).
+  // ?renderer=gl: the fight (intro, fight, KO, replay; High, Medium and Low, each with its own glow: High glow + grain,
+  // Medium light glow, Low none) is drawn with WebGL2 (js/gl2d.js + js/gl-render.js) into a canvas lying over #cv,
+  // shown only on frames it drew. Menus and the select / VS / ending screens stay on Canvas 2D, and so does every frame
+  // the GL renderer cannot draw (no WebGL2, lost context, unsupported call).
   // ?msaa=0|2|4 sets its multisampling (default 4). The Canvas hooks (gradient geometry, "canvas changed" counters)
   // go in before anything is drawn, so gradients cached by the scene work on both paths.
   const GL_Q = QS.get('renderer') === 'gl';
+  // ?cap=0 / ?cap=1: frame pacing forced to Max / 60 for tests (see the pacer at the end); '' = the Frame rate setting
+  const CAP_Q = QS.get('cap') === '0' ? '0' : QS.get('cap') === '1' ? '1' : '';
   if (GL_Q) ND.glInstallHooks?.();
   let glr = null, glShown = false;
   const showGl = (on) => { if (glr && on !== glShown) { glShown = on; glr.canvas.style.visibility = on ? 'visible' : 'hidden'; } };
@@ -321,6 +324,8 @@
     glStatus: () => (glr ? Object.assign({ available: true }, glr.status()) : { available: false, requested: GL_Q }),
     glInfo: () => (glr ? glr.info() : null),
     glRenderer: () => glr,
+    // Frame rate choice (Settings → Graphics): '60' | '90' | '120' | 'max', null = the device default (js/gfx.js)
+    fpsPref: GFX.FPS && GFX.FPS.includes(saved.fps) ? saved.fps : null,
     mode: 'attract', level: [0, 1, 2].includes(saved.level) ? saved.level : 1, phase: 'menu', pt: 0, projs: [], hitstopT: 0, slow: 1, slowT: 0,
     round: 1, wins: [0, 0], timer: ROUND_TIME, focus: null, paused: false, bars: 0, ais: [], bannerT: 0, dim: 0,
     stats: null, flags: {}, lock: null, clock: 0, rally: { n: 0, last: null, t: 0 }, slowV: 0.35, cineT: 0, cineX: 0, recording: false, fxEvents: [], rec: [], koIndex: -1, replay: null,
@@ -995,7 +1000,7 @@
     render() {
       ND.beginBakeFrame?.();
       const behindUi = this.phase === 'select' || this.phase === 'vs' || this.phase === 'ending';
-      if (glr && this.rendererMode === 'gl' && !behindUi && !this.behind && GFX.tier === 'high' && GFX.f.bloom === 2 && glr.ready && this.renderGl()) return;
+      if (glr && this.rendererMode === 'gl' && !behindUi && !this.behind && glr.ready && this.renderGl()) return;
       showGl(false);
       // scene layer (see sceneCv): bloom on, Canvas post-processing (the opt-in WebGL probe reads the visible canvas)
       // (?post=present needs the layer: the scene is then never drawn on the covered #cv)
@@ -1026,9 +1031,11 @@
       } catch (e) { glr.fail(e); console.warn('[ND.gl] frame failed; drawing it with Canvas 2D', e); }
       finally { ctx = mainCtx; }
       if (!ok) return false;
-      // the grain offset: the same two random numbers, in the same place, as the Canvas post
-      const gx = (Math.random() * 128) | 0, gy = (Math.random() * 128) | 0;
-      if (!glr.end({ bloom: scene.theme.bloom ?? 0.5, grainX: gx, grainY: gy, grain: this.grainMode !== 'off' })) return false;
+      // High: the grain offset is the same two random numbers, in the same place, as the Canvas post (Medium and Low
+      // draw none there either)
+      const mode = GFX.f.bloom === 2 ? 2 : GFX.f.bloom ? 1 : 0;
+      const gx = mode === 2 ? (Math.random() * 128) | 0 : 0, gy = mode === 2 ? (Math.random() * 128) | 0 : 0;
+      if (!glr.end({ mode, bloom: scene.theme.bloom ?? 0.5, grainX: gx, grainY: gy, grain: mode === 2 && this.grainMode !== 'off' })) return false;
       showGl(true); showGpu(false);
       this.renderVersion = 'gl-v1';
       PM('post');
@@ -1587,7 +1594,7 @@
     // graphics: the player's choice (Auto's own steps are not saved); hq / hqUser keep older builds reading it right
     const gfx = GFX.pref, hq = gfx !== 'low', hqUser = gfx !== 'auto';
     // merged into what is stored, so settings kept by other files (touch controls: key "touch", js/touch.js) survive
-    store.set(Object.assign(store.get(), { sound: ND.settings.sound, bloodOptIn: ND.settings.blood, music: ND.settings.music, hints: ND.settings.hints, gfx, hq, hqUser, level: game.level, c1: id(game.sel.c[0]), c2: id(game.sel.c[1]), arena: game.sel.arena }));
+    store.set(Object.assign(store.get(), { sound: ND.settings.sound, bloodOptIn: ND.settings.blood, music: ND.settings.music, hints: ND.settings.hints, gfx, hq, hqUser, fps: game.fpsPref || undefined, level: game.level, c1: id(game.sel.c[0]), c2: id(game.sel.c[1]), arena: game.sel.arena }));
   }
   function unlockAudio() { au.init(); au.setEnabled(ND.settings.sound); mu.init(); mu.setEnabled(ND.settings.music); if (mu.mode === 'off') mu.setMode(game.phase === 'fight' ? 'fight' : 'menu'); }
   function choose(mode) { unlockAudio(); au.ui(); if (mode === 'watch') { au.quiet = false; game.start('watch'); } else game.openSelect(mode); }
@@ -1695,6 +1702,39 @@
   }));
   gfxTexts();
   ND.i18n?.onChange(gfxTexts);
+  // Frame rate (Settings → Graphics, the [data-fq] row: .seg buttons data-fps="60|90|120|max"): the frame pacer's
+  // target (js/gfx.js makePacer; phones default to 60, computers to Max). A press applies at once and is saved
+  // (settings key `fps`). Texts ND.STR.fps. How the auto quality ladder uses it: ladderTarget() below.
+  const fqRows = () => document.querySelectorAll('[data-fq]');
+  const fpsChoice = () => game.fpsPref || GFX.fpsDefault();
+  function fpsTexts() {
+    const P = STR.fps || {}, L = P.levels || {};
+    fqRows().forEach((row) => {
+      const t = row.querySelector('[data-fq-t]');
+      if (t) t.textContent = P.title || '';
+      row.setAttribute('aria-label', P.title || '');
+      row.querySelectorAll('[data-fps]').forEach((b) => { b.textContent = L[b.dataset.fps] || b.dataset.fps; });
+    });
+    syncFps();
+  }
+  function syncFps() {
+    const P = STR.fps || {}, N = P.note || {}, v = fpsChoice();
+    fqRows().forEach((row) => {
+      row.querySelectorAll('[data-fps]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.fps === v)));
+      const d = row.querySelector('[data-fq-d]'), desc = N[v] || '';
+      if (d && d.textContent !== desc) d.textContent = desc;
+    });
+  }
+  game.setFps = (v) => {
+    if (!GFX.FPS.includes(v)) return false;
+    game.fpsPref = v; persist(); syncFps(); game.applyFps?.();
+    return true;
+  };
+  fqRows().forEach((row) => row.querySelectorAll('[data-fps]').forEach((b) => {
+    b.onclick = (e) => { e.stopPropagation(); game.setFps(b.dataset.fps); unlockAudio(); au.ui(); };
+  }));
+  fpsTexts();
+  ND.i18n?.onChange(fpsTexts);
 
   // Touch help in the menu's Controls card (data-sh="touch.help" = ND.STR.touch.help): its first column follows the
   // movement mode the player chose (floating stick / fixed stick / d-pad, d-pad with tap to step) and one line under
@@ -1966,10 +2006,19 @@
     toast() { const T = STR.toast || {}; ND.toast?.(tx(T.perf || 'Performans için grafik düşürüldü'), T.perfK || '軽'); },
   };
   // the decision itself lives in js/gfx.js (ladderFrame), where scripts/auto-quality-check.mjs tests it
+  // The ladder's frame-time target: 60 fps rules (0) unless the player chose a higher frame rate AND Auto graphics —
+  // then frames are judged against that rate (Max: the screen's refresh period), so Auto may lower the tier to reach
+  // it. A fixed High / Medium / Low is never lowered for a frame rate (a 16.7 ms frame is not slow for it).
+  function ladderTarget() {
+    if (GFX.pref !== 'auto' || !game.fpsPref || CAP_Q) return 0;
+    const f = GFX.fpsOf(game.fpsPref);
+    return f > 60 ? 1000 / f : f ? 0 : pacer ? Math.min(1000 / 60, pacer.period) : 0;
+  }
   function aqWatch(gapMs, workMs) {
     // the round intro counts too (the fighters walk in over the full scene): a weak phone steps down before the
     // first exchange instead of about a second into it
     const counting = !game.paused && (game.phase === 'fight' || game.phase === 'intro') && game.mode !== 'attract' && !document.hidden;
+    aq.targetMs = ladderTarget();
     GFX.ladderFrame(aq, gapMs, workMs, counting, aqAct);
   }
   game.aq = aq; game._aqWatch = aqWatch; game._aqReset = aqReset; // console tests
@@ -2030,12 +2079,13 @@
   }
   game.isBehind = isBehind;
   let last = performance.now();
-  // 60 fps cap (js/gfx.js makePacer): on by default on phones/tablets, where 90–120 Hz screens would otherwise ask
-  // for frames the GPU cannot finish on a steady beat; ?cap=0 turns it off, ?cap=1 turns it on elsewhere. Computers
-  // keep one frame per refresh. Loading work (game.preparing) always runs on every callback.
-  const CAP = QS.get('cap') === '0' ? false : QS.get('cap') === '1' ? true : MOBILE;
-  const pacer = GFX.makePacer ? GFX.makePacer() : null;
-  game.pace = { on: CAP, stat: () => pacer?.stat() || null };
+  // Frame pacing (js/gfx.js makePacer): the Frame rate setting (fpsChoice: phones 60 by default, where 90–120 Hz
+  // screens would otherwise ask for frames the GPU cannot finish on a steady beat; computers Max = one frame per
+  // refresh). ?cap=0 forces Max, ?cap=1 forces 60 (not saved). Loading work (game.preparing) always runs on every
+  // callback.
+  const pacer = GFX.makePacer ? GFX.makePacer(CAP_Q ? (CAP_Q === '1' ? 60 : 0) : GFX.fpsOf(fpsChoice())) : null;
+  game.pace = { on: !!pacer, stat: () => pacer?.stat() || null };
+  game.applyFps = () => { if (pacer && !CAP_Q) pacer.setTarget(GFX.fpsOf(fpsChoice())); };
   function frame(now) {
     requestAnimationFrame(frame);
     if (game.pace.on && pacer && !game.preparing && !pacer.due(now)) return; // skipped: its time goes to the next frame

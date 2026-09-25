@@ -484,6 +484,7 @@
   #app.touch .set-togs .tog { min-height: 42px; }
   .set-pane .gq-t { font-weight: 600; letter-spacing: .24em; color: var(--gold); }
   .set-pane .gq .seg { min-height: 36px; }
+  .set-pane .gq + .gq { margin-top: 12px; }
   #app.touch .set-pane .tset .seg, #app.touch .set-pane .tset .tog { min-height: 40px; }
   .set-note { margin: 0; font-size: 12.5px; line-height: 1.35; color: var(--muted); }
   #app.touch .set-note { display: none; }
@@ -1861,6 +1862,7 @@
           </section>
           <section class="set-pane" role="tabpanel" id="setPane-gfx" aria-labelledby="setTab-gfx" tabindex="-1" hidden>
             <div class="gq" role="group" id="setGfx" data-gq><span class="gq-t" data-gq-t></span><span class="gq-segs"><button type="button" class="seg" data-gfx="auto" aria-pressed="false"></button><button type="button" class="seg" data-gfx="high" aria-pressed="false"></button><button type="button" class="seg" data-gfx="medium" aria-pressed="false"></button><button type="button" class="seg" data-gfx="low" aria-pressed="false"></button></span><small class="gq-n"><b data-gq-now hidden></b> <span data-gq-d></span></small></div>
+            <div class="gq" role="group" id="setFps" data-fq><span class="gq-t" data-fq-t></span><span class="gq-segs"><button type="button" class="seg" data-fps="60" aria-pressed="false">60</button><button type="button" class="seg" data-fps="90" aria-pressed="false">90</button><button type="button" class="seg" data-fps="120" aria-pressed="false">120</button><button type="button" class="seg" data-fps="max" aria-pressed="false"></button></span><small class="gq-n"><span data-fq-d></span></small></div>
             <div class="set-togs">
               <button class="tog" id="tBlood" aria-pressed="true"><i></i>Kan efekti</button>
             </div>

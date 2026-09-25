@@ -573,6 +573,20 @@
     now: (lv) => `Şu an: ${lv}`,
   });
 
+  // ---------------------------------------------------------------- Turkish source additions: frame rate
+  // Settings → Graphics, the Frame rate row (js/gfx.js makePacer targets 60 / 90 / 120 / max; game.js). English in
+  // i18n-en.js, block "FRAME RATE". The numbers are shown as they are; only "Max" and the lines under the row are text.
+  if (ND.STR) ND.STR.fps = merge(ND.STR.fps || {}, {
+    title: 'Kare hızı',
+    levels: { max: 'Maks' },
+    note: {
+      60: 'Akıcı ve serin. Çoğu telefon için en iyisi.',
+      90: 'Ekran destekliyorsa daha akıcı. Daha çok pil harcar.',
+      120: '120 Hz ekranlarda en akıcı. Daha çok pil harcar.',
+      max: 'Ekranın izin verdiği kadar hızlı.',
+    },
+  });
+
   // ---------------------------------------------------------------- Turkish source additions: language picker
   // js/lang-ui.js (globe on the first screen / menu title, "Language" row in the controls card and the pause dialog).
   // Other languages: block "LANGUAGE PICKER" in each js/i18n-*.js. Language names themselves come from ND.i18n.names.
