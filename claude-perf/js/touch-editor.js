@@ -23,19 +23,23 @@
   function label(id) {
     const B = BTN(), D = X().dirs || {};
     if (id === 'stick') return B.stick || '';
+    if (id === 'pause') return X().pauseName || '';
     if (DIRS[id]) return D[id] || DIRS[id];
     if (id === 'throw') return X().throwName || B.throw || '';
     return B[id] || '';
   }
+  // the same faces as the real pad (index.html draws the chevrons, rims and the pause mark)
   function face(id) {
     const B = BTN();
-    if (id === 'stick') return '<b class="te-knob"></b>';
+    if (id === 'stick') return '<i class="u"></i><i class="l"></i><i class="r"></i><i class="d"></i><b class="te-knob"></b>';
+    if (id === 'pause') return '<i class="pz"></i>';
     if (id === 'throw') return `<i class="shu"></i><small>${esc(B.throw || '')}</small>`;
-    if (id === 'dd') return `▼<small>${esc(B.down || '')}</small>`;
-    if (DIRS[id]) return DIRS[id];
+    if (id === 'dd') return `<i class="chev"></i><small>${esc(B.down || '')}</small>`;
+    if (DIRS[id]) return '<i class="chev"></i>';
     return `<span>${esc(B[id] || '')}</span>`;
   }
-  const kind = (id) => (id === 'stick' ? 'stick' : DIRS[id] ? 'dir' : 'act');
+  const kind = (id) => (id === 'stick' || id === 'pause' ? id : DIRS[id] ? 'dir' : 'act');
+  const keep = (id) => !!(TU().KEEP || { stick: 1 })[id];
   const cur = () => (st ? st.items[st.sel] : null);
   const live = () => TU().liveIds(st.move);
   const others = (id) => live().filter((k) => k !== id && !st.items[k].h).map((k) => st.items[k]);
@@ -65,7 +69,7 @@
     root.setAttribute('aria-label', E.title || '');
     const items = TU().IDS.map((id) => `<div class="te-it te-${kind(id)} te-${id}" data-id="${id}" role="button" aria-label="${esc(label(id))}"><div class="te-face">${face(id)}</div><em class="te-off">${esc(E.hidden || '')}</em></div>`).join('');
     root.innerHTML =
-      '<div class="te-stage" data-stage><div class="te-zone" data-zone></div>' + items + '</div>' +
+      '<div class="te-stage" data-stage><div class="te-zone" data-zone></div><div class="te-dring" data-dring hidden></div>' + items + '</div>' +
       '<div class="te-bar">' +
         `<button type="button" class="mini" data-do="cancel">${esc(E.cancel)}</button>` +
         `<p class="te-hint"><b data-shape></b> <span data-hint></span></p>` +
@@ -110,6 +114,21 @@
     el.classList.toggle('off', !!q.h);
     el.classList.toggle('sel', st.sel === id);
     el.classList.toggle('bad', overlaps(id));
+    if (DIRS[id]) drawRing();
+    else if (id === 'pause' && st.move !== 'dpad') drawZone();
+  }
+  // the d-pad's one-piece backing, as on the real pad (touch.js dpadRing): follows the four buttons while they stay
+  // together, disappears when they are dragged apart
+  function drawRing() {
+    const el = root.querySelector('[data-dring]');
+    if (!el) return;
+    const R = st.move === 'dpad' && TU().dpadRing ? TU().dpadRing(st.items, st.tb) : null;
+    el.hidden = !R;
+    root.classList.toggle('d-one', !!R);
+    if (!R) return;
+    el.style.width = el.style.height = R.d.toFixed(1) + 'px';
+    el.style.translate = `${(R.cx - R.d / 2).toFixed(1)}px ${(R.cy - R.d / 2).toFixed(1)}px`;
+    el.style.setProperty('--aw', ((R.aw / R.d) * 50).toFixed(2) + '%');
   }
   function drawZone() {
     const z = root.querySelector('[data-zone]');
@@ -117,7 +136,7 @@
     const on = st.move !== 'dpad';
     z.hidden = !on;
     if (!on) return;
-    const r = TU().stickZone(st.move, st.items.stick, st.S);
+    const r = TU().stickZone(st.move, st.items.stick, st.S, st.items.pause);
     z.style.translate = `${r.x.toFixed(1)}px ${r.y.toFixed(1)}px`;
     z.style.width = r.w.toFixed(1) + 'px'; z.style.height = r.h.toFixed(1) + 'px';
     z.classList.toggle('fixed', st.move === 'fixed');
@@ -130,7 +149,8 @@
       el.hidden = !L.includes(id);
       if (!el.hidden) drawItem(id);
     }
-    drawZone();
+    drawZone(); drawRing();
+    root.dataset.dlook = TU().DLOOK || 'a';
     root.classList.toggle('snap', !!st.snap);
     root.style.setProperty('--g', grid() + 'px');
     root.style.setProperty('--tb', st.tb + 'px');
@@ -151,7 +171,7 @@
     setRange('size', Math.round(r * 100), sizeName(r));
     setRange('o', Math.round(q.o * 100), pctTxt(Math.round(q.o * 100)));
     const h = box.querySelector('[data-k="hide"]');
-    h.hidden = id === 'stick';
+    h.hidden = keep(id);
     h.setAttribute('aria-pressed', String(!!q.h));
     h.querySelector('span').textContent = q.h ? E.show || '' : E.hide || '';
     // out of the way of the selected control: at the top, or at the bottom when the control sits high
@@ -285,7 +305,7 @@
         }
       }
       else if (k === 'dtap' || k === 'snap') st[k] = !st[k];
-      else if (k === 'hide') { const q = cur(); if (q && st.sel !== 'stick') { q.h = !q.h; st.dirty = true; if (!q.h) unstack(st.sel); } }
+      else if (k === 'hide') { const q = cur(); if (q && !keep(st.sel)) { q.h = !q.h; st.dirty = true; if (!q.h) unstack(st.sel); } }
       else if (act === 'save') return save();
       else if (act === 'cancel') return close();
       else if (act === 'opts') { root.querySelector('[data-sheet]').hidden = false; st.sel = null; }

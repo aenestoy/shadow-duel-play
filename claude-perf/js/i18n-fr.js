@@ -769,6 +769,7 @@
         noRoom: 'Pas de place ici\u00A0: le bouton est revenu.',
         saved: 'Commandes enregistrées',
         throwName: 'SHURIKEN',
+        pauseName: 'Pause',
         dirs: { dl: '◀ Gauche', dr: 'Droite ▶', du: '▲ Saut', dd: '▼ Garde' },
       },
     });
@@ -1004,6 +1005,7 @@
     merge(EN.STR, {
       fps: {
         title: 'Images par seconde',
+        show: 'Afficher les FPS',
         levels: { max: 'Max' },
         note: {
           60: 'Stable et sans chauffe. Idéal pour la plupart des téléphones.',

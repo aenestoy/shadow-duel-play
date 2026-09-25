@@ -555,6 +555,7 @@
     noRoom: 'Orada yer yok: düğme eski yerine döndü.',
     saved: 'Kontroller kaydedildi',
     throwName: 'SHURIKEN',
+    pauseName: 'Duraklat',
     dirs: { dl: '◀ Sol', dr: 'Sağ ▶', du: '▲ Zıpla', dd: '▼ Gard' },
   });
 
@@ -578,6 +579,8 @@
   // i18n-en.js, block "FRAME RATE". The numbers are shown as they are; only "Max" and the lines under the row are text.
   if (ND.STR) ND.STR.fps = merge(ND.STR.fps || {}, {
     title: 'Kare hızı',
+    // the switch under the row: a small frame-rate readout at the bottom of the screen (game.js fpsMeter)
+    show: 'FPS göster',
     levels: { max: 'Maks' },
     note: {
       60: 'Akıcı ve serin. Çoğu telefon için en iyisi.',

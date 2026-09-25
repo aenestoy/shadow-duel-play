@@ -772,6 +772,7 @@
         noRoom: 'Dort ist kein Platz: Die Taste ist zurückgesprungen.',
         saved: 'Steuerung gespeichert',
         throwName: 'SHURIKEN',
+        pauseName: 'Pause',
         dirs: { dl: '◀ Links', dr: 'Rechts ▶', du: '▲ Sprung', dd: '▼ Deckung' },
       },
     });
@@ -1007,6 +1008,7 @@
     merge(EN.STR, {
       fps: {
         title: 'Bildrate',
+        show: 'FPS anzeigen',
         levels: { max: 'Max' },
         note: {
           60: 'Gleichmäßig und kühl. Für die meisten Handys am besten.',

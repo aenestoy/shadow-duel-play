@@ -767,6 +767,7 @@
         noRoom: 'No hay sitio ahí: el botón ha vuelto a su lugar.',
         saved: 'Controles guardados',
         throwName: 'SHURIKEN',
+        pauseName: 'Pausa',
         dirs: { dl: '◀ Izquierda', dr: 'Derecha ▶', du: '▲ Saltar', dd: '▼ Guardia' },
       },
     });
@@ -998,6 +999,7 @@
     merge(EN.STR, {
       fps: {
         title: 'Fotogramas',
+        show: 'Mostrar FPS',
         levels: { max: 'Máx' },
         note: {
           60: 'Estable y sin calentar. Lo mejor para la mayoría de los móviles.',

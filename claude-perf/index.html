@@ -8,9 +8,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Shadow Duel</title>
 <!-- Fonts ship with the game (no external requests): fonts/fonts.css is written by scripts/font-subset.mjs -->
-
 <!-- Portal SDK bridge (module, bundled by Vite): publishes window.NDPortal; js/core.js wraps it as ND.portal -->
-
 <style>
   #matchLoading { position: absolute; inset: 0; z-index: 1000; display: grid; place-items: center; background: #0c0d15; color: #ebe6da; }
   #matchLoading[hidden] { display: none; }
@@ -48,6 +46,13 @@
   /* ---------------- HUD */
   #hud { position: absolute; top: 0; left: 0; right: 0; display: grid; grid-template-columns: 1fr auto 1fr; gap: 18px; align-items: start; padding: 14px 16px 0; pointer-events: none; }
   .side { display: grid; gap: 6px; min-width: 0; }
+  /* Show FPS readout: a small pill at the bottom centre, the one edge no HUD part, pause button or default touch
+     control uses (health bars / timer / combo / pause are at the top, the pads in the bottom corners). Above menus and
+     Settings, never takes a touch. Fixed width digits so the pill does not jiggle. */
+  #fpsMeter { position: absolute; left: 50%; bottom: 2px; transform: translateX(-50%); z-index: 80; padding: 1px 6px; border-radius: 3px;
+    background: rgba(5,6,12,.55); color: rgba(235,230,218,.82); font: 600 10px/1.3 ui-monospace, Consolas, monospace; letter-spacing: .02em;
+    font-variant-numeric: tabular-nums; white-space: pre; pointer-events: none; contain: layout paint style; }
+  #fpsMeter[hidden] { display: none; }
   .side.p2 { justify-items: end; }
   .nm { font: 600 clamp(14px, 1.9vw, 20px)/1 var(--display); letter-spacing: 0.08em; display: flex; align-items: baseline; gap: 8px; }
   .nm .k { font-family: var(--jp); font-size: 1.15em; }
@@ -68,6 +73,8 @@
   #replayTag::before { content: ''; width: 10px; height: 10px; border-radius: 50%; background: #e04a3c; animation: pulse .5s infinite alternate; }
 
   #rally { position: absolute; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 90px + clamp(26px, 3.6vw, 40px)); transform: translateX(-50%); display: flex; align-items: baseline; gap: 8px; pointer-events: none; text-shadow: 0 2px 14px rgba(0,0,0,.9); }
+  /* pause under the timer (?pausepos=top): the combo counter starts below it */
+  #app[data-ppos="top"] #rally { top: calc(env(safe-area-inset-top, 0px) + 102px + clamp(26px, 3.6vw, 40px)); }
   #rally b { font: 700 30px/1 var(--jp); color: var(--gold); }
   #rally span { font: 700 40px/1 var(--display); color: var(--gold-hi); font-variant-numeric: tabular-nums; }
   #rally small { font: 600 12px/1 var(--display); letter-spacing: .22em; color: var(--muted); }
@@ -205,7 +212,16 @@
   .btn:hover { border-color: var(--gold); background: rgba(217,179,108,.1); }
   .btn.primary { background: var(--gold); color: #17130a; border-color: var(--gold); }
 
-  #pauseBtn { position: absolute; top: calc(env(safe-area-inset-top, 0px) + 50px + clamp(26px, 3.6vw, 40px)); /* saatin (süre + raund + arena adı) hemen altı */ left: 50%; transform: translateX(-50%); width: 36px; height: 30px; background: rgba(0,0,0,.4); border: 1px solid var(--line); cursor: pointer; font: 600 12px/1 var(--display); color: var(--muted); }
+  /* Pause: a small ink circle with two brush strokes. touch.js places it (--pdx/--pdy/--pd = default spot: top right
+     under the health bars, or under the timer with ?pausepos=top; --ppx/--ppy/--pp = the touch layout, movable in the
+     layout editor). The fallbacks below are only for the first paint. */
+  #pauseBtn { position: absolute; left: 0; top: 0; width: var(--pd, 34px); height: var(--pd, 34px); translate: var(--pdx, calc(100vw - 48px)) var(--pdy, 68px); box-sizing: border-box; padding: 0; border: 0; border-radius: 50%; cursor: pointer;
+    color: var(--gold-hi); opacity: .8; background: var(--rim-gold) center / 100% 100% no-repeat, radial-gradient(circle at 50% 38%, rgba(30,32,46,.62), rgba(8,9,16,.55) 70%); transition: opacity .15s, transform .1s ease-out; }
+  #pauseBtn::before { content: ''; position: absolute; inset: 22%; background: currentColor; -webkit-mask: var(--pz) center / contain no-repeat; mask: var(--pz) center / contain no-repeat; }
+  /* thumb-sized hit area around the small mark */
+  #pauseBtn::after { content: ''; position: absolute; inset: -30%; border-radius: 50%; }
+  #pauseBtn:hover, #pauseBtn:focus-visible { opacity: 1; }
+  #pauseBtn:active { transform: scale(.9); }
 
   /* ---------------- Dokunmatik kumanda */
   /* --tb: temel düğme çapı (ekran yüksekliğiyle ölçeklenir); boyut seçeneği S/M/L (touch.js → #app[data-tsize]); --sl/--sr: çentik (safe-area) payları */
@@ -220,40 +236,95 @@
      a settings change / resize, never per frame. */
   .t-zone { position: absolute; left: 0; top: 24%; width: 44%; height: 76%; pointer-events: auto; touch-action: none; }
   #touch[data-move="dpad"] .t-zone, #touch:not([data-move="dpad"]) .t-dpad { display: none; }
+  /* Pad look: ink and lacquer. Rims, the ensō ring, paper grain, chevrons and the pause mark are small inline SVGs
+     (no image files); each is drawn once per size. A press changes only transform / opacity (glow layers), nothing
+     is animated per frame except the ki-ready pulse (opacity). Colours: gold = attacks, blue = guard, violet = ki. */
+  #app {
+    --rim-gold: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='46' fill='none' stroke='%23000' stroke-opacity='.38' stroke-width='6.5'/><path fill='%23d9b36c' fill-rule='evenodd' d='M3 50a47 47 0 1 0 94 0a47 47 0 1 0-94 0ZM7.8 49a43.4 43.4 0 1 0 86.8 0a43.4 43.4 0 1 0-86.8 0Z'/><path d='M17 28A40 40 0 0 1 68 11' fill='none' stroke='%23d9b36c' stroke-opacity='.5' stroke-width='1.2' stroke-linecap='round'/></svg>");
+    --rim-hi: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='46' fill='none' stroke='%23000' stroke-opacity='.38' stroke-width='6.5'/><path fill='%23f1d69c' fill-rule='evenodd' d='M3 50a47 47 0 1 0 94 0a47 47 0 1 0-94 0ZM7.8 49a43.4 43.4 0 1 0 86.8 0a43.4 43.4 0 1 0-86.8 0Z'/><path d='M17 28A40 40 0 0 1 68 11' fill='none' stroke='%23f1d69c' stroke-opacity='.55' stroke-width='1.2' stroke-linecap='round'/></svg>");
+    --rim-blue: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='46' fill='none' stroke='%23000' stroke-opacity='.38' stroke-width='6.5'/><path fill='%2396d2ff' fill-rule='evenodd' d='M3 50a47 47 0 1 0 94 0a47 47 0 1 0-94 0ZM7.8 49a43.4 43.4 0 1 0 86.8 0a43.4 43.4 0 1 0-86.8 0Z'/><path d='M17 28A40 40 0 0 1 68 11' fill='none' stroke='%2396d2ff' stroke-opacity='.5' stroke-width='1.2' stroke-linecap='round'/></svg>");
+    --rim-ki: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='46' fill='none' stroke='%23000' stroke-opacity='.38' stroke-width='6.5'/><path fill='%23b99cff' fill-rule='evenodd' d='M3 50a47 47 0 1 0 94 0a47 47 0 1 0-94 0ZM7.8 49a43.4 43.4 0 1 0 86.8 0a43.4 43.4 0 1 0-86.8 0Z'/></svg>");
+    --enso: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='none' stroke-linecap='round'><path d='M69.4 8.3A46 46 0 1 1 46 4.2' stroke='%23000' stroke-opacity='.34' stroke-width='7.5'/><path d='M69.4 8.3A46 46 0 1 1 46 4.2' stroke='%23d9b36c' stroke-width='3.4'/><path d='M42.2 94.3A45 45 0 0 1 15.5 21.1' stroke='%23d9b36c' stroke-width='2.4'/><path d='M83.3 22A43.5 43.5 0 0 1 42.4 92.8' stroke='%23f1d69c' stroke-opacity='.4' stroke-width='1.1'/><path d='M46 4.2A46 46 0 0 1 56.4 4.45' stroke='%23d9b36c' stroke-opacity='.55' stroke-width='1.6'/></svg>");
+    --washi: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n' x='0' y='0' width='100%25' height='100%25'><feTurbulence type='fractalNoise' baseFrequency='.9 .22' numOctaves='2' seed='7' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .95 0 0 0 0 .9 0 0 0 0 .8 0 0 0 .16 -.04'/></filter><rect width='160' height='160' filter='url(%23n)'/></svg>");
+    --chev: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M7 3.2Q13.6 8 19.4 12Q13.6 16 7 20.8Q10.8 12 7 3.2Z'/></svg>");
+    --pz: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M7.9 5.6Q9.6 4.6 11.1 5.5L10.8 18.2Q9.6 19.2 8.3 18.1ZM12.9 5.4Q14.6 4.4 16.1 5.3L15.9 18.4Q14.6 19.3 13.4 18.3Z'/></svg>");
+    --ink-fill: radial-gradient(circle at 50% 36%, rgba(34,36,52,.5), rgba(8,9,16,.44) 68%);
+  }
+  /* stick: an ensō ring on faint paper, four brush chevrons (GUARD under the lower one), a black lacquer knob */
   .t-base { --r: 2.3; position: absolute; left: 0; top: 0; width: calc(var(--tb) * 2.3); height: calc(var(--tb) * 2.3); box-sizing: border-box; border-radius: 50%;
-    background: radial-gradient(circle, rgba(10,12,22,.12) 0 52%, rgba(10,12,22,.42) 72%); border: 1.5px solid rgba(217,179,108,.32); opacity: calc(var(--op) * var(--o, 1) * .6); transition: opacity .18s; pointer-events: none; }
+    background: var(--enso) center / 100% 100% no-repeat, radial-gradient(circle closest-side, rgba(8,9,16,.08) 0 40%, rgba(8,9,16,.4) 86%, transparent 91%);
+    opacity: calc(var(--op) * var(--o, 1) * .62); transition: opacity .18s; pointer-events: none; }
+  .t-base::before { content: ''; position: absolute; inset: 8%; border-radius: 50%; background: var(--washi); opacity: .7; }
   #touch[data-move="fixed"] .t-base { opacity: calc(var(--op) * var(--o, 1) * .8); }
   #touch .t-base.live { opacity: calc(var(--op) * var(--o, 1)); transition: none; }
-  .t-base i { position: absolute; font: 600 calc(var(--tb) * var(--r) * .074)/1 var(--display); font-style: normal; letter-spacing: .08em; color: rgba(235,230,218,.5); transition: color .08s; }
-  .t-base .u { top: 7%; left: 50%; transform: translateX(-50%); }
-  .t-base .d { bottom: 8%; left: 50%; transform: translateX(-50%); }
-  .t-base .l { left: 8%; top: 50%; transform: translateY(-50%); }
-  .t-base .r { right: 8%; top: 50%; transform: translateY(-50%); }
-  .t-base.d-up .u, .t-base.d-guard .d, .t-base.d-left .l, .t-base.d-right .r { color: var(--gold-hi); text-shadow: 0 0 8px rgba(241,214,156,.8); }
-  .t-knob { --k: calc(var(--tb) * var(--r) * .413); position: absolute; left: 50%; top: 50%; width: var(--k); height: var(--k); margin: calc(var(--k) / -2) 0 0 calc(var(--k) / -2); border-radius: 50%;
-    background: radial-gradient(circle at 40% 34%, rgba(241,214,156,.5), rgba(110,86,44,.42) 70%); border: 1.5px solid rgba(241,214,156,.65); box-shadow: 0 4px 14px rgba(0,0,0,.45); }
+  .t-base i { position: absolute; display: grid; justify-items: center; gap: 2px; font: 600 calc(var(--tb) * var(--r) * .062)/1 var(--display); font-style: normal; letter-spacing: .1em;
+    color: var(--gold-hi); text-shadow: 0 1px 3px rgba(0,0,0,.9); opacity: .7; transition: opacity .08s, scale .08s; }
+  .t-base i::before { content: ''; width: calc(var(--tb) * var(--r) * .12); height: calc(var(--tb) * var(--r) * .12); background: currentColor; -webkit-mask: var(--chev) center / contain no-repeat; mask: var(--chev) center / contain no-repeat; }
+  .t-base .u { top: 9%; left: 50%; translate: -50% 0; } .t-base .u::before { rotate: -90deg; }
+  .t-base .d { bottom: 7%; left: 50%; translate: -50% 0; color: #cfe8ff; } .t-base .d::before { rotate: 90deg; }
+  .t-base .l { left: 9%; top: 50%; translate: 0 -50%; } .t-base .l::before { rotate: 180deg; }
+  .t-base .r { right: 9%; top: 50%; translate: 0 -50%; }
+  .t-base.d-up .u, .t-base.d-guard .d, .t-base.d-left .l, .t-base.d-right .r { opacity: 1; scale: 1.2; }
+  .t-knob { --k: calc(var(--tb) * var(--r) * .42); position: absolute; left: 50%; top: 50%; width: var(--k); height: var(--k); margin: calc(var(--k) / -2) 0 0 calc(var(--k) / -2); border-radius: 50%;
+    background: radial-gradient(circle at 36% 28%, rgba(255,236,196,.36), transparent 42%), radial-gradient(circle, #2b2119 0, #140f0b 60%, #09070a 100%);
+    box-shadow: inset 0 0 0 1.5px rgba(241,214,156,.85), inset 0 0 0 4.5px rgba(12,9,7,.9), inset 0 0 0 5.5px rgba(217,179,108,.4), 0 5px 14px rgba(0,0,0,.5); }
+  .t-knob::after { content: ''; position: absolute; inset: 37%; border-radius: 50%; box-shadow: 0 0 0 1.5px rgba(217,179,108,.7); }
   .t-base:not(.live) .t-knob { transition: transform .12s ease-out; }
   .t-acts, .t-dpad { position: absolute; inset: 0; pointer-events: none; }
-  .t-acts button, .t-dpad button { --r: 1; position: absolute; left: 0; top: 0; box-sizing: border-box; width: var(--tb); height: var(--tb); padding: 0;
-    display: grid; place-content: center; justify-items: center; gap: 2px; border-radius: 50%; pointer-events: auto; touch-action: none; opacity: calc(var(--op) * var(--o, 1));
-    background: radial-gradient(circle at 50% 35%, rgba(34,38,58,.62), rgba(10,12,22,.55)); border: 1.5px solid rgba(217,179,108,.45); box-shadow: 0 3px 10px rgba(0,0,0,.35);
-    font: 600 calc(var(--tb) * (.1 + var(--r) * .1))/1 var(--display); letter-spacing: .05em; color: rgba(235,230,218,.92); text-shadow: 0 1px 3px rgba(0,0,0,.8); transition: transform .06s, background-color .06s; }
-  /* forgiving hit margin around every button (the group handler then picks the nearest one) */
-  .t-acts button::after, .t-dpad button::after { content: ''; position: absolute; inset: -18%; border-radius: 50%; }
-  .t-acts button.on, .t-dpad button.on { transform: scale(.92); background: rgba(217,179,108,.5); border-color: var(--gold-hi); color: #fff; }
-  .t-acts .ta-light { border-color: rgba(241,214,156,.7); }
-  .t-acts .ta-guard, .t-dpad .td-d { border-color: rgba(150,210,255,.6); }
-  .t-acts .ta-guard.on, .t-dpad .td-d.on { background: rgba(110,170,230,.5); }
-  .t-dpad button { border-radius: 28%; font-size: calc(var(--tb) * var(--r) * .3); }
-  .t-dpad .td-d small { font: 600 calc(var(--tb) * var(--r) * .13)/1 var(--display); letter-spacing: .06em; color: #cfe8ff; }
+  /* round buttons: brush-ring rim on a see-through ink disc */
+  .t-acts button, .t-dpad button { --r: 1; --glow: rgba(241,214,156,.55); position: absolute; left: 0; top: 0; box-sizing: border-box; width: var(--tb); height: var(--tb); padding: 0;
+    display: grid; place-content: center; justify-items: center; gap: 2px; border: 0; border-radius: 50%; pointer-events: auto; touch-action: none; opacity: calc(var(--op) * var(--o, 1));
+    background: var(--rim-gold) center / 100% 100% no-repeat, var(--ink-fill);
+    font: 600 calc(var(--tb) * (.1 + var(--r) * .1))/1 var(--display); letter-spacing: .05em; color: rgba(240,234,220,.94); text-shadow: 0 1px 3px rgba(0,0,0,.9), 0 0 6px rgba(0,0,0,.5); transition: transform .1s ease-out; }
+  .t-acts button > * { position: relative; }
+  /* inner glow on press */
+  .t-acts button::before { content: ''; position: absolute; inset: 9%; border-radius: 50%; background: radial-gradient(circle at 50% 45%, var(--glow), transparent 72%); opacity: 0; transition: opacity .16s; }
+  /* forgiving hit margin around every button (the group handler then picks the nearest one); it carries the press halo */
+  .t-acts button::after, .t-dpad button::after { content: ''; position: absolute; inset: -18%; border-radius: 50%; background: radial-gradient(closest-side, transparent 62%, var(--glow) 75%, transparent 100%); opacity: 0; transition: opacity .16s; }
+  .t-acts button.on, .t-dpad button.on { transform: scale(.93); transition-duration: .04s; }
+  .t-acts button.on::before, .t-acts button.on::after, .t-dpad button.on::after { opacity: 1; transition-duration: .04s; }
+  .t-acts .ta-light { --glow: rgba(255,222,160,.6); background: var(--rim-hi) center / 100% 100% no-repeat, radial-gradient(circle at 50% 36%, rgba(72,54,28,.5), rgba(12,10,8,.46) 70%); color: #fbecc8; }
+  .t-acts .ta-guard, .t-dpad .td-d { --glow: rgba(150,210,255,.55); }
+  .t-acts .ta-guard { background: var(--rim-blue) center / 100% 100% no-repeat, radial-gradient(circle at 50% 36%, rgba(26,40,60,.52), rgba(7,10,18,.46) 70%); color: #dcefff; }
   .ta-throw .shu { width: calc(var(--tb) * var(--r) * .33); height: calc(var(--tb) * var(--r) * .33); background: #c9d0dc; clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); }
   .ta-throw small { font: 600 calc(var(--tb) * var(--r) * .19)/1 var(--display); color: var(--muted); }
   .t-acts .ta-throw.empty { opacity: calc(var(--op) * var(--o, 1) * .4); }
-  .t-acts .ta-ki { color: rgba(185,168,238,.75); border-color: rgba(150,130,220,.35); opacity: calc(var(--op) * var(--o, 1) * .75); }
-  .t-acts .ta-ki::before { content: ''; position: absolute; inset: -1.5px; border-radius: 50%; background: conic-gradient(#b99cff calc(var(--ki, 0) * 360deg), transparent 0);
+  /* KI: violet rim, the fill ring shows the meter; full = the halo breathes (opacity only) */
+  .t-acts .ta-ki { --glow: rgba(199,166,255,.7); color: rgba(205,190,245,.8); opacity: calc(var(--op) * var(--o, 1) * .8); background: var(--rim-ki) center / 100% 100% no-repeat, var(--ink-fill); }
+  .t-acts .ta-ki::before { inset: -1.5px; border-radius: 50%; opacity: 1; background: conic-gradient(#c7a6ff calc(var(--ki, 0) * 360deg), transparent 0);
     -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3.5px)); mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3.5px)); }
-  .t-acts .ta-ki.ready { opacity: calc(var(--op) * var(--o, 1)); color: #fff; border-color: #d9c8ff; background: radial-gradient(circle, rgba(199,166,255,.55), rgba(90,60,170,.5)); animation: kiPulse .7s ease-in-out infinite alternate; }
-  @keyframes kiPulse { from { box-shadow: 0 0 8px rgba(199,166,255,.5); } to { box-shadow: 0 0 26px rgba(199,166,255,.95), 0 0 4px #fff inset; } }
+  .t-acts .ta-ki.ready { opacity: calc(var(--op) * var(--o, 1)); color: #fff; background: var(--rim-ki) center / 100% 100% no-repeat, radial-gradient(circle, rgba(170,130,255,.55), rgba(70,40,150,.5)); }
+  .t-acts .ta-ki.ready::after { animation: kiPulse .7s ease-in-out infinite alternate; }
+  @keyframes kiPulse { from { opacity: .3; } to { opacity: 1; } }
+  /* d-pad: brush chevrons (GUARD under ▼). Alone each is a small round button (a) or a lacquer tile (b); together
+     (#touch.d-one) they sit on one ensō ring (a) or one lacquer cross (b), #tDring */
+  .t-dpad button { color: rgba(241,214,156,.95); }
+  .t-dpad button::before { content: ''; width: calc(var(--tb) * var(--r) * .44); height: calc(var(--tb) * var(--r) * .44); background: currentColor; -webkit-mask: var(--chev) center / contain no-repeat; mask: var(--chev) center / contain no-repeat; filter: drop-shadow(0 1px 2px rgba(0,0,0,.8)); }
+  .t-dpad .td-l::before { rotate: 180deg; } .t-dpad .td-u::before { rotate: -90deg; } .t-dpad .td-d::before { rotate: 90deg; width: calc(var(--tb) * var(--r) * .36); height: calc(var(--tb) * var(--r) * .36); }
+  .t-dpad .td-d { color: #cfe8ff; }
+  .t-dpad .td-d small { font: 600 calc(var(--tb) * var(--r) * .13)/1 var(--display); letter-spacing: .06em; color: #cfe8ff; }
+  #touch[data-dlook="b"]:not(.d-one) .t-dpad button { border-radius: 26%; background: linear-gradient(160deg, rgba(58,21,18,.78), rgba(11,7,8,.74)); box-shadow: inset 0 0 0 1.5px rgba(217,179,108,.75), 0 2px 8px rgba(0,0,0,.4); }
+  #touch.d-one .t-dpad button { --glow: rgba(255,222,160,.72); background: none; }
+  #touch.d-one .t-dpad .td-d { --glow: rgba(170,220,255,.7); }
+  #touch.d-one .t-dpad button::after { inset: -8%; background: radial-gradient(closest-side, var(--glow), transparent 80%); }
+  .t-dring, .te-dring { position: absolute; left: 0; top: 0; pointer-events: none; opacity: calc(var(--op, 1) * var(--o, 1)); }
+  .t-dring::before, .t-dring::after, .te-dring::before, .te-dring::after { content: ''; position: absolute; }
+  /* a: ink ring */
+  #touch[data-dlook="a"] .t-dring, .te[data-dlook="a"] .te-dring { border-radius: 50%; background: var(--enso) center / 100% 100% no-repeat, radial-gradient(circle closest-side, rgba(8,9,16,.12) 0 36%, rgba(8,9,16,.44) 86%, transparent 91%); }
+  #touch[data-dlook="a"] .t-dring::before, .te[data-dlook="a"] .te-dring::before { inset: 8%; border-radius: 50%; opacity: .8;
+    background: radial-gradient(circle closest-side, rgba(8,9,16,.5) 0 16%, transparent 17%), repeating-conic-gradient(from 43deg, rgba(217,179,108,.34) 0 4deg, transparent 4deg 90deg), var(--washi); }
+  #touch[data-dlook="a"] .t-dring::after, .te[data-dlook="a"] .te-dring::after { left: 50%; top: 50%; width: 11%; aspect-ratio: 1; translate: -50% -50%; border-radius: 50%; box-shadow: 0 0 0 1.5px rgba(217,179,108,.55); }
+  /* b: lacquer cross, gold edge, a vermilion mon in the middle (--aw = half an arm's width, % of the box) */
+  #touch[data-dlook="b"] .t-dring, .te[data-dlook="b"] .te-dring { --h: var(--aw, 17%); --k: 4.5%; --e: 0px; background: linear-gradient(135deg, rgba(241,214,156,.95), rgba(138,106,52,.9) 50%, rgba(232,201,138,.95)); }
+  #touch[data-dlook="b"] .t-dring::before, .te[data-dlook="b"] .te-dring::before { inset: 0; --h: calc(var(--aw, 17%) - 2px); --k: calc(4.5% - .5px); --e: 2px; background: linear-gradient(160deg, rgba(64,22,18,.76), rgba(24,10,9,.72) 45%, rgba(9,6,8,.7)); }
+  #touch[data-dlook="b"] .t-dring, #touch[data-dlook="b"] .t-dring::before, .te[data-dlook="b"] .te-dring, .te[data-dlook="b"] .te-dring::before { clip-path: polygon(
+      calc(50% - var(--h) + var(--k)) var(--e), calc(50% + var(--h) - var(--k)) var(--e), calc(50% + var(--h)) calc(var(--k) + var(--e)), calc(50% + var(--h)) calc(50% - var(--h)),
+      calc(100% - var(--k) - var(--e)) calc(50% - var(--h)), calc(100% - var(--e)) calc(50% - var(--h) + var(--k)), calc(100% - var(--e)) calc(50% + var(--h) - var(--k)), calc(100% - var(--k) - var(--e)) calc(50% + var(--h)),
+      calc(50% + var(--h)) calc(50% + var(--h)), calc(50% + var(--h)) calc(100% - var(--k) - var(--e)), calc(50% + var(--h) - var(--k)) calc(100% - var(--e)), calc(50% - var(--h) + var(--k)) calc(100% - var(--e)), calc(50% - var(--h)) calc(100% - var(--k) - var(--e)),
+      calc(50% - var(--h)) calc(50% + var(--h)), calc(var(--k) + var(--e)) calc(50% + var(--h)), var(--e) calc(50% + var(--h) - var(--k)), var(--e) calc(50% - var(--h) + var(--k)), calc(var(--k) + var(--e)) calc(50% - var(--h)),
+      calc(50% - var(--h)) calc(50% - var(--h)), calc(50% - var(--h)) calc(var(--k) + var(--e))); }
+  #touch[data-dlook="b"] .t-dring::after, .te[data-dlook="b"] .te-dring::after { left: 50%; top: 50%; width: calc(var(--aw, 17%) * .9); aspect-ratio: 1; translate: -50% -50%; border-radius: 50%;
+    background: radial-gradient(circle, #e04a3c 0 30%, transparent 33%), radial-gradient(circle, rgba(8,5,5,.9) 0 62%, transparent 64%); box-shadow: 0 0 0 1.5px rgba(217,179,108,.8); }
   /* no script yet (first paint): the simple layout keeps KICK and SHURIKEN hidden */
   #touch.simple .ta-kick:not([style]), #touch.simple .ta-throw:not([style]) { display: none; }
   /* düğme adları metin içinde: kumandadaki renkleriyle */
@@ -280,7 +351,6 @@
   .th-grid dd { margin: 0; color: var(--muted); }
   .mode.needkb { opacity: .62; }
   .mode.needkb .need { display: inline-block; grid-column: 1; justify-self: start; margin-top: 4px; padding: 3px 8px; border: 1px dashed rgba(217,179,108,.5); font: 500 11px/1 var(--display); font-style: normal; letter-spacing: .12em; text-transform: uppercase; color: var(--gold); }
-  #app.touch #pauseBtn { width: 44px; height: 36px; font-size: 14px; color: var(--text); background: rgba(0,0,0,.5); }
   #app.touch .tp-show { padding: 9px 12px; font-size: 12px; }
   /* #app kaydırma/yakınlaştırmayı kapatır; kaydırılabilir katmanlar yalnız kendi yönünde kayar */
   .overlay, .tpanel, .menu-wrap > aside.card { touch-action: pan-y; overscroll-behavior: contain; }
@@ -295,7 +365,7 @@
   #app.touch .seg { min-height: 40px; padding-block: 8px; }
   #app.touch .tog { min-height: 40px; }
   #app.touch .mini { min-height: 36px; padding: 8px 12px; }
-  #app.touch #pauseBtn { width: 52px; height: 40px; font-size: 15px; }
+  #app.touch #pauseBtn { width: var(--pp, 34px); height: var(--pp, 34px); translate: var(--ppx, calc(100vw - 48px)) var(--ppy, 68px); opacity: calc(.86 * var(--o, 1)); }
   #app.touch input { font-size: 16px; }
   #app.touch #trLessons li { min-height: 34px; }
   #app.touch #trMoves { grid-template-columns: minmax(0, 1fr); gap: 2px; }
@@ -327,17 +397,32 @@
   /* large handle: a finger anywhere near a small control still grabs it */
   .te-it::after { content: ""; position: absolute; inset: -10px; border-radius: 50%; }
   .te-face { position: absolute; inset: 0; box-sizing: border-box; display: grid; place-content: center; justify-items: center; gap: 2px; border-radius: inherit; opacity: var(--fo);
-    background: radial-gradient(circle at 50% 35%, rgba(34,38,58,.72), rgba(10,12,22,.66)); border: 1.5px solid rgba(217,179,108,.55); box-shadow: 0 3px 10px rgba(0,0,0,.35);
-    font: 600 calc(var(--tb) * (.1 + var(--r) * .1))/1 var(--display); letter-spacing: .05em; color: rgba(235,230,218,.95); text-shadow: 0 1px 3px rgba(0,0,0,.8); pointer-events: none; }
-  .te-light .te-face { border-color: rgba(241,214,156,.8); }
-  .te-guard .te-face, .te-dd .te-face { border-color: rgba(150,210,255,.7); }
-  .te-special .te-face { color: #d9c8ff; border-color: rgba(185,156,255,.7); }
+    background: var(--rim-gold) center / 100% 100% no-repeat, var(--ink-fill);
+    font: 600 calc(var(--tb) * (.1 + var(--r) * .1))/1 var(--display); letter-spacing: .05em; color: rgba(240,234,220,.95); text-shadow: 0 1px 3px rgba(0,0,0,.9); pointer-events: none; }
+  /* same looks as the real pad (see "Pad look" above) */
+  .te-light .te-face { background: var(--rim-hi) center / 100% 100% no-repeat, radial-gradient(circle at 50% 36%, rgba(72,54,28,.5), rgba(12,10,8,.46) 70%); color: #fbecc8; }
+  .te-guard .te-face { background: var(--rim-blue) center / 100% 100% no-repeat, radial-gradient(circle at 50% 36%, rgba(26,40,60,.52), rgba(7,10,18,.46) 70%); color: #dcefff; }
+  .te-special .te-face { color: #d9c8ff; background: var(--rim-ki) center / 100% 100% no-repeat, var(--ink-fill); }
   .te-throw .shu { width: calc(var(--tb) * var(--r) * .33); height: calc(var(--tb) * var(--r) * .33); background: #c9d0dc; clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); }
-  .te-throw small, .te-dd small { font: 600 calc(var(--tb) * var(--r) * .15)/1 var(--display); color: var(--muted); }
-  .te-dir, .te-dir .te-face { border-radius: 28%; }
-  .te-dir .te-face { font-size: calc(var(--tb) * var(--r) * .3); }
-  .te-stick .te-face { background: radial-gradient(circle, rgba(10,12,22,.2) 0 52%, rgba(10,12,22,.5) 72%); border-color: rgba(217,179,108,.5); }
-  .te-knob { width: calc(var(--tb) * var(--r) * .413); height: calc(var(--tb) * var(--r) * .413); border-radius: 50%; background: radial-gradient(circle at 40% 34%, rgba(241,214,156,.5), rgba(110,86,44,.42) 70%); border: 1.5px solid rgba(241,214,156,.65); }
+  .te-throw small { font: 600 calc(var(--tb) * var(--r) * .15)/1 var(--display); color: var(--muted); }
+  .te-dd small { font: 600 calc(var(--tb) * var(--r) * .13)/1 var(--display); color: #cfe8ff; }
+  .te-dir .te-face { color: rgba(241,214,156,.95); }
+  .te-dd .te-face { color: #cfe8ff; }
+  .te .chev, .te-stick .te-face i::before { display: block; background: currentColor; -webkit-mask: var(--chev) center / contain no-repeat; mask: var(--chev) center / contain no-repeat; }
+  .te .chev { width: calc(var(--tb) * var(--r) * .44); height: calc(var(--tb) * var(--r) * .44); filter: drop-shadow(0 1px 2px rgba(0,0,0,.8)); }
+  .te-dl .chev { rotate: 180deg; } .te-du .chev { rotate: -90deg; } .te-dd .chev { rotate: 90deg; width: calc(var(--tb) * var(--r) * .36); height: calc(var(--tb) * var(--r) * .36); }
+  .te[data-dlook="b"]:not(.d-one) .te-dir, .te[data-dlook="b"]:not(.d-one) .te-dir .te-face { border-radius: 26%; }
+  .te[data-dlook="b"]:not(.d-one) .te-dir .te-face { background: linear-gradient(160deg, rgba(58,21,18,.78), rgba(11,7,8,.74)); box-shadow: inset 0 0 0 1.5px rgba(217,179,108,.75); }
+  .te.d-one .te-dir .te-face { background: none; }
+  .te-stick .te-face { background: var(--enso) center / 100% 100% no-repeat, radial-gradient(circle closest-side, rgba(8,9,16,.12) 0 40%, rgba(8,9,16,.46) 86%, transparent 91%); }
+  .te-stick .te-face i { position: absolute; color: var(--gold-hi); opacity: .6; }
+  .te-stick .te-face i::before { content: ''; width: calc(var(--tb) * var(--r) * .105); height: calc(var(--tb) * var(--r) * .105); }
+  .te-stick .te-face .u { top: 9%; left: 50%; translate: -50% 0; rotate: -90deg; } .te-stick .te-face .d { bottom: 9%; left: 50%; translate: -50% 0; rotate: 90deg; color: #cfe8ff; }
+  .te-stick .te-face .l { left: 9%; top: 50%; translate: 0 -50%; rotate: 180deg; } .te-stick .te-face .r { right: 9%; top: 50%; translate: 0 -50%; }
+  .te-knob { width: calc(var(--tb) * var(--r) * .42); height: calc(var(--tb) * var(--r) * .42); border-radius: 50%; background: radial-gradient(circle at 36% 28%, rgba(255,236,196,.36), transparent 42%), radial-gradient(circle, #2b2119 0, #140f0b 60%, #09070a 100%);
+    box-shadow: inset 0 0 0 1.5px rgba(241,214,156,.85), inset 0 0 0 4.5px rgba(12,9,7,.9), inset 0 0 0 5.5px rgba(217,179,108,.4); }
+  .te-pause .te-face { color: var(--gold-hi); }
+  .te-pause .pz { position: absolute; inset: 22%; background: currentColor; -webkit-mask: var(--pz) center / contain no-repeat; mask: var(--pz) center / contain no-repeat; }
   .te-it.sel { outline-color: var(--gold-hi, #f1d69c); z-index: 2; }
   .te-it.bad { outline-color: #ff6b6b; }
   .te-it.off .te-face { opacity: .28; border-style: dashed; }
@@ -800,8 +885,8 @@
     .clock span { font-size: 24px; }
     .clock small { font-size: 8px; margin-top: 2px; letter-spacing: .18em; }
     .clock .arena { display: none; }
-    #pauseBtn { top: 44px; }
     #rally { top: 72px; }
+    #app[data-ppos="top"] #rally { top: 84px; }
     #rally b { font-size: 22px; } #rally span { font-size: 30px; }
     #lockHint { font-size: 12px; padding: 6px 12px; }
     #banner { top: 26%; }
@@ -1587,13 +1672,16 @@
        fingers (multi-touch). -->
   <div id="touch" class="simple" hidden>
     <div class="t-zone" id="tStick" aria-hidden="true">
-      <div class="t-base" id="tBase"><i class="u">▲</i><i class="d" data-s="touch.btn.down">GARD</i><i class="l">◀</i><i class="r">▶</i><b class="t-knob" id="tKnob"></b></div>
+      <div class="t-base" id="tBase"><i class="u"></i><i class="d" data-s="touch.btn.down">GARD</i><i class="l"></i><i class="r"></i><b class="t-knob" id="tKnob"></b></div>
     </div>
+    <!-- direction marks are brush chevrons drawn in CSS; #tDring is the d-pad's one-piece ring / cross behind the four
+         buttons (touch.js places it and hides it when the buttons are moved apart) -->
     <div class="t-dpad" id="tDpad" aria-hidden="true">
-      <button type="button" tabindex="-1" data-dir="left" class="td-l">◀</button>
-      <button type="button" tabindex="-1" data-dir="right" class="td-r">▶</button>
-      <button type="button" tabindex="-1" data-dir="up" class="td-u">▲</button>
-      <button type="button" tabindex="-1" data-dir="guard" class="td-d">▼<small data-s="touch.btn.down">GARD</small></button>
+      <div class="t-dring" id="tDring" hidden></div>
+      <button type="button" tabindex="-1" data-dir="left" class="td-l"></button>
+      <button type="button" tabindex="-1" data-dir="right" class="td-r"></button>
+      <button type="button" tabindex="-1" data-dir="up" class="td-u"></button>
+      <button type="button" tabindex="-1" data-dir="guard" class="td-d"><small data-s="touch.btn.down">GARD</small></button>
     </div>
     <div class="t-acts" id="tActs" aria-hidden="true">
       <!-- basit düzen 5 düğme, tam düzen 7 düğme; yerleri touch.js verir (#touch.simple / .full) -->
@@ -1606,7 +1694,9 @@
       <button type="button" tabindex="-1" data-act="special" id="tKi" class="ta-ki"><span data-s="touch.btn.special">KI</span></button>
     </div>
   </div>
-  <button id="pauseBtn" hidden aria-label="Duraklat">II</button>
+  <button id="pauseBtn" hidden aria-label="Duraklat"></button>
+  <!-- Frame-rate readout (Settings → Graphics → Show FPS, off by default; game.js fpsMeter). Not read aloud. -->
+  <div id="fpsMeter" hidden aria-hidden="true" data-i18n-skip></div>
   <div id="lockHint" hidden></div>
   <div id="coach" hidden aria-live="polite"></div>
   <div id="rally" hidden><b>連</b><span id="rallyN">2</span><small>KARŞILIKLI SERİ</small></div>
@@ -1864,6 +1954,7 @@
             <div class="gq" role="group" id="setGfx" data-gq><span class="gq-t" data-gq-t></span><span class="gq-segs"><button type="button" class="seg" data-gfx="auto" aria-pressed="false"></button><button type="button" class="seg" data-gfx="high" aria-pressed="false"></button><button type="button" class="seg" data-gfx="medium" aria-pressed="false"></button><button type="button" class="seg" data-gfx="low" aria-pressed="false"></button></span><small class="gq-n"><b data-gq-now hidden></b> <span data-gq-d></span></small></div>
             <div class="gq" role="group" id="setFps" data-fq><span class="gq-t" data-fq-t></span><span class="gq-segs"><button type="button" class="seg" data-fps="60" aria-pressed="false">60</button><button type="button" class="seg" data-fps="90" aria-pressed="false">90</button><button type="button" class="seg" data-fps="120" aria-pressed="false">120</button><button type="button" class="seg" data-fps="max" aria-pressed="false"></button></span><small class="gq-n"><span data-fq-d></span></small></div>
             <div class="set-togs">
+              <button class="tog" id="tFps" aria-pressed="false"><i></i><span data-s="fps.show">FPS göster</span></button>
               <button class="tog" id="tBlood" aria-pressed="true"><i></i>Kan efekti</button>
             </div>
           </section>
@@ -1999,6 +2090,8 @@
 <script  src="js/post-gpu.js?v=phone-perf-3"></script>
 <script  src="js/gl2d.js?v=gl-1"></script>
 <script  src="js/gl-render.js?v=gl-1"></script>
-<script  src="js/game.js?v=phone-perf-3"></script>
+<script  src="js/game.js?v=phone-perf-4"></script>
+<!-- voices: stub, inactive unless ?voice=log (docs/SES-PLANI.md) -->
+<script  src="js/voice.js"></script>
 </body>
 </html>

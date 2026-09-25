@@ -757,6 +757,7 @@
         noRoom: 'No room there: the button went back.',
         saved: 'Controls saved',
         throwName: 'SHURIKEN',
+        pauseName: 'Pause',
         dirs: { dl: '◀ Left', dr: 'Right ▶', du: '▲ Jump', dd: '▼ Guard' },
       },
     });
@@ -992,6 +993,7 @@
     merge(EN.STR, {
       fps: {
         title: 'Frame rate',
+        show: 'Show FPS',
         levels: { max: 'Max' },
         note: {
           60: 'Steady and cool. Best for most phones.',

@@ -772,6 +772,7 @@
         noRoom: 'Não há espaço ali: o botão voltou.',
         saved: 'Controles salvos',
         throwName: 'SHURIKEN',
+        pauseName: 'Pausa',
         dirs: { dl: '◀ Esquerda', dr: 'Direita ▶', du: '▲ Pular', dd: '▼ Defesa' },
       },
     });
@@ -1007,6 +1008,7 @@
     merge(EN.STR, {
       fps: {
         title: 'Taxa de quadros',
+        show: 'Mostrar FPS',
         levels: { max: 'Máx' },
         note: {
           60: 'Estável e sem aquecer. O melhor para a maioria dos celulares.',

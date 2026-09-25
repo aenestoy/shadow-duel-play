@@ -13,6 +13,10 @@
 //   lay     custom layouts made in the editor, one per screen shape ('phone' wide landscape, 'tablet', 'portrait'):
 //           { v: 1, it: { id: { x, y, s, o, h } } }  x / y = centre as a fraction of the play area, s = diameter in
 //           --tb units, o = own opacity, h = hidden. No saved layout for a shape → the default for that shape.
+//           The pause button (id 'pause') is part of the layout too; layouts saved before it existed simply use its
+//           default spot. It can't be hidden and it doesn't flip with the hands (the top right stays the top right).
+// Looks to compare on a phone (URL flags, not saved): ?dpad=b (lacquer cross, default) | a (ink ring) and
+// ?pausepos=corner (top right under the health bars, default) | top (under the timer).
 // Saved with the other settings (ND.save, key "touch"). Texts: ND.STR.touch.opt and ND.STR.tedit
 // (Turkish in i18n.js, English in i18n-en.js).
 (function (ND) {
@@ -24,9 +28,15 @@
   // ---------------------------------------------------------------- controls
   const ACTS = ['light', 'heavy', 'dodge', 'guard', 'kick', 'throw', 'special'];
   const DPAD = ['dl', 'dr', 'du', 'dd'];
-  const IDS = ACTS.concat(['stick'], DPAD);
+  const IDS = ACTS.concat(['stick'], DPAD, ['pause']);
   // reference diameter (--tb units) of each control: its size slider reads 100 % ("M") there
-  const BASE = { light: 1.3, heavy: 1, dodge: 0.85, guard: 1, kick: 1, throw: 0.85, special: 0.95, stick: 2.3, dl: 0.95, dr: 0.95, du: 0.95, dd: 0.95 };
+  const BASE = { light: 1.3, heavy: 1, dodge: 0.85, guard: 1, kick: 1, throw: 0.85, special: 0.95, stick: 2.3, dl: 0.95, dr: 0.95, du: 0.95, dd: 0.95, pause: 0.56 };
+  // controls that are always on screen (no Hide switch)
+  const KEEP = { stick: 1, pause: 1 };
+  // looks under comparison (URL flags): d-pad 'a' ink ring | 'b' lacquer cross; pause 'corner' | 'top'
+  const flag = (k, ok, def) => { try { const v = ND.qs && ND.qs.get(k); return ok.includes(v) ? v : def; } catch (e) { return def; } };
+  const DLOOK = flag('dpad', ['a', 'b'], 'b');
+  const PPOS = flag('pausepos', ['corner', 'top'], 'corner');
   const RMIN = 0.7, RMAX = 1.5, OMIN = 0.2;
 
   // Default and preset positions, right-handed, in --tb units: [side, x, y, diameter]. side 'R': x from the right
@@ -72,7 +82,7 @@
         x: clamp(q.x, 0, 1), y: clamp(q.y, 0, 1),
         s: num(q.s) ? clamp(q.s, BASE[id] * RMIN, BASE[id] * RMAX) : BASE[id],
         o: num(q.o) ? clamp(q.o, OMIN, 1) : 1,
-        h: q.h === true && id !== 'stick',
+        h: q.h === true && !KEEP[id],
       };
       n++;
     }
@@ -131,9 +141,10 @@
   function presetPx(name, layout, left, S, tb) {
     const P = PRESETS[name === 'left' ? 'right' : name] || PRESETS.right;
     const src = Object.assign({}, MOVE_L, P[layout] || P.simple);
-    const out = {};
+    const out = { pause: pauseDefault(S, tb) };
     for (const id of IDS) {
       const q = src[id];
+      if (!q) continue;
       // mirrored (left hand): the same distances from the other edge, each edge with its own notch margin
       const side = (left || name === 'left') === (q[0] === 'R') ? 'L' : 'R';
       const cx = side === 'R' ? S.W - S.sr - 6 - q[1] * tb : S.sl + 6 + q[1] * tb;
@@ -141,6 +152,19 @@
       out[id] = { cx, cy, d: q[3] * tb, o: 1, h: layout === 'simple' && (id === 'kick' || id === 'throw') };
     }
     return out;
+  }
+  // Pause button's default spot. Its top edge follows where the HUD ends, estimated from the same CSS rules as
+  // index.html (#hud, .clock; compact rules at max-height 500px), so it doesn't depend on the HUD being on screen.
+  //   corner: top right, just under the second player's health / ki bars (thumbs never go there, nothing covered)
+  //   top:    centre, just under the timer (the combo counter moves down to make room, index.html)
+  function pauseDefault(S, tb) {
+    const d = BASE.pause * tb, short = S.vh <= 500, W = S.W;
+    if (PPOS === 'top') {
+      const clockB = short ? 40 : 44 + clamp(W * 0.036, 26, 40);
+      return { cx: W / 2, cy: clockB + 4 + d / 2, d, o: 1, h: false };
+    }
+    const hudB = short ? 60 : 58 + clamp(W * 0.019, 14, 20) + clamp(W * 0.018, 12, 18);
+    return { cx: W - S.sr - 14 - d / 2, cy: hudB + 8 + d / 2, d, o: 1, h: false };
   }
   const box = (q, S) => {
     const r = q.d / 2, m = 3;
@@ -153,7 +177,7 @@
     return q;
   }
   // which controls are on screen together: the buttons plus the stick or the d-pad
-  const liveIds = (move) => ACTS.concat(move === 'dpad' ? DPAD : ['stick']);
+  const liveIds = (move) => ACTS.concat(move === 'dpad' ? DPAD : ['stick'], ['pause']);
   const hits = (a, b, pad = 2) => Math.hypot(a.cx - b.cx, a.cy - b.cy) < (a.d + b.d) / 2 + pad;
   // Nearest spot for q where it overlaps none of `others` and stays on screen (spiral search); null if there is none
   function freeSpot(q, others, S, tb) {
@@ -201,7 +225,7 @@
   // pixels → a layout to save (fractions of the play area)
   function toLayout(items, S, tb, mirrored) {
     const it = {}, r4 = (v) => Math.round(v * 1e4) / 1e4;
-    for (const id of IDS) { const q = items[id]; if (q) it[id] = { x: r4(q.cx / S.W), y: r4(q.cy / S.H), s: r4(q.d / tb), o: r4(q.o), h: !!q.h && id !== 'stick' }; }
+    for (const id of IDS) { const q = items[id]; if (q) it[id] = { x: r4(q.cx / S.W), y: r4(q.cy / S.H), s: r4(q.d / tb), o: r4(q.o), h: !!q.h && !KEEP[id] }; }
     return { v: 1, m: !!mirrored, it };
   }
 
@@ -215,8 +239,9 @@
     el.style.setProperty('--r', (q.d / tb).toFixed(3));
   }
   // Where the stick listens: 'fixed' → a square around the base; 'float' → the base's side of the screen, from a
-  // little above it down to the bottom (buttons placed inside it sit on top and win their touches)
-  function stickZone(move, st, S) {
+  // little above it down to the bottom (buttons placed inside it sit on top and win their touches). The zone starts
+  // below the pause button when they share a column, so a thumb landing high never pauses the fight by accident.
+  function stickZone(move, st, S, pz) {
     let x, y, w, h;
     if (move === 'fixed') {
       const e = st.d * 0.8;
@@ -226,7 +251,35 @@
       x = st.cx < S.W / 2 ? 0 : S.W - w;
       y = clamp(Math.min(S.H * 0.24, st.cy - st.d * 0.75), 0, S.H * 0.5); h = S.H - y;
     }
+    if (pz && !pz.h) {
+      const r = pz.d / 2, pb = pz.cy + r + 6;
+      if (pz.cx + r > x && pz.cx - r < x + w && pz.cy - r < y + h && pb > y && pb < st.cy - st.d * 0.5) { h -= pb - y; y = pb; }
+    }
     return { x, y, w, h };
+  }
+  // The d-pad drawn as one piece (ink ring 'a' / lacquer cross 'b') behind its buttons, while they still sit around a
+  // common centre (the default, or moved together in the editor). Buttons dragged apart stand alone: null.
+  function dpadRing(items, tb) {
+    const q = {};
+    let n = 0;
+    for (const id of DPAD) if (items[id] && !items[id].h) { q[id] = items[id]; n++; }
+    if (n < 3) return null;
+    const vis = Object.values(q), avg = (k) => vis.reduce((a, v) => a + v[k], 0) / n;
+    const cx = q.dl && q.dr ? (q.dl.cx + q.dr.cx) / 2 : avg('cx');
+    const cy = q.du && q.dd ? (q.du.cy + q.dd.cy) / 2 : avg('cy');
+    let rMin = Infinity, rMax = 0, ext = 0;
+    for (const id in q) {
+      const b = q[id], dx = b.cx - cx, dy = b.cy - cy, r = Math.hypot(dx, dy);
+      // each button on its own side of the centre, close to its axis
+      const along = id === 'dl' ? -dx : id === 'dr' ? dx : id === 'du' ? -dy : dy;
+      const across = id === 'dl' || id === 'dr' ? Math.abs(dy) : Math.abs(dx);
+      if (along < b.d * 0.3 || across > along * 0.45) return null;
+      rMin = Math.min(rMin, r); rMax = Math.max(rMax, r); ext = Math.max(ext, r + b.d / 2);
+    }
+    const aw = avg('d');
+    // a regular cross only: arms of similar length, buttons not far from the centre
+    if (rMax > rMin * 1.5 || rMax - aw / 2 > tb * 1.1) return null;
+    return { cx, cy, d: ext * 2 + 4, aw, o: avg('o') };
   }
   function layoutPad() {
     const pad = $('touch'), app = $('app');
@@ -234,8 +287,30 @@
     const G = geo = resolve();
     const { S, tb, items } = G;
     app.style.setProperty('--tb', tb + 'px');
+    app.dataset.ppos = PPOS;
     pad.style.setProperty('--op', prefs.op);
     pad.dataset.move = prefs.move;
+    pad.dataset.dlook = DLOOK;
+    // pause: its own spot on touch screens (movable in the editor), the default spot with keyboard / gamepad
+    const pb = $('pauseBtn');
+    if (pb) {
+      const pz = items.pause, pd = pauseDefault(S, tb), px = (v) => v.toFixed(1) + 'px';
+      pb.style.setProperty('--pd', px(pd.d)); pb.style.setProperty('--pdx', px(pd.cx - pd.d / 2)); pb.style.setProperty('--pdy', px(pd.cy - pd.d / 2));
+      pb.style.setProperty('--pp', px(pz.d)); pb.style.setProperty('--ppx', px(pz.cx - pz.d / 2)); pb.style.setProperty('--ppy', px(pz.cy - pz.d / 2));
+      pb.style.setProperty('--o', pz.o);
+    }
+    // the d-pad's one-piece backing (placed like the buttons; hidden when they stand apart)
+    const ring = $('tDring'), R = prefs.move === 'dpad' ? dpadRing(items, tb) : null;
+    if (ring) {
+      ring.hidden = !R;
+      if (R) {
+        ring.style.width = ring.style.height = R.d.toFixed(1) + 'px';
+        ring.style.translate = `${(R.cx - R.d / 2).toFixed(1)}px ${(R.cy - R.d / 2).toFixed(1)}px`;
+        ring.style.setProperty('--aw', ((R.aw / R.d) * 50).toFixed(2) + '%');
+        ring.style.setProperty('--o', R.o.toFixed(2));
+      }
+    }
+    pad.classList.toggle('d-one', !!R);
     for (const b of pad.querySelectorAll('[data-act]')) {
       const q = items[b.dataset.act === 'special' ? 'special' : b.dataset.act];
       if (!q) continue;
@@ -254,7 +329,7 @@
     // 'fixed' → a zone around the base, which never moves
     const zone = $('tStick'), base = $('tBase'), st = items.stick;
     if (zone && base) {
-      const { x, y, w, h } = stickZone(prefs.move, st, S);
+      const { x, y, w, h } = stickZone(prefs.move, st, S, items.pause);
       zone.style.left = x.toFixed(1) + 'px'; zone.style.top = y.toFixed(1) + 'px';
       zone.style.width = w.toFixed(1) + 'px'; zone.style.height = h.toFixed(1) + 'px';
       zone._nd = { fixed: prefs.move === 'fixed', rx: st.cx - x, ry: st.cy - y, d: st.d };
@@ -292,7 +367,7 @@
   function setLeft(v) {
     v = !!v;
     prefs.left = v;
-    eachLayout((L) => { if (!!L.m === v) return; L.m = v; for (const id in L.it) L.it[id].x = Math.round((1 - L.it[id].x) * 1e4) / 1e4; });
+    eachLayout((L) => { if (!!L.m === v) return; L.m = v; for (const id in L.it) if (id !== 'pause') L.it[id].x = Math.round((1 - L.it[id].x) * 1e4) / 1e4; });
   }
   // the hand shown in the settings: the current screen's saved layout, else the preference
   function isLeft() { const L = prefs.lay[measure().shape]; return L ? !!L.m : !!prefs.left; }
@@ -391,7 +466,7 @@
   ND.touchUI = {
     prefs, apply, refresh, rebuild: buildAll, toggleFullscreen, fsAllowed, save,
     // for the layout editor (touch-editor.js)
-    IDS, ACTS, DPAD, BASE, RMIN, RMAX, OMIN, measure, tbPx, resolve, presetPx, keepIn, freeSpot, hits, liveIds, toLayout, setLeft, stickZone,
+    IDS, ACTS, DPAD, BASE, KEEP, RMIN, RMAX, OMIN, DLOOK, PPOS, measure, tbPx, resolve, presetPx, keepIn, freeSpot, hits, liveIds, toLayout, setLeft, stickZone, dpadRing,
     geo: () => geo,
   };
   apply();

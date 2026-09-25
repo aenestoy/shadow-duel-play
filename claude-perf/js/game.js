@@ -114,6 +114,8 @@
   ND.settings.blood = !!(ND.bloodAllowed && ND.bloodAllowed()) && saved.bloodOptIn === true;
   ND.settings.music = saved.music !== false;
   ND.settings.hints = saved.hints !== false;
+  // Show FPS (Settings → Graphics): the small frame-rate readout, off unless the player turned it on (fpsMeter below)
+  ND.settings.showFps = saved.showFps === true;
   // Graphics quality (js/gfx.js): saved choice `gfx`; older saves only had the "High graphics" switch — a switch the
   // player set by hand (hqUser) becomes High / Low, everything else starts on Auto (device guess + auto ladder).
   const TCH = ND.touch || {}, MOBILE = !!TCH.mobile;
@@ -1594,7 +1596,7 @@
     // graphics: the player's choice (Auto's own steps are not saved); hq / hqUser keep older builds reading it right
     const gfx = GFX.pref, hq = gfx !== 'low', hqUser = gfx !== 'auto';
     // merged into what is stored, so settings kept by other files (touch controls: key "touch", js/touch.js) survive
-    store.set(Object.assign(store.get(), { sound: ND.settings.sound, bloodOptIn: ND.settings.blood, music: ND.settings.music, hints: ND.settings.hints, gfx, hq, hqUser, fps: game.fpsPref || undefined, level: game.level, c1: id(game.sel.c[0]), c2: id(game.sel.c[1]), arena: game.sel.arena }));
+    store.set(Object.assign(store.get(), { sound: ND.settings.sound, bloodOptIn: ND.settings.blood, music: ND.settings.music, hints: ND.settings.hints, showFps: ND.settings.showFps || undefined, gfx, hq, hqUser, fps: game.fpsPref || undefined, level: game.level, c1: id(game.sel.c[0]), c2: id(game.sel.c[1]), arena: game.sel.arena }));
   }
   function unlockAudio() { au.init(); au.setEnabled(ND.settings.sound); mu.init(); mu.setEnabled(ND.settings.music); if (mu.mode === 'off') mu.setMode(game.phase === 'fight' ? 'fight' : 'menu'); }
   function choose(mode) { unlockAudio(); au.ui(); if (mode === 'watch') { au.quiet = false; game.start('watch'); } else game.openSelect(mode); }
@@ -1668,7 +1670,7 @@
       document.querySelectorAll('.seg[data-lv]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
     };
   });
-  const toggles = { tSound: 'sound', tBlood: 'blood', tMusic: 'music', tHints: 'hints' };
+  const toggles = { tSound: 'sound', tBlood: 'blood', tMusic: 'music', tHints: 'hints', tFps: 'showFps' };
   // Graphics choice: the [data-gq] rows in the menu's options and the pause dialog (index.html), four .seg buttons
   // data-gfx="auto|high|medium|low". A press applies and saves (ND.gfx.setQuality → the GFX.onChange listener below
   // persists). Texts from ND.STR.gfx: title, levels, and one line under the row — on Auto it says which tier is drawn
@@ -1831,6 +1833,7 @@
       ND.settings[key] = !ND.settings[key]; show();
       unlockAudio(); persist();
       if (key === 'blood' && !ND.settings.blood) fx.decals.length = 0;
+      if (key === 'showFps') fpsMeter.set(ND.settings.showFps);
       // volume.js follows the switches (muted look of the sliders)
       if ((key === 'sound' || key === 'music') && ND.volumeUI) ND.volumeUI.refresh();
     }));
@@ -2078,6 +2081,46 @@
     skipDraw = behind && performance.now() - w0 > 12;
   }
   game.isBehind = isBehind;
+  // Show FPS readout (#fpsMeter, Settings → Graphics, saved as `showFps`). Costs nothing while off. While on, every
+  // frame the game loop runs (callbacks the pacer skips never get here, so a 60 cap on a 120 Hz screen reads 60)
+  // stores its real interval (requestAnimationFrame timestamps) in a ring; twice a second the last ~1 s of intervals
+  // gives the rate (frames / time) and the 95th percentile interval ("p95": 1 frame in 20 took this long or longer, the
+  // stutter number). One text node, written only when the text changes. Gaps over 1 s (hidden tab) and loading frames
+  // are left out, so a return from another tab does not read as one slow frame.
+  // Behind the menus the canvas itself is drawn at most ~30 times a second (drawFrame), the loop still runs at the
+  // full rate, and that loop rate is what is shown. ?perf=1 keeps its own, larger profiler (js/perf.js).
+  const fpsMeter = (() => {
+    const N = 256, ring = new Float64Array(N), tmp = new Float64Array(N), SHOW_MS = 500, WIN_MS = 1000;
+    let on = false, k = 0, n = 0, el = null, node = null, text = '', since = 0;
+    function show() {
+      let sum = 0, m = 0;
+      for (let i = 0; i < n && sum < WIN_MS; i++) { const g = ring[(k - 1 - i + N) % N]; sum += g; tmp[m++] = g; }
+      if (!m || sum <= 0) return;
+      const s = tmp.subarray(0, m).sort();
+      const fps = Math.round((m * 1000) / sum), p95 = s[Math.min(m - 1, Math.ceil(m * 0.95) - 1)];
+      const t = `${fps} FPS · p95 ${p95 < 10 ? p95.toFixed(1) : Math.round(p95)} ms`;
+      if (t !== text) { text = t; node.nodeValue = t; }
+    }
+    return {
+      set(v) {
+        on = !!v;
+        el = el || $('fpsMeter');
+        if (!el) { on = false; return; }
+        if (!node) { node = document.createTextNode(''); el.appendChild(node); }
+        k = 0; n = 0; since = 0; text = ''; node.nodeValue = '-- FPS';
+        el.hidden = !on;
+      },
+      frame(gap) {
+        if (!on) return;
+        if (gap > 0 && gap <= 1000) { ring[k] = gap; k = (k + 1) % N; if (n < N) n++; since += gap; }
+        if (since >= SHOW_MS) { since = 0; show(); }
+      },
+      get on() { return on; },
+      get text() { return text; },
+    };
+  })();
+  game.fpsMeter = fpsMeter; // console tests
+  fpsMeter.set(ND.settings.showFps);
   let last = performance.now();
   // Frame pacing (js/gfx.js makePacer): the Frame rate setting (fpsChoice: phones 60 by default, where 90–120 Hz
   // screens would otherwise ask for frames the GPU cannot finish on a steady beat; computers Max = one frame per
@@ -2091,6 +2134,7 @@
     if (game.pace.on && pacer && !game.preparing && !pacer.due(now)) return; // skipped: its time goes to the next frame
     if (game.preparing) pacer?.reset();
     const gap = now - last; last = now;
+    if (!game.preparing) fpsMeter.frame(gap);
     frameBody(gap);
   }
   // One display frame (gap = ms since the previous one). Exposed as game._frame for console tests (hidden tab: no rAF).
