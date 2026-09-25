@@ -70,7 +70,20 @@
   // (the Canvas hooks of js/gl2d.js — gradient geometry, "canvas changed" counters — go in with the renderer, before
   // anything is drawn, so gradients cached by the scene work on both paths)
   let glWhy = GL_WANT ? '' : 'renderer=canvas';
-  if (GL_WANT && ND.createGlRenderer) {
+  // Load time: the menus are Canvas 2D, so by default the WebGL2 context, its shaders and the self-check are made right
+  // after the first frame (the portal's loading phase ends without waiting for them) and at the latest when a match is
+  // prepared (prepareMatch → startGl). The Canvas hooks go in now, before anything is drawn, where WebGL2 exists at all.
+  // ?renderer=gl (tests, check pages) still does everything here at once.
+  let glLater = GL_WANT && !!ND.createGlRenderer && !GL_FORCE;
+  if (glLater && typeof WebGL2RenderingContext !== 'undefined' && ND.glInstallHooks) ND.glInstallHooks();
+  if (GL_WANT && ND.createGlRenderer && !glLater) initGl();
+  function startGl() {
+    if (!glLater) return;
+    glLater = false;
+    initGl();
+    if (ND.game) ND.game.rendererMode = glr ? 'gl' : 'canvas';
+  }
+  function initGl() {
     const m = QS.get('msaa');
     try { glr = ND.createGlRenderer({ grain, samples: m == null ? 4 : +m, glowTaps: GLOW_TAPS, auto: !GL_FORCE }); } catch (e) { glr = null; glWhy = String(e && e.message || e); }
     if (!glr) glWhy = glWhy || 'no WebGL2';
@@ -389,6 +402,7 @@
       if (this.preparing) { this.preparing.cancel(); this.preparing = null; }
     },
     prepareMatch() {
+      startGl(); // the fight renderer is ready before the first fight frame (normally it already is: see startGl)
       if (!ND.prepare) return;
       $('hud').hidden = true; $('pauseBtn').hidden = true;
       // Keep all match state and the round timer still while expensive first-use drawing is prepared.
@@ -2154,7 +2168,7 @@
     portalTick(rdt, inAd);
     game.syncTouch();
     drawFrame(performance.now());
-    if (!loaded) { loaded = true; ND.portal?.loadingFinished(); }
+    if (!loaded) { loaded = true; ND.portal?.loadingFinished(); if (glLater) setTimeout(startGl, 0); }
     aqWatch(gap, performance.now() - w0);
   }
   game._frame = frameBody;

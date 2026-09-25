@@ -150,7 +150,6 @@
         nickAskOnline: 'Spitzname für die Online-Bestenliste:',
         savedLocal: (r) => (r ? `#${r} in der lokalen Bestenliste` : 'In der lokalen Bestenliste gespeichert'),
         rejected: 'Deine Punkte konnten nicht gespeichert werden – nur lokale Bestenliste',
-        savedLocalAccount: (r) => (r ? `#${r} auf diesem Gerät · Online-Bestenliste für Konten kommt bald` : 'Auf diesem Gerät gespeichert · Online-Bestenliste für Konten kommt bald'),
         quota: 'Die Online-Bestenliste ist voll – Punkte nur lokal gespeichert',
         open: 'Bestenliste',
         keys: '<kbd>←</kbd> <kbd>→</kbd> Liste · <kbd>↑</kbd> <kbd>↓</kbd> Ninja · <kbd>⌫</kbd> zurück',
@@ -1073,6 +1072,31 @@
         menu: (done, active) => "" + done + " Reisen abgeschlossen · " + active + " laufen",
         clearReward: "Meistersiegel erhalten · Charakterende freigeschaltet"
       }
+    });
+
+    // ================================================================ PROGRESS / ACCOUNT (Settings → Progress, Hall of Champions;
+    // js/settings.js, js/banzuke.js; Turkish source in i18n.js, block "account and recovery code")
+    merge(EN.STR, {
+      set: { tabs: { save: 'Fortschritt' } },
+      acct: {
+        title: 'Fortschritt sichern',
+        cgOn: (n) => `CrazyGames-Konto: ${n}. Deine Titel, Championfarben, dein Dan und deine Punkte werden in deinem Konto gespeichert.`,
+        cgWait: (n) => `CrazyGames-Konto: ${n}. Verbindung zu deinem Konto…`,
+        cgFail: (n) => `CrazyGames-Konto: ${n}. Dein Konto ist gerade nicht erreichbar; neue Punkte bleiben vorerst auf diesem Gerät.`,
+        cgSave: 'Fortschritt im CrazyGames-Konto speichern',
+        cgSaveNote: 'Nach der Anmeldung wandern deine Titel, Championfarben und Punkte in dein Konto – auf jedem Gerät.',
+        rcTitle: 'Wiederherstellungscode',
+        rcNote: 'Schreib dir diesen Code auf. Gib ihn auf einem neuen Gerät hier ein, um Titel, Championfarben, Dan und Punkte zurückzubekommen.',
+        rcShow: 'Code anzeigen', rcNew: 'Neuer Code', rcNewDone: 'Neuer Code bereit; der alte funktioniert nicht mehr.',
+        rcNeedName: 'Speichere zuerst eine Punktzahl unter einem Spitznamen, um einen Wiederherstellungscode zu bekommen.',
+        rcEnter: 'Wiederherstellungscode eingeben', rcGo: 'Wiederherstellen',
+        rcDone: (n, c) => `Willkommen zurück, ${n}! Dein Fortschritt ist wieder da. Dein neuer Wiederherstellungscode: ${c}`,
+        err: { bad_code: 'Dieser Code ist unbekannt. Prüfe die Zeichen.', rate: 'Zu viele Versuche. Versuch es später noch einmal.', offline: 'Server nicht erreichbar. Prüfe deine Verbindung.', banned: 'Diese Identität kann nicht verwendet werden.', error: 'Etwas ist schiefgelaufen. Versuch es noch einmal.' },
+        local: 'Online-Speichern ist hier nicht verfügbar; dein Fortschritt bleibt auf diesem Gerät.',
+        offline: 'Du bist gerade offline; dein Fortschritt bleibt auf diesem Gerät.',
+        loading: 'Wird geladen…',
+      },
+      lb: { savedLocalAccount: (r) => (r ? `#${r} auf diesem Gerät · dein Konto ist gerade nicht erreichbar` : 'Auf diesem Gerät gespeichert · dein Konto ist gerade nicht erreichbar') },
     });
 
     void dec; void fmtTime; void num;

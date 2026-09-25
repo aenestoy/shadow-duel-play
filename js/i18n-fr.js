@@ -147,7 +147,6 @@
         nickAskOnline: 'Pseudo pour le classement en ligne\u00A0:',
         savedLocal: (r) => (r ? `#${r} au classement local` : 'Enregistré au classement local'),
         rejected: 'Ton score n’a pas pu être enregistré — classement local uniquement',
-        savedLocalAccount: (r) => (r ? `#${r} sur cet appareil · le classement en ligne des comptes arrive bientôt` : 'Enregistré sur cet appareil · le classement en ligne des comptes arrive bientôt'),
         quota: 'Classement en ligne plein — score gardé en local',
         open: 'Classement',
         keys: '<kbd>←</kbd> <kbd>→</kbd> tableau · <kbd>↑</kbd> <kbd>↓</kbd> ninja · <kbd>⌫</kbd> retour',
@@ -1070,6 +1069,31 @@
         menu: (done, active) => "" + done + " parcours terminés · " + active + " en cours",
         clearReward: "Sceau de maître obtenu · Fin du personnage débloquée"
       }
+    });
+
+    // ================================================================ PROGRESS / ACCOUNT (Settings → Progress, Hall of Champions;
+    // js/settings.js, js/banzuke.js; Turkish source in i18n.js, block "account and recovery code")
+    merge(EN.STR, {
+      set: { tabs: { save: 'Progression' } },
+      acct: {
+        title: 'Garde ta progression',
+        cgOn: (n) => `Compte CrazyGames : ${n}. Tes titres, couleurs de champion, ton Dan et tes scores sont enregistrés sur ton compte.`,
+        cgWait: (n) => `Compte CrazyGames : ${n}. Connexion à ton compte…`,
+        cgFail: (n) => `Compte CrazyGames : ${n}. Ton compte est injoignable pour le moment ; les nouveaux scores restent sur cet appareil pour l’instant.`,
+        cgSave: 'Enregistre ta progression sur ton compte CrazyGames',
+        cgSaveNote: 'Une fois connecté, tes titres, couleurs de champion et scores passent sur ton compte, sur tous tes appareils.',
+        rcTitle: 'Code de récupération',
+        rcNote: 'Note ce code. Saisis-le ici sur un nouvel appareil pour retrouver tes titres, couleurs de champion, ton Dan et tes scores.',
+        rcShow: 'Afficher le code', rcNew: 'Nouveau code', rcNewDone: 'Nouveau code prêt ; l’ancien ne fonctionne plus.',
+        rcNeedName: 'Enregistre d’abord un score avec un pseudo pour obtenir un code de récupération.',
+        rcEnter: 'Saisir un code de récupération', rcGo: 'Restaurer',
+        rcDone: (n, c) => `Bon retour, ${n} ! Ta progression est restaurée. Ton nouveau code de récupération : ${c}`,
+        err: { bad_code: 'Code inconnu. Vérifie les caractères.', rate: 'Trop d’essais. Réessaie plus tard.', offline: 'Serveur injoignable. Vérifie ta connexion.', banned: 'Cette identité ne peut pas être utilisée.', error: 'Un problème est survenu. Réessaie.' },
+        local: 'La sauvegarde en ligne n’est pas disponible ici ; ta progression reste sur cet appareil.',
+        offline: 'Tu es hors ligne ; ta progression reste sur cet appareil.',
+        loading: 'Chargement…',
+      },
+      lb: { savedLocalAccount: (r) => (r ? `#${r} sur cet appareil · ton compte est injoignable pour le moment` : 'Enregistré sur cet appareil · ton compte est injoignable pour le moment') },
     });
 
     void dec; void fmtTime; void num;

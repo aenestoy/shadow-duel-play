@@ -223,7 +223,7 @@
       savedLocal: (r) => (r ? `Yerel tabloda #${r}` : 'Yerel tabloya kaydedildi'),
       rejected: 'Skorun kaydedilemedi — yalnızca yerel tabloda',
       // CrazyGames hesabıyla girmiş oyuncu: skor bu cihazda (çevrimiçi hesap sıralaması henüz yok)
-      savedLocalAccount: (r) => (r ? `Bu cihazda #${r} · hesaplar için çevrimiçi sıralama yakında` : 'Bu cihaza kaydedildi · hesaplar için çevrimiçi sıralama yakında'),
+      savedLocalAccount: (r) => (r ? `Bu cihazda #${r} · hesabına şu an ulaşılamıyor` : 'Bu cihaza kaydedildi · hesabına şu an ulaşılamıyor'),
       quota: 'Çevrimiçi tablo dolu — skor yalnızca yerel tabloda',
       open: 'Sıralama',
       keys: '<kbd>←</kbd> <kbd>→</kbd> tablo · <kbd>↑</kbd> <kbd>↓</kbd> ninja · <kbd>⌫</kbd> geri',
@@ -597,7 +597,7 @@
   function normalize(p) {
     const d = { v: 1, chars: START_CHARS.slice(), arenas: START_ARENAS.slice(), wins: 0, clears: 0, bossWins: 0, best: 0, bestBy: {}, bestTime: 0, tutorial: false, lessons: [],
       scoreV: SCORE_V, cpuBest: {}, lb: { name: '', boards: {}, last: {}, out: [], champ: [], champSeen: [], champUse: {}, title: null }, bz: { t: {}, dan: { r: 0, best: 0, strikes: 0, tries: 0, passes: 0 } },
-      hon: { t: 0, f: {} }, journey: { runs: {}, cleared: {}, stars: {}, mastered: {}, looks: {} }, coached: false };
+      hon: { t: 0, f: {} }, journey: { runs: {}, cleared: {}, stars: {}, mastered: {}, looks: {} }, trials: {}, coached: false };
     if (!p || typeof p !== 'object') return d;
     const o = Object.assign(d, p);
     // Saves from before the coach moved to the journey: anyone past the first screen has already had it.
@@ -609,6 +609,10 @@
     if (p.scoreV !== SCORE_V) { o.best = 0; o.bestBy = {}; o.bestTime = 0; o.scoreV = SCORE_V; } // eski kayıt: yeni ölçekle karşılaştırılamaz
     if (!o.cpuBest || typeof o.cpuBest !== 'object') o.cpuBest = {};
     o.journey = normalizeJourneys(p.journey, p.bestBy);
+    // combo trials cleared per ninja (combo-trial.js): { ninja: ['chain', …] }
+    const tr = p.trials && typeof p.trials === 'object' && !Array.isArray(p.trials) ? p.trials : {};
+    o.trials = {};
+    for (const id of Object.keys(tr)) if (ND.CHARS.some((c) => c.id === id) && Array.isArray(tr[id])) o.trials[id] = [...new Set(tr[id].filter((t) => typeof t === 'string' && /^[a-z0-9_]{1,16}$/.test(t)))].slice(0, 20);
     // yerel sıralama tablosu (leaderboard.js 'local' bağdaştırıcısı): { name, boards: { pano: [ {n,s,c,t,d,v} ] }, last }
     if (!o.lb || typeof o.lb !== 'object') o.lb = { name: '', boards: {}, last: {} };
     if (typeof o.lb.name !== 'string') o.lb.name = '';

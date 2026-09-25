@@ -135,7 +135,6 @@
         nickAskOnline: 'Nickname for the online leaderboard:',
         savedLocal: (r) => (r ? `#${r} on the local leaderboard` : 'Saved to the local leaderboard'),
         rejected: 'Your score couldn’t be saved — local leaderboard only',
-        savedLocalAccount: (r) => (r ? `#${r} on this device · online ranking for accounts coming soon` : 'Saved on this device · online ranking for accounts coming soon'),
         quota: 'Online leaderboard is full — score saved locally only',
         open: 'Leaderboard',
         keys: '<kbd>←</kbd> <kbd>→</kbd> board · <kbd>↑</kbd> <kbd>↓</kbd> ninja · <kbd>⌫</kbd> back',
@@ -1059,6 +1058,31 @@
         menu: (done, active) => "" + done + " journeys completed · " + active + " in progress",
         clearReward: "Master seal earned · Character ending unlocked"
       }
+    });
+
+    // ================================================================ PROGRESS / ACCOUNT (Settings → Progress, Hall of Champions;
+    // js/settings.js, js/banzuke.js; Turkish source in i18n.js, block "account and recovery code")
+    merge(EN.STR, {
+      set: { tabs: { save: 'Progress' } },
+      acct: {
+        title: 'Keep your progress',
+        cgOn: (n) => `CrazyGames account: ${n}. Your titles, Champion colors, Dan and scores are saved to your account.`,
+        cgWait: (n) => `CrazyGames account: ${n}. Connecting to your account…`,
+        cgFail: (n) => `CrazyGames account: ${n}. Your account can’t be reached right now; new scores stay on this device for now.`,
+        cgSave: 'Save your progress to your CrazyGames account',
+        cgSaveNote: 'Sign in and your titles, Champion colors and scores move to your account, on every device.',
+        rcTitle: 'Recovery code',
+        rcNote: 'Write this code down. Enter it here on a new device to get your titles, Champion colors, Dan and scores back.',
+        rcShow: 'Show code', rcNew: 'New code', rcNewDone: 'New code ready; the old one no longer works.',
+        rcNeedName: 'Save a score under a nickname first to get a recovery code.',
+        rcEnter: 'Enter a recovery code', rcGo: 'Restore',
+        rcDone: (n, c) => `Welcome back, ${n}! Your progress is restored. Your new recovery code: ${c}`,
+        err: { bad_code: 'We don’t recognise this code. Check the characters.', rate: 'Too many tries. Try again later.', offline: 'Can’t reach the server. Check your connection.', banned: 'This identity can’t be used.', error: 'Something went wrong. Try again.' },
+        local: 'Online saving isn’t available here; your progress is kept on this device.',
+        offline: 'You’re offline right now; your progress is kept on this device.',
+        loading: 'Loading…',
+      },
+      lb: { savedLocalAccount: (r) => (r ? `#${r} on this device · your account can’t be reached right now` : 'Saved on this device · your account can’t be reached right now') },
     });
 
     void dec; void fmtTime; void num;

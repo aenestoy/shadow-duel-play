@@ -83,6 +83,8 @@ window.ND = window.ND || {};
   const api = () => window.NDPortal || null;
   const adFns = new Set(), muteFns = new Set();
   const want = { loaded: false, play: false };
+  let firstPlay = false;
+  const mark = (n) => { try { performance.mark(n); } catch (e) { /* no User Timing */ } };
   const P = ND.portal = {
     name: ND.portalName,
     ready: PD.p,
@@ -90,9 +92,10 @@ window.ND = window.ND || {};
     muted: false,
     get sdk() { const a = api(); return !!(a && a.sdk); },
     // Game became playable (menu shown, first frame drawn)
-    loadingFinished() { want.loaded = true; const a = api(); if (a) a.loadingFinished(); },
+    // (performance marks nd-loading-finished / nd-first-gameplay: load-time checks read them, they cost nothing)
+    loadingFinished() { if (!want.loaded) mark('nd-loading-finished'); want.loaded = true; const a = api(); if (a) a.loadingFinished(); },
     // Player is actually fighting (not menus, not paused, not end screens). Idempotent.
-    gameplayStart() { want.play = true; const a = api(); if (a) a.gameplayStart(); },
+    gameplayStart() { if (!firstPlay) { firstPlay = true; mark('nd-first-gameplay'); } want.play = true; const a = api(); if (a) a.gameplayStart(); },
     gameplayStop() { want.play = false; const a = api(); if (a) a.gameplayStop(); },
     happyTime() { const a = api(); if (a) a.happyTime(); },
     // Forced ad at a natural break; resolves when the game may continue (also without a bridge)

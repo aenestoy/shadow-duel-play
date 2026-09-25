@@ -7,7 +7,7 @@
 // missing direction, or a whiff. A clear is celebrated and the next combo comes up.
 // Open: the "Combo trial" button in the training panel, or C. The dummy stands still while it is open.
 // Moves are checked by their logical names (light1, str1, fHeavy…), so every fighter's kit works the same.
-// Texts: ND.STR.trial (Turkish source in i18n.js, English in i18n-en.js). Cleared trials: localStorage nd.trials.
+// Texts: ND.STR.trial (Turkish source in i18n.js, English in i18n-en.js). Cleared trials: ND.save.p.trials (see load).
 (function (ND) {
   'use strict';
   const $ = (id) => document.getElementById(id);
@@ -44,8 +44,31 @@
       const simple = this.touch() && (!ND.touchPrefs || ND.touchPrefs.layout !== 'full');
       this.list = TRIALS.filter((t) => !(t.kick && simple));
     },
-    load() { try { this.done = JSON.parse(localStorage.getItem(LS) || '{}') || {}; } catch (e) { this.done = {}; } },
-    save() { try { localStorage.setItem(LS, JSON.stringify(this.done)); } catch (e) { /* storage blocked */ } },
+    // Cleared trials live in the progress save (ND.save.p.trials), so they follow a CrazyGames / Yandex account through
+    // the portal's data module like journeys and honor do. Older builds kept them in localStorage nd.trials: merged
+    // in once (nothing cleared is lost), then that key is removed.
+    load() {
+      const S = ND.save, p = S && S.p;
+      let old = null;
+      try { old = JSON.parse(localStorage.getItem(LS) || 'null'); } catch (e) { old = null; }
+      if (!p) { this.done = old && typeof old === 'object' ? old : {}; return; }
+      if (!p.trials || typeof p.trials !== 'object') p.trials = {};
+      if (old && typeof old === 'object') {
+        for (const id of Object.keys(old)) {
+          if (!Array.isArray(old[id]) || !ND.CHARS.some((c) => c.id === id)) continue;
+          const c = p.trials[id] || (p.trials[id] = []);
+          for (const t of old[id]) if (typeof t === 'string' && /^[a-z0-9_]{1,16}$/.test(t) && !c.includes(t)) c.push(t);
+        }
+        S.commit();
+        try { localStorage.removeItem(LS); } catch (e) { /* storage blocked */ }
+      }
+      this.done = p.trials;
+    },
+    save() {
+      const S = ND.save;
+      if (S && S.p) { S.p.trials = this.done; S.commit(); return; }
+      try { localStorage.setItem(LS, JSON.stringify(this.done)); } catch (e) { /* storage blocked */ }
+    },
     cleared(id) { const c = this.done[this.f().ch.id]; return !!(c && c.includes(id)); },
 
     // ---------------------------------------------------------------- input chips

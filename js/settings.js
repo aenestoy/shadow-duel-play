@@ -7,6 +7,9 @@
 //   Graphics  quality Auto / High / Medium / Low (game.js [data-gq]), frame rate (game.js [data-fq]), Show FPS (#tFps,
 //             game.js fpsMeter) + blood effect where the portal allows it (#tBlood)
 //   Language  the seven languages (ND.i18n.setLang(lang, { save: true }), same as the globe's list in lang-ui.js)
+//   Progress  keeping titles / Champion colors / Dan / scores: the CrazyGames account state, "Save your progress to your
+//             CrazyGames account" (ND.cgAccount.prompt, js/portal-user.js) for CrazyGames guests, and the guest recovery
+//             code (show / new code / enter a code on a new device: ND.leaderboard.recoveryCode / recover) (#setSave)
 // Every control is the same one the rest of the game uses, so a change applies at once and is saved in ND.save
 // settings by its owner file. Opened by any [data-set-open] button: first screen and main menu (top bar, the menu's
 // options line on low landscape phones) and the pause dialog — during a fight Settings is reached only from pause,
@@ -19,7 +22,7 @@
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const I = () => ND.i18n;
-  const TABS = ['audio', 'controls', 'gfx', 'lang'];
+  const TABS = ['audio', 'controls', 'gfx', 'lang', 'save'];
   let ov = null, back = null, tab = 'audio', fromPause = false;
 
   const ui = () => { try { if (ND.audio && ND.audio.ready) ND.audio.ui(); } catch (e) { /* no audio */ } };
@@ -45,6 +48,83 @@
     if (p) { p.textContent = ''; if (pad) { const c = pad.cloneNode(true); c.className = ''; p.appendChild(c); } }
   }
 
+  // ---------------------------------------------------------------- Progress tab (account + recovery code)
+  // Redrawn on open, on a leaderboard change (account verified, server back…) and after each action. The recovery code
+  // is only fetched when asked for (Show code): opening Settings never creates one. A code being typed survives redraws.
+  const rc = { code: null, msg: '', ok: null, busy: false, pid: null };
+  function fillSave() {
+    const box = $('setSave'), LB = ND.leaderboard;
+    if (!box || !LB) return;
+    const A = (ND.STR && ND.STR.acct) || {}, E = A.err || {}, CG = ND.cgAccount || {};
+    const inp0 = box.querySelector('input'), typed = inp0 ? inp0.value : '', focused = !!inp0 && document.activeElement === inp0;
+    const pid = LB.adapter && LB.adapter.pid;
+    if (rc.pid !== pid) { rc.code = null; rc.pid = pid; } // another identity: its code is not this one
+    box.textContent = '';
+    const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+    const btn = (text, fn, cls) => {
+      const b = el('button', 'btn' + (cls ? ' ' + cls : ''), text); b.type = 'button'; b.disabled = rc.busy;
+      b.onclick = (e) => { e.stopPropagation(); ui(); fn(); };
+      return b;
+    };
+    const run = async (job) => { rc.busy = true; fillSave(); try { await job(); } finally { rc.busy = false; fillSave(); } };
+    const errText = (c) => E[c] || E.error || '';
+    box.appendChild(el('h3', null, A.title || ''));
+    if (LB.nameLocked) { // signed in to CrazyGames: the account keeps everything (once our server verified it)
+      const a = LB.account(), f = a.on ? A.cgOn : a.state === 'pending' ? A.cgWait : A.cgFail;
+      box.appendChild(el('p', 'acc-note', typeof f === 'function' ? f(a.name) : ''));
+      return;
+    }
+    if (CG.available) {
+      box.appendChild(btn(A.cgSave || '', () => { if (CG.prompt) CG.prompt().then(() => fillSave()); }, 'primary'));
+      box.appendChild(el('p', 'acc-note', A.cgSaveNote || ''));
+    }
+    if (!LB.canRecover()) { box.appendChild(el('p', 'acc-note', LB.status === 'offline' ? A.offline : A.local)); return; }
+    // the code of this device's identity
+    box.appendChild(el('h3', null, A.rcTitle || ''));
+    box.appendChild(el('p', 'acc-note', A.rcNote || ''));
+    const row = el('div', 'set-rc');
+    if (!LB.hasServerId()) row.appendChild(el('p', 'acc-note', A.rcNeedName || ''));
+    else if (!rc.code) row.appendChild(btn(A.rcShow || '', () => run(async () => {
+      const r = await LB.recoveryCode(false);
+      if (r.ok) { rc.code = r.code; rc.msg = ''; rc.ok = null; } else { rc.msg = errText(r.code); rc.ok = 0; }
+    })));
+    else {
+      row.appendChild(el('code', 'set-code', rc.code));
+      row.appendChild(btn(A.rcNew || '', () => run(async () => {
+        const r = await LB.recoveryCode(true);
+        if (r.ok) { rc.code = r.code; rc.msg = A.rcNewDone || ''; rc.ok = 1; } else { rc.msg = errText(r.code); rc.ok = 0; }
+      }), 'mini'));
+    }
+    box.appendChild(row);
+    // a code from another device
+    box.appendChild(el('h3', null, A.rcEnter || ''));
+    const form = el('form', 'set-rcform');
+    const inp = el('input');
+    inp.type = 'text'; inp.maxLength = 20; inp.placeholder = 'KAGE-XXXX-XXXX'; inp.autocomplete = 'off'; inp.spellcheck = false;
+    inp.setAttribute('autocapitalize', 'characters'); inp.setAttribute('aria-label', A.rcEnter || ''); inp.setAttribute('enterkeyhint', 'go');
+    inp.value = typed; inp.disabled = rc.busy;
+    // game keys (A/D/F…) must not reach the fight behind while typing
+    inp.addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Escape') inp.blur(); });
+    inp.addEventListener('keyup', (e) => e.stopPropagation());
+    const go = btn(A.rcGo || '', () => form.requestSubmit ? form.requestSubmit() : form.onsubmit(new Event('submit')));
+    go.type = 'submit'; go.onclick = (e) => e.stopPropagation();
+    form.onsubmit = (e) => {
+      e.preventDefault();
+      if (rc.busy) return;
+      ui();
+      const text = inp.value;
+      run(async () => {
+        const r = await LB.recover(text);
+        if (r.ok) { rc.code = r.code || null; rc.pid = LB.adapter && LB.adapter.pid; rc.msg = A.rcDone ? A.rcDone(r.name || LB.getName(), r.code || '') : ''; rc.ok = 1; inp.value = ''; }
+        else { rc.msg = errText(r.code); rc.ok = 0; }
+      });
+    };
+    form.append(inp, go);
+    box.appendChild(form);
+    if (rc.msg) { const m = el('p', 'set-rcmsg', rc.msg); m.dataset.ok = String(rc.ok); m.setAttribute('role', 'status'); box.appendChild(m); }
+    if (focused && !rc.busy) setTimeout(() => { const i = box.querySelector('input'); if (i) i.focus(); }, 0);
+  }
+
   // ---------------------------------------------------------------- tabs
   function select(name, focus) {
     if (!TABS.includes(name)) name = 'audio';
@@ -57,6 +137,7 @@
       if (on && focus) b.focus();
     });
     ov.querySelectorAll('[role="tabpanel"]').forEach((p) => { p.hidden = p.id !== 'setPane-' + name; });
+    if (name === 'save') fillSave();
     const panes = ov.querySelector('.set-panes');
     if (panes) panes.scrollTop = 0;
   }
@@ -71,7 +152,7 @@
     const pz = $('pause');
     fromPause = !!(pz && !pz.hidden);
     if (ov.hidden) back = document.activeElement;
-    fillLangs(); fillKeys();
+    fillLangs(); fillKeys(); rc.msg = '';
     try { if (ND.touchUI) ND.touchUI.refresh(); if (ND.volumeUI) ND.volumeUI.refresh(); } catch (e) { /* yok */ }
     ov.hidden = false;
     select(typeof name === 'string' ? name : tab, false);
@@ -132,7 +213,9 @@
     // a pause that ends (Resume by gamepad Start, Main menu) takes the panel opened from it along
     const pz = $('pause');
     if (pz && typeof MutationObserver !== 'undefined') new MutationObserver(() => { if (pz.hidden && fromPause && ov && !ov.hidden) close(false); }).observe(pz, { attributes: true, attributeFilter: ['hidden'] });
-    if (I() && I().onChange) I().onChange(() => { if (ov && !ov.hidden) { fillLangs(); fillKeys(); } });
+    if (I() && I().onChange) I().onChange(() => { if (ov && !ov.hidden) { fillLangs(); fillKeys(); if (tab === 'save') fillSave(); } });
+    // account verified / server back / identity restored: the Progress tab follows (not while a request is running)
+    if (ND.leaderboard && ND.leaderboard.onChange) ND.leaderboard.onChange(() => { if (ov && !ov.hidden && tab === 'save' && !rc.busy) fillSave(); });
     select(tab, false);
   }
 

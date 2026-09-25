@@ -550,7 +550,11 @@
     const key = String(cfg.key || '');
     const jwt = /^eyJ/.test(key);
     const ff = cfg.fetch || ((u, o) => window.fetch(u, o));
-    const A = { name: 'supabase', online: true, needsName: true, readonly: false, uid: null, pid: null, nick: '', srvDan: null, off: 0, week: 0, subs: new Map() };
+    const A = { name: 'supabase', online: true, needsName: true, readonly: false, uid: null, pid: null, nick: '', srvDan: null, off: 0, week: 0, subs: new Map(),
+      // CrazyGames account session (verified by the cg-session Edge Function): { secret, exp, pid } | null. Kept in memory
+      // only; the CrazyGames token is asked again when it runs out (A.renew).
+      acct: null, tokenFn: null, features: [] };
+    const fnBase = String(cfg.url || '').replace(/\/+$/, '') + '/functions/v1/';
     const mkErr = (c, status) => Object.assign(new Error(c), { code: c, status: status || 0 });
     A.rpc = async (fn, args, ms) => {
       let ctl = null; try { ctl = typeof AbortController === 'function' ? new AbortController() : null; } catch (e) { ctl = null; }
@@ -571,6 +575,26 @@
       }
       return body;
     };
+    // Edge Function call (cg-session): same headers as the RPCs; errors → code ('not_setup' when the function is not deployed)
+    A.fn = async (name, args, ms) => {
+      let ctl = null; try { ctl = typeof AbortController === 'function' ? new AbortController() : null; } catch (e) { ctl = null; }
+      const to = setTimeout(() => { try { if (ctl) ctl.abort(); } catch (e) { /* yok */ } }, ms || 12000);
+      const headers = { apikey: key, 'Content-Type': 'application/json', Accept: 'application/json' };
+      if (jwt) headers.Authorization = 'Bearer ' + key;
+      let res;
+      try {
+        res = await ff(fnBase + name, { method: 'POST', headers, body: JSON.stringify(args || {}), signal: ctl ? ctl.signal : undefined, cache: 'no-store', credentials: 'omit', mode: 'cors', referrerPolicy: 'no-referrer' });
+      } catch (e) { throw mkErr('network'); } finally { clearTimeout(to); }
+      let body = null;
+      try { body = await res.json(); } catch (e) { body = null; }
+      if (!res.ok || !body || body.ok !== true) {
+        const c = body && typeof body.error === 'string' && /^[a-z_]{1,24}$/.test(body.error) ? body.error : '';
+        throw mkErr(res.status === 404 ? 'not_setup' : res.status >= 500 && c !== 'not_setup' ? 'server' : c || 'bad_request', res.status);
+      }
+      return body;
+    };
+    // The key this device writes with: the account session while signed in (verified), else the guest device secret
+    A.key = () => (A.acct ? A.acct.secret : secret());
     const normMe = (m) => {
       if (!m || typeof m !== 'object' || int(m.place, 1, 1e8) == null) return null;
       return { place: int(m.place, 1, 1e8), score: int(m.score, 0, 1e8), total: int(m.total, 0, 1e8), tenth: int(m.tenth, 0, 1e8), gap: int(m.gap, 0, 1e8) };
@@ -624,14 +648,99 @@
     A.refreshMe = async () => {
       if (!A.pid) return;
       try {
-        const me = await A.rpc('nd_me', { p_secret: secret() }, 7000);
+        const me = await A.authed('nd_me', (k) => ({ p_secret: k }), 7000);
         if (me && int(me.player_id, 1, 9e15) === A.pid) A.applyMe(me);
       } catch (e) { /* ağ yok / eski kurulum: önbellekteki unvan kalır */ }
     };
 
+    // ---- CrazyGames account (js/portal-user.js → LB.linkAccount → here)
+    // signIn: token → Edge Function → session. The device's guest identity (if it has one) goes along once: the server
+    // attaches it to the account or merges it in (supabase/setup.sql 1b). Its device secret stops working then, so it
+    // is dropped here; the account is the identity from now on (titles, Champion colors, Dan, scores).
+    A.signIn = async (tokenFn) => {
+      let tok;
+      try { tok = await tokenFn(); } catch (e) { throw mkErr('no_token'); }
+      if (typeof tok !== 'string' || tok.length < 10 || tok.length > 4096) throw mkErr('no_token');
+      const L = localData();
+      const guest = !A.acct && typeof L.pid === 'number' && typeof L.sec === 'string' && /^[A-Za-z0-9_-]{32,64}$/.test(L.sec) ? L.sec : null;
+      const r = await A.fn('cg-session', { token: tok, guest });
+      const me = r.me, id = me && int(me.player_id, 1, 9e15);
+      if (typeof r.secret !== 'string' || !/^[A-Za-z0-9_-]{32,64}$/.test(r.secret) || id == null) throw mkErr('server');
+      A.tokenFn = tokenFn;
+      A.acct = { secret: r.secret, exp: typeof r.expires === 'number' && isFinite(r.expires) ? r.expires : Date.now() + 6 * 3600e3, pid: id };
+      const changed = A.pid !== id;
+      A.pid = id; A.uid = 'p' + id; A.nick = cleanName(me.nick) || ''; A.srvDan = cleanDan(me.dan);
+      if (r.guest === 'attached' || r.guest === 'merged') { delete L.sec; delete L.pid; delete L.sname; }
+      L.acct = id; localCommit();
+      if (changed) { A.subs.clear(); A.titlesP = null; }
+      A.applyMe(me);
+      return r.guest || 'none';
+    };
+    // one renewal at a time; a token the server refuses ends the account session (the game falls back to on-device)
+    let renewing = null;
+    A.renew = () => {
+      if (!A.tokenFn) return Promise.reject(mkErr('auth'));
+      if (!renewing) {
+        renewing = A.signIn(A.tokenFn).catch((er) => {
+          const c = er && er.code;
+          if (c !== 'network' && c !== 'server') { A.acct = null; LB._acctLost(c); }
+          throw er;
+        }).finally(() => { renewing = null; });
+      }
+      return renewing;
+    };
+    // RPC with this device's key; an account session near its end is renewed first, a refused one renewed once
+    A.authed = async (fn, mk, ms) => {
+      for (let k = 0; k < 2; k++) {
+        if (A.acct && A.acct.exp - Date.now() < 5 * 60000) await A.renew().catch(() => null);
+        try { return await A.rpc(fn, mk(A.key()), ms); } catch (er) {
+          if (A.acct && k === 0 && er && (er.code === 'auth' || er.code === 'unknown_player')) {
+            if (await A.renew().then(() => true, () => false)) continue;
+          }
+          throw er;
+        }
+      }
+      throw mkErr('auth');
+    };
+    // signed out of CrazyGames: back to this device's guest identity (usually a fresh one after a link)
+    A.signOut = () => {
+      if (!A.acct && !A.tokenFn) return;
+      A.acct = null; A.tokenFn = null;
+      const L = localData();
+      A.pid = null; A.uid = null; A.nick = ''; A.srvDan = null;
+      if (typeof L.pid === 'number' && L.pid > 0 && cleanName(L.sname)) { A.pid = L.pid; A.nick = cleanName(L.sname); A.uid = 'p' + A.pid; }
+      A.subs.clear(); A.titlesP = null;
+      if (A.pid) A.refreshMe();
+    };
+    // ---- recovery code (guests on a server that knows it: nd_ping features)
+    A.canRecover = () => A.features.includes('recovery');
+    A.recoveryCode = async (rotate) => {
+      const r = await A.rpc('nd_recovery_code', { p_secret: secret(), p_rotate: !!rotate }, 8000);
+      const code = r && typeof r.code === 'string' && /^KAGE-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$/.test(r.code) ? r.code : null;
+      if (!code) throw mkErr('server');
+      return code;
+    };
+    A.recover = async (code) => {
+      const r = await A.rpc('nd_recover', { p_code: code, p_secret: secret() }, 9000);
+      if (!r || r.ok !== true) return { ok: false, code: (r && typeof r.error === 'string' && r.error) || 'bad_code' };
+      const me = r.me, id = me && int(me.player_id, 1, 9e15);
+      if (id == null) throw mkErr('server');
+      const L = localData();
+      A.pid = id; A.uid = 'p' + id; A.nick = cleanName(me.nick) || A.nick; A.srvDan = cleanDan(me.dan);
+      L.pid = id; L.sname = A.nick; if (checkName(A.nick).ok) L.name = A.nick;
+      localCommit();
+      A.subs.clear(); A.titlesP = null;
+      A.applyMe(me);
+      return { ok: true, code: typeof r.code === 'string' ? r.code : null, name: A.nick };
+    };
+
     A.syncClock = (p) => { if (p && typeof p.now === 'number' && isFinite(p.now)) A.off = p.now - Date.now(); if (p && typeof p.week === 'number') A.week = p.week; };
     A.now = () => Date.now() + A.off;
-    A.ping = async () => { const p = await A.rpc('nd_ping', {}, 7000); if (!p || p.ok !== true) throw mkErr('not_setup'); A.syncClock(p); return p; };
+    A.ping = async () => {
+      const p = await A.rpc('nd_ping', {}, 7000); if (!p || p.ok !== true) throw mkErr('not_setup');
+      A.syncClock(p); A.features = Array.isArray(p.features) ? p.features.filter((x) => typeof x === 'string').slice(0, 20) : [];
+      return p;
+    };
     A.init = async () => {
       await A.ping();
       const L = localData();
@@ -642,16 +751,16 @@
           const me = await A.rpc('nd_me', { p_secret: secret() }, 7000);
           const id = me && int(me.player_id, 1, 9e15);
           if (id == null) A.forget();
-          else { A.pid = id; A.uid = 'p' + id; A.nick = cleanName(me.nick) || A.nick; A.srvDan = cleanDan(me.dan); L.pid = id; L.sname = A.nick; localCommit(); A.applyMe(me); }
+          else { A.pid = id; A.uid = 'p' + id; A.nick = cleanName(me.nick) || A.nick; A.srvDan = cleanDan(me.dan); L.pid = id; L.sname = A.nick; localCommit(); if (!LB.nameLocked) A.applyMe(me); }
         } catch (e) { /* nd_me yoksa (eski kurulum) ya da ağ hatası: önbellekteki kimlikle devam */ }
       }
     };
     A.hasName = () => !!A.pid;
-    A.forget = () => { const L = localData(); A.pid = null; A.uid = null; A.nick = ''; delete L.pid; delete L.sname; localCommit(); };
+    A.forget = () => { const L = localData(); A.pid = null; A.uid = null; A.nick = ''; delete L.pid; delete L.sname; if (!L.acct) { L.title = null; L.champ = []; } localCommit(); };
     A.register = async (name) => {
       // The legacy device-secret backend is not CrazyGames account authentication.
       if (ND.portalUserReady) await ND.portalUserReady;
-      if (LB.nameLocked) throw mkErr('readonly');
+      if (LB.nameLocked || A.acct) throw mkErr('readonly');
       const pu = LB.platformUser;
       const r = await A.rpc('nd_register', { p_secret: secret(), p_nick: name, p_country: null,
         p_platform: pu && typeof pu.provider === 'string' ? pu.provider : null, p_platform_uid: pu && pu.id != null ? String(pu.id).slice(0, 64) : null });
@@ -665,6 +774,7 @@
     const fail = (er, reg) => {
       const c = (er && er.code) || 'error';
       if (c === 'network' || c === 'server') return { ok: false, reason: 'offline', retry: true, code: c };
+      if (c === 'auth') return { ok: false, reason: 'readonly', code: c };
       if (c === 'rate_limited') return { ok: false, reason: 'rate', retry: true, code: c };
       if (c === 'daily_limit') return { ok: false, reason: 'daily', code: c };
       if (reg && /^nick_/.test(c)) return { ok: false, reason: 'needName', retry: true, code: c };
@@ -674,6 +784,7 @@
     // Kayıtlı değilse yerel takma adla kaydolmayı dener; ad yoksa/geçersizse 'needName'
     const ensure = async () => {
       if (ND.portalUserReady) await ND.portalUserReady;
+      if (A.acct) return null;
       if (LB.nameLocked) return { ok: false, reason: 'readonly' };
       if (A.pid) return null;
       const nm = checkName(localData().name);
@@ -685,15 +796,15 @@
       for (let k = 0; k < 2; k++) {
         const need = await ensure(); if (need) return need;
         try {
-          const r = await A.rpc('nd_submit', { p_secret: secret(), p_board: pb.base, p_week: pb.id, p_ninja: e.char, p_score: e.score,
-            p_time: Math.round(e.time || 0), p_summary: e.sum || {} });
+          const r = await A.authed('nd_submit', (k2) => ({ p_secret: k2, p_board: pb.base, p_week: pb.id, p_ninja: e.char, p_score: e.score,
+            p_time: Math.round(e.time || 0), p_summary: e.sum || {} }));
           const me = normMe(r);
           for (const [k2, s] of A.subs) if (k2.startsWith(b + '|')) { s.t = 0; if (me && k2 === b + '|') s.me = me; }
           // a tournament submit may have engraved last month: pick up a new title / Champion colors
           if (pb.base === 'weekly') A.refreshMe();
           return { ok: true, stored: 'online', improved: !!(r && r.improved), best: me ? me.score : e.score, rank: me ? me.place : null, total: me ? me.total : null, gap: me ? me.gap : null };
         } catch (er) {
-          if (er && er.code === 'unknown_player' && k === 0) { A.forget(); continue; } // sunucu sıfırlanmış: bir kez yeniden kaydol
+          if (er && er.code === 'unknown_player' && k === 0 && !A.acct) { A.forget(); continue; } // sunucu sıfırlanmış: bir kez yeniden kaydol
           return fail(er);
         }
       }
@@ -703,11 +814,11 @@
       for (let k = 0; k < 2; k++) {
         const need = await ensure(); if (need) return need;
         try {
-          const x = await A.rpc('nd_set_dan', { p_secret: secret(), p_dan: cleanDan(r), p_summary: sum || null });
+          const x = await A.authed('nd_set_dan', (k2) => ({ p_secret: k2, p_dan: cleanDan(r), p_summary: sum || null }));
           A.srvDan = cleanDan(x && x.dan);
           return { ok: true, dan: A.srvDan, best: cleanDan(x && x.dan_best), pending: !!(x && x.pending) };
         } catch (er) {
-          if (er && er.code === 'unknown_player' && k === 0) { A.forget(); continue; }
+          if (er && er.code === 'unknown_player' && k === 0 && !A.acct) { A.forget(); continue; }
           return fail(er);
         }
       }
@@ -783,6 +894,17 @@
     };
     return A;
   }
+
+  // ---------------------------------------------------------------- kurtarma kodu biçimi (setup.sql nd_rc_norm ile aynı)
+  // KAGE-XXXX-XXXX: 8 karakter, Crockford alfabesi (I, L, O, U yok). Girişte büyük/küçük harf, tire, boşluk serbest;
+  // O → 0, I / L → 1, U → V. Geçersizse null (sunucuya hiç gitmez).
+  function rcNorm(t) {
+    let v = String(t == null ? '' : t).toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (v.length === 12 && v.startsWith('KAGE')) v = v.slice(4);
+    v = v.replace(/O/g, '0').replace(/[IL]/g, '1').replace(/U/g, 'V');
+    return /^[0-9A-HJKMNP-TV-Z]{8}$/.test(v) ? v : null;
+  }
+  const rcShow = (c) => 'KAGE-' + c.slice(0, 4) + '-' + c.slice(4);
 
   // ---------------------------------------------------------------- cihaz kimliği (gizli, rastgele; ND.save içinde)
   function randId(n) {
@@ -998,6 +1120,95 @@
       return { name: this.getName(), pid: cur.pid || null, online: cur !== localAdapter, mode: this.mode, status: this.status, needsName: this.needsName(), platform: ND.platform.name };
     },
 
+    // ---- CrazyGames account (js/portal-user.js). tokenFn = () => SDK user.getUserToken(); null = not signed in.
+    // signedOut = the SDK said "nobody is signed in" (not just "no answer"): the cached title / Champion colors of the
+    // account that was here last are put away; they come back from the server at the next sign-in.
+    // While the account is being checked (or the check failed) the player's new scores stay on this device, as before.
+    _acctTok: null, _acctP: null, acctState: 'none', acctError: null, _acctTries: 0, _acctT: 0,
+    linkAccount(tokenFn, signedOut) {
+      clearTimeout(this._acctT);
+      this._acctTries = 0;
+      if (typeof tokenFn === 'function') { this._acctTok = tokenFn; this._acctRun(); return; }
+      const had = !!this._acctTok || this.acctState !== 'none';
+      this._acctTok = null; this._acctP = null; this.acctState = 'none'; this.acctError = null;
+      if (cur.signOut) cur.signOut();
+      if (signedOut || had) this._acctForget();
+      this.hallClear(); emit();
+    },
+    _acctForget() {
+      const L = localData();
+      if (!L.acct) return;
+      delete L.acct; L.title = null; L.champ = []; localCommit();
+    },
+    _acctRun() {
+      const fn = this._acctTok;
+      if (!fn) return null;
+      if (!(cur.signIn && this.status === 'online')) {
+        // server still connecting → wait (useSupabase calls again); offline / no server → say so, do not claim "connecting"
+        if (this._sbCfg && this.status === 'loading') this.acctState = 'pending';
+        else { this.acctState = this._sbCfg ? 'failed' : 'off'; this.acctError = 'offline'; }
+        emit(); return null;
+      }
+      const ad = cur;
+      this.acctState = 'pending'; this.acctError = null; emit();
+      const p = this._acctP = ad.signIn(fn).then(() => {
+        if (this._acctP !== p) return;
+        this.acctState = 'on'; this._acctTries = 0; this.uid = ad.uid;
+        this.hallClear(); emit(); this.flush();
+      }, (er) => {
+        if (this._acctP !== p) return;
+        const c = (er && er.code) || 'error';
+        this.acctState = 'failed'; this.acctError = c; emit();
+        // a passing network / server hiccup: try again a few times (the function not being there is not a hiccup)
+        if ((c === 'network' || c === 'server') && this._acctTries++ < 3) this._acctT = setTimeout(() => { if (this._acctTok === fn) this._acctRun(); }, 20000 * this._acctTries);
+      });
+      return p;
+    },
+    // the server refused a renewal (token no longer valid): account scores stay on this device until the next sign-in
+    _acctLost(code) { this.acctState = 'failed'; this.acctError = code || 'auth'; this.hallClear(); emit(); },
+    // signed in to CrazyGames but the account is not (yet) verified by our server
+    accountPending() { return this.nameLocked && !(cur && cur.acct); },
+    account() { return { state: this.acctState, error: this.acctError, name: this.nameLocked ? this.platformUser.name : '', on: !!(cur && cur.acct) }; },
+    // Guest recovery code (Settings): only on our server, only for a guest that has a server identity
+    canRecover() { return cur.name === 'supabase' && this.status === 'online' && !!cur.canRecover && cur.canRecover() && !this.nameLocked && !cur.acct; },
+    hasServerId() { return !!(cur.pid && !cur.acct); },
+    async recoveryCode(rotate) {
+      if (!this.canRecover()) return { ok: false, code: 'unavailable' };
+      if (!cur.pid) return { ok: false, code: 'needName' };
+      // not kept in the save: a code used on another device changes, the server is the only source
+      try { return { ok: true, code: await cur.recoveryCode(rotate) }; }
+      catch (er) { const c = (er && er.code) || 'error'; return { ok: false, code: c === 'network' || c === 'server' ? 'offline' : c === 'rate_limited' ? 'rate' : c }; }
+    },
+    async recover(text) {
+      if (!this.canRecover()) return { ok: false, code: 'unavailable' };
+      const c = rcNorm(text);
+      if (!c) return { ok: false, code: 'bad_code' };
+      let r;
+      try { r = await cur.recover(rcShow(c)); } catch (er) {
+        const k = (er && er.code) || 'error';
+        return { ok: false, code: k === 'network' || k === 'server' ? 'offline' : k === 'rate_limited' ? 'rate' : k === 'banned' ? 'banned' : 'error' };
+      }
+      if (r.ok) { this.hallClear(); emit(); this.flush(); }
+      return r;
+    },
+    rcNorm, rcShow,
+    // After a new title / Champion colors, a CrazyGames guest is offered the CrazyGames sign-in once (never mid-fight)
+    _askSave() {
+      const CG = ND.cgAccount;
+      if (!CG || !CG.available || CG.signedIn || !CG.prompt) return;
+      const L = localData(), key = cleanChamp(L.champ).join(',') + '|' + ((L.title && L.title.place) || 0);
+      if (L.askKey === key) return;
+      L.askKey = key; localCommit();
+      let tries = 0;
+      const PLAY = { intro: 1, fight: 1, ko: 1, timeup: 1, replay: 1 };
+      const go = () => {
+        const G = ND.game, busy = (G && G.mode !== 'attract' && PLAY[G.phase]) || (ND.portal && ND.portal.inAd);
+        if (busy) { if (++tries < 200) setTimeout(go, 3000); return; }
+        if (!CG.signedIn) CG.prompt();
+      };
+      setTimeout(go, 5600);
+    },
+
     // Skor gönder: her zaman yerel kopya + (varsa) çevrimiçi. o.skipLocal: yalnız çevrimiçi (yeniden gönderim)
     async submit(board, entry, o = {}) {
       const e = cleanEntry(board, entry);
@@ -1005,6 +1216,7 @@
       if (e.dan == null || !e.dan) e.dan = myDan();
       await this.whenSettled();
       if (ND.portalUserReady) await ND.portalUserReady;
+      if (this.nameLocked && this._acctP && this.acctState === 'pending') await Promise.race([this._acctP, new Promise((r) => setTimeout(r, 9000))]);
       const loc = o.skipLocal ? null : await localAdapter.submit(board, e);
       this.hallClear();
       if (cur === localAdapter) {
@@ -1057,7 +1269,7 @@
     // Dan rütbesi: yerel kayıt banzuke.js'te; burada yalnız çevrimiçi eşitleme
     async setDan(r, sum) {
       if (ND.portalUserReady) await ND.portalUserReady;
-      if (this.nameLocked) return { ok: false, stored: 'local', reason: 'readonly' };
+      if (this.accountPending()) return { ok: false, stored: 'local', reason: 'readonly' };
       const L = localData();
       if (!cur.setDan) { if (this.status === 'offline' && this._sbCfg) { L.danOut = { r: cleanDan(r), sum: cleanSum(sum), t: Date.now() }; localCommit(); } return { ok: false, stored: 'local' }; }
       L.danOut = { r: cleanDan(r), sum: cleanSum(sum), t: Date.now() }; localCommit();
@@ -1066,7 +1278,7 @@
     },
     async flushDan() {
       if (ND.portalUserReady) await ND.portalUserReady;
-      if (this.nameLocked) return { ok: false, reason: 'readonly', retry: true };
+      if (this.accountPending()) return { ok: false, reason: 'readonly', retry: true };
       const L = localData(), d = L.danOut;
       if (!d || !cur.setDan) return null;
       let res;
@@ -1090,6 +1302,7 @@
       return ent.p;
     },
     hallClear() { hallCache.clear(); },
+    _touch() { emit(); }, // listeners redraw (e.g. the CrazyGames account became known)
     // Menü için: bu haftaki yerim (önbellekten; yoksa arka planda çeker)
     standing() {
       const k = this.mode + '|week|' + this.week().key, c = hallCache.get(k);
@@ -1107,10 +1320,10 @@
 
     // --- unvanlar (aylık turnuvanın ilk 3'ü) ve Şampiyon renkleri. Yerel / Claude tablolarında unvan yok (null).
     titleOf(pid) { return pid != null && cur.titleOf ? cur.titleOf(pid) : null; },
-    // Kendi unvanım (sunucunun son cevabı; çevrimdışıyken önbellekten). CrazyGames hesabıyla oynarken yok: o hesap
-    // henüz çevrimiçi tabloya yazmıyor.
+    // Kendi unvanım (sunucunun son cevabı; çevrimdışıyken önbellekten). CrazyGames hesabı: sunucu hesabı doğrulayınca
+    // (ya da bu cihazdaki önbellek o hesaba aitken) görünür.
     myTitle() {
-      if (this.nameLocked || !this._sbCfg) return null;
+      if (!this._sbCfg || (this.accountPending() && !localData().acct)) return null;
       const t = localData().title;
       return t && typeof t === 'object' ? cleanTitle(t.place, t.wins, t.podiums) : null;
     },
@@ -1138,6 +1351,7 @@
       }
       localCommit();
       if (msgs.length && ND.toast) msgs.forEach((m, i) => setTimeout(() => { try { ND.toast(m, '覇', '#ffd35a'); } catch (e) { /* yok */ } }, 400 + i * 2600));
+      if (msgs.length) this._askSave();
       if (fresh.length && ND.game && ND.game.phase === 'select' && ND.game.refreshSelect) ND.game.refreshSelect();
     },
 
@@ -1169,11 +1383,13 @@
           if (tok !== connTok) return false;
           this.lastError = (e && e.code) || 'network';
           this._switch(localAdapter, 'local', 'offline');
+          if (this._acctTok) this._acctRun(); // the account waits for the server: say it cannot be reached now
           return false;
         }
         if (tok !== connTok) return false;
         this.lastError = null; this.hallClear();
         this._switch(ad, cfg.label || 'supabase', 'online');
+        if (this._acctTok) this._acctRun();
         this.flush();
         return true;
       })();
@@ -1231,10 +1447,10 @@
     statusKey() { return this.status === 'online' && this._viewOnly() ? 'readonly' : this.status; },
     // Monthly titles and Champion colors are given by the server (Supabase nd_titles) to scores it holds: only an
     // online Supabase connection whose scores are sent counts. Not on Poki / offline / local (no network), the
-    // claude.ai host, or for signed-in CrazyGames players (their scores stay on the device for now: _viewOnly).
+    // claude.ai host, or for a signed-in CrazyGames player whose account our server has not verified (_viewOnly).
     titlesEarnable() { return cur.name === 'supabase' && this.status === 'online' && !this._viewOnly(); },
-    // CrazyGames hesabı: sunucu kimlik doğrulaması gelene dek skor yalnız bu cihazda (tablo yalnızca görüntülenir)
-    _viewOnly() { return !!cur.readonly || (this.nameLocked && cur.name === 'supabase'); },
+    // CrazyGames hesabı: sunucu hesabı doğrulayana dek (cg-session) skor yalnız bu cihazda (tablo yalnızca görüntülenir)
+    _viewOnly() { return !!cur.readonly || (this.accountPending() && cur.name === 'supabase'); },
 
     init() {
       const rt = typeof window !== 'undefined' && window.claude;

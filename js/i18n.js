@@ -624,6 +624,31 @@
     edit: (b) => `${b}: her düğmeyi istediğin yere sürükle, boyutunu ve görünürlüğünü ayarla. Ayarlar → Kontroller’de.`,
   });
 
+  // ---------------------------------------------------------------- Turkish source additions: account and recovery code
+  // js/settings.js (Settings → Kayıt tab) and js/banzuke.js (Hall of Champions footer). CrazyGames account state,
+  // the "save to your CrazyGames account" button and the guest recovery code. Other languages: block "PROGRESS / ACCOUNT".
+  if (ND.STR) {
+    ND.STR.set = merge(ND.STR.set || {}, { tabs: { save: 'Kayıt' } });
+    ND.STR.acct = merge(ND.STR.acct || {}, {
+      title: 'İlerlemeni koru',
+      cgOn: (n) => `CrazyGames hesabı: ${n}. Unvanların, Şampiyon renklerin, Dan’ın ve skorların hesabına kaydediliyor.`,
+      cgWait: (n) => `CrazyGames hesabı: ${n}. Hesabına bağlanılıyor…`,
+      cgFail: (n) => `CrazyGames hesabı: ${n}. Hesabına şu an ulaşılamıyor; yeni skorların şimdilik bu cihazda.`,
+      cgSave: 'İlerlemeni CrazyGames hesabına kaydet',
+      cgSaveNote: 'Giriş yapınca unvanların, Şampiyon renklerin ve skorların hesabına geçer; her cihazda seninle olur.',
+      rcTitle: 'Kurtarma kodu',
+      rcNote: 'Bu kodu bir yere yaz. Yeni bir cihazda buraya girersen unvanların, Şampiyon renklerin, Dan’ın ve skorların geri gelir.',
+      rcShow: 'Kodu göster', rcNew: 'Yeni kod', rcNewDone: 'Yeni kod hazır; eski kod artık çalışmıyor.',
+      rcNeedName: 'Kurtarma kodu için önce bir takma adla skor kaydet.',
+      rcEnter: 'Kurtarma kodunu gir', rcGo: 'Geri yükle',
+      rcDone: (n, c) => `Tekrar hoş geldin, ${n}! İlerlemen geri geldi. Yeni kurtarma kodun: ${c}`,
+      err: { bad_code: 'Bu kod tanınmadı. Karakterleri kontrol et.', rate: 'Çok fazla deneme. Biraz sonra yeniden dene.', offline: 'Sunucuya ulaşılamadı. Bağlantını kontrol et.', banned: 'Bu kimlik kullanılamıyor.', error: 'Bir şeyler ters gitti. Yeniden dene.' },
+      local: 'Çevrimiçi kayıt burada yok; ilerlemen bu cihazda saklanıyor.',
+      offline: 'Şu an çevrimdışısın; ilerlemen bu cihazda saklanıyor.',
+      loading: 'Yükleniyor…',
+    });
+  }
+
   // Scripts sit at the end of <body>, so the DOM is there: start now unless a page wants to call init() itself
   if (!ND.I18N_MANUAL) I.init();
 })(window.ND);

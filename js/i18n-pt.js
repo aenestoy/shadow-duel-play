@@ -150,7 +150,6 @@
         nickAskOnline: 'Apelido para o ranking online:',
         savedLocal: (r) => (r ? `#${r} no ranking local` : 'Salvo no ranking local'),
         rejected: 'Não foi possível salvar sua pontuação — só no ranking local',
-        savedLocalAccount: (r) => (r ? `#${r} neste dispositivo · ranking online para contas em breve` : 'Salvo neste dispositivo · ranking online para contas em breve'),
         quota: 'O ranking online está cheio — pontuação salva só localmente',
         open: 'Ranking',
         keys: '<kbd>←</kbd> <kbd>→</kbd> ranking · <kbd>↑</kbd> <kbd>↓</kbd> ninja · <kbd>⌫</kbd> voltar',
@@ -1073,6 +1072,31 @@
         menu: (done, active) => "" + done + " jornadas concluídas · " + active + " em andamento",
         clearReward: "Selo de mestre conquistado · Final desbloqueado"
       }
+    });
+
+    // ================================================================ PROGRESS / ACCOUNT (Settings → Progress, Hall of Champions;
+    // js/settings.js, js/banzuke.js; Turkish source in i18n.js, block "account and recovery code")
+    merge(EN.STR, {
+      set: { tabs: { save: 'Progresso' } },
+      acct: {
+        title: 'Guarde seu progresso',
+        cgOn: (n) => `Conta CrazyGames: ${n}. Seus títulos, cores de campeão, Dan e pontuações ficam salvos na sua conta.`,
+        cgWait: (n) => `Conta CrazyGames: ${n}. Conectando à sua conta…`,
+        cgFail: (n) => `Conta CrazyGames: ${n}. Não foi possível acessar sua conta agora; novas pontuações ficam neste dispositivo por enquanto.`,
+        cgSave: 'Salve seu progresso na sua conta CrazyGames',
+        cgSaveNote: 'Ao entrar, seus títulos, cores de campeão e pontuações vão para a sua conta, em qualquer dispositivo.',
+        rcTitle: 'Código de recuperação',
+        rcNote: 'Anote este código. Digite-o aqui em um novo dispositivo para recuperar seus títulos, cores de campeão, Dan e pontuações.',
+        rcShow: 'Mostrar código', rcNew: 'Novo código', rcNewDone: 'Novo código pronto; o antigo não funciona mais.',
+        rcNeedName: 'Primeiro salve uma pontuação com um apelido para receber um código de recuperação.',
+        rcEnter: 'Digite um código de recuperação', rcGo: 'Recuperar',
+        rcDone: (n, c) => `Bem-vindo de volta, ${n}! Seu progresso voltou. Seu novo código de recuperação: ${c}`,
+        err: { bad_code: 'Código não reconhecido. Confira os caracteres.', rate: 'Tentativas demais. Tente mais tarde.', offline: 'Não foi possível acessar o servidor. Verifique sua conexão.', banned: 'Esta identidade não pode ser usada.', error: 'Algo deu errado. Tente de novo.' },
+        local: 'O salvamento online não está disponível aqui; seu progresso fica neste dispositivo.',
+        offline: 'Você está offline agora; seu progresso fica neste dispositivo.',
+        loading: 'Carregando…',
+      },
+      lb: { savedLocalAccount: (r) => (r ? `#${r} neste dispositivo · não foi possível acessar sua conta agora` : 'Salvo neste dispositivo · não foi possível acessar sua conta agora') },
     });
 
     void dec; void fmtTime; void num;

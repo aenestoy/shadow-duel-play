@@ -147,7 +147,6 @@
         nickAskOnline: 'Apodo para la clasificación online:',
         savedLocal: (r) => (r ? `#${r} en la clasificación local` : 'Guardado en la clasificación local'),
         rejected: 'No se pudo guardar tu puntuación: solo clasificación local',
-        savedLocalAccount: (r) => (r ? `#${r} en este dispositivo · pronto habrá clasificación online para cuentas` : 'Guardado en este dispositivo · pronto habrá clasificación online para cuentas'),
         quota: 'La clasificación online está llena: puntuación guardada solo en local',
         open: 'Clasificación',
         keys: '<kbd>←</kbd> <kbd>→</kbd> tabla · <kbd>↑</kbd> <kbd>↓</kbd> ninja · <kbd>⌫</kbd> volver',
@@ -1064,6 +1063,31 @@
         menu: (done, active) => "" + done + " viajes completados · " + active + " en curso",
         clearReward: "Sello de maestro obtenido · Final desbloqueado"
       }
+    });
+
+    // ================================================================ PROGRESS / ACCOUNT (Settings → Progress, Hall of Champions;
+    // js/settings.js, js/banzuke.js; Turkish source in i18n.js, block "account and recovery code")
+    merge(EN.STR, {
+      set: { tabs: { save: 'Progreso' } },
+      acct: {
+        title: 'Guarda tu progreso',
+        cgOn: (n) => `Cuenta de CrazyGames: ${n}. Tus títulos, colores de campeón, Dan y puntuaciones se guardan en tu cuenta.`,
+        cgWait: (n) => `Cuenta de CrazyGames: ${n}. Conectando con tu cuenta…`,
+        cgFail: (n) => `Cuenta de CrazyGames: ${n}. Ahora no se puede acceder a tu cuenta; las nuevas puntuaciones se quedan de momento en este dispositivo.`,
+        cgSave: 'Guarda tu progreso en tu cuenta de CrazyGames',
+        cgSaveNote: 'Al iniciar sesión, tus títulos, colores de campeón y puntuaciones pasan a tu cuenta, en cualquier dispositivo.',
+        rcTitle: 'Código de recuperación',
+        rcNote: 'Apunta este código. Introdúcelo aquí en un dispositivo nuevo para recuperar tus títulos, colores de campeón, Dan y puntuaciones.',
+        rcShow: 'Mostrar código', rcNew: 'Nuevo código', rcNewDone: 'Nuevo código listo; el anterior ya no funciona.',
+        rcNeedName: 'Primero guarda una puntuación con un apodo para obtener un código de recuperación.',
+        rcEnter: 'Introduce un código de recuperación', rcGo: 'Recuperar',
+        rcDone: (n, c) => `¡Bienvenido de nuevo, ${n}! Tu progreso ha vuelto. Tu nuevo código de recuperación: ${c}`,
+        err: { bad_code: 'No reconocemos este código. Revisa los caracteres.', rate: 'Demasiados intentos. Inténtalo más tarde.', offline: 'No se puede conectar con el servidor. Revisa tu conexión.', banned: 'Esta identidad no se puede usar.', error: 'Algo salió mal. Inténtalo de nuevo.' },
+        local: 'El guardado en línea no está disponible aquí; tu progreso se guarda en este dispositivo.',
+        offline: 'Ahora estás sin conexión; tu progreso se guarda en este dispositivo.',
+        loading: 'Cargando…',
+      },
+      lb: { savedLocalAccount: (r) => (r ? `#${r} en este dispositivo · ahora no se puede acceder a tu cuenta` : 'Guardado en este dispositivo · ahora no se puede acceder a tu cuenta') },
     });
 
     void dec; void fmtTime; void num;

@@ -642,6 +642,11 @@
       const pend = LB().pending();
       if (pend) f.appendChild(h('small', { class: 'hall-pend' }, S.hall.pending(pend)));
       f.appendChild(h('button', { type: 'button', class: 'mini', on: { click: () => this.openClassic() } }, S.hall.classic));
+      // CrazyGames guest: one small button to keep titles / Champion colors with the CrazyGames account (js/portal-user.js)
+      const CG = ND.cgAccount, AC = ND.STR && ND.STR.acct;
+      if (CG && CG.available && !CG.signedIn && AC && AC.cgSave) {
+        f.appendChild(h('button', { type: 'button', class: 'mini hall-cg', on: { click: () => { au().ui(); CG.prompt().then(() => { if (this.open === 'hall') this.renderFoot(); }); } } }, AC.cgSave));
+      }
     },
     openClassic() {
       if (!ND.lbUI) return;

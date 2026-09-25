@@ -587,6 +587,18 @@
   .set-langs button small { font: 600 10.5px/1 var(--display); letter-spacing: .14em; color: var(--muted); }
   .set-langs button:hover { border-color: var(--gold); }
   .set-langs button[aria-pressed="true"] { border-color: var(--gold); background: rgba(217,179,108,.16); color: var(--gold-hi); }
+  /* Settings → Progress: CrazyGames account state, save-to-account button, guest recovery code */
+  .set-save { display: grid; gap: 10px; align-content: start; }
+  .acc-note { margin: 0; font-size: 12.5px; line-height: 1.4; color: var(--muted); }
+  .set-save .btn { justify-self: start; padding: 9px 14px; font-size: 14px; }
+  .set-rc { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+  .set-code { font: 700 20px/1.2 ui-monospace, Consolas, monospace; letter-spacing: .12em; color: var(--gold-hi); user-select: all; -webkit-user-select: all; }
+  .set-rcform { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .set-rcform input { box-sizing: border-box; width: min(230px, 100%); min-height: 40px; padding: 6px 10px; background: rgba(255,255,255,.05); border: 1px solid var(--line);
+    color: var(--text); font: 600 16px/1 ui-monospace, Consolas, monospace; letter-spacing: .08em; text-transform: uppercase; }
+  .set-rcmsg { margin: 0; font-size: 13px; line-height: 1.4; color: var(--muted); }
+  .set-rcmsg[data-ok="1"] { color: var(--gold-hi); }
+  .set-rcmsg[data-ok="0"] { color: #ff8a7a; }
   /* the pause dialog's Settings button */
   .btn.set-btn { display: flex; align-items: center; justify-content: center; gap: 10px; }
   .btn.set-btn .set-ic { color: var(--gold); }
@@ -2037,6 +2049,7 @@
           <button type="button" role="tab" id="setTab-controls" data-tab="controls" aria-controls="setPane-controls" aria-selected="false" tabindex="-1"><b aria-hidden="true">操</b><span data-s="set.tabs.controls">Kontroller</span></button>
           <button type="button" role="tab" id="setTab-gfx" data-tab="gfx" aria-controls="setPane-gfx" aria-selected="false" tabindex="-1"><b aria-hidden="true">画</b><span data-s="set.tabs.gfx">Grafik</span></button>
           <button type="button" role="tab" id="setTab-lang" data-tab="lang" aria-controls="setPane-lang" aria-selected="false" tabindex="-1"><b aria-hidden="true">語</b><span data-s="set.tabs.lang">Dil</span></button>
+          <button type="button" role="tab" id="setTab-save" data-tab="save" aria-controls="setPane-save" aria-selected="false" tabindex="-1"><b aria-hidden="true">記</b><span data-s="set.tabs.save">Kayıt</span></button>
         </div>
         <div class="set-panes">
           <section class="set-pane" role="tabpanel" id="setPane-audio" aria-labelledby="setTab-audio" tabindex="-1">
@@ -2071,6 +2084,9 @@
           </section>
           <section class="set-pane" role="tabpanel" id="setPane-lang" aria-labelledby="setTab-lang" tabindex="-1" hidden>
             <div class="set-langs" id="setLangs" role="group" aria-labelledby="setTab-lang" data-i18n-skip></div>
+          </section>
+          <section class="set-pane" role="tabpanel" id="setPane-save" aria-labelledby="setTab-save" tabindex="-1" hidden>
+            <div class="set-save" id="setSave" data-i18n-skip></div>
           </section>
         </div>
       </div>
