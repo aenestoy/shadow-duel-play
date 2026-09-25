@@ -2043,7 +2043,7 @@
 </style>
 <div id="rc-panel"><div id="rc-card">
   <h1>Shadow Duel · Render check</h1>
-  <p id="rc-help">Automatic 52-second test. Hold your phone sideways and keep this tab visible. No fighting required.</p>
+  <p id="rc-help">Automatic 68-second test. Hold your phone sideways and keep this tab visible. Music plays briefly. No fighting required.</p>
   <p>High detail stays fixed. Some layers briefly disappear to measure their cost. This test does not change your game settings or progress.</p>
   <p id="rc-status" role="status">Loading isolated test…</p>
   <button id="rc-start" disabled>START TEST</button><button id="rc-copy" hidden>COPY REPORT</button>
@@ -2062,7 +2062,7 @@
         s.onload = resolve; s.onerror = () => reject(Error('Could not load ' + src)); document.head.append(s);
       });
     }
-    await import('./render-check/controller.mjs?v=1');
+    await import('./render-check/controller.mjs?v=2');
   } catch (error) { document.getElementById('rc-status').textContent = error.message; }
 })();
 </script></body>

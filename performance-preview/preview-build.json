@@ -5,6 +5,6 @@
   "purpose": "Independent fighter render surfaces with High visuals preserved",
   "report": "shadow-duel-phone-v2",
   "renderer": "fighter-surfaces-v1",
-  "diagnostic": "shadow-duel-render-check-v1",
-  "diagnosticSource": "b08376c"
+  "diagnostic": "shadow-duel-render-check-v2",
+  "diagnosticSource": "79c9bdc"
 }
