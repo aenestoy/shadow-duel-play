@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>Shadow Duel · Report summary</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 24px 16px; background: #0c0d15; color: #eee8dd; font: 16px/1.5 system-ui, sans-serif; }
+    main { max-width: 680px; margin: auto; }
+    h1 { font-size: 24px; line-height: 1.2; }
+    label { display: block; margin-top: 20px; font-weight: bold; }
+    textarea { display: block; width: 100%; min-height: 120px; margin-top: 8px; padding: 12px; color: #eee8dd; background: #151723; border: 1px solid #656675; border-radius: 5px; font: 16px/1.4 monospace; }
+    button { padding: 12px 18px; margin: 8px 0; color: #f3e7ce; background: #29241b; border: 1px solid #d8b36b; border-radius: 5px; font: 700 16px system-ui; cursor: pointer; }
+    button:disabled { opacity: .5; cursor: default; }
+    [hidden] { display: none; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Shadow Duel · Report summary</h1>
+  <p>No new test is needed. Return to your completed test tab, press <strong>COPY REPORT</strong>, then paste that report below.</p>
+  <p>This page keeps every stage's results and removes the long list of individual frames from the copied text. Processing stays in this tab.</p>
+  <label for="source">Paste the full report here</label>
+  <textarea id="source" spellcheck="false" placeholder="Paste your completed test report"></textarea>
+  <p id="status" role="status">Waiting for a report.</p>
+  <button id="copy" disabled>COPY SUMMARY</button>
+  <textarea id="summary" aria-label="Short report to share" readonly hidden></textarea>
+</main>
+<script type="module">
+  import { reportSummary } from './report-export.mjs?v=summary1';
+  const source = document.getElementById('source'), output = document.getElementById('summary');
+  const status = document.getElementById('status'), copy = document.getElementById('copy');
+  source.addEventListener('input', () => {
+    copy.disabled = true; copy.textContent = 'COPY SUMMARY'; output.value = ''; output.hidden = true;
+    if (!source.value.trim()) { status.textContent = 'Waiting for a report.'; return; }
+    try {
+      const report = reportSummary(JSON.parse(source.value));
+      output.value = JSON.stringify(report); output.hidden = false; copy.disabled = false;
+      status.textContent = `${report.complete ? 'Completed test' : 'Incomplete test'} · ${report.stages.length} stages · ${output.value.length.toLocaleString('en-US')} characters. Copy the summary and send it back.`;
+    } catch (error) {
+      status.textContent = error instanceof SyntaxError ? 'The JSON is incomplete or invalid. Copy the full report from the completed test tab.' : error.message;
+    }
+  });
+  copy.onclick = async () => {
+    try { await navigator.clipboard.writeText(output.value); copy.textContent = 'COPIED'; }
+    catch { output.focus(); output.select(); status.textContent = 'Select and copy the short report below.'; }
+  };
+</script>
+</body>
+</html>

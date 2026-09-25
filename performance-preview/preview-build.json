@@ -1,10 +1,11 @@
 {
-  "source": "f286c975c925885049544374d6153e55ff88a02b",
+  "source": "4d84c1f92ce8ec1c4b4c1970b822e4291d1f1850",
   "baseline": "1066a452437ede3cf755d997621428e25d0a4ba8",
   "date": "2026-09-25",
   "renderer": "fighter-surfaces-v1",
   "preparedCheck": "shadow-duel-prepared-check-v2",
   "build": "prepared-independent-measurement-v2",
   "backupTag": "shadow-duel-before-render-fix-2026-09-25",
-  "note": "Normal publication unchanged. High defaults to paths. Prepared v2 starts sampling after warmup and retains measured stalls. Real-phone result pending."
+  "note": "Normal publication unchanged. High defaults to paths. Prepared v2 completed on phone but the pasted raw report was truncated. Compact summaries keep every stage; full JSON remains downloadable.",
+  "reportExport": "summary-v1"
 }

@@ -1,6 +1,7 @@
 import { summarize, assessControls } from './metrics.mjs?v=prepared1';
 import { makeSequence, sequenceHz, sequenceFrames, cacheCounts, cacheDelta, assertPrepared } from './sequence.mjs?v=prepared1';
 import { MeasurementWindow } from './measurement-window.mjs?v=prepared2';
+import { reportSummary, downloadReport } from './report-export.mjs?v=summary1';
 const boot = window.__renderCheckBoot, N = window.ND, g = N?.game;
 const $ = id => document.getElementById(id), cv = $('cv'), panel = $('rc-panel'), strip = $('rc-strip'), start = $('rc-start');
 if (!boot.ok || !g) throw Error('The isolated game could not start.');
@@ -124,14 +125,19 @@ async function measure(kind, label) {
   }
 }
 document.querySelector('#rc-card h1').textContent = 'Shadow Duel · Prepared character test';
+const download = document.createElement('button');
+download.textContent = 'DOWNLOAD FULL JSON'; download.hidden = true; $('rc-copy').after(download);
+download.onclick = () => downloadReport(report);
+$('rc-copy').textContent = 'COPY SUMMARY';
 $('rc-help').textContent = 'Moving High-quality comparison. Keep the phone sideways and this tab visible. Preparation is followed by about 52 seconds of automatic testing; long pauses can extend this.';
 $('rc-detail').textContent = 'The same recorded movement, cloth and High effects are used in both versions. Character pictures are fully prepared before measurement. Your saves are isolated.';
 $('rc-back').href = './?post=webgl&v=7'; $('rc-back').textContent = 'BACK TO GAME';
-$('rc-status').textContent = 'Ready · prepared-cache comparison v2 · High'; start.disabled = false;
+$('rc-status').textContent = 'Ready · prepared-cache comparison v2 · High · short report'; start.disabled = false;
 start.onclick = async () => {
   if (running) return;
   if (innerWidth < innerHeight) { $('rc-status').textContent = 'Turn your phone sideways before starting.'; return; }
   running = true; interrupted = ''; viewport = ''; start.disabled = true; $('rc-copy').hidden = true; $('rc-report').hidden = true;
+  download.hidden = true; $('rc-copy').textContent = 'COPY SUMMARY';
   report = { report: 'shadow-duel-prepared-check-v2', build: 'prepared-independent-measurement-v2', complete: false,
     note: 'rAF cadence, not physical presented FPS or GPU timing. Both paths render one finite moving 120 Hz sequence. Prepared stages forbid new parts, evictions and miss fallbacks. Short ABBA comparison, not sustained combat.',
     device: { userAgent: navigator.userAgent, dpr: devicePixelRatio, cores: navigator.hardwareConcurrency || null, memoryGB: navigator.deviceMemory || null },
@@ -149,11 +155,11 @@ start.onclick = async () => {
       report.controls.stableControls = false;
     }
     report.complete = true;
-    $('rc-status').textContent = 'Complete. Copy the report and send it back.';
-  } catch (error) { report.error = error.message; $('rc-status').textContent = `Test stopped: ${error.message}. Copy the report.`; }
+    $('rc-status').textContent = 'Complete. Copy the short summary and send it back. Full frame data is available as a JSON download.';
+  } catch (error) { report.error = error.message; $('rc-status').textContent = `Test stopped: ${error.message}. Copy the summary.`; }
   finally {
     freeze(false); panel.hidden = false; strip.hidden = true; start.disabled = false; running = false; start.textContent = 'RUN AGAIN';
-    $('rc-report').value = JSON.stringify(report); $('rc-report').hidden = false; $('rc-copy').hidden = false;
+    $('rc-report').value = JSON.stringify(reportSummary(report)); $('rc-report').hidden = false; $('rc-copy').hidden = false; download.hidden = false;
   }
 };
 $('rc-copy').onclick = async () => {
