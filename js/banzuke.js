@@ -437,7 +437,7 @@
       au().ui();
       if (b) return b();
       const G = ND.game;
-      if (G && G.mode === 'attract') { $('menu').hidden = false; ui.refreshMenu(); const f = was === 'hall' ? $('mlb') : was === 'lobby-dan' ? $('mdan') : $('mtour'); setTimeout(() => f && f.focus(), 0); }
+      if (G && G.mode === 'attract') { $('menu').hidden = false; ui.refreshMenu(); const f = was === 'hall' ? $(ui.hallFrom || 'mlb') : was === 'lobby-dan' ? $('mdan') : $('mtour'); setTimeout(() => f && f.focus(), 0); }
       else if (G) G.goMenu();
     },
     // game.hideOverlays çağırınca durum temizlensin
@@ -483,7 +483,9 @@
           h('span', { class: 'g-m' }, f.mods.map((id) => this.modChip(id, false)))));
       });
       const rules = h('p', { class: 'bz-rules' }, S.t.rules(TOUR.fights, fmtNum(TOUR.clear), fmtNum(TOUR.stage)));
-      const reward = S.ttl && S.ttl.reward ? h('p', { class: 'bz-reward' }, S.ttl.reward) : null;
+      // what the top 3 win, only where titles can be earned; elsewhere a neutral line (scores stay on this device)
+      const rewardText = S.ttl ? (LB().titlesEarnable?.() ? S.ttl.reward : S.ttl.local) : '';
+      const reward = rewardText ? h('p', { class: 'bz-reward' }, rewardText) : null;
       const acts = h('div', { class: 'sel-actions' },
         h('button', { class: 'btn primary', type: 'button', id: 'bzGo', on: { click: () => { au().ui(); ND.game.openSelect('tourney'); } } }, rec ? S.t.again : S.t.start),
         h('button', { class: 'btn', type: 'button', on: { click: () => { au().ui(); this.showHall('week', () => this.lobbyTourney()); } } }, S.hall.title));
@@ -658,7 +660,7 @@
       if (this.tab === 'week') body.appendChild(h('div', { class: 'hall-sub' }, h('b', null, this.weekLabel(W.key)), h('span', null, S.resetIn, ' ', h('b', { 'data-bz-clock': '' }, this.countdown(W.end - LB().now())))));
       else if (S.hall.desc[this.tab]) body.appendChild(h('p', { class: 'hall-sub' }, S.hall.desc[this.tab]));
       // what the top 3 win (This Month and Champions tabs)
-      if ((this.tab === 'week' || this.tab === 'archive') && S.ttl && S.ttl.hall) body.appendChild(h('p', { class: 'hall-reward' }, S.ttl.hall));
+      if ((this.tab === 'week' || this.tab === 'archive') && S.ttl && S.ttl.hall && LB().titlesEarnable?.()) body.appendChild(h('p', { class: 'hall-reward' }, S.ttl.hall));
       body.appendChild(loading);
       this.renderFoot();
       let data;
@@ -727,7 +729,7 @@
     },
     renderArchive(body, data) {
       const S = T(), weeks = (data && data.weeks) || [];
-      if (!weeks.length) { body.appendChild(h('p', { class: 'lb-empty' }, S.hall.emptyArchive)); return; }
+      if (!weeks.length) { body.appendChild(h('p', { class: 'lb-empty' }, LB().titlesEarnable?.() ? S.hall.emptyArchive : S.hall.emptyArchiveLocal || S.hall.emptyArchive)); return; }
       const grid = h('div', { class: 'plq-grid' });
       for (const w of weeks) {
         const m = /^(\d{4})-(\d{2})$/.exec(w.key) || [];
@@ -797,6 +799,68 @@
     },
 
     // ---------------------------------------------------- MENÜ: "Bu ay: #12 · sıfırlanmaya 3g 4s"
+    // ---------------------------------------------------- MAIN MENU: HALL OF CHAMPIONS CARD (index.html #mlb)
+    // The card lists this month's top 10 itself: #1 large in gold (title, ninja, score), #2-#10 as compact rows; the
+    // CSS shows 10 / 5 / 3 places by screen height. The places are always drawn — empty ones as "—" with a short
+    // "be the first" hint on #1 — so an empty month still reads as a board. Board: the tournament board from the
+    // leaderboard adapter: the live board when online (guests, and signed-in CrazyGames players who can read it; for
+    // them a line says their own scores stay on this device), this device's board otherwise (Poki, offline, local),
+    // labelled so. Never blocks the menu: the last result is drawn at once and a fetch runs at most every 60 s while
+    // the menu is shown. After a month ends (live board) a small line names last month's champion. Names are
+    // user-made: textContent only, cleaned (markup / control characters, 20 characters at most) and passed through
+    // the nickname word filter (leaderboard.js shownName). Clicking opens the full hall (js/banzuke.js showHall).
+    champ: { key: '', t: 0, data: null, last: null, busy: false },
+    champCard(force) {
+      const el = $('mlb'), L = LB();
+      if (!el) return;
+      if (!L) { el.hidden = true; return; }
+      const W = weekNow(), key = L.mode + '|' + W.key, C = this.champ;
+      if (C.key !== key) { C.key = key; C.t = 0; C.data = null; C.last = null; }
+      this.renderChamp();
+      if (C.busy || (!force && C.data && Date.now() - C.t < 60000)) return;
+      C.busy = true; C.t = Date.now();
+      const done = () => { C.busy = false; if (C.key === key) this.renderChamp(); };
+      L.hall('week', W.key).then((d) => { if (C.key === key) C.data = d && Array.isArray(d.rows) ? d : { rows: [] }; },
+        () => { if (C.key === key && !C.data) C.data = { rows: [] }; })
+        .then(() => (L.online ? L.hall('archive', null).then((a) => {
+          const prev = L.prevPeriod(W), w = a && a.weeks && a.weeks[0];
+          if (C.key === key) C.last = w && prev && w.id === prev.id && w.rows && w.rows[0] ? w.rows[0] : null;
+        }, () => {}) : null))
+        .then(done, done);
+    },
+    renderChamp() {
+      const S = T(), M = S.menu || {}, L = LB(), C = this.champ;
+      const el = $('mlb'), lab = $('champLab'), top = $('champTop'), list = $('champList'), last = $('champLast');
+      if (!el || !lab || !top || !list || !L) return;
+      const live = !!L.online, rows = (C.data && C.data.rows) || [], title = (live ? M.champTitle : M.champLocal) || '';
+      lab.textContent = title;
+      el.setAttribute('aria-busy', String(!C.data));
+      el.setAttribute('aria-label', [M.hall, title, M.champOpen].filter(Boolean).join(' · '));
+      top.textContent = ''; list.textContent = '';
+      const name = (r) => L.shownName(r.name) || (r.me ? L.shownName(L.getName()) || S.you : S.hall.anon);
+      const r = rows[0];
+      top.classList.toggle('empty', !r);
+      if (!r) add(top, h('span', { class: 'ch-pl', 'aria-hidden': 'true' }, '壱'), h('b', { class: 'ch-n' }, '—'), h('span', { class: 'ch-hint' }, C.data ? M.champEmpty : M.champLoading));
+      else {
+        const ch = ND.CHARS.find((c) => c.id === r.char);
+        add(top, h('span', { class: 'ch-pl', 'aria-hidden': 'true' }, '壱'), h('b', { class: 'ch-n' }, name(r)), this.titleTag(r.title),
+          ch ? h('span', { class: 'ch-ck', title: ch.name, style: 'color:' + ch.col.ui }, ch.kanji) : null,
+          r.me ? h('span', { class: 'ch-me' }, S.youTag) : null,
+          h('span', { class: 'ch-sc' }, fmtNum(r.score)));
+      }
+      // places 2-10: filled rows, then "—" placeholders (always nine; the CSS hides the ones a short screen has no room for)
+      for (let p = 2; p <= 10; p++) {
+        const q = rows[p - 1];
+        list.appendChild(q ? h('li', { class: q.me ? 'me' : null }, h('i', null, String(p)), h('b', null, name(q)), h('span', null, fmtNum(q.score)))
+          : h('li', { class: 'empty' }, h('i', null, String(p)), h('b', null, '—'), h('span', null, '')));
+      }
+      if (last) {
+        let txt = '';
+        if (live && C.last && typeof M.champLast === 'function') txt = M.champLast(name(C.last));
+        else if (live && L._viewOnly() && S.ttl && S.ttl.local) txt = S.ttl.local;
+        last.hidden = !txt; last.textContent = txt;
+      }
+    },
     refreshMenu() {
       const S = T(); if (!S.t || !LB()) return;
       const W = weekNow(), ts = $('tourStat'), ds = $('danStat');
@@ -806,8 +870,7 @@
       }
       if (ds) { const r = dan.rank(); ds.textContent = r ? S.menu.danRank(dan.name(r), dan.trial() ? dan.name(r + 1) : null) : S.menu.danNew; }
       const tn = $('tNickT'); if (tn) { tn.textContent = S.menu.nick(LB().getName()); tn.parentNode.hidden = !LB().adapter.needsName; }
-      const hs = $('hallStat');
-      if (hs) { const st = myWeek(W.key) ? LB().standing() : null; hs.textContent = st && st.place ? S.menu.hallRank(st.place) : S.menu.hallDesc; }
+      this.champCard();
     },
   };
 
@@ -819,9 +882,13 @@
       const card = (id, fn) => { const e = $(id); if (e) e.onclick = () => { au().ui(); fn(); }; };
       card('mtour', () => ui.lobbyTourney());
       card('mdan', () => ui.lobbyDan());
-      card('mlb', () => ui.showHall('week', null));
+      // Hall of Champions card (this month's top 10 on the card): opens the full hall; refreshed while the menu is shown
+      card('mlb', () => { ui.hallFrom = 'mlb'; ui.showHall('week', null); });
+      const mc = $('mlb');
+      if (mc) mc.onkeydown = (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === mc) { e.preventDefault(); e.stopPropagation(); mc.click(); } };
+      setInterval(() => { const G = ND.game, m = $('menu'); if (G && G.mode === 'attract' && m && !m.hidden && !document.hidden && !ui.open) ui.champCard(); }, 15000);
       // Ayarlar satırı: takma ad → salonun altındaki ad formu açık gelir
-      card('tNick', () => { ui.showHall('week', null); setTimeout(() => { const b = document.querySelector('#hallFoot .nick-line .mini'); if (b) b.click(); }, 0); });
+      card('tNick', () => { ui.hallFrom = 'tNick'; ui.showHall('week', null); setTimeout(() => { const b = document.querySelector('#hallFoot .nick-line .mini'); if (b) b.click(); }, 0); });
       if (LB()) LB().onChange(() => { if (!ui.open && ND.game && ND.game.mode === 'attract') ui.refreshMenu(); if (ui.open === 'hall') ui.renderFoot(); });
       // menü geri sayımı (dakika çözünürlüğü yeterli)
       setInterval(() => { if (!document.hidden && ND.game && ND.game.mode === 'attract' && !$('menu').hidden) ui.refreshMenu(); }, 30000);

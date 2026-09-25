@@ -4,7 +4,8 @@
 //   Controls  key hints switch (game.js #tHints); touch: layout / size / hand / movement / assist / vibration /
 //             Customize controls / fullscreen (touch.js, #setTset, shown on touch screens); keyboard: the key list
 //             and the gamepad line (copied here from the menu's Controls card, shown when not on touch)
-//   Graphics  quality Auto / High / Medium / Low (game.js [data-gq]) + blood effect where the portal allows it (#tBlood)
+//   Graphics  quality Auto / High / Medium / Low (game.js [data-gq]), frame rate (game.js [data-fq]), Show FPS (#tFps,
+//             game.js fpsMeter) + blood effect where the portal allows it (#tBlood)
 //   Language  the seven languages (ND.i18n.setLang(lang, { save: true }), same as the globe's list in lang-ui.js)
 // Every control is the same one the rest of the game uses, so a change applies at once and is saved in ND.save
 // settings by its owner file. Opened by any [data-set-open] button: first screen and main menu (top bar, the menu's

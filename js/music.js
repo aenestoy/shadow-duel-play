@@ -14,8 +14,11 @@
       const c = au.ctx;
       // bus level = on/off switch × music slider (ND.audio.vol.music); the reverb send is taken after it
       this.bus = c.createGain(); this.bus.gain.value = this.level();
-      this.bus.connect(au.master);
-      const send = c.createGain(); send.gain.value = 0.45; this.bus.connect(send); send.connect(au.rev);
+      // duck: a second gain after the level, only for short dips under the announcer (js/voice.js → duck()); the
+      // reverb send is taken after it, so the music's tail dips too
+      this.duckG = c.createGain(); this.bus.connect(this.duckG);
+      this.duckG.connect(au.master);
+      const send = c.createGain(); send.gain.value = 0.45; this.duckG.connect(send); send.connect(au.rev);
       // koto örneklerini önceden üret (2,5 oktav)
       for (let i = 0; i < 13; i++) {
         const oct = Math.floor(i / 5), deg = SCALE[i % 5];
@@ -33,6 +36,13 @@
     },
     // music slider moved (ND.audio.setVolume): short glide, no clicks
     applyVolume() { if (this.bus) au.ramp(this.bus.gain, this.level(), 0.04); },
+    // Dip the music by `db` for `sec` seconds (announcer lines), then glide back. A new dip restarts the hold.
+    duck(db, sec) {
+      if (!this.duckG || !au.ctx) return;
+      const g = this.duckG.gain, t = au.ctx.currentTime;
+      au.ramp(g, Math.pow(10, -Math.abs(db) / 20), 0.05);
+      try { g.setTargetAtTime(1, t + Math.max(0.1, sec), 0.22); } catch (e) { g.value = 1; }
+    },
     setMode(m) { this.nextMode = m; if (this.mode === 'off' || m === 'off' || m === 'ko') { this.mode = m; this.step = 0; } },
 
     freq(i) { const oct = Math.floor(i / 5), deg = SCALE[((i % 5) + 5) % 5]; return BASE * Math.pow(2, (oct * 12 + deg) / 12); },

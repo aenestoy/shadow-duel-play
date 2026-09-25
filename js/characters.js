@@ -131,7 +131,9 @@
       wrap: '#18110e', wrapDark: '#0b0706',
       accent: '#d81f30', accentDark: '#6a0a13', ui: '#ffd35a',
     });
-    if (c.hakama) { o.hakama = '#1b1310'; o.hakamaDark = '#0d0908'; }
+    // black trousers for every ninja (legs use hakama || cloth: without this the gilded cloth also covered the legs
+    // of the eleven ninjas that have no separate hakama colour, a gold bodysuit instead of robe + trousers)
+    o.hakama = '#1b1310'; o.hakamaDark = '#0d0908';
     if (c.haori) o.haori = '#b3862f';
     if (c.hood) o.hood = { cloth: '#1c1511', clothHi: '#33271c', clothDark: '#0e0a08' };
     if (c.armor) o.armor = '#6b4d17';

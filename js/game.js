@@ -2,26 +2,89 @@
 (function (ND) {
   'use strict';
   const $ = (id) => document.getElementById(id);
-  const cv = $('cv'), ctx = cv.getContext('2d');
-  const lc = document.createElement('canvas'), lctx = lc.getContext('2d');
-  // Gölge silüeti tuvali + yardımcılar
-  const shc = document.createElement('canvas'), shx = shc.getContext('2d'), SHA = [], SH_RES = 0.5;
-  lc.width = lc.height = shc.width = shc.height = 64;
+  const cv = $('cv'), mainCtx = cv.getContext('2d');
+  // The picture is drawn through `ctx`. With bloom on (High, Medium) it points at an offscreen scene layer while the
+  // scene is drawn (game.render): the bloom then reads the finished scene from that layer instead of from the visible
+  // canvas, and the visible canvas gets one copy of it plus the bloom and grain in a single uninterrupted pass.
+  // Reading the visible canvas back mid-frame (the previous way) made the browser finish, copy and resume it.
+  let ctx = mainCtx;
+  const sceneCv = document.createElement('canvas'), sceneCtx = sceneCv.getContext('2d');
+  function renderLayer() {
+    const canvas = document.createElement('canvas'); canvas.width = canvas.height = 64;
+    return { canvas, ctx: canvas.getContext('2d') };
+  }
+  // Keep a source stable after drawImage consumes it. Sharing a scratch canvas between fighters overwrites
+  // the first fighter's source before the frame is submitted, which can force snapshot preservation/copies.
+  const lightLayers = [renderLayer(), renderLayer()], shadowLayers = [renderLayer(), renderLayer()];
+  const SHA = [], SH_RES = 0.5;
   // Tuvali gerekirse büyüt (64'ün katlarına; küçültme yok → her karede yeniden ayırma olmaz)
   function growCanvas(c, w, h) {
     if (c.width < w) c.width = Math.ceil(w / 64) * 64;
     if (c.height < h) c.height = Math.ceil(h / 64) * 64;
   }
-  const bc = document.createElement('canvas'), bx = bc.getContext('2d'), bc2 = document.createElement('canvas'), b2 = bc2.getContext('2d');
+  const bc = document.createElement('canvas'), bx = bc.getContext('2d');
   // Medium tier bloom buffers (game.postLite)
   const blc = document.createElement('canvas'), blx = blc.getContext('2d'), blc2 = document.createElement('canvas'), bl2 = blc2.getContext('2d');
   const blc3 = document.createElement('canvas'), bl3 = blc3.getContext('2d');
-  const HAS_FILTER = typeof ctx.filter === 'string';
   const grain = document.createElement('canvas'); grain.width = grain.height = 128;
   { const gx = grain.getContext('2d'), im = gx.createImageData(128, 128);
     for (let i = 0; i < im.data.length; i += 4) { const v = (Math.random() * 255) | 0; im.data[i] = im.data[i + 1] = im.data[i + 2] = v; im.data[i + 3] = 255; }
     gx.putImageData(im, 0, 0); }
   const grainPat = ctx.createPattern(grain, 'repeat');
+  const QS = new URLSearchParams(location.search);
+  // Renderer. The fight (intro, fight, KO, replay; High, Medium and Low, each with its own glow: High glow + grain,
+  // Medium light glow, Low none) is drawn with WebGL2 (js/gl2d.js + js/gl-render.js) into a canvas lying over #cv,
+  // shown only on frames it drew. This is the default on every device where WebGL2 works: the renderer is created at
+  // start and must pass a self-check (a tiny frame read back); software WebGL is refused. Menus and the select / VS /
+  // ending screens stay on Canvas 2D, and so does every frame the GL renderer cannot draw (lost context until it is
+  // restored, unsupported call); a renderer that keeps refusing frames is switched off for the session.
+  // ?renderer=canvas forces Canvas 2D (no WebGL context at all); ?renderer=gl forces WebGL2 (software WebGL allowed,
+  // never switched off for refused frames: tests and diagnosis). ?msaa=0|2|4 sets its multisampling (default 4).
+  const REN_Q = QS.get('renderer');
+  const GL_FORCE = REN_Q === 'gl', GL_WANT = REN_Q !== 'canvas';
+  // ?cap=0 / ?cap=1: frame pacing forced to Max / 60 for tests (see the pacer at the end); '' = the Frame rate setting
+  const CAP_Q = QS.get('cap') === '0' ? '0' : QS.get('cap') === '1' ? '1' : '';
+  let glr = null, glShown = false;
+  const showGl = (on) => { if (glr && on !== glShown) { glShown = on; glr.canvas.style.visibility = on ? 'visible' : 'hidden'; } };
+  // High bloom blur without ctx.filter (game.blurGlow): the bright 1/4 buffer is halved once (1/8, a 2×2 average),
+  // then blurred there by two separable Gaussian passes, each a few offset copies of the image (fractional offsets:
+  // bilinear sampling merges two kernel taps per copy). The copies are averaged 'source-over' onto an opaque image
+  // (running weighted mean, globalAlpha = w / Σw): every step stays opaque, so each costs one ±½ rounding. Adding
+  // weighted copies with 'lighter' was tried and rejected: its half-transparent steps store premultiplied colour and
+  // lose the faint tails (−1.5/255 bias measured). A black border of MARGIN pixels stands for the outside of the
+  // picture, which the previous blur(5px) also treated as black. Sigma matches blur(5px) on the 1/4 buffer (the
+  // halving and the final bilinear enlargement included; tuned against pixel diffs).
+  const bq1 = document.createElement('canvas'), q1 = bq1.getContext('2d'), bq2 = document.createElement('canvas'), q2 = bq2.getContext('2d');
+  function blurTaps(sigma) {
+    const r = Math.ceil(sigma * 3), w = [];
+    for (let i = 0; i <= r; i++) w.push(Math.exp(-i * i / (2 * sigma * sigma)));
+    const taps = [[0, w[0]]];
+    for (let i = 1; i <= r; i += 2) {
+      const a = w[i], b = i + 1 <= r ? w[i + 1] : 0, s = a + b, o = (i * a + (i + 1) * b) / s;
+      taps.push([o, s], [-o, s]);
+    }
+    let sum = 0; // [offset, weight] → [offset, running-mean alpha]
+    return taps.map(([o, v]) => { sum += v; return [o, v / sum]; });
+  }
+  const GLOW_SIGMA = 2.46, GLOW_TAPS = blurTaps(GLOW_SIGMA), MARGIN = 10;
+  // (the Canvas hooks of js/gl2d.js — gradient geometry, "canvas changed" counters — go in with the renderer, before
+  // anything is drawn, so gradients cached by the scene work on both paths)
+  let glWhy = GL_WANT ? '' : 'renderer=canvas';
+  if (GL_WANT && ND.createGlRenderer) {
+    const m = QS.get('msaa');
+    try { glr = ND.createGlRenderer({ grain, samples: m == null ? 4 : +m, glowTaps: GLOW_TAPS, auto: !GL_FORCE }); } catch (e) { glr = null; glWhy = String(e && e.message || e); }
+    if (!glr) glWhy = glWhy || 'no WebGL2';
+    if (glr) {
+      glr.canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;visibility:hidden';
+      glr.canvas.setAttribute('aria-hidden', 'true');
+      cv.after(glr.canvas);
+      if (!glr.selfCheck()) {
+        glWhy = glr.error;
+        console.info('[ND.gl] WebGL2 self-check failed; drawing with Canvas 2D', glWhy);
+        if (!GL_FORCE) { glr.dispose(); glr = null; }
+      }
+    }
+  }
   const input = ND.input, au = ND.audio, cam = ND.cam, fx = ND.fx, scene = ND.scene, mu = ND.music;
   ND.simClock = 0; // simulation clock (seconds of fixed steps); input buffers read it, see game.advance
   // Text that is not in ND.STR (fallbacks, composed banners) goes through the i18n phrase table
@@ -49,7 +112,11 @@
   // Blood is opt-in (new key, so old saves that had it on by default start in ink mode) and portal-gated (core.js)
   ND.settings.blood = !!(ND.bloodAllowed && ND.bloodAllowed()) && saved.bloodOptIn === true;
   ND.settings.music = saved.music !== false;
+  // Voices (Settings > Audio): fighters' shouts and the announcer (js/voice.js); on unless the player turned them off
+  ND.settings.voice = saved.voice !== false;
   ND.settings.hints = saved.hints !== false;
+  // Show FPS (Settings → Graphics): the small frame-rate readout, off unless the player turned it on (fpsMeter below)
+  ND.settings.showFps = saved.showFps === true;
   // Graphics quality (js/gfx.js): saved choice `gfx`; older saves only had the "High graphics" switch — a switch the
   // player set by hand (hqUser) becomes High / Low, everything else starts on Auto (device guess + auto ladder).
   const TCH = ND.touch || {}, MOBILE = !!TCH.mobile;
@@ -244,6 +311,15 @@
   });
 
   const game = ND.game = {
+    renderVersion: 'fighter-surfaces-v1',
+    glowTaps: GLOW_TAPS, blurTaps, // tuning hooks for the visual check page
+    // 'gl' (a working WebGL2 renderer, the default) | 'canvas'; the render-check page switches it per stage
+    rendererMode: glr ? 'gl' : 'canvas',
+    glStatus: () => (glr ? Object.assign({ available: true, forced: GL_FORCE }, glr.status()) : { available: false, requested: GL_WANT, forced: GL_FORCE, why: glWhy }),
+    glInfo: () => (glr ? glr.info() : null),
+    glRenderer: () => glr,
+    // Frame rate choice (Settings → Graphics): '60' | '90' | '120' | 'max', null = the device default (js/gfx.js)
+    fpsPref: GFX.FPS && GFX.FPS.includes(saved.fps) ? saved.fps : null,
     mode: 'attract', level: [0, 1, 2].includes(saved.level) ? saved.level : 1, phase: 'menu', pt: 0, projs: [], hitstopT: 0, slow: 1, slowT: 0,
     round: 1, wins: [0, 0], timer: ROUND_TIME, focus: null, paused: false, bars: 0, ais: [], bannerT: 0, dim: 0,
     stats: null, flags: {}, lock: null, clock: 0, rally: { n: 0, last: null, t: 0 }, slowV: 0.35, cineT: 0, cineX: 0, recording: false, fxEvents: [], rec: [], koIndex: -1, replay: null,
@@ -254,6 +330,10 @@
 
     // ---------------------------------------------------- mod başlatma
     start(mode, opts = {}) {
+      this.cancelPreparation();
+      // A locked ninja tried through the rewarded ad is lent for that one CPU fight (and its restarts) only: any other
+      // match, mode or the menu ends the loan (otherwise it stayed usable in Arcade / tournament / Dan until reload).
+      if (ND._trial && !(mode === 'cpu' && ND.CHARS[opts.c1]?.id === ND._trial)) this.endTrial();
       // a new match (or leaving to the menu) ends any coach still running from the previous fight
       if (ND.coach && ND.coach.on) ND.coach.stop();
       this.mode = mode;
@@ -302,6 +382,33 @@
       this.startRound();
       if (mode === 'train') ND.training.onStart();
       if (attract && ND.arcade) ND.arcade.refreshMenu();
+      if (!attract) this.prepareMatch();
+    },
+
+    cancelPreparation() {
+      if (this.preparing) { this.preparing.cancel(); this.preparing = null; }
+    },
+    prepareMatch() {
+      if (!ND.prepare) return;
+      $('hud').hidden = true; $('pauseBtn').hidden = true;
+      // Keep all match state and the round timer still while expensive first-use drawing is prepared.
+      // Each fighter fills at most three missing cache entries per preparation frame; no partial drawing is visible.
+      const jobs = [() => { this.behind = false; resize(); scene.drawBack(ctx); }];
+      for (const f of F) jobs.push(() => {
+        const draw = () => this.drawLit(f, f._litFn || (f._litFn = (c) => f.draw(c, false, true)));
+        return ND.prepareBaked ? ND.prepareBaked(draw) : (draw(), true);
+      });
+      // Reveal one complete scene, never the intermediate partial part layers used by the warm-up jobs.
+      jobs.push(() => this.render());
+      this.preparing = ND.prepare.start(jobs, () => {
+        this.preparing = null; this.acc = 0;
+        [aiC1, aiC2, input.p1, input.p2].forEach((c) => c.clear());
+        input.touchReset();
+        this.hud();
+        $('hud').hidden = false; $('pauseBtn').hidden = false;
+        this.syncTouch();
+      });
+      this.syncTouch();
     },
 
     // HUD name tags, rank and arena name in the current language (start of a match, and again after a language switch)
@@ -350,6 +457,7 @@
       return this.pv;
     },
     showStage(phase, ids, c1, c2) {
+      this.cancelPreparation();
       this.phase = phase; this.pt = 0; this.ais = []; this.paused = false; this.lock = null; this.replay = null;
       F.forEach((f) => (f.locked = true));
       au.quiet = false;
@@ -631,7 +739,7 @@
       $('bChange').hidden = false;
       const bc = $('bContinue'); if (bc) bc.hidden = true;
       // a locked ninja tried for one fight (rewarded ad) goes back to the lock afterwards
-      if (ND._trial) { ND._trial = null; if (this.trialPrev != null) this.sel.c[0] = this.trialPrev; this.trialPrev = null; }
+      this.endTrial();
       if (ND.coach) ND.coach.stop();
       const s = this.stats, rows = [
         [nice(f1.ch.name), '', nice(f2.ch.name)],
@@ -802,6 +910,8 @@
         const stuck = this.projs.filter((p) => p.stuck);
         if (stuck.length > 14) this.projs.splice(this.projs.indexOf(stuck[0]), 1);
       }
+      // Update once per fixed simulation step, including momentum decay during hit-stop.
+      for (const f of F) ND.updateCloth(f.dead ? f.rag.j : f.j, gdt);
       fx.update(fdt > 0 ? gdt : gdt * 0.25);
       ND.specialFx?.update(fdt > 0 ? gdt : gdt * 0.25);
       if (ND.cine) ND.cine.update(rdt);
@@ -835,6 +945,7 @@
     MAX_STEPS: 8,
     acc: 0,
     advance(rdt) {
+      if (this.preparing) return 0;
       const STEP = this.STEP, SLACK = 0.2;
       this.acc = Math.min(this.acc + rdt, 0.1);
       let n = Math.floor(this.acc / STEP + SLACK);
@@ -866,10 +977,15 @@
       sx0 = Math.max(0, sx0); sy0 = Math.max(0, sy0); sx1 = Math.min(cam.W, sx1); sy1 = Math.min(cam.H, sy1);
       const w = sx1 - sx0, h = sy1 - sy0;
       if (w <= 0 || h <= 0) return;
-      growCanvas(lc, w, h);
+      // WebGL frame: a fresh transparent layer of the first pass (js/gl2d.js), already clear
+      const gl = ctx.isGL ? ctx.layer(w, h, f.id === 1 ? 'lit1' : 'lit0') : null;
+      if (ctx.isGL && !gl) return; // no room this frame: the frame is redrawn with Canvas 2D
+      const { canvas: lc, ctx: lctx } = gl ? { canvas: gl, ctx: gl.ctx } : lightLayers[f.id === 1 ? 1 : 0];
+      if (!gl) growCanvas(lc, w, h);
       lctx.setTransform(1, 0, 0, 1, 0, 0);
       lctx.globalCompositeOperation = 'source-over'; lctx.globalAlpha = 1;
-      lctx.clearRect(0, 0, w, h);
+      // Discard the entire previous surface, including unused capacity. No old pixels need preserving.
+      if (!gl) lctx.clearRect(0, 0, lc.width, lc.height);
       const k = cam.k;
       lctx.setTransform(k, 0, 0, k, cam.W / 2 - cam.x * k + cam.shx - sx0, cam.gy - cam.y * k + cam.shy - sy0);
       drawFn(lctx);
@@ -879,10 +995,51 @@
     },
 
     render() {
-      if (this.phase === 'select' || this.phase === 'vs' || this.phase === 'ending') { this.renderScene(false); this.post(); this.renderSelect(); return; }
-      if (this.phase === 'replay') { this.renderReplay(); this.post(); return; }
-      this.renderScene(true);
-      this.post();
+      ND.beginBakeFrame?.();
+      const behindUi = this.phase === 'select' || this.phase === 'vs' || this.phase === 'ending';
+      // the default renderer broke for good (a GL error, or it kept refusing frames): free it, Canvas 2D from now on
+      if (glr && !GL_FORCE && glr.error) {
+        glWhy = glr.error; console.info('[ND.gl] WebGL2 renderer switched off; drawing with Canvas 2D', glWhy);
+        glr.dispose(); glr = null; glShown = false; this.rendererMode = 'canvas';
+      }
+      if (glr && this.rendererMode === 'gl' && !behindUi && !this.behind && glr.ready && this.renderGl()) return;
+      showGl(false);
+      // scene layer (see sceneCv): with bloom on, the Canvas post-processing reads the finished scene from it
+      const layer = GFX.f.bloom > 0;
+      if (layer) {
+        if (sceneCv.width !== cv.width || sceneCv.height !== cv.height) { sceneCv.width = cv.width; sceneCv.height = cv.height; }
+        ctx = sceneCtx;
+      }
+      try {
+        if (behindUi) this.renderScene(false);
+        else if (this.phase === 'replay') this.renderReplay();
+        else this.renderScene(true);
+      } finally { ctx = mainCtx; }
+      this.post(layer ? sceneCv : null);
+      if (behindUi) this.renderSelect();
+    },
+
+    // WebGL2 frame (see glr above). false: nothing was shown, the caller draws the frame with Canvas 2D.
+    renderGl() {
+      const g = glr.begin(cv.width, cv.height);
+      let ok = false;
+      ctx = g;
+      try {
+        if (this.phase === 'replay') this.renderReplay();
+        else this.renderScene(true);
+        ok = true;
+      } catch (e) { glr.fail(e); console.warn('[ND.gl] frame failed; drawing it with Canvas 2D', e); }
+      finally { ctx = mainCtx; }
+      if (!ok) return false;
+      // High: the grain offset is the same two random numbers, in the same place, as the Canvas post (Medium and Low
+      // draw none there either)
+      const mode = GFX.f.bloom === 2 ? 2 : GFX.f.bloom ? 1 : 0;
+      const gx = mode === 2 ? (Math.random() * 128) | 0 : 0, gy = mode === 2 ? (Math.random() * 128) | 0 : 0;
+      if (!glr.end({ mode, bloom: scene.theme.bloom ?? 0.5, grainX: gx, grainY: gy, grain: mode === 2 })) return false;
+      showGl(true);
+      this.renderVersion = 'gl-v1';
+      PM('post');
+      return true;
     },
 
     renderScene(withFighters) {
@@ -948,9 +1105,12 @@
         const u0 = -0.13 * b[3], u1 = -0.13 * b[1]; // basık uzayda (u = −0.13·y) dikey aralık
         const w = Math.ceil((b[2] - b[0]) * sc) + P * 2, h = Math.ceil((u1 - u0) * sc) + P * 2;
         if (w < 3 || h < 3) continue;
-        growCanvas(shc, w, h);
+        const gl = ctx.isGL ? ctx.layer(w, h, f.id === 1 ? 'shadow1' : 'shadow0') : null;
+        if (ctx.isGL && !gl) continue;
+        const { canvas: shc, ctx: shx } = gl ? { canvas: gl, ctx: gl.ctx } : shadowLayers[f.id === 1 ? 1 : 0];
+        if (!gl) growCanvas(shc, w, h);
         shx.setTransform(1, 0, 0, 1, 0, 0); shx.globalCompositeOperation = 'source-over'; shx.globalAlpha = 1;
-        shx.clearRect(0, 0, w, h);
+        if (!gl) shx.clearRect(0, 0, shc.width, shc.height);
         shx.setTransform(sc, 0, 0, -0.13 * sc, P - b[0] * sc, P - u0 * sc);
         shx.globalAlpha = amax;
         f.draw(shx, true);
@@ -972,41 +1132,61 @@
         ctx.globalAlpha = 1;
       }
     },
-    // Işıma (bloom) + film greni
-    post() {
+    // Işıma (bloom) + film greni. src: the scene layer (see sceneCv) or null when the scene was drawn on cv itself
+    post(src) {
+      this.renderVersion = 'fighter-surfaces-v1';
       const bloom = GFX.f.bloom;
       if (!bloom) return;
-      if (bloom === 1) { this.postLite(); return; }
+      if (bloom === 1) { this.postLite(src); return; }
       const bw = Math.max(1, cam.W >> 2), bh = Math.max(1, cam.H >> 2);
-      if (bc.width !== bw || bc.height !== bh) { bc.width = bc2.width = bw; bc.height = bc2.height = bh; }
-      bx.globalCompositeOperation = 'copy'; bx.globalAlpha = 1; bx.drawImage(cv, 0, 0, bw, bh);
+      if (bc.width !== bw || bc.height !== bh) { bc.width = bw; bc.height = bh; }
+      bx.globalCompositeOperation = 'copy'; bx.globalAlpha = 1; bx.drawImage(src || cv, 0, 0, bw, bh);
       bx.globalCompositeOperation = 'multiply'; bx.drawImage(bc, 0, 0); bx.drawImage(bc, 0, 0);
-      b2.globalCompositeOperation = 'copy';
-      if (HAS_FILTER) b2.filter = 'blur(5px)';
-      b2.drawImage(bc, 0, 0);
-      if (HAS_FILTER) b2.filter = 'none';
+      const glow = this.blurGlow(bw, bh), r = this.glowRect;
       ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+      if (src) { ctx.globalCompositeOperation = 'copy'; ctx.globalAlpha = 1; ctx.drawImage(src, 0, 0); }
       ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = scene.theme.bloom ?? 0.5;
-      ctx.drawImage(bc2, 0, 0, cam.W, cam.H);
+      ctx.drawImage(glow, r[0], r[1], r[2], r[3], 0, 0, cam.W, cam.H);
+      const gx = (Math.random() * 128) | 0, gy = (Math.random() * 128) | 0;
       ctx.globalCompositeOperation = 'overlay'; ctx.globalAlpha = 0.07;
-      ctx.translate((Math.random() * 128) | 0, (Math.random() * 128) | 0);
+      ctx.translate(gx, gy);
       ctx.fillStyle = grainPat; ctx.fillRect(-128, -128, cam.W + 128, cam.H + 128);
       ctx.restore();
       PM('post');
     },
+    // High bloom blur of the bright buffer bc (bw×bh) without ctx.filter; returns the blurred 1/8 canvas (see bq1)
+    // (the picture sits at MARGIN, MARGIN, size w×h; the caller draws only that part)
+    blurGlow(bw, bh) {
+      const w = Math.max(1, Math.round(bw / 2)), h = Math.max(1, Math.round(bh / 2)), T = this.glowTaps, M = MARGIN;
+      const W2 = w + 2 * M, H2 = h + 2 * M;
+      if (bq1.width !== W2 || bq1.height !== H2) { bq1.width = bq2.width = W2; bq1.height = bq2.height = H2; }
+      q1.globalCompositeOperation = 'copy'; q1.globalAlpha = 1; q1.fillStyle = '#000'; q1.fillRect(0, 0, W2, H2);
+      q1.globalCompositeOperation = 'source-over'; q1.drawImage(bc, 0, 0, bw, bh, M, M, w, h);
+      q2.globalCompositeOperation = 'copy'; q2.globalAlpha = 1; q2.drawImage(bq1, T[0][0], 0);
+      q2.globalCompositeOperation = 'source-over';
+      for (let i = 1; i < T.length; i++) { q2.globalAlpha = T[i][1]; q2.drawImage(bq1, T[i][0], 0); }
+      q1.globalCompositeOperation = 'copy'; q1.globalAlpha = 1; q1.drawImage(bq2, 0, T[0][0]);
+      q1.globalCompositeOperation = 'source-over';
+      for (let i = 1; i < T.length; i++) { q1.globalAlpha = T[i][1]; q1.drawImage(bq2, 0, T[i][0]); }
+      q1.globalAlpha = 1;
+      this.glowRect[0] = this.glowRect[1] = M; this.glowRect[2] = w; this.glowRect[3] = h;
+      return bq1;
+    },
+    glowRect: [0, 0, 1, 1],
     // Medium tier bloom: the same bright-pass as High (a 1/4 copy, two multiplies keep only the bright parts), then
     // softened by halving twice (1/8, 1/16) instead of a blur filter (ctx.filter is slow or missing on phones).
     // No film grain: its 'overlay' blend is an extra full-screen pass that reads the screen back on many phone GPUs.
-    postLite() {
+    postLite(src) {
       const w4 = Math.max(1, cam.W >> 2), h4 = Math.max(1, cam.H >> 2), w8 = Math.max(1, w4 >> 1), h8 = Math.max(1, h4 >> 1), w16 = Math.max(1, w8 >> 1), h16 = Math.max(1, h8 >> 1);
       if (blc.width !== w4 || blc.height !== h4) { blc.width = w4; blc.height = h4; }
       if (blc2.width !== w8 || blc2.height !== h8) { blc2.width = w8; blc2.height = h8; }
       if (blc3.width !== w16 || blc3.height !== h16) { blc3.width = w16; blc3.height = h16; }
-      blx.globalCompositeOperation = 'copy'; blx.globalAlpha = 1; blx.drawImage(cv, 0, 0, w4, h4);
+      blx.globalCompositeOperation = 'copy'; blx.globalAlpha = 1; blx.drawImage(src || cv, 0, 0, w4, h4);
       blx.globalCompositeOperation = 'multiply'; blx.drawImage(blc, 0, 0); blx.drawImage(blc, 0, 0);
       bl2.globalCompositeOperation = 'copy'; bl2.drawImage(blc, 0, 0, w8, h8);
       bl3.globalCompositeOperation = 'copy'; bl3.drawImage(blc2, 0, 0, w16, h16);
       ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+      if (src) { ctx.globalCompositeOperation = 'copy'; ctx.globalAlpha = 1; ctx.drawImage(src, 0, 0); }
       ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = scene.theme.bloom ?? 0.5;
       ctx.drawImage(blc3, 0, 0, cam.W, cam.H);
       ctx.restore();
@@ -1035,7 +1215,7 @@
           if (fs.hidden) return;
           const f = F[i];
           const b = [fs.x - 200, -320, fs.x + 200, 40];
-          this.drawLit({ x: fs.x, flash: fs.flash }, (c) => this.drawSnapFighter(c, fs, f), b);
+          this.drawLit({ id: i, x: fs.x, flash: fs.flash }, (c) => this.drawSnapFighter(c, fs, f), b);
         });
         cam.world(ctx);
         s.fs.forEach((fs, i) => { if (!fs.hidden && !fs.dead) ND.eyeGlow?.(ctx, fs.j, F[i].col, F[i].ch.acc); });
@@ -1072,6 +1252,7 @@
     // ---------------------------------------------------- seçim ekranı
     // Modlar: '2p', 'cpu', 'arcade' (tek slot), 'train' (slot 2 = kukla), 'tutorial' (tek slot)
     openSelect(mode) {
+      this.cancelPreparation();
       this.selMode = mode; this.phase = 'select'; this.pt = 0;
       this.sel.ready = [false, false]; this.peek = [null, null];
       this.ais = []; F.forEach((f) => (f.locked = true));
@@ -1154,6 +1335,13 @@
         add(a.id, `<b>${a.kanji}</b>${a.name}` + (locked ? '<i class="lk" aria-hidden="true"></i>' : ''), locked, SS.lockMsg ? SS.lockMsg(a.name, hint) : hint);
       }
       add('random', tx(SS.random || 'Rastgele'), false);
+    },
+    // ends a rewarded one-fight loan of a locked ninja (see trialOffer): the lock is back, the previous pick restored
+    endTrial() {
+      if (!ND._trial) return;
+      ND._trial = null;
+      if (this.trialPrev != null) this.sel.c[0] = this.trialPrev;
+      this.trialPrev = null;
     },
     // Rewarded ad: try a locked ninja for one CPU fight. k = roster index, or null to hide the offer.
     trialOffer(k) {
@@ -1259,7 +1447,7 @@
       const T = tOn(), app = $('app');
       // "playing" (portrait → turn-your-phone hint) only while a match is on screen: select, VS, end and ending
       // screens stay usable in portrait
-      const playing = this.mode !== 'attract' && !!ROT_PHASES[this.phase];
+      const playing = !this.preparing && this.mode !== 'attract' && !!ROT_PHASES[this.phase];
       const rot = T && playing && PORTRAIT.matches;
       if (playing !== this._playing) { this._playing = playing; app.classList.toggle('playing', playing); }
       // dokunmatik dövüşte kamera: zemin biraz yukarıda, yanlarda ek pay (düğmeler dövüşçüleri daha az örter)
@@ -1267,7 +1455,7 @@
       if (camT !== this._camT) { this._camT = camT; cam.gyK = camT ? 0.48 : 0.6; cam.padX = camT ? 80 : 0; }
       if (rot && !this.paused && (this.phase === 'fight' || this.phase === 'intro')) setPause(true);
       // stays drawn under the pause dialog (dimmed, not touchable) so size / layout / hand changes show at once
-      const on = T && !!TOUCH_MODES[this.mode] && !!TOUCH_PHASES[this.phase] && !this.replay && !rot;
+      const on = !this.preparing && T && !!TOUCH_MODES[this.mode] && !!TOUCH_PHASES[this.phase] && !this.replay && !rot;
       if (on !== this._touchOn) {
         this._touchOn = on; $('touch').hidden = !on;
         if (on) this.touchHud(true); else input.touchReset();
@@ -1355,6 +1543,7 @@
         tp.hy += Math.sin(t * 2.3) * 1.3; tp.ay += Math.sin(t * 2.3 + 0.6) * 1.6; tp.sw += Math.sin(t * 1.15) * 0.035;
         ND.pose.approach(pv.pose, tp, pv.pvPose ? 4 : 10, rdt);
         pv.solve(rdt);
+        ND.updateCloth(pv.j, rdt);
       }
     },
     renderSelect() {
@@ -1386,11 +1575,11 @@
     // graphics: the player's choice (Auto's own steps are not saved); hq / hqUser keep older builds reading it right
     const gfx = GFX.pref, hq = gfx !== 'low', hqUser = gfx !== 'auto';
     // merged into what is stored, so settings kept by other files (touch controls: key "touch", js/touch.js) survive
-    store.set(Object.assign(store.get(), { sound: ND.settings.sound, bloodOptIn: ND.settings.blood, music: ND.settings.music, hints: ND.settings.hints, gfx, hq, hqUser, level: game.level, c1: id(game.sel.c[0]), c2: id(game.sel.c[1]), arena: game.sel.arena }));
+    store.set(Object.assign(store.get(), { sound: ND.settings.sound, bloodOptIn: ND.settings.blood, music: ND.settings.music, voice: ND.settings.voice, hints: ND.settings.hints, showFps: ND.settings.showFps || undefined, gfx, hq, hqUser, fps: game.fpsPref || undefined, level: game.level, c1: id(game.sel.c[0]), c2: id(game.sel.c[1]), arena: game.sel.arena }));
   }
   function unlockAudio() { au.init(); au.setEnabled(ND.settings.sound); mu.init(); mu.setEnabled(ND.settings.music); if (mu.mode === 'off') mu.setMode(game.phase === 'fight' ? 'fight' : 'menu'); }
   function choose(mode) { unlockAudio(); au.ui(); if (mode === 'watch') { au.quiet = false; game.start('watch'); } else game.openSelect(mode); }
-  function goMenu() { game.start('attract'); mu.setMode('menu'); if ($('first')) $('first').hidden = true; refreshPlay(); setTimeout(() => $('mplay').focus(), 0); }
+  function goMenu() { game.setSingle?.(false); game.start('attract'); mu.setMode('menu'); if ($('first')) $('first').hidden = true; refreshPlay(); setTimeout(() => $('mplay').focus(), 0); }
   // PLAY opens the saved character journeys. VS CPU remains the single-match entry.
   function playJourney() {
     if (ND.save && !ND.save.p.firstDone) { ND.save.p.firstDone = true; ND.save.commit(); }
@@ -1415,7 +1604,8 @@
     if (game.mode === 'attract' || game.phase === 'end' || game.phase === 'select' || game.phase === 'replay' || game.phase === 'vs' || game.phase === 'ending') return;
     game.paused = v; $('pause').hidden = !v;
     const br = $('bRestart'); if (br) br.hidden = !!(game.runner && game.runner.noRestart && game.mode === game.runner.mode);
-    if (v) { input.p1.clear(); input.p2.clear(); input.touchReset(); $('bResume').focus(); }
+    // (pausing also cuts a voice line still sounding and drops announcer lines waiting in the queue)
+    if (v) { input.p1.clear(); input.p2.clear(); input.touchReset(); ND.voice?.stopAll?.(); $('bResume').focus(); }
     else { input.p1.buf = {}; input.p2.buf = {}; } // presses made in the pause menu must not fire on resume
     game.syncTouch();
   }
@@ -1423,7 +1613,9 @@
   const card = (id, fn) => {
     const el = $(id); if (!el) return;
     el.onclick = fn;
-    el.onkeydown = (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === el) { e.preventDefault(); fn(); } };
+    // (stopPropagation: the same Enter must not also reach the window key handler of the screen fn just opened —
+    // Enter on "vs CPU" opened the select screen and started the fight at once)
+    el.onkeydown = (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === el) { e.preventDefault(); e.stopPropagation(); fn(); } };
   };
 
   // Yalnız dokunmatik cihazda iki oyuncu pratik değil: klavye/gamepad görülene dek kibarca uyar
@@ -1437,19 +1629,37 @@
   $('mplay').onclick = playJourney;
   if ($('fPlay')) $('fPlay').onclick = playJourney;
   if ($('fMenu')) $('fMenu').onclick = () => { unlockAudio(); au.ui(); if (ND.save) { ND.save.p.firstDone = true; ND.save.commit(); } $('first').hidden = true; $('menu').hidden = false; refreshPlay(); setTimeout(() => $('mplay').focus(), 0); };
-  // Sıralama: menünün üstünde açılır (arka planda gösteri maçı sürer); kapatınca menüye döner
-  $('mlb').onclick = () => {
+  // Hall of Champions card (this month's top 10 on the card, js/banzuke.js champCard): opens over the menu (the attract
+  // fight keeps running behind); closing returns to the menu. banzuke.js sets its own handlers when it is loaded.
+  card('mlb', () => {
     unlockAudio(); au.ui();
     if (ND.banzuke) return ND.banzuke.ui.showHall('week', null);
     if (!ND.lbUI) return;
     $('menu').hidden = true;
     ND.lbUI.show(null, { back: () => { if (game.mode === 'attract') { $('menu').hidden = false; setTimeout(() => $('mlb').focus(), 0); } else goMenu(); } });
-  };
+  });
   // Rekabet kartları (banzuke.js yoksa gizli)
   ['mtour', 'mdan'].forEach((id) => { const el = $(id); if (el && !ND.banzuke) el.hidden = true; });
   if ($('mtour')) $('mtour').addEventListener('click', unlockAudio);
   if ($('mdan')) $('mdan').addEventListener('click', unlockAudio);
+  if ($('mlb')) $('mlb').addEventListener('click', unlockAudio);
   card('mcpu', () => choose('cpu'));
+  // Single match (index.html #msingle): the card opens or closes its choice — vs CPU (with the difficulty) or two
+  // players. Keyboard: Enter / Space on the card opens it and focuses "vs CPU"; Escape inside closes it.
+  const single = $('msingle'), pick = $('singlePick');
+  function setSingle(open, focus) {
+    if (!single || !pick) return;
+    pick.hidden = !open; single.setAttribute('aria-expanded', String(open));
+    if (open) { mark2p(); if (focus) setTimeout(() => $('mcpu') && $('mcpu').focus(), 0); }
+    else if (focus) single.focus();
+  }
+  game.setSingle = setSingle;
+  if (single && pick) {
+    single.onclick = () => { unlockAudio(); au.ui(); setSingle(pick.hidden, false); };
+    single.onkeydown = (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === single) { e.preventDefault(); e.stopPropagation(); unlockAudio(); au.ui(); setSingle(pick.hidden, true); } };
+    pick.addEventListener('click', (e) => e.stopPropagation());
+    pick.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setSingle(false, true); } });
+  }
   card('mtrain', () => choose('train'));
   $('mtFree').onclick = (e) => { e.stopPropagation(); choose('train'); };
   $('mtTut').onclick = (e) => { e.stopPropagation(); choose('tutorial'); };
@@ -1460,7 +1670,7 @@
       document.querySelectorAll('.seg[data-lv]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
     };
   });
-  const toggles = { tSound: 'sound', tBlood: 'blood', tMusic: 'music', tHints: 'hints' };
+  const toggles = { tSound: 'sound', tBlood: 'blood', tMusic: 'music', tHints: 'hints', tFps: 'showFps', tVoice: 'voice' };
   // Graphics choice: the [data-gq] rows in the menu's options and the pause dialog (index.html), four .seg buttons
   // data-gfx="auto|high|medium|low". A press applies and saves (ND.gfx.setQuality → the GFX.onChange listener below
   // persists). Texts from ND.STR.gfx: title, levels, and one line under the row — on Auto it says which tier is drawn
@@ -1494,6 +1704,39 @@
   }));
   gfxTexts();
   ND.i18n?.onChange(gfxTexts);
+  // Frame rate (Settings → Graphics, the [data-fq] row: .seg buttons data-fps="60|90|120|max"): the frame pacer's
+  // target (js/gfx.js makePacer; phones default to 60, computers to Max). A press applies at once and is saved
+  // (settings key `fps`). Texts ND.STR.fps. How the auto quality ladder uses it: ladderTarget() below.
+  const fqRows = () => document.querySelectorAll('[data-fq]');
+  const fpsChoice = () => game.fpsPref || GFX.fpsDefault();
+  function fpsTexts() {
+    const P = STR.fps || {}, L = P.levels || {};
+    fqRows().forEach((row) => {
+      const t = row.querySelector('[data-fq-t]');
+      if (t) t.textContent = P.title || '';
+      row.setAttribute('aria-label', P.title || '');
+      row.querySelectorAll('[data-fps]').forEach((b) => { b.textContent = L[b.dataset.fps] || b.dataset.fps; });
+    });
+    syncFps();
+  }
+  function syncFps() {
+    const P = STR.fps || {}, N = P.note || {}, v = fpsChoice();
+    fqRows().forEach((row) => {
+      row.querySelectorAll('[data-fps]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.fps === v)));
+      const d = row.querySelector('[data-fq-d]'), desc = N[v] || '';
+      if (d && d.textContent !== desc) d.textContent = desc;
+    });
+  }
+  game.setFps = (v) => {
+    if (!GFX.FPS.includes(v)) return false;
+    game.fpsPref = v; persist(); syncFps(); game.applyFps?.();
+    return true;
+  };
+  fqRows().forEach((row) => row.querySelectorAll('[data-fps]').forEach((b) => {
+    b.onclick = (e) => { e.stopPropagation(); game.setFps(b.dataset.fps); unlockAudio(); au.ui(); };
+  }));
+  fpsTexts();
+  ND.i18n?.onChange(fpsTexts);
 
   // Touch help in the menu's Controls card (data-sh="touch.help" = ND.STR.touch.help): its first column follows the
   // movement mode the player chose (floating stick / fixed stick / d-pad, d-pad with tap to step) and one line under
@@ -1590,6 +1833,8 @@
       ND.settings[key] = !ND.settings[key]; show();
       unlockAudio(); persist();
       if (key === 'blood' && !ND.settings.blood) fx.decals.length = 0;
+      if (key === 'showFps') fpsMeter.set(ND.settings.showFps);
+      if (key === 'voice' && ND.voice && ND.voice.setEnabled) ND.voice.setEnabled(ND.settings.voice);
       // volume.js follows the switches (muted look of the sliders)
       if ((key === 'sound' || key === 'music') && ND.volumeUI) ND.volumeUI.refresh();
     }));
@@ -1628,6 +1873,7 @@
   cv.addEventListener('pointerdown', () => { if (game.phase === 'replay') game.finishReplay(); });
 
   input.onKey = (e) => {
+    if (game.preparing) { if (input.isBack(e) && !e.repeat) goMenu(); return true; }
     if (ND.reveal && ND.reveal.close && !e.repeat && ND.reveal.close()) return true; // yeni ninja tanıtımı: herhangi bir tuş kapatır
     if (ND.honor && ND.honor.roadOpen) { if (input.isBack(e)) { ND.honor.hideRoad(true); return true; } return false; }
     if (ND.lbUI && ND.lbUI.open) return ND.lbUI.onKey(e);
@@ -1764,10 +2010,19 @@
     toast() { const T = STR.toast || {}; ND.toast?.(tx(T.perf || 'Performans için grafik düşürüldü'), T.perfK || '軽'); },
   };
   // the decision itself lives in js/gfx.js (ladderFrame), where scripts/auto-quality-check.mjs tests it
+  // The ladder's frame-time target: 60 fps rules (0) unless the player chose a higher frame rate AND Auto graphics —
+  // then frames are judged against that rate (Max: the screen's refresh period), so Auto may lower the tier to reach
+  // it. A fixed High / Medium / Low is never lowered for a frame rate (a 16.7 ms frame is not slow for it).
+  function ladderTarget() {
+    if (GFX.pref !== 'auto' || !game.fpsPref || CAP_Q) return 0;
+    const f = GFX.fpsOf(game.fpsPref);
+    return f > 60 ? 1000 / f : f ? 0 : pacer ? Math.min(1000 / 60, pacer.period) : 0;
+  }
   function aqWatch(gapMs, workMs) {
     // the round intro counts too (the fighters walk in over the full scene): a weak phone steps down before the
     // first exchange instead of about a second into it
     const counting = !game.paused && (game.phase === 'fight' || game.phase === 'intro') && game.mode !== 'attract' && !document.hidden;
+    aq.targetMs = ladderTarget();
     GFX.ladderFrame(aq, gapMs, workMs, counting, aqAct);
   }
   game.aq = aq; game._aqWatch = aqWatch; game._aqReset = aqReset; // console tests
@@ -1827,16 +2082,72 @@
     skipDraw = behind && performance.now() - w0 > 12;
   }
   game.isBehind = isBehind;
+  // Show FPS readout (#fpsMeter, Settings → Graphics, saved as `showFps`). Costs nothing while off. While on, every
+  // frame the game loop runs (callbacks the pacer skips never get here, so a 60 cap on a 120 Hz screen reads 60)
+  // stores its real interval (requestAnimationFrame timestamps) in a ring; twice a second the last ~1 s of intervals
+  // gives the rate (frames / time) and the 95th percentile interval ("p95": 1 frame in 20 took this long or longer, the
+  // stutter number). One text node, written only when the text changes. Gaps over 1 s (hidden tab) and loading frames
+  // are left out, so a return from another tab does not read as one slow frame.
+  // Behind the menus the canvas itself is drawn at most ~30 times a second (drawFrame), the loop still runs at the
+  // full rate, and that loop rate is what is shown. ?perf=1 keeps its own, larger profiler (js/perf.js).
+  const fpsMeter = (() => {
+    const N = 256, ring = new Float64Array(N), tmp = new Float64Array(N), SHOW_MS = 500, WIN_MS = 1000;
+    let on = false, k = 0, n = 0, el = null, node = null, text = '', since = 0;
+    function show() {
+      let sum = 0, m = 0;
+      for (let i = 0; i < n && sum < WIN_MS; i++) { const g = ring[(k - 1 - i + N) % N]; sum += g; tmp[m++] = g; }
+      if (!m || sum <= 0) return;
+      const s = tmp.subarray(0, m).sort();
+      const fps = Math.round((m * 1000) / sum), p95 = s[Math.min(m - 1, Math.ceil(m * 0.95) - 1)];
+      const t = `${fps} FPS · p95 ${p95 < 10 ? p95.toFixed(1) : Math.round(p95)} ms`;
+      if (t !== text) { text = t; node.nodeValue = t; }
+    }
+    return {
+      set(v) {
+        on = !!v;
+        el = el || $('fpsMeter');
+        if (!el) { on = false; return; }
+        if (!node) { node = document.createTextNode(''); el.appendChild(node); }
+        k = 0; n = 0; since = 0; text = ''; node.nodeValue = '-- FPS';
+        el.hidden = !on;
+      },
+      frame(gap) {
+        if (!on) return;
+        if (gap > 0 && gap <= 1000) { ring[k] = gap; k = (k + 1) % N; if (n < N) n++; since += gap; }
+        if (since >= SHOW_MS) { since = 0; show(); }
+      },
+      get on() { return on; },
+      get text() { return text; },
+    };
+  })();
+  game.fpsMeter = fpsMeter; // console tests
+  fpsMeter.set(ND.settings.showFps);
   let last = performance.now();
+  // Frame pacing (js/gfx.js makePacer): the Frame rate setting (fpsChoice: phones 60 by default, where 90–120 Hz
+  // screens would otherwise ask for frames the GPU cannot finish on a steady beat; computers Max = one frame per
+  // refresh). ?cap=0 forces Max, ?cap=1 forces 60 (not saved). Loading work (game.preparing) always runs on every
+  // callback.
+  const pacer = GFX.makePacer ? GFX.makePacer(CAP_Q ? (CAP_Q === '1' ? 60 : 0) : GFX.fpsOf(fpsChoice())) : null;
+  game.pace = { on: !!pacer, stat: () => pacer?.stat() || null };
+  game.applyFps = () => { if (pacer && !CAP_Q) pacer.setTarget(GFX.fpsOf(fpsChoice())); };
   function frame(now) {
     requestAnimationFrame(frame);
+    if (game.pace.on && pacer && !game.preparing && !pacer.due(now)) return; // skipped: its time goes to the next frame
+    if (game.preparing) pacer?.reset();
     const gap = now - last; last = now;
+    if (!game.preparing) fpsMeter.frame(gap);
     frameBody(gap);
   }
   // One display frame (gap = ms since the previous one). Exposed as game._frame for console tests (hidden tab: no rAF).
   function frameBody(gap) {
     const rdt = Math.min(0.05, Math.max(0, gap / 1000));
     const w0 = performance.now();
+    if (game.preparing) {
+      // Keep preparation outside gameplay, auto-quality sampling and combat input. Ads/hidden tabs pause it too.
+      portalTick(0, true);
+      if (!document.hidden && !(ND.portal && ND.portal.inAd)) game.preparing.step();
+      return;
+    }
     input.pollPads();
     const inAd = !!(ND.portal && ND.portal.inAd);
     if (!game.paused && !inAd) game.advance(rdt); else game.acc = 0;

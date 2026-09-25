@@ -523,6 +523,9 @@
     title: 'Ses düzeyi', master: 'Genel', music: 'Müzik', sfx: 'Efektler', sound: 'Ses',
     pct: (n) => `%${n}`,
     muted: 'Ses kapalı. Bir sürgüyü oynatınca yeniden açılır.',
+    // Ayarlar > Ses: karakter ve sunucu sesleri anahtarı (js/voice.js) ve altındaki teşekkür satırı
+    voice: 'Seslendirme',
+    credit: 'Seslendirme: ユーフルカ (youfulca.com) · 効果音ラボ · すぱらんど',
   });
 
   // ---------------------------------------------------------------- Turkish source additions: touch movement modes + layout editor
@@ -555,6 +558,7 @@
     noRoom: 'Orada yer yok: düğme eski yerine döndü.',
     saved: 'Kontroller kaydedildi',
     throwName: 'SHURIKEN',
+    pauseName: 'Duraklat',
     dirs: { dl: '◀ Sol', dr: 'Sağ ▶', du: '▲ Zıpla', dd: '▼ Gard' },
   });
 
@@ -571,6 +575,22 @@
       low: 'En akıcı. Zayıf telefonlar için.',
     },
     now: (lv) => `Şu an: ${lv}`,
+  });
+
+  // ---------------------------------------------------------------- Turkish source additions: frame rate
+  // Settings → Graphics, the Frame rate row (js/gfx.js makePacer targets 60 / 90 / 120 / max; game.js). English in
+  // i18n-en.js, block "FRAME RATE". The numbers are shown as they are; only "Max" and the lines under the row are text.
+  if (ND.STR) ND.STR.fps = merge(ND.STR.fps || {}, {
+    title: 'Kare hızı',
+    // the switch under the row: a small frame-rate readout at the bottom of the screen (game.js fpsMeter)
+    show: 'FPS göster',
+    levels: { max: 'Maks' },
+    note: {
+      60: 'Akıcı ve serin. Çoğu telefon için en iyisi.',
+      90: 'Ekran destekliyorsa daha akıcı. Daha çok pil harcar.',
+      120: '120 Hz ekranlarda en akıcı. Daha çok pil harcar.',
+      max: 'Ekranın izin verdiği kadar hızlı.',
+    },
   });
 
   // ---------------------------------------------------------------- Turkish source additions: language picker

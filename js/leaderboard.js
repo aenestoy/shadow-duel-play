@@ -134,10 +134,15 @@
     const n = Array.from(v).length;
     if (n < 3 || n > 16) return { ok: false, code: 'nick_length', name: v };
     if (!NICK_RE.test(v) || !LETTER_RE.test(v)) return { ok: false, code: 'nick_chars', name: v };
-    const f = fold(v), l = f.replace(/[^a-z]/g, ''), c = l.replace(/(.)\1+/g, '$1'), toks = f.split(/[^a-z]+/);
-    for (const w of BAD_SUB) if (l.includes(w) || (!/(.)\1/.test(w) && c.includes(w))) return { ok: false, code: 'nick_bad', name: v };
-    for (const w of BAD_WORD) if (l === w || toks.includes(w)) return { ok: false, code: 'nick_bad', name: v };
+    if (badName(v)) return { ok: false, code: 'nick_bad', name: v };
     return { ok: true, name: v };
+  }
+  // the nickname word filter alone (also used to show other players' names: js/banzuke.js champCard)
+  function badName(v) {
+    const f = fold(v), l = f.replace(/[^a-z]/g, ''), c = l.replace(/(.)\1+/g, '$1'), toks = f.split(/[^a-z]+/);
+    for (const w of BAD_SUB) if (l.includes(w) || (!/(.)\1/.test(w) && c.includes(w))) return true;
+    for (const w of BAD_WORD) if (l === w || toks.includes(w)) return true;
+    return false;
   }
   // Rütbe kısaltması (tablolarda adın yanında): 1..10 → "10級"…"1級", 11..20 → "1段"…"10段"
   const danShort = (d) => (!(d > 0) ? '' : d <= 10 ? (11 - d) + '級' : (d - 10) + '段');
@@ -929,6 +934,8 @@
 
     // yardımcılar (diğer modüller için)
     parseBoard, period, prevPeriod, checkName, cleanName, danShort, weekKeyOf,
+    // a name safe to show: control / markup characters removed, at most 20 characters, '' when the word filter rejects it
+    shownName(s) { const n = cleanName(s); return n && !badName(n) ? n : ''; },
     now() { try { return cur.now ? cur.now() : Date.now(); } catch (e) { return Date.now(); } },
     // current tournament period (a UTC calendar month; the name is kept from the weekly version)
     week(ms) { return period(ms == null ? this.now() : ms); },
@@ -1222,6 +1229,10 @@
       return T[this.status] || '';
     },
     statusKey() { return this.status === 'online' && this._viewOnly() ? 'readonly' : this.status; },
+    // Monthly titles and Champion colors are given by the server (Supabase nd_titles) to scores it holds: only an
+    // online Supabase connection whose scores are sent counts. Not on Poki / offline / local (no network), the
+    // claude.ai host, or for signed-in CrazyGames players (their scores stay on the device for now: _viewOnly).
+    titlesEarnable() { return cur.name === 'supabase' && this.status === 'online' && !this._viewOnly(); },
     // CrazyGames hesabı: sunucu kimlik doğrulaması gelene dek skor yalnız bu cihazda (tablo yalnızca görüntülenir)
     _viewOnly() { return !!cur.readonly || (this.nameLocked && cur.name === 'supabase'); },
 

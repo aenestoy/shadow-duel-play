@@ -44,6 +44,7 @@
         trainTut: 'Tutorial',
         watchShort: 'Dois ninjas aleatórios, IA Lenda',
         specialKey: 'Técnica de ki (ki cheio)',
+        single: 'Partida avulsa', singleDesc: 'Contra a CPU ou dois jogadores',
       },
       sel: {
         title: { '2p': 'Escolha seu ninja', cpu: 'Escolha seu ninja', arcade: 'Arcade · Escolha seu ninja', train: 'Treino · Escolha seu ninja', tutorial: 'Tutorial · Escolha seu ninja', tourney: 'Torneio Mensal · Escolha seu ninja', dan: 'Exame Dan · Escolha seu ninja' },
@@ -189,6 +190,8 @@
           hallRank: (p) => `Este mês #${p} · recordes`,
           hallDesc: 'O top 10 do mês e os recordes de todos os tempos',
           nick: (n) => (n ? `Apelido: ${n}` : 'Escolha um apelido'),
+          champTitle: 'Top 10 do mês', champLocal: 'Top 10 neste dispositivo', champEmpty: 'Seja o primeiro na tabela deste mês', champLoading: 'Carregando os líderes…',
+          champLast: (n) => `Campeão do mês passado: ${n}`, champOpen: 'abrir o ranking mensal',
         },
         t: {
           title: 'Torneio Mensal', head: 'Torneio',
@@ -229,7 +232,7 @@
           tabs: { week: { n: 'Este Mês' }, alltime: { n: 'Todos os Tempos' }, archive: { n: 'Campeões' }, chars: { n: 'Por Ninja' }, dan: { n: 'Dan' } },
           desc: { alltime: 'Os melhores de todos os tempos do Torneio Mensal', archive: 'O top 10 de cada mês encerrado fica gravado aqui para sempre', chars: 'Recordista de cada ninja · toque num ninja para ver o top 20', dan: 'Graduações mais altas' },
           loading: 'Carregando…', error: 'Não foi possível carregar o ranking.', retry: 'Tentar de novo',
-          empty: 'Ninguém aqui ainda. Largue na frente!', emptyDan: 'Nenhum jogador graduado ainda.', emptyArchive: 'Nenhum mês encerrado ainda. Os primeiros campeões serão gravados quando este mês terminar.',
+          empty: 'Ninguém aqui ainda. Largue na frente!', emptyDan: 'Nenhum jogador graduado ainda.', emptyArchive: 'Nenhum mês encerrado ainda. Os títulos começam com o torneio de outubro de 2026; os campeões serão gravados quando ele terminar, em 1º de novembro.', emptyArchiveLocal: 'Nenhum mês encerrado neste dispositivo ainda.',
           anon: 'Jogador',
           meTop: (p, s) => `Você: #${p} · ${s} pts · você está no top 10!`,
           meGap: (p, g, s) => `Você: #${p} · ${s} pts · faltam ${g} pts para o top 10`,
@@ -243,8 +246,9 @@
         // Monthly Tournament rewards: permanent title (top 3) and Champion colors (1st)
         ttl: {
           champ: 'Campeão Mensal', finalist: 'Finalista',
-          reward: 'O top 3 de cada mês ganha um título permanente. O campeão também ganha cores de campeão exclusivas para o ninja que usou. Os títulos exigem pelo menos 5 jogadores no mês.',
-          hall: 'O top 3 do mês ganha um título permanente (mín. 5 jogadores) · o campeão, cores de campeão',
+          reward: 'A partir do torneio de outubro de 2026, o top 3 de cada mês ganha um título permanente. O campeão também ganha cores de campeão exclusivas para o ninja que usou. Os títulos exigem pelo menos 5 jogadores no mês.',
+          hall: 'A partir de outubro de 2026: o top 3 do mês ganha um título permanente (mín. 5 jogadores) · o campeão, cores de campeão',
+          local: 'Suas pontuações do torneio ficam salvas neste dispositivo.',
           colors: 'Cores de campeão',
           how: 'Vença um Torneio Mensal com este ninja',
           unlocked: (name) => `Campeão Mensal! Cores de campeão de ${name} desbloqueadas`,
@@ -739,6 +743,9 @@
         title: 'Volume', master: 'Geral', music: 'Música', sfx: 'Efeitos', sound: 'Som',
         pct: (n) => `${n}%`,
         muted: 'O som está desligado. Mexa num controle para religar.',
+        // Settings > Audio: character / announcer voices switch (js/voice.js) and the courtesy credit under it
+        voice: 'Vozes',
+        credit: 'Vozes: ユーフルカ (youfulca.com) · 効果音ラボ · すぱらんど',
       },
     });
 
@@ -772,6 +779,7 @@
         noRoom: 'Não há espaço ali: o botão voltou.',
         saved: 'Controles salvos',
         throwName: 'SHURIKEN',
+        pauseName: 'Pausa',
         dirs: { dl: '◀ Esquerda', dr: 'Direita ▶', du: '▲ Pular', dd: '▼ Defesa' },
       },
     });
@@ -999,6 +1007,22 @@
           low: 'O mais fluido. Para celulares mais antigos.',
         },
         now: (lv) => `Agora: ${lv}`,
+      },
+    });
+
+    // ================================================================ FRAME RATE: Settings → Graphics (js/gfx.js makePacer)
+    // (Turkish source in i18n.js, block "frame rate"; the numbers themselves are not translated)
+    merge(EN.STR, {
+      fps: {
+        title: 'Taxa de quadros',
+        show: 'Mostrar FPS',
+        levels: { max: 'Máx' },
+        note: {
+          60: 'Estável e sem aquecer. O melhor para a maioria dos celulares.',
+          90: 'Mais fluido se a tela suportar. Gasta mais bateria.',
+          120: 'O mais fluido em telas de 120 Hz. Gasta mais bateria.',
+          max: 'Tão rápido quanto sua tela permitir.',
+        },
       },
     });
 

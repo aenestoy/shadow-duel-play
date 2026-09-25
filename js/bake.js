@@ -1,5 +1,5 @@
 // Shadow Duel — fighter part cache ("baking"), used by the Low graphics tier.
-// Drawing a fighter from paths is about 130 path fills and strokes per frame (~6 ms each on a weak phone). Here each
+// Drawing a fighter submits many paths; their cost must be measured on the target device. Here each
 // body part (thigh, shin, foot, knee bag, sleeve, forearm, sleeve mouth, hand, torso, head + neck, weapon,
 // scabbard...) is drawn once with the same path code (skeleton.js drawing steps) into a small picture, and every
 // frame the pictures are only placed: moved and rotated onto the part's bone (about 25 image draws per fighter).
@@ -14,8 +14,8 @@
 // the path renderer. Live every frame (cheap): cloth ropes, knee creases, the chin / front-arm shadow on the torso
 // (clipped to it on a scratch canvas), sword trail, blade light and tip glint, fan tassel, chain, the drawn bow.
 // A half-turned fighter (fractional facing during spins) is drawn with paths.
-// At most BUDGET pictures are made per fighter per frame; past that a neighbouring picture (next light step, sag
-// step or scale level) stands in until it is made. Memory: each fighter's cache keeps at most CAP bytes and drops the
+// At most BUDGET pictures are made per fighter per display frame; remaining misses use the original paths.
+// Repeated draws within that frame share the budget. Memory: each fighter's cache keeps at most CAP bytes and drops the
 // least recently used pictures first (a fight on a phone uses about 1-2 MB per fighter).
 window.ND = window.ND || {};
 (function (ND) {
@@ -27,9 +27,25 @@ window.ND = window.ND || {};
 
   // ---------------------------------------------------------------- cache
   // m: key → { cv, x0, y0, w, h (local frame, world units), len (bone length when drawn), last (use), bytes }
-  function Cache() { return { m: new Map(), bytes: 0, frame: 0, lv: -1, bakes: 0, col: null, acc: null, wpn: null, ltx: null }; }
+  let frameId = 0;
+  ND.beginBakeFrame = () => ++frameId;
+  function Cache() { return { m: new Map(), bytes: 0, frame: -1, fb: 0, lv: -1, bakes: 0, hits: 0, live: 0, evictions: 0, bornPixels: 0, readOnly: false, col: null, acc: null, wpn: null, ltx: null }; }
   ND.bakeCache = Cache;
-  ND.bakeStats = (F) => ({ parts: F.m.size, kb: Math.round(F.bytes / 1024), bakes: F.bakes, level: F.lv });
+  ND.bakeStats = (F) => ({ parts: F.m.size, kb: Math.round(F.bytes / 1024), bakes: F.bakes, hits: F.hits, live: F.live, evictions: F.evictions, bornPixels: F.bornPixels, level: F.lv });
+  // Match preparation may leave missing parts blank behind its opaque loading screen. Live drawing never does.
+  let preparing = false, pending = 0;
+  ND.prepareBaked = function (draw) {
+    ND.beginBakeFrame();
+    preparing = true; pending = 0;
+    try { draw(); return pending === 0; } finally { preparing = false; }
+  };
+  const release = (e) => { if (typeof e.cv.close === 'function') e.cv.close(); };
+  function clear(Fc) { Fc.evictions += Fc.m.size; for (const e of Fc.m.values()) release(e); Fc.m.clear(); Fc.bytes = 0; }
+  ND.clearBakeCache = clear;
+  function sameWeapon(a, b) {
+    return a === b || !!a && !!b && a.type === b.type && a.blade === b.blade && a.handle === b.handle &&
+      a.twin === b.twin && a.dual === b.dual && a.iai === b.iai;
+  }
 
   // state of the fighter being drawn (set by drawNinjaBaked, read by the part functions below)
   let F = null, J = null, C = null, D = null, WPN = null, ACC = '', SD = 1, LV = 0, S = 1;
@@ -38,6 +54,7 @@ window.ND = window.ND || {};
   const lb = (a) => { let b = Math.floor((a / TAU) * NB) % NB; if (b < 0) b += NB; return b; };
   // shade() in skeleton.js puts the highlight on the side whose normal faces the light: 1 when it flips
   const sflip = (dx, dy) => (-dy * LT.x + dx * LT.y < 0 ? 1 : 0);
+  // Numeric keys avoid per-part string allocation.
   const key = (pid, a, b, c) => pid + 64 * (LV + 32 * (a + 64 * (b + 256 * c)));
 
   // local bounding box (world units) of the part being baked, and its frame
@@ -61,7 +78,14 @@ window.ND = window.ND || {};
   const USE_BM = !!OX;
   function newSprite(w, h) {
     if (!USE_BM) return newCanvas(w, h);
-    OC.width = w; OC.height = h;
+    // transferToImageBitmap leaves a fresh transparent backing store. Only resize dimensions that changed:
+    // assigning both on every part needlessly reallocates/clears the intermediate backing store twice.
+    const resized = OC.width !== w || OC.height !== h;
+    if (OC.width !== w) OC.width = w;
+    if (OC.height !== h) OC.height = h;
+    // A resize also resets drawing state. Equal-sized successive parts still need that reset, so filters,
+    // line styles and clipping from one part can never affect another (including older browser fallbacks).
+    if (!resized) { if (typeof OX.reset === 'function') OX.reset(); else OC.width = w; }
     return OC;
   }
 
@@ -72,8 +96,11 @@ window.ND = window.ND || {};
   function part(ctx, pid, a, b, c, ox, oy, ang, m, len, box, draw) {
     const k = key(pid, a, b, c);
     let e = F.m.get(k);
-    // over this frame's bake budget: a neighbour picture (next light step, sag step, scale level) stands in for now
-    if (!e && F.fb >= BUDGET) e = near(pid, a, b, c);
+    if (e) F.hits++;
+    if (!e && F.readOnly) throw Error('Prepared character cache missed a required part');
+    if (!e && preparing && F.fb >= BUDGET) { pending++; return; }
+    // Both tiers retain the authored paths when the real frame budget is exhausted.
+    if (!e && !preparing && F.fb >= BUDGET) { F.live++; restore(ctx); draw(ctx); return; }
     if (!e) {
       F.fb++;
       FO.x = ox; FO.y = oy; FO.a = ang; FO.m = m;
@@ -86,7 +113,7 @@ window.ND = window.ND || {};
       x.globalAlpha = 1; x.globalCompositeOperation = 'source-over'; x.lineJoin = 'round'; x.lineCap = 'round';
       draw(x);
       e = { cv: USE_BM ? cv.transferToImageBitmap() : cv, x0: x0 - 1 / S, y0: y0 - 1 / S, w: pw / S, h: ph / S, len, last: 0, bytes: pw * ph * 4 };
-      F.m.set(k, e); F.bytes += e.bytes; F.bakes++;
+      F.m.set(k, e); F.bytes += e.bytes; F.bakes++; F.bornPixels += pw * ph;
     }
     e.last = F.frame;
     const kx = m * (len > 0 && e.len > 0 ? len / e.len : 1), ca = Math.cos(ang), sa = Math.sin(ang);
@@ -95,34 +122,18 @@ window.ND = window.ND || {};
       BM.a * ox + BM.c * oy + BM.e, BM.b * ox + BM.d * oy + BM.f);
     ctx.drawImage(e.cv, e.x0, e.y0, e.w, e.h);
   }
-  const BUDGET = 3; // bakes per fighter per frame before neighbours are used (a bake costs about as much as a part drawn with paths)
-  function near(pid, a, b, c) {
-    const lv = LV;
-    let e = null;
-    for (const dl of [0, -1, 1, -2, 2]) {
-      LV = lv + dl;
-      if (LV < 0 || LV > 31) continue;
-      if (dl && (e = F.m.get(key(pid, a, b, c)))) break;
-      if (CQ.has(pid)) { for (const dc of [1, -1, 2, -2]) if (c + dc >= 0 && (e = F.m.get(key(pid, a, b, c + dc)))) break; if (e) break; }
-      if (LBA.has(pid)) { for (const da of [1, NB - 1]) if ((e = F.m.get(key(pid, (a + da) % NB, b, c)))) break; if (e) break; }
-    }
-    LV = lv;
-    return e;
-  }
+  const BUDGET = 3; // Hard per-fighter display-frame limit, shared by all draws in that frame.
   const restore = (ctx) => ctx.setTransform(BM.a, BM.b, BM.c, BM.d, BM.e, BM.f);
 
   function trim(Fc) {
     if (Fc.bytes <= CAP) return;
     const all = [...Fc.m.entries()].sort((p, q) => p[1].last - q[1].last);
-    for (const [k, e] of all) { if (Fc.bytes <= CAP * 0.75) break; Fc.m.delete(k); Fc.bytes -= e.bytes; }
+    for (const [k, e] of all) { if (Fc.bytes <= CAP * 0.75) break; Fc.m.delete(k); Fc.bytes -= e.bytes; Fc.evictions++; release(e); }
   }
 
   // ---------------------------------------------------------------- parts
   const P = { SAYA: 1, SAYAHIP: 2, QUIVER: 3, TANTO: 4, SHIN: 5, FOOT: 6, TOUT: 7, TFILL: 8, KTOP: 9, FOUT: 10, SLEEVE: 11,
     FORE: 12, MOUTH: 13, FIST: 14, OPEN: 15, BODY: 16, NECK: 18, SCARF: 19, JUZU: 20, HEAD: 21, KUSA: 22, WPN: 23, WPN2: 24, HEADN: 25 };
-  // parts whose key `a` is a light step and whose `c` is a quantized continuous value (sag, ornament swing, fist side)
-  const LBA = new Set([P.SHIN, P.TFILL, P.KTOP, P.SLEEVE, P.FORE, P.BODY, P.SCARF, P.JUZU, P.HEAD, P.HEADN]);
-  const CQ = new Set([P.SLEEVE, P.MOUTH, P.FIST, P.HEAD, P.HEADN]);
   const torsoAng = () => Math.atan2(TF.uy, TF.ux);
   const sdBit = () => (SD < 0 ? 1 : 0);
 
@@ -312,7 +323,8 @@ window.ND = window.ND || {};
     x0 = Math.floor(x0); y0 = Math.floor(y0); x1 = Math.ceil(x1); y1 = Math.ceil(y1);
     const w = x1 - x0, h = y1 - y0;
     if (w <= 0 || h <= 0 || w > 4096 || h > 4096) return;
-    if (!scr) { scr = newCanvas(w, h); scx = scr.getContext('2d'); }
+    // (WebGL2 renderer: a CPU canvas, so its copy into a texture every frame never waits for the GPU)
+    if (!scr) { scr = newCanvas(w, h); scx = scr.getContext('2d', ND.glHooked ? { willReadFrequently: true } : undefined); }
     if (scr.width < w || scr.height < h) { scr.width = Math.max(scr.width, w); scr.height = Math.max(scr.height, h); scx = scr.getContext('2d'); }
     scx.setTransform(1, 0, 0, 1, 0, 0); scx.globalCompositeOperation = 'source-over'; scx.globalAlpha = 1;
     scx.clearRect(0, 0, w, h);
@@ -329,13 +341,6 @@ window.ND = window.ND || {};
     restore(ctx);
   }
   const SCR_M = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
-  // on an empty layer the torso goes first, so its shadows can be clipped to it with 'source-atop' directly
-  function torsoLayer(ctx) {
-    const ta = torsoAng();
-    part(ctx, P.BODY, lb(ta), sdBit(), 0, TF.hx, TF.hy, ta, 1, TF.ln, bbRim, drBody);
-    restore(ctx);
-    ctx.globalCompositeOperation = 'source-atop'; K.torsoAO(ctx, J); ctx.globalCompositeOperation = 'source-over';
-  }
 
   // neck / scarf, prayer beads, tantō sheath, head, armour skirt
   let NA = 0;
@@ -394,39 +399,27 @@ window.ND = window.ND || {};
     if (Fc.lv >= 0 && s <= lvScale(Fc.lv) * 1.03 && s >= lvScale(Fc.lv) * 0.7) lv = Fc.lv;
     K.updLight();
     // another look, weapon or light side: start over
-    if (Fc.col !== c || Fc.acc !== acc || Fc.wpn !== wpn || Fc.ltx !== LT.x > 0) {
-      Fc.m.clear(); Fc.bytes = 0;
+    if (Fc.col !== c || Fc.acc !== acc || !sameWeapon(Fc.wpn, wpn) || Fc.ltx !== (LT.x > 0)) {
+      if (Fc.readOnly) throw Error('Prepared character cache invalidated');
+      clear(Fc);
       Fc.col = c; Fc.acc = acc; Fc.wpn = wpn; Fc.ltx = LT.x > 0;
     }
-    Fc.lv = lv; Fc.frame++; Fc.fb = 0;
+    Fc.wpn = wpn;
+    Fc.lv = lv;
+    if (Fc.frame !== frameId) { Fc.frame = frameId; Fc.fb = 0; }
     F = Fc; J = j; C = c; WPN = wpn; ACC = acc; SD = j.dir < 0 ? -1 : 1; LV = lv; S = lvScale(lv); BM = M;
     D = K.pal(c);
     glint = X.glint || 0;
-    const t = ND.scene ? ND.scene.t : 0;
-    if (j._t !== t) { const v = j._px === undefined ? 0 : j.hip.x - j._px; j._vs = (j._vs || 0) * 0.6 + Math.max(-12, Math.min(12, v)) * 0.4; j._px = j.hip.x; j._t = t; }
     ctx.lineJoin = 'round'; ctx.lineCap = 'round';
     try {
       K.torsoFrame(j);
-      if (X.layer) {
-        // X.layer: ctx is an empty layer of its own (game.drawLit). The torso is drawn first and what lies behind
-        // it (back arm, cloth ropes, back leg, scabbard) is then slid under it with 'destination-over', in reverse
-        // order: the same picture as back-to-front, without a scratch canvas for the torso's shadows.
-        torsoLayer(ctx);
-        ctx.globalCompositeOperation = 'destination-over';
-        arm(ctx, false, true);
-        const R = X.ropes;
-        if (R) for (let i = R.length - 1; i >= 0; i--) { R[i].rope.draw(ctx, R[i].col, R[i].w, ROPE_HI, 2); R[i].rope.draw(ctx, R[i].col, R[i].w, ROPE_HI, 1); }
-        leg(ctx, false, true);
-        sheath(ctx); restore(ctx);
-        ctx.globalCompositeOperation = 'source-over';
-      } else {
-        sheath(ctx); restore(ctx);
-        leg(ctx, false);
-        if (X.ropes) for (const r of X.ropes) r.rope.draw(ctx, r.col, r.w, ROPE_HI);
-        arm(ctx, false);
-        K.torsoFrame(j);
-        torso(ctx);
-      }
+      // Source-over painter order also keeps multi-stroke vector fallbacks internally ordered on Low.
+      sheath(ctx); restore(ctx);
+      leg(ctx, false);
+      if (X.ropes) for (const r of X.ropes) r.rope.draw(ctx, r.col, r.w, ROPE_HI);
+      arm(ctx, false);
+      K.torsoFrame(j);
+      torso(ctx);
       neckAndHead(ctx);
       leg(ctx, true);
       if (acc === 'kabuto') { K.torsoFrame(j); part(ctx, P.KUSA, 0, sdBit(), 0, TF.hx, TF.hy, torsoAng(), 1, 0, bbKusa, drKusa); restore(ctx); }

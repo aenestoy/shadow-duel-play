@@ -29,6 +29,7 @@
         trainTut: 'Tutorial',
         watchShort: 'Two random ninjas, Legend AI',
         specialKey: 'Ki technique (full ki)',
+        single: 'Single Match', singleDesc: 'Vs CPU or two players',
       },
       sel: {
         title: { '2p': 'Choose your ninja', cpu: 'Choose your ninja', arcade: 'Arcade · Choose your ninja', train: 'Training · Choose your ninja', tutorial: 'Tutorial · Choose your ninja', tourney: 'Monthly Tournament · Choose your ninja', dan: 'Dan Trial · Choose your ninja' },
@@ -174,6 +175,8 @@
           hallRank: (p) => `This month #${p} · records`,
           hallDesc: 'The month’s top 10 and all-time records',
           nick: (n) => (n ? `Nickname: ${n}` : 'Pick a nickname'),
+          champTitle: 'This month’s top 10', champLocal: 'Top 10 on this device', champEmpty: 'Be the first on this month’s board', champLoading: 'Loading the leaders…',
+          champLast: (n) => `Last month’s champion: ${n}`, champOpen: 'open the monthly ranking',
         },
         t: {
           title: 'Monthly Tournament', head: 'Tournament',
@@ -214,7 +217,7 @@
           tabs: { week: { n: 'This Month' }, alltime: { n: 'All Time' }, archive: { n: 'Champions' }, chars: { n: 'Ninjas' }, dan: { n: 'Dan' } },
           desc: { alltime: 'The Monthly Tournament’s all-time best', archive: 'Every finished month’s top 10 is engraved here for good', chars: 'Record holder for each ninja · tap a ninja to see the top 20', dan: 'Highest ranks' },
           loading: 'Loading…', error: 'Couldn’t load the leaderboard.', retry: 'Try again',
-          empty: 'Nobody here yet. Be the first!', emptyDan: 'No ranked players yet.', emptyArchive: 'No finished months yet. The first champions will be engraved when this month ends.',
+          empty: 'Nobody here yet. Be the first!', emptyDan: 'No ranked players yet.', emptyArchive: 'No finished months yet. Titles start with the October 2026 tournament; its champions will be engraved when it ends on 1 November.', emptyArchiveLocal: 'No finished months on this device yet.',
           anon: 'Player',
           meTop: (p, s) => `You: #${p} · ${s} pts · you’re in the top 10!`,
           meGap: (p, g, s) => `You: #${p} · ${s} pts · ${g} pts to the top 10`,
@@ -228,8 +231,9 @@
         // Monthly Tournament rewards: permanent title (top 3) and Champion colors (1st)
         ttl: {
           champ: 'Monthly Champion', finalist: 'Finalist',
-          reward: 'Each month’s top 3 earn a permanent title. The champion also wins exclusive Champion colors for the ninja they used. Titles need at least 5 players that month.',
-          hall: 'Top 3 each month earn a permanent title (min. 5 players) · the champion wins Champion colors',
+          reward: 'From the October 2026 tournament on, each month’s top 3 earn a permanent title. The champion also wins exclusive Champion colors for the ninja they used. Titles need at least 5 players that month.',
+          hall: 'From October 2026: top 3 each month earn a permanent title (min. 5 players) · the champion wins Champion colors',
+          local: 'Your tournament scores are kept on this device.',
           colors: 'Champion colors',
           how: 'Win a Monthly Tournament with this ninja',
           unlocked: (name) => `Monthly Champion! ${name}’s Champion colors unlocked`,
@@ -724,6 +728,9 @@
         title: 'Volume', master: 'Master', music: 'Music', sfx: 'Effects', sound: 'Sound',
         pct: (n) => `${n}%`,
         muted: 'Sound is off. Move a slider to turn it back on.',
+        // Settings > Audio: character / announcer voices switch (js/voice.js) and the courtesy credit under it
+        voice: 'Voices',
+        credit: 'Voices: ユーフルカ (youfulca.com) · 効果音ラボ · すぱらんど',
       },
     });
 
@@ -757,6 +764,7 @@
         noRoom: 'No room there: the button went back.',
         saved: 'Controls saved',
         throwName: 'SHURIKEN',
+        pauseName: 'Pause',
         dirs: { dl: '◀ Left', dr: 'Right ▶', du: '▲ Jump', dd: '▼ Guard' },
       },
     });
@@ -984,6 +992,22 @@
           low: 'Smoothest. For older phones.',
         },
         now: (lv) => `Now: ${lv}`,
+      },
+    });
+
+    // ================================================================ FRAME RATE: Settings → Graphics (js/gfx.js makePacer)
+    // (Turkish source in i18n.js, block "frame rate"; the numbers themselves are not translated)
+    merge(EN.STR, {
+      fps: {
+        title: 'Frame rate',
+        show: 'Show FPS',
+        levels: { max: 'Max' },
+        note: {
+          60: 'Steady and cool. Best for most phones.',
+          90: 'Smoother where the screen supports it. Uses more battery.',
+          120: 'Smoothest on 120 Hz screens. Uses more battery.',
+          max: 'As fast as your screen allows.',
+        },
       },
     });
 
