@@ -1629,18 +1629,20 @@
   $('mplay').onclick = playJourney;
   if ($('fPlay')) $('fPlay').onclick = playJourney;
   if ($('fMenu')) $('fMenu').onclick = () => { unlockAudio(); au.ui(); if (ND.save) { ND.save.p.firstDone = true; ND.save.commit(); } $('first').hidden = true; $('menu').hidden = false; refreshPlay(); setTimeout(() => $('mplay').focus(), 0); };
-  // Sıralama: menünün üstünde açılır (arka planda gösteri maçı sürer); kapatınca menüye döner
-  $('mlb').onclick = () => {
+  // Hall of Champions card (this month's top 10 on the card, js/banzuke.js champCard): opens over the menu (the attract
+  // fight keeps running behind); closing returns to the menu. banzuke.js sets its own handlers when it is loaded.
+  card('mlb', () => {
     unlockAudio(); au.ui();
     if (ND.banzuke) return ND.banzuke.ui.showHall('week', null);
     if (!ND.lbUI) return;
     $('menu').hidden = true;
     ND.lbUI.show(null, { back: () => { if (game.mode === 'attract') { $('menu').hidden = false; setTimeout(() => $('mlb').focus(), 0); } else goMenu(); } });
-  };
+  });
   // Rekabet kartları (banzuke.js yoksa gizli)
   ['mtour', 'mdan'].forEach((id) => { const el = $(id); if (el && !ND.banzuke) el.hidden = true; });
   if ($('mtour')) $('mtour').addEventListener('click', unlockAudio);
   if ($('mdan')) $('mdan').addEventListener('click', unlockAudio);
+  if ($('mlb')) $('mlb').addEventListener('click', unlockAudio);
   card('mcpu', () => choose('cpu'));
   // Single match (index.html #msingle): the card opens or closes its choice — vs CPU (with the difficulty) or two
   // players. Keyboard: Enter / Space on the card opens it and focuses "vs CPU"; Escape inside closes it.

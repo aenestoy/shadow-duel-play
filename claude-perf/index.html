@@ -1170,13 +1170,12 @@
   .nm .rk1 { flex: none; padding: 2px 5px; border: 1px solid rgba(217,179,108,.6); background: rgba(0,0,0,.45); font: 600 9.5px/1 var(--display); letter-spacing: .1em; color: var(--gold-hi); }
 
   /* ---------------- Menü: turnuva / Dan kartları */
-  .mode-row.bzrow { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .mode-row.bzrow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .mode-row:not(.bzrow) { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); }
   .mode.bzm strong { font-size: 17px; line-height: 1.05; }
   .mode.bzm { background: linear-gradient(100deg, rgba(120,76,30,.28), rgba(217,179,108,.06) 75%); border-color: rgba(217,179,108,.45); }
   .mode.bzm .prog { grid-column: 1; margin-top: 3px; padding-right: 26px; font: 500 11px/1.3 var(--display); letter-spacing: .08em; text-transform: none; color: var(--gold); }
   .mode.bzm.dan .mk, .mode.bzm.tour .mk { font-size: 26px; }
-  #mlb .mk { font-size: 20px; }
 
   /* ---------------- VS: kural değiştiriciler */
   .vs-mods { display: flex; justify-content: center; flex-wrap: wrap; gap: 6px; }
@@ -1420,9 +1419,9 @@
     .plq li { font-size: 12px; }
     .mode.bzm .prog { font-size: 10px; padding-right: 22px; }
     .mode.bzm.dan .mk, .mode.bzm.tour .mk { font-size: 20px; }
-    /* three tiles in a row on a phone: long single words (ŞAMPİYONLAR) must fit the ~85 px column */
-    .mode.bzm { padding-inline: 9px; }
-    .mode.bzm strong { font-size: 14px; letter-spacing: .02em; overflow-wrap: anywhere; }
+    /* Monthly Tournament | Dan Trial side by side on a phone (long single words still wrap rather than overflow) */
+    .mode.bzm { padding-inline: 10px; }
+    .mode.bzm strong { font-size: 15px; letter-spacing: .04em; overflow-wrap: anywhere; }
     .vs-mods .bz-mod { padding: 3px 8px; font-size: 11.5px; }
     .vs-mods .bz-mod small { display: none; }
   }
@@ -1463,7 +1462,7 @@
   .btn.ad span::before { content: '▶'; margin-right: 8px; color: var(--gold); font-size: .8em; }
   #app.ad-lock { pointer-events: none; }
 
-  /* ================ Main menu: Single match (vs CPU / two players) and This month's top 10 */
+  /* ================ Main menu: Single match (vs CPU / two players) and the Hall of Champions card */
   .mode.single .mk { font-size: 30px; letter-spacing: -.08em; white-space: nowrap; }
   .mode.single[aria-expanded="true"] { border-color: var(--gold); background: rgba(217,179,108,.08); }
   .mode.single[aria-expanded="true"] > span { display: none; }
@@ -1475,32 +1474,41 @@
   .sp-btn strong { font: 600 17px/1.1 var(--display); letter-spacing: .06em; text-transform: uppercase; overflow-wrap: anywhere; }
   .sp-btn span { font-size: 12.5px; line-height: 1.3; color: var(--muted); }
   .sp-cpu .diff { margin-top: 0; }
-  .mode.champ { grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; align-items: center; background: linear-gradient(100deg, rgba(217,179,108,.17), rgba(217,179,108,.03) 72%); border-color: rgba(217,179,108,.5); }
-  .mode.champ .mk { grid-row: 1 / span 2; grid-column: 2; font-size: 34px; }
-  .champ .ch-lab { grid-column: 1; grid-row: 1; font: 500 11px/1.2 var(--display); letter-spacing: .16em; text-transform: uppercase; color: var(--gold); }
-  .champ .ch-top { grid-column: 1; grid-row: 2; display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 30px; }
+  /* Hall of Champions card (js/banzuke.js champCard): header, #1 in a gold frame, #2-#10 in columns. The list is
+     always drawn: empty places show "—", so an empty month still reads as a board. 10 places on desktop, 5 at
+     ~400 px high, 3 at ~375 px high (the rows beyond are hidden here, not in the script). */
+  .mode.champ { position: relative; overflow: hidden; grid-template-columns: minmax(0, 1fr); gap: 5px; align-content: start; padding-right: 58px; background: linear-gradient(100deg, rgba(217,179,108,.17), rgba(217,179,108,.03) 72%); border-color: rgba(217,179,108,.5); }
+  .mode.champ .mk { position: absolute; grid-area: auto; right: 14px; top: 50%; transform: translateY(-50%); writing-mode: vertical-rl; white-space: nowrap; letter-spacing: .12em; font-size: 32px; pointer-events: none; }
+  .champ .ch-head { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+  .champ .ch-head strong { flex: none; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .champ .ch-lab { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 11px/1.2 var(--display); letter-spacing: .16em; text-transform: uppercase; color: var(--gold); }
+  .champ .ch-top { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 34px; padding: 2px 12px 2px 10px; border: 1px solid rgba(217,179,108,.6); background: linear-gradient(90deg, rgba(217,179,108,.18), rgba(217,179,108,.04) 80%); }
   .champ .ch-pl { flex: none; font: 700 18px/1 var(--jp); color: var(--gold); }
   .champ .ch-n { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 700 25px/1.15 var(--display); letter-spacing: .05em; color: var(--gold-hi); text-shadow: 0 0 16px rgba(241,214,156,.35); }
+  .champ .ch-top.empty .ch-n { flex: none; color: rgba(241,214,156,.4); text-shadow: none; }
   .champ .ch-ck { flex: none; font: 700 16px/1 var(--jp); }
   .champ .ch-top .ttl { flex: none; }
   .champ .ch-sc { flex: none; margin-left: auto; font: 600 15px/1 var(--display); letter-spacing: .04em; color: var(--text); font-variant-numeric: tabular-nums; }
   .champ .ch-me { flex: none; font: 600 10px/1 var(--display); letter-spacing: .12em; text-transform: uppercase; color: var(--gold); }
-  .champ .ch-empty { font: 500 14px/1.3 var(--body); color: var(--muted); }
-  .champ[aria-busy="true"] .ch-empty { animation: chPulse 1.2s ease-in-out infinite alternate; }
+  .champ .ch-hint { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 13.5px/1.3 var(--body); color: var(--muted); }
+  .champ[aria-busy="true"] .ch-hint { animation: chPulse 1.2s ease-in-out infinite alternate; }
   @keyframes chPulse { from { opacity: .45; } to { opacity: 1; } }
-  .champ .ch-list { grid-column: 1 / -1; list-style: none; margin: 3px 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(3, auto); grid-auto-flow: column; gap: 1px 12px; }
-  .champ .ch-list:empty { display: none; }
-  .champ .ch-list li { display: grid; grid-template-columns: 1.4em minmax(0, 1fr) auto; gap: 5px; align-items: baseline; font-size: 12px; line-height: 1.4; color: var(--muted); }
+  .champ .ch-list { list-style: none; margin: 0; padding: 0 2px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(3, auto); grid-auto-flow: column; gap: 1px 16px; }
+  .champ .ch-list li { display: grid; grid-template-columns: 1.4em minmax(0, 1fr) auto; gap: 5px; align-items: baseline; font-size: 12.5px; line-height: 1.4; color: var(--muted); }
   .champ .ch-list li b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; color: var(--text); }
   .champ .ch-list li.me b { color: var(--gold); }
   .champ .ch-list li span { grid-column: auto; font-size: inherit; line-height: inherit; font-variant-numeric: tabular-nums; }
   .champ .ch-list li i { font-style: normal; }
-  .champ .ch-last { grid-column: 1 / -1; font-size: 11.5px; line-height: 1.3; color: var(--muted); }
+  .champ .ch-list li.empty i { opacity: .6; }
+  .champ .ch-list li.empty b { font-weight: 400; color: rgba(158,163,184,.45); }
+  .champ .ch-last { font-size: 11.5px; line-height: 1.3; color: var(--muted); }
   .champ .ch-last b { color: var(--gold); font-weight: 600; }
   @media (max-height: 820px) and (min-width: 861px) {
     .mode.single:not([aria-expanded="true"]) > span { display: none; }
-    .champ .ch-top { min-height: 26px; }
+    .mode.champ { gap: 4px; }
+    .champ .ch-top { min-height: 30px; }
     .champ .ch-n { font-size: 22px; }
+    .champ .ch-list li { line-height: 1.35; }
   }
   @media (max-height: 500px) and (min-width: 560px) {
     .sp-btn { padding: 6px 10px; }
@@ -1508,21 +1516,44 @@
     .sp-btn span { display: none; }
     .sp-cpu .diff > span { display: none; }
     .sp-cpu .diff .seg { padding: 5px 8px; font-size: 11.5px; }
-    .mode.single .mk, .mode.champ .mk { font-size: 22px; }
+    .mode.single .mk { font-size: 22px; }
+    .mode.champ { gap: 3px; padding-right: 38px; }
+    .mode.champ .mk { right: 9px; font-size: 22px; }
+    .champ .ch-head { gap: 10px; }
+    .champ .ch-lab { font-size: 10px; letter-spacing: .1em; }
     .champ .ch-n { font-size: 19px; }
-    .champ .ch-top { min-height: 24px; gap: 6px; }
+    .champ .ch-top { min-height: 26px; gap: 6px; padding: 1px 10px 1px 8px; }
     .champ .ch-sc { font-size: 13px; }
-    .champ .ch-list { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, auto); gap: 0 12px; }
-    .champ .ch-list li { font-size: 11px; line-height: 1.3; }
+    .champ .ch-hint { font-size: 12px; }
+    .champ .ch-list { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, auto); gap: 0 14px; }
+    .champ .ch-list li { font-size: 11.5px; line-height: 1.3; }
     .champ .ch-list li:nth-child(n+5) { display: none; }
     .champ .ch-last { font-size: 10.5px; }
   }
   @media (max-height: 380px) and (min-width: 560px) {
     .champ .ch-list { grid-template-rows: auto; }
     .champ .ch-list li:nth-child(n+3) { display: none; }
-    .champ .ch-last { display: none; }
   }
-  @media (max-width: 520px) { .single-pick { grid-template-columns: 1fr; } }
+  @media (max-width: 520px) {
+    .single-pick { grid-template-columns: 1fr; }
+    .champ .ch-list { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(5, auto); }
+  }
+  /* the list needs the width: the mode column is as wide on tall screens as on 1280×720 */
+  @media (min-width: 861px) { .modes { max-width: 560px; } }
+  /* 1280×720-class screens: the whole menu, Hall list included, fits without scrolling */
+  @media (max-height: 760px) and (min-width: 861px) {
+    #menu.overlay { padding-block: 10px; }
+    .brand .vk { font-size: 28px; }
+    .brand h1 { font-size: clamp(34px, 3.8vw, 48px); }
+    .modes { margin-top: 12px; gap: 5px; }
+    .modes .honor-strip { padding-block: 5px; }
+    .modes .honor-strip .hs { gap: 3px; }
+    .mode.single { padding-block: 6px; }
+    #mtrain > span { display: none; }
+    .champ .ch-top { min-height: 28px; }
+    .champ .ch-list li { line-height: 1.3; }
+    .opts { margin-top: 7px; }
+  }
   /* ================ Onur (誉) ilerlemesi: menü şeridi, maç sonu dökümü, kilitli kartlar, meydan okuma, Onur Yolu, tanıtım, Hareketler */
   .hbar { position: relative; display: block; height: 5px; background: rgba(255,255,255,.1); overflow: hidden; }
   .hbar::after { content: ''; position: absolute; inset: 0 auto 0 0; width: var(--p, 0%); background: linear-gradient(90deg, var(--gold), var(--gold-hi)); }
@@ -1795,9 +1826,11 @@
               <button class="sp-btn" id="m2p" type="button"><strong>İki Oyuncu</strong><span>Aynı klavyede ya da iki gamepad ile kafa kafaya</span><em class="need" data-s="touch.need2p"></em></button>
             </div>
           </div>
-          <!-- This month's top 10 (js/banzuke.js champCard): #1 large, #2-#10 compact; opens the monthly ranking -->
-          <div class="mode champ" id="mchamp" role="button" tabindex="0">
-            <small class="ch-lab" id="champLab"></small><b class="mk" aria-hidden="true">覇</b>
+          <!-- Hall of Champions (js/banzuke.js champCard): this month's top 10 on the card itself — #1 large in gold, #2-#10
+               compact (empty places show "—"); last month's champion under it. Opens the full hall (all its tabs). -->
+          <div class="mode champ hallm" id="mlb" role="button" tabindex="0">
+            <div class="ch-head"><strong data-s="bz.menu.hall">Şampiyonlar Salonu</strong><small class="ch-lab" id="champLab"></small></div>
+            <b class="mk" aria-hidden="true">殿堂</b>
             <div class="ch-top" id="champTop"></div>
             <ol class="ch-list" id="champList"></ol>
             <small class="ch-last" id="champLast" hidden></small>
@@ -1805,7 +1838,6 @@
           <div class="mode-row bzrow">
             <button class="mode lbm bzm tour" id="mtour"><strong data-s="bz.menu.tour">Aylık Turnuva</strong><small class="prog" id="tourStat"></small><b class="mk" aria-hidden="true">月</b></button>
             <button class="mode lbm bzm dan" id="mdan"><strong data-s="bz.menu.dan">Dan Sınavı</strong><small class="prog" id="danStat"></small><b class="mk" aria-hidden="true">段</b></button>
-            <button class="mode lbm bzm hallm" id="mlb"><strong data-s="bz.menu.hall">Şampiyonlar Salonu</strong><small class="prog" id="hallStat" data-s="bz.menu.hallDesc"></small><b class="mk" aria-hidden="true">殿堂</b></button>
           </div>
           <div class="mode-row">
             <div class="mode" id="mtrain" role="button" tabindex="0">
@@ -2147,7 +2179,7 @@
 <script  src="js/config.js"></script>
 <script  src="js/leaderboard.js?v=menu-1"></script>
 <script  src="js/portal-user.js"></script>
-<script  src="js/banzuke.js?v=menu-3"></script>
+<script  src="js/banzuke.js?v=hall-1"></script>
 <script  src="js/ads.js"></script>
 <script  src="js/coach.js"></script>
 <script  src="js/kaeshi-cine.js"></script>
@@ -2166,7 +2198,7 @@
 <script  src="js/settings.js"></script>
 <script  src="js/gl2d.js?v=gl-2"></script>
 <script  src="js/gl-render.js?v=gl-2"></script>
-<script  src="js/game.js?v=menu-2"></script>
+<script  src="js/game.js?v=hall-1"></script>
 <!-- voices: fighters and announcer, files in voice/ (docs/SES-PLANI.md); ?voice=off silences, ?voice=log logs -->
 <script  src="js/voice.js"></script>
 </body>
