@@ -31,6 +31,8 @@
     }
     const url = new URL(location.href);
     for (const [k, v] of Object.entries({ net: '0', mute: '1', perf: '0', portal: 'local', seed: '17', lang: 'en' })) url.searchParams.set(k, v);
+    // the WebGL2 comparison needs the (opt-in) WebGL2 renderer created at game start
+    if (url.searchParams.get('check') === 'gl') url.searchParams.set('renderer', 'gl');
     history.replaceState(null, '', url);
     boot.ok = true;
   } catch (error) { boot.errors.push(error.message); }
@@ -42,7 +44,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Shadow Duel · Render check</title>
 <!-- Fonts ship with the game (no external requests): fonts/fonts.css is written by scripts/font-subset.mjs -->
+
 <!-- Portal SDK bridge (module, bundled by Vite): publishes window.NDPortal; js/core.js wraps it as ND.portal -->
+
 <style>
   #matchLoading { position: absolute; inset: 0; z-index: 1000; display: grid; place-items: center; background: #0c0d15; color: #ebe6da; }
   #matchLoading[hidden] { display: none; }
@@ -2028,6 +2032,8 @@
 
 
 
+
+
 <style>
   #rc-panel, #rc-strip { position: fixed; z-index: 100000; font: 15px/1.45 system-ui, sans-serif; color: #eee8dd; }
   #rc-panel { inset: 0; display: flex; flex-direction: column; padding: 12px; background: #0c0d15; overflow: auto; }
@@ -2057,7 +2063,7 @@
 (async () => {
   try {
     if (!window.__renderCheckBoot?.ok) throw Error('Isolated storage is unavailable. The game was not loaded.');
-    for (const src of ["render-check/portal-local.js","js/core.js","js/perf.js?v=phone-perf-1","js/music.js","js/input.js","js/gfx.js?v=phone-perf-1","js/scene.js","js/skeleton.js?v=render-fix-v1","js/bake.js?v=render-fix-v1","js/prepare.js","js/characters.js","js/fighter.js?v=render-fix-v1","js/specials.js","js/ai.js","js/honor.js","js/journey.js","js/journey-text.js","js/arcade.js","js/roster2.js","js/config.js","js/leaderboard.js","js/portal-user.js","js/banzuke.js","js/ads.js","js/coach.js","js/kaeshi-cine.js","js/combo-trial.js","js/touch.js","js/touch-editor.js","js/volume.js","js/i18n-en.js","js/i18n-es.js","js/i18n-pt.js","js/i18n-ru.js","js/i18n-de.js","js/i18n-fr.js","js/i18n.js","js/lang-ui.js","js/settings.js","js/post-gpu.js?v=phone-perf-3","js/game.js?v=phone-perf-3"]) {
+    for (const src of ["render-check/portal-local.js","js/core.js","js/perf.js?v=phone-perf-1","js/music.js","js/input.js","js/gfx.js?v=phone-perf-1","js/scene.js","js/skeleton.js?v=render-fix-v1","js/bake.js?v=render-fix-v1","js/prepare.js","js/characters.js","js/fighter.js?v=render-fix-v1","js/specials.js","js/ai.js","js/honor.js","js/journey.js","js/journey-text.js","js/arcade.js","js/roster2.js","js/config.js","js/leaderboard.js","js/portal-user.js","js/banzuke.js","js/ads.js","js/coach.js","js/kaeshi-cine.js","js/combo-trial.js","js/touch.js","js/touch-editor.js","js/volume.js","js/i18n-en.js","js/i18n-es.js","js/i18n-pt.js","js/i18n-ru.js","js/i18n-de.js","js/i18n-fr.js","js/i18n.js","js/lang-ui.js","js/settings.js","js/post-gpu.js?v=phone-perf-3","js/gl2d.js?v=gl-1","js/gl-render.js?v=gl-1","js/game.js?v=phone-perf-3"]) {
       await new Promise((resolve, reject) => {
         const s = document.createElement('script'); s.src = src;
         s.onload = resolve; s.onerror = () => reject(Error('Could not load ' + src)); document.head.append(s);
@@ -2065,6 +2071,7 @@
     }
     const check = new URLSearchParams(location.search).get('check');
     await import(check === 'step1' ? './render-check/step1-controller.mjs?v=step1-1'
+      : check === 'gl' ? './render-check/gl-controller.mjs?v=gl-1'
       : check === 'prepared' ? './render-check/prepared-controller.mjs?v=prepared3' : './render-check/controller.mjs?v=prepared2');
   } catch (error) { document.getElementById('rc-status').textContent = error.message; }
 })();

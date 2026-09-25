@@ -43,6 +43,15 @@
   }
   let gpuShown = false;
   const showGpu = (on) => { if (gpuPost?.present && on !== gpuShown) { gpuShown = on; gpuPost.canvas.style.visibility = on ? 'visible' : 'hidden'; } };
+  // ?renderer=gl: the fight (intro, fight, KO, replay on High) is drawn with WebGL2 (js/gl2d.js + js/gl-render.js) into
+  // a canvas lying over #cv, shown only on frames it drew. Menus, select / VS / ending screens, Medium and Low stay on
+  // Canvas 2D, and so does every frame the GL renderer cannot draw (no WebGL2, lost context, unsupported call).
+  // ?msaa=0|2|4 sets its multisampling (default 4). The Canvas hooks (gradient geometry, "canvas changed" counters)
+  // go in before anything is drawn, so gradients cached by the scene work on both paths.
+  const GL_Q = QS.get('renderer') === 'gl';
+  if (GL_Q) ND.glInstallHooks?.();
+  let glr = null, glShown = false;
+  const showGl = (on) => { if (glr && on !== glShown) { glShown = on; glr.canvas.style.visibility = on ? 'visible' : 'hidden'; } };
   // High bloom blur without ctx.filter (game.blurGlow): the bright 1/4 buffer is halved once (1/8, a 2×2 average),
   // then blurred there by two separable Gaussian passes, each a few offset copies of the image (fractional offsets:
   // bilinear sampling merges two kernel taps per copy). The copies are averaged 'source-over' onto an opaque image
@@ -65,6 +74,15 @@
     return taps.map(([o, v]) => { sum += v; return [o, v / sum]; });
   }
   const GLOW_SIGMA = 2.46, GLOW_TAPS = blurTaps(GLOW_SIGMA), MARGIN = 10;
+  if (GL_Q && ND.createGlRenderer) {
+    const m = QS.get('msaa');
+    glr = ND.createGlRenderer({ grain, samples: m == null ? 4 : +m, glowTaps: GLOW_TAPS });
+    if (glr) {
+      glr.canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;visibility:hidden';
+      glr.canvas.setAttribute('aria-hidden', 'true');
+      cv.after(glr.canvas);
+    }
+  }
   const input = ND.input, au = ND.audio, cam = ND.cam, fx = ND.fx, scene = ND.scene, mu = ND.music;
   ND.simClock = 0; // simulation clock (seconds of fixed steps); input buffers read it, see game.advance
   // Text that is not in ND.STR (fallbacks, composed banners) goes through the i18n phrase table
@@ -298,6 +316,11 @@
     sceneMode: QS.get('scene') === 'old' ? 'direct' : 'layer',
     glowTaps: GLOW_TAPS, blurTaps, // tuning hooks for the visual check page
     postGpuStatus: () => ({ available: !!gpuPost, ready: !!gpuPost?.ready, error: gpuPost?.error || '' }),
+    // 'gl' (only with ?renderer=gl and a working WebGL2) | 'canvas'; the render-check page switches it per stage
+    rendererMode: GL_Q ? 'gl' : 'canvas',
+    glStatus: () => (glr ? Object.assign({ available: true }, glr.status()) : { available: false, requested: GL_Q }),
+    glInfo: () => (glr ? glr.info() : null),
+    glRenderer: () => glr,
     mode: 'attract', level: [0, 1, 2].includes(saved.level) ? saved.level : 1, phase: 'menu', pt: 0, projs: [], hitstopT: 0, slow: 1, slowT: 0,
     round: 1, wins: [0, 0], timer: ROUND_TIME, focus: null, paused: false, bars: 0, ais: [], bannerT: 0, dim: 0,
     stats: null, flags: {}, lock: null, clock: 0, rally: { n: 0, last: null, t: 0 }, slowV: 0.35, cineT: 0, cineX: 0, recording: false, fxEvents: [], rec: [], koIndex: -1, replay: null,
@@ -952,12 +975,15 @@
       sx0 = Math.max(0, sx0); sy0 = Math.max(0, sy0); sx1 = Math.min(cam.W, sx1); sy1 = Math.min(cam.H, sy1);
       const w = sx1 - sx0, h = sy1 - sy0;
       if (w <= 0 || h <= 0) return;
-      const { canvas: lc, ctx: lctx } = lightLayers[f.id === 1 ? 1 : 0];
-      growCanvas(lc, w, h);
+      // WebGL frame: a fresh transparent layer of the first pass (js/gl2d.js), already clear
+      const gl = ctx.isGL ? ctx.layer(w, h, f.id === 1 ? 'lit1' : 'lit0') : null;
+      if (ctx.isGL && !gl) return; // no room this frame: the frame is redrawn with Canvas 2D
+      const { canvas: lc, ctx: lctx } = gl ? { canvas: gl, ctx: gl.ctx } : lightLayers[f.id === 1 ? 1 : 0];
+      if (!gl) growCanvas(lc, w, h);
       lctx.setTransform(1, 0, 0, 1, 0, 0);
       lctx.globalCompositeOperation = 'source-over'; lctx.globalAlpha = 1;
       // Discard the entire previous surface, including unused capacity. No old pixels need preserving.
-      lctx.clearRect(0, 0, lc.width, lc.height);
+      if (!gl) lctx.clearRect(0, 0, lc.width, lc.height);
       const k = cam.k;
       lctx.setTransform(k, 0, 0, k, cam.W / 2 - cam.x * k + cam.shx - sx0, cam.gy - cam.y * k + cam.shy - sy0);
       drawFn(lctx);
@@ -969,6 +995,8 @@
     render() {
       ND.beginBakeFrame?.();
       const behindUi = this.phase === 'select' || this.phase === 'vs' || this.phase === 'ending';
+      if (glr && this.rendererMode === 'gl' && !behindUi && !this.behind && GFX.tier === 'high' && GFX.f.bloom === 2 && glr.ready && this.renderGl()) return;
+      showGl(false);
       // scene layer (see sceneCv): bloom on, Canvas post-processing (the opt-in WebGL probe reads the visible canvas)
       // (?post=present needs the layer: the scene is then never drawn on the covered #cv)
       const present = !!gpuPost && this.postMode === 'present' && GFX.f.bloom === 2 && !behindUi;
@@ -984,6 +1012,27 @@
       } finally { ctx = mainCtx; }
       this.post(layer ? sceneCv : null, present);
       if (behindUi) this.renderSelect();
+    },
+
+    // WebGL2 frame (see glr above). false: nothing was shown, the caller draws the frame with Canvas 2D.
+    renderGl() {
+      const g = glr.begin(cv.width, cv.height);
+      let ok = false;
+      ctx = g;
+      try {
+        if (this.phase === 'replay') this.renderReplay();
+        else this.renderScene(true);
+        ok = true;
+      } catch (e) { glr.fail(e); console.warn('[ND.gl] frame failed; drawing it with Canvas 2D', e); }
+      finally { ctx = mainCtx; }
+      if (!ok) return false;
+      // the grain offset: the same two random numbers, in the same place, as the Canvas post
+      const gx = (Math.random() * 128) | 0, gy = (Math.random() * 128) | 0;
+      if (!glr.end({ bloom: scene.theme.bloom ?? 0.5, grainX: gx, grainY: gy, grain: this.grainMode !== 'off' })) return false;
+      showGl(true); showGpu(false);
+      this.renderVersion = 'gl-v1';
+      PM('post');
+      return true;
     },
 
     renderScene(withFighters) {
@@ -1049,10 +1098,12 @@
         const u0 = -0.13 * b[3], u1 = -0.13 * b[1]; // basık uzayda (u = −0.13·y) dikey aralık
         const w = Math.ceil((b[2] - b[0]) * sc) + P * 2, h = Math.ceil((u1 - u0) * sc) + P * 2;
         if (w < 3 || h < 3) continue;
-        const { canvas: shc, ctx: shx } = shadowLayers[f.id === 1 ? 1 : 0];
-        growCanvas(shc, w, h);
+        const gl = ctx.isGL ? ctx.layer(w, h, f.id === 1 ? 'shadow1' : 'shadow0') : null;
+        if (ctx.isGL && !gl) continue;
+        const { canvas: shc, ctx: shx } = gl ? { canvas: gl, ctx: gl.ctx } : shadowLayers[f.id === 1 ? 1 : 0];
+        if (!gl) growCanvas(shc, w, h);
         shx.setTransform(1, 0, 0, 1, 0, 0); shx.globalCompositeOperation = 'source-over'; shx.globalAlpha = 1;
-        shx.clearRect(0, 0, shc.width, shc.height);
+        if (!gl) shx.clearRect(0, 0, shc.width, shc.height);
         shx.setTransform(sc, 0, 0, -0.13 * sc, P - b[0] * sc, P - u0 * sc);
         shx.globalAlpha = amax;
         f.draw(shx, true);

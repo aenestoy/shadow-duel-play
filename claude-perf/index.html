@@ -8,7 +8,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Shadow Duel</title>
 <!-- Fonts ship with the game (no external requests): fonts/fonts.css is written by scripts/font-subset.mjs -->
+
 <!-- Portal SDK bridge (module, bundled by Vite): publishes window.NDPortal; js/core.js wraps it as ND.portal -->
+
 <style>
   #matchLoading { position: absolute; inset: 0; z-index: 1000; display: grid; place-items: center; background: #0c0d15; color: #ebe6da; }
   #matchLoading[hidden] { display: none; }
@@ -1993,6 +1995,8 @@
 <script  src="js/lang-ui.js"></script>
 <script  src="js/settings.js"></script>
 <script  src="js/post-gpu.js?v=phone-perf-3"></script>
+<script  src="js/gl2d.js?v=gl-1"></script>
+<script  src="js/gl-render.js?v=gl-1"></script>
 <script  src="js/game.js?v=phone-perf-3"></script>
 </body>
 </html>
