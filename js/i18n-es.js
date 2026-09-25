@@ -1090,6 +1090,16 @@
       lb: { savedLocalAccount: (r) => (r ? `#${r} en este dispositivo · ahora no se puede acceder a tu cuenta` : 'Guardado en este dispositivo · ahora no se puede acceder a tu cuenta') },
     });
 
+    // ================================================================ PRIVACY (js/privacy.js; Turkish source in i18n.js, block
+    // "privacy"). The policy page itself (privacy.html) is English + Turkish; this language sees the English part.
+    merge(EN.STR, {
+      priv: {
+        notice: 'Shadow Duel guarda tu apodo y tus puntuaciones para las clasificaciones en línea.',
+        policy: 'Política de privacidad', terms: 'Términos', both: 'Política de privacidad y términos',
+        ok: 'OK', label: 'Aviso de privacidad',
+      },
+    });
+
     void dec; void fmtTime; void num;
   };
 })(window.ND);

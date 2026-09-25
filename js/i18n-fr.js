@@ -1096,6 +1096,16 @@
       lb: { savedLocalAccount: (r) => (r ? `#${r} sur cet appareil · ton compte est injoignable pour le moment` : 'Enregistré sur cet appareil · ton compte est injoignable pour le moment') },
     });
 
+    // ================================================================ PRIVACY (js/privacy.js; Turkish source in i18n.js, block
+    // "privacy"). The policy page itself (privacy.html) is English + Turkish; this language sees the English part.
+    merge(EN.STR, {
+      priv: {
+        notice: 'Shadow Duel enregistre ton pseudo et tes scores pour les classements en ligne.',
+        policy: 'Politique de confidentialité', terms: 'Conditions', both: 'Confidentialité et conditions',
+        ok: 'OK', label: 'Avis de confidentialité',
+      },
+    });
+
     void dec; void fmtTime; void num;
   };
 })(window.ND);

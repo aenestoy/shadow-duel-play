@@ -1085,6 +1085,16 @@
       lb: { savedLocalAccount: (r) => (r ? `#${r} on this device · your account can’t be reached right now` : 'Saved on this device · your account can’t be reached right now') },
     });
 
+    // ================================================================ PRIVACY (js/privacy.js; Turkish source in i18n.js, block
+    // "privacy"). The policy page itself (privacy.html) is English + Turkish; other languages see the English part.
+    merge(EN.STR, {
+      priv: {
+        notice: 'Shadow Duel saves your nickname and scores for the online leaderboards.',
+        policy: 'Privacy Policy', terms: 'Terms', both: 'Privacy Policy & Terms',
+        ok: 'OK', label: 'Privacy notice',
+      },
+    });
+
     void dec; void fmtTime; void num;
   };
 })(window.ND);

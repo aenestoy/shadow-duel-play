@@ -649,6 +649,16 @@
     });
   }
 
+  // ---------------------------------------------------------------- Turkish source additions: privacy
+  // js/privacy.js: the one-time notice for players whose game is connected to the online leaderboards, and the links
+  // to the privacy policy page (privacy.html: English + Turkish; other languages see English). Other languages: block
+  // "PRIVACY" in each js/i18n-*.js.
+  if (ND.STR) ND.STR.priv = merge(ND.STR.priv || {}, {
+    notice: 'Gölge Düellosu, çevrimiçi sıralamalar için takma adını ve skorlarını kaydeder.',
+    policy: 'Gizlilik Politikası', terms: 'Koşullar', both: 'Gizlilik Politikası ve Koşullar',
+    ok: 'Tamam', label: 'Gizlilik bildirimi',
+  });
+
   // Scripts sit at the end of <body>, so the DOM is there: start now unless a page wants to call init() itself
   if (!ND.I18N_MANUAL) I.init();
 })(window.ND);

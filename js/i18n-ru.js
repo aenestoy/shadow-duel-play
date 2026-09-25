@@ -1104,6 +1104,16 @@
       lb: { savedLocalAccount: (r) => (r ? `#${r} на этом устройстве · аккаунт сейчас недоступен` : 'Сохранено на устройстве · аккаунт сейчас недоступен') },
     });
 
+    // ================================================================ PRIVACY (js/privacy.js; Turkish source in i18n.js, block
+    // "privacy"). The policy page itself (privacy.html) is English + Turkish; this language sees the English part.
+    merge(EN.STR, {
+      priv: {
+        notice: '«Дуэль теней» сохраняет твой ник и очки для онлайн-рейтингов.',
+        policy: 'Политика конфиденциальности', terms: 'Условия', both: 'Политика конфиденциальности и условия',
+        ok: 'ОК', label: 'Уведомление о конфиденциальности',
+      },
+    });
+
     void dec; void fmtTime; void num;
   };
 })(window.ND);

@@ -1099,6 +1099,16 @@
       lb: { savedLocalAccount: (r) => (r ? `#${r} auf diesem Gerät · dein Konto ist gerade nicht erreichbar` : 'Auf diesem Gerät gespeichert · dein Konto ist gerade nicht erreichbar') },
     });
 
+    // ================================================================ PRIVACY (js/privacy.js; Turkish source in i18n.js, block
+    // "privacy"). The policy page itself (privacy.html) is English + Turkish; this language sees the English part.
+    merge(EN.STR, {
+      priv: {
+        notice: 'Shadow Duel speichert deinen Spitznamen und deine Punkte für die Online-Bestenlisten.',
+        policy: 'Datenschutzerklärung', terms: 'Nutzungsbedingungen', both: 'Datenschutz & Nutzungsbedingungen',
+        ok: 'OK', label: 'Datenschutzhinweis',
+      },
+    });
+
     void dec; void fmtTime; void num;
   };
 })(window.ND);

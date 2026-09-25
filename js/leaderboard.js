@@ -1703,7 +1703,9 @@
       inp.addEventListener('keyup', (e) => e.stopPropagation());
       inp.addEventListener('input', () => { err.textContent = ''; });
       const b = document.createElement('button'); b.type = 'submit'; b.className = 'mini'; b.textContent = T.nickSave || 'OK';
-      form.append(inp, b, err);
+      form.append(inp, b);
+      if (ND.privacy) form.appendChild(ND.privacy.link('both')); // js/privacy.js: the policy page, new tab
+      form.appendChild(err);
       form.onsubmit = (e) => { e.preventDefault(); save(); };
       if (focus) setTimeout(() => inp.focus(), 0);
       return form;
