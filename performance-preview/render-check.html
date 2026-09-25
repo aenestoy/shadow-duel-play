@@ -2064,7 +2064,7 @@
       });
     }
     const prepared = new URLSearchParams(location.search).get('check') === 'prepared';
-    await import(prepared ? './render-check/prepared-controller.mjs?v=prepared1' : './render-check/controller.mjs?v=prepared1');
+    await import(prepared ? './render-check/prepared-controller.mjs?v=prepared2' : './render-check/controller.mjs?v=prepared1');
   } catch (error) { document.getElementById('rc-status').textContent = error.message; }
 })();
 </script></body>

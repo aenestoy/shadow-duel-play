@@ -1,10 +1,10 @@
 {
-  "source": "870e828ef9575c684878580c6cb7d849c06e456c",
+  "source": "f286c975c925885049544374d6153e55ff88a02b",
   "baseline": "1066a452437ede3cf755d997621428e25d0a4ba8",
   "date": "2026-09-25",
   "renderer": "fighter-surfaces-v1",
-  "preparedCheck": "shadow-duel-prepared-check-v1",
-  "build": "deterministic-cloth-hard-budget-v1",
+  "preparedCheck": "shadow-duel-prepared-check-v2",
+  "build": "prepared-independent-measurement-v2",
   "backupTag": "shadow-duel-before-render-fix-2026-09-25",
-  "note": "Normal publication unchanged. High defaults to paths. Prepared diagnostic awaits a real-phone result."
+  "note": "Normal publication unchanged. High defaults to paths. Prepared v2 starts sampling after warmup and retains measured stalls. Real-phone result pending."
 }
