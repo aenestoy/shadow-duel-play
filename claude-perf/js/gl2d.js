@@ -1,4 +1,4 @@
-// Shadow Duel — Canvas 2D drawing calls recorded and replayed with WebGL2 (only with ?renderer=gl, see gl-render.js).
+// Shadow Duel — Canvas 2D drawing calls recorded and replayed with WebGL2 (the default fight renderer, see gl-render.js).
 // The game keeps drawing through the Canvas 2D API (scene.js, skeleton.js, fighter.js, specials.js ... unchanged):
 // ND.createGL2D(gl) returns contexts with the same methods and properties, which turn every path into triangles on
 // the CPU (curves flattened to within 0.2 device px, strokes with the Canvas joins/caps/dashes) and record them in one

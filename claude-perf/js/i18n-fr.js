@@ -41,6 +41,7 @@
         trainTut: 'Tutoriel',
         watchShort: 'Deux ninjas au hasard, IA Légende',
         specialKey: 'Technique ki (ki plein)',
+        single: 'Match simple', singleDesc: 'Contre l’IA ou à deux',
       },
       sel: {
         title: { '2p': 'Choisis ton ninja', cpu: 'Choisis ton ninja', arcade: 'Arcade · Choisis ton ninja', train: 'Entraînement · Choisis ton ninja', tutorial: 'Tutoriel · Choisis ton ninja', tourney: 'Tournoi du mois · Choisis ton ninja', dan: 'Épreuve Dan · Choisis ton ninja' },
@@ -186,6 +187,8 @@
           hallRank: (p) => `Ce mois-ci #${p} · records`,
           hallDesc: 'Le top 10 du mois et les records absolus',
           nick: (n) => (n ? `Pseudo\u00A0: ${n}` : 'Choisis un pseudo'),
+          champTitle: 'Top 10 du mois', champLocal: 'Top 10 sur cet appareil', champEmpty: 'Sois le premier au classement de ce mois', champLoading: 'Chargement des meneurs…',
+          champLast: (n) => `Champion du mois dernier\u00A0: ${n}`, champOpen: 'ouvrir le classement du mois',
         },
         t: {
           title: 'Tournoi du mois', head: 'Tournoi',
@@ -226,7 +229,7 @@
           tabs: { week: { n: 'Ce mois' }, alltime: { n: 'Historique' }, archive: { n: 'Champions' }, chars: { n: 'Ninjas' }, dan: { n: 'Dan' } },
           desc: { alltime: 'Les meilleurs scores de l’histoire du Tournoi du mois', archive: 'Le top 10 de chaque mois terminé est gravé ici pour toujours', chars: 'Détenteur du record pour chaque ninja · touche un ninja pour voir le top 20', dan: 'Les rangs les plus élevés' },
           loading: 'Chargement…', error: 'Impossible de charger le classement.', retry: 'Réessayer',
-          empty: 'Personne ici pour l’instant. Ouvre le bal\u202F!', emptyDan: 'Aucun joueur classé pour l’instant.', emptyArchive: 'Aucun mois terminé. Les premiers champions seront gravés à la fin de celui-ci.',
+          empty: 'Personne ici pour l’instant. Ouvre le bal\u202F!', emptyDan: 'Aucun joueur classé pour l’instant.', emptyArchive: 'Aucun mois terminé. Les titres commencent avec le tournoi d’octobre 2026\u202F; ses champions seront gravés à sa fin, le 1er novembre.', emptyArchiveLocal: 'Aucun mois terminé sur cet appareil pour l’instant.',
           anon: 'Joueur',
           meTop: (p, s) => `Toi\u00A0: #${p} · ${s} pts · tu es dans le top 10\u202F!`,
           meGap: (p, g, s) => `Toi\u00A0: #${p} · ${s} pts · à ${g} pts du top 10`,
@@ -240,8 +243,9 @@
         // Monthly Tournament rewards: permanent title (top 3) and Champion colors (1st)
         ttl: {
           champ: 'Champion du mois', finalist: 'Finaliste',
-          reward: 'Le top 3 de chaque mois gagne un titre permanent. Le champion remporte aussi des couleurs de champion exclusives pour le ninja utilisé. Les titres exigent au moins 5 joueurs dans le mois.',
-          hall: 'Le top 3 du mois gagne un titre permanent (5 joueurs min.) · couleurs de champion pour le vainqueur',
+          reward: 'À partir du tournoi d’octobre 2026, le top 3 de chaque mois gagne un titre permanent. Le champion remporte aussi des couleurs de champion exclusives pour le ninja utilisé. Les titres exigent au moins 5 joueurs dans le mois.',
+          hall: 'Dès octobre 2026\u202F: le top 3 du mois gagne un titre permanent (5 joueurs min.) · couleurs de champion pour le vainqueur',
+          local: 'Tes scores du tournoi sont gardés sur cet appareil.',
           colors: 'Couleurs de champion',
           how: 'Gagne le tournoi avec ce ninja',
           unlocked: (name) => `Champion du mois\u00A0! Couleurs de champion de ${name} débloquées`,

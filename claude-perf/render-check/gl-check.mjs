@@ -8,7 +8,7 @@ export const GLCHECK = { report: 'shadow-duel-gl-check-v2', build: 'phone-perf-g
 // scene 'posed' = the step-1 scene (rain, Kuro / Yuki in animated stance / guard, fixed camera, no combat)
 // scene 'live'  = the same match fought AI against AI with specials (fixed 1/60 s per drawn frame, so both
 //                 renderers draw exactly the same frames of the same fight)
-// renderer 'canvas' = current High Canvas 2D path | 'gl' = WebGL2 renderer (?renderer=gl), msaa = its multisampling
+// renderer 'canvas' = the Canvas 2D fallback (High) | 'gl' = the WebGL2 renderer (the default), msaa = its multisampling
 // tier = graphics tier (default high); fps = frame cap (60 as the game on phones, 0 = uncapped: up to the display
 // rate); ms = sample length (GLCHECK key); profile = also time the tessellation of every path (a little overhead)
 export const VARIANTS = {

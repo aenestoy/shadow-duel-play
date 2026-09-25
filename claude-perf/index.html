@@ -8,9 +8,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Shadow Duel</title>
 <!-- Fonts ship with the game (no external requests): fonts/fonts.css is written by scripts/font-subset.mjs -->
-
 <!-- Portal SDK bridge (module, bundled by Vite): publishes window.NDPortal; js/core.js wraps it as ND.portal -->
-
 <style>
   #matchLoading { position: absolute; inset: 0; z-index: 1000; display: grid; place-items: center; background: #0c0d15; color: #ebe6da; }
   #matchLoading[hidden] { display: none; }
@@ -351,7 +349,8 @@
   .th-grid h3 { margin: 0 0 8px; font: 600 14px/1 var(--display); letter-spacing: .1em; }
   .th-grid dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 10px; font-size: 13px; align-items: center; }
   .th-grid dd { margin: 0; color: var(--muted); }
-  .mode.needkb { opacity: .62; }
+  .mode.needkb, .sp-btn.needkb { opacity: .62; }
+  .sp-btn.needkb .need { display: inline-block; justify-self: start; margin-top: 4px; padding: 3px 8px; border: 1px dashed rgba(217,179,108,.5); font: 500 11px/1 var(--display); font-style: normal; letter-spacing: .12em; text-transform: uppercase; color: var(--gold); }
   .mode.needkb .need { display: inline-block; grid-column: 1; justify-self: start; margin-top: 4px; padding: 3px 8px; border: 1px dashed rgba(217,179,108,.5); font: 500 11px/1 var(--display); font-style: normal; letter-spacing: .12em; text-transform: uppercase; color: var(--gold); }
   #app.touch .tp-show { padding: 9px 12px; font-size: 12px; }
   /* #app kaydırma/yakınlaştırmayı kapatır; kaydırılabilir katmanlar yalnız kendi yönünde kayar */
@@ -1464,6 +1463,66 @@
   .btn.ad span::before { content: '▶'; margin-right: 8px; color: var(--gold); font-size: .8em; }
   #app.ad-lock { pointer-events: none; }
 
+  /* ================ Main menu: Single match (vs CPU / two players) and This month's top 10 */
+  .mode.single .mk { font-size: 30px; letter-spacing: -.08em; white-space: nowrap; }
+  .mode.single[aria-expanded="true"] { border-color: var(--gold); background: rgba(217,179,108,.08); }
+  .mode.single[aria-expanded="true"] > span { display: none; }
+  .single-pick { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 8px; margin-top: 4px; cursor: default; }
+  .single-pick[hidden] { display: none; }
+  .sp-cpu { display: grid; gap: 6px; align-content: start; min-width: 0; }
+  .sp-btn { display: grid; gap: 2px; align-content: start; min-width: 0; text-align: left; padding: 9px 12px; background: rgba(255,255,255,.05); border: 1px solid var(--line); border-radius: 2px; color: var(--text); cursor: pointer; transition: background .15s, border-color .15s; }
+  .sp-btn:hover { border-color: var(--gold); background: rgba(217,179,108,.12); }
+  .sp-btn strong { font: 600 17px/1.1 var(--display); letter-spacing: .06em; text-transform: uppercase; overflow-wrap: anywhere; }
+  .sp-btn span { font-size: 12.5px; line-height: 1.3; color: var(--muted); }
+  .sp-cpu .diff { margin-top: 0; }
+  .mode.champ { grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; align-items: center; background: linear-gradient(100deg, rgba(217,179,108,.17), rgba(217,179,108,.03) 72%); border-color: rgba(217,179,108,.5); }
+  .mode.champ .mk { grid-row: 1 / span 2; grid-column: 2; font-size: 34px; }
+  .champ .ch-lab { grid-column: 1; grid-row: 1; font: 500 11px/1.2 var(--display); letter-spacing: .16em; text-transform: uppercase; color: var(--gold); }
+  .champ .ch-top { grid-column: 1; grid-row: 2; display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 30px; }
+  .champ .ch-pl { flex: none; font: 700 18px/1 var(--jp); color: var(--gold); }
+  .champ .ch-n { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 700 25px/1.15 var(--display); letter-spacing: .05em; color: var(--gold-hi); text-shadow: 0 0 16px rgba(241,214,156,.35); }
+  .champ .ch-ck { flex: none; font: 700 16px/1 var(--jp); }
+  .champ .ch-top .ttl { flex: none; }
+  .champ .ch-sc { flex: none; margin-left: auto; font: 600 15px/1 var(--display); letter-spacing: .04em; color: var(--text); font-variant-numeric: tabular-nums; }
+  .champ .ch-me { flex: none; font: 600 10px/1 var(--display); letter-spacing: .12em; text-transform: uppercase; color: var(--gold); }
+  .champ .ch-empty { font: 500 14px/1.3 var(--body); color: var(--muted); }
+  .champ[aria-busy="true"] .ch-empty { animation: chPulse 1.2s ease-in-out infinite alternate; }
+  @keyframes chPulse { from { opacity: .45; } to { opacity: 1; } }
+  .champ .ch-list { grid-column: 1 / -1; list-style: none; margin: 3px 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(3, auto); grid-auto-flow: column; gap: 1px 12px; }
+  .champ .ch-list:empty { display: none; }
+  .champ .ch-list li { display: grid; grid-template-columns: 1.4em minmax(0, 1fr) auto; gap: 5px; align-items: baseline; font-size: 12px; line-height: 1.4; color: var(--muted); }
+  .champ .ch-list li b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; color: var(--text); }
+  .champ .ch-list li.me b { color: var(--gold); }
+  .champ .ch-list li span { grid-column: auto; font-size: inherit; line-height: inherit; font-variant-numeric: tabular-nums; }
+  .champ .ch-list li i { font-style: normal; }
+  .champ .ch-last { grid-column: 1 / -1; font-size: 11.5px; line-height: 1.3; color: var(--muted); }
+  .champ .ch-last b { color: var(--gold); font-weight: 600; }
+  @media (max-height: 820px) and (min-width: 861px) {
+    .mode.single:not([aria-expanded="true"]) > span { display: none; }
+    .champ .ch-top { min-height: 26px; }
+    .champ .ch-n { font-size: 22px; }
+  }
+  @media (max-height: 500px) and (min-width: 560px) {
+    .sp-btn { padding: 6px 10px; }
+    .sp-btn strong { font-size: 14px; }
+    .sp-btn span { display: none; }
+    .sp-cpu .diff > span { display: none; }
+    .sp-cpu .diff .seg { padding: 5px 8px; font-size: 11.5px; }
+    .mode.single .mk, .mode.champ .mk { font-size: 22px; }
+    .champ .ch-n { font-size: 19px; }
+    .champ .ch-top { min-height: 24px; gap: 6px; }
+    .champ .ch-sc { font-size: 13px; }
+    .champ .ch-list { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(2, auto); gap: 0 12px; }
+    .champ .ch-list li { font-size: 11px; line-height: 1.3; }
+    .champ .ch-list li:nth-child(n+5) { display: none; }
+    .champ .ch-last { font-size: 10.5px; }
+  }
+  @media (max-height: 380px) and (min-width: 560px) {
+    .champ .ch-list { grid-template-rows: auto; }
+    .champ .ch-list li:nth-child(n+3) { display: none; }
+    .champ .ch-last { display: none; }
+  }
+  @media (max-width: 520px) { .single-pick { grid-template-columns: 1fr; } }
   /* ================ Onur (誉) ilerlemesi: menü şeridi, maç sonu dökümü, kilitli kartlar, meydan okuma, Onur Yolu, tanıtım, Hareketler */
   .hbar { position: relative; display: block; height: 5px; background: rgba(255,255,255,.1); overflow: hidden; }
   .hbar::after { content: ''; position: absolute; inset: 0 auto 0 0; width: var(--p, 0%); background: linear-gradient(90deg, var(--gold), var(--gold-hi)); }
@@ -1721,14 +1780,27 @@
         <div class="modes">
           <button class="mode primary play" id="mplay"><strong data-s="menu.play">Oyna</strong><span id="playSub" data-s="menu.arcadeDesc"></span><small class="prog" id="arcProg"></small><kbd>Enter</kbd><b class="mk" aria-hidden="true">道</b></button>
           <button class="honor-strip" id="mhonor" type="button" hidden></button>
-          <button class="mode" id="m2p"><strong>İki Oyuncu</strong><span>Aynı klavyede ya da iki gamepad ile kafa kafaya</span><em class="need" data-s="touch.need2p"></em></button>
-          <div class="mode" id="mcpu" role="button" tabindex="0">
-            <strong>CPU'ya Karşı</strong><span>Ninjanı seç, rakibini yapay zekâ yönetsin</span>
-            <div class="diff" style="grid-column: 1 / -1"><span>Zorluk</span>
-              <button class="seg" data-lv="0" aria-pressed="false">Çırak</button>
-              <button class="seg" data-lv="1" aria-pressed="true">Usta</button>
-              <button class="seg" data-lv="2" aria-pressed="false">Efsane</button>
+          <!-- Single match (game.js): one card; a press opens the choice of CPU (with its difficulty) or two players -->
+          <div class="mode single" id="msingle" role="button" tabindex="0" aria-expanded="false" aria-controls="singlePick">
+            <strong data-s="menu.single">Tek Maç</strong><span data-s="menu.singleDesc">CPU'ya karşı ya da iki oyuncu</span><b class="mk" aria-hidden="true">試合</b>
+            <div class="single-pick" id="singlePick" hidden>
+              <div class="sp-cpu">
+                <button class="sp-btn" id="mcpu" type="button"><strong>CPU'ya Karşı</strong><span>Ninjanı seç, rakibini yapay zekâ yönetsin</span></button>
+                <div class="diff"><span>Zorluk</span>
+                  <button class="seg" data-lv="0" aria-pressed="false">Çırak</button>
+                  <button class="seg" data-lv="1" aria-pressed="true">Usta</button>
+                  <button class="seg" data-lv="2" aria-pressed="false">Efsane</button>
+                </div>
+              </div>
+              <button class="sp-btn" id="m2p" type="button"><strong>İki Oyuncu</strong><span>Aynı klavyede ya da iki gamepad ile kafa kafaya</span><em class="need" data-s="touch.need2p"></em></button>
             </div>
+          </div>
+          <!-- This month's top 10 (js/banzuke.js champCard): #1 large, #2-#10 compact; opens the monthly ranking -->
+          <div class="mode champ" id="mchamp" role="button" tabindex="0">
+            <small class="ch-lab" id="champLab"></small><b class="mk" aria-hidden="true">覇</b>
+            <div class="ch-top" id="champTop"></div>
+            <ol class="ch-list" id="champList"></ol>
+            <small class="ch-last" id="champLast" hidden></small>
           </div>
           <div class="mode-row bzrow">
             <button class="mode lbm bzm tour" id="mtour"><strong data-s="bz.menu.tour">Aylık Turnuva</strong><small class="prog" id="tourStat"></small><b class="mk" aria-hidden="true">月</b></button>
@@ -2055,27 +2127,27 @@
 </div>
 
 <script  src="js/core.js"></script>
-<script  src="js/perf.js?v=phone-perf-1"></script>
+<script  src="js/perf.js?v=gl-default-1"></script>
 <script  src="js/music.js"></script>
 <script  src="js/input.js"></script>
 <script  src="js/gfx.js?v=phone-perf-1"></script>
 <script  src="js/scene.js"></script>
 <script  src="js/skeleton.js?v=render-fix-v1"></script>
-<script  src="js/bake.js?v=render-fix-v1"></script>
+<script  src="js/bake.js?v=bake-low-1"></script>
 <script  src="js/prepare.js"></script>
-<script  src="js/characters.js"></script>
-<script  src="js/fighter.js?v=render-fix-v1"></script>
+<script  src="js/characters.js?v=champ-1"></script>
+<script  src="js/fighter.js?v=bake-low-1"></script>
 <script  src="js/specials.js"></script>
 <script  src="js/ai.js"></script>
 <script  src="js/honor.js"></script>
 <script  src="js/journey.js"></script>
 <script  src="js/journey-text.js"></script>
-<script  src="js/arcade.js"></script>
+<script  src="js/arcade.js?v=menu-1"></script>
 <script  src="js/roster2.js"></script>
 <script  src="js/config.js"></script>
-<script  src="js/leaderboard.js"></script>
+<script  src="js/leaderboard.js?v=menu-1"></script>
 <script  src="js/portal-user.js"></script>
-<script  src="js/banzuke.js"></script>
+<script  src="js/banzuke.js?v=menu-3"></script>
 <script  src="js/ads.js"></script>
 <script  src="js/coach.js"></script>
 <script  src="js/kaeshi-cine.js"></script>
@@ -2083,19 +2155,18 @@
 <script  src="js/touch.js"></script>
 <script  src="js/touch-editor.js"></script>
 <script  src="js/volume.js"></script>
-<script  src="js/i18n-en.js"></script>
-<script  src="js/i18n-es.js"></script>
-<script  src="js/i18n-pt.js"></script>
-<script  src="js/i18n-ru.js"></script>
-<script  src="js/i18n-de.js"></script>
-<script  src="js/i18n-fr.js"></script>
+<script  src="js/i18n-en.js?v=menu-1"></script>
+<script  src="js/i18n-es.js?v=menu-1"></script>
+<script  src="js/i18n-pt.js?v=menu-1"></script>
+<script  src="js/i18n-ru.js?v=menu-1"></script>
+<script  src="js/i18n-de.js?v=menu-1"></script>
+<script  src="js/i18n-fr.js?v=menu-2"></script>
 <script  src="js/i18n.js"></script>
 <script  src="js/lang-ui.js"></script>
 <script  src="js/settings.js"></script>
-<script  src="js/post-gpu.js?v=phone-perf-3"></script>
-<script  src="js/gl2d.js?v=gl-1"></script>
-<script  src="js/gl-render.js?v=gl-1"></script>
-<script  src="js/game.js?v=phone-perf-4"></script>
+<script  src="js/gl2d.js?v=gl-2"></script>
+<script  src="js/gl-render.js?v=gl-2"></script>
+<script  src="js/game.js?v=menu-2"></script>
 <!-- voices: fighters and announcer, files in voice/ (docs/SES-PLANI.md); ?voice=off silences, ?voice=log logs -->
 <script  src="js/voice.js"></script>
 </body>

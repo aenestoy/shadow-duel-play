@@ -110,10 +110,8 @@ window.ND = window.ND || {};
         mode: g?.mode, paused: !!g?.paused, hidden: !!document.hidden, inAd: !!ND.portal?.inAd,
         fighters: g?.F?.map((f) => f.ch?.id),
         caches: g?.F?.map((f) => f._bake && ND.bakeStats ? ND.bakeStats(f._bake) : null),
-        fighterMode: g?.fighterMode,
-        post: g ? { glow: g.glowMode, scene: g.sceneMode, grain: g.grainMode, gpu: g.postMode } : null,
+        gl: g?.glStatus ? g.glStatus() : null,
         pace: g?.pace ? { on: g.pace.on, ...g.pace.stat() } : null,
-        highCaches: g?.F?.map((f) => f._highBake && ND.bakeStats ? ND.bakeStats(f._highBake) : null),
         parts,
       };
       this.history.push(this.snap); if (this.history.length > 120) this.history.shift();

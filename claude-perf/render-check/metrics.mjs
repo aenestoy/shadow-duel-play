@@ -1,12 +1,4 @@
 export const warmupMs = 1000, sampleMs = 3000;
-export const postStages = [
-  ['simple', 'Simple animated canvas'], ['full', 'Canvas High'], ['gpu', 'GPU High candidate'],
-  ['full', 'Canvas High'], ['gpu', 'GPU High candidate'], ['full', 'Canvas High'], ['simple', 'Simple animated canvas'],
-];
-export const fighterStages = [
-  ['simple', 'Simple animated canvas'], ['full', 'High reference'], ['parts', 'High cached characters'],
-  ['full', 'High reference'], ['parts', 'High cached characters'], ['full', 'High reference'], ['simple', 'Simple animated canvas'],
-];
 export const stages = [
   ['idle', 'Browser cadence'], ['simple', 'Simple animated canvas'], ['logic', 'Combat logic + replay recording'],
   ['full', 'Full High'], ['audio', 'Full High + generated music'], ['full', 'Full High'], ['noPost', 'Without bloom + grain'],
@@ -60,14 +52,6 @@ export function assessControls(results) {
   const active = results.filter(s => s.kind === 'simple');
   if (active.length === 2 && Math.max(...active.map(s => s.fps)) > 1.25 * Math.min(...active.map(s => s.fps))) {
     warnings.push('Animated-canvas cadence changed substantially between the first and last control.');
-  }
-  if (results.some(s => s.kind === 'gpu' && (!s.gpu?.ready || s.renderer !== 'fighter-surfaces-v1+webgl-post-probe'))) {
-    warnings.push('The requested GPU candidate was unavailable or fell back; do not treat this as a GPU comparison.');
-  }
-  if (results.some(s => s.kind === 'parts')) {
-    const measured = results.filter(s => s.kind === 'full' || s.kind === 'parts');
-    if (measured.some(s => !s.gpu?.ready || !s.renderer?.endsWith('+webgl-post-probe'))) warnings.push('Both character renderers must use the same active GPU post-processing; fallback invalidates this comparison.');
-    if (measured.some(s => s.kind === 'parts' && (!s.renderer?.startsWith('fighter-parts-high-v1') || s.caches?.length !== 2 || !s.caches.every(c => c?.hits > 0)))) warnings.push('The High character cache was not active for both fighters.');
   }
   return { stableControls: warnings.length === 0, warnings };
 }

@@ -41,6 +41,7 @@
         trainTut: 'Tutorial',
         watchShort: 'Dos ninjas al azar, IA Leyenda',
         specialKey: 'Técnica ki (ki lleno)',
+        single: 'Partida única', singleDesc: 'Contra la CPU o dos jugadores',
       },
       sel: {
         title: { '2p': 'Elige tu ninja', cpu: 'Elige tu ninja', arcade: 'Arcade · Elige tu ninja', train: 'Entrenamiento · Elige tu ninja', tutorial: 'Tutorial · Elige tu ninja', tourney: 'Torneo mensual · Elige tu ninja', dan: 'Examen Dan · Elige tu ninja' },
@@ -186,6 +187,8 @@
           hallRank: (p) => `Este mes #${p} · récords`,
           hallDesc: 'El top 10 del mes y los récords históricos',
           nick: (n) => (n ? `Apodo: ${n}` : 'Elige un apodo'),
+          champTitle: 'Top 10 del mes', champLocal: 'Top 10 en este dispositivo', champEmpty: 'Sé el primero en la tabla de este mes', champLoading: 'Cargando a los líderes…',
+          champLast: (n) => `Campeón del mes pasado: ${n}`, champOpen: 'abrir la clasificación mensual',
         },
         t: {
           title: 'Torneo mensual', head: 'Torneo',
@@ -226,7 +229,7 @@
           tabs: { week: { n: 'Este mes' }, alltime: { n: 'Histórico' }, archive: { n: 'Campeones' }, chars: { n: 'Ninjas' }, dan: { n: 'Dan' } },
           desc: { alltime: 'Lo mejor de siempre del Torneo mensual', archive: 'El top 10 de cada mes terminado queda grabado aquí para siempre', chars: 'Plusmarca de cada ninja · toca un ninja para ver su top 20', dan: 'Los rangos más altos' },
           loading: 'Cargando…', error: 'No se pudo cargar la clasificación.', retry: 'Reintentar',
-          empty: 'Aún no hay nadie. ¡Estrena la tabla!', emptyDan: 'Aún no hay jugadores con rango.', emptyArchive: 'Aún no ha terminado ningún mes. Los primeros campeones quedarán grabados cuando acabe este.',
+          empty: 'Aún no hay nadie. ¡Estrena la tabla!', emptyDan: 'Aún no hay jugadores con rango.', emptyArchive: 'Aún no ha terminado ningún mes. Los títulos empiezan con el torneo de octubre de 2026; sus campeones quedarán grabados cuando acabe, el 1 de noviembre.', emptyArchiveLocal: 'Aún no ha terminado ningún mes en este dispositivo.',
           anon: 'Jugador',
           meTop: (p, s) => `Tú: #${p} · ${s} pts · ¡estás en el top 10!`,
           meGap: (p, g, s) => `Tú: #${p} · ${s} pts · a ${g} pts del top 10`,
@@ -240,8 +243,9 @@
         // Monthly Tournament rewards: permanent title (top 3) and Champion colors (1st)
         ttl: {
           champ: 'Campeón mensual', finalist: 'Finalista',
-          reward: 'El top 3 de cada mes gana un título permanente. El campeón también gana colores de campeón exclusivos para el ninja que usó. Los títulos requieren al menos 5 jugadores ese mes.',
-          hall: 'El top 3 del mes gana un título permanente (mín. 5 jugadores) · el campeón, colores de campeón',
+          reward: 'Desde el torneo de octubre de 2026, el top 3 de cada mes gana un título permanente. El campeón también gana colores de campeón exclusivos para el ninja que usó. Los títulos requieren al menos 5 jugadores ese mes.',
+          hall: 'Desde octubre de 2026: el top 3 del mes gana un título permanente (mín. 5 jugadores) · el campeón, colores de campeón',
+          local: 'Tus puntuaciones del torneo se guardan en este dispositivo.',
           colors: 'Colores de campeón',
           how: 'Gana un Torneo mensual con este ninja',
           unlocked: (name) => `¡Campeón mensual! Colores de campeón de ${name} desbloqueados`,

@@ -1,4 +1,5 @@
-// Shadow Duel — WebGL2 fight renderer (opt-in: ?renderer=gl). The Canvas 2D path stays the default and the fallback.
+// Shadow Duel — WebGL2 fight renderer, the default wherever WebGL2 works (game.js: ?renderer=canvas forces Canvas 2D,
+// ?renderer=gl forces this renderer). The Canvas 2D path stays as the fallback.
 // One frame = the game's normal drawing code (game.renderScene / renderReplay) run against a GL2D context (gl2d.js),
 // then four render passes:
 //   1. layers  — the two lit fighter layers and their cast-shadow silhouettes (one atlas, multisampled, resolved)
@@ -9,7 +10,12 @@
 //                visible WebGL canvas (no copy back to Canvas 2D, drawing buffer not preserved)
 // Medium: passes 3–4 are the light glow of game.postLite (1/4 bright pass halved to 1/8 and 1/16, stretched and
 // added; no grain); Low: the resolved scene is copied to the screen as it is (no glow, no grain).
-// Context loss: frames fall back to Canvas 2D until the context is restored (all GL objects are rebuilt).
+// Context loss: frames fall back to Canvas 2D until the context is restored (all GL objects are rebuilt, then the
+// self-check runs again). A context that never comes back simply leaves the game on Canvas 2D.
+// Startup self-check (selfCheck): one tiny frame through the same passes as a fight frame, read back; a device whose
+// driver gets any of it wrong keeps Canvas 2D. opts.auto (the default renderer, not forced by ?renderer=gl): software
+// WebGL (failIfMajorPerformanceCaveat) is refused, and a renderer that keeps refusing frames (every refused frame is
+// drawn twice: recorded, then redrawn with Canvas 2D) is switched off for the session.
 window.ND = window.ND || {};
 (function (ND) {
   'use strict';
@@ -18,13 +24,18 @@ window.ND = window.ND || {};
     const canvas = opts.canvas || document.createElement('canvas');
     let gl = null;
     try {
+      // (alpha: false, so premultipliedAlpha has nothing to act on; iOS Safari has WebGL2 from iOS 15, Apple GPUs
+      // report MAX_SAMPLES 4 — gl2d.js clamps the multisampling to what the device offers)
       gl = canvas.getContext('webgl2', { alpha: false, antialias: false, depth: false, stencil: false, premultipliedAlpha: true,
-        preserveDrawingBuffer: false, powerPreference: 'high-performance', desynchronized: false });
+        preserveDrawingBuffer: false, powerPreference: 'high-performance', desynchronized: false, failIfMajorPerformanceCaveat: !!opts.auto });
     } catch (e) { gl = null; }
     if (!gl) return null;
     const R = ND.createGL2D(gl, { samples: opts.samples });
     const E = R.exec;
-    let lost = false, error = '', checked = false, lastReason = '', frames = 0, fallbacks = 0;
+    let lost = false, error = '', checked = false, lastReason = '', frames = 0, fallbacks = 0, streak = 0;
+    // auto mode: this many refused frames in a row (~3 s at 60 fps) switch the renderer off for the session
+    const MAX_STREAK = opts.auto ? 180 : Infinity;
+    const refuse = (why) => { lastReason = why; fallbacks++; if (++streak >= MAX_STREAK && !error) error = 'switched off: ' + streak + ' frames in a row fell back (' + why + ')'; return false; };
     let glowProg = null, finalProg = null, grainTex = null, glowTex = null, glowFb = null, glowW = 0, glowH = 0, GU = {}, FU = {};
     const M = 10; // black margin of the glow picture (texels), as the Canvas blur
     const taps = (opts.glowTaps || []).map((t) => t.slice());
@@ -161,7 +172,8 @@ window.ND = window.ND || {};
     try { init(); } catch (e) { error = String(e && e.message || e); return null; }
     canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); lost = true; E.lose(); queries.length = fences.length = 0; tq = null; tqx = undefined; glowProg = finalProg = liteProg = liteFinalProg = null; glowTex = glowFb = liteTex = liteFb = null; });
     canvas.addEventListener('webglcontextrestored', () => {
-      try { init(); lost = false; checked = false; } catch (e) { error = String(e && e.message || e); }
+      try { init(); lost = false; checked = false; streak = 0; } catch (e) { error = String(e && e.message || e); return; }
+      if (!api.selfCheck()) console.info('[ND.gl] WebGL2 self-check failed after a context restore; drawing with Canvas 2D', error);
     });
     function glowTarget(w, h) {
       if (glowTex && glowW === w && glowH === h) return;
@@ -280,7 +292,7 @@ window.ND = window.ND || {};
       // p: { bloom, grainX, grainY, grain }. false = nothing was shown (the caller draws this frame with Canvas 2D)
       end(p) {
         const rec = R.finish();
-        if (R.unsupported) { lastReason = R.unsupported; fallbacks++; return false; }
+        if (R.unsupported) return refuse(R.unsupported);
         if (lost || gl.isContextLost()) { lastReason = 'context lost'; fallbacks++; return false; }
         try {
           const P = R.prof, t0 = P ? performance.now() : 0;
@@ -291,7 +303,7 @@ window.ND = window.ND || {};
           post(scene, R.W, R.H, p);
           if (P) { gpuEnd(); P.postMs = performance.now() - t1; P.endMs = performance.now() - t0; P.frameId = frameId; }
           if (!checked) { const code = gl.getError(); if (code !== gl.NO_ERROR) throw Error('GL error ' + code); checked = true; }
-          frames++;
+          frames++; streak = 0;
           api.last = Object.assign({}, rec, R.stats);
           return true;
         } catch (e) {
@@ -299,7 +311,47 @@ window.ND = window.ND || {};
           return false;
         }
       },
-      fail(e) { lastReason = String(e && e.message || e); fallbacks++; },
+      fail(e) { refuse(String(e && e.message || e)); },
+      // Startup self-check: a 64×32 frame with a solid fill, a self-intersecting (stencil) fill, a gradient, a lit
+      // layer placed with drawImage and a Canvas 2D picture, through the High passes (glow and grain at 0, so the
+      // result is exact), read back pixel by pixel. false (and the renderer is off: ready false) on any mismatch.
+      selfCheck() {
+        if (error) return false;
+        if (lost || gl.isContextLost()) return true; // judged again when the context comes back
+        try {
+          const W = 64, H = 32, c = api.begin(W, H);
+          c.setTransform(1, 0, 0, 1, 0, 0);
+          c.fillStyle = '#000'; c.fillRect(0, 0, W, H);
+          c.fillStyle = '#ff0000'; c.fillRect(0, 0, 16, 16);
+          c.fillStyle = '#00ff00'; c.beginPath(); c.moveTo(16, 0); c.lineTo(32, 16); c.lineTo(32, 0); c.lineTo(16, 16); c.closePath(); c.fill();
+          const L = c.layer(16, 16, 'selfcheck');
+          if (!L) throw Error('no layer');
+          L.ctx.fillStyle = '#0000ff'; L.ctx.fillRect(0, 0, 16, 16);
+          c.drawImage(L, 0, 0, 16, 16, 32, 0, 16, 16);
+          const gr = c.createLinearGradient(48, 0, 64, 0); gr.addColorStop(0, '#ffff00'); gr.addColorStop(1, '#ffff00');
+          c.fillStyle = gr; c.fillRect(48, 0, 16, 16);
+          const pic = document.createElement('canvas'); pic.width = pic.height = 4;
+          const px2 = pic.getContext('2d'); px2.fillStyle = '#ff00ff'; px2.fillRect(0, 0, 4, 4);
+          c.drawImage(pic, 0, 16, 16, 16);
+          if (!api.end({ mode: 2, bloom: 0, grainX: 0, grainY: 0, grain: false })) throw Error(lastReason || 'frame refused');
+          const px = new Uint8Array(4);
+          const want = [[8, 8, 255, 0, 0], [18, 8, 0, 255, 0], [30, 8, 0, 255, 0], [24, 2, 0, 0, 0], [40, 8, 0, 0, 255], [56, 8, 255, 255, 0], [8, 24, 255, 0, 255], [40, 24, 0, 0, 0]];
+          for (const [x, y, r, g, b] of want) {
+            gl.readPixels(x, H - 1 - y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+            if (Math.abs(px[0] - r) > 8 || Math.abs(px[1] - g) > 8 || Math.abs(px[2] - b) > 8) throw Error(`pixel ${x},${y} is ${px[0]},${px[1]},${px[2]}, expected ${r},${g},${b}`);
+          }
+          const code = gl.getError();
+          if (code !== gl.NO_ERROR) throw Error('GL error ' + code);
+          frames = 0; fallbacks = 0; streak = 0; lastReason = '';
+          return true;
+        } catch (e) {
+          if (lost || gl.isContextLost()) return true;
+          error = 'self-check: ' + String(e && e.message || e); lastReason = error;
+          return false;
+        }
+      },
+      // frees the context (the game keeps Canvas 2D for the session)
+      dispose() { error = error || 'disposed'; try { loseExt()?.loseContext(); } catch (e) { /* nothing to free */ } canvas.remove?.(); },
       info() {
         const dbg = gl.getExtension('WEBGL_debug_renderer_info');
         return {
@@ -308,7 +360,7 @@ window.ND = window.ND || {};
           version: gl.getParameter(gl.VERSION), ...R.info(), memory: R.memory(),
         };
       },
-      status() { return { ready: api.ready, error, lastReason, frames, fallbacks, samples: E.samples }; },
+      status() { return { ready: api.ready, error, lastReason, frames, fallbacks, streak, samples: E.samples, auto: !!opts.auto }; },
       setSamples(n) { E.setSamples(n); },
       // per-frame timings and upload causes (render-check page, ?perf=1): api.prof after each end()
       profile(on, o) { R.profile(on, o); if (!on) gpuReset(); },

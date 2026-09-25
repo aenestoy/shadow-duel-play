@@ -22,37 +22,28 @@
     if (c.width < w) c.width = Math.ceil(w / 64) * 64;
     if (c.height < h) c.height = Math.ceil(h / 64) * 64;
   }
-  const bc = document.createElement('canvas'), bx = bc.getContext('2d'), bc2 = document.createElement('canvas'), b2 = bc2.getContext('2d');
+  const bc = document.createElement('canvas'), bx = bc.getContext('2d');
   // Medium tier bloom buffers (game.postLite)
   const blc = document.createElement('canvas'), blx = blc.getContext('2d'), blc2 = document.createElement('canvas'), bl2 = blc2.getContext('2d');
   const blc3 = document.createElement('canvas'), bl3 = blc3.getContext('2d');
-  const HAS_FILTER = typeof ctx.filter === 'string';
   const grain = document.createElement('canvas'); grain.width = grain.height = 128;
   { const gx = grain.getContext('2d'), im = gx.createImageData(128, 128);
     for (let i = 0; i < im.data.length; i += 4) { const v = (Math.random() * 255) | 0; im.data[i] = im.data[i + 1] = im.data[i + 2] = v; im.data[i + 3] = 255; }
     gx.putImageData(im, 0, 0); }
   const grainPat = ctx.createPattern(grain, 'repeat');
   const QS = new URLSearchParams(location.search);
-  const POST_Q = QS.get('post');
-  const gpuPost = POST_Q === 'webgl' || POST_Q === 'present' ? ND.createGpuPost?.(grain, { present: POST_Q === 'present' }) : null;
-  // ?post=present: the WebGL canvas lies over #cv (same box, clicks pass through) and is shown only on frames it drew
-  if (gpuPost?.present) {
-    gpuPost.canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;visibility:hidden';
-    gpuPost.canvas.setAttribute('aria-hidden', 'true');
-    cv.after(gpuPost.canvas);
-  }
-  let gpuShown = false;
-  const showGpu = (on) => { if (gpuPost?.present && on !== gpuShown) { gpuShown = on; gpuPost.canvas.style.visibility = on ? 'visible' : 'hidden'; } };
-  // ?renderer=gl: the fight (intro, fight, KO, replay; High, Medium and Low, each with its own glow: High glow + grain,
+  // Renderer. The fight (intro, fight, KO, replay; High, Medium and Low, each with its own glow: High glow + grain,
   // Medium light glow, Low none) is drawn with WebGL2 (js/gl2d.js + js/gl-render.js) into a canvas lying over #cv,
-  // shown only on frames it drew. Menus and the select / VS / ending screens stay on Canvas 2D, and so does every frame
-  // the GL renderer cannot draw (no WebGL2, lost context, unsupported call).
-  // ?msaa=0|2|4 sets its multisampling (default 4). The Canvas hooks (gradient geometry, "canvas changed" counters)
-  // go in before anything is drawn, so gradients cached by the scene work on both paths.
-  const GL_Q = QS.get('renderer') === 'gl';
+  // shown only on frames it drew. This is the default on every device where WebGL2 works: the renderer is created at
+  // start and must pass a self-check (a tiny frame read back); software WebGL is refused. Menus and the select / VS /
+  // ending screens stay on Canvas 2D, and so does every frame the GL renderer cannot draw (lost context until it is
+  // restored, unsupported call); a renderer that keeps refusing frames is switched off for the session.
+  // ?renderer=canvas forces Canvas 2D (no WebGL context at all); ?renderer=gl forces WebGL2 (software WebGL allowed,
+  // never switched off for refused frames: tests and diagnosis). ?msaa=0|2|4 sets its multisampling (default 4).
+  const REN_Q = QS.get('renderer');
+  const GL_FORCE = REN_Q === 'gl', GL_WANT = REN_Q !== 'canvas';
   // ?cap=0 / ?cap=1: frame pacing forced to Max / 60 for tests (see the pacer at the end); '' = the Frame rate setting
   const CAP_Q = QS.get('cap') === '0' ? '0' : QS.get('cap') === '1' ? '1' : '';
-  if (GL_Q) ND.glInstallHooks?.();
   let glr = null, glShown = false;
   const showGl = (on) => { if (glr && on !== glShown) { glShown = on; glr.canvas.style.visibility = on ? 'visible' : 'hidden'; } };
   // High bloom blur without ctx.filter (game.blurGlow): the bright 1/4 buffer is halved once (1/8, a 2×2 average),
@@ -63,7 +54,6 @@
   // lose the faint tails (−1.5/255 bias measured). A black border of MARGIN pixels stands for the outside of the
   // picture, which the previous blur(5px) also treated as black. Sigma matches blur(5px) on the 1/4 buffer (the
   // halving and the final bilinear enlargement included; tuned against pixel diffs).
-  // ?glow=old keeps the previous ctx.filter blur for A/B checks.
   const bq1 = document.createElement('canvas'), q1 = bq1.getContext('2d'), bq2 = document.createElement('canvas'), q2 = bq2.getContext('2d');
   function blurTaps(sigma) {
     const r = Math.ceil(sigma * 3), w = [];
@@ -77,13 +67,22 @@
     return taps.map(([o, v]) => { sum += v; return [o, v / sum]; });
   }
   const GLOW_SIGMA = 2.46, GLOW_TAPS = blurTaps(GLOW_SIGMA), MARGIN = 10;
-  if (GL_Q && ND.createGlRenderer) {
+  // (the Canvas hooks of js/gl2d.js — gradient geometry, "canvas changed" counters — go in with the renderer, before
+  // anything is drawn, so gradients cached by the scene work on both paths)
+  let glWhy = GL_WANT ? '' : 'renderer=canvas';
+  if (GL_WANT && ND.createGlRenderer) {
     const m = QS.get('msaa');
-    glr = ND.createGlRenderer({ grain, samples: m == null ? 4 : +m, glowTaps: GLOW_TAPS });
+    try { glr = ND.createGlRenderer({ grain, samples: m == null ? 4 : +m, glowTaps: GLOW_TAPS, auto: !GL_FORCE }); } catch (e) { glr = null; glWhy = String(e && e.message || e); }
+    if (!glr) glWhy = glWhy || 'no WebGL2';
     if (glr) {
       glr.canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;visibility:hidden';
       glr.canvas.setAttribute('aria-hidden', 'true');
       cv.after(glr.canvas);
+      if (!glr.selfCheck()) {
+        glWhy = glr.error;
+        console.info('[ND.gl] WebGL2 self-check failed; drawing with Canvas 2D', glWhy);
+        if (!GL_FORCE) { glr.dispose(); glr = null; }
+      }
     }
   }
   const input = ND.input, au = ND.audio, cam = ND.cam, fx = ND.fx, scene = ND.scene, mu = ND.music;
@@ -313,19 +312,10 @@
 
   const game = ND.game = {
     renderVersion: 'fighter-surfaces-v1',
-    fighterMode: new URLSearchParams(location.search).get('fighters') === 'parts' ? 'parts' : 'paths',
-    postMode: gpuPost ? (gpuPost.present ? 'present' : 'webgl') : 'canvas',
-    // A/B switches for the phone check: glow 'blur' (downsample + separable blur, default) | 'filter' (?glow=old);
-    // grain 'on' | 'off' (?grain=off, diagnosis only: removes the film grain)
-    glowMode: QS.get('glow') === 'old' ? 'filter' : 'blur',
-    grainMode: QS.get('grain') === 'off' ? 'off' : 'on',
-    // scene 'layer' (default: drawn offscreen, see sceneCv) | 'direct' (?scene=old: drawn on the visible canvas)
-    sceneMode: QS.get('scene') === 'old' ? 'direct' : 'layer',
     glowTaps: GLOW_TAPS, blurTaps, // tuning hooks for the visual check page
-    postGpuStatus: () => ({ available: !!gpuPost, ready: !!gpuPost?.ready, error: gpuPost?.error || '' }),
-    // 'gl' (only with ?renderer=gl and a working WebGL2) | 'canvas'; the render-check page switches it per stage
-    rendererMode: GL_Q ? 'gl' : 'canvas',
-    glStatus: () => (glr ? Object.assign({ available: true }, glr.status()) : { available: false, requested: GL_Q }),
+    // 'gl' (a working WebGL2 renderer, the default) | 'canvas'; the render-check page switches it per stage
+    rendererMode: glr ? 'gl' : 'canvas',
+    glStatus: () => (glr ? Object.assign({ available: true, forced: GL_FORCE }, glr.status()) : { available: false, requested: GL_WANT, forced: GL_FORCE, why: glWhy }),
     glInfo: () => (glr ? glr.info() : null),
     glRenderer: () => glr,
     // Frame rate choice (Settings → Graphics): '60' | '90' | '120' | 'max', null = the device default (js/gfx.js)
@@ -341,6 +331,9 @@
     // ---------------------------------------------------- mod başlatma
     start(mode, opts = {}) {
       this.cancelPreparation();
+      // A locked ninja tried through the rewarded ad is lent for that one CPU fight (and its restarts) only: any other
+      // match, mode or the menu ends the loan (otherwise it stayed usable in Arcade / tournament / Dan until reload).
+      if (ND._trial && !(mode === 'cpu' && ND.CHARS[opts.c1]?.id === ND._trial)) this.endTrial();
       // a new match (or leaving to the menu) ends any coach still running from the previous fight
       if (ND.coach && ND.coach.on) ND.coach.stop();
       this.mode = mode;
@@ -746,7 +739,7 @@
       $('bChange').hidden = false;
       const bc = $('bContinue'); if (bc) bc.hidden = true;
       // a locked ninja tried for one fight (rewarded ad) goes back to the lock afterwards
-      if (ND._trial) { ND._trial = null; if (this.trialPrev != null) this.sel.c[0] = this.trialPrev; this.trialPrev = null; }
+      this.endTrial();
       if (ND.coach) ND.coach.stop();
       const s = this.stats, rows = [
         [nice(f1.ch.name), '', nice(f2.ch.name)],
@@ -869,7 +862,7 @@
     drawSnapFighter(c, s, f) {
       const mkRope = (r) => ({ rope: Object.assign(Object.create(ND.Rope.prototype), { p: r.p }), col: r.col, w: r.w });
       ND.drawNinja(c, s.j, f.col, {
-        ropes: s.ropes.map(mkRope), glint: s.glint, wpn: f.wpn, acc: f.ch.acc, lod: 'high', bake: GFX.tier === 'low' ? f.bakeCache() : GFX.tier === 'high' && this.fighterMode === 'parts' ? f.highBakeCache() : null, layer: true,
+        ropes: s.ropes.map(mkRope), glint: s.glint, wpn: f.wpn, acc: f.ch.acc, lod: 'high', bake: GFX.tier === 'low' ? f.bakeCache() : null, layer: true,
         trail: (cc) => { const save = f.trail; f.trail = s.trail; f.drawTrail(cc); f.trail = save; },
       });
       if (s.ls) ND.drawSword(c, s.ls.a.x, s.ls.a.y, Math.atan2(s.ls.b.y - s.ls.a.y, s.ls.b.x - s.ls.a.x), f.col, 0, f.wpn);
@@ -1004,12 +997,15 @@
     render() {
       ND.beginBakeFrame?.();
       const behindUi = this.phase === 'select' || this.phase === 'vs' || this.phase === 'ending';
+      // the default renderer broke for good (a GL error, or it kept refusing frames): free it, Canvas 2D from now on
+      if (glr && !GL_FORCE && glr.error) {
+        glWhy = glr.error; console.info('[ND.gl] WebGL2 renderer switched off; drawing with Canvas 2D', glWhy);
+        glr.dispose(); glr = null; glShown = false; this.rendererMode = 'canvas';
+      }
       if (glr && this.rendererMode === 'gl' && !behindUi && !this.behind && glr.ready && this.renderGl()) return;
       showGl(false);
-      // scene layer (see sceneCv): bloom on, Canvas post-processing (the opt-in WebGL probe reads the visible canvas)
-      // (?post=present needs the layer: the scene is then never drawn on the covered #cv)
-      const present = !!gpuPost && this.postMode === 'present' && GFX.f.bloom === 2 && !behindUi;
-      const layer = present || (this.sceneMode === 'layer' && GFX.f.bloom > 0 && !(gpuPost && this.postMode === 'webgl'));
+      // scene layer (see sceneCv): with bloom on, the Canvas post-processing reads the finished scene from it
+      const layer = GFX.f.bloom > 0;
       if (layer) {
         if (sceneCv.width !== cv.width || sceneCv.height !== cv.height) { sceneCv.width = cv.width; sceneCv.height = cv.height; }
         ctx = sceneCtx;
@@ -1019,7 +1015,7 @@
         else if (this.phase === 'replay') this.renderReplay();
         else this.renderScene(true);
       } finally { ctx = mainCtx; }
-      this.post(layer ? sceneCv : null, present);
+      this.post(layer ? sceneCv : null);
       if (behindUi) this.renderSelect();
     },
 
@@ -1039,8 +1035,8 @@
       // draw none there either)
       const mode = GFX.f.bloom === 2 ? 2 : GFX.f.bloom ? 1 : 0;
       const gx = mode === 2 ? (Math.random() * 128) | 0 : 0, gy = mode === 2 ? (Math.random() * 128) | 0 : 0;
-      if (!glr.end({ mode, bloom: scene.theme.bloom ?? 0.5, grainX: gx, grainY: gy, grain: mode === 2 && this.grainMode !== 'off' })) return false;
-      showGl(true); showGpu(false);
+      if (!glr.end({ mode, bloom: scene.theme.bloom ?? 0.5, grainX: gx, grainY: gy, grain: mode === 2 })) return false;
+      showGl(true);
       this.renderVersion = 'gl-v1';
       PM('post');
       return true;
@@ -1137,50 +1133,24 @@
       }
     },
     // Işıma (bloom) + film greni. src: the scene layer (see sceneCv) or null when the scene was drawn on cv itself
-    post(src, present) {
-      const renderer = GFX.tier === 'high' && this.fighterMode === 'parts' ? 'fighter-parts-high-v1' : 'fighter-surfaces-v1';
-      this.renderVersion = renderer;
+    post(src) {
+      this.renderVersion = 'fighter-surfaces-v1';
       const bloom = GFX.f.bloom;
-      if (present) {
-        const x = (Math.random() * 128) | 0, y = (Math.random() * 128) | 0;
-        if (gpuPost.render(src, null, scene.theme.bloom ?? 0.5, x, y)) { showGpu(true); this.renderVersion = renderer + '+webgl-present'; PM('post'); return; }
-        this.renderVersion = renderer + '+canvas-post-fallback';
-      }
-      showGpu(false);
       if (!bloom) return;
       if (bloom === 1) { this.postLite(src); return; }
-      let grainX, grainY;
-      if (gpuPost && this.postMode === 'webgl') {
-        const x = (Math.random() * 128) | 0, y = (Math.random() * 128) | 0;
-        grainX = x; grainY = y;
-        if (gpuPost.render(cv, ctx, scene.theme.bloom ?? 0.5, x, y)) {
-          this.renderVersion = renderer + '+webgl-post-probe'; PM('post'); return;
-        }
-        this.renderVersion = renderer + '+canvas-post-fallback';
-      }
       const bw = Math.max(1, cam.W >> 2), bh = Math.max(1, cam.H >> 2);
-      if (bc.width !== bw || bc.height !== bh) { bc.width = bc2.width = bw; bc.height = bc2.height = bh; }
+      if (bc.width !== bw || bc.height !== bh) { bc.width = bw; bc.height = bh; }
       bx.globalCompositeOperation = 'copy'; bx.globalAlpha = 1; bx.drawImage(src || cv, 0, 0, bw, bh);
       bx.globalCompositeOperation = 'multiply'; bx.drawImage(bc, 0, 0); bx.drawImage(bc, 0, 0);
-      let glow = bc2, r = this.glowRect;
-      if (this.glowMode === 'filter') {
-        b2.globalCompositeOperation = 'copy';
-        if (HAS_FILTER) b2.filter = 'blur(5px)';
-        b2.drawImage(bc, 0, 0);
-        if (HAS_FILTER) b2.filter = 'none';
-        r[0] = r[1] = 0; r[2] = bw; r[3] = bh;
-      } else glow = this.blurGlow(bw, bh);
+      const glow = this.blurGlow(bw, bh), r = this.glowRect;
       ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
       if (src) { ctx.globalCompositeOperation = 'copy'; ctx.globalAlpha = 1; ctx.drawImage(src, 0, 0); }
       ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = scene.theme.bloom ?? 0.5;
       ctx.drawImage(glow, r[0], r[1], r[2], r[3], 0, 0, cam.W, cam.H);
-      // the grain offset is picked even when grain is off, so both A/B variants use the same random numbers
-      const gx = grainX === undefined ? (Math.random() * 128) | 0 : grainX, gy = grainY === undefined ? (Math.random() * 128) | 0 : grainY;
-      if (this.grainMode !== 'off') {
-        ctx.globalCompositeOperation = 'overlay'; ctx.globalAlpha = 0.07;
-        ctx.translate(gx, gy);
-        ctx.fillStyle = grainPat; ctx.fillRect(-128, -128, cam.W + 128, cam.H + 128);
-      }
+      const gx = (Math.random() * 128) | 0, gy = (Math.random() * 128) | 0;
+      ctx.globalCompositeOperation = 'overlay'; ctx.globalAlpha = 0.07;
+      ctx.translate(gx, gy);
+      ctx.fillStyle = grainPat; ctx.fillRect(-128, -128, cam.W + 128, cam.H + 128);
       ctx.restore();
       PM('post');
     },
@@ -1365,6 +1335,13 @@
         add(a.id, `<b>${a.kanji}</b>${a.name}` + (locked ? '<i class="lk" aria-hidden="true"></i>' : ''), locked, SS.lockMsg ? SS.lockMsg(a.name, hint) : hint);
       }
       add('random', tx(SS.random || 'Rastgele'), false);
+    },
+    // ends a rewarded one-fight loan of a locked ninja (see trialOffer): the lock is back, the previous pick restored
+    endTrial() {
+      if (!ND._trial) return;
+      ND._trial = null;
+      if (this.trialPrev != null) this.sel.c[0] = this.trialPrev;
+      this.trialPrev = null;
     },
     // Rewarded ad: try a locked ninja for one CPU fight. k = roster index, or null to hide the offer.
     trialOffer(k) {
@@ -1602,7 +1579,7 @@
   }
   function unlockAudio() { au.init(); au.setEnabled(ND.settings.sound); mu.init(); mu.setEnabled(ND.settings.music); if (mu.mode === 'off') mu.setMode(game.phase === 'fight' ? 'fight' : 'menu'); }
   function choose(mode) { unlockAudio(); au.ui(); if (mode === 'watch') { au.quiet = false; game.start('watch'); } else game.openSelect(mode); }
-  function goMenu() { game.start('attract'); mu.setMode('menu'); if ($('first')) $('first').hidden = true; refreshPlay(); setTimeout(() => $('mplay').focus(), 0); }
+  function goMenu() { game.setSingle?.(false); game.start('attract'); mu.setMode('menu'); if ($('first')) $('first').hidden = true; refreshPlay(); setTimeout(() => $('mplay').focus(), 0); }
   // PLAY opens the saved character journeys. VS CPU remains the single-match entry.
   function playJourney() {
     if (ND.save && !ND.save.p.firstDone) { ND.save.p.firstDone = true; ND.save.commit(); }
@@ -1627,7 +1604,8 @@
     if (game.mode === 'attract' || game.phase === 'end' || game.phase === 'select' || game.phase === 'replay' || game.phase === 'vs' || game.phase === 'ending') return;
     game.paused = v; $('pause').hidden = !v;
     const br = $('bRestart'); if (br) br.hidden = !!(game.runner && game.runner.noRestart && game.mode === game.runner.mode);
-    if (v) { input.p1.clear(); input.p2.clear(); input.touchReset(); $('bResume').focus(); }
+    // (pausing also cuts a voice line still sounding and drops announcer lines waiting in the queue)
+    if (v) { input.p1.clear(); input.p2.clear(); input.touchReset(); ND.voice?.stopAll?.(); $('bResume').focus(); }
     else { input.p1.buf = {}; input.p2.buf = {}; } // presses made in the pause menu must not fire on resume
     game.syncTouch();
   }
@@ -1635,7 +1613,9 @@
   const card = (id, fn) => {
     const el = $(id); if (!el) return;
     el.onclick = fn;
-    el.onkeydown = (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === el) { e.preventDefault(); fn(); } };
+    // (stopPropagation: the same Enter must not also reach the window key handler of the screen fn just opened —
+    // Enter on "vs CPU" opened the select screen and started the fight at once)
+    el.onkeydown = (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === el) { e.preventDefault(); e.stopPropagation(); fn(); } };
   };
 
   // Yalnız dokunmatik cihazda iki oyuncu pratik değil: klavye/gamepad görülene dek kibarca uyar
@@ -1662,6 +1642,22 @@
   if ($('mtour')) $('mtour').addEventListener('click', unlockAudio);
   if ($('mdan')) $('mdan').addEventListener('click', unlockAudio);
   card('mcpu', () => choose('cpu'));
+  // Single match (index.html #msingle): the card opens or closes its choice — vs CPU (with the difficulty) or two
+  // players. Keyboard: Enter / Space on the card opens it and focuses "vs CPU"; Escape inside closes it.
+  const single = $('msingle'), pick = $('singlePick');
+  function setSingle(open, focus) {
+    if (!single || !pick) return;
+    pick.hidden = !open; single.setAttribute('aria-expanded', String(open));
+    if (open) { mark2p(); if (focus) setTimeout(() => $('mcpu') && $('mcpu').focus(), 0); }
+    else if (focus) single.focus();
+  }
+  game.setSingle = setSingle;
+  if (single && pick) {
+    single.onclick = () => { unlockAudio(); au.ui(); setSingle(pick.hidden, false); };
+    single.onkeydown = (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === single) { e.preventDefault(); e.stopPropagation(); unlockAudio(); au.ui(); setSingle(pick.hidden, true); } };
+    pick.addEventListener('click', (e) => e.stopPropagation());
+    pick.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); setSingle(false, true); } });
+  }
   card('mtrain', () => choose('train'));
   $('mtFree').onclick = (e) => { e.stopPropagation(); choose('train'); };
   $('mtTut').onclick = (e) => { e.stopPropagation(); choose('tutorial'); };

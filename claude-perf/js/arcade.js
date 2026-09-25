@@ -23,6 +23,7 @@
       specialKey: 'Ki tekniği (ki dolu)',
       play: 'Oyna',
       playSub: (name, lv) => `${name} ile CPU’ya karşı · ${lv}`,
+      single: 'Tek Maç', singleDesc: 'CPU’ya karşı ya da iki oyuncu',
     },
     // İlk açılış: tek büyük OYNA düğmesi (menü sonraki açılışlarda)
     first: { play: 'Oyna', sub: 'Tek tıkla dövüşe gir', menu: 'Tüm modlar' },
@@ -266,6 +267,8 @@
         hallRank: (p) => `Bu ay #${p} · rekorlar`,
         hallDesc: 'Ayın ilk 10’u ve rekorlar',
         nick: (n) => (n ? `Takma ad: ${n}` : 'Takma ad seç'),
+        champTitle: 'Bu ayın ilk 10’u', champLocal: 'Bu cihazdaki ilk 10', champEmpty: 'Bu ayın tablosunda ilk sen ol', champLoading: 'Liderler yükleniyor…',
+        champLast: (n) => `Geçen ayın şampiyonu: ${n}`, champOpen: 'aylık sıralamayı aç',
       },
       t: {
         title: 'Aylık Turnuva', head: 'Turnuva',
@@ -306,7 +309,7 @@
         tabs: { week: { k: '月', n: 'Bu Ay' }, alltime: { k: '歴', n: 'Tüm Zamanlar' }, archive: { k: '殿', n: 'Şampiyonlar' }, chars: { k: '忍', n: 'Ninjalar' }, dan: { k: '段', n: 'Dan' } },
         desc: { alltime: 'Aylık turnuvanın tüm zamanların en iyileri', archive: 'Biten her ayın ilk 10’u buraya kalıcı olarak kazınır', chars: 'Her ninjanın rekor sahibi · ninjaya dokun, ilk 20’yi gör', dan: 'En yüksek rütbeler' },
         loading: 'Yükleniyor…', error: 'Tablo yüklenemedi.', retry: 'Yeniden dene',
-        empty: 'Henüz kimse yok. İlk sen ol!', emptyDan: 'Henüz rütbeli kimse yok.', emptyArchive: 'Henüz biten bir ay yok. İlk şampiyonlar bu ay bitince kazınacak.',
+        empty: 'Henüz kimse yok. İlk sen ol!', emptyDan: 'Henüz rütbeli kimse yok.', emptyArchive: 'Henüz biten bir ay yok. Unvanlar Ekim 2026 turnuvasıyla başlıyor; onun şampiyonları ay bitince, 1 Kasım’da kazınacak.', emptyArchiveLocal: 'Bu cihazda henüz biten bir ay yok.',
         anon: 'Oyuncu',
         meTop: (p, s) => `Sen: #${p} · ${s} puan · ilk 10’dasın!`,
         meGap: (p, g, s) => `Sen: #${p} · ${s} puan · ilk 10’a ${g} puan`,
@@ -320,8 +323,9 @@
       // Aylık turnuva ödülleri: kalıcı unvan (ilk 3) ve Şampiyon renkleri (1.) — leaderboard.js / banzuke.js / arcade.js
       ttl: {
         champ: 'Aylık Şampiyon', finalist: 'Finalist',
-        reward: 'Her ayın ilk 3’ü kalıcı bir unvan kazanır. Şampiyon, kullandığı ninjanın özel Şampiyon renklerini de kazanır. Unvan için o ay en az 5 oyuncu gerekir.',
-        hall: 'Ayın ilk 3’ü kalıcı unvan kazanır (en az 5 oyuncu) · şampiyona özel Şampiyon renkleri',
+        reward: 'Ekim 2026 turnuvasından itibaren her ayın ilk 3’ü kalıcı bir unvan kazanır. Şampiyon, kullandığı ninjanın özel Şampiyon renklerini de kazanır. Unvan için o ay en az 5 oyuncu gerekir.',
+        hall: 'Ekim 2026’dan itibaren ayın ilk 3’ü kalıcı unvan kazanır (en az 5 oyuncu) · şampiyona özel Şampiyon renkleri',
+        local: 'Turnuva skorların bu cihazda saklanıyor.',
         colors: 'Şampiyon renkleri',
         how: 'Bu ninjayla bir Aylık Turnuva kazan',
         unlocked: (name) => `Aylık Şampiyon! ${name} için Şampiyon renkleri açıldı`,
@@ -999,9 +1003,9 @@
       const look = $('journeyLook'), panel = $('journeyPanel');
       if (look) {
         // Appearance slots: Original · Legacy (journey mastery) · Champion (won a Monthly Tournament with this ninja).
-        // In the tournament a locked Champion slot says how to earn it.
+        // In the tournament a locked Champion slot says how to earn it (only where it can be earned: online scores).
         const id = selected.id, TT = (STR.bz && STR.bz.ttl) || {}, now = save.look(id), opts = save.lookOptions(id);
-        const champLocked = !save.champOk(id) && G.selMode === 'tourney';
+        const champLocked = !save.champOk(id) && G.selMode === 'tourney' && !!ND.leaderboard?.titlesEarnable?.();
         look.hidden = peek || G.selMode === 'watch' || G.selMode === '2p' || (opts.length < 2 && !champLocked);
         look.textContent = '';
         const lab = document.createElement('span'); lab.className = 'look-l'; lab.textContent = T.colors; look.appendChild(lab);

@@ -1,4 +1,4 @@
-// Shadow Duel — fighter part cache ("baking"). High remains an opt-in prototype.
+// Shadow Duel — fighter part cache ("baking"), used by the Low graphics tier.
 // Drawing a fighter submits many paths; their cost must be measured on the target device. Here each
 // body part (thigh, shin, foot, knee bag, sleeve, forearm, sleeve mouth, hand, torso, head + neck, weapon,
 // scabbard...) is drawn once with the same path code (skeleton.js drawing steps) into a small picture, and every
@@ -29,7 +29,7 @@ window.ND = window.ND || {};
   // m: key → { cv, x0, y0, w, h (local frame, world units), len (bone length when drawn), last (use), bytes }
   let frameId = 0;
   ND.beginBakeFrame = () => ++frameId;
-  function Cache(high = false) { return { high, m: new Map(), bytes: 0, frame: -1, fb: 0, lv: -1, bakes: 0, hits: 0, live: 0, evictions: 0, bornPixels: 0, readOnly: false, col: null, acc: null, wpn: null, ltx: null }; }
+  function Cache() { return { m: new Map(), bytes: 0, frame: -1, fb: 0, lv: -1, bakes: 0, hits: 0, live: 0, evictions: 0, bornPixels: 0, readOnly: false, col: null, acc: null, wpn: null, ltx: null }; }
   ND.bakeCache = Cache;
   ND.bakeStats = (F) => ({ parts: F.m.size, kb: Math.round(F.bytes / 1024), bakes: F.bakes, hits: F.hits, live: F.live, evictions: F.evictions, bornPixels: F.bornPixels, level: F.lv });
   // Match preparation may leave missing parts blank behind its opaque loading screen. Live drawing never does.
@@ -51,11 +51,11 @@ window.ND = window.ND || {};
   let F = null, J = null, C = null, D = null, WPN = null, ACC = '', SD = 1, LV = 0, S = 1;
   let BM = null; // the target context's transform at the start (DOMMatrix)
   const lvScale = (lv) => Math.pow(2, lv / 4 - 3);
-  const lb = (a) => { const n = F?.high ? 128 : NB; let b = Math.floor((a / TAU) * n) % n; if (b < 0) b += n; return b; };
+  const lb = (a) => { let b = Math.floor((a / TAU) * NB) % NB; if (b < 0) b += NB; return b; };
   // shade() in skeleton.js puts the highlight on the side whose normal faces the light: 1 when it flips
   const sflip = (dx, dy) => (-dy * LT.x + dx * LT.y < 0 ? 1 : 0);
-  // High needs wider angle/fan fields (a <= 256, b < 32). Numeric keys avoid per-part string allocation.
-  const key = (pid, a, b, c) => F?.high ? pid + 64 * (LV + 32 * (a + 512 * (b + 32 * (c + 1024)))) : pid + 64 * (LV + 32 * (a + 64 * (b + 256 * c)));
+  // Numeric keys avoid per-part string allocation.
+  const key = (pid, a, b, c) => pid + 64 * (LV + 32 * (a + 64 * (b + 256 * c)));
 
   // local bounding box (world units) of the part being baked, and its frame
   const BB = [0, 0, 0, 0];
@@ -241,7 +241,7 @@ window.ND = window.ND || {};
     const fa = Math.atan2(ha.y - el.y, ha.x - el.x), fl = Math.hypot(ha.x - el.x, ha.y - el.y);
     // n (the side the sleeve hangs to) is the upper arm's normal turned downwards: 1 when it is R(-90°) of the bone
     const nf = (G.nx * -Math.sin(ua) + G.ny * Math.cos(ua)) < 0 ? 1 : 0;
-    SAGQ = F.high ? Math.round(G.sag * 8) : Math.max(0, Math.min(40, Math.round(G.sag / SAG_STEP) + 8));
+    SAGQ = Math.max(0, Math.min(40, Math.round(G.sag / SAG_STEP) + 8));
     K.handInfo(J, WPN);
     for (const i of rev ? REV6 : FWD6) {
       if (i === 0) { restore(ctx); drFOut(ctx); } // forearm outline: one stroke, live
@@ -278,7 +278,7 @@ window.ND = window.ND || {};
     } finally { SW.m = 0; }
   };
   // tessen opening in 1/16 steps (the fan's paper and ribs are redrawn per step)
-  const fanQ = (o) => { const n = F.high ? 256 : 16; return Math.max(0, Math.min(n, Math.round(o * n))); };
+  const fanQ = (o) => Math.max(0, Math.min(16, Math.round(o * 16)));
   // rev: drawn behind what is already there ('destination-over'): steps backwards, without the additive blade light
   function weapon(ctx, hx, hy, ang, which, rev) {
     const t = WPN.type;
@@ -307,17 +307,10 @@ window.ND = window.ND || {};
 
   // torso (with the live shadows on a scratch canvas, clipped to the torso by 'source-atop')
   const bbRim = () => { const bk = ACC === 'mai' ? 33 : 24; bbSet(-TF.ln * 0.24 - 3.5, SD > 0 ? -bk : -21, TF.ln * 1.1 + 3.5, SD > 0 ? 21 : bk); };
-  const drBody = (x) => K.drawTorso(x, J, C, D, ACC, F.high ? TB.BODY : TB.BODY | TB.RIM | TB.KNOT);
+  const drBody = (x) => K.drawTorso(x, J, C, D, ACC, TB.BODY | TB.RIM | TB.KNOT);
   let scr = null, scx = null;
   function torso(ctx) {
     const ta = torsoAng(), a = lb(ta), b = sdBit(), ln = TF.ln;
-    if (F.high) {
-      part(ctx, P.BODY, a, b, 0, TF.hx, TF.hy, ta, 1, ln, bbRim, drBody);
-      restore(ctx);
-      // Preserve the original vector clip, then AO, rim and knot ordering. No raster alpha-mask approximation.
-      K.drawTorso(ctx, J, C, D, ACC, TB.AO | TB.RIM | TB.KNOT);
-      return;
-    }
     // device bounds of the torso pictures (+ knot / bow) via the torso's corners
     let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
     const ca = Math.cos(ta), sa = Math.sin(ta);
@@ -372,17 +365,16 @@ window.ND = window.ND || {};
   function headAnim() {
     const t = ND.scene ? ND.scene.t : 0;
     const sw = ACC === 'mai' ? Math.sin(t * 3.1) * 1.2 : ACC === 'aoi' ? Math.sin(t * 2.4) * 0.8 : ACC === 'scarf' ? Math.sin(t * 2.6) * 0.9 : 0;
-    return F.high ? Math.round(sw * 16) : Math.round(sw / 0.5) + 8;
+    return Math.round(sw / 0.5) + 8;
   }
   function neckAndHead(ctx) {
     const ta = torsoAng();
-    const neckInHead = !F.high && ACC !== 'scarf' && ACC !== 'monk';
+    const neckInHead = ACC !== 'scarf' && ACC !== 'monk';
     if (ACC === 'scarf') part(ctx, P.SCARF, lb(ta), sdBit(), 0, TF.hx, TF.hy, ta, 1, TF.ln, bbScarf, drNeck);
     else if (!neckInHead) {
       const ax = J.neck.x - TF.ux * 2, ay = J.neck.y - TF.uy * 2, bx = J.neck.x + (J.head.x - J.neck.x) * 0.55, by = J.neck.y + (J.head.y - J.neck.y) * 0.55;
       LEN = Math.hypot(bx - ax, by - ay); NA = Math.atan2(by - ay, bx - ax);
-      if (F.high) { restore(ctx); drNeck(ctx); }
-      else part(ctx, P.NECK, 0, 0, 0, ax, ay, NA, 1, LEN, bbNeck, drNeck);
+      part(ctx, P.NECK, 0, 0, 0, ax, ay, NA, 1, LEN, bbNeck, drNeck);
     }
     if (ACC === 'monk') part(ctx, P.JUZU, lb(ta), sdBit(), 0, TF.hx, TF.hy, ta, 1, TF.ln, bbJuzu, drJuzu);
     if (WPN.type === 'yumi' && J.wBow > 0.5 && J.hasSword) part(ctx, P.TANTO, 0, sdBit(), 0, TF.hx, TF.hy, ta, 1, 0, bbTanto, drTanto);
@@ -405,12 +397,6 @@ window.ND = window.ND || {};
     // about -30% / +3% of it (camera zoom changes do not rebake everything at once)
     let lv = Math.max(0, Math.min(31, Math.ceil((Math.log2(s) + 3) * 4 - 0.15)));
     if (Fc.lv >= 0 && s <= lvScale(Fc.lv) * 1.03 && s >= lvScale(Fc.lv) * 0.7) lv = Fc.lv;
-    // Supersampled High pictures are never magnified, including during camera zooms.
-    if (Fc.high) {
-      lv = Math.max(0, Math.min(31, Math.ceil((Math.log2(s * 2) + 3) * 4)));
-      if (Fc.lv >= 0 && s * 2 <= lvScale(Fc.lv) && s * 2 >= lvScale(Fc.lv) * 0.7) lv = Fc.lv;
-      if (lvScale(lv) < s * 2) return false;
-    }
     K.updLight();
     // another look, weapon or light side: start over
     if (Fc.col !== c || Fc.acc !== acc || !sameWeapon(Fc.wpn, wpn) || Fc.ltx !== (LT.x > 0)) {

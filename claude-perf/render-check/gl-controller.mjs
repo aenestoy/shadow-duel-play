@@ -91,7 +91,6 @@ function liveFrame(row) {
   if (row) { row.sim = t1 - t0; row.render = performance.now() - t1; }
 }
 function apply(v) {
-  g.glowMode = 'blur'; g.sceneMode = 'layer'; g.grainMode = 'on'; g.postMode = 'canvas';
   g.rendererMode = v.renderer === 'gl' ? 'gl' : 'canvas';
   if (v.renderer === 'gl') g.glRenderer().setSamples(v.msaa);
 }
@@ -200,7 +199,7 @@ const QUIET_BACK = () => { stageTier = 'high'; };
 $('rc-card').querySelector('h1').textContent = 'Shadow Duel · WebGL2 speed test';
 $('rc-help').textContent = 'Automatic test of about 90 seconds. Hold the phone sideways and keep this tab visible. No fighting required.';
 $('rc-detail').textContent = 'First the new WebGL2 drawing runs alone: a 15-second computer-played fight, then High, Medium and Low as fast as your screen allows. Then the current High drawing and WebGL2 take turns. The picture should look the same in every stage. Your game settings and progress are not changed.';
-$('rc-back').href = './?renderer=gl'; $('rc-back').textContent = 'PLAY WITH WEBGL2';
+$('rc-back').href = './'; $('rc-back').textContent = 'BACK TO GAME';
 $('rc-copy').textContent = 'COPY REPORT';
 // the 60-second eye test
 const playA = document.createElement('a');
