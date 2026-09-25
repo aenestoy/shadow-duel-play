@@ -1403,13 +1403,14 @@
       // reflections: the flat two-tone model (skeleton.js drawLow). Low graphics: the same detailed fighter, drawn
       // from its cached part pictures (bake.js) instead of paths (select-screen previews set fullDetail: paths)
       o.lod = reflect ? 'low' : 'high';
-      o.bake = !reflect && !this.fullDetail && ND.gfx && ND.gfx.tier === 'low' ? this.bakeCache() : null; o.layer = !!layer;
+      o.bake = !reflect && !this.fullDetail && ND.gfx ? (ND.gfx.tier === 'low' ? this.bakeCache() : ND.gfx.tier === 'high' && ND.game?.fighterMode === 'parts' ? this.highBakeCache() : null) : null; o.layer = !!layer;
       ND.drawNinja(ctx, j, this.col, o);
       ctx.restore();
       if (this.looseSword) this.looseSword.draw(ctx, this.col);
     }
     // the fighter's part picture cache (bake.js), made on first use; null without bake.js
     bakeCache() { return this._bake || (this._bake = ND.bakeCache ? ND.bakeCache() : null); }
+    highBakeCache() { return this._highBake || (this._highBake = ND.bakeCache ? ND.bakeCache(true) : null); }
     // Ekran uzayında kaba sınır kutusu (ışık katmanı için)
     // Returns the fighter's own reused array [x0, y0, x1, y1]: read it right away (it changes on the next call).
     bounds() {

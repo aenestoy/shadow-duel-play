@@ -1,12 +1,14 @@
 {
-  "source": "a717790",
+  "source": "14f88e3",
   "baseline": "1066a45",
   "date": "2026-09-25",
-  "purpose": "Opt-in GPU High post-processing comparison; Canvas remains the default",
+  "purpose": "Opt-in High character cache and GPU effect comparisons; original rendering remains the default",
   "report": "shadow-duel-phone-v2",
   "renderer": "fighter-surfaces-v1",
   "diagnostic": "shadow-duel-render-check-v2",
-  "diagnosticSource": "a717790",
+  "diagnosticSource": "14f88e3",
   "postCandidate": "webgl-post-probe",
-  "postComparison": "shadow-duel-post-check-v1"
+  "postComparison": "shadow-duel-post-check-v1",
+  "fighterCandidate": "fighter-parts-high-v1",
+  "fighterComparison": "shadow-duel-fighter-check-v1"
 }

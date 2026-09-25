@@ -250,6 +250,7 @@
 
   const game = ND.game = {
     renderVersion: 'fighter-surfaces-v1',
+    fighterMode: new URLSearchParams(location.search).get('fighters') === 'parts' ? 'parts' : 'paths',
     postMode: gpuPost ? 'webgl' : 'canvas',
     postGpuStatus: () => ({ available: !!gpuPost, ready: !!gpuPost?.ready, error: gpuPost?.error || '' }),
     mode: 'attract', level: [0, 1, 2].includes(saved.level) ? saved.level : 1, phase: 'menu', pt: 0, projs: [], hitstopT: 0, slow: 1, slowT: 0,
@@ -794,7 +795,7 @@
     drawSnapFighter(c, s, f) {
       const mkRope = (r) => ({ rope: Object.assign(Object.create(ND.Rope.prototype), { p: r.p }), col: r.col, w: r.w });
       ND.drawNinja(c, s.j, f.col, {
-        ropes: s.ropes.map(mkRope), glint: s.glint, wpn: f.wpn, acc: f.ch.acc, lod: 'high', bake: GFX.tier === 'low' ? f.bakeCache() : null, layer: true,
+        ropes: s.ropes.map(mkRope), glint: s.glint, wpn: f.wpn, acc: f.ch.acc, lod: 'high', bake: GFX.tier === 'low' ? f.bakeCache() : GFX.tier === 'high' && this.fighterMode === 'parts' ? f.highBakeCache() : null, layer: true,
         trail: (cc) => { const save = f.trail; f.trail = s.trail; f.drawTrail(cc); f.trail = save; },
       });
       if (s.ls) ND.drawSword(c, s.ls.a.x, s.ls.a.y, Math.atan2(s.ls.b.y - s.ls.a.y, s.ls.b.x - s.ls.a.x), f.col, 0, f.wpn);
@@ -1018,6 +1019,8 @@
     },
     // Işıma (bloom) + film greni
     post() {
+      const renderer = GFX.tier === 'high' && this.fighterMode === 'parts' ? 'fighter-parts-high-v1' : 'fighter-surfaces-v1';
+      this.renderVersion = renderer;
       const bloom = GFX.f.bloom;
       if (!bloom) return;
       if (bloom === 1) { this.postLite(); return; }
@@ -1026,10 +1029,10 @@
         const x = (Math.random() * 128) | 0, y = (Math.random() * 128) | 0;
         grainX = x; grainY = y;
         if (gpuPost.render(cv, ctx, scene.theme.bloom ?? 0.5, x, y)) {
-          this.renderVersion = 'fighter-surfaces-v1+webgl-post-probe'; PM('post'); return;
+          this.renderVersion = renderer + '+webgl-post-probe'; PM('post'); return;
         }
-        this.renderVersion = 'fighter-surfaces-v1+canvas-post-fallback';
-      } else this.renderVersion = 'fighter-surfaces-v1';
+        this.renderVersion = renderer + '+canvas-post-fallback';
+      }
       const bw = Math.max(1, cam.W >> 2), bh = Math.max(1, cam.H >> 2);
       if (bc.width !== bw || bc.height !== bh) { bc.width = bc2.width = bw; bc.height = bc2.height = bh; }
       bx.globalCompositeOperation = 'copy'; bx.globalAlpha = 1; bx.drawImage(cv, 0, 0, bw, bh);
