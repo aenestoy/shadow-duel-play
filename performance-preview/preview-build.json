@@ -1,8 +1,8 @@
 {
-  "source": "d51813b",
+  "source": "c85b961",
   "baseline": "1066a45",
   "date": "2026-09-25",
-  "purpose": "Independent fighter render surfaces with High visuals preserved",
+  "purpose": "High visuals preserved; stop ineffective resolution retries during severe stalls",
   "report": "shadow-duel-phone-v2",
   "renderer": "fighter-surfaces-v1",
   "diagnostic": "shadow-duel-render-check-v2",

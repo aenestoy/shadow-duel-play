@@ -107,6 +107,8 @@ window.ND = window.ND || {};
       let j = aq.i + 1;
       if (sev === 2) { const last = R[R.length - 1].tier; if (cur.tier !== last) while (j < R.length && R[j].tier !== last) j++; }
       else if (sev === 1 || aq.resOff[cur.tier]) { const k = j; while (j < R.length && R[j].tier === cur.tier) j++; if (j >= R.length && sev === 1 && !aq.resOff[cur.tier]) j = k; }
+      // Severe stalls must also respect a failed resolution probe; repeating it keeps rebuilding the canvas.
+      if (aq.resOff[cur.tier]) while (j < R.length && R[j].tier === cur.tier) j++;
       if (j < R.length) { aq.probe = g; aq.probeTier = R[j].tier !== cur.tier; aq.from = aq.i; act.setRung(j); }
     } else {
       aq.slow = 0;
