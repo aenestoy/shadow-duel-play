@@ -1,10 +1,12 @@
 {
-  "source": "c85b961",
+  "source": "a717790",
   "baseline": "1066a45",
   "date": "2026-09-25",
-  "purpose": "High visuals preserved; stop ineffective resolution retries during severe stalls",
+  "purpose": "Opt-in GPU High post-processing comparison; Canvas remains the default",
   "report": "shadow-duel-phone-v2",
   "renderer": "fighter-surfaces-v1",
   "diagnostic": "shadow-duel-render-check-v2",
-  "diagnosticSource": "79c9bdc"
+  "diagnosticSource": "a717790",
+  "postCandidate": "webgl-post-probe",
+  "postComparison": "shadow-duel-post-check-v1"
 }

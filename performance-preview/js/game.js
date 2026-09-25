@@ -26,6 +26,7 @@
     for (let i = 0; i < im.data.length; i += 4) { const v = (Math.random() * 255) | 0; im.data[i] = im.data[i + 1] = im.data[i + 2] = v; im.data[i + 3] = 255; }
     gx.putImageData(im, 0, 0); }
   const grainPat = ctx.createPattern(grain, 'repeat');
+  const gpuPost = new URLSearchParams(location.search).get('post') === 'webgl' ? ND.createGpuPost?.(grain) : null;
   const input = ND.input, au = ND.audio, cam = ND.cam, fx = ND.fx, scene = ND.scene, mu = ND.music;
   ND.simClock = 0; // simulation clock (seconds of fixed steps); input buffers read it, see game.advance
   // Text that is not in ND.STR (fallbacks, composed banners) goes through the i18n phrase table
@@ -249,6 +250,8 @@
 
   const game = ND.game = {
     renderVersion: 'fighter-surfaces-v1',
+    postMode: gpuPost ? 'webgl' : 'canvas',
+    postGpuStatus: () => ({ available: !!gpuPost, ready: !!gpuPost?.ready, error: gpuPost?.error || '' }),
     mode: 'attract', level: [0, 1, 2].includes(saved.level) ? saved.level : 1, phase: 'menu', pt: 0, projs: [], hitstopT: 0, slow: 1, slowT: 0,
     round: 1, wins: [0, 0], timer: ROUND_TIME, focus: null, paused: false, bars: 0, ais: [], bannerT: 0, dim: 0,
     stats: null, flags: {}, lock: null, clock: 0, rally: { n: 0, last: null, t: 0 }, slowV: 0.35, cineT: 0, cineX: 0, recording: false, fxEvents: [], rec: [], koIndex: -1, replay: null,
@@ -1018,6 +1021,15 @@
       const bloom = GFX.f.bloom;
       if (!bloom) return;
       if (bloom === 1) { this.postLite(); return; }
+      let grainX, grainY;
+      if (gpuPost && this.postMode === 'webgl') {
+        const x = (Math.random() * 128) | 0, y = (Math.random() * 128) | 0;
+        grainX = x; grainY = y;
+        if (gpuPost.render(cv, ctx, scene.theme.bloom ?? 0.5, x, y)) {
+          this.renderVersion = 'fighter-surfaces-v1+webgl-post-probe'; PM('post'); return;
+        }
+        this.renderVersion = 'fighter-surfaces-v1+canvas-post-fallback';
+      } else this.renderVersion = 'fighter-surfaces-v1';
       const bw = Math.max(1, cam.W >> 2), bh = Math.max(1, cam.H >> 2);
       if (bc.width !== bw || bc.height !== bh) { bc.width = bc2.width = bw; bc.height = bc2.height = bh; }
       bx.globalCompositeOperation = 'copy'; bx.globalAlpha = 1; bx.drawImage(cv, 0, 0, bw, bh);
@@ -1030,7 +1042,7 @@
       ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = scene.theme.bloom ?? 0.5;
       ctx.drawImage(bc2, 0, 0, cam.W, cam.H);
       ctx.globalCompositeOperation = 'overlay'; ctx.globalAlpha = 0.07;
-      ctx.translate((Math.random() * 128) | 0, (Math.random() * 128) | 0);
+      ctx.translate(grainX === undefined ? (Math.random() * 128) | 0 : grainX, grainY === undefined ? (Math.random() * 128) | 0 : grainY);
       ctx.fillStyle = grainPat; ctx.fillRect(-128, -128, cam.W + 128, cam.H + 128);
       ctx.restore();
       PM('post');

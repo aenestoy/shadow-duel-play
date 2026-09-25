@@ -1,8 +1,14 @@
-import { stages, warmupMs, sampleMs, summarize, measuredInterval, replaceMethod, restore, assessControls } from './metrics.mjs?v=2';
+import { stages as systemStages, postStages, warmupMs, sampleMs, summarize, measuredInterval, replaceMethod, restore, assessControls } from './metrics.mjs?v=post1';
 const boot = window.__renderCheckBoot, N = window.ND, g = N?.game;
 const $ = id => document.getElementById(id), cv = $('cv');
 const panel = $('rc-panel'), start = $('rc-start'), status = $('rc-status'), strip = $('rc-strip');
 const root = document.documentElement, nextFrame = () => new Promise(resolve => boot.raf(resolve));
+const postComparison = new URLSearchParams(location.search).get('check') === 'post';
+const stages = postComparison ? postStages : systemStages;
+if (postComparison) {
+  $('rc-help').textContent = 'Automatic 28-second comparison. Hold your phone sideways and keep this tab visible. Full High effects stay enabled in both versions. No fighting required.';
+  $('rc-detail').textContent = 'Both versions keep the characters, bloom and film grain. The simple-canvas controls briefly show a moving block. This test does not change your game settings or progress.';
+}
 if (!boot.ok || !g) throw Error('The isolated game could not start.');
 // The game's initial scheduling call has been suppressed. Other UI/browser work may now use rAF normally.
 window.requestAnimationFrame = boot.raf;
@@ -89,6 +95,7 @@ function isolate(kind, undo) {
 }
 async function measure(kind, label, index) {
   const undo = [], samples = [];
+  if (postComparison) g.postMode = kind === 'gpu' ? 'webgl' : 'canvas';
   strip.textContent = `${index + 1}/${stages.length} · ${label}`;
   boot.resetRandom();
   for (const f of g.F) for (const k of ['_t', '_px', '_vs']) delete f.j[k];
@@ -121,6 +128,7 @@ async function measure(kind, label, index) {
       previousCpu = performance.now() - before; previous = now; previousElapsed = elapsed;
     }
     return { kind, label, ...summarize(samples),
+      ...(postComparison ? { renderer: g.renderVersion, requestedPost: g.postMode, gpu: g.postGpuStatus() } : {}),
       ...(kind === 'audio' ? { audioActive: activeAudio, audioState: N.audio.ctx?.state || 'unavailable', masterLevel: N.audio.masterLevel(), musicLevel: N.music.level() } : {}),
       ...(kind === 'logic' ? { phases: [...phases], recordedSnapshots: g.rec.length, simulationSeconds: N.simClock } : {}),
     };
@@ -145,7 +153,7 @@ start.onclick = async () => {
     await audioState(false); await prepareScene();
     viewport = dimensions();
     report = {
-      report: 'shadow-duel-render-check-v2', renderer: g.renderVersion, complete: false,
+      report: postComparison ? 'shadow-duel-post-check-v1' : 'shadow-duel-render-check-v2', renderer: g.renderVersion, complete: false,
       note: 'Separate browser, animated canvas, combat-logic/replay, controlled-rendering and music tests; not a full gameplay benchmark or direct GPU timing. Omission stages change the image only for diagnosis. Compare adjacent Full High controls; differences are not additive. Idle cadence can differ from active rendering and does not measure physical refresh rate. Audio effects during hits, long-session heat/memory, services and device-wide load are not fully covered.',
       quality: { preference: N.gfx.pref, tier: N.gfx.tier, fixedResolution: true },
       scene: { arena: 'rain', fighters: g.F.map(f => f.ch.id), poses: 'animated stance / guard', lightning: false, combat: 'logic stage only' },
@@ -155,6 +163,7 @@ start.onclick = async () => {
       audio: { available: !!N.audio.ctx, sampleRate: N.audio.ctx?.sampleRate || null, outsideStage: 'suspended' },
       storage: 'isolated memory only', network: 'game services disabled; static assets only', warmupMs, sampleMs, stages: [],
     };
+    if (postComparison) report.note = 'Same fixed-resolution High scene alternates between existing Canvas post-processing and the opt-in GPU candidate, bracketed by animated-canvas controls. Both retain bloom and grain. This is not a full combat benchmark or direct GPU timing. Compare each candidate with its adjacent Canvas High controls; an unavailable GPU candidate is reported as fallback.';
     panel.hidden = true; strip.hidden = false;
     for (let i = 0; i < stages.length; i++) report.stages.push(await measure(...stages[i], i));
     report.complete = true;

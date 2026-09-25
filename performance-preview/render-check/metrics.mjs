@@ -1,4 +1,8 @@
 export const warmupMs = 1000, sampleMs = 3000;
+export const postStages = [
+  ['simple', 'Simple animated canvas'], ['full', 'Canvas High'], ['gpu', 'GPU High candidate'],
+  ['full', 'Canvas High'], ['gpu', 'GPU High candidate'], ['full', 'Canvas High'], ['simple', 'Simple animated canvas'],
+];
 export const stages = [
   ['idle', 'Browser cadence'], ['simple', 'Simple animated canvas'], ['logic', 'Combat logic + replay recording'],
   ['full', 'Full High'], ['audio', 'Full High + generated music'], ['full', 'Full High'], ['noPost', 'Without bloom + grain'],
@@ -48,6 +52,13 @@ export function assessControls(results) {
   const full = results.filter(s => s.kind === 'full');
   if (full.length && Math.max(...full.map(s => s.fps)) > 1.35 * Math.min(...full.map(s => s.fps))) {
     warnings.push('Full High controls varied substantially; do not attribute all differences to omitted layers.');
+  }
+  const active = results.filter(s => s.kind === 'simple');
+  if (active.length === 2 && Math.max(...active.map(s => s.fps)) > 1.25 * Math.min(...active.map(s => s.fps))) {
+    warnings.push('Animated-canvas cadence changed substantially between the first and last control.');
+  }
+  if (results.some(s => s.kind === 'gpu' && (!s.gpu?.ready || s.renderer !== 'fighter-surfaces-v1+webgl-post-probe'))) {
+    warnings.push('The requested GPU candidate was unavailable or fell back; do not treat this as a GPU comparison.');
   }
   return { stableControls: warnings.length === 0, warnings };
 }

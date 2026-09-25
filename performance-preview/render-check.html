@@ -2027,6 +2027,7 @@
 
 
 
+
 <style>
   #rc-panel, #rc-strip { position: fixed; z-index: 100000; font: 15px/1.45 system-ui, sans-serif; color: #eee8dd; }
   #rc-panel { inset: 0; display: flex; flex-direction: column; padding: 12px; background: #0c0d15; overflow: auto; }
@@ -2044,7 +2045,7 @@
 <div id="rc-panel"><div id="rc-card">
   <h1>Shadow Duel · Render check</h1>
   <p id="rc-help">Automatic 68-second test. Hold your phone sideways and keep this tab visible. Music plays briefly. No fighting required.</p>
-  <p>High detail stays fixed. Some layers briefly disappear to measure their cost. This test does not change your game settings or progress.</p>
+  <p id="rc-detail">High detail stays fixed. Some layers briefly disappear to measure their cost. This test does not change your game settings or progress.</p>
   <p id="rc-status" role="status">Loading isolated test…</p>
   <button id="rc-start" disabled>START TEST</button><button id="rc-copy" hidden>COPY REPORT</button>
   <a href="./?perf=1&compact=1&flush=0&v=high1">BACK TO GAME</a>
@@ -2056,13 +2057,13 @@
 (async () => {
   try {
     if (!window.__renderCheckBoot?.ok) throw Error('Isolated storage is unavailable. The game was not loaded.');
-    for (const src of ["render-check/portal-local.js","js/core.js","js/perf.js?v=fighter-surfaces-v1","js/music.js","js/input.js","js/gfx.js","js/scene.js","js/skeleton.js","js/bake.js","js/prepare.js","js/characters.js","js/fighter.js","js/specials.js","js/ai.js","js/honor.js","js/journey.js","js/journey-text.js","js/arcade.js","js/roster2.js","js/config.js","js/leaderboard.js","js/portal-user.js","js/banzuke.js","js/ads.js","js/coach.js","js/kaeshi-cine.js","js/combo-trial.js","js/touch.js","js/touch-editor.js","js/volume.js","js/i18n-en.js","js/i18n-es.js","js/i18n-pt.js","js/i18n-ru.js","js/i18n-de.js","js/i18n-fr.js","js/i18n.js","js/lang-ui.js","js/settings.js","js/game.js?v=fighter-surfaces-v1"]) {
+    for (const src of ["render-check/portal-local.js","js/core.js","js/perf.js?v=fighter-surfaces-v1","js/music.js","js/input.js","js/gfx.js","js/scene.js","js/skeleton.js","js/bake.js","js/prepare.js","js/characters.js","js/fighter.js","js/specials.js","js/ai.js","js/honor.js","js/journey.js","js/journey-text.js","js/arcade.js","js/roster2.js","js/config.js","js/leaderboard.js","js/portal-user.js","js/banzuke.js","js/ads.js","js/coach.js","js/kaeshi-cine.js","js/combo-trial.js","js/touch.js","js/touch-editor.js","js/volume.js","js/i18n-en.js","js/i18n-es.js","js/i18n-pt.js","js/i18n-ru.js","js/i18n-de.js","js/i18n-fr.js","js/i18n.js","js/lang-ui.js","js/settings.js","js/post-gpu.js","js/game.js?v=post-probe-v1"]) {
       await new Promise((resolve, reject) => {
         const s = document.createElement('script'); s.src = src;
         s.onload = resolve; s.onerror = () => reject(Error('Could not load ' + src)); document.head.append(s);
       });
     }
-    await import('./render-check/controller.mjs?v=2');
+    await import('./render-check/controller.mjs?v=post1');
   } catch (error) { document.getElementById('rc-status').textContent = error.message; }
 })();
 </script></body>
