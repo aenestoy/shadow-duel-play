@@ -2351,6 +2351,16 @@
     ctx.restore();
   };
 
+  // Cloth momentum belongs to simulation, never to drawing. Calibrate to the former 60 Hz appearance:
+  // velocity is distance per 1/60 second and the exponential filter has the same 0.6 retention at 60 Hz.
+  ND.updateCloth = function (j, dt) {
+    if (!j?.hip) return;
+    if (!(dt > 0) || !Number.isFinite(j._px)) { j._px = j.hip.x; j._vs = 0; return; }
+    const v = clamp((j.hip.x - j._px) / (dt * 60), -12, 12), keep = Math.pow(0.6, dt * 60);
+    j._vs = (j._vs || 0) * keep + v * (1 - keep);
+    j._px = j.hip.x;
+  };
+
   // ---------------------------------------------------------------- TAM NİNJA
   // extra: { ropes, trail, glint, wpn, acc, lod: 'high' | 'low' }
   ND.drawNinja = function (ctx, j, c, extra) {
@@ -2359,9 +2369,7 @@
     // X.bake: the fighter's part cache (bake.js); a half-turned fighter (fractional dir) is drawn with paths
     if (X.bake && ND.drawNinjaBaked && (j.dir === 1 || j.dir === -1) && ND.drawNinjaBaked(ctx, j, c, X, wpn, acc)) return;
     updLight();
-    const D = pal(c), t = ND.scene ? ND.scene.t : 0;
-    // kumaş dalgalanması için yatay hız tahmini (aynı karede birden çok çizim olabilir)
-    if (j._t !== t) { const v = j._px === undefined ? 0 : j.hip.x - j._px; j._vs = (j._vs || 0) * 0.6 + clamp(v, -12, 12) * 0.4; j._px = j.hip.x; j._t = t; }
+    const D = pal(c);
     ctx.lineJoin = 'round'; ctx.lineCap = 'round';
     torsoFrame(j);
     const wt = wpn.type;

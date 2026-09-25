@@ -275,7 +275,7 @@
   // silah durumu (yelpaze açıklığı, yay/kiriş, sadak) ve zincir de kopyalanır: hayalet/tekrar görüntüsü aynı görünsün
   const WKEYS = ['wFan', 'wFanB', 'wBow', 'wDraw', 'wArrow', 'wCharge', 'wAmmo', 'wSheath'];
   ND.cloneJ = (j) => {
-    const o = { dir: j.dir, hang: j.hang, hasSword: j.hasSword };
+    const o = { dir: j.dir, hang: j.hang, hasSword: j.hasSword, _vs: j._vs || 0 };
     for (const k of JKEYS) if (j[k]) o[k] = { x: j[k].x, y: j[k].y };
     if (j.pom) o.pom = { x: j.pom.x, y: j.pom.y };
     for (const k of WKEYS) if (j[k] != null) o[k] = j[k];
@@ -348,6 +348,7 @@
       pose.copy(this.P.stance, this.pose);
       this.setState('move');
       ND.solve(this.pose, this.x, this.y, this.dir, this.j, this.wpn);
+      ND.updateCloth(this.j, 0);
       this.tails.forEach((r) => (r.init = false)); this.sash.init = false;
       this.prevBlade = null;
       if (this.id === 0 && ND.specialFx) ND.specialFx.clear();

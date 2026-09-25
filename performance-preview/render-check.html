@@ -8,7 +8,7 @@
   const boot = window.__renderCheckBoot = { ok: false, errors: [], raf: window.requestAnimationFrame.bind(window) };
   window.requestAnimationFrame = () => 0;
   let seed = 17;
-  boot.resetRandom = () => { seed = 17; };
+  boot.resetRandom = (value = 17) => { seed = value >>> 0; };
   Math.random = () => { seed = (Math.imul(1664525, seed) + 1013904223) >>> 0; return seed / 4294967296; };
   window.addEventListener('error', e => boot.errors.push(e.message || 'Script error'));
   window.addEventListener('unhandledrejection', e => boot.errors.push(String(e.reason)));
@@ -2057,13 +2057,14 @@
 (async () => {
   try {
     if (!window.__renderCheckBoot?.ok) throw Error('Isolated storage is unavailable. The game was not loaded.');
-    for (const src of ["render-check/portal-local.js","js/core.js","js/perf.js?v=high-parts-v1","js/music.js","js/input.js","js/gfx.js","js/scene.js","js/skeleton.js","js/bake.js?v=high-parts-v1","js/prepare.js","js/characters.js","js/fighter.js?v=high-parts-v1","js/specials.js","js/ai.js","js/honor.js","js/journey.js","js/journey-text.js","js/arcade.js","js/roster2.js","js/config.js","js/leaderboard.js","js/portal-user.js","js/banzuke.js","js/ads.js","js/coach.js","js/kaeshi-cine.js","js/combo-trial.js","js/touch.js","js/touch-editor.js","js/volume.js","js/i18n-en.js","js/i18n-es.js","js/i18n-pt.js","js/i18n-ru.js","js/i18n-de.js","js/i18n-fr.js","js/i18n.js","js/lang-ui.js","js/settings.js","js/post-gpu.js","js/game.js?v=high-parts-v1"]) {
+    for (const src of ["render-check/portal-local.js","js/core.js","js/perf.js?v=high-parts-v1","js/music.js","js/input.js","js/gfx.js","js/scene.js","js/skeleton.js?v=render-fix-v1","js/bake.js?v=render-fix-v1","js/prepare.js","js/characters.js","js/fighter.js?v=render-fix-v1","js/specials.js","js/ai.js","js/honor.js","js/journey.js","js/journey-text.js","js/arcade.js","js/roster2.js","js/config.js","js/leaderboard.js","js/portal-user.js","js/banzuke.js","js/ads.js","js/coach.js","js/kaeshi-cine.js","js/combo-trial.js","js/touch.js","js/touch-editor.js","js/volume.js","js/i18n-en.js","js/i18n-es.js","js/i18n-pt.js","js/i18n-ru.js","js/i18n-de.js","js/i18n-fr.js","js/i18n.js","js/lang-ui.js","js/settings.js","js/post-gpu.js","js/game.js?v=render-fix-v1"]) {
       await new Promise((resolve, reject) => {
         const s = document.createElement('script'); s.src = src;
         s.onload = resolve; s.onerror = () => reject(Error('Could not load ' + src)); document.head.append(s);
       });
     }
-    await import('./render-check/controller.mjs?v=parts1');
+    const prepared = new URLSearchParams(location.search).get('check') === 'prepared';
+    await import(prepared ? './render-check/prepared-controller.mjs?v=prepared1' : './render-check/controller.mjs?v=prepared1');
   } catch (error) { document.getElementById('rc-status').textContent = error.message; }
 })();
 </script></body>

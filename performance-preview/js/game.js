@@ -326,10 +326,7 @@
       const jobs = [() => { this.behind = false; resize(); scene.drawBack(ctx); }];
       for (const f of F) jobs.push(() => {
         const draw = () => this.drawLit(f, f._litFn || (f._litFn = (c) => f.draw(c, false, true)));
-        // Drawing estimates cloth velocity on the joints. Warming must not seed that history differently.
-        const keys = ['_t', '_px', '_vs'], values = keys.map((k) => f.j[k]);
-        try { return ND.prepareBaked ? ND.prepareBaked(draw) : (draw(), true); }
-        finally { keys.forEach((k, i) => { if (values[i] === undefined) delete f.j[k]; else f.j[k] = values[i]; }); }
+        return ND.prepareBaked ? ND.prepareBaked(draw) : (draw(), true);
       });
       // Reveal one complete scene, never the intermediate partial part layers used by the warm-up jobs.
       jobs.push(() => this.render());
@@ -843,6 +840,8 @@
         const stuck = this.projs.filter((p) => p.stuck);
         if (stuck.length > 14) this.projs.splice(this.projs.indexOf(stuck[0]), 1);
       }
+      // Update once per fixed simulation step, including momentum decay during hit-stop.
+      for (const f of F) ND.updateCloth(f.dead ? f.rag.j : f.j, gdt);
       fx.update(fdt > 0 ? gdt : gdt * 0.25);
       ND.specialFx?.update(fdt > 0 ? gdt : gdt * 0.25);
       if (ND.cine) ND.cine.update(rdt);
@@ -923,6 +922,7 @@
     },
 
     render() {
+      ND.beginBakeFrame?.();
       if (this.phase === 'select' || this.phase === 'vs' || this.phase === 'ending') { this.renderScene(false); this.post(); this.renderSelect(); return; }
       if (this.phase === 'replay') { this.renderReplay(); this.post(); return; }
       this.renderScene(true);
@@ -1412,6 +1412,7 @@
         tp.hy += Math.sin(t * 2.3) * 1.3; tp.ay += Math.sin(t * 2.3 + 0.6) * 1.6; tp.sw += Math.sin(t * 1.15) * 0.035;
         ND.pose.approach(pv.pose, tp, pv.pvPose ? 4 : 10, rdt);
         pv.solve(rdt);
+        ND.updateCloth(pv.j, rdt);
       }
     },
     renderSelect() {

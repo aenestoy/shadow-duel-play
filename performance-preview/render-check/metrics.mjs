@@ -24,7 +24,7 @@ export function summarize(samples) {
   const percentile = p => gaps[Math.max(0, Math.ceil(p * gaps.length) - 1)];
   return {
     frames: samples.length, elapsedMs: rounded(elapsedMs), fps: rounded(samples.length * 1000 / elapsedMs),
-    frameMs: { p50: rounded(percentile(.5)), p95: rounded(percentile(.95)), max: rounded(gaps.at(-1)) },
+    frameMs: { p50: rounded(percentile(.5)), p95: rounded(percentile(.95)), p99: rounded(percentile(.99)), max: rounded(gaps.at(-1)) },
     synchronousMs: rounded(samples.reduce((n, s) => n + s.cpu, 0) / samples.length),
     over50ms: gaps.filter(g => g > 50).length,
   };

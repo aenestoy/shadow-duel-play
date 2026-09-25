@@ -1,14 +1,10 @@
 {
-  "source": "14f88e3",
-  "baseline": "1066a45",
+  "source": "870e828ef9575c684878580c6cb7d849c06e456c",
+  "baseline": "1066a452437ede3cf755d997621428e25d0a4ba8",
   "date": "2026-09-25",
-  "purpose": "Opt-in High character cache and GPU effect comparisons; original rendering remains the default",
-  "report": "shadow-duel-phone-v2",
   "renderer": "fighter-surfaces-v1",
-  "diagnostic": "shadow-duel-render-check-v2",
-  "diagnosticSource": "14f88e3",
-  "postCandidate": "webgl-post-probe",
-  "postComparison": "shadow-duel-post-check-v1",
-  "fighterCandidate": "fighter-parts-high-v1",
-  "fighterComparison": "shadow-duel-fighter-check-v1"
+  "preparedCheck": "shadow-duel-prepared-check-v1",
+  "build": "deterministic-cloth-hard-budget-v1",
+  "backupTag": "shadow-duel-before-render-fix-2026-09-25",
+  "note": "Normal publication unchanged. High defaults to paths. Prepared diagnostic awaits a real-phone result."
 }
