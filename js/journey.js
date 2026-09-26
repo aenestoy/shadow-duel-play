@@ -22,9 +22,13 @@
     route(id) {
       const r = routes[id]; if (!r) return [];
       const arenas = r[1].split(' '), tasks = r[2].split(' ');
-      return r[0].split(' ').map((opp, k) => ({ opp, arena: arenas[k], level: k < 2 ? 0 : k < 5 ? 1 : k < 7 ? 2 : 3,
+      // difficulty ladder (2026-09, harder start): 1 Apprentice (the learning fight), 2–3 Master, 4–6 Legend,
+      // 7 Legend with +15 % health, 8 the boss (J.level / J.hp; arcade.js uses the same for legacy routes)
+      return r[0].split(' ').map((opp, k) => ({ opp, arena: arenas[k], level: J.level(k), ...(J.hp(k) ? { hp: J.hp(k) } : {}),
         ...(k === 7 ? { boss: true } : {}), goal: tasks[k], need: k < 2 ? 1 : goals[tasks[k]] }));
     },
+    level(k) { return k < 1 ? 0 : k < 3 ? 1 : k < 7 ? 2 : 3; },
+    hp(k) { return k === 6 ? 1.15 : 0; },
     count(mask) { let n = 0; for (let i = 0; i < 8; i++) if ((mask | 0) & (1 << i)) n++; return n; },
     mask(value) { return typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.min(255, Math.floor(value))) : 0; },
     // Hits are credited only after real health loss, never for a button press or a blocked attack.

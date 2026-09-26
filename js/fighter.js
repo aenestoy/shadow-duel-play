@@ -285,7 +285,10 @@
   //   ×floor; applied on top of ND.DMG. jugMax: air hits a launched fighter can take before it becomes untouchable until
   //   it lands; jugGrav: extra gravity per air hit taken (each pop is shorter). chainMax: moves chained from one opener.
   //   buf: how long (s) a string press is remembered before its window opens (keyboard and touch).
-  const COMBO = ND.COMBO = { step: 0.9, floor: 0.5, jugMax: 3, jugGrav: 0.22, jugPop: 0.25, chainMax: 5, buf: 0.3, launchV: -880 };
+  //   enderStun: hit stun ×this for a move that ends a string (no chain window) landing as the 3rd+ move of a combo:
+  //   mashing the light string no longer loops light3 → light1 into a guardless opponent (the victim is out of hit
+  //   stun just before the next opener lands, so a held guard blocks it). Chains and juggles are unchanged.
+  const COMBO = ND.COMBO = { step: 0.9, floor: 0.5, jugMax: 3, jugGrav: 0.22, jugPop: 0.25, chainMax: 5, buf: 0.3, launchV: -880, enderStun: 0.8 };
   // Human input leniency (keyboard and touch; the AI presses inside the windows and never needs it):
   //   late: a routed press that comes this long (s, real time) after a chainable move has ended still continues the
   //         string (players who wait to see the hit land press a beat late); dir: a direction key pressed this long
@@ -294,6 +297,12 @@
   // Counter (kaeshi-waza) window in game seconds after a parry / a plain block. The parry's hitstop and slow motion
   // stretch the parry window to ~0.75 s of real time; the AI's counter timing does not depend on these.
   const CWIN = ND.CWIN = { parry: 0.5, block: 0.36 };
+  // Attack lockout (game seconds from the contact) for the fighter whose attack was blocked / parried / caught: no new
+  // cut, heavy, kick, shuriken, ki technique, dash attack, air attack or string / ki cancel before it runs out, so
+  // the defender gets a real turn and mashing into a guard is a losing bet. Guard, parry, walking and dodging are not
+  // locked, and neither is a counter (kaeshi-waza) earned by defending: the counter rally keeps its back-and-forth.
+  // Before: the next attack could start ~0.33 s after a block or parry (0.16 s for moves that do not bounce back).
+  const ATK_LOCK = ND.ATK_LOCK = { block: 0.45, parry: 0.5 };
   // states in which a fighter has recovered (or acts again): the combo against them ends
   const COMBO_RESET = { move: 1, guard: 1, block: 1, parry: 1, atk: 1, dodge: 1, lock: 1, clash: 1, getup: 1, win: 1 };
 
@@ -439,7 +448,7 @@
       this.dead = false; this.rag = null; this.looseSword = null; this.ammo = this.ch.ammo; this.ammoT = 0;
       this.gait = 0; this.walkBlend = 0; this.trail = []; this.inv = 0; this.jit = 0; this.airUsed = false; this.flash = 0;
       this.locked = true; this.damageTaken = 0; this.lastStepQ = [0, 0.5]; this.ghosts = []; this.wallBounced = false;
-      this.ki = this.ki || 0; this.counterUntil = 0; this.counterWin = 0.3; this.counterSource = null; this.counterStage = 0; this.aspd = 1; this.roll = 0;
+      this.ki = this.ki || 0; this.counterUntil = 0; this.atkLock = 0; this.counterWin = 0.3; this.counterSource = null; this.counterStage = 0; this.aspd = 1; this.roll = 0;
       this.jug = 0; this.comboN = 0; this.comboHits = 0; this.comboKey = -1; this.comboTxt = null; this.chainN = 0; this.late = null; this.cwKind = null;
       this.kvLast = null; this.kvN = 0; this.pdLast = null; this.pdDir = null;
       if (this.chain) this.chain.init = false;
@@ -536,7 +545,7 @@
       if (!C || this.st < C[0] || this.st > C[1]) return false;
       const G = ND.game, pan = this.pan, x = (att.x + this.x) / 2, y = this.y - 110;
       att.hitDone = true;
-      att.setState('recoil'); att.vx = -att.dir * 180; att.sinceHit = 0;
+      att.setState('recoil'); att.vx = -att.dir * 180; att.sinceHit = 0; att.lockAtk('parry');
       this.dir = att.x >= this.x ? 1 : -1;
       fx.spark(x, y, -Math.PI / 2, 20, 1.1); fx.flash(x, y, 0, 80, '255,236,200'); fx.ring(x, y, '255,90,70', 90);
       fx.text(this.x, -220, (ND.TXT && ND.TXT.iaiCatch) || 'IAI GAESHI!', this.col.ui);
@@ -551,6 +560,9 @@
       return s && ATK[s.atk] ? s.atk : 'special';
     }
     gainKi(v) { this.ki = Math.min(100, this.ki + v); }
+    // ATK_LOCK: after a blocked / parried attack the next one waits (presses stay buffered for when it ends)
+    canAtk() { const g = ND.game; return !(g && g.clock < this.atkLock); }
+    lockAtk(kind) { const g = ND.game; if (g && g.clock != null) this.atkLock = Math.max(this.atkLock || 0, g.clock + ATK_LOCK[kind]); }
     isInv() {
       return this.dead || this.inv > 0 || this.state === 'down' || this.state === 'getup' || this.state === 'lock' ||
         (this.state === 'launch' && this.jug >= COMBO.jugMax) || // juggle limit: no more air hits until we land
@@ -693,7 +705,7 @@
           pose.approach(this.pose, this.vy < 0 ? PO.jump : PO.fall, 9, dt);
           const ax = locked ? 0 : c.axis();
           this.vx = clamp(ND.M.approach(this.vx, this.vx + ax * 60, 4, dt), -300, 300);
-          if (!locked) {
+          if (!locked && this.canAtk()) {
             if (!this.airUsed && c.take('light')) { this.airUsed = true; this.startAtk('air'); }
             else if (!this.airUsed && c.take('heavy') && this.y < -50) { this.airUsed = true; this.setState('plunge'); this.vy = 1350; this.vx *= 0.3; au.swoosh(1.3, this.pan); }
           }
@@ -718,7 +730,7 @@
           const k = this.st < 0.26 ? 1 : Math.max(0, 1 - (this.st - 0.26) * 8);
           this.vx = this.ddir * (this.back ? 520 : 760) * k * (1 - this.st * 1.2) * (0.9 + walk * 0.1) * (this.ch.dodge || 1); fr = 0;
           if ((!this.back || this.ch.shadow) && this.st > 0.03 && this.st < 0.22 && ((this.st * 60) | 0) % 3 === 0) this.addGhost(this.ch.shadow ? 0.4 : 0.22);
-          if (!locked && !this.back && this.st > 0.05 && this.st < 0.3) {
+          if (!locked && !this.back && this.st > 0.05 && this.st < 0.3 && this.canAtk()) {
             if (c.take('light')) { this.startOpener('dash'); break; }
             if (c.take('heavy')) { this.startOpener('dashHeavy'); break; }
           }
@@ -942,8 +954,9 @@
     freeInput(fromParry) {
       const c = this.ctrl;
       if (this.tryCounter()) return;
-      if (this.ki >= 100 && (c.take('special') || (this.state === 'guard' && c.take('heavy')))) return this.startAtk(this.specialName());
-      c.take('special');
+      const ready = this.canAtk();
+      if (ready && this.ki >= 100 && (c.take('special') || (this.state === 'guard' && c.take('heavy')))) return this.startAtk(this.specialName());
+      if (ready) c.take('special');
       if (c.take('dodge')) {
         let d = c.tapDir || c.axis();
         if (!d) d = -this.dir;
@@ -953,15 +966,17 @@
       }
       // a press just after a chainable move ended still continues the string (human players only, see LENIENT)
       const L = this.late;
-      if (L && this.state === 'move' && this.onGround && ND.simClock <= L.until) {
+      if (L && ready && this.state === 'move' && this.onGround && ND.simClock <= L.until) {
         const nx = this.route(null, L.name, L.landed);
         if (nx) { this.late = null; this.chainN = L.chainN + 1; return this.startAtk(nx); }
       }
       // command normals: the direction held at the press (forward / back toward the opponent) picks the move
-      if (c.take('heavy')) return this.startOpener(this.cmd('heavy'));
-      if (c.take('light')) return this.startOpener(this.cmd('light'));
-      if (c.take('kick')) return this.startOpener('kick');
-      if (c.take('throw')) { if (this.ammo > 0) return this.startAtk('throw'); }
+      if (ready) {
+        if (c.take('heavy')) return this.startOpener(this.cmd('heavy'));
+        if (c.take('light')) return this.startOpener(this.cmd('light'));
+        if (c.take('kick')) return this.startOpener('kick');
+        if (c.take('throw')) { if (this.ammo > 0) return this.startAtk('throw'); }
+      }
       if (fromParry) return;
       if (c.take('up')) {
         this.setState('air'); this.onGround = false; this.vy = JUMP_V; this.airUsed = false;
@@ -1040,7 +1055,7 @@
       if (a.kind === 'whip' && !this.hitDone && this.curWin(true)) { if (a.zone) this.checkZone(this.hitAtk(a)); else this.checkWhip(this.hitAtk(a)); }
       if (this.state !== 'atk' || this.atk !== a) return; // hit / block / catch changed our state
       // ki cancel: on contact (hit, or a blocked strike that does not bounce us back) a.sc moves go straight into the ki technique
-      if (!this.locked && a.sc && this.hitDone && this.ki >= 100 && this.onGround && a.active && t >= a.active[0] && c.take('special', 0.25)) {
+      if (!this.locked && a.sc && this.hitDone && this.ki >= 100 && this.canAtk() && this.onGround && a.active && t >= a.active[0] && c.take('special', 0.25)) {
         this.chainN++; fx.text(this.x, -228, (ND.TXT && ND.TXT.kiCancel) || 'KI!', this.col.ui);
         return this.startAtk(this.specialName());
       }
@@ -1050,7 +1065,7 @@
         ND.game.projs.push(mk ? mk(this) : new Shuriken(this, this.j.haB.x, this.j.haB.y, this.dir)); if (!mk) au.whistle(this.pan);
       }
       if (!this.locked) {
-        if (a.chain && t >= a.chain[0] && t <= a.chain[1] && this.chainN < COMBO.chainMax) {
+        if (a.chain && t >= a.chain[0] && t <= a.chain[1] && this.chainN < COMBO.chainMax && this.canAtk()) {
           const nx = this.route(a, this.atkName, this.mem.landed);
           if (nx) { this.chainN++; return this.startAtk(nx); }
         }
@@ -1276,8 +1291,8 @@
         this.vy = (a.knock ? -460 : -260) * (a.lift || 1) * pop; this.vx = kdir * a.kb * 0.75 * (a.special ? 1.6 : 1);
         if (a.knock && !a.special) fx.text(this.x, -200, 'YERE SERİLDİ', '#d9dbe6');
       } else {
-        const sm = this.ch.stunMul || 1;
-        this.setState('hurt', { dur: a.stun * sm, hurtPose: (a.hurt && PO[a.hurt]) || (part === 'head' ? PO.hurt : PO.hurt2) });
+        const sm = this.ch.stunMul || 1, ender = this.comboN >= 3 && !a.chain && !a.counter ? COMBO.enderStun : 1;
+        this.setState('hurt', { dur: a.stun * sm * ender, hurtPose: (a.hurt && PO[a.hurt]) || (part === 'head' ? PO.hurt : PO.hurt2) });
         this.vx = kdir * a.kb * (0.4 + 0.6 * sm);
       }
     }
@@ -1312,6 +1327,7 @@
         // the defender's blade drives the attacker's away (DEFL); sparks sit where the two weapons touch
         const cp = o.parryStart(this, a, x, y, kind);
         x = cp.x; y = cp.y;
+        this.lockAtk('parry');
         o.posture = Math.max(0, o.posture - 14); o.gainKi(18); o.openCounter(CWIN.parry, 'parry', source);
         const sd = o.pv.dir, sy = sd === 'down' ? 0.7 : sd === 'side' ? -0.25 : -1; // sparks fly the way the blade is sent
         fx.spark(x, y, Math.atan2(sy, -this.dir), 26, 1.3); fx.ring(x, y); fx.flash(x, y, -0.6, 70, '255,236,190');
@@ -1329,7 +1345,7 @@
         fx.spark(x, y, -Math.PI / 2, 18, 1); au.clang(1.1, pan); this.gainKi(5); o.gainKi(5);
         ND.game.hitstop(0.08); ND.game.startLock(this, o, x, y); return;
       }
-      o.gainKi(3);
+      o.gainKi(3); this.lockAtk('block');
       fx.spark(x, y, Math.atan2(-0.6, -this.dir), isKick ? 6 : 16, isKick ? 0.6 : 1);
       const rn = ND.game.rally.n;
       if (isKick) au.thud(0.8, pan); else au.clang(0.6 + a.post / 60 + rn * 0.05, pan, 1 + Math.min(rn, 8) * 0.06);

@@ -6,11 +6,16 @@
   const LEVELS = ND.AI_LEVELS = {
     // combo layer: cmd = command normals as openers, str = string enders / launchers inside a chain,
     // jug = air follow-up after a landed launcher, kc = ki cancel from a landed string/launcher
-    0: { name: 'Çırak', react: 0.36, parry: 0.08, guard: 0.4, dodge: 0.1, aggr: 0.3, combo: 0.35, tick: [0.28, 0.5], smart: 0.2, mash: 4, counter: 0.25, rally: 0.3, cmd: 0.08, str: 0.15, jug: 0.1, kc: 0.1 },
-    1: { name: 'Usta', react: 0.22, parry: 0.32, guard: 0.62, dodge: 0.22, aggr: 0.42, combo: 0.65, tick: [0.16, 0.32], smart: 0.55, mash: 6.5, counter: 0.55, rally: 0.6, cmd: 0.28, str: 0.45, jug: 0.45, kc: 0.4 },
-    2: { name: 'Efsane', react: 0.13, parry: 0.62, guard: 0.82, dodge: 0.35, aggr: 0.46, combo: 0.88, tick: [0.08, 0.2], smart: 0.9, mash: 9, counter: 0.85, rally: 0.9, cmd: 0.45, str: 0.72, jug: 0.8, kc: 0.75 },
+    // read = how well it reads a pressing / repeating opponent: guards before the next attack of a player who keeps
+    // attacking, and times its parry on an attack it has seen the same player repeat (anticipation, not reaction:
+    // react stays at human speed, a fresh or varied attack is still met at react time)
+    // 2026-09 difficulty pass (owner: "too easy, the CPU defends and attacks too little"): every level defends, reads
+    // and presses more; a light-attack spammer now loses from Usta up and struggles against Çırak.
+    0: { name: 'Çırak', react: 0.3, parry: 0.12, guard: 0.55, dodge: 0.14, aggr: 0.46, combo: 0.5, tick: [0.22, 0.42], smart: 0.3, mash: 4.5, counter: 0.45, rally: 0.4, cmd: 0.12, str: 0.22, jug: 0.2, kc: 0.15, read: 0.4 },
+    1: { name: 'Usta', react: 0.2, parry: 0.4, guard: 0.74, dodge: 0.25, aggr: 0.6, combo: 0.78, tick: [0.13, 0.27], smart: 0.68, mash: 7, counter: 0.78, rally: 0.7, cmd: 0.32, str: 0.52, jug: 0.55, kc: 0.5, read: 0.8 },
+    2: { name: 'Efsane', react: 0.13, parry: 0.66, guard: 0.88, dodge: 0.36, aggr: 0.66, combo: 0.92, tick: [0.07, 0.17], smart: 0.95, mash: 9.5, counter: 0.9, rally: 0.92, cmd: 0.48, str: 0.76, jug: 0.85, kc: 0.8, read: 0.85 },
     // Arcade son patronu (Şura): daha hızlı tepki, daha çok savuşturma ve karşılık
-    3: { name: 'Şura', react: 0.1, parry: 0.7, guard: 0.86, dodge: 0.36, aggr: 0.55, combo: 0.95, tick: [0.06, 0.16], smart: 1, mash: 10.5, counter: 0.95, rally: 0.95, cmd: 0.5, str: 0.82, jug: 0.9, kc: 0.9 },
+    3: { name: 'Şura', react: 0.11, parry: 0.74, guard: 0.92, dodge: 0.38, aggr: 0.72, combo: 0.96, tick: [0.05, 0.14], smart: 1, mash: 11, counter: 0.96, rally: 0.95, cmd: 0.52, str: 0.84, jug: 0.92, kc: 0.9, read: 0.92 },
   };
 
   class AI {
@@ -61,6 +66,12 @@
           this.tap(this.cAct);
         }
       }
+      // --- caught in a string by a pressing opponent: keep guard held through the hit stun (as a player does), so the
+      // next swing of a mashed loop meets the guard instead of landing again
+      if (me.state === 'hurt' && this.hTok !== me.serial) {
+        this.hTok = me.serial;
+        if (Math.random() < lv.read * Math.min(1, this.heat() * 0.4)) { this.setHeld('guard', true); this.guardUntil = this.t + Math.max(0, me.dur - me.st) + rand(0.2, 0.4); this.move = 0; }
+      }
       // --- kılıcım bloklandı: karşılık gelecek, önceden gard al
       if (me.state === 'recoil' && this.rTok !== me.serial) {
         this.rTok = me.serial;
@@ -71,6 +82,7 @@
       if (o.state === 'atk' && o.keys !== this.seen) {
         this.seen = o.keys;
         const a = o.atk;
+        if (!a.counter) this.note(o.atkName);
         // a.reach: uzun menzilli hareketler (zincir, asa); 'shoot' (ok) mermi döngüsünde ele alınır
         // the fixed ranges were tuned for a katana (blade + handle ≈ 120): longer poles (nodachi, naginata) reach
         // further with the same moves, so the AI must see those swings coming from further away too
@@ -80,6 +92,12 @@
           const startAt = this.t - o.st / (o.ch.spd * o.aspd), w0 = a.active[0] / (o.ch.spd * o.aspd);
           if (Math.random() < lv.parry + 0.2) this.pending = { act: 'parry', at: startAt + w0 - rand(0.03, 0.08), until: startAt + w0 + 0.25 };
           else { this.setHeld('guard', true); this.guardUntil = Math.max(this.guardUntil, startAt + w0 + 0.3); }
+        } else if (threat && a.active && Math.random() < this.readP()) {
+          // read: the same player keeps pressing (or repeats this very move) → the guard is up for it in time, often
+          // as a parry. Timed from the move's own start-up, like a player who has learned the rhythm.
+          const k = o.ch.spd * o.aspd, startAt = this.t - o.st / k, w0 = startAt + a.active[0] / k;
+          const parry = Math.random() < lv.parry + 0.25;
+          this.pending = { act: 'guard', at: Math.max(this.t, w0 - (parry ? rand(0.03, 0.08) : rand(0.12, 0.2))), until: startAt + (a.active[1] / k) + 0.14 };
         } else if (threat) {
           const r = Math.random(), startAt = this.t - o.st;
           let act = 'none';
@@ -190,6 +208,13 @@
       // a long stun that left the opponent in reach (chain pull, headbutt, smoke bomb, pommel): follow up with a fast cut
       if (o.state === 'hurt' && o.dur - o.st > 0.25 && dist < Math.max(170, this.ideal + 20) && r < lv.smart * 0.8) { this.dirTap('light', 0); return; }
       if (o.state === 'launch') { this.go(fwd, 0.2); return; }
+      // the opponent's cut bounced off (recoil): its next attack is still locked (ND.ATK_LOCK) — take the turn
+      if (o.state === 'recoil' && dist < this.ideal + 50 && r < lv.counter) { this.dirTap(Math.random() < 0.25 ? 'heavy' : 'light', 0); return; }
+      // a pressing opponent in reach: guard up before its next swing instead of trading into it
+      const heat = this.heat();
+      if (heat >= 3 && dist < this.oppReach(o) + 60 && o.state !== 'recoil' && Math.random() < lv.read * Math.min(1, (heat - 2) * 0.5)) {
+        this.setHeld('guard', true); this.guardUntil = this.t + rand(0.3, 0.6); return;
+      }
       // denge tehlikede → geri çekil
       if (me.posture > 70 && r < lv.smart) { this.go(-fwd, 0.4); if (Math.random() < 0.3) { this.moveDir(-fwd); this.tap('dodge'); } return; }
       // uzak dövüşçü (ch.ai.zoner): mesafeyi koru, ok at; yaklaşana ters takla atışı
@@ -286,6 +311,23 @@
       if (!me.ammo && dist > 200 && dist < 420 && r < 0.5) { this.go(-fwd, rand(0.15, 0.3)); return true; } // wait for the quiver
       return false;
     }
+    // opponent's recent attack starts (time, logical move): pressure (heat) and repetition (rep) for lv.read
+    note(name) {
+      const H = this.hist || (this.hist = []);
+      H.push({ t: this.t, n: name });
+      while (H.length > 10 || (H.length && H[0].t < this.t - 4)) H.shift();
+    }
+    heat() { const H = this.hist; let n = 0; if (H) for (const h of H) if (h.t > this.t - 3) n++; return n; }
+    // chance to read the attack just noted: grows with how often this move was repeated and how hard the player presses
+    readP() {
+      const H = this.hist, lv = this.lv;
+      if (!H || H.length < 2 || !lv.read) return 0;
+      const last = H[H.length - 1].n;
+      let rep = 0;
+      for (const h of H) if (h.n === last && h.t > this.t - 2.5) rep++;
+      return lv.read * Math.min(1, (rep - 1) * 0.35 + Math.max(0, this.heat() - 2) * 0.15);
+    }
+    oppReach(o) { return 150 + Math.max(0, o.ch.blade + (o.ch.handle || 0) - 60) * 0.9; }
     idealFor() { const Z = this.me.ch.ai; return Z && Z.ideal ? rand(-25, 25) + Z.ideal : rand(-18, 18) + 88 + this.me.ch.blade * 0.72; }
     go(d, dur) { this.move = d; this.moveUntil = this.t + dur; }
   }

@@ -570,7 +570,7 @@
         (authored ? f.opp !== authored[k].opp || f.arena !== authored[k].arena :
           (boss ? f.opp !== BOSS : f.opp === BOSS || f.opp === id || seen.has(f.opp)))) return null;
       seen.add(f.opp);
-      fights.push(authored ? authored[k] : { opp: f.opp, arena: boss ? bossArena() : f.arena, level: boss ? 3 : k < 2 ? 0 : k < 5 ? 1 : 2, ...(boss ? { boss: true, alt: id === BOSS } : {}) });
+      fights.push(authored ? authored[k] : { opp: f.opp, arena: boss ? bossArena() : f.arena, level: boss ? 3 : Math.min(2, J.level(k)), ...(!boss && J.hp(k) ? { hp: J.hp(k) } : {}), ...(boss ? { boss: true, alt: id === BOSS } : {}) });
     }
     const i = journeyNumber(r.i, 8), out = { version: authored ? J.version : 1, fights, i, won: i, done: i === 8 && r.done === true,
       needsRetry: i < 8 && !!r.needsRetry, started: i < 8 && !!r.started, contUsed: !!r.contUsed, ranked: !!r.ranked,
@@ -1100,7 +1100,7 @@
       const arena = ND.ARENAS.find((a) => a.id === F.arena);
       $('vsStage').textContent = R.version === J.version ? (F.boss ? J.text().rival : J.text().stage + ' ' + (R.i + 1) + ' / 8') + ' · ' + J.text().titles[me.id] : F.boss ? STR.vs.boss : STR.vs.stage(R.i + 1, R.fights.length);
       $('vsArena').innerHTML = arena ? `<b>${esc(arena.kanji)}</b>${esc(arena.name)}` : '';
-      $('vsLevel').textContent = (ND.AI_LEVELS[F.level] || ND.AI_LEVELS[1]).name;
+      $('vsLevel').textContent = (ND.AI_LEVELS[F.level] || ND.AI_LEVELS[1]).name + (F.hp > 1 && STR.bz && STR.bz.hpBonus ? ' · ' + STR.bz.hpBonus(Math.round((F.hp - 1) * 100)) : '');
       $('vsQuit').textContent = STR.vs.quit; // VS ekranı turnuva/Dan ile paylaşılır
       const vm = $('vsMods'); if (vm) vm.hidden = true;
       const objective = $('journeyVs');
@@ -1140,7 +1140,7 @@
       R.cur = { t: 0, lost: 0, perfect: 0, metrics: {} };
       this.checkpoint();
       ND.audio.gong();
-      this.G.start('arcade', { c1: R.me, c2: F.opp, arena: F.arena, level: F.level });
+      this.G.start('arcade', { c1: R.me, c2: F.opp, arena: F.arena, level: F.level, oppHp: F.hp || null });
       // The very first journey fight carries the five-tip coach (it used to ride on the old quick-play match).
       if (R.i === 0 && ND.coach && !save.p.coached) { save.p.coached = true; save.commit(); ND.coach.start(); }
       this.refreshGoal();
@@ -1468,7 +1468,7 @@
 
   // ================================================================ ANTRENMAN + EĞİTİM
   // Kukla davranışları için saldırgan ama savunmasız bir yapay zekâ ayarı
-  const ATTACK_LV = { parry: 0, guard: 0.08, dodge: 0.04, aggr: 0.8, combo: 0.5, smart: 0.25, counter: 0, rally: 0, react: 0.3, tick: [0.3, 0.55] };
+  const ATTACK_LV = { parry: 0, guard: 0.08, dodge: 0.04, aggr: 0.8, combo: 0.5, smart: 0.25, counter: 0, rally: 0, react: 0.3, tick: [0.3, 0.55], read: 0 };
 
   class Dummy {
     constructor(me) { this.me = me; this.c = me.ctrl; this.beh = 'idle'; this.t = 0; this.ai = null; this.tapped = []; this.tok = -1; this.at = 0; this.mashT = 0; }
