@@ -90,6 +90,28 @@
     defl: 0.035, slide: [0, 0.04, 0.2, 0.7], react: 'rx_high', hurt: 'rx_high', zan: [0.22, 'ks_zan', 0.16] });
   ATK.kd_rip2 = kv('riposte', { keys: [[0.04, 'kd_in2', E.outCubic], [0.13, 'kd_stab', E.outCubic], [0.22, 'kd_stab'], [0.4, 'stance', E.inOut]],
     thrust: true, defl: 0.035, slide: [0, 0.04, 0.25, 0.75], react: 'rx_off', zan: [0.24, 'ks_zanTsuki', 0.16] });
+  // YOKO (do-giri): the sideways beat carries the blade down to the hip, then one level cut through the waist
+  ATK.riposte4 = kv('riposte', { keys: [[0.05, 'ks_yA', E.outCubic], [0.14, 'ks_yB', E.inQuad], [0.22, 'ks_yC', E.outCubic], [0.4, 'stance', E.inOut]],
+    defl: 0.04, slide: [0, 0.05, 0.3, 0.8], react: 'rx_off', zan: [0.24, 'ks_zanTsuki', 0.16] });
+  // per-fighter flavour of the plain reply (KAESHI.chars): same numbers as riposte, own body
+  // Akane: the blade clicks back into the saya and comes out again as a level draw-cut (nukitsuke)
+  ATK.ak_rip = kv('riposte', { keys: [[0.045, 'ak_rDefl', E.outCubic], [0.13, 'ak_l1b', E.outQuart], [0.21, 'ak_l1c', E.outCubic], [0.4, 'ak_stance', E.inOut]],
+    sheath: [0.03, 0.06], defl: 0.03, react: 'rx_off', zan: [0.24, 'sp_akEnd', 0.16] });
+  // Aoi: one-handed wheel — over the head, a long descending arc at full reach, round again below
+  ATK.ao_rip = kv('riposte', { keys: [[0.05, 'ao_rA', E.outCubic], [0.14, 'ao_rB', E.inOutSine], [0.22, 'ao_rC', E.outCubic], [0.4, 'ao_stance', E.inOut]],
+    defl: 0.045, slide: [0, 0.05, 0.3, 0.8], react: 'rx_high', hurt: 'rx_high', zan: [0.24, 'ao_l1b', 0.16] });
+  // Ren: heaves the blade off on his forearm, then a backhand smash from over the shoulder
+  ATK.rn_rip = kv('riposte', { keys: [[0.05, 'rn_rA', E.outCubic], [0.13, 'rn_rB', E.inQuad], [0.22, 'rn_rC', E.outCubic], [0.4, 'rn_stance', E.inOut]],
+    defl: 0.045, slide: [0, 0.05, 0.1, 0.6], react: 'rx_high', hurt: 'rx_high', zan: [0.24, 'rn_l1b', 0.16], ev: [[0.12, () => cam.punch(4)]] });
+  // Kage: drops into a low shadow step (afterimages) and rises through a reverse-grip cut
+  ATK.kg_rip = kv('riposte', { keys: [[0.05, 'kg_rA', E.outCubic], [0.13, 'kg_rB', E.outQuart], [0.22, 'kg_rC', E.outCubic], [0.4, 'kg_stance', E.inOut]],
+    defl: 0.04, react: 'rx_low', zan: [0.24, 'kg_l2b', 0.16],
+    tick(f, dt, t) { if (t > 0.03 && t < 0.13 && ((t * 60) | 0) % 2 === 0) f.addGhost(0.3); } });
+  // fd: which parry deflection (DEFL dir) the reply flows out of — up → a descending cut, down → a rising cut,
+  // side → a level cut or a thrust. KAESHI.pick prefers the matching variant, never the one used last.
+  for (const [k, d] of [['riposte', 'up'], ['riposte2', 'down'], ['riposte3', 'side'], ['riposte4', 'side'], ['kd_rip1', 'up'], ['kd_rip2', 'side'],
+    ['ak_rip', 'side'], ['ao_rip', 'up'], ['rn_rip', 'up'], ['kg_rip', 'down'], ['sweep', 'side'], ['sweep2', 'down'], ['mawari', 'up'], ['mawari2', 'side'],
+    ['kaeshiHeavy', 'down'], ['kaeshiHeavy2', 'up']]) ATK[k].fd = d;
 
   for (const k in ATK) {
     const a = ATK[k];
@@ -112,8 +134,17 @@
   // Weapon-specific choreography progresses on this fighter's replies, independently of the opponent's count.
   const KAESHI = ND.KAESHI = {
     sets: {
-      katana: { riposte: ['riposte', 'riposte2', 'riposte3'], sweep: ['sweep', 'sweep2'], mawari: ['mawari', 'mawari2'], kaeshiHeavy: ['kaeshiHeavy', 'kaeshiHeavy2'], finisher: ['finisher'] },
-      kodachi: { riposte: ['kd_rip1', 'kd_rip2', 'riposte2'] },
+      katana: { riposte: ['riposte', 'riposte2', 'riposte3', 'riposte4'], sweep: ['sweep', 'sweep2'], mawari: ['mawari', 'mawari2'], kaeshiHeavy: ['kaeshiHeavy', 'kaeshiHeavy2'], finisher: ['finisher'] },
+      kodachi: { riposte: ['kd_rip1', 'kd_rip2', 'riposte2', 'riposte4', 'riposte'] },
+    },
+    // a fighter's own extra variants, added to the weapon family's list
+    chars: { akane: { riposte: ['ak_rip'] }, aoi: { riposte: ['ao_rip'] }, ren: { riposte: ['rn_rip'] }, kage: { riposte: ['kg_rip'] } },
+    _cat: {},
+    list(f, name, L) {
+      const X = this.chars[f.ch.id], x = X && X[name];
+      if (!x) return L;
+      const k = f.ch.id + '|' + name + '|' + L[0];
+      return this._cat[k] || (this._cat[k] = L.concat(x.filter((n) => ATK[n])));
     },
     // silah malzemesi: kayma kıvılcımı rengi (ahşap sap → talaş)
     wood: { bo: 1, naginata: 1 },
@@ -146,10 +177,23 @@
           }
           ATK[alt] = Object.assign({}, a, { keys });
         }
+        f.kvLast = alt; f.pdDir = null;
         return alt;
       }
-      const i = (stage - 1) % L.length;
-      return ATK[L[i]] ? L[i] : name;
+      // Every reply looks different from the one before it: prefer a variant that flows out of the parry's
+      // deflection (f.pdDir, set by DEFL on a parry), otherwise rotate; never repeat this fighter's last variant.
+      // Only the choreography changes: every variant carries its logical move's numbers (kaeshiVariant).
+      const C = this.list(f, name, L), n = f.kvN | 0, want = f.pdDir, last = f.kvLast;
+      let pick = null;
+      for (let pass = want ? 0 : 1; pass < 2 && !pick; pass++) {
+        for (let i = 0; i < C.length; i++) {
+          const k = C[(n + i) % C.length], a = ATK[k];
+          if (a && k !== last && (pass || a.fd === want)) { pick = k; break; }
+        }
+      }
+      if (!pick) pick = ATK[C[n % C.length]] ? C[n % C.length] : name;
+      f.kvLast = pick; f.kvN = n + 1; f.pdDir = null;
+      return pick;
     },
     // temas/zanshin sesleri; specials.js aileye özel olanları ekler. kind: clang | ground | whiff | wrap | zan
     snd: {
@@ -166,6 +210,57 @@
   };
   ND.TXT = Object.assign({ kSuriage: 'SURIAGE!', kHarai: 'HARAI!', kNuki: 'NUKI!', kUchiotoshi: 'UCHIOTOSHI!' }, ND.TXT || {});
   KAESHI.sound = function (f, kind) { const fn = this.snd[this.fam(f)] || this.snd.katana; fn(f, kind, f.pan); };
+
+  // ------------------------------------------------------------ SAVUŞTURMA HAREKETİ (uke-nagashi)
+  // A parry is a real deflection, played in the 'parry' state (0.2 s, nothing about its timing changes): the first
+  // frame meets the attack (Fighter.meetPose: a sword turns onto the point the attack reached, other weapons take the
+  // variant's meeting key G) and holds through the hit-stop, then the defender drives the attacker's weapon away (P at
+  // 0.07 s, together with the attacker's knocked-away pose), follows through (F) and settles back into guard.
+  // Every key is a delta on the fighter's own guard pose (own grip, stance, weapon), so one table fits every fighter
+  // of a weapon family. dir = where the attacker's weapon goes: up (over the head), down (beaten to the floor),
+  // side (driven out / off line); the counter that follows prefers a variant flowing from it (ATK[..].fd).
+  // m/u: which part of the own weapon slides along the attacker's (wpnPt mode; u0 → u1 over the push).
+  // kinds: attack shape → candidate order; the one used last by this fighter is skipped, so no two parries in a row
+  // look the same.
+  const DV = (id, dir, m, u0, u1, G, P, F) => ({ id, dir, slide: [0.012, 0.07, u0, u1, m || null], k: [G, P, F] });
+  const DK = {
+    age: DV('age', 'up', null, 0.25, 0.7, { hx: -2, ax: -4, ay: 4, sw: 0.18 },
+      { hx: 2, hy: -5, lean: -0.1, hd: -0.26, ax: -8, ay: -38, sw: -0.92, f1x: 2 }, { hx: 1, hy: -4, lean: -0.06, hd: -0.19, ax: -4, ay: -28, sw: -0.62 }),
+    age2: DV('age2', 'up', null, 0.3, 0.8, { ay: 6, sw: -0.12 },
+      { hx: -2, hy: -7, lean: -0.18, hd: -0.44, ax: 8, ay: -38, sw: 0.38, f1x: -2, f2x: -2 }, { hy: -5, lean: -0.14, hd: -0.34, ax: 6, ay: -30, sw: 0.23 }),
+    otoshi: DV('otoshi', 'down', null, 0.3, 0.75, { hy: -3, ax: -6, ay: -8, sw: -0.32 },
+      { hx: 6, hy: 9, lean: 0.28, hd: 0.08, ax: 16, ay: 22, sw: 2.08, f1x: 8, f2x: -2 }, { hx: 4, hy: 7, lean: 0.24, hd: 0.06, ax: 12, ay: 24, sw: 2.23 }),
+    harai: DV('harai', 'side', null, 0.2, 0.7, { hx: -2, ax: -6, ay: 2, sw: -0.24 },
+      { hx: 8, hy: 1, lean: 0.14, hd: -0.04, ax: 18, ay: -8, sw: 1.08, f1x: 8, f2x: 2 }, { hx: 6, lean: 0.1, ax: 14, ay: -4, sw: 1.18, f1x: 6 }),
+    nagashi: DV('nagashi', 'down', null, 0.2, 0.85, { ax: -2, ay: -10, sw: -0.12 },
+      { hx: -6, hy: -3, lean: -0.16, hd: -0.14, ax: -4, ay: -34, sw: 1.73, f1x: -4, f2x: -6 }, { hx: -6, hy: -2, lean: -0.14, hd: -0.1, ax: 0, ay: -28, sw: 1.88, f2x: -6 }),
+    maki: DV('maki', 'side', null, 0.5, 0.8, { ax: 6, ay: -2, sw: 0.43 },
+      { hx: 4, lean: 0.08, ax: 12, ay: 8, sw: 1.78 }, { hx: 2, lean: 0.04, ax: 8, ay: -4, sw: 0.93 }),
+  };
+  const DEFL = ND.DEFL = {
+    T: [0.07, 0.125, 0.2], mk: DV, K: DK, // mk/K: specials.js builds the other weapon families' sets
+    sets: {
+      katana: { v: DK, kinds: { high: ['age', 'nagashi', 'age2'], mid: ['harai', 'age', 'otoshi', 'nagashi'], low: ['otoshi', 'harai'],
+        thrust: ['maki', 'harai', 'otoshi'], air: ['age2', 'age'] } },
+    },
+    // high: a descending cut (the blade's point is still falling), low: rising / low / tripping, thrust, air, mid
+    kind(att, a, y, def) {
+      if (a.air || !att.onGround || att.y < -30) return 'air';
+      if (a.thrust) return 'thrust';
+      let dsw = 0;
+      if (att.state === 'atk' && att.keys) dsw = pose.seq(att.keys, att.st + 0.03, DQ).sw - att.pose.sw;
+      if (a.trip || def.y - y < 72 || dsw < -0.12) return 'low';
+      return dsw > 0.12 ? 'high' : 'mid';
+    },
+    pick(f, kind) {
+      const S = this.sets[KAESHI.fam(f)] || this.sets.katana, L = S.kinds[kind] || S.kinds.mid, n = f.parries | 0;
+      for (let i = 0; i < L.length; i++) { const v = S.v[L[(n + i) % L.length]]; if (v && v.id !== f.pdLast) return v; }
+      return S.v[L[0]];
+    },
+  };
+  const DQ = {}, DJ = {}, DP = { x: 0, y: 0 }, DE = [ease.outCubic, ease.inOutSine, ease.inOut];
+  // attacker's reaction (recoil / stagger pose) for each deflection direction
+  const DRX = { up: ['rc_up', 'stagger'], down: ['rc_down', 'st_down'], side: ['rc_out', 'st_out'] };
   const TAU = Math.PI * 2, CP = { x: 0, y: 0 };
   const BTNS = ['light', 'heavy', 'kick'], FWD = ['fLight', 'fHeavy', 'fKick'], BACK = ['bLight', 'bHeavy', 'bKick'];
   const RK = [[0, null], [0, null, ease.outCubic], [0, null], [0, null, ease.inOut]], ZK = [[0, null], [0.07, null, ease.outCubic], [0, null]];
@@ -307,6 +402,8 @@
       this._trailFn = (c) => this.drawTrail(c);
       this._dopt = { ropes: null, trail: null, glint: 0, wpn: null, acc: null, lod: 'high', bake: null, layer: false };
       this._bb = [0, 0, 0, 0];
+      // parry deflection keys (DEFL), refilled on every parry: meet → push → follow → guard
+      this.pkA = [[0, null], [DEFL.T[0], null, DE[0]], [DEFL.T[1], null, DE[1]], [DEFL.T[2], null, DE[2]]]; this.pdM = pose.copy(PO.guard);
       this.setChar(ND.CHARS[id], false);
       this.reset(id === 0 ? -260 : 260);
     }
@@ -315,7 +412,7 @@
       this.ch = ch; this.col = ND.palOf ? ND.palOf(ch, alt) : alt ? ch.alt : ch.col; this.wpn = { blade: ch.blade, handle: ch.handle, type: ch.type, twin: ch.twin, dual: ch.type === 'bo', iai: !!ch.iai };
       this.maxHp = ch.hp;
       // karaktere özel duruş/gard pozu (ch.poses = { stance: 'poz adı', guard: ... })
-      this.P = PO;
+      this.P = PO; this._pd = null;
       if (ch.poses) { this.P = Object.create(PO); for (const k in ch.poses) if (PO[ch.poses[k]]) this.P[k] = PO[ch.poses[k]]; }
       this.chain = ch.type === 'kusarigama' && ND.Chain ? new ND.Chain() : null;
       this.j.chain = null;
@@ -344,6 +441,7 @@
       this.locked = true; this.damageTaken = 0; this.lastStepQ = [0, 0.5]; this.ghosts = []; this.wallBounced = false;
       this.ki = this.ki || 0; this.counterUntil = 0; this.counterWin = 0.3; this.counterSource = null; this.counterStage = 0; this.aspd = 1; this.roll = 0;
       this.jug = 0; this.comboN = 0; this.comboHits = 0; this.comboKey = -1; this.comboTxt = null; this.chainN = 0; this.late = null; this.cwKind = null;
+      this.kvLast = null; this.kvN = 0; this.pdLast = null; this.pdDir = null;
       if (this.chain) this.chain.init = false;
       pose.copy(this.P.stance, this.pose);
       this.setState('move');
@@ -356,7 +454,7 @@
     setState(s, extra) {
       this.state = s; this.st = 0; this.hitDone = false; this.sfx = false; this.thrown = false; this.dashFrom = null;
       this.aspd = 1; this.turned = false; this.hitIdx = -1; this.serial = (this.serial || 0) + 1;
-      this.evI = 0; this.mem = {}; this.hidden = false; this.vdir = 1; this.roll = 0; this.rk = null;
+      this.evI = 0; this.mem = {}; this.hidden = false; this.vdir = 1; this.roll = 0; this.rk = null; this.pk = null; this.pv = null;
       // juggle count lives only while airborne from hits; a combo against us ends once we act or recover again
       if (s !== 'launch') this.jug = 0;
       if (COMBO_RESET[s]) { this.comboN = 0; this.comboHits = 0; this.comboKey = -1; }
@@ -565,7 +663,11 @@
           if (this.st >= this.dur) this.setState('move');
           break;
         case 'parry':
-          pose.seq([[0, this.entry], [0.05, this.P.guard, ease.outCubic]], this.st, this.pose);
+          // the deflection (DEFL): parries without an attacker blade (reflected projectiles) pick one on entry
+          if (!this.pk) this.parryPose(DEFL.pick(this, 'mid'));
+          pose.seq(this.pk, this.st, this.pose);
+          if (this.pv.slide && this.st >= this.pv.slide[0] && this.st <= this.pv.slide[1]) this.slideFx(this.pv, this.st);
+          if (!this.mem.pSnd && this.st >= 0.02) { this.mem.pSnd = true; KAESHI.sound(this, 'clang'); }
           if (!locked && this.st > 0.02 && this.tryCounter()) break;
           if (this.st > 0.2) this.setState(c.held('guard') && !locked ? 'guard' : 'move');
           else if (!locked && this.st > 0.06) this.freeInput(true);
@@ -629,7 +731,7 @@
           if (this.st >= this.dur) this.setState('move');
           break;
         case 'stagger':
-          pose.seq([[0, this.entry], [0.1, PO.stagger, ease.outCubic], [0.55, PO.stagger], [0.74, this.P.stance]], this.st, this.pose);
+          pose.seq([[0, this.entry], [0.1, this.rk || PO.stagger, ease.outCubic], [0.55, this.rk || PO.stagger], [0.74, this.P.stance]], this.st, this.pose);
           fr = 7;
           if (this.st > 0.74) this.setState('move');
           break;
@@ -702,6 +804,58 @@
       if (timing) win = kind === 'parry' ? timing.counter : timing.blockCounter;
       this.counterWin = win; this.counterUntil = ND.game.clock + win; this.cwKind = kind || 'block';
       this.counterSource = source || null;
+      if (kind !== 'parry') this.pdDir = null; // a reply after a plain block has no deflection to flow from
+    }
+
+    // ---------------------------------------------------- SAVUŞTURMA: saptırma hareketi (DEFL)
+    // own guard + the variant's delta, built once per fighter/character and variant
+    pdPose(v, i) {
+      const C = this._pd || (this._pd = {}), key = v.id + i;
+      let p = C[key];
+      if (!p) { p = C[key] = pose.copy(this.P.guard); const d = v.k[i]; for (const k in d) p[k] += d[k]; }
+      return p;
+    }
+    parryPose(v) {
+      const K = this.pkA;
+      K[0][1] = this.entry; K[1][1] = this.pdPose(v, 1); K[2][1] = this.pdPose(v, 2); K[3][1] = this.P.guard;
+      this.pk = K; this.pv = v; this.pdLast = v.id; this.pdDir = v.dir;
+      return v;
+    }
+    // The pose that meets the attack (the parry's first frame, shown through the hit-stop): a sword-like front weapon
+    // turns onto the point the attack reached (never more than 2.1 rad, never pointing back into ourselves); weapons
+    // that parry with another part (staff end, back blade, fan, chain) take the variant's own meeting key.
+    meetPose(v, x, y) {
+      const M = pose.copy(this.entry, this.pdM), j = this.j;
+      if (v.slide[4]) return pose.copy(this.pdPose(v, 0), M);
+      if (!j.haF) return M;
+      const dx = (x - j.haF.x) * this.dir, dy = y - j.haF.y;
+      if (dx * dx + dy * dy < 144) return M;
+      let t = Math.atan2(dy, Math.max(dx, 8));
+      while (t - M.sw > Math.PI) t -= TAU;
+      while (M.sw - t > Math.PI) t += TAU;
+      M.sw += clamp(t - M.sw, -2.1, 2.1);
+      return M;
+    }
+    // Enter the parry against att's attack a (contact reported at x, y). The attacker's weapon is thrown the way the
+    // deflection sends it; returns the point where the two weapons actually touch (for the parry sparks).
+    parryStart(att, a, x, y, kind) {
+      this.setState('parry');
+      const v = this.parryPose(DEFL.pick(this, kind)), R = DRX[v.dir];
+      // the first frame already meets the blade (it holds through the hit-stop), then the deflection drives it away
+      pose.copy(this.meetPose(v, x, y), this.entry); pose.copy(this.entry, this.pose);
+      // the attacker's blade stays on ours for a moment (rkT), then flies: our blade reads as the one driving it
+      if (att.state === 'recoil') { att.rk = PO[R[0]]; att.rkT = 0.015; pose.copy(att.pose, att.rkE); att.rkEnd = 0.32; }
+      else if (att.state === 'stagger') att.rk = PO[R[1]];
+      // where the blades touch: the closest points of the attacker's blade and the part of our weapon that deflects
+      const aj = att.j, m = v.slide[4], j = m ? this.j : ND.solve(this.pose, this.x, this.y, this.dir, DJ, this.wpn);
+      DP.x = x; DP.y = y;
+      if (aj.haF && aj.tip && j.haF && j.tip) {
+        let x0 = j.haF.x, y0 = j.haF.y, x1 = j.tip.x, y1 = j.tip.y;
+        if (m) { const p0 = this.wpnPt(0, m, CP); x0 = p0.x; y0 = p0.y; const p1 = this.wpnPt(1, m, CP); x1 = p1.x; y1 = p1.y; }
+        const r = segSeg(x0, y0, x1, y1, aj.haF.x, aj.haF.y, aj.tip.x, aj.tip.y);
+        if (r.d < 36) { DP.x = r.x; DP.y = r.y; }
+      }
+      return DP;
     }
 
     // ---------------------------------------------------- KARŞILIK TEKNİĞİ: temas, kayma, savrulma, isabet hissi
@@ -713,6 +867,7 @@
         const s = m === 'B' ? 1 : -1, dx = (j.elB.x - j.haB.x) * s, dy = (j.elB.y - j.haB.y) * s, d = Math.hypot(dx, dy) || 1, L = this.wpn.blade * u;
         out.x = j.haB.x + (dx / d) * L; out.y = j.haB.y + (dy / d) * L;
       } else if (m === 'P' && j.pom) { out.x = j.haF.x + (j.pom.x - j.haF.x) * u; out.y = j.haF.y + (j.pom.y - j.haF.y) * u; }
+      else if (m === 'C' && j.pom && j.haB) { out.x = j.pom.x + (j.haB.x - j.pom.x) * u; out.y = j.pom.y + (j.haB.y - j.pom.y) * u; } // kusarigama chain
       else { out.x = j.haF.x + (j.tip.x - j.haF.x) * u; out.y = j.haF.y + (j.tip.y - j.haF.y) * u; }
       return out;
     }
@@ -1149,12 +1304,17 @@
       this.hitDone = true;
       o.sinceHit = 0;
       if (!isKick && o.ctrl.since('guard') <= parryWin(o)) {
+        const kind = DEFL.kind(this, a, y, o); // read the attack's shape before the recoil replaces it
         // seri içindeki karşılık savuşturulursa kılıç savrulur ama savunma imkânı kalır (film gibi karşılıklı akış)
         if (((!a.knock && !a.special && !a.crush) || (a.counter && a.fin)) && this.state === 'atk') { this.setState('recoil'); this.vx = -this.dir * 200; this.posture = Math.min(90, this.posture + 12); }
         else { this.setState('stagger'); this.vx = -this.dir * 240; this.posture = Math.min(99, this.posture + (a.special ? 60 : 24)); }
         this.sinceHit = 0;
-        o.setState('parry'); o.posture = Math.max(0, o.posture - 14); o.gainKi(18); o.openCounter(CWIN.parry, 'parry', source);
-        fx.spark(x, y, Math.atan2(-1, -this.dir), 26, 1.3); fx.ring(x, y); fx.flash(x, y, -0.6, 70, '255,236,190');
+        // the defender's blade drives the attacker's away (DEFL); sparks sit where the two weapons touch
+        const cp = o.parryStart(this, a, x, y, kind);
+        x = cp.x; y = cp.y;
+        o.posture = Math.max(0, o.posture - 14); o.gainKi(18); o.openCounter(CWIN.parry, 'parry', source);
+        const sd = o.pv.dir, sy = sd === 'down' ? 0.7 : sd === 'side' ? -0.25 : -1; // sparks fly the way the blade is sent
+        fx.spark(x, y, Math.atan2(sy, -this.dir), 26, 1.3); fx.ring(x, y); fx.flash(x, y, -0.6, 70, '255,236,190');
         fx.text(o.x, -205, 'SAVUŞTURMA!', '#ffe3a1');
         au.parry(pan); cam.punch(8);
         // the cinematic (slow motion, ring on the defender, "shing", camera nudge, STRIKE! prompt) replaces part of

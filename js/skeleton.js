@@ -207,6 +207,29 @@
     ks_zanTsuki: mk({ hx: 2, hy: -80, lean: 0.12, hd: 0.05, ax: 30, ay: 6, sw: -0.25, f1x: 36, f2x: -32 }),
     ks_zanLow: mk({ hx: 8, hy: -62, lean: 0.4, hd: 0.15, ax: 40, ay: 36, sw: 0.35, f1x: 56, f2x: -40 }),
     ks_chiburi: mk({ hx: 6, hy: -76, lean: 0.15, hd: 0.08, ax: 44, ay: 30, sw: 1.0, grip: 0, gx: -10, gy: 34, f1x: 40, f2x: -30 }),
+    // yoko (do-giri) after a sideways parry: the beat carries the blade down and back to the hip, then one level cut
+    ks_yA: mk({ hx: -4, hy: -70, lean: 0.3, hd: 0.1, ax: 0, ay: 36, sw: 2.75, f1x: 34, f2x: -34 }),
+    ks_yB: mk({ hx: 22, hy: -70, lean: 0.5, hd: 0.12, ax: 56, ay: 8, sw: 0.05, grip: 0, gx: -34, gy: 18, f1x: 70, f2x: -26 }),
+    ks_yC: mk({ hx: 18, hy: -74, lean: 0.4, hd: 0.06, ax: 44, ay: -14, sw: -0.55, grip: 0, gx: -36, gy: 12, f1x: 70, f2x: -26 }),
+    // --- per-fighter counter flavour (katana family): Akane re-draws from the saya, Aoi's one-handed wheel,
+    // Ren's forearm heave into a backhand smash, Kage's low shadow step into a reverse-grip rising cut
+    ak_rDefl: mk({ hx: -8, hy: -64, lean: 0.34, hd: 0.02, ax: 2, ay: 42, sw: 2.85, grip: 0, gx: -4, gy: 44, f1x: 34, f2x: -40 }),
+    ao_rA: mk({ hx: -4, hy: -84, lean: -0.04, hd: -0.1, ax: 20, ay: -44, sw: -2.6, grip: 0, gx: -20, gy: 36, f1x: 28, f2x: -28 }),
+    ao_rB: mk({ hx: 22, hy: -72, lean: 0.4, hd: 0.12, ax: 58, ay: 10, sw: 0.35, grip: 0, gx: -30, gy: 22, f1x: 64, f2x: -26 }),
+    ao_rC: mk({ hx: 18, hy: -70, lean: 0.42, hd: 0.14, ax: 30, ay: 40, sw: 2.0, grip: 0, gx: -24, gy: 20, f1x: 64, f2x: -26 }),
+    rn_rA: mk({ hx: 4, hy: -76, lean: 0.2, hd: 0.2, ax: 10, ay: -24, sw: -2.9, grip: 0, gx: 20, gy: -20, f1x: 34, f2x: -32 }),
+    rn_rB: mk({ hx: 26, hy: -62, lean: 0.62, hd: 0.25, ax: 50, ay: 28, sw: 0.95, grip: 0, gx: -10, gy: 24, f1x: 76, f2x: -22 }),
+    rn_rC: mk({ hx: 22, hy: -60, lean: 0.6, hd: 0.25, ax: 34, ay: 44, sw: 1.7, grip: 0, gx: -14, gy: 28, f1x: 76, f2x: -22 }),
+    kg_rA: mk({ hx: 6, hy: -54, lean: 0.62, hd: 0.3, ax: 16, ay: 30, sw: -2.95, grip: 0, gx: 30, gy: 20, f1x: 44, f2x: -44 }),
+    kg_rB: mk({ hx: 26, hy: -72, lean: 0.34, hd: 0.05, ax: 52, ay: 0, sw: -0.5, grip: 0, gx: -18, gy: 22, f1x: 70, f2x: -26 }),
+    kg_rC: mk({ hx: 20, hy: -82, lean: 0.12, hd: -0.12, ax: 36, ay: -30, sw: -1.3, grip: 0, gx: -22, gy: 20, f1x: 70, f2x: -28 }),
+    // --- attacker knocked away by a parry (fighter.js DEFL): blade flung up, beaten down, or thrown out to the side;
+    // st_ = the heavier stagger versions (the 'up' stagger is the original PO.stagger)
+    rc_up: mk({ hx: -14, hy: -79, lean: -0.22, hd: -0.2, ax: 6, ay: -40, sw: -2.35, grip: 0.5, gx: -14, gy: 0, f1x: 18, f2x: -36 }),
+    rc_down: mk({ hx: -12, hy: -70, lean: 0.34, hd: 0.26, ax: 34, ay: 36, sw: 1.15, grip: 0.6, gx: 0, gy: 30, f1x: 22, f2x: -38 }),
+    rc_out: mk({ hx: -16, hy: -77, lean: -0.24, hd: 0.1, ax: -4, ay: 14, sw: -2.85, grip: 0, gx: -26, gy: 6, f1x: 14, f2x: -36 }),
+    st_down: mk({ hx: -10, hy: -64, lean: 0.5, hd: 0.36, ax: 30, ay: 44, sw: 1.35, grip: 0.4, gx: 4, gy: 36, f1x: 26, f2x: -40 }),
+    st_out: mk({ hx: -18, hy: -76, lean: -0.4, hd: -0.1, ax: -10, ay: 16, sw: -2.95, grip: 0, gx: -28, gy: -4, f1x: 14, f1y: -8, f2x: -34 }),
     // --- kodachi / tantō: tight inside deflection, short cut or stab
     // Short blade counter: sink under the attacking arm, then rise through an open-handed reverse cut.
     // The ordinary light attack stays upright and cuts down; these silhouettes must differ without effects.

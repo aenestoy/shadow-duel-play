@@ -10,7 +10,9 @@
 //               card at the bottom: "Shadow Duel saves your nickname and scores for the online leaderboards.
 //               Privacy Policy · Terms [OK]". Never over a live fight (hidden while one runs, back after). OK is kept in
 //               the progress save (ND.save.p.privacy = NOTICE_V), so it follows the portal's cloud save too. Where the
-//               game never goes online (Poki, offline, ?net=0) there is nothing to tell and the card never shows.
+//               game never goes online (Poki, Yandex, offline, ?net=0) there is nothing to tell and the card never shows.
+//   Yandex Games forbids links out of the game (rule 8.4), so do Playgama and most of its partner sites: there neither the
+//   links nor the card exist (ND.linksAllowed).
 // Texts: ND.STR.priv (Turkish source in i18n.js, other languages block "PRIVACY" in js/i18n-*.js).
 (function (ND) {
   'use strict';
@@ -88,7 +90,10 @@
     if (n) n.hidden = busy();
   }
 
+  // Portals that forbid links out of the game (Yandex, see ND.linksAllowed in core.js) get neither links nor the notice
+  const allowed = () => !ND.linksAllowed || ND.linksAllowed();
   function start() {
+    if (!allowed()) { done = true; return; }
     const box = document.getElementById('setLegal');
     if (box && !box.querySelector('a[data-priv]')) box.appendChild(link('both'));
     if (ND.i18n && ND.i18n.onChange) ND.i18n.onChange(relabel);
@@ -100,6 +105,7 @@
 
   ND.privacy = {
     NOTICE_V, url, link, update,
+    get allowed() { return allowed(); },
     get seen() { return seen(); },
     get showing() { return !!el && !el.hidden; },
   };

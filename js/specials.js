@@ -1857,11 +1857,48 @@
       zan: [0.54, 'nc_zan', 0.22], ev: finEv(['h', 'u', 'v'], [[0.38, kShock]]) });
 
     // ---------------------------------------------------------------- NODACHI (Kuro, Shura): katana seti, ağır kayma ve büyük yay
-    for (const k of ['riposte', 'riposte2', 'riposte3']) {
+    for (const k of ['riposte', 'riposte2', 'riposte3', 'riposte4']) {
       const b = ATK[k], S = b.slide;
       KD['nd_' + k] = kv(k, { keys: b.keys, hurt: b.hurt, slide: S && [S[0], S[1] + 0.02, Math.max(0.1, S[2] - 0.1), Math.min(1, S[3] + 0.15)],
-        ev: [[b.active[0], kArc(k === 'riposte2' ? 'u' : k === 'riposte3' ? 'h' : 'd', true)]] });
+        ev: [[b.active[0], kArc(k === 'riposte2' ? 'u' : k === 'riposte3' || k === 'riposte4' ? 'h' : 'd', true)]] });
     }
+
+    // ---------------------------------------------------------------- SECOND CHOREOGRAPHY for the one-variant families
+    // A reply must never look like the one before it, so harai / nuki / uchiotoshi get a second body for bō, tessen,
+    // kusarigama, twin tantō and naginata: the katana's second variant (sweep2: beat down → kneeling rising cut,
+    // mawari2: pirouette → high cut from behind, kaeshiHeavy2: beat down → leap → men) re-posed for the weapon's grip
+    // (own off hand, own stance and zanshin). Numbers always come from the logical move (kaeshiVariant).
+    const FAMG = {
+      bo: { st: 'jn_stance', o: { grip: 1 }, zan: 'jc_zan', snd: (f) => snd2.staff(f.pan, 0.9) },
+      tessen: { st: 'mi_stance', o: { grip: 0, gx: -26, gy: -26 }, zan: 'mc_zan', x: { fan: 1, fanB: 1 }, snd: (f) => { snd2.fan(f.pan); petals(f, 6); } },
+      kusarigama: { st: 'tr_stance', o: { grip: 0, gx: -24, gy: 22 }, zan: 'kc_zan', snd: (f) => snd2.chain(f.pan, 1) },
+      twin: { st: 'stance', o: { gx: -2, gy: 24 }, zan: 'tc_zan' },
+      naginata: { st: 'stance', o: {}, zan: 'nc_zan' },
+    };
+    const FPC = new Map();
+    const famPose = (p, fam) => {
+      let m = FPC.get(p); if (!m) FPC.set(p, (m = {}));
+      return m[fam] || (m[fam] = Object.assign({}, p, FAMG[fam].o));
+    };
+    const refit = (src, base, fam, fd, extra) => {
+      const A = ATK[src], F = FAMG[fam], n = A.keys.length;
+      const keys = A.keys.map(([t, p, e], i) => [t, i === n - 1 ? PO[F.st] : famPose(p, fam), e]);
+      const ev = F.snd ? [[A.active[0] - 0.01, F.snd]] : null;
+      return kv(base, Object.assign({ keys, defl: A.defl, slide: A.slide, spin: A.spin, whiff: A.whiff, ground: A.ground, thrust: A.thrust,
+        react: A.react, hurt: A.hurt, zan: [A.zan[0], F.zan, A.zan[2]], fd, ev }, F.x, extra));
+    };
+    for (const [fam, p] of [['bo', 'jc'], ['tessen', 'mc'], ['kusarigama', 'kc'], ['twin', 'tc'], ['naginata', 'nc']]) {
+      const ch = fam === 'kusarigama' ? { wpath: twirl(0.02, 0.45, 26, 24) } : null;
+      KD[p + '_harai2'] = refit('sweep2', 'sweep', fam, 'down', ch);
+      KD[p + '_nuki2'] = refit('mawari2', 'mawari', fam, 'side', ch);
+      KD[p + '_otoshi2'] = refit('kaeshiHeavy2', 'kaeshiHeavy', fam, 'up');
+    }
+    // which parry deflection each family reply flows out of (fighter.js KAESHI.pick, ATK[..].fd)
+    for (const [k, d] of [['jc_rip1', 'up'], ['jc_rip2', 'down'], ['jc_harai', 'side'], ['jc_nuki', 'up'], ['jc_otoshi', 'down'],
+      ['mc_rip1', 'up'], ['mc_rip2', 'down'], ['mc_harai', 'side'], ['mc_nuki', 'up'], ['mc_otoshi', 'down'],
+      ['kc_rip1', 'side'], ['kc_rip2', 'down'], ['kc_harai', 'side'], ['kc_nuki', 'up'], ['kc_otoshi', 'down'],
+      ['tc_rip1', 'side'], ['tc_rip2', 'up'], ['tc_harai', 'side'], ['tc_nuki', 'up'], ['tc_otoshi', 'down'],
+      ['nc_rip1', 'up'], ['nc_rip2', 'down'], ['nc_harai', 'side'], ['nc_nuki', 'up'], ['nc_otoshi', 'down']]) KD[k].fd = d;
     // katana bitirişine de kesik yayları
     ATK.finisher.ev = finEv(['u', 'd', 'v'], [[0.38, kShock]]);
 
@@ -1871,14 +1908,62 @@
       a.dur = a.keys[a.keys.length - 1][0];
       ATK[k] = a;
     }
+    const fam2 = (p) => ({ riposte: [p + '_rip1', p + '_rip2'], sweep: [p + '_harai', p + '_harai2'], mawari: [p + '_nuki', p + '_nuki2'],
+      kaeshiHeavy: [p + '_otoshi', p + '_otoshi2'], finisher: [p + '_fin'] });
     Object.assign(KA.sets, {
-      nodachi: { riposte: ['nd_riposte', 'nd_riposte2', 'nd_riposte3'] },
-      bo: { riposte: ['jc_rip1', 'jc_rip2'], sweep: ['jc_harai'], mawari: ['jc_nuki'], kaeshiHeavy: ['jc_otoshi'], finisher: ['jc_fin'] },
-      tessen: { riposte: ['mc_rip1', 'mc_rip2'], sweep: ['mc_harai'], mawari: ['mc_nuki'], kaeshiHeavy: ['mc_otoshi'], finisher: ['mc_fin'] },
-      kusarigama: { riposte: ['kc_rip1', 'kc_rip2'], sweep: ['kc_harai'], mawari: ['kc_nuki'], kaeshiHeavy: ['kc_otoshi'], finisher: ['kc_fin'] },
-      twin: { riposte: ['tc_rip1', 'tc_rip2'], sweep: ['tc_harai'], mawari: ['tc_nuki'], kaeshiHeavy: ['tc_otoshi'], finisher: ['tc_fin'] },
-      naginata: { riposte: ['nc_rip1', 'nc_rip2'], sweep: ['nc_harai'], mawari: ['nc_nuki'], kaeshiHeavy: ['nc_otoshi'], finisher: ['nc_fin'] },
+      nodachi: { riposte: ['nd_riposte', 'nd_riposte2', 'nd_riposte3', 'nd_riposte4'] },
+      bo: fam2('jc'), tessen: fam2('mc'), kusarigama: fam2('kc'), twin: fam2('tc'), naginata: fam2('nc'),
     });
+
+    // --- parry deflections (fighter.js ND.DEFL) for the weapons that do not parry like a sword: deltas on each
+    // fighter's own guard. bō: the staff goes up flat over the head / the rear end sweeps the blade off / the
+    // front end beats it down; tessen: the rear fan sweeps up / the front fan beats down / both fans open out in a
+    // turn; kusarigama: the chain pulled taut overhead / the sickle hooks it down / the weight bats it aside; twin
+    // tantō: a cross block / the reverse blade presses it down / the front blade flicks it out; naginata: the shaft
+    // lifts it / the pole beats it down / the butt end (ishizuki) knocks it off line.
+    const DF = ND.DEFL;
+    if (DF) {
+      const dv = DF.mk, K = DF.K, as = (id, v) => Object.assign({}, v, { id });
+      const kinds = (u, s, d) => ({ high: [u, s], mid: [s, u, d], low: [d, s], thrust: [s, d], air: [u, s] });
+      const set = (list, u, s, d) => { const v = {}; for (const x of list) v[x.id] = x; return { v, kinds: kinds(u, s, d) }; };
+      Object.assign(DF.sets, {
+        bo: set([
+          dv('bo_age', 'up', 'P', 0.2, 0.9, { ax: -4, ay: 2, sw: 0.2 }, { hx: 2, hy: -5, lean: -0.08, hd: -0.24, ax: -10, ay: -42, sw: -1.58, f1x: 2 },
+            { hy: -4, lean: -0.05, hd: -0.16, ax: -8, ay: -34, sw: -1.42 }),
+          dv('bo_uchi', 'side', 'P', 0.2, 0.9, { ax: -6, ay: -4, sw: 0.22 }, { hx: 6, hy: 2, lean: 0.16, hd: 0.06, ax: 12, ay: 4, sw: -1.2, f1x: 8 },
+            { hx: 4, lean: 0.12, ax: 8, ay: 2, sw: -1.05 }),
+          as('bo_otoshi', K.otoshi)], 'bo_age', 'bo_uchi', 'bo_otoshi'),
+        tessen: set([
+          dv('fan_age', 'up', 'BF', 0.1, 0.9, { gx: 4, gy: 2 }, { hy: -4, lean: -0.06, hd: -0.2, ax: -10, ay: 16, sw: 1.7, gx: 16, gy: -58 },
+            { hy: -3, lean: -0.04, hd: -0.14, ax: -8, ay: 14, sw: 1.6, gx: 12, gy: -50 }),
+          dv('fan_mai', 'side', null, 0.2, 0.9, { ax: -4, sw: -0.2, gx: 4 }, { hx: 6, lean: 0.12, ax: 16, ay: 6, sw: 1.2, gx: -40, gy: -24 },
+            { hx: 4, lean: 0.1, ax: 12, ay: 6, sw: 1.1, gx: -36, gy: -22 }),
+          dv('fan_otoshi', 'down', null, 0.2, 0.9, { ay: -6, sw: -0.2 }, { hx: 4, hy: 8, lean: 0.26, hd: 0.1, ax: 14, ay: 30, sw: 1.9, gx: -10, gy: 6 },
+            { hx: 3, hy: 6, lean: 0.22, ax: 12, ay: 30, sw: 2.0 })], 'fan_age', 'fan_mai', 'fan_otoshi'),
+        kusarigama: set([
+          dv('kc_taut', 'up', 'C', 0.3, 0.7, { gx: -6, gy: -4 }, { hy: -5, lean: -0.06, hd: -0.22, ax: 6, ay: -40, sw: 0.35, gx: -36, gy: -46 },
+            { hy: -4, lean: -0.04, hd: -0.16, ax: 6, ay: -34, sw: 0.3, gx: -32, gy: -40 }),
+          dv('kc_bat', 'side', 'C', 0.6, 1, { gx: -10, gy: 6 }, { hx: 6, lean: 0.14, ax: -10, ay: 12, sw: -0.2, gx: 42, gy: -26 },
+            { hx: 4, lean: 0.1, ax: -8, ay: 10, sw: -0.15, gx: 36, gy: -20 }),
+          dv('kc_hook', 'down', null, 0.2, 0.9, { ay: -8, sw: 0.2 }, { hx: 4, hy: 8, lean: 0.24, hd: 0.1, ax: 12, ay: 30, sw: 1.9, gx: -6 },
+            { hx: 3, hy: 6, lean: 0.2, ax: 10, ay: 30, sw: 2.0 })], 'kc_taut', 'kc_bat', 'kc_hook'),
+        twin: set([
+          dv('tw_cross', 'up', 'B', 0.2, 0.9, { gx: 10, gy: -10 }, { hy: -4, lean: -0.08, hd: -0.22, ax: -4, ay: -32, sw: 0.5, gx: 36, gy: -64 },
+            { hy: -3, lean: -0.05, hd: -0.15, ax: -2, ay: -26, sw: 0.4, gx: 32, gy: -56 }),
+          dv('tw_flick', 'side', null, 0.2, 0.8, { hx: -2, ax: -6, ay: 2, sw: -0.24, gx: 8 },
+            { hx: 8, hy: 1, lean: 0.14, hd: -0.04, ax: 18, ay: -8, sw: 1.08, f1x: 8, f2x: 2, gx: 30, gy: -40 },
+            { hx: 6, lean: 0.1, ax: 14, ay: -4, sw: 1.18, f1x: 6, gx: 26, gy: -34 }),
+          dv('tw_catch', 'down', 'B', 0.2, 0.9, { gx: 16, gy: -16 }, { hx: 4, hy: 6, lean: 0.22, hd: 0.1, ax: -12, ay: 18, sw: 2.2, gx: 44, gy: -18 },
+            { hx: 3, hy: 5, lean: 0.18, ax: -10, ay: 18, sw: 2.2, gx: 40, gy: -14 })], 'tw_cross', 'tw_flick', 'tw_catch'),
+        naginata: set([
+          dv('nc_age', 'up', null, 0.05, 0.35, { ax: -2, ay: 4, sw: 0.15 }, { hy: -5, lean: -0.08, hd: -0.22, ax: -6, ay: -36, sw: -0.9, f1x: 2 },
+            { hy: -4, lean: -0.05, hd: -0.15, ax: -4, ay: -28, sw: -0.75 }),
+          dv('nc_ishi', 'side', 'P', 0.2, 1, { ax: -4, sw: 0.2 }, { hx: 6, hy: 2, lean: 0.16, hd: 0.06, ax: 12, ay: 4, sw: -1.17, f1x: 8 },
+            { hx: 4, lean: 0.12, ax: 8, ay: 2, sw: -1.0 }),
+          dv('nc_otoshi', 'down', null, 0.1, 0.4, { hy: -3, ax: -6, ay: -8, sw: -0.32 }, { hx: 6, hy: 9, lean: 0.28, hd: 0.08, ax: 16, ay: 22, sw: 1.7, f1x: 8, f2x: -2 },
+            { hx: 4, hy: 7, lean: 0.24, hd: 0.06, ax: 12, ay: 24, sw: 1.82 })], 'nc_age', 'nc_ishi', 'nc_otoshi'),
+      });
+    }
 
     // --- temas/zanshin sesleri (kind: clang | ground | whiff | wrap | zan); bilinmeyen tür katana sesine düşer
     const K0 = KA.snd.katana;

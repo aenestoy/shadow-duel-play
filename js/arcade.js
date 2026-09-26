@@ -535,7 +535,8 @@
   const readJSON = (k, def) => { try { const s = rawGet(k); const v = s ? JSON.parse(s) : null; return v && typeof v === 'object' ? v : def; } catch (e) { return def; } };
   // Portal copy of the progress (CrazyGames data module follows a signed-in player across devices; 1 MB total).
   // localStorage stays the working copy; the portal copy is written a moment after each commit and read once at boot.
-  const PORTAL_SAVE = { crazygames: 1, yandex: 1 };
+  // Yandex: player data. Playgama: Bridge storage (cloud where the host has it; moderation checks saves go through it).
+  const PORTAL_SAVE = { crazygames: 1, yandex: 1, playgama: 1 };
   const MIRROR_MAX = 400000;
   let mirrorT = 0;
   const mirror = (k, v) => {

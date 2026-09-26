@@ -46,7 +46,7 @@
     else if (/(^|[./\s])poki(-gdn)?\.(com|io|dev|net)\b|pokiplayground|poki-cdn/.test(all)) { name = 'poki'; allow = false; }
     else if (/youtube\.com|youtube-nocookie\.com|ytimg\.com|youtubeplayables|playables\.usercontent\.goog|usercontent\.goog/.test(all)) { name = 'youtube'; allow = false; }
     else if (/crazygames\./.test(all)) name = 'crazygames';
-    else if (/yandex\.|yandexgames|games\.s3\.yandex/.test(all)) name = 'yandex';
+    else if (/yandex\.|yandexgames/.test(all)) name = 'yandex';
     else if (!host || host === 'localhost' || /^127\.|^192\.168\.|^10\./.test(host)) name = 'dev';
     const m = /[?&]net=([01])\b/.exec(q);
     if (m) allow = m[1] === '1';
@@ -1704,7 +1704,7 @@
       inp.addEventListener('input', () => { err.textContent = ''; });
       const b = document.createElement('button'); b.type = 'submit'; b.className = 'mini'; b.textContent = T.nickSave || 'OK';
       form.append(inp, b);
-      if (ND.privacy) form.appendChild(ND.privacy.link('both')); // js/privacy.js: the policy page, new tab
+      if (ND.privacy && ND.privacy.allowed) form.appendChild(ND.privacy.link('both')); // js/privacy.js: the policy page, new tab (not on Yandex)
       form.appendChild(err);
       form.onsubmit = (e) => { e.preventDefault(); save(); };
       if (focus) setTimeout(() => inp.focus(), 0);

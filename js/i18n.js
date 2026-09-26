@@ -12,7 +12,8 @@
 // Language (first match wins):
 //   1. ?lang=xx in the URL (testing; not saved)
 //   2. the player's own choice, saved in ND.save settings as `lang` (older builds: localStorage nd.lang)
-//   3. a portal that requires its own language: Yandex Games (SDK environment.i18n.lang, via ND.portal.requiredLanguage()
+//   3. a portal that requires its own language: Yandex Games (SDK environment.i18n.lang) or Playgama (bridge.platform.language),
+//      via ND.portal.requiredLanguage()
 //      once the SDK answers; until then the device language below is the best guess there)
 //   4. the device language: the first entry of navigator.languages (then navigator.language) that is one of the seven
 //      supported languages, e.g. ['nl-NL', 'fr-FR', 'en'] → fr. CrazyGames and Poki start here too (their SDK locale is
@@ -296,14 +297,14 @@
   };
   // First device language the game speaks, or null (→ English)
   const deviceLang = () => { for (const c of browserLangs()) { const l = langOf(c); if (l) return l; } return null; };
-  // Portals that make the game follow their language (Yandex rule 2.14). Others: device language.
-  const PORTAL_LANG = { yandex: true };
+  // Portals that make the game follow their language (Yandex rule 2.14, Playgama required step). Others: device language.
+  const PORTAL_LANG = { yandex: true, playgama: true };
   function initialLang() {
     try { const q = ND.qs ? ND.qs.get('lang') : new URLSearchParams(location.search).get('lang'); if (q) { explicit = true; from = 'url'; return pick(q); } } catch (e) { /* no URL */ }
     const s = savedLang();
     if (s) { explicit = true; from = 'saved'; return s; }
     const dev = deviceLang();
-    // Yandex: its SDK answers later; the device language is the closest guess until then
+    // Yandex / Playgama: the SDK answers later; the device language is the closest guess until then
     if (PORTAL_LANG[ND.portalName]) { from = 'portal-guess'; return dev || DEFAULT; }
     if (dev) { from = 'device'; return dev; }
     from = 'default';

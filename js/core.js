@@ -58,23 +58,37 @@ window.ND = window.ND || {};
   const qs = (() => { try { return new URLSearchParams(location.search); } catch (e) { return new URLSearchParams(''); } })();
   ND.qs = qs;
   ND.portalName = (() => {
+    const known = (v) => v === 'crazygames' || v === 'poki' || v === 'yandex' || v === 'playgama' || v === 'local';
     const f = qs.get('portal');
-    if (f === 'crazygames' || f === 'poki' || f === 'yandex' || f === 'local') return f;
+    if (known(f)) return f;
+    // Portal-only build (npm run build:yandex / build:playgama): <meta name="nd-portal"> fixes the portal whatever the host is
+    let b = null;
+    try { const m = document.querySelector('meta[name="nd-portal"]'); b = m && m.getAttribute('content'); } catch (e) { /* no DOM */ }
+    if (known(b)) return b;
     let ref = '';
     try { ref = document.referrer ? new URL(document.referrer).hostname : ''; } catch (e) { /* bad referrer */ }
     const hosts = (location.hostname || '') + ' ' + ref;
     if (/crazygames\.com|1001juegos\.com|crazygames\.[a-z.]+/.test(hosts)) return 'crazygames';
     if (/poki\.com|poki-gdn\.com/.test(hosts)) return 'poki';
-    if (/yandex\.(ru|net|com)|games\.s3\.yandex/.test(hosts)) return 'yandex';
+    if (/yandex\.(ru|net|com)/.test(hosts)) return 'yandex';
     return 'local';
   })();
   // Online leaderboard (leaderboard.js) reads ND.platform: Poki forbids external requests; the portal guess wins
   // over its own host sniffing so ?portal=poki behaves like the real thing.
-  if (ND.portalName === 'poki') ND.platform = Object.assign({ name: 'poki', allowNetwork: false }, ND.platform || {});
+  // Yandex Games too: sign-in only with a Yandex ID (rule 1.2), no links out (8.4) and every outside host must be
+  // approved in the console; there the leaderboards stay on the device and the progress rides Yandex player data.
+  // Playgama too: one build goes to many partner sites, several of them (YouTube Playables, GameDistribution…) forbid
+  // outside requests; there the progress rides Bridge storage.
+  if (ND.portalName === 'poki' || ND.portalName === 'yandex' || ND.portalName === 'playgama') ND.platform = Object.assign({ name: ND.portalName, allowNetwork: false }, ND.platform || {});
   else if (ND.portalName !== 'local') ND.platform = Object.assign({ name: ND.portalName }, ND.platform || {});
+  // Portals that forbid links out of the game (Yandex 8.4): no Privacy Policy & Terms links. The game sends no personal
+  // data there (no network above), so there is no policy to point at.
+  // Playgama: neither Playgama itself nor most partner sites allow links out (Bridge platform.isExternalLinksAllowed).
+  ND.NO_LINK_PORTALS = { yandex: true, playgama: true };
+  ND.linksAllowed = () => !ND.NO_LINK_PORTALS[ND.portalName];
   // Blood is opt-in and only where the portal's age rating allows it (PEGI 12 forbids blood on human
   // characters; Poki forbids body fluids). Everywhere else hits use the ink & shadow style (scene.js).
-  ND.BLOOD_PORTALS = { local: true, crazygames: false, poki: false, yandex: false };
+  ND.BLOOD_PORTALS = { local: true, crazygames: false, poki: false, yandex: false, playgama: false };
   ND.bloodAllowed = () => !!ND.BLOOD_PORTALS[ND.portalName];
   ND.isLocalHost = /^(localhost|127\.0\.0\.1|\[::1\]|0\.0\.0\.0)$/.test(location.hostname || '') || location.protocol === 'file:';
 
