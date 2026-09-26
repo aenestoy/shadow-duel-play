@@ -223,7 +223,7 @@
     const G = ND.game, FP = ND.Fighter && ND.Fighter.prototype;
     if (!G || !FP || G._voice) return;
     G._voice = true;
-    const live = () => G.mode !== 'attract' && !G.replay;
+    const live = () => G.mode !== 'attract' && !G.replay && !G.simOnly; // simOnly: a rollback re-simulation, already heard
     const safe = (fn) => { try { fn(); } catch (e) { if (V.debug) console.warn('[voice]', e); } };
     const idOf = (i) => (ND.CHARS && ND.CHARS[i] ? ND.CHARS[i].id : null);
 

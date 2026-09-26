@@ -1,7 +1,471 @@
 // Gölge Düellosu — çekirdek: matematik yardımcıları + sentez ses motoru
 window.ND = window.ND || {};
+
+// ---------------------------------------------------------------- DETERMINISTIC MATH (ND.DM)
+// Online play (rollback netcode) needs every device to compute the fight bit for bit the same. + - * / and sqrt are
+// exact IEEE-754 operations in every JavaScript engine, but Math.sin, cos, atan2, exp, pow... are not specified to the
+// last bit: V8 (Chrome, Android), SpiderMonkey (Firefox) and JavaScriptCore (Safari, iPhone: the system libm) may round
+// differently, and one different bit grows into a different fight within seconds. ND.DM is a copy of Math whose
+// transcendental functions are computed here with plain arithmetic (the fdlibm algorithms, error < 1 ulp), so they give
+// the same bits everywhere. The simulation files shadow Math with it (`const Math = ND.DM || globalThis.Math;` at the
+// top of their scope); Math.random and every exact function (floor, abs, min, sqrt...) stay the engine's own.
+// window.ND = { DM_NATIVE: true } before this file (tests only) keeps the engine's functions, to measure the difference.
 (function (ND) {
   'use strict';
+  const N = Math, DM = {};
+  for (const k of Object.getOwnPropertyNames(N)) DM[k] = N[k];
+  DM.random = function random() { return N.random(); }; // stays live: tools may swap Math.random after load
+  if (ND.DM_NATIVE) { ND.DM = DM; return; }
+  const F = new Float64Array(1), U = new Uint32Array(F.buffer);
+  const LE = new Uint8Array(new Uint16Array([1]).buffer)[0] === 1, IH = LE ? 1 : 0, IL = LE ? 0 : 1;
+  const hi = (x) => { F[0] = x; return U[IH] | 0; };
+  const lo = (x) => { F[0] = x; return U[IL]; };
+  const mk = (h, l) => { U[IH] = h; U[IL] = l; return F[0]; };
+  const withHi = (x, h) => { F[0] = x; U[IH] = h; return F[0]; };
+  const zeroLo = (x) => { F[0] = x; U[IL] = 0; return F[0]; };
+
+  // --- sin / cos (k_sin.c, k_cos.c, e_rem_pio2.c; huge arguments use the medium reduction too: less accurate there,
+  // still plain arithmetic, so still the same everywhere)
+  const S1 = -1.66666666666666324348e-01, S2 = 8.33333333332248946124e-03, S3 = -1.98412698298579493134e-04,
+    S4 = 2.75573137070700676789e-06, S5 = -2.50507602534068634195e-08, S6 = 1.58969099521155010221e-10;
+  function kSin(x, y, iy) {
+    const ix = hi(x) & 0x7fffffff;
+    if (ix < 0x3e400000 && (x | 0) === 0) return x;
+    const z = x * x, v = z * x, r = S2 + z * (S3 + z * (S4 + z * (S5 + z * S6)));
+    if (iy === 0) return x + v * (S1 + z * r);
+    return x - ((z * (0.5 * y - v * r) - y) - v * S1);
+  }
+  const C1 = 4.16666666666666019037e-02, C2 = -1.38888888888741095749e-03, C3 = 2.48015872894767294178e-05,
+    C4 = -2.75573143513906633035e-07, C5 = 2.08757232129817482790e-09, C6 = -1.13596475577881948265e-11;
+  function kCos(x, y) {
+    const ix = hi(x) & 0x7fffffff;
+    if (ix < 0x3e400000 && (x | 0) === 0) return 1;
+    const z = x * x, r = z * (C1 + z * (C2 + z * (C3 + z * (C4 + z * (C5 + z * C6)))));
+    if (ix < 0x3fd33333) return 1 - (0.5 * z - (z * r - x * y));
+    const qx = ix > 0x3fe90000 ? 0.28125 : mk(ix - 0x00200000, 0);
+    const hz = 0.5 * z - qx, a = 1 - qx;
+    return a - (hz - (z * r - x * y));
+  }
+  const NPIO2 = [0x3FF921FB, 0x400921FB, 0x4012D97C, 0x401921FB, 0x401F6A7A, 0x4022D97C, 0x4025FDBB, 0x402921FB,
+    0x402C463A, 0x402F6A7A, 0x4031475C, 0x4032D97C, 0x40346B9C, 0x4035FDBB, 0x40378FDB, 0x403921FB, 0x403AB41B,
+    0x403C463A, 0x403DD85A, 0x403F6A7A, 0x40407E4C, 0x4041475C, 0x4042106C, 0x4042D97C, 0x4043A28C, 0x40446B9C,
+    0x404534AC, 0x4045FDBB, 0x4046C6CB, 0x40478FDB, 0x404858EB, 0x404921FB];
+  const INVPIO2 = 6.36619772367581382433e-01, PIO2_1 = 1.57079632673412561417e+00, PIO2_1T = 6.07710050650619224932e-11,
+    PIO2_2 = 6.07710050630396597660e-11, PIO2_2T = 2.02226624879595063154e-21, PIO2_3 = 2.02226624871116645580e-21,
+    PIO2_3T = 8.47842766036889956997e-32;
+  const Y = [0, 0];
+  // x = n·π/2 + (Y[0] + Y[1]); returns n (only n mod 4 is used)
+  function remPio2(x) {
+    const hx = hi(x), ix = hx & 0x7fffffff;
+    if (ix < 0x4002d97c) { // |x| < 3π/4
+      let z;
+      if (hx > 0) {
+        z = x - PIO2_1;
+        if (ix !== 0x3ff921fb) { Y[0] = z - PIO2_1T; Y[1] = (z - Y[0]) - PIO2_1T; } else { z -= PIO2_2; Y[0] = z - PIO2_2T; Y[1] = (z - Y[0]) - PIO2_2T; }
+        return 1;
+      }
+      z = x + PIO2_1;
+      if (ix !== 0x3ff921fb) { Y[0] = z + PIO2_1T; Y[1] = (z - Y[0]) + PIO2_1T; } else { z += PIO2_2; Y[0] = z + PIO2_2T; Y[1] = (z - Y[0]) + PIO2_2T; }
+      return -1;
+    }
+    let t = N.abs(x);
+    const q = t * INVPIO2 + 0.5, big = q >= 2147483648, n = big ? N.trunc(q) : q | 0, fn = n;
+    let r = t - fn * PIO2_1, w = fn * PIO2_1T;
+    if (n < 32 && ix !== NPIO2[n - 1]) Y[0] = r - w;
+    else {
+      const j = ix >> 20;
+      Y[0] = r - w;
+      let i = j - ((hi(Y[0]) >> 20) & 0x7ff);
+      if (i > 16) {
+        t = r; w = fn * PIO2_2; r = t - w; w = fn * PIO2_2T - ((t - r) - w); Y[0] = r - w;
+        i = j - ((hi(Y[0]) >> 20) & 0x7ff);
+        if (i > 49) { t = r; w = fn * PIO2_3; r = t - w; w = fn * PIO2_3T - ((t - r) - w); Y[0] = r - w; }
+      }
+    }
+    Y[1] = (r - Y[0]) - w;
+    const m = big ? n % 4 : n;
+    if (hx < 0) { Y[0] = -Y[0]; Y[1] = -Y[1]; return -m; }
+    return m;
+  }
+  DM.sin = function sin(x) {
+    x = +x;
+    const ix = hi(x) & 0x7fffffff;
+    if (ix <= 0x3fe921fb) return kSin(x, 0, 0);
+    if (ix >= 0x7ff00000) return x - x;
+    switch (remPio2(x) & 3) {
+      case 0: return kSin(Y[0], Y[1], 1);
+      case 1: return kCos(Y[0], Y[1]);
+      case 2: return -kSin(Y[0], Y[1], 1);
+      default: return -kCos(Y[0], Y[1]);
+    }
+  };
+  DM.cos = function cos(x) {
+    x = +x;
+    const ix = hi(x) & 0x7fffffff;
+    if (ix <= 0x3fe921fb) return kCos(x, 0);
+    if (ix >= 0x7ff00000) return x - x;
+    switch (remPio2(x) & 3) {
+      case 0: return kCos(Y[0], Y[1]);
+      case 1: return -kSin(Y[0], Y[1], 1);
+      case 2: return -kCos(Y[0], Y[1]);
+      default: return kSin(Y[0], Y[1], 1);
+    }
+  };
+  DM.tan = function tan(x) { x = +x; return DM.sin(x) / DM.cos(x); };
+
+  // --- atan / atan2 (s_atan.c, e_atan2.c)
+  const ATHI = [4.63647609000806093515e-01, 7.85398163397448278999e-01, 9.82793723247329054082e-01, 1.57079632679489655800e+00];
+  const ATLO = [2.26987774529616870924e-17, 3.06161699786838301793e-17, 1.39033110312309984516e-17, 6.12323399573676603587e-17];
+  const AT = [3.33333333333329318027e-01, -1.99999999998764832476e-01, 1.42857142725034663711e-01, -1.11111104054623557880e-01,
+    9.09088713343650656196e-02, -7.69187620504482999495e-02, 6.66107313738753120669e-02, -5.83357013379057348645e-02,
+    4.97687799461593236017e-02, -3.65315727442169155270e-02, 1.62858201153657823623e-02];
+  DM.atan = function atan(x) {
+    x = +x;
+    const hx = hi(x), ix = hx & 0x7fffffff;
+    let id;
+    if (ix >= 0x44100000) { // |x| >= 2^66
+      if (x !== x) return x + x;
+      return hx > 0 ? ATHI[3] + ATLO[3] : -ATHI[3] - ATLO[3];
+    }
+    if (ix < 0x3fdc0000) { // |x| < 0.4375
+      if (ix < 0x3e200000) return x;
+      id = -1;
+    } else {
+      x = N.abs(x);
+      if (ix < 0x3ff30000) {
+        if (ix < 0x3fe60000) { id = 0; x = (2 * x - 1) / (2 + x); } else { id = 1; x = (x - 1) / (x + 1); }
+      } else if (ix < 0x40038000) { id = 2; x = (x - 1.5) / (1 + 1.5 * x); } else { id = 3; x = -1 / x; }
+    }
+    const z = x * x, w = z * z;
+    const s1 = z * (AT[0] + w * (AT[2] + w * (AT[4] + w * (AT[6] + w * (AT[8] + w * AT[10])))));
+    const s2 = w * (AT[1] + w * (AT[3] + w * (AT[5] + w * (AT[7] + w * AT[9]))));
+    if (id < 0) return x - x * (s1 + s2);
+    const r = ATHI[id] - ((x * (s1 + s2) - ATLO[id]) - x);
+    return hx < 0 ? -r : r;
+  };
+  const PI = 3.1415926535897931160e+00, PI_LO = 1.2246467991473531772e-16, PI_2 = 1.5707963267948965580e+00, PI_4 = 7.8539816339744827900e-01;
+  DM.atan2 = function atan2(y, x) {
+    y = +y; x = +x;
+    if (x !== x || y !== y) return x + y;
+    const hx = hi(x), ix = hx & 0x7fffffff, lx = lo(x), hy = hi(y), iy = hy & 0x7fffffff, ly = lo(y);
+    if (hx === 0x3ff00000 && lx === 0) return DM.atan(y); // x = 1
+    const m = ((hy >> 31) & 1) | ((hx >> 30) & 2);
+    if ((iy | ly) === 0) { // y = ±0
+      if (m < 2) return y;
+      return m === 2 ? PI : -PI;
+    }
+    if ((ix | lx) === 0) return hy < 0 ? -PI_2 : PI_2; // x = ±0
+    if (ix === 0x7ff00000) { // x = ±∞
+      if (iy === 0x7ff00000) return m === 0 ? PI_4 : m === 1 ? -PI_4 : m === 2 ? 3 * PI_4 : -3 * PI_4;
+      return m === 0 ? 0 : m === 1 ? -0 : m === 2 ? PI : -PI;
+    }
+    if (iy === 0x7ff00000) return hy < 0 ? -PI_2 : PI_2;
+    const k = (iy - ix) >> 20;
+    let z;
+    if (k > 60) z = PI_2 + 0.5 * PI_LO;
+    else if (hx < 0 && k < -60) z = 0;
+    else z = DM.atan(N.abs(y / x));
+    switch (m) {
+      case 0: return z;
+      case 1: return -z;
+      case 2: return PI - (z - PI_LO);
+      default: return (z - PI_LO) - PI;
+    }
+  };
+
+  // --- asin / acos (e_asin.c, e_acos.c)
+  const pS0 = 1.66666666666666657415e-01, pS1 = -3.25565818622400915405e-01, pS2 = 2.01212532134862925881e-01,
+    pS3 = -4.00555345006794114027e-02, pS4 = 7.91534994289814532176e-04, pS5 = 3.47933107596021167570e-05,
+    qS1 = -2.40339491173441421878e+00, qS2 = 2.02094576023350569471e+00, qS3 = -6.88283971605453293030e-01, qS4 = 7.70381505559019352791e-02;
+  const PIO2_HI = 1.57079632679489655800e+00, PIO2_LO = 6.12323399573676603587e-17, PIO4_HI = 7.85398163397448278999e-01;
+  const aP = (z) => z * (pS0 + z * (pS1 + z * (pS2 + z * (pS3 + z * (pS4 + z * pS5)))));
+  const aQ = (z) => 1 + z * (qS1 + z * (qS2 + z * (qS3 + z * qS4)));
+  DM.asin = function asin(x) {
+    x = +x;
+    const hx = hi(x), ix = hx & 0x7fffffff;
+    if (ix >= 0x3ff00000) {
+      if (((ix - 0x3ff00000) | lo(x)) === 0) return x * PIO2_HI + x * PIO2_LO;
+      return NaN;
+    }
+    if (ix < 0x3fe00000) {
+      if (ix < 0x3e400000) return x;
+      const t = x * x;
+      return x + x * (aP(t) / aQ(t));
+    }
+    const t0 = (1 - N.abs(x)) * 0.5, p = aP(t0), q = aQ(t0), s = N.sqrt(t0);
+    let t;
+    if (ix >= 0x3fef3333) t = PIO2_HI - (2 * (s + s * (p / q)) - PIO2_LO);
+    else {
+      const w = zeroLo(s), c = (t0 - w * w) / (s + w), r = p / q;
+      t = PIO4_HI - ((2 * s * r - (PIO2_LO - 2 * c)) - (PIO4_HI - 2 * w));
+    }
+    return hx > 0 ? t : -t;
+  };
+  DM.acos = function acos(x) {
+    x = +x;
+    const hx = hi(x), ix = hx & 0x7fffffff;
+    if (ix >= 0x3ff00000) {
+      if (((ix - 0x3ff00000) | lo(x)) === 0) return hx > 0 ? 0 : PI + 2 * PIO2_LO;
+      return NaN;
+    }
+    if (ix < 0x3fe00000) {
+      if (ix <= 0x3c600000) return PIO2_HI + PIO2_LO;
+      const z = x * x;
+      return PIO2_HI - (x - (PIO2_LO - x * (aP(z) / aQ(z))));
+    }
+    if (hx < 0) {
+      const z = (1 + x) * 0.5, s = N.sqrt(z), w = (aP(z) / aQ(z)) * s - PIO2_LO;
+      return PI - 2 * (s + w);
+    }
+    const z = (1 - x) * 0.5, s = N.sqrt(z), df = zeroLo(s), c = (z - df * df) / (s + df), w = (aP(z) / aQ(z)) * s + c;
+    return 2 * (df + w);
+  };
+
+  // --- exp / log (e_exp.c, e_log.c)
+  const LN2_HI = 6.93147180369123816490e-01, LN2_LO = 1.90821492927058770002e-10;
+  const P1 = 1.66666666666666019037e-01, P2 = -2.77777777770155933842e-03, P3 = 6.61375632143793436117e-05,
+    P4 = -1.65339022054652515390e-06, P5 = 4.13813679705723846039e-08, TWOM1000 = 9.33263618503218878990e-302;
+  DM.exp = function exp(x) {
+    x = +x;
+    let hx = hi(x);
+    const xsb = (hx >>> 31) & 1;
+    hx &= 0x7fffffff;
+    let k = 0, hv = 0, lv = 0;
+    if (hx >= 0x40862e42) { // |x| >= 709.78
+      if (hx >= 0x7ff00000) { if (x !== x) return x + x; return xsb === 0 ? x : 0; }
+      if (x > 7.09782712893383973096e+02) return Infinity;
+      if (x < -7.45133219101941108420e+02) return 0;
+    }
+    if (hx > 0x3fd62e42) { // |x| > 0.5 ln2
+      if (hx < 0x3ff0a2b2) { hv = x - (xsb ? -LN2_HI : LN2_HI); lv = xsb ? -LN2_LO : LN2_LO; k = 1 - xsb - xsb; }
+      else { k = (1.44269504088896338700e+00 * x + (xsb ? -0.5 : 0.5)) | 0; hv = x - k * LN2_HI; lv = k * LN2_LO; }
+      x = hv - lv;
+    } else if (hx < 0x3e300000) return 1 + x;
+    const t = x * x, c = x - t * (P1 + t * (P2 + t * (P3 + t * (P4 + t * P5))));
+    if (k === 0) return 1 - ((x * c) / (c - 2) - x);
+    const y = 1 - ((lv - (x * c) / (2 - c)) - hv);
+    if (k >= -1021) return withHi(y, hi(y) + (k << 20));
+    return withHi(y, hi(y) + ((k + 1000) << 20)) * TWOM1000;
+  };
+  const Lg1 = 6.666666666666735130e-01, Lg2 = 3.999999999940941908e-01, Lg3 = 2.857142874366239149e-01, Lg4 = 2.222219843214978396e-01,
+    Lg5 = 1.818357216161805012e-01, Lg6 = 1.531383769920937332e-01, Lg7 = 1.479819860511658591e-01;
+  DM.log = function log(x) {
+    x = +x;
+    let hx = hi(x), k = 0;
+    if (hx < 0x00100000) { // x < 2^-1022
+      if (((hx & 0x7fffffff) | lo(x)) === 0) return -Infinity;
+      if (hx < 0) return NaN;
+      k -= 54; x *= 1.80143985094819840000e+16; hx = hi(x);
+    }
+    if (hx >= 0x7ff00000) return x + x;
+    k += (hx >> 20) - 1023;
+    hx &= 0x000fffff;
+    let i = (hx + 0x95f64) & 0x100000;
+    x = withHi(x, hx | (i ^ 0x3ff00000)); // x or x/2 in [√2/2, √2)
+    k += i >> 20;
+    const f = x - 1, dk = k;
+    if ((0x000fffff & (2 + hx)) < 3) { // |f| < 2^-20
+      if (f === 0) return k === 0 ? 0 : dk * LN2_HI + dk * LN2_LO;
+      const R = f * f * (0.5 - 0.33333333333333333 * f);
+      return k === 0 ? f - R : dk * LN2_HI - ((R - dk * LN2_LO) - f);
+    }
+    const s = f / (2 + f), z = s * s, w = z * z;
+    i = hx - 0x6147a;
+    const j = 0x6b851 - hx;
+    const R = z * (Lg1 + w * (Lg3 + w * (Lg5 + w * Lg7))) + w * (Lg2 + w * (Lg4 + w * Lg6));
+    i |= j;
+    if (i > 0) {
+      const hfsq = 0.5 * f * f;
+      return k === 0 ? f - (hfsq - s * (hfsq + R)) : dk * LN2_HI - ((hfsq - (s * (hfsq + R) + dk * LN2_LO)) - f);
+    }
+    return k === 0 ? f - s * (f - R) : dk * LN2_HI - ((s * (f - R) - dk * LN2_LO) - f);
+  };
+  // pow (e_pow.c)
+  const BP = [1, 1.5], DP_H = [0, 5.84962487220764160156e-01], DP_L = [0, 1.35003920212974897128e-08];
+  const L1 = 5.99999999999994648725e-01, L2 = 4.28571428578550184252e-01, L3 = 3.33333329818377432918e-01,
+    L4 = 2.72728123808534006489e-01, L5 = 2.30660745775561754067e-01, L6 = 2.06975017800338417784e-01;
+  const LG2 = 6.93147180559945286227e-01, LG2_H = 6.93147182464599609375e-01, LG2_L = -1.90465429995776804525e-09,
+    OVT = 8.0085662595372944372e-17, CP = 9.61796693925975554329e-01, CP_H = 9.61796700954437255859e-01,
+    CP_L = -7.02846165095275826516e-09, IVLN2 = 1.44269504088896338700e+00, IVLN2_H = 1.44269502162933349609e+00,
+    IVLN2_L = 1.92596299112661746887e-08, HUGE = 1.0e300, TINY = 1.0e-300;
+  const scalbn = (z, n) => { // z·2^n in exact power-of-two steps (only reached for a subnormal result)
+    while (n < -1022) { z *= 2.2250738585072014e-308; n += 1022; }
+    return z * mk((n + 0x3ff) << 20, 0);
+  };
+  DM.pow = function pow(x, y) {
+    x = +x; y = +y;
+    const hx = hi(x), lx = lo(x), hy = hi(y), ly = lo(y), ix0 = hx & 0x7fffffff, iy = hy & 0x7fffffff;
+    let ix = ix0;
+    if ((iy | ly) === 0) return 1;
+    if (ix > 0x7ff00000 || (ix === 0x7ff00000 && lx !== 0) || iy > 0x7ff00000 || (iy === 0x7ff00000 && ly !== 0)) return x + y;
+    // yisint: 0 = not an integer, 1 = odd, 2 = even (only needed when x < 0)
+    let yisint = 0, k, j;
+    if (hx < 0) {
+      if (iy >= 0x43400000) yisint = 2;
+      else if (iy >= 0x3ff00000) {
+        k = (iy >> 20) - 0x3ff;
+        if (k > 20) { j = ly >>> (52 - k); if (((j << (52 - k)) >>> 0) === ly) yisint = 2 - (j & 1); }
+        else if (ly === 0) { j = iy >> (20 - k); if ((j << (20 - k)) === iy) yisint = 2 - (j & 1); }
+      }
+    }
+    if (ly === 0) {
+      if (iy === 0x7ff00000) { // y = ±∞
+        if (((ix - 0x3ff00000) | lx) === 0) return y - y;
+        if (ix >= 0x3ff00000) return hy >= 0 ? y : 0;
+        return hy < 0 ? -y : 0;
+      }
+      if (iy === 0x3ff00000) return hy < 0 ? 1 / x : x;
+      if (hy === 0x40000000) return x * x;
+      if (hy === 0x3fe00000 && hx >= 0) return N.sqrt(x);
+    }
+    let ax = N.abs(x);
+    if (lx === 0 && (ix === 0x7ff00000 || ix === 0 || ix === 0x3ff00000)) { // x = ±0, ±∞, ±1
+      let z = ax;
+      if (hy < 0) z = 1 / z;
+      if (hx < 0) {
+        if (((ix - 0x3ff00000) | yisint) === 0) z = NaN;
+        else if (yisint === 1) z = -z;
+      }
+      return z;
+    }
+    let n = (hx >> 31) + 1;
+    if ((n | yisint) === 0) return NaN; // (x < 0) ** non-integer
+    let s = 1;
+    if ((n | (yisint - 1)) === 0) s = -1;
+    let t1, t2, t, u, v, w;
+    if (iy > 0x41e00000) { // |y| > 2^31
+      if (iy > 0x43f00000) {
+        if (ix <= 0x3fefffff) return hy < 0 ? HUGE * HUGE : TINY * TINY;
+        if (ix >= 0x3ff00000) return hy > 0 ? HUGE * HUGE : TINY * TINY;
+      }
+      if (ix < 0x3fefffff) return hy < 0 ? s * HUGE * HUGE : s * TINY * TINY;
+      if (ix > 0x3ff00000) return hy > 0 ? s * HUGE * HUGE : s * TINY * TINY;
+      t = ax - 1;
+      w = (t * t) * (0.5 - t * (0.3333333333333333333333 - t * 0.25));
+      u = IVLN2_H * t;
+      v = t * IVLN2_L - w * IVLN2;
+      t1 = zeroLo(u + v);
+      t2 = v - (t1 - u);
+    } else {
+      n = 0;
+      if (ix < 0x00100000) { ax *= 9007199254740992; n -= 53; ix = hi(ax); }
+      n += (ix >> 20) - 0x3ff;
+      j = ix & 0x000fffff;
+      ix = j | 0x3ff00000;
+      if (j <= 0x3988e) k = 0;
+      else if (j < 0xbb67a) k = 1;
+      else { k = 0; n += 1; ix -= 0x00100000; }
+      ax = withHi(ax, ix);
+      u = ax - BP[k];
+      v = 1 / (ax + BP[k]);
+      const ss = u * v, sh = zeroLo(ss);
+      let th = mk(((ix >> 1) | 0x20000000) + 0x00080000 + (k << 18), 0);
+      let tl = ax - (th - BP[k]);
+      const sl = v * ((u - sh * th) - sh * tl);
+      let s2 = ss * ss;
+      let r = s2 * s2 * (L1 + s2 * (L2 + s2 * (L3 + s2 * (L4 + s2 * (L5 + s2 * L6)))));
+      r += sl * (sh + ss);
+      s2 = sh * sh;
+      th = zeroLo(3 + s2 + r);
+      tl = r - ((th - 3) - s2);
+      u = sh * th;
+      v = sl * th + tl * ss;
+      const ph = zeroLo(u + v), pl = v - (ph - u);
+      const zh = CP_H * ph, zl = CP_L * ph + pl * CP + DP_L[k];
+      t = n;
+      t1 = zeroLo(((zh + zl) + DP_H[k]) + t);
+      t2 = zl - (((t1 - t) - DP_H[k]) - zh);
+    }
+    // (y1 + y2)·(t1 + t2)
+    const y1 = zeroLo(y);
+    const pl = (y - y1) * t1 + y * t2;
+    let ph = y1 * t1;
+    let z = pl + ph;
+    j = hi(z);
+    let i = lo(z);
+    if (j >= 0x40900000) { // z >= 1024
+      if (((j - 0x40900000) | i) !== 0) return s * HUGE * HUGE;
+      if (pl + OVT > z - ph) return s * HUGE * HUGE;
+    } else if ((j & 0x7fffffff) >= 0x4090cc00) { // z <= -1075
+      if (((j - 0xc090cc00) | i) !== 0) return s * TINY * TINY;
+      if (pl <= z - ph) return s * TINY * TINY;
+    }
+    // 2 ** (ph + pl)
+    i = j & 0x7fffffff;
+    k = (i >> 20) - 0x3ff;
+    n = 0;
+    if (i > 0x3fe00000) {
+      n = (j + (0x00100000 >> (k + 1))) | 0;
+      k = ((n & 0x7fffffff) >> 20) - 0x3ff;
+      t = mk(n & ~(0x000fffff >> k), 0);
+      n = ((n & 0x000fffff) | 0x00100000) >> (20 - k);
+      if (j < 0) n = -n;
+      ph -= t;
+    }
+    t = zeroLo(pl + ph);
+    u = t * LG2_H;
+    v = (pl - (t - ph)) * LG2 + t * LG2_L;
+    z = u + v;
+    w = v - (z - u);
+    t = z * z;
+    t1 = z - t * (P1 + t * (P2 + t * (P3 + t * (P4 + t * P5))));
+    const r = (z * t1) / (t1 - 2) - (w + z * w);
+    z = 1 - (r - z);
+    j = (hi(z) + (n << 20)) | 0;
+    if ((j >> 20) <= 0) z = scalbn(z, n);
+    else z = withHi(z, j);
+    return s * z;
+  };
+  DM.hypot = function hypot() {
+    const n = arguments.length;
+    let m = 0, nan = false;
+    for (let i = 0; i < n; i++) {
+      const v = N.abs(+arguments[i]);
+      if (v === Infinity) return Infinity;
+      if (v !== v) nan = true; else if (v > m) m = v;
+    }
+    if (nan) return NaN;
+    if (m === 0) return 0;
+    let s = 0;
+    for (let i = 0; i < n; i++) { const r = N.abs(+arguments[i]) / m; s += r * r; }
+    return m * N.sqrt(s);
+  };
+  // not used by the simulation today; built on the functions above so they stay engine-independent too
+  DM.sinh = function sinh(x) { x = +x; const e = DM.exp(x); return (e - 1 / e) / 2; };
+  DM.cosh = function cosh(x) { x = +x; const e = DM.exp(x); return (e + 1 / e) / 2; };
+  DM.tanh = function tanh(x) { x = +x; if (x > 20) return 1; if (x < -20) return -1; const e = DM.exp(2 * x); return (e - 1) / (e + 1); };
+  DM.log2 = function log2(x) { return DM.log(+x) / N.LN2; };
+  DM.log10 = function log10(x) { return DM.log(+x) / N.LN10; };
+  DM.cbrt = function cbrt(x) { x = +x; if (x === 0 || !Number.isFinite(x)) return x; const r = DM.exp(DM.log(N.abs(x)) / 3); return x < 0 ? -r : r; };
+  DM.expm1 = function expm1(x) { x = +x; return N.abs(x) < 1e-5 ? x + x * x / 2 + x * x * x / 6 : DM.exp(x) - 1; };
+  DM.log1p = function log1p(x) { x = +x; return N.abs(x) < 1e-5 ? x - x * x / 2 + x * x * x / 3 : DM.log(1 + x); };
+  ND.DM = DM;
+})(window.ND);
+
+// ---------------------------------------------------------------- SIMULATION RANDOM STREAM (ND.rng)
+// Everything that decides the fight (AI choices, sword-lock chance, ragdoll push, arrow volley spread...) draws from
+// ND.rng and only from it: one 32-bit state (mulberry32), saved with the fight (game.saveState) and seeded the same on
+// both devices online. Math.random stays for the picture and the sound (sparks, weather, voice picks, camera shake),
+// whose timing depends on the display and the wall clock and so must never move the fight.
+(function (ND) {
+  'use strict';
+  ND.rng = {
+    s: 0,
+    seed(n) { this.s = n | 0; return this; },
+    next() {
+      let t = (this.s = (this.s + 0x6d2b79f5) | 0);
+      t = Math.imul(t ^ (t >>> 15), 1 | t);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    },
+    range(a, b) { return a + this.next() * (b - a); },
+  };
+  ND.rng.seed((Math.random() * 4294967296) >>> 0); // offline: a different fight every session
+})(window.ND);
+
+(function (ND) {
+  'use strict';
+  const Math = ND.DM || globalThis.Math; // the helpers below (approach, ease, segSeg) are simulation math
 
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 

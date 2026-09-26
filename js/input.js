@@ -11,11 +11,22 @@
   // is not buffered and a masked key does not read as held. Presses from the tutorial itself (src 'tut') pass.
   // clear() keeps it, so a pause or a tab switch during the tutorial does not unmask anything.
   // lastSrc: where the latest real press came from ('k…' keyboard, 'g…' gamepad, 't…' touch), for button prompts.
+  //
+  // Input frames (online play): one tick of a controller is one integer. Bit i (ACTS[i]) = that action is held, bit
+  // 10 + i = it was freshly pressed since the previous frame (a press let go before the tick still counts). Everything a
+  // fighter reads from its controller follows from that sequence: held() and axis(), the press times behind has() /
+  // take() / since() (a press is stamped with the simulation clock of the tick boundary it arrives at, as a key press
+  // between two frames always was) and the double-tap dash. So a FrameCtrl fed the same frames, tick by tick, is the
+  // same controller, and a remote player's frames can be injected one tick at a time. frame() only reads a device
+  // controller (keyboard, pads, touch): local play is unchanged.
+  const ACTS = ['left', 'right', 'up', 'guard', 'light', 'heavy', 'kick', 'throw', 'dodge', 'special'];
+  const BIT = {}; ACTS.forEach((a, i) => (BIT[a] = 1 << i));
   class Ctrl {
     constructor() { this.mask = null; this.lastSrc = ''; this.clear(); }
     clear() {
       this.srcs = {}; this.buf = {};
       this.lastTap = { left: -9, right: -9 }; this.tapDir = 0;
+      this.edges = 0; // fresh presses since the last frame() (bit per ACTS index)
     }
     press(a, src = 'k') {
       const s = this.srcs[a] || (this.srcs[a] = new Set());
@@ -24,6 +35,11 @@
       if (src !== 'tut') this.lastSrc = src;
       if (was) return;
       if (this.mask && this.mask[a] && src !== 'tut') return;
+      this.edges |= BIT[a] || 0;
+      this.buffer(a);
+    }
+    // a fresh press of a: its time in the buffer, the double-tap dash, the press listener
+    buffer(a) {
       const t = now();
       this.buf[a] = t;
       if (!this.noTap && (a === 'left' || a === 'right')) {
@@ -39,7 +55,24 @@
     has(a, win = 0.2) { const t = this.buf[a]; return t != null && now() - t <= win; }
     take(a, win = 0.2) { if (this.has(a, win)) { this.buf[a] = null; return true; } return false; }
     since(a) { const t = this.buf[a]; return t == null ? 99 : now() - t; }
+    // This tick's input frame (see above); clears the fresh-press bits. Call once per simulation tick.
+    frame() {
+      let v = this.edges << 10;
+      this.edges = 0;
+      for (let i = 0; i < ACTS.length; i++) if (this.held(ACTS[i])) v |= 1 << i;
+      return v;
+    }
   }
+  // A controller driven only by input frames (a remote player, a replayed recording): applyFrame(v) before each tick.
+  class FrameCtrl extends Ctrl {
+    clear() { super.clear(); this.hm = 0; }
+    held(a) { return (this.hm & (BIT[a] || 0)) !== 0; }
+    applyFrame(v) {
+      for (let i = 0; i < ACTS.length; i++) if (v & (1 << (10 + i))) this.buffer(ACTS[i]);
+      this.hm = v & 0x3ff;
+    }
+  }
+  Ctrl.ACTS = ACTS; Ctrl.BIT = BIT;
 
   const KEYMAP = {
     p1: {
@@ -571,5 +604,5 @@
     });
   }
 
-  ND.Ctrl = Ctrl;
+  ND.Ctrl = Ctrl; ND.FrameCtrl = FrameCtrl;
 })(window.ND);

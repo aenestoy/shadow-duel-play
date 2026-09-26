@@ -1,6 +1,7 @@
 // Gölge Düellosu — iskelet: pozlar, ters kinematik (IK), ninja çizimi, kumaş ipleri, ragdoll
 (function (ND) {
   'use strict';
+  const Math = ND.DM || globalThis.Math; // IK, cloth, chain, ragdoll: simulation math (ND.DM, core.js)
   const { clamp } = ND.M;
   const L = ND.LEN = { thigh: 46, shin: 46, torso: 56, headR: 12.5, uArm: 30, fArm: 29, blade: 96, handle: 24 };
 
@@ -2460,7 +2461,7 @@
       for (const k of RD_PTS) {
         const s = j[k];
         const up = clamp((j.hip.y - s.y) / 90, -0.3, 1);
-        const ivx = imp.x * (0.5 + up * 0.8) + (Math.random() - 0.5) * 40;
+        const ivx = imp.x * (0.5 + up * 0.8) + (ND.rng.next() - 0.5) * 40; // the fight stream (core.js): the body falls the same everywhere
         const ivy = imp.y * (0.6 + up * 0.5) - 60 * up;
         this.p[k] = { x: s.x, y: s.y, px: s.x - (vx + ivx) * dt0, py: s.y - (vy + ivy) * dt0 };
       }

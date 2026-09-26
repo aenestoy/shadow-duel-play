@@ -588,10 +588,16 @@
 
     resize(W, H) { cam.W = W; cam.H = H; cam.s = Math.min(H / 720, W / 700); },
 
-    update(dt) {
+    // The scene clock t and the wind are fight state: fighters breathe on t (their pose, so their hit boxes) and cloth
+    // blows with the wind. advance() is that part alone (game.tick simOnly); update() adds weather and lightning.
+    advance(dt) {
       this.t += dt;
+      const th = this.theme, DM = ND.DM || Math;
+      this.wind = th.wind + DM.sin(this.t * 0.4) * 60 + (th.gust ? th.gust * Math.sign(th.wind) * DM.pow(Math.max(0, DM.sin(this.t * 0.9)), 3) : 0);
+    },
+    update(dt) {
+      this.advance(dt);
       const th = this.theme;
-      this.wind = th.wind + Math.sin(this.t * 0.4) * 60 + (th.gust ? th.gust * Math.sign(th.wind) * Math.pow(Math.max(0, Math.sin(this.t * 0.9)), 3) : 0);
       for (const p of this.parts) {
         if (th.weather === 'embers') {
           p.l += dt; p.x += (p.vx + this.wind * 0.5 + Math.sin(this.t * 1.7 + p.p) * 28) * dt; p.y += p.vy * dt;

@@ -1,7 +1,10 @@
 // Gölge Düellosu — karaktere özel ki teknikleri: saldırı tanımları, özel efektler, sesler, mermiler
 (function (ND) {
   'use strict';
+  const Math = ND.DM || globalThis.Math; // ki techniques and projectiles: deterministic math (ND.DM, core.js)
   const { clamp, rand, ease, segSeg } = ND.M;
+  // rand (Math.random) is for particles and sound only; anything that changes the fight draws from ND.rng (core.js)
+  const srand = (a, b) => ND.rng.range(a, b);
   const PO = ND.POSES, ATK = ND.ATK, fx = ND.fx, au = ND.audio, cam = ND.cam;
   const TAU = Math.PI * 2, PARRY_WIN = 0.17;
   const game = () => ND.game || {};
@@ -1153,7 +1156,7 @@
     }
     deflect() {
       if (this.falling || this.stuck) return;
-      this.falling = true; this.vx *= -0.22; this.vy = -360; this.spin = (Math.random() < 0.5 ? -1 : 1) * 14; this.glow = 0; this.ret = 0;
+      this.falling = true; this.vx *= -0.22; this.vy = -360; this.spin = (ND.rng.next() < 0.5 ? -1 : 1) * 14; this.glow = 0; this.ret = 0;
     }
     turn() {
       // kırlangıç dönüşü: rakibi geçtiyse U çizip arkadan gelir
@@ -1174,7 +1177,7 @@
       this.rot = 3000 + (((this.ang + Math.PI) % TAU) + TAU) % TAU;
       if (this.glow > 0 && Math.random() < dt * 50) part({ k: 'streak', x: this.x, y: this.y, vx: -this.vx * 0.1, vy: -this.vy * 0.1, life: 0.2, sz: 1.4, c: '190,240,255', add: true, rot: 0, vr: 0 });
       if (this.noHit) { if (this.y < -1000 || this.t > 1.4) this.dead = true; return; }
-      if (this.y > -1 && this.vy > 0) { this.y = rand(3, 7); this.stuck = true; this.st = 0; this.glow = 0; au.tick(cam.pan(this.x)); fx.dust(this.x, 0, 2, 0.4); return; }
+      if (this.y > -1 && this.vy > 0) { this.y = srand(3, 7); this.stuck = true; this.st = 0; this.glow = 0; au.tick(cam.pan(this.x)); fx.dust(this.x, 0, 2, 0.4); return; }
       const A = ND.ARENA + 30;
       if (Math.abs(this.x) > A) {
         if (this.ret > 0 && !this.falling) { this.x = Math.sign(this.x) * A; this.turn(); }
@@ -1685,7 +1688,7 @@
     }
     const lead = clamp(o.vx * 0.3, -90, 90);
     for (let i = 0; i < 5; i++) {
-      const tx = clamp(o.x + lead + (i - 2) * 38 + rand(-8, 8), -ARN, ARN), wait = 0.12 + i * 0.04 + rand(0, 0.03);
+      const tx = clamp(o.x + lead + (i - 2) * 38 + srand(-8, 8), -ARN, ARN), wait = 0.12 + i * 0.04 + srand(0, 0.03);
       g.projs.push(new Arrow(f, tx - f.dir * 30, -600, f.dir * 0.05, 1, 1900, { dmg: 4, post: 8, kb: 30, stun: 0.34, kind: 'arrow', special: true }, { wait, rain: true, g: 0 }));
       tsMark(tx, wait + 0.26, rgbOf(f.col.accent, '170,235,255'));
     }

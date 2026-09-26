@@ -1,7 +1,10 @@
 // Gölge Düellosu — dövüşçü: durum makinesi, hareket, saldırılar, savunma, savuşturma, ki, kilitlenme, shuriken
 (function (ND) {
   'use strict';
+  const Math = ND.DM || globalThis.Math; // the fight itself: deterministic math on every device (ND.DM, core.js)
   const { clamp, rand, ease, segSeg } = ND.M;
+  // rand (Math.random) is for sparks, dust and sound only; anything that changes the fight draws from ND.rng (core.js)
+  const srand = (a, b) => ND.rng.range(a, b);
   const PO = ND.POSES, pose = ND.pose, fx = ND.fx, au = ND.audio, cam = ND.cam;
   const GRAV = 2500, JUMP_V = -900, WALK_F = 255, WALK_B = 195, PARRY_WIN = 0.17;
   // Small human-only timing differences. Master is the original tuning; AI and local 2P keep it.
@@ -321,7 +324,7 @@
       else this.rot += dt * (this.falling ? 14 : 38);
       this.vy += (this.falling ? GRAV : 160) * dt;
       this.x += this.vx * dt; this.y += this.vy * dt;
-      if (this.y > 0) { this.y = rand(0, 5); this.stuck = true; au.tick(cam.pan(this.x)); return; }
+      if (this.y > 0) { this.y = srand(0, 5); this.stuck = true; au.tick(cam.pan(this.x)); return; }
       const A = ND.ARENA + 40;
       if (Math.abs(this.x) > A) { this.x = Math.sign(this.x) * A; this.stuck = true; au.tick(cam.pan(this.x)); return; }
       if (this.falling) return;
@@ -1341,7 +1344,7 @@
       }
       o.posture += a.post * (isKick ? 1.2 * (this.ch.kickMul || 1) : 1) * (a.special ? 1 : this.ch.dmg) * (a.crush ? 2.2 : 1) * (a.gcrush || 1) * (this.ch.post || 1) * (o.ch.guardMul || 1);
       // bloklanan kesik bazen kılıç kilidine döner (tsubazeriai)
-      if (!isKick && !a.special && a.kind === 'blade' && this.state === 'atk' && this.onGround && o.onGround && o.posture < 95 && Math.abs(this.x - o.x) < 150 && Math.random() < 0.3) {
+      if (!isKick && !a.special && a.kind === 'blade' && this.state === 'atk' && this.onGround && o.onGround && o.posture < 95 && Math.abs(this.x - o.x) < 150 && ND.rng.next() < 0.3) {
         fx.spark(x, y, -Math.PI / 2, 18, 1); au.clang(1.1, pan); this.gainKi(5); o.gainKi(5);
         ND.game.hitstop(0.08); ND.game.startLock(this, o, x, y); return;
       }
@@ -1374,7 +1377,7 @@
       fx.spark(x, y, -Math.PI / 2, 34, 1.4); fx.ring(x, y, '255,240,200', 110); fx.flash(x, y, -1.2, 90, '255,236,190');
       au.clang(1.6, cam.pan(x), 0.9); cam.punch(10); ND.game.hitstop(0.16);
       const sp = (f) => f.state === 'atk' && f.atk.special;
-      if (this.onGround && o.onGround && !sp(this) && !sp(o) && this.state === 'atk' && o.state === 'atk' && Math.abs(this.x - o.x) < 200 && Math.random() < 0.7) {
+      if (this.onGround && o.onGround && !sp(this) && !sp(o) && this.state === 'atk' && o.state === 'atk' && Math.abs(this.x - o.x) < 200 && ND.rng.next() < 0.7) {
         ND.game.startLock(this, o, x, y); return;
       }
       this.setState('clash'); o.setState('clash');
@@ -1391,7 +1394,7 @@
       const j = this.j, W = this.wpn;
       // iki uçlu silah (bō) bütün olarak düşer: kabza ucundan başlayan tek çubuk
       const dual = W.dual && j.pom, lw = dual ? Object.assign({}, W, { blade: W.blade + W.handle, handle: 0 }) : W;
-      this.looseSword = new ND.LooseSword(dual ? j.pom.x : j.haF.x, dual ? j.pom.y : j.haF.y, j.tip.x, j.tip.y, kdir * rand(120, 260), rand(-750, -520), rand(-420, 420), lw);
+      this.looseSword = new ND.LooseSword(dual ? j.pom.x : j.haF.x, dual ? j.pom.y : j.haF.y, j.tip.x, j.tip.y, kdir * srand(120, 260), srand(-750, -520), srand(-420, 420), lw);
       const blunt = a.blunt || a.kind === 'whip' || (a.kind === 'blade' && from && from.ch && from.ch.blunt);
       if (blunt) { fx.dust(x, y, 14, 1.2); fx.ring(x, y, '240,230,210', 90); } else fx.blood(x, y, kdir, -0.4, 50, 1.6);
       ND.game.onKO(this, from);

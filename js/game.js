@@ -319,9 +319,14 @@
   const FX_EV = ['spark', 'blood', 'dust', 'flash', 'ring', 'text'];
   FX_EV.forEach((name) => {
     const orig = fx[name].bind(fx);
-    fx[name] = (...args) => { if (game.recording) game.fxEvents.push([name, args]); return orig(...args); };
+    fx[name] = (...args) => { if (game.simOnly) return; if (game.recording) game.fxEvents.push([name, args]); return orig(...args); };
     fx['_' + name] = orig;
   });
+
+  // newMatch: a fighter's own drawing closures and part-picture cache survive the renewal (they draw that fighter)
+  const RENEW_KEEP = { _trailFn: 1, _litFn: 1, _bake: 1 };
+  // Music follows the fight, but not while the fight is only re-simulated (simOnly, see game.tick)
+  const music = (m) => { if (!game.simOnly) mu.setMode(m); };
 
   const game = ND.game = {
     renderVersion: 'fighter-surfaces-v1',
@@ -335,7 +340,7 @@
     fpsPref: GFX.FPS && GFX.FPS.includes(saved.fps) ? saved.fps : null,
     mode: 'attract', level: [0, 1, 2].includes(saved.level) ? saved.level : 1, phase: 'menu', pt: 0, projs: [], hitstopT: 0, slow: 1, slowT: 0,
     round: 1, wins: [0, 0], timer: ROUND_TIME, focus: null, paused: false, bars: 0, ais: [], bannerT: 0, dim: 0,
-    stats: null, flags: {}, lock: null, clock: 0, tz: 1, rally: { n: 0, last: null, t: 0 }, slowV: 0.35, cineT: 0, cineX: 0, recording: false, fxEvents: [], rec: [], koIndex: -1, replay: null,
+    stats: null, flags: {}, lock: null, clock: 0, tz: 1, rally: { n: 0, last: null, t: 0 }, slowV: 0.35, cineT: 0, cineX: 0, recording: false, fxEvents: [], rec: [], recN: 0, koIndex: -1, replay: null,
     sel: { c: [charIdx(saved.c1, 0), charIdx(saved.c2, 1)], arena: saved.arena ?? 'temple', ready: [false, false] },
     F, pv: null, pvIds: ['pv1', 'pv2'],
 
@@ -366,7 +371,7 @@
       [aiC1, aiC2, input.p1, input.p2].forEach((c) => c.clear());
       this.ais = [];
       let c1 = opts.c1, c2 = opts.c2, arena = opts.arena;
-      if (mode === 'watch' || mode === 'attract') {
+      if ((mode === 'watch' || mode === 'attract') && c1 == null) { // (tests and tools may name the pair and the arena)
         [c1, c2] = pickPair();
         arena = randArena(false);
       }
@@ -401,6 +406,24 @@
       if (!attract) this.prepareMatch();
     },
 
+    // A fight both players' devices can start on their own and keep identical (online play, determinism tests): the
+    // fight's random stream seeded, the simulation clocks at zero, fighter objects built afresh (nothing left over from
+    // earlier fights on this device: press-direction memory, weapon twirl, serial numbers...), then an ordinary
+    // start(mode, opts). opts.seed: the shared seed (both devices use the same one).
+    newMatch(mode, opts = {}) {
+      ND.rng.seed(opts.seed | 0);
+      ND.simClock = 0; this.clock = 0; this.recOdd = false; scene.t = 0;
+      this.slowV = 0.35; this.cineX = 0; this.loser = null; // (read only after being set; reset so both devices hash alike)
+      for (const f of F) {
+        const fresh = new ND.Fighter(f.id, f.ctrl);
+        // (fields the fresh one lacks become undefined rather than deleted: deleting would put the object in V8's slow
+        // dictionary mode; the fight reads undefined and absent alike, and the state fingerprint skips both)
+        for (const k of Object.keys(f)) if (!RENEW_KEEP[k]) f[k] = undefined;
+        for (const k of Object.keys(fresh)) if (!RENEW_KEEP[k]) f[k] = fresh[k];
+      }
+      f1.opp = f2; f2.opp = f1;
+      this.start(mode, opts);
+    },
     cancelPreparation() {
       if (this.preparing) { this.preparing.cancel(); this.preparing = null; }
     },
@@ -501,10 +524,10 @@
 
     startRound() {
       f1.reset(-260); f2.reset(260);
-      this.projs = []; fx.clear(); ND.specialFx?.clear(); ND.cine?.clear(); this.lock = null; $('lockHint').hidden = true;
+      this.projs = []; fx.clear(); ND.specialFx?.clear(); ND.cine?.clear(); this.lock = null; if (!this.simOnly) $('lockHint').hidden = true;
       this.timer = ROUND_TIME; this.phase = 'intro'; this.pt = 0; this.slow = 1; this.slowT = 0; this.hitstopT = 0; this.dim = 0;
       this.focus = { x: 0, y: -130, z: 0.82 }; this.flags = {}; this.doubleKO = false; this.winner = null;
-      this.rec = []; this.koIndex = -1; this.fxEvents = [];
+      this.rec = []; this.recN = 0; this.koIndex = -1; this.fxEvents = [];
       this.rally = { n: 0, last: null, t: 0, turns: [0, 0], serial: null }; this.cineT = 0; this.cineZ = 0; this.rallyHud();
       if (ND.mods) ND.mods.roundStart(F); // değiştiriciler: dolu ki, üç kat shuriken, yarım can…
       score.roundStart();
@@ -514,7 +537,7 @@
     },
 
     banner(text, kanji, sub, dur = 1.1) {
-      if (this.mode === 'attract') return;
+      if (this.mode === 'attract' || this.simOnly) return;
       const el = $('banner');
       $('bt').textContent = tx(text); $('bk').textContent = kanji || ''; $('bs').textContent = sub ? tx(sub) : '';
       el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
@@ -527,10 +550,10 @@
       if (this.phase !== 'fight') return;
       if (this.lock) this.endLock(null);
       this.phase = 'ko'; this.pt = 0; this.loser = loser; this.winner = winner;
-      this.koIndex = this.rec.length;
+      this.koIndex = this.recN;
       F.forEach((f) => (f.locked = true));
       this.slow = 0.2; cam.punch(12); this.hitstop(0.22);
-      au.ko(); mu.setMode('ko');
+      au.ko(); music('ko');
     },
     onSpecial(f) {
       this.dim = 1; this.slowT = 0.3; this.slowV = 0.35;
@@ -547,7 +570,7 @@
       let nm = name;
       if (stage >= 3 && name !== 'mawari') nm = 'finisher';
       const speed = 1 + 0.07 * Math.min(R.n - 1, 7);
-      if (R.n >= 3 && this.mode !== 'attract') mu.setMode('final');
+      if (R.n >= 3 && this.mode !== 'attract') music('final');
       if (f === f1) score.counter(R.n);
       if (this.stats && this.phase === 'fight') this.stats[f.id].counters++;
       if (nm === 'finisher') this.onFinisher(f);
@@ -573,6 +596,7 @@
       ND.RALLY.reset(R); this.rallyHud();
     },
     rallyHud() {
+      if (this.simOnly) return;
       const R = this.rally, who = SOLO[this.mode] ? f1 : R.last;
       const n = (who && R.turns && R.turns[who.id]) || 0, el = $('rally');
       if (!el) return;
@@ -631,7 +655,7 @@
       a.x = mid - a.dir * 50; b.x = mid - b.dir * 50; a.vx = b.vx = 0;
       this.lock = { a, b, t: 0, pa: 0, pb: 0, sp: 0, mid, off: 0 };
       fx.text(mid, -235, 'KİLİTLENDİ!', '#ffe3a1');
-      if (this.mode !== 'attract') {
+      if (this.mode !== 'attract' && !this.simOnly) {
         const H = STR.hud || {};
         const hint = SOLO[this.mode] && tOn() && STR.touch ? STR.touch.lock : SOLO[this.mode] ? H.lockSolo || 'F / K tuşuna hızlıca bas!' : H.lockDuo || 'Hafif ya da ağır tuşuna hızlıca bas!';
         $('lockHint').textContent = tx(hint); $('lockHint').hidden = false;
@@ -650,7 +674,7 @@
       L.sp -= dt;
       if (L.sp <= 0) {
         L.sp = 0.08;
-        fx._spark(c, -132, -Math.PI / 2, 3, 0.45);
+        if (!this.simOnly) fx._spark(c, -132, -Math.PI / 2, 3, 0.45);
         au.noise({ type: 'bandpass', f0: 3200 + Math.random() * 800, q: 8, dur: 0.09, gain: 0.08, send: 0.3, pan: cam.pan(c) });
         cam.punch(1.2);
       }
@@ -658,7 +682,7 @@
     },
     endLock(winner) {
       const L = this.lock; if (!L) return;
-      this.lock = null; $('lockHint').hidden = true;
+      this.lock = null; if (!this.simOnly) $('lockHint').hidden = true;
       if (L.a.dead || L.b.dead) return;
       const c = (L.a.x + L.b.x) / 2;
       if (winner) {
@@ -677,7 +701,7 @@
     // ---------------------------------------------------- raund akışı
     phaseUpdate(rdt, gdt) {
       const pt = this.pt, fl = this.flags;
-      if (this.bannerT > 0) { this.bannerT -= rdt; if (this.bannerT <= 0) $('banner').classList.remove('show'); }
+      if (this.bannerT > 0 && !this.simOnly) { this.bannerT -= rdt; if (this.bannerT <= 0) $('banner').classList.remove('show'); }
       if (this.phase === 'intro' && this.mode === 'train') {
         // antrenman: tanıtım yok, hemen başla
         if (pt > 0.3) { this.phase = 'fight'; F.forEach((f) => (f.locked = false)); }
@@ -688,7 +712,7 @@
           const BZ = STR.bz || {};
           this.banner(last ? 'Son raund' : this.round + '. Raund', KANJI[Math.min(2, this.round - 1)], need === 1 ? BZ.suddenSub || '' : last ? 'Kazanan her şeyi alır' : 'İlk iki raundu alan kazanır', 1.15);
           au.gong();
-          if (this.mode !== 'attract') mu.setMode(last ? 'final' : 'fight');
+          if (this.mode !== 'attract') music(last ? 'final' : 'fight');
         }
         if (pt > 0.9) this.focus = null;
         if (pt > 1.5 && !fl.f) { fl.f = true; this.banner('Dövüş!', '始め', '', 0.75); au.taiko(1.1); }
@@ -696,7 +720,7 @@
       } else if (this.phase === 'fight') {
         if (this.mode === 'train') return;
         if (!(ND.tutor && ND.tutor.on)) this.timer -= gdt; // the rally tutorial does not use up the round
-        if (this.mode !== 'attract' && Math.min(f1.hp / f1.maxHp, f2.hp / f2.maxHp) < 0.3) mu.setMode('final');
+        if (this.mode !== 'attract' && Math.min(f1.hp / f1.maxHp, f2.hp / f2.maxHp) < 0.3) music('final');
         if (this.timer <= 0) {
           if (this.lock) this.endLock(null);
           this.timer = 0; this.phase = 'timeup'; this.pt = 0;
@@ -704,7 +728,7 @@
           const d = f1.hp / f1.maxHp - f2.hp / f2.maxHp;
           this.winner = d > 0.001 ? f1 : d < -0.001 ? f2 : null;
           this.banner('Süre doldu', this.winner ? '一本' : '引分', this.winner ? this.winner.ch.name + ' önde' : 'Berabere', 1.8);
-          au.taiko(1); au.gong(); mu.setMode('ko');
+          au.taiko(1); au.gong(); music('ko');
         }
       } else if (this.phase === 'ko') {
         const L = this.loser;
@@ -737,7 +761,7 @@
       if (score.on) score.roundEnd(w, this.timer, this.phase === 'ko' && !this.doubleKO);
       if (w) this.wins[w.id]++;
       if (w && this.wins[w.id] >= (this.winsNeed || 2)) {
-        if (this.koIndex > 30 && !this.doubleKO && this.rec.length > this.koIndex) return this.startReplay(w);
+        if (this.koIndex > 30 && !this.doubleKO && this.recN > this.koIndex) return this.startReplay(w);
         return this.matchEnd(w);
       }
       this.round++; this.startRound();
@@ -844,13 +868,15 @@
       };
     },
     startReplay(w) {
-      const from = Math.max(0, this.koIndex - 100), to = Math.min(this.rec.length - 1, this.koIndex + 75);
+      const from = Math.max(0, this.koIndex - 100), to = Math.min(this.recN - 1, this.koIndex + 75);
       this.replay = { w, i: from, from, to, ko: this.koIndex, last: from - 1, decals: fx.decals.length };
       this.phase = 'replay'; this.pt = 0;
-      fx.clear();
-      $('replayTag').hidden = false; $('banner').classList.remove('show');
-      $('hud').hidden = true; $('pauseBtn').hidden = true; $('rally').hidden = true; // sinematik: HUD tekrar etiketinin üstüne binmesin
-      mu.setMode('menu');
+      if (!this.simOnly) fx.clear();
+      if (!this.simOnly) {
+        $('replayTag').hidden = false; $('banner').classList.remove('show');
+        $('hud').hidden = true; $('pauseBtn').hidden = true; $('rally').hidden = true; // sinematik: HUD tekrar etiketinin üstüne binmesin
+      }
+      music('menu');
     },
     updateReplay(rdt) {
       const R = this.replay;
@@ -858,21 +884,22 @@
       const speed = d < -28 ? 1 : d < 30 ? 0.28 : 0.6;
       R.i += rdt * 60 * speed;
       const idx = Math.min(R.to, Math.floor(R.i));
-      for (let k = R.last + 1; k <= idx; k++) {
-        const fr = this.rec[k];
-        if (fr) for (const [name, args] of fr.fx) fx['_' + name](...args);
+      if (!this.simOnly) {
+        for (let k = R.last + 1; k <= idx; k++) {
+          const fr = this.rec[k];
+          if (fr) for (const [name, args] of fr.fx) fx['_' + name](...args);
+        }
+        fx.update(rdt * speed);
+        const s = this.rec[idx];
+        if (s) { cam.x = s.cam.x; cam.y = s.cam.y - 6; cam.z = s.cam.z * 1.12; cam.shx = cam.shy = 0; }
       }
       R.last = idx;
-      fx.update(rdt * speed);
-      const s = this.rec[idx];
-      if (s) { cam.x = s.cam.x; cam.y = s.cam.y - 6; cam.z = s.cam.z * 1.12; cam.shx = cam.shy = 0; }
       if (R.i >= R.to) this.finishReplay();
     },
     finishReplay() {
       if (!this.replay) return;
       const w = this.replay.w;
-      $('replayTag').hidden = true;
-      $('hud').hidden = false; $('pauseBtn').hidden = false;
+      if (!this.simOnly) { $('replayTag').hidden = true; $('hud').hidden = false; $('pauseBtn').hidden = false; }
       this.replay = null;
       this.matchEnd(w);
     },
@@ -900,7 +927,8 @@
     update(rdt) {
       this.pt += rdt;
       if (this.phase === 'select' || this.phase === 'vs' || this.phase === 'ending') { this.updateSelect(rdt); scene.update(rdt); cam.follow(rdt, { x: -200, y: 0 }, { x: 200, y: 0 }, null); return; }
-      if (this.phase === 'replay') { scene.update(rdt * 0.4); this.updateReplay(rdt); this.bars = 1; return; }
+      const sim = this.simOnly; // re-simulation (rollback): the fight only, nothing that just feeds the picture or sound
+      if (this.phase === 'replay') { if (sim) scene.advance(rdt * 0.4); else scene.update(rdt * 0.4); this.updateReplay(rdt); this.bars = 1; return; }
       // Rally tutorial (js/tutorial.js): tz is its time scale for this step (set in advance). 0 = time stands still
       // until the player presses the prompted button: nothing moves or counts down, only the camera leans in.
       const T = ND.tutor && ND.tutor.on && ND.tutor.G === this ? ND.tutor : null, tz = T ? this.tz : 1;
@@ -914,7 +942,7 @@
       this.dim = Math.max(0, this.dim - rdt * 1.6);
       const gdt = rdt * this.slow * tz;
       this.phaseUpdate(rdt, gdt);
-      scene.update(gdt);
+      if (sim) scene.advance(gdt); else scene.update(gdt); // scene.t (breathing poses, cloth wind) is fight state
       let fdt = gdt;
       if (this.hitstopT > 0) { this.hitstopT -= rdt; fdt = 0; }
       this.recording = this.mode !== 'attract' && (this.phase === 'fight' || this.phase === 'ko');
@@ -937,6 +965,16 @@
       }
       // Update once per fixed simulation step, including momentum decay during hit-stop.
       for (const f of F) ND.updateCloth(f.dead ? f.rag.j : f.j, gdt);
+      // The replay reads 60 snapshots per second of game time (updateReplay), so with the 120 Hz step only every
+      // other step is recorded; fx events of the skipped step wait in fxEvents for the next snapshot. The counters
+      // (recN, koIndex) decide whether and how long the KO replay plays, so they are fight state and run in both
+      // modes; the snapshot pictures are taken (at the end, after the camera) only when the step is presented.
+      let snap = false;
+      if (this.recording) {
+        this.recOdd = !this.recOdd;
+        if (this.recOdd || this.recN === 0) { snap = true; if (++this.recN > 900) { this.recN--; this.koIndex--; } }
+      }
+      if (sim) return;
       fx.update(fdt > 0 ? gdt : gdt * 0.25);
       ND.specialFx?.update(fdt > 0 ? gdt : gdt * 0.25);
       if (ND.cine) ND.cine.update(rdt);
@@ -950,12 +988,7 @@
       else if (!focus && this.rally.n >= 2 && Math.abs(f1.x - f2.x) < 420) focus = { x: mid, y: -116, z: Math.min(1.45, 1.08 + 0.06 * this.rally.n) };
       cam.follow(rdt, f1, f2, focus);
       this.bars = ND.M.approach(this.bars, (this.phase === 'ko' && this.pt < 3.5) || this.lock ? 1 : 0, 6, rdt);
-      // The replay reads 60 snapshots per second of game time (updateReplay), so with the 120 Hz step only every
-      // other step is recorded; fx events of the skipped step wait in fxEvents for the next snapshot.
-      if (this.recording) {
-        this.recOdd = !this.recOdd;
-        if (this.recOdd || this.rec.length === 0) { this.rec.push(this.snapshot()); if (this.rec.length > 900) { this.rec.shift(); this.koIndex--; } }
-      }
+      if (snap) { this.rec.push(this.snapshot()); if (this.rec.length > 900) this.rec.shift(); }
       if (this.mode !== 'attract' && !this.inBatch) this.hud();
     },
 
@@ -965,6 +998,21 @@
     // A little slack (SLACK of a step) absorbs rAF jitter so a 60 Hz screen gets exactly two steps every frame
     // instead of alternating 1/3; the debt is kept in acc, so over time the speed is exact.
     STEP: 1 / 120,
+    // One fixed simulation step (the unit rollback netcode saves, restores and replays). present = false: simOnly —
+    // the step changes exactly the same fight state, but skips what only feeds the picture and sound (camera,
+    // particles, weather, HUD, banners, music, replay pictures, score pop-ups). Everything the fight reads is outside
+    // those, so both modes give bit-identical fights (scripts/determinism-check.mjs tests it).
+    simOnly: false,
+    tick(present = true) {
+      // rally tutorial: its time scale (0 frozen, slow motion, 1) for this step. The input buffers (press age,
+      // parry window) run on the same scaled clock, so slow motion widens the windows the player has to hit.
+      const STEP = this.STEP;
+      const tz = this.tz = ND.tutor && ND.tutor.on ? ND.tutor.pre(this, STEP) : 1;
+      ND.simClock = (ND.simClock || 0) + STEP * tz;
+      if (present) { this.update(STEP); return; }
+      this.simOnly = true;
+      try { this.update(STEP); } finally { this.simOnly = false; }
+    },
     // Safety net only: the frame-time clamp (0.05 s) plus the < 0.8-step remainder already keeps a frame at ≤ 7
     // steps, so this never changes timing; it guards against a future change to that clamp.
     MAX_STEPS: 8,
@@ -982,11 +1030,7 @@
       this.inBatch = true;
       try {
         while (n-- > 0) {
-          // rally tutorial: its time scale (0 frozen, slow motion, 1) for this step. The input buffers (press age,
-          // parry window) run on the same scaled clock, so slow motion widens the windows the player has to hit.
-          const tz = this.tz = ND.tutor && ND.tutor.on ? ND.tutor.pre(this, STEP) : 1;
-          ND.simClock = (ND.simClock || 0) + STEP * tz;
-          this.update(STEP);
+          this.tick();
           if (this.paused) { this.acc = 0; break; } // paused from inside the step (tutorial, coach, runner)
         }
       } finally { this.inBatch = false; }

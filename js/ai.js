@@ -1,7 +1,10 @@
 // Gölge Düellosu — yapay zekâ: mesafe kontrolü, tepki süresi, savuşturma zamanlaması, kombo kararları
 (function (ND) {
   'use strict';
-  const { rand } = ND.M;
+  const Math = ND.DM || globalThis.Math; // the CPU decides from the fight state only: deterministic math (ND.DM, core.js)
+  // Every choice the CPU makes draws from the fight's own random stream (ND.rng, core.js): the same fight state and
+  // seed give the same decisions on every device and after a rollback (online). Never Math.random here.
+  const rnd = () => ND.rng.next(), rand = (a, b) => ND.rng.range(a, b);
 
   const LEVELS = ND.AI_LEVELS = {
     // combo layer: cmd = command normals as openers, str = string enders / launchers inside a chain,
@@ -42,7 +45,7 @@
 
       if (me.state === 'lock') {
         this.mashT = (this.mashT || 0) - dt;
-        if (this.mashT <= 0) { this.tap(Math.random() < 0.7 ? 'light' : 'heavy'); this.mashT = rand(0.8, 1.25) / lv.mash; }
+        if (this.mashT <= 0) { this.tap(rnd() < 0.7 ? 'light' : 'heavy'); this.mashT = rand(0.8, 1.25) / lv.mash; }
         return;
       }
       const dist = Math.abs(o.x - me.x), fwd = o.x >= me.x ? 1 : -1;
@@ -51,8 +54,8 @@
       // --- karşılık penceresi açık: kaeshi-waza ile hücuma geç
       if (me.counterUntil > G.clock && me.serial !== this.cTok && ['block', 'parry', 'guard', 'move'].includes(me.state)) {
         this.cTok = me.serial;
-        if (Math.random() < lv.counter) {
-          const r = Math.random();
+        if (rnd() < lv.counter) {
+          const r = rnd();
           this.cAct = r < 0.12 ? 'heavy' : 'light';
           this.cDir = r < 0.12 ? 0 : r < 0.24 ? 1 : r < 0.34 ? -1 : 0;
           this.cAt = this.t + rand(0.02, Math.min(0.16, me.counterWin * 0.55));
@@ -70,12 +73,12 @@
       // next swing of a mashed loop meets the guard instead of landing again
       if (me.state === 'hurt' && this.hTok !== me.serial) {
         this.hTok = me.serial;
-        if (Math.random() < lv.read * Math.min(1, this.heat() * 0.4)) { this.setHeld('guard', true); this.guardUntil = this.t + Math.max(0, me.dur - me.st) + rand(0.2, 0.4); this.move = 0; }
+        if (rnd() < lv.read * Math.min(1, this.heat() * 0.4)) { this.setHeld('guard', true); this.guardUntil = this.t + Math.max(0, me.dur - me.st) + rand(0.2, 0.4); this.move = 0; }
       }
       // --- kılıcım bloklandı: karşılık gelecek, önceden gard al
       if (me.state === 'recoil' && this.rTok !== me.serial) {
         this.rTok = me.serial;
-        if (Math.random() < lv.rally) { this.anticipate = this.t + 0.9; this.setHeld('guard', true); this.guardUntil = this.t + 0.7; this.move = 0; }
+        if (rnd() < lv.rally) { this.anticipate = this.t + 0.9; this.setHeld('guard', true); this.guardUntil = this.t + 0.7; this.move = 0; }
       }
 
       // --- rakibin saldırısını algıla → tepki planla
@@ -90,21 +93,21 @@
         const threat = a.kind === 'throw' || a.kind === 'shoot' || a.kind === 'stance' || !a.active ? false : dist < (a.special ? 700 : a.reach || (a === ND.ATK.light3 || a === ND.ATK.heavy ? 290 : 235) + longer);
         if (threat && a.counter && this.anticipate > this.t) {
           const startAt = this.t - o.st / (o.ch.spd * o.aspd), w0 = a.active[0] / (o.ch.spd * o.aspd);
-          if (Math.random() < lv.parry + 0.2) this.pending = { act: 'parry', at: startAt + w0 - rand(0.03, 0.08), until: startAt + w0 + 0.25 };
+          if (rnd() < lv.parry + 0.2) this.pending = { act: 'parry', at: startAt + w0 - rand(0.03, 0.08), until: startAt + w0 + 0.25 };
           else { this.setHeld('guard', true); this.guardUntil = Math.max(this.guardUntil, startAt + w0 + 0.3); }
-        } else if (threat && a.active && Math.random() < this.readP()) {
+        } else if (threat && a.active && rnd() < this.readP()) {
           // read: the same player keeps pressing (or repeats this very move) → the guard is up for it in time, often
           // as a parry. Timed from the move's own start-up, like a player who has learned the rhythm.
           const k = o.ch.spd * o.aspd, startAt = this.t - o.st / k, w0 = startAt + a.active[0] / k;
-          const parry = Math.random() < lv.parry + 0.25;
+          const parry = rnd() < lv.parry + 0.25;
           this.pending = { act: 'guard', at: Math.max(this.t, w0 - (parry ? rand(0.03, 0.08) : rand(0.12, 0.2))), until: startAt + (a.active[1] / k) + 0.14 };
         } else if (threat) {
-          const r = Math.random(), startAt = this.t - o.st;
+          const r = rnd(), startAt = this.t - o.st;
           let act = 'none';
           if (a.kind === 'kick') act = r < lv.dodge + 0.25 ? 'dodge' : r < lv.dodge + 0.25 + lv.smart * 0.4 ? 'jab' : 'guard';
           else if (r < lv.parry) act = 'parry';
           else if (r < lv.parry + lv.dodge * 0.6) act = 'dodge';
-          else if (a === ND.ATK.heavy && Math.random() < lv.smart * 0.6 && dist < 200) act = 'jab';
+          else if (a === ND.ATK.heavy && rnd() < lv.smart * 0.6 && dist < 200) act = 'jab';
           else if (r < lv.parry + lv.dodge * 0.6 + lv.guard * 0.8) act = 'guard';
           let at = startAt + lv.react + rand(0, 0.05);
           if (act === 'parry') {
@@ -114,13 +117,15 @@
           this.pending = { act, at, until: startAt + (a.active ? a.active[1] : a.dur) + 0.12 };
         }
       }
+      // (projectiles gone from the fight are forgotten: the set stays small in the saved fight state)
+      if (this.seenProj.size > 12) for (const p of this.seenProj) if (!ND.game.projs.includes(p)) this.seenProj.delete(p);
       // --- yaklaşan shuriken
       for (const p of ND.game.projs) {
         if (p.owner === me || p.falling || p.stuck || this.seenProj.has(p)) continue;
         const d = (me.x - p.x) * Math.sign(p.vx);
         if (d > 0 && d < 520) {
           this.seenProj.add(p);
-          const r = Math.random();
+          const r = rnd();
           const eta = d / Math.abs(p.vx);
           if (r < lv.parry * 0.7) this.pending = { act: 'parry', at: this.t + Math.max(lv.react * 0.6, eta - 0.1), until: this.t + eta + 0.1 };
           else if (r < lv.guard) this.pending = { act: 'guard', at: this.t + lv.react * 0.7, until: this.t + eta + 0.15 };
@@ -132,12 +137,12 @@
         const p = this.pending; this.pending = null;
         const free = me.state === 'move' || me.state === 'guard' || me.state === 'block' || me.state === 'land' || me.state === 'parry' || me.state === 'recoil';
         if (free) {
-          if ((p.act === 'guard' || p.act === 'parry') && me.state === 'move' && this.catchMove() && o.state === 'atk' && !o.atk.special && Math.random() < lv.smart * 0.3) {
+          if ((p.act === 'guard' || p.act === 'parry') && me.state === 'move' && this.catchMove() && o.state === 'atk' && !o.atk.special && rnd() < lv.smart * 0.3) {
             // draw stance (Akane): back + heavy so the coming blow is caught
             this.setHeld('guard', false); this.dirTap('heavy', -fwd);
           } else if (p.act === 'guard' || p.act === 'parry') { this.setHeld('left', false); this.setHeld('right', false); this.move = 0; this.tap('guard'); this.setHeld('guard', true); this.guardUntil = Math.max(p.until, this.t + 0.12); }
           else if (p.act === 'dodge') { this.moveDir(-fwd); this.tap('dodge'); }
-          else if (p.act === 'jab') { this.dirTap(Math.random() < 0.5 ? 'light' : 'kick', 0); }
+          else if (p.act === 'jab') { this.dirTap(rnd() < 0.5 ? 'light' : 'kick', 0); }
           else if (p.act === 'jump') { this.tap('up'); }
         }
       }
@@ -150,7 +155,7 @@
       }
       if (me.state === 'atk' && me.atk.sc && me.hitDone && me.ki >= 100 && this.kcTok !== me.keys && me.mem.landed != null) {
         this.kcTok = me.keys;
-        if (Math.random() < lv.kc) this.tap('special');
+        if (rnd() < lv.kc) this.tap('special');
       }
 
       // --- ana karar döngüsü
@@ -176,24 +181,24 @@
     chainPick(me, o, fwd) {
       const lv = this.lv, R = ND.routesFor ? ND.routesFor(me, me.atkName) : null, hit = me.mem.landed != null;
       if (!R) {
-        if (Math.random() < lv.combo) { const oppGuard = o.state === 'block' || o.state === 'guard'; this.tap(oppGuard && Math.random() < lv.smart ? 'kick' : Math.random() < 0.18 ? 'heavy' : 'light'); }
+        if (rnd() < lv.combo) { const oppGuard = o.state === 'block' || o.state === 'guard'; this.tap(oppGuard && rnd() < lv.smart ? 'kick' : rnd() < 0.18 ? 'heavy' : 'light'); }
         return;
       }
       if (R.hit && !hit) return;
       const air = o.state === 'launch' && (o.jug || 0) < ((ND.COMBO && ND.COMBO.jugMax) || 3);
       // launcher landed / already in the air: follow up
-      if (me.atkName === 'fHeavy' || me.atkName === 'chase') { if (air && Math.random() < lv.jug) this.dirTap(R.light ? 'light' : 'heavy', 0); return; }
-      if (Math.random() >= lv.combo) return;
-      const oppGuard = o.state === 'block' || o.state === 'guard', r = Math.random();
+      if (me.atkName === 'fHeavy' || me.atkName === 'chase') { if (air && rnd() < lv.jug) this.dirTap(R.light ? 'light' : 'heavy', 0); return; }
+      if (rnd() >= lv.combo) return;
+      const oppGuard = o.state === 'block' || o.state === 'guard', r = rnd();
       if (R.fHeavy && hit && !oppGuard && r < lv.str * 0.35) return this.dirTap('heavy', fwd); // launcher
       if (R.heavy && r < lv.str) return this.dirTap('heavy', 0); // string ender
-      if (R.kick && oppGuard && Math.random() < lv.smart) return this.dirTap('kick', 0);
+      if (R.kick && oppGuard && rnd() < lv.smart) return this.dirTap('kick', 0);
       if (R.light) return this.dirTap('light', 0);
       if (R.heavy) return this.dirTap('heavy', 0);
     }
 
     decide(dist, fwd) {
-      const me = this.me, o = me.opp, lv = this.lv, r = Math.random();
+      const me = this.me, o = me.opp, lv = this.lv, r = rnd();
       const free = me.state === 'move' || me.state === 'land';
       if (!free) return;
       if (o.state === 'down' || o.state === 'getup') { this.go(dist < 200 ? -fwd : 0, 0.3); return; }
@@ -201,7 +206,7 @@
       const spR = (ND.SPECIALS && ND.SPECIALS[me.ch.id] && ND.SPECIALS[me.ch.id].range) || [90, 520]; // karaktere özel tekniğin menzili
       if (me.ki >= 100 && dist > spR[0] && dist < spR[1]) {
         const opening = o.state === 'stagger' || o.state === 'gbreak' || (o.state === 'atk' && o.atk.kind !== 'throw' && dist > Math.min(260, spR[1] * 0.5));
-        if (opening || Math.random() < lv.smart * 0.25) { this.tap('special'); return; }
+        if (opening || rnd() < lv.smart * 0.25) { this.tap('special'); return; }
       }
       // cezalandır
       if ((o.state === 'stagger' || o.state === 'gbreak') && dist < 210) { this.dirTap(o.state === 'gbreak' || r < 0.5 ? 'heavy' : 'light', 0); return; }
@@ -209,14 +214,14 @@
       if (o.state === 'hurt' && o.dur - o.st > 0.25 && dist < Math.max(170, this.ideal + 20) && r < lv.smart * 0.8) { this.dirTap('light', 0); return; }
       if (o.state === 'launch') { this.go(fwd, 0.2); return; }
       // the opponent's cut bounced off (recoil): its next attack is still locked (ND.ATK_LOCK) — take the turn
-      if (o.state === 'recoil' && dist < this.ideal + 50 && r < lv.counter) { this.dirTap(Math.random() < 0.25 ? 'heavy' : 'light', 0); return; }
+      if (o.state === 'recoil' && dist < this.ideal + 50 && r < lv.counter) { this.dirTap(rnd() < 0.25 ? 'heavy' : 'light', 0); return; }
       // a pressing opponent in reach: guard up before its next swing instead of trading into it
       const heat = this.heat();
-      if (heat >= 3 && dist < this.oppReach(o) + 60 && o.state !== 'recoil' && Math.random() < lv.read * Math.min(1, (heat - 2) * 0.5)) {
+      if (heat >= 3 && dist < this.oppReach(o) + 60 && o.state !== 'recoil' && rnd() < lv.read * Math.min(1, (heat - 2) * 0.5)) {
         this.setHeld('guard', true); this.guardUntil = this.t + rand(0.3, 0.6); return;
       }
       // denge tehlikede → geri çekil
-      if (me.posture > 70 && r < lv.smart) { this.go(-fwd, 0.4); if (Math.random() < 0.3) { this.moveDir(-fwd); this.tap('dodge'); } return; }
+      if (me.posture > 70 && r < lv.smart) { this.go(-fwd, 0.4); if (rnd() < 0.3) { this.moveDir(-fwd); this.tap('dodge'); } return; }
       // uzak dövüşçü (ch.ai.zoner): mesafeyi koru, ok at; yaklaşana ters takla atışı
       const Z = me.ch.ai, zoner = !!(Z && Z.zoner);
       if (zoner && this.zone(dist, fwd, r)) return;
@@ -241,26 +246,26 @@
         if (r < 0.7) { this.moveDir(-fwd); this.tap('dodge'); return; }
       }
       // a draw stance (Akane) is waiting for a blow: wait it out, or throw from range (projectiles are not caught)
-      if (o.state === 'atk' && o.atk.catch && o.st < o.atk.catch[1] && Math.random() < lv.smart) {
-        if (me.ammo > 0 && dist > 160 && Math.random() < 0.5) this.tap('throw'); else this.go(-fwd, 0.2);
+      if (o.state === 'atk' && o.atk.catch && o.st < o.atk.catch[1] && rnd() < lv.smart) {
+        if (me.ammo > 0 && dist > 160 && rnd() < 0.5) this.tap('throw'); else this.go(-fwd, 0.2);
         return;
       }
-      if (o.state === 'atk' && o.atk.kind !== 'throw' && o.atk.kind !== 'stance' && Math.random() < lv.guard) {
+      if (o.state === 'atk' && o.atk.kind !== 'throw' && o.atk.kind !== 'stance' && rnd() < lv.guard) {
         this.setHeld('guard', true); this.guardUntil = this.t + rand(0.35, 0.6); return;
       }
       if (r < lv.aggr) {
         const oppGuard = o.state === 'guard' || o.state === 'block';
-        const rr = Math.random();
+        const rr = rnd();
         if (oppGuard && rr < 0.35 + lv.smart * 0.3) this.dirTap('kick', 0);
         // ch.ai.cmd: a style built on command normals (Aoi's wind steps) uses them at every level
-        else if (Math.random() < Math.max(lv.cmd, (Z && Z.cmd) || 0)) this.cmdOpener(dist, fwd, oppGuard);
+        else if (rnd() < Math.max(lv.cmd, (Z && Z.cmd) || 0)) this.cmdOpener(dist, fwd, oppGuard);
         else if (rr < (lv.heavy ?? 0.2)) this.dirTap('heavy', 0);
         else if (rr < 0.28 && me.ammo > 0 && dist > 200 && !zoner) this.tap('throw');
         else this.dirTap('light', 0);
         return;
       }
       // footsies: ileri-geri adım, bekle, bazen gard
-      const rr = Math.random();
+      const rr = rnd();
       if (rr < 0.35) this.go(-fwd, rand(0.12, 0.3));
       else if (rr < 0.6) this.go(fwd, rand(0.1, 0.2));
       else if (rr < 0.6 + lv.smart * 0.25) { this.setHeld('guard', true); this.guardUntil = this.t + rand(0.3, 0.7); }
@@ -269,7 +274,7 @@
     }
     // command-normal opener: overhead / sweep / launcher / advancing move, chosen by range and the opponent's guard
     cmdOpener(dist, fwd, oppGuard) {
-      const r = Math.random(), catchK = this.catchMove();
+      const r = rnd(), catchK = this.catchMove();
       if (oppGuard && r < 0.5) return catchK ? this.dirTap('kick', 0) : this.dirTap('heavy', -fwd); // overhead guard crush
       if (dist < 130 && r < 0.35) return this.dirTap('light', -fwd); // back + light (sweep, pommel, headbutt, feint)
       if (r < 0.65) return this.dirTap('heavy', fwd); // launcher
@@ -301,7 +306,7 @@
         const p = (guarding ? 0.2 : open ? 0.55 + 0.35 * lv.smart : 0.55) * k;
         if (r < p) {
           // far and unhurried: a charged shot; an opponent coming in or left open: a quick one
-          const charge = dist > 400 && !open && Math.random() < 0.35 + 0.4 * lv.smart;
+          const charge = dist > 400 && !open && rnd() < 0.35 + 0.4 * lv.smart;
           this.dirTap('heavy', 0); this.held.heavy = true;
           this.holdT = this.t + (charge ? rand(0.45, 0.8) : rand(0.02, 0.1));
           return true;
