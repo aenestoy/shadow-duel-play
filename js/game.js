@@ -335,7 +335,7 @@
     fpsPref: GFX.FPS && GFX.FPS.includes(saved.fps) ? saved.fps : null,
     mode: 'attract', level: [0, 1, 2].includes(saved.level) ? saved.level : 1, phase: 'menu', pt: 0, projs: [], hitstopT: 0, slow: 1, slowT: 0,
     round: 1, wins: [0, 0], timer: ROUND_TIME, focus: null, paused: false, bars: 0, ais: [], bannerT: 0, dim: 0,
-    stats: null, flags: {}, lock: null, clock: 0, rally: { n: 0, last: null, t: 0 }, slowV: 0.35, cineT: 0, cineX: 0, recording: false, fxEvents: [], rec: [], koIndex: -1, replay: null,
+    stats: null, flags: {}, lock: null, clock: 0, tz: 1, rally: { n: 0, last: null, t: 0 }, slowV: 0.35, cineT: 0, cineX: 0, recording: false, fxEvents: [], rec: [], koIndex: -1, replay: null,
     sel: { c: [charIdx(saved.c1, 0), charIdx(saved.c2, 1)], arena: saved.arena ?? 'temple', ready: [false, false] },
     F, pv: null, pvIds: ['pv1', 'pv2'],
 
@@ -349,6 +349,7 @@
       if (ND._trial && !(mode === 'cpu' && ND.CHARS[opts.c1]?.id === ND._trial)) this.endTrial();
       // a new match (or leaving to the menu) ends any coach still running from the previous fight
       if (ND.coach && ND.coach.on) ND.coach.stop();
+      if (ND.tutor && ND.tutor.on) ND.tutor.stop(); // and the rally tutorial (js/tutorial.js)
       this.mode = mode;
       // Campaigns pass their current opponent's level; the saved CPU menu choice can be different.
       // Training uses Apprentice timing. Local 2P and spectator modes retain the shared base rules.
@@ -394,6 +395,8 @@
       mu.setMode(attract ? 'menu' : 'fight');
       this.startRound();
       if (mode === 'train') ND.training.onStart();
+      // rally tutorial: Training → Parry drill (opts.drill), or ?tutorial=1 on this page load's first single-player fight
+      if (!attract && ND.tutor) ND.tutor.autoStart(this, mode, opts);
       if (attract && ND.arcade) ND.arcade.refreshMenu();
       if (!attract) this.prepareMatch();
     },
@@ -573,14 +576,14 @@
       const R = this.rally, who = SOLO[this.mode] ? f1 : R.last;
       const n = (who && R.turns && R.turns[who.id]) || 0, el = $('rally');
       if (!el) return;
-      el.hidden = n < 1 || this.mode === 'attract';
+      el.hidden = n < 1 || this.mode === 'attract' || !!(ND.tutor && ND.tutor.on); // not during the rally tutorial (its tip box sits there)
       if (n >= 1) { $('rallyN').textContent = n + '×'; el.style.color = who.col.ui; el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); el.classList.toggle('hot', n >= 3); }
     },
     isHuman(f) { return this.mode === '2p' || (SOLO[this.mode] && f === f1); },
     // Filmdeki gibi tuş istemi: daralan halka doğru anı gösterir
     drawPrompts() {
       const tut = this.mode === 'train' && ND.training && ND.training.tut && !ND.training.finished;
-      if ((!ND.settings.hints && !tut) || this.phase !== 'fight') return;
+      if ((!ND.settings.hints && !tut) || this.phase !== 'fight' || (ND.tutor && ND.tutor.on)) return;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       const TB = (STR.touch && STR.touch.btn) || {};
       for (const f of F) {
@@ -692,7 +695,7 @@
         if (pt > (this.mode === 'attract' ? 0.8 : 1.75)) { this.phase = 'fight'; F.forEach((f) => (f.locked = false)); }
       } else if (this.phase === 'fight') {
         if (this.mode === 'train') return;
-        this.timer -= gdt;
+        if (!(ND.tutor && ND.tutor.on)) this.timer -= gdt; // the rally tutorial does not use up the round
         if (this.mode !== 'attract' && Math.min(f1.hp / f1.maxHp, f2.hp / f2.maxHp) < 0.3) mu.setMode('final');
         if (this.timer <= 0) {
           if (this.lock) this.endLock(null);
@@ -898,17 +901,25 @@
       this.pt += rdt;
       if (this.phase === 'select' || this.phase === 'vs' || this.phase === 'ending') { this.updateSelect(rdt); scene.update(rdt); cam.follow(rdt, { x: -200, y: 0 }, { x: 200, y: 0 }, null); return; }
       if (this.phase === 'replay') { scene.update(rdt * 0.4); this.updateReplay(rdt); this.bars = 1; return; }
+      // Rally tutorial (js/tutorial.js): tz is its time scale for this step (set in advance). 0 = time stands still
+      // until the player presses the prompted button: nothing moves or counts down, only the camera leans in.
+      const T = ND.tutor && ND.tutor.on && ND.tutor.G === this ? ND.tutor : null, tz = T ? this.tz : 1;
+      if (tz === 0 && this.phase === 'fight') {
+        const d = Math.abs(f1.x - f2.x);
+        cam.follow(rdt, f1, f2, { x: (f1.x + f2.x) / 2, y: -112, z: Math.min(1.4, cam.W / (cam.s * (d + 380 + cam.padX))) });
+        return;
+      }
       if (this.slowT > 0) { this.slowT -= rdt; if (this.phase === 'fight') this.slow = this.slowT > 0 ? this.slowV : 1; }
       if (this.cineT > 0) this.cineT -= rdt;
       this.dim = Math.max(0, this.dim - rdt * 1.6);
-      const gdt = rdt * this.slow;
+      const gdt = rdt * this.slow * tz;
       this.phaseUpdate(rdt, gdt);
       scene.update(gdt);
       let fdt = gdt;
       if (this.hitstopT > 0) { this.hitstopT -= rdt; fdt = 0; }
       this.recording = this.mode !== 'attract' && (this.phase === 'fight' || this.phase === 'ko');
       if (fdt > 0) {
-        for (const ai of this.ais) ai.update(fdt);
+        if (!T) for (const ai of this.ais) ai.update(fdt); // the tutorial drives the CPU itself
         const n = Math.max(1, Math.ceil(fdt * 120)), h = fdt / n;
         for (let i = 0; i < n; i++) {
           this.clock += h;
@@ -971,7 +982,10 @@
       this.inBatch = true;
       try {
         while (n-- > 0) {
-          ND.simClock = (ND.simClock || 0) + STEP;
+          // rally tutorial: its time scale (0 frozen, slow motion, 1) for this step. The input buffers (press age,
+          // parry window) run on the same scaled clock, so slow motion widens the windows the player has to hit.
+          const tz = this.tz = ND.tutor && ND.tutor.on ? ND.tutor.pre(this, STEP) : 1;
+          ND.simClock = (ND.simClock || 0) + STEP * tz;
           this.update(STEP);
           if (this.paused) { this.acc = 0; break; } // paused from inside the step (tutorial, coach, runner)
         }
@@ -1093,6 +1107,7 @@
       score.drawPops(ctx);
       this.drawPrompts();
       if (ND.cine) ND.cine.draw(ctx); // counter prompt, kaeshi-waza banner, screen slash, damage number, combo counter
+      if (ND.tutor && ND.tutor.on) ND.tutor.draw(ctx); // rally tutorial: DEFEND! / ATTACK! with the key
       this.overlays();
       PM('hud');
     },
@@ -1533,6 +1548,15 @@
       this.sel.ready[i] = true; au.taiko(0.5); this.refreshSelect();
       if (this.sel.ready[0] && (this.selMode !== '2p' || this.sel.ready[1])) setTimeout(() => { if (this.phase === 'select') this.fightFromSelect(); }, 350);
     },
+    // Training → Parry drill: the first-fight rally tutorial again (js/tutorial.js), no score, back to the menu when it is
+    // mastered. The player's last ninja against Kuro (Akane when the player is Kuro), like the lessons.
+    startDrill() {
+      const S = this.sel, c1 = charOk(S.c[0]) ? S.c[0] : 0;
+      const kuro = ND.CHARS.findIndex((c) => c.id === 'kuro');
+      const c2 = kuro >= 0 && kuro !== c1 ? kuro : ND.CHARS.findIndex((c) => c.id === 'akane');
+      mu.setMode('fight'); au.gong();
+      this.start('cpu', { c1, c2, arena: S.arena, drill: true });
+    },
     fightFromSelect() {
       const S = this.sel, m = this.selMode;
       if (this.selPeeking()) { au.tick(0); return; }
@@ -1677,6 +1701,7 @@
   card('mtrain', () => choose('train'));
   $('mtFree').onclick = (e) => { e.stopPropagation(); choose('train'); };
   $('mtTut').onclick = (e) => { e.stopPropagation(); choose('tutorial'); };
+  if ($('mtDrill')) $('mtDrill').onclick = (e) => { e.stopPropagation(); unlockAudio(); au.ui(); game.startDrill(); };
   document.querySelectorAll('.seg[data-lv]').forEach((b) => {
     b.setAttribute('aria-pressed', String(+b.dataset.lv === game.level));
     b.onclick = (e) => {
@@ -1863,6 +1888,7 @@
   $('bResume').onclick = () => setPause(false);
   $('bRestart').onclick = () => {
     setPause(false);
+    if (ND.tutor && ND.tutor.on && ND.tutor.opts.drill) return game.startDrill();
     if (game.runner && game.mode === game.runner.mode && game.runner.run) return game.runner.retry();
     if (game.mode === 'train') return ND.training.reset();
     game.start(game.mode, { c1: game.sel.c[0], c2: game.sel.c[1], arena: scene.themeId });
@@ -2067,6 +2093,7 @@
     if (game.mode === 'arcade') ND.arcade?.refreshGoal();
     // Repaint the active tip on resume without restarting the lesson or its timer.
     if (ND.coach) ND.coach.shown = null;
+    if (ND.tutor) ND.tutor.shownKey = '';
     placeTip();
   });
 
@@ -2079,6 +2106,7 @@
     if (playing !== wasPlaying) { wasPlaying = playing; if (ND.portal) playing ? ND.portal.gameplayStart() : ND.portal.gameplayStop(); }
     if (playing && game.phase === 'fight' && ND.ads) ND.ads.tick(rdt);
     if (ND.coach && ND.coach.on) ND.coach.tick(rdt, game);
+    if (ND.tutor && ND.tutor.on) ND.tutor.tick(rdt);
   }
   // Behind the menus (the attract demo under the title / menu screens) and the select, VS and ending screens the
   // game canvas is only a dimmed backdrop: it is drawn at 3/4 resolution (see resize) and at most ~30 times a

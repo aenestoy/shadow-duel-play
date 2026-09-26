@@ -146,7 +146,7 @@
       }
       // touch: the ATTACK button pulses while the counter window after a parry is open (the coach's pulse style)
       const g = G(), f = g && g.F && g.F[0];
-      const want = !!(f && ND.touch && ND.touch.active && !(ND.coach && ND.coach.on) && this.human(f) && f.cwKind === 'parry' && f.counterUntil > g.clock && g.phase === 'fight');
+      const want = !!(f && ND.touch && ND.touch.active && !(ND.coach && ND.coach.on) && !(ND.tutor && ND.tutor.on) && this.human(f) && f.cwKind === 'parry' && f.counterUntil > g.clock && g.phase === 'fight');
       if (want !== !!this.pulsing) {
         this.pulsing = want;
         const pad = document.getElementById('touch');
@@ -207,7 +207,7 @@
     // big "STRIKE!" over a human defender while the counter window is open, with a bar that shrinks to zero
     drawPrompt(ctx, f, s) {
       const g = G();
-      if (!this.human(f) || f.dead) return;
+      if (!this.human(f) || f.dead || (ND.tutor && ND.tutor.on)) return; // the rally tutorial draws its own ATTACK!
       const cw = f.counterUntil - g.clock;
       if (!(cw > 0) || !['block', 'parry', 'guard', 'move', 'recoil'].includes(f.state)) return;
       const big = f.cwKind === 'parry';

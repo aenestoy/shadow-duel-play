@@ -1109,6 +1109,28 @@
       },
     });
 
+    // ================================================================ FIRST-FIGHT RALLY TUTORIAL: js/tutorial.js STR.tutor and
+    // Training → Parry drill (Turkish source in i18n.js, block "rally tutorial")
+    merge(EN.STR, {
+      menu: { trainDrill: 'Parier-Übung' },
+      tutor: {
+        defend: 'ABWEHREN!', attack: 'ANGRIFF!', again: 'NOCHMAL!',
+        pass: {
+          freeze: (l, g) => `Die Zeit steht still: ${g} zum Abwehren, ${l} zum Kontern`,
+          slow: (l, g) => `Zeitlupe: ${g}, wenn sich der Ring schließt, dann ${l}`,
+          real: (l, g) => `Volle Geschwindigkeit: ${g} abwehren, ${l} kontern, zweimal`,
+        },
+        fail: {
+          early: 'Zu früh! Deckung erst kurz bevor die Klinge trifft.',
+          late: 'Zu spät! Deckung kurz bevor die Klinge trifft.',
+          slow: 'Zu spät! Kontere, solange ANGRIFF! zu sehen ist.',
+          atk: 'Erst abwehren, dann angreifen!',
+          miss: 'Versuchen wir das noch einmal.',
+        },
+        mastered: 'GEMEISTERT!', masteredSub: 'Abwehren, kontern, wiederholen',
+      },
+    });
+
     void dec; void fmtTime; void num;
   };
 })(window.ND);

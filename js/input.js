@@ -7,8 +7,12 @@
   const now = () => (typeof ND.simClock === 'number' ? ND.simClock : performance.now() / 1000);
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 
+  // mask (first-fight tutorial, js/tutorial.js): { action: true } hides those actions from the fighter: a masked press
+  // is not buffered and a masked key does not read as held. Presses from the tutorial itself (src 'tut') pass.
+  // clear() keeps it, so a pause or a tab switch during the tutorial does not unmask anything.
+  // lastSrc: where the latest real press came from ('k…' keyboard, 'g…' gamepad, 't…' touch), for button prompts.
   class Ctrl {
-    constructor() { this.clear(); }
+    constructor() { this.mask = null; this.lastSrc = ''; this.clear(); }
     clear() {
       this.srcs = {}; this.buf = {};
       this.lastTap = { left: -9, right: -9 }; this.tapDir = 0;
@@ -17,7 +21,9 @@
       const s = this.srcs[a] || (this.srcs[a] = new Set());
       const was = s.size > 0;
       s.add(src);
+      if (src !== 'tut') this.lastSrc = src;
       if (was) return;
+      if (this.mask && this.mask[a] && src !== 'tut') return;
       const t = now();
       this.buf[a] = t;
       if (!this.noTap && (a === 'left' || a === 'right')) {
@@ -28,7 +34,7 @@
       if (this.onPress) { try { this.onPress(a, t); } catch (e) { /* listener (combo trial) must never break input */ } }
     }
     release(a, src = 'k') { const s = this.srcs[a]; if (s) s.delete(src); }
-    held(a) { const s = this.srcs[a]; return !!(s && s.size); }
+    held(a) { const s = this.srcs[a]; return !!(s && s.size) && (!this.mask || !this.mask[a] || s.has('tut')); }
     axis() { return (this.held('right') ? 1 : 0) - (this.held('left') ? 1 : 0); }
     has(a, win = 0.2) { const t = this.buf[a]; return t != null && now() - t <= win; }
     take(a, win = 0.2) { if (this.has(a, win)) { this.buf[a] = null; return true; } return false; }

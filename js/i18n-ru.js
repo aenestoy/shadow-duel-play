@@ -1114,6 +1114,28 @@
       },
     });
 
+    // ================================================================ FIRST-FIGHT RALLY TUTORIAL: js/tutorial.js STR.tutor and
+    // Training → Parry drill (Turkish source in i18n.js, block "rally tutorial")
+    merge(EN.STR, {
+      menu: { trainDrill: 'Отработка отбива' },
+      tutor: {
+        defend: 'БЛОК!', attack: 'АТАКА!', again: 'ЕЩЁ РАЗ!',
+        pass: {
+          freeze: (l, g) => `Время замрёт: ${g} — защита, ${l} — контрудар`,
+          slow: (l, g) => `Замедление: ${g}, когда кольцо сомкнётся, затем ${l}`,
+          real: (l, g) => `Полная скорость: ${g} — защита, ${l} — контрудар, два раза`,
+        },
+        fail: {
+          early: 'Рано! Ставь блок прямо перед ударом клинка.',
+          late: 'Поздно! Ставь блок прямо перед ударом клинка.',
+          slow: 'Поздно! Бей в ответ, пока горит АТАКА!',
+          atk: 'Сначала защита, потом атака!',
+          miss: 'Попробуем ещё раз.',
+        },
+        mastered: 'ОСВОЕНО!', masteredSub: 'Защита, контрудар, снова',
+      },
+    });
+
     void dec; void fmtTime; void num;
   };
 })(window.ND);

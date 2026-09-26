@@ -1095,6 +1095,28 @@
       },
     });
 
+    // ================================================================ FIRST-FIGHT RALLY TUTORIAL: js/tutorial.js STR.tutor and
+    // Training → Parry drill (Turkish source in i18n.js, block "rally tutorial")
+    merge(EN.STR, {
+      menu: { trainDrill: 'Parry drill' },
+      tutor: {
+        defend: 'DEFEND!', attack: 'ATTACK!', again: 'AGAIN!',
+        pass: {
+          freeze: (l, g) => `Time stops: ${g} to defend, ${l} to strike back`,
+          slow: (l, g) => `Slow motion: ${g} as the ring closes, then ${l}`,
+          real: (l, g) => `Full speed: ${g} to defend, ${l} to strike back, twice`,
+        },
+        fail: {
+          early: 'Too early! Guard just before the blade lands.',
+          late: 'Too late! Guard just before the blade lands.',
+          slow: 'Too late! Strike back while ATTACK! is up.',
+          atk: 'Defend first, then attack!',
+          miss: 'Let’s try that again.',
+        },
+        mastered: 'MASTERED!', masteredSub: 'Defend, counter, repeat',
+      },
+    });
+
     void dec; void fmtTime; void num;
   };
 })(window.ND);

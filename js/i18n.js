@@ -518,6 +518,28 @@
   }
   combatSource(ND.STR);
 
+  // ---------------------------------------------------------------- Turkish source additions: rally tutorial
+  // js/tutorial.js (first-fight "defend → counter" tutorial, STR.tutor); its Training entry menu.trainDrill is in arcade.js.
+  // Pass texts get the light and guard key chips (l, g). Catalogs: block "FIRST-FIGHT RALLY TUTORIAL" in i18n-*.js.
+  if (ND.STR) {
+    ND.STR.tutor = {
+      defend: 'SAVUN!', attack: 'SALDIR!', again: 'TEKRAR!',
+      pass: {
+        freeze: (l, g) => `Zaman durur: ${g} ile savun, ${l} ile karşılık ver`,
+        slow: (l, g) => `Ağır çekim: halka kapanırken ${g}, sonra ${l}`,
+        real: (l, g) => `Tam hız: ${g} ile savun, ${l} ile karşılık ver, iki kez`,
+      },
+      fail: {
+        early: 'Erken! Kılıç inmeden hemen önce gard al.',
+        late: 'Geç! Kılıç inmeden hemen önce gard al.',
+        slow: 'Geç kaldın! SALDIR! yazısı varken karşılık ver.',
+        atk: 'Önce savun, sonra saldır!',
+        miss: 'Bir daha deneyelim.',
+      },
+      mastered: 'USTALAŞTIN!', masteredSub: 'Savun, karşılık ver, yeniden',
+    };
+  }
+
   // ---------------------------------------------------------------- Turkish source additions: volume sliders
   // js/volume.js (menu controls card + pause dialog). English in i18n-en.js, block "VOLUME".
   if (ND.STR) ND.STR.vol = merge(ND.STR.vol || {}, {

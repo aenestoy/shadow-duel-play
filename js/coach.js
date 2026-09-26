@@ -15,8 +15,9 @@
   const OPEN = { guard: 0, parry: 0, dodge: 0, rally: 0, smart: 0, aggr: 0.12 };
 
   const coach = ND.coach = {
-    on: false, i: 0, t: 0, done: false, guardT: 0, sawAtk: 0, parries0: 0,
-    start() { this.on = true; this.i = 0; this.t = 0; this.guardT = 0; this.sawAtk = 0; this.parries0 = 0; this.shown = null; },
+    on: false, i: 0, t: 0, done: false, guardT: 0, sawAtk: 0, parries0: 0, steps: STEPS,
+    // steps: a subset of STEPS (after the rally tutorial, js/tutorial.js, only attack and combo are left)
+    start(steps) { this.on = true; this.steps = Array.isArray(steps) && steps.length ? steps.filter((s) => STEPS.includes(s)) : STEPS; this.i = 0; this.t = 0; this.guardT = 0; this.sawAtk = 0; this.parries0 = 0; this.shown = null; },
     stop() { this.on = false; this.hide(); },
     hide() { const el = $('coach'); if (el) { el.hidden = true; el.classList.remove('in'); } this.shown = null; this.mark(null); this.guardUp(); },
     // the opponent's AI stops defending (combo tip) / defends again
@@ -54,11 +55,11 @@
       if (!this.on) return;
       const el = $('coach');
       if (!el || G.phase !== 'fight' || G.paused) { if (el && !el.hidden && G.phase !== 'fight') this.hide(); return; }
-      const f1 = G.F[0], step = STEPS[this.i];
+      const f1 = G.F[0], S = this.steps, step = S[this.i];
       if (!step) { this.stop(); return; }
       if (this.shown !== step + (ND.touch && ND.touch.active ? 't' : 'k')) {
         this.shown = step + (ND.touch && ND.touch.active ? 't' : 'k');
-        el.innerHTML = `<b>${this.i + 1}/${STEPS.length}</b><span>${this.text(step)}</span>`;
+        el.innerHTML = `<b>${this.i + 1}/${S.length}</b><span>${this.text(step)}</span>`;
         el.hidden = false; el.classList.remove('in'); void el.offsetWidth; el.classList.add('in');
         this.mark(ND.touch && ND.touch.active ? MARK[step] : null);
         if (step === 'parry') this.parries0 = f1.parries || 0;
@@ -76,7 +77,7 @@
       if (ok || this.t > MAX[step]) {
         this.i++; this.t = 0; this.shown = null;
         if (ok && ND.audio && ND.audio.ready) ND.audio.tick(0);
-        if (this.i >= STEPS.length) this.stop();
+        if (this.i >= S.length) this.stop();
       }
     },
   };

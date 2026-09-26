@@ -19,6 +19,7 @@
       trainDesc: 'Kuklayla serbest çalış ya da adım adım öğren',
       trainFree: 'Serbest',
       trainTut: 'Eğitim',
+      trainDrill: 'Savuşturma dersi', // Training → the first-fight rally tutorial again (js/tutorial.js)
       watchShort: 'Rastgele iki ninja, Efsane yapay zekâ',
       specialKey: 'Ki tekniği (ki dolu)',
       play: 'Oyna',
@@ -1141,8 +1142,13 @@
       this.checkpoint();
       ND.audio.gong();
       this.G.start('arcade', { c1: R.me, c2: F.opp, arena: F.arena, level: F.level, oppHp: F.hp || null });
-      // The very first journey fight carries the five-tip coach (it used to ride on the old quick-play match).
-      if (R.i === 0 && ND.coach && !save.p.coached) { save.p.coached = true; save.commit(); ND.coach.start(); }
+      // The very first journey fight of a new save starts with the rally tutorial (js/tutorial.js: defend → counter →
+      // defend → counter, three passes); when it is mastered it marks the save as coached and hands over to the coach's
+      // attack / combo tips. Quitting before that shows it again on the next try. Without tutorial.js: the five-tip coach.
+      if (R.i === 0 && !save.p.coached) {
+        if (ND.tutor) { if (!ND.tutor.on) ND.tutor.start(this.G, { first: true }); }
+        else if (ND.coach) { save.p.coached = true; save.commit(); ND.coach.start(); }
+      }
       this.refreshGoal();
     },
     observeHit(from, a) {
@@ -1165,6 +1171,13 @@
       if (el.textContent !== text) { el.textContent = text; el.classList.toggle('earned', ready); }
     },
     retry() { const R = this.run; if (!R) return; if (R.last === 'win') return this.primary(); R.needsRetry = true; this.fight(); },
+    // the rally tutorial ran inside this fight (js/tutorial.js): its time and hits do not count for the journey
+    tutorReset() {
+      const R = this.run; if (!R || !R.cur) return;
+      R.time = Math.max(0, (R.time || 0) - (R.cur.t || 0));
+      R.cur = { t: 0, lost: 0, perfect: 0, metrics: {} };
+      this.refreshGoal();
+    },
     quit() { this.abandon(); $('vs').hidden = true; $('ending').hidden = true; this.G.goMenu(); },
     abandon() { this.checkpoint(); this.run = null; if (this.G.runner === this) this.G.runner = null; this.refreshMenu(); },
 
