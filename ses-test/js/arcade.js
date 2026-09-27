@@ -693,8 +693,8 @@
     },
     reset() { this._p = normalize(null); this.commit(); },
     unlockAll() { this.p.chars = ND.CHARS.map((c) => c.id); this.p.arenas = ND.ARENAS.map((a) => a.id); this.commit(); },
-    isCharUnlocked(id) { return this.p.chars.includes(id); },
-    isArenaUnlocked(id) { return this.p.arenas.includes(id); },
+    isCharUnlocked(id) { return true || this.p.chars.includes(id); },
+    isArenaUnlocked(id) { return true || this.p.arenas.includes(id); },
     useLegacy(id) { return !!(this.p.journey.mastered[id] && this.p.journey.looks[id]); },
     toggleLegacy(id) { if (!this.p.journey.mastered[id]) return; this.p.journey.looks[id] = !this.useLegacy(id); this.commit(); },
     // Şampiyon renkleri: bu ninjayla bir Aylık Turnuva kazanılmış mı (sunucunun cevabı, yerelde önbellek)
