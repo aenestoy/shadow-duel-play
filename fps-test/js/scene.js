@@ -1050,7 +1050,10 @@
       if (stale) {
         const c = B.c;
         if (c.width !== bw || c.height !== bh) { c.width = bw; c.height = bh; B.x2 = null; }
-        const x = B.x2 || (B.x2 = c.getContext('2d', { alpha: false }));
+        // (with the WebGL2 renderer a CPU canvas: its copy into WebGL is a plain pixel upload that never waits for the
+        // GPU; a GPU canvas had to be finished by the GPU first, about 11 times a second while the camera moves. The
+        // pictures drawn into it stay GPU canvases: measured, they are read back only when they change)
+        const x = B.x2 || (B.x2 = c.getContext('2d', ND.glHooked ? { alpha: false, willReadFrequently: true } : { alpha: false }));
         const sv = { W, H, s: cam.s, shx: cam.shx, shy: cam.shy }, kx = bw / W;
         cam.W = bw; cam.H = bh; cam.s = sv.s * kx; cam.shx = sv.shx * kx; cam.shy = sv.shy * kx;
         try {
@@ -1335,17 +1338,23 @@
       // scale change allowed before a redraw: 1.5% on High, 6% on Medium / Low (js/gfx.js `ltol`: during a camera zoom
       // the layer is stretched a little longer instead of being drawn and uploaded again every few frames)
       const q = ND.gfx ? ND.gfx.tier : '', rt = (ND.gfx && ND.gfx.f && ND.gfx.f.ltol) || 0.015;
-      if (!L || L.W !== W || L.H !== H || L.q !== q || Math.abs(r - 1) > rt || ox > 0 || ox + L.c.width * r < W || oy > Y0 || oy + L.c.height * r < Y1) {
+      if (!L || L.W !== W || L.H !== H || L.q !== q || Math.abs(r - 1) > rt || ox > 0 || ox + L.c.width * r < W || oy > Y0 || oy + L.h * r < Y1) {
         const M = Math.ceil(W * 0.12), MY = Math.ceil(H * 0.12);
         const x0 = -M, y0 = Math.max(-MY, Math.floor(k * ly0 + ty) - 2), y1 = Math.min(H + MY, Math.ceil(Y1) + MY);
         if (!L) L = C[key] = { c: document.createElement('canvas') };
-        const c = L.c, x = c.getContext('2d');
-        if (c.width !== W + 2 * M || c.height !== y1 - y0) { c.width = W + 2 * M; c.height = y1 - y0; }
+        const c = L.c, x = c.getContext('2d'), cw = W + 2 * M, ch = y1 - y0;
+        // The canvas height only grows (a canvas of a new size becomes a new texture in WebGL, a stall on phones; the
+        // camera changes the needed height all the time): rows below ch stay empty and the drawing is clipped to ch
+        // rows, as the canvas edge did before.
+        if (c.width !== cw || c.height < ch) { c.width = cw; c.height = ch + (c.height && c.height < ch ? Math.ceil(ch * 0.1) : 0); }
         else { x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, c.width, c.height); }
+        const clip = c.height > ch;
+        if (clip) { x.save(); x.setTransform(1, 0, 0, 1, 0, 0); x.beginPath(); x.rect(0, 0, cw, ch); x.clip(); }
         x.setTransform(k, 0, 0, k, tx - x0, ty - y0);
         x.globalAlpha = 1; x.globalCompositeOperation = 'source-over';
         draw(x);
-        L.W = W; L.H = H; L.k = k; L.tx = tx; L.ty = ty; L.x0 = x0; L.y0 = y0; L.q = q; this.cacheDraws = (this.cacheDraws || 0) + 1;
+        if (clip) x.restore();
+        L.W = W; L.H = H; L.k = k; L.tx = tx; L.ty = ty; L.x0 = x0; L.y0 = y0; L.q = q; L.h = ch; this.cacheDraws = (this.cacheDraws || 0) + 1;
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.drawImage(c, x0, y0);
         return;

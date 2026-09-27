@@ -7,8 +7,10 @@
 <link rel="stylesheet" crossorigin href="./assets/index-CFtILYoN.css">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Shadow Duel</title>
-<!-- Fonts ship with the game (no external requests): fonts/fonts.css is written by scripts/font-subset.mjs -->
-<!-- Portal SDK bridge (module, bundled by Vite): publishes window.NDPortal; js/core.js wraps it as ND.portal -->
+<!-- Fonts ship with the game (no external requests): fonts/fonts.css is written by scripts/font-subset.mjs -->
+
+<!-- Portal SDK bridge (module, bundled by Vite): publishes window.NDPortal; js/core.js wraps it as ND.portal -->
+
 <style>
   #matchLoading { position: absolute; inset: 0; z-index: 1000; display: grid; place-items: center; background: #0c0d15; color: #ebe6da; }
   #matchLoading[hidden] { display: none; }
@@ -61,8 +63,11 @@
   .ki i { position: absolute; inset: 0; transform-origin: left; background: linear-gradient(90deg, #6a5bd6, #c7a6ff); }
   .p2 .ki i { transform-origin: right; }
   .ki.full { border-color: #d9c8ff; box-shadow: 0 0 10px rgba(199,166,255,.7); }
-  .ki.full i { background: linear-gradient(90deg, #b99cff, #fff, #b99cff); background-size: 200% 100%; animation: kiShine 1s linear infinite; }
-  @keyframes kiShine { to { background-position: -200% 0; } }
+  /* full KI shine: a moving layer (transform, run by the compositor) instead of an animated background position, which
+     repainted the bar on every frame of a fight */
+  .ki.full i { background: #b99cff; }
+  .ki.full i::after { content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 400%; background: linear-gradient(90deg, #b99cff, #fff, #b99cff) 0 0 / 50% 100%; animation: kiShine 1s linear infinite; }
+  @keyframes kiShine { from { transform: translateX(-50%); } to { transform: none; } }
   .ki-row { display: flex; align-items: center; gap: 6px; width: 100%; font: 600 10px/1 var(--display); letter-spacing: .16em; color: #b9a8ee; }
   .p2 .ki-row { flex-direction: row-reverse; }
   .clock .arena { display: block; margin-top: 3px; font: 400 10px/1.2 var(--display); letter-spacing: .12em; color: var(--muted); opacity: .8; }
@@ -134,7 +139,7 @@
   .row { display: flex; align-items: center; gap: 10px; width: 100%; }
   .p2 .row { flex-direction: row-reverse; }
   .post { flex: 0 1 58%; height: 5px; background: rgba(0,0,0,.55); border: 1px solid rgba(217,179,108,.22); position: relative; overflow: hidden; }
-  .post i { position: absolute; top: 0; bottom: 0; left: 50%; width: 0; transform: translateX(-50%); background: linear-gradient(90deg, #f09b3c, #f7d27a, #f09b3c); }
+  .post i { position: absolute; top: 0; bottom: 0; left: 0; width: 100%; transform: scaleX(0); transform-origin: center; background: linear-gradient(90deg, #f09b3c, #f7d27a, #f09b3c); }
   .post.hot i { background: linear-gradient(90deg, #ff4b2b, #ffb36b, #ff4b2b); }
   .ammo { display: flex; gap: 3px; }
   .ammo b { width: 9px; height: 9px; background: #aab3c2; clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); opacity: .25; }
@@ -2199,14 +2204,14 @@
   </div>
 </div>
 
-<script  src="js/core.js"></script>
-<script  src="js/perf.js?v=gl-default-1"></script>
-<script  src="js/music.js"></script>
+<script  src="js/core.js?v=sd-fps-2"></script>
+<script  src="js/perf.js?v=sd-fps-2"></script>
+<script  src="js/music.js?v=sd-fps-2"></script>
 <script  src="js/input.js"></script>
 <script  src="js/gfx.js?v=phone-perf-1"></script>
-<script  src="js/scene.js"></script>
+<script  src="js/scene.js?v=sd-fps-2"></script>
 <script  src="js/skeleton.js?v=render-fix-v1"></script>
-<script  src="js/bake.js?v=bake-low-1"></script>
+<script  src="js/bake.js?v=sd-fps-2"></script>
 <script  src="js/prepare.js"></script>
 <script  src="js/characters.js?v=champ-1"></script>
 <script  src="js/fighter.js?v=bake-low-1"></script>
@@ -2239,9 +2244,9 @@
 <script  src="js/lang-ui.js"></script>
 <script  src="js/settings.js"></script>
 <script  src="js/privacy.js"></script>
-<script  src="js/gl2d.js?v=gl-2"></script>
+<script  src="js/gl2d.js?v=sd-fps-2"></script>
 <script  src="js/gl-render.js?v=gl-2"></script>
-<script  src="js/game.js?v=hall-1"></script>
+<script  src="js/game.js?v=sd-fps-2"></script>
 <script  src="js/sim-state.js"></script>
 <!-- voices: fighters and announcer, files in voice/ (docs/SES-PLANI.md); ?voice=off silences, ?voice=log logs -->
 <script  src="js/voice.js"></script>

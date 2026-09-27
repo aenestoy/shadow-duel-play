@@ -636,6 +636,7 @@ window.ND = window.ND || {};
     // The reverb (a 2.6 s convolution, the costliest part of the sound) only runs while something can be heard: when
     // the game is muted its input is unplugged (after the fade-out), so the browser stops computing it.
     syncRev() {
+      this.syncRun();
       if (!this.rev || !this.revIn) return;
       const on = this.masterLevel() > 0;
       clearTimeout(this.revTimer);
@@ -646,12 +647,36 @@ window.ND = window.ND || {};
       };
       if (on) apply(); else this.revTimer = setTimeout(apply, 400);
     },
-    // Low graphics (weak devices): a shorter reverb tail, about half the convolution work (game.js calls this)
+    // Sound switched off by the player (Settings, master volume 0) or by ?mute=1: after the fade-out the whole audio
+    // context is suspended, so the audio thread stops (music, ambience and reverb otherwise keep computing silence
+    // 50 times a second). Switching the sound on again (a tap, so the browser allows it) resumes it. Short silences
+    // (a hidden tab, an ad, the portal's mute) keep it running: they come back without a tap.
+    playerSilent() { return !this.enabled || this.paramMuted || !(this.vol.master > 0); },
+    syncRun() {
+      const c = this.ctx;
+      if (!c || c.state === 'closed') return;
+      clearTimeout(this.runTimer);
+      const silent = this.playerSilent();
+      if (!silent) { if (c.state === 'suspended' && this.selfSuspended) { this.selfSuspended = false; try { const p = c.resume(); if (p && p.catch) p.catch(() => {}); } catch (e) { /* not allowed yet */ } } return; }
+      this.runTimer = setTimeout(() => {
+        if (!this.playerSilent() || c.state !== 'running') return;
+        this.selfSuspended = true;
+        try { const p = c.suspend(); if (p && p.catch) p.catch(() => {}); } catch (e) { /* not supported */ }
+      }, 600);
+    },
+    // Low graphics (weak devices): a shorter reverb tail, and mono (every input folded to one channel, one mono
+    // impulse): one short convolution instead of two long ones, about a fifth of the reverb's work. Also fewer
+    // partials in a clash, and fewer one-shot sounds at once (voice cap, see oneShot). game.js calls this.
     setLite(v) {
       v = !!v;
       if (v === !!this.lite) return;
       this.lite = v;
-      if (this.rev) this.rev.buffer = this.makeIR(v ? 1.2 : 2.6);
+      if (this.rev) this.revMode(v);
+    },
+    revMode(lite) {
+      const r = this.rev;
+      try { r.channelCount = lite ? 1 : 2; r.channelCountMode = lite ? 'explicit' : 'clamped-max'; } catch (e) { /* older browsers: stereo */ }
+      r.buffer = this.makeIR(lite ? 1.1 : 2.6, lite ? 1 : 2);
     },
     // kind: 'master' | 'music' | 'sfx'; v 0..1. Applies at once (short glide); saving is the caller's job.
     setVolume(kind, v) {
@@ -681,9 +706,12 @@ window.ND = window.ND || {};
 
     init() {
       // iOS arka plandan dönünce 'interrupted' kalabilir; jest dışında reddedilen resume sessizce yutulur
-      if (this.ctx) { if (this.ctx.state !== 'running' && this.ctx.state !== 'closed') { try { const p = this.ctx.resume(); if (p && p.catch) p.catch(() => {}); } catch (e) { /* yok */ } } return; }
+      if (this.ctx) { if (this.ctx.state !== 'running' && this.ctx.state !== 'closed' && !(this.selfSuspended && this.playerSilent())) { this.selfSuspended = false; try { const p = this.ctx.resume(); if (p && p.catch) p.catch(() => {}); } catch (e) { /* yok */ } } return; }
       let c;
-      try { c = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
+      // Phones: a 'balanced' output buffer (a little more latency, far fewer drop-outs when the processor is busy or
+      // hot; with the smallest buffer a slow frame starved the audio thread and the sound cut out)
+      const AC = window.AudioContext || window.webkitAudioContext, mob = !!(ND.touch && ND.touch.mobile);
+      try { c = mob ? new AC({ latencyHint: 'balanced' }) : new AC(); } catch (e) { try { c = new AC(); } catch (e2) { return; } }
       this.ctx = c;
       this.master = c.createGain();
       this.updateAway();
@@ -695,7 +723,7 @@ window.ND = window.ND || {};
       // send is taken after the music level, so each slider scales its own reverb tail too)
       const fx = this.curve(this.vol.sfx);
       this.dry = c.createGain(); this.dry.gain.value = fx; this.dry.connect(this.master);
-      this.rev = c.createConvolver(); this.rev.buffer = this.makeIR(this.lite ? 1.2 : 2.6);
+      this.rev = c.createConvolver(); this.revMode(this.lite);
       this.revIn = c.createGain(); this.revIn.gain.value = fx; this.revIn.connect(this.rev); this.revOn = true;
       const rg = c.createGain(); rg.gain.value = 0.32; this.rev.connect(rg); rg.connect(this.master);
       const len = c.sampleRate * 2;
@@ -712,9 +740,12 @@ window.ND = window.ND || {};
       this.applyGain();
     },
 
-    makeIR(sec) {
-      const c = this.ctx, len = (c.sampleRate * sec) | 0, b = c.createBuffer(2, len, c.sampleRate);
-      for (let ch = 0; ch < 2; ch++) {
+    // (made once per length and channel count: a quality change mid-fight does not compute a new one)
+    makeIR(sec, chans = 2) {
+      const k = sec + '/' + chans, M = this.irs || (this.irs = {});
+      if (M[k]) return M[k];
+      const c = this.ctx, len = (c.sampleRate * sec) | 0, b = (M[k] = c.createBuffer(chans, len, c.sampleRate));
+      for (let ch = 0; ch < chans; ch++) {
         const data = b.getChannelData(ch);
         for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3.4);
       }
@@ -733,9 +764,23 @@ window.ND = window.ND || {};
       return g;
     },
 
+    // One-shot voice cap: sounds still ringing are counted (their end times); beyond the cap a quiet layer is
+    // skipped, and far beyond it everything (a burst of clashes, sparks and shouts made 30+ at once, every node running
+    // on the audio thread). Low / phones: fewer.
+    oneShot(t, dur, gain) {
+      const L = this.ends || (this.ends = []), now = this.ctx.currentTime;
+      let n = 0;
+      for (let i = 0; i < L.length; i++) if (L[i] > now) L[n++] = L[i];
+      L.length = n;
+      const cap = this.lite || (ND.touch && ND.touch.mobile) ? 22 : 40;
+      if (n >= cap * 1.5 || (n >= cap && gain < 0.25)) return false;
+      L.push(t + dur);
+      return true;
+    },
     noise(o) {
       if (!this.ready || this.quiet) return;
       const c = this.ctx, t = c.currentTime + (o.delay || 0);
+      if (!this.oneShot(t, o.dur, o.gain ?? 0.5)) return;
       const src = c.createBufferSource(); src.buffer = this.noiseBuf;
       src.playbackRate.value = o.rate || 1;
       const f = c.createBiquadFilter(); f.type = o.type || 'bandpass'; f.Q.value = o.q || 1;
@@ -753,6 +798,7 @@ window.ND = window.ND || {};
     tone(o) {
       if (!this.ready || this.quiet) return;
       const c = this.ctx, t = c.currentTime + (o.delay || 0);
+      if (!this.oneShot(t, o.dur, o.gain ?? 0.3)) return;
       const osc = c.createOscillator(); osc.type = o.type || 'sine';
       osc.frequency.setValueAtTime(o.freq, t);
       if (o.freq1) osc.frequency.exponentialRampToValueAtTime(o.freq1, t + (o.glide || o.dur));
@@ -773,6 +819,7 @@ window.ND = window.ND || {};
     clang(power = 1, pan = 0, pitch = 1) {
       const base = (560 + Math.random() * 90) * pitch;
       [1, 2.76, 5.4, 8.93, 13.3].forEach((r, i) => {
+        if (this.lite && i > 2) return; // (Low: the two faintest partials, a fifth and a quarter of the first, left out)
         this.tone({ freq: base * r, type: i ? 'sine' : 'triangle', dur: (1.3 - i * 0.18) * (0.6 + power * 0.5), gain: (0.2 / (i + 1)) * power, send: 0.5, pan });
       });
       this.noise({ type: 'highpass', f0: 2500, dur: 0.06, gain: 0.5 * power, send: 0.3, pan });
@@ -825,11 +872,12 @@ window.ND = window.ND || {};
         const f = c.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q;
         const g = c.createGain(); g.gain.value = 0;
         const bus = c.createGain(); bus.gain.value = 1;
-        if (lfoRate) { const l = c.createOscillator(); l.frequency.value = lfoRate; const lg = c.createGain(); lg.gain.value = lfoDepth; l.connect(lg); lg.connect(bus.gain); l.start(); }
-        if (fRate) { const l = c.createOscillator(); l.frequency.value = fRate; const lg = c.createGain(); lg.gain.value = fDepth; l.connect(lg); lg.connect(f.frequency); l.start(); }
+        const run = [src];
+        if (lfoRate) { const l = c.createOscillator(); l.frequency.value = lfoRate; const lg = c.createGain(); lg.gain.value = lfoDepth; l.connect(lg); lg.connect(bus.gain); l.start(); run.push(l); }
+        if (fRate) { const l = c.createOscillator(); l.frequency.value = fRate; const lg = c.createGain(); lg.gain.value = fDepth; l.connect(lg); lg.connect(f.frequency); l.start(); run.push(l); }
         src.connect(f); f.connect(bus); bus.connect(g); g.connect(this.dry); // ambience counts as an effect
         src.start(0, Math.random() * 1.5);
-        g._level = level;
+        g._level = level; g._run = run;
         return g;
       };
       // çıtırtı tamponu: seyrek, hızla sönen kıvılcım patlamaları (ateş / ızgara)
@@ -859,12 +907,22 @@ window.ND = window.ND || {};
       this.amb = {};
       this.setAmbience(this.ambKind || 'wind');
     },
+    // The layers of the arena left behind fade out, then stop (5 s later): a silent looping noise source with its
+    // filters and wobble oscillators still costs the audio thread, and an arcade run visits many arenas.
     setAmbience(kind) {
       this.ambKind = kind;
       if (!this.amb) return;
       if (kind && !this.amb[kind] && this.ambDefs[kind]) this.amb[kind] = this.ambDefs[kind]();
       const t = this.ctx.currentTime;
       for (const k in this.amb) for (const g of this.amb[k]) g.gain.setTargetAtTime(k === kind ? g._level : 0, t, 0.9);
+      clearTimeout(this.ambTimer);
+      this.ambTimer = setTimeout(() => {
+        for (const k in this.amb) {
+          if (k === this.ambKind) continue;
+          for (const g of this.amb[k]) { for (const n of g._run || []) { try { n.stop(); } catch (e) { /* already stopped */ } } try { g.disconnect(); } catch (e) { /* already */ } }
+          delete this.amb[k];
+        }
+      }, 5000);
     },
     thunder(delay = 0.5) {
       this.noise({ type: 'lowpass', f0: 220, f1: 60, dur: 3.4, gain: 0.8, attack: 0.08, send: 0.6, delay });

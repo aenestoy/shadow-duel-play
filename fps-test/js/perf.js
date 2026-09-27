@@ -2,7 +2,9 @@
 // Shows a small overlay, refreshed every second: frames per second, the screen's refresh rate as the browser delivers
 // it (estimated by the frame pacer) and the frame-rate cap, frame time median / 95th percentile, the frame's processor
 // time split into simulation / drawing (recording the picture) / WebGL, graphics quality, canvas backing store size and
-// pixel ratio; below it the average / worst milliseconds of each part (simulation steps, HUD DOM updates, background,
+// pixel ratio; the one-off work of that second that frame timers do not see (WebGL texture uploads and their size, new
+// textures, shader compiles, fighter part pictures drawn / dropped / drawn as paths: each can stall a phone's GPU);
+// below it the average / worst milliseconds of each part (simulation steps, HUD DOM updates, background,
 // reflections, shadows, fighters, effects, bloom...), simulation steps per frame and a rough allocation rate.
 // Test switches (only together with ?perf=1): &dpr=3 pretends the screen has that pixel ratio (phone emulation on a
 // desktop browser), &phone=1 / &lowend=1 steer the device guesses, &flush=0|2 (see below).
@@ -69,7 +71,7 @@ window.ND = window.ND || {};
       this.ck(0, g?.mode); this.ck(1, g?.phase); this.ck(2, !!g?.paused); this.ck(3, !!ND.portal?.inAd); this.ck(4, !!document.hidden);
       this.ck(5, ND.gfx?.tier); this.ck(6, cv?.width); this.ck(7, cv?.height); this.ck(8, ND.scene?.themeId);
       this.ck(9, g?.F?.[0]?.ch?.id); this.ck(10, g?.F?.[1]?.ch?.id);
-      if (this.ctxChanged) { this.reset(true); this.lastBegin = 0; }
+      if (this.ctxChanged) { this.reset(true); this.lastBegin = 0; this.work0 = this.workNow(); }
       if (this.lastBegin) {
         const gap = t - this.lastBegin;
         this.gapSum += gap; this.gapCount++; if (gap > this.gapMax) this.gapMax = gap; if (gap > 20) this.slow++;
@@ -120,6 +122,12 @@ window.ND = window.ND || {};
         else grp.draw += v;
       }
       for (const k in grp) grp[k] = +grp[k].toFixed(3);
+      // one-off work the frame timers do not see (GPU uploads and driver work): WebGL texture uploads and their size,
+      // new textures, shader compiles, render targets made, fighter part pictures drawn (bakes), dropped (evictions)
+      // and drawn as paths instead (budget), per window
+      const w0 = this.work0 || (this.work0 = this.workNow()), w1 = this.workNow(), work = {};
+      for (const k in w1) work[k] = +(w1[k] - (w0[k] || 0)).toFixed(k === 'texKB' ? 1 : 0);
+      this.work0 = w1;
       const G = this.gaps.subarray(0, this.nGaps).sort(), pct = (p) => (G.length ? +G[Math.min(G.length - 1, Math.floor(p * G.length))].toFixed(2) : 0);
       this.snap = {
         frames: this.frames, seconds: +secs.toFixed(3),
@@ -133,6 +141,7 @@ window.ND = window.ND || {};
         mode: g?.mode, paused: !!g?.paused, hidden: !!document.hidden, inAd: !!ND.portal?.inAd,
         fighters: g?.F?.map((f) => f.ch?.id),
         caches: g?.F?.map((f) => f._bake && ND.bakeStats ? ND.bakeStats(f._bake) : null),
+        work,
         gl: g?.glStatus ? g.glStatus() : null,
         pace: g?.pace ? { on: g.pace.on, ...g.pace.stat() } : null,
         parts,
@@ -142,6 +151,12 @@ window.ND = window.ND || {};
       this.draw();
     },
     history: [],
+    // running totals (differences per window go into snap.work)
+    workNow() {
+      const R = ND.game?.glRenderer?.()?.R, C = R?.count || {}, o = { texUp: C.texUp || 0, texKB: C.texKB || 0, texNew: C.texNew || 0, texts: C.texts || 0, shaders: C.shaders || 0, targets: C.targets || 0, sprites: C.sprites || 0, spriteDrops: C.spriteDrops || 0, bakes: 0, evictions: 0, paths: 0 };
+      for (const f of ND.game?.F || []) { const b = f._bake; if (b) { o.bakes += b.bakes; o.evictions += b.evictions; o.paths += b.live; } }
+      return o;
+    },
     reset(keepHist) {
       this.frames = 0; this.sum = Object.create(null); this.max = Object.create(null);
       this.steps = 0; this.stepsMax = 0; this.stepHist = [0, 0, 0, 0, 0, 0];
@@ -167,9 +182,9 @@ window.ND = window.ND || {};
     report() {
       const windows = this.history.filter((s) => this.isFight(s)).slice(-10);
       return {
-        report: 'shadow-duel-phone-v2',
+        report: 'shadow-duel-phone-v3',
         renderer: ND.game?.renderVersion || 'shared-surfaces',
-        note: 'Frame callback rate and synchronous CPU/Canvas submission only; GPU/display time is not measured. hudDom is included in sim and TOTAL.',
+        note: 'Frame callback rate and synchronous CPU/Canvas submission only; GPU/display time is not measured. hudDom is included in sim and TOTAL. work = per-window counts of WebGL texture uploads (texUp, texKB), new textures, shader compiles, render targets, fighter part pictures drawn (bakes), dropped (evictions) and drawn as paths (paths).',
         device: { userAgent: navigator.userAgent, dpr: window.devicePixelRatio, cores: navigator.hardwareConcurrency, memoryGB: navigator.deviceMemory },
         probeCopies: FLUSH_ALL ? 'per-mark' : FLUSH ? 'per-frame' : 'off',
         emulated: ['phone', 'lowend', 'dpr'].some((k) => qs.has(k)),
@@ -227,7 +242,10 @@ window.ND = window.ND || {};
         `${String(ND.gfx?.active ? ND.gfx.active() : s.tier).toUpperCase()} (${ND.gfx?.getQuality ? ND.gfx.getQuality() : ''}) ${s.canvas} · css ${s.css} @${s.dpr}` +
         ` (max ${ND.gfx?.f?.dpr ?? '?'}${s.drs != null && s.drs !== 1 ? ' ×' + s.drs : ''}) · ${g?.rendererMode === 'gl' ? 'WebGL2' : 'Canvas'}\n`;
       if (Math.max(hz, this.hzBest || 0) > 70 && pc && pc.target && pc.target < Math.max(hz, this.hzBest) - 5) t += `(cap ${pc.target}: Settings > Graphics > Frame rate 120 / Max for more)\n`;
-      if (qs.get('compact') === '1') t += `Fight samples: ${this.history.filter((v) => this.isFight(v)).length} · report v2`;
+      const wk = s.work || {};
+      t += `uploads ${wk.texUp ?? '?'} (${wk.texKB ?? '?'} KB, texts ${wk.texts ?? '?'}) · new tex ${wk.texNew ?? '?'} · shaders ${wk.shaders ?? '?'} · bakes ${wk.bakes ?? '?'} evict ${wk.evictions ?? '?'} paths ${wk.paths ?? '?'}
+`;
+      if (qs.get('compact') === '1') t += `Fight samples: ${this.history.filter((v) => this.isFight(v)).length} · report v3`;
       else {
         t += `steps ${s.stepsAvg} max ${s.stepsMax} [${s.stepHist.join(' ')}] · alloc ${s.allocKBps} KB/s gc ${s.gcs}\n`;
         t += 'CPU avg / max ms (GPU not measured)\n';

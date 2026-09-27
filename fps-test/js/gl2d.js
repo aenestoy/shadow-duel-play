@@ -11,6 +11,8 @@
 //   - gradients: linear and two-point conical (radial) evaluated per pixel from the user-space position; the colour
 //     stops are baked into one 256-texel row of a ramp texture (unpremultiplied interpolation, like Canvas)
 //   - drawImage: canvases / bitmaps become textures (re-uploaded only after something drew into them)
+//   - sprites (the Low tier's fighter part pictures, bake.js): drawn on a CPU canvas and copied into pages of one
+//     mip-mapped atlas (spriteBegin / spriteEnd / drawSprite): no new texture per picture, no wait for the GPU
 //   - text: each fillText / strokeText is drawn once by Canvas 2D into a text atlas (per string, font, colour,
 //     transform, quarter-pixel x position) and placed as a textured quad
 //   - globalCompositeOperation: source-over, lighter, source-atop, source-in, destination-over/-in/-out, screen,
@@ -320,6 +322,97 @@ window.ND = window.ND || {};
       return e;
     }
 
+    // ---------------------------------------------------------------- sprite atlas (fighter part pictures, bake.js)
+    // Pages of SP_W×SP_H texels with 3 mip levels (immutable storage, made once per page: never a new texture per
+    // picture). A sprite is a cell on a shelf: its picture is drawn by Canvas 2D on a CPU canvas (willReadFrequently)
+    // at a 2-texel offset, then the cell and its two halvings go into the page right away with texSubImage2D — a plain
+    // pixel copy that never waits for another context's GPU work (a GPU canvas or ImageBitmap has to be finished by
+    // the GPU first; on phones every new part picture stalled a frame that way). Cells are 4-aligned with an empty
+    // 2-texel border, so the halvings of neighbours stay apart; the mip levels let one picture size serve every camera
+    // zoom (trilinear sampling instead of a new picture per zoom step). A full atlas drops its least recently used
+    // page: its sprites are no longer valid (spriteOk) and are drawn again when next needed.
+    const SP_W = 1024, SP_H = 1024, SP_MAX = 16;
+    const spPages = [];
+    let spCanvas = null, spCtx = null, spM1 = null, spX1 = null, spM2 = null, spX2 = null, spW = 0, spH = 0, spGen = 0;
+    const cpuCanvas = (c) => c.getContext('2d', { willReadFrequently: true });
+    function spPage() {
+      const p = { tex: null, gen: ++spGen, shelves: [], top: 0, used: frameNo, n: 0 };
+      if (E.ready) {
+        p.tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, p.tex);
+        gl.texStorage2D(gl.TEXTURE_2D, 3, gl.RGBA8, SP_W, SP_H);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAX_LEVEL, 2);
+        CNT.texNew++; CNT.spritePages++;
+      }
+      spPages.push(p);
+      return p;
+    }
+    // a cw×ch cell (multiples of 4) on page p, or null
+    function spAlloc(p, cw, ch) {
+      for (const s of p.shelves) if (s.h >= ch && s.h <= ch + 8 && s.x + cw <= SP_W) { const r = { x: s.x, y: s.y }; s.x += cw; return r; }
+      const h = Math.ceil(ch / 8) * 8;
+      if (p.top + h > SP_H || cw > SP_W) return null;
+      const s = { y: p.top, h, x: cw }; p.top += h; p.shelves.push(s);
+      return { x: 0, y: s.y };
+    }
+    // the CPU canvas a w×h picture is drawn on (at offset 2, 2); cleared, identity transform
+    R.spriteBegin = function (w, h) {
+      const cw = Math.ceil((w + 4) / 4) * 4, ch = Math.ceil((h + 4) / 4) * 4;
+      if (!spCanvas) spCanvas = document.createElement('canvas');
+      if (spCanvas.width < cw || spCanvas.height < ch) {
+        spCanvas.width = Math.max(spCanvas.width, Math.ceil(cw / 64) * 64); spCanvas.height = Math.max(spCanvas.height, Math.ceil(ch / 64) * 64); spCtx = null;
+      }
+      if (!spCtx) spCtx = cpuCanvas(spCanvas);
+      const x = spCtx;
+      if (typeof x.reset === 'function') x.reset(); else { x.setTransform(1, 0, 0, 1, 0, 0); x.globalAlpha = 1; x.globalCompositeOperation = 'source-over'; }
+      x.clearRect(0, 0, cw, ch);
+      spW = w; spH = h;
+      return x;
+    };
+    // copies the picture drawn since spriteBegin into the atlas → sprite { page, gen, u0, v0, u1, v1 } (null: no room)
+    R.spriteEnd = function () {
+      if (!E.ready) return null;
+      const w = spW, h = spH, cw = Math.ceil((w + 4) / 4) * 4, ch = Math.ceil((h + 4) / 4) * 4;
+      if (cw > SP_W || ch > SP_H) return null;
+      let p = null, r = null;
+      for (let i = spPages.length - 1; i >= 0 && !r; i--) { r = spAlloc(spPages[i], cw, ch); if (r) p = spPages[i]; }
+      if (!r && spPages.length < SP_MAX) { p = spPage(); r = spAlloc(p, cw, ch); }
+      if (!r) {
+        // full: the least recently used page not drawn from in this frame starts again empty
+        let old = null;
+        for (const q of spPages) if (q.used < frameNo && (!old || q.used < old.used)) old = q;
+        if (!old) return null;
+        old.gen = ++spGen; old.shelves.length = 0; old.top = 0; old.n = 0; CNT.spriteDrops++;
+        p = old; r = spAlloc(p, cw, ch);
+        if (!r) return null;
+      }
+      // the cell and its two halvings (2×2 averages: a Canvas copy at exactly half size), straight into the page
+      const w1 = cw >> 1, h1 = ch >> 1, w2 = cw >> 2, h2 = ch >> 2;
+      if (!spM1) { spM1 = document.createElement('canvas'); spM2 = document.createElement('canvas'); }
+      if (spM1.width < w1 || spM1.height < h1) { spM1.width = Math.max(spM1.width, Math.ceil(w1 / 32) * 32); spM1.height = Math.max(spM1.height, Math.ceil(h1 / 32) * 32); spX1 = null; }
+      if (spM2.width < w2 || spM2.height < h2) { spM2.width = Math.max(spM2.width, Math.ceil(w2 / 16) * 16); spM2.height = Math.max(spM2.height, Math.ceil(h2 / 16) * 16); spX2 = null; }
+      if (!spX1) spX1 = cpuCanvas(spM1);
+      if (!spX2) spX2 = cpuCanvas(spM2);
+      spX1.setTransform(1, 0, 0, 1, 0, 0); spX1.globalAlpha = 1; spX1.globalCompositeOperation = 'copy'; spX1.imageSmoothingEnabled = true; spX1.imageSmoothingQuality = 'low';
+      spX1.drawImage(spCanvas, 0, 0, cw, ch, 0, 0, w1, h1);
+      spX2.setTransform(1, 0, 0, 1, 0, 0); spX2.globalAlpha = 1; spX2.globalCompositeOperation = 'copy'; spX2.imageSmoothingEnabled = true; spX2.imageSmoothingQuality = 'low';
+      spX2.drawImage(spM1, 0, 0, w1, h1, 0, 0, w2, h2);
+      gl.bindTexture(gl.TEXTURE_2D, p.tex);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, r.x, r.y, cw, ch, gl.RGBA, gl.UNSIGNED_BYTE, spCanvas);
+      gl.texSubImage2D(gl.TEXTURE_2D, 1, r.x >> 1, r.y >> 1, w1, h1, gl.RGBA, gl.UNSIGNED_BYTE, spM1);
+      gl.texSubImage2D(gl.TEXTURE_2D, 2, r.x >> 2, r.y >> 2, w2, h2, gl.RGBA, gl.UNSIGNED_BYTE, spM2);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+      CNT.texUp += 3; CNT.texKB += (cw * ch * 4 * 1.3125) / 1024; CNT.sprites++;
+      p.n++;
+      return { page: p, gen: p.gen, u0: (r.x + 2) / SP_W, v0: (r.y + 2) / SP_H, u1: (r.x + 2 + w) / SP_W, v1: (r.y + 2 + h) / SP_H };
+    };
+    R.spriteOk = (s) => !!s && s.gen === s.page.gen && !!s.page.tex;
+    R.spriteInfo = () => ({ pages: spPages.length, sprites: spPages.reduce((n, p) => n + p.n, 0), maxPages: SP_MAX, pageSize: [SP_W, SP_H] });
+    // Always-on counters (a few integer additions per upload; perf.js reads them per report window)
+    const CNT = R.count = { texNew: 0, texUp: 0, texKB: 0, texts: 0, shaders: 0, targets: 0, sprites: 0, spritePages: 0, spriteDrops: 0 };
+
     // ---------------------------------------------------------------- text atlas
     // Shelves (rows) of text pictures. When the atlas is full, the least recently used shelf that no text of this
     // frame is on is emptied (texts still on screen are never drawn again). Each new text is drawn by Canvas 2D on a
@@ -327,6 +420,8 @@ window.ND = window.ND || {};
     // (a GPU canvas has to be finished by the GPU first; on phones that stalled whole frames).
     const TA_W = 1024, TA_H = 1024;
     const texts = new Map(); // key → { x, y, w, h, ox, oy, used, shelf }
+    const textSizes = new Map(); // text without its size → { px (last size), until (frame: still animating) }
+    const FONT_PX = /(\d+(?:\.\d+)?)px/;
     const shelves = []; // { y, h, x, used, keys }
     let shelfTop = 0, textUploads = 0;
     let textCanvas = null, textCtx = null, measureCtx = null;
@@ -946,6 +1041,24 @@ window.ND = window.ND || {};
         QU[0] = u0; QV[0] = v0; QU[1] = u1; QV[1] = v0; QU[2] = u1; QV[2] = v1; QU[3] = u0; QV[3] = v1;
         emitUV4();
       }
+      // a sprite of the atlas (R.spriteEnd) into the rectangle dx, dy, dw, dh of user space
+      drawSprite(s, dx, dy, dw, dh) {
+        if (!R.spriteOk(s)) return;
+        const p = s.page;
+        p.used = frameNo;
+        const blend = this._blend(), al = this.ga;
+        EU[0] = pack(al * 255, al * 255, al * 255, al * 255); EU[1] = PT_TEX; UVM = 0;
+        nextZ();
+        useState(this.pass, blend, p, this.clp, this.sc);
+        const a = this.a, b = this.b, c = this.c, d = this.d, e = this.e, f = this.f, x1 = dx + dw, y1 = dy + dh;
+        QX[0] = a * dx + c * dy + e; QY[0] = b * dx + d * dy + f; QX[1] = a * x1 + c * dy + e; QY[1] = b * x1 + d * dy + f;
+        QX[2] = a * x1 + c * y1 + e; QY[2] = b * x1 + d * y1 + f; QX[3] = a * dx + c * y1 + e; QY[3] = b * dx + d * y1 + f;
+        QU[0] = s.u0; QV[0] = s.v0; QU[1] = s.u1; QV[1] = s.v0; QU[2] = s.u1; QV[2] = s.v1; QU[3] = s.u0; QV[3] = s.v1;
+        emitUV4();
+      }
+      spriteBegin(w, h) { return R.spriteBegin(w, h); }
+      spriteEnd() { return R.spriteEnd(); }
+      spriteOk(s) { return R.spriteOk(s); }
       createLinearGradient(x0, y0, x1, y1) { return gradCtx().createLinearGradient(x0, y0, x1, y1); }
       createRadialGradient(x0, y0, r0, x1, y1, r1) { return gradCtx().createRadialGradient(x0, y0, r0, x1, y1, r1); }
       createPattern(img, rep) { return gradCtx().createPattern(img, rep); }
@@ -965,15 +1078,33 @@ window.ND = window.ND || {};
         if (fx === 1) { ix++; fx = 0; } // (a whole pixel further: the same picture as offset 0, not a fifth variant)
         const iy = Math.round(Y);
         const col = st.c;
-        const key = (stroke ? 'S' : 'F') + this.font + '|' + this.align + '|' + this.baseline + '|' + (mw === undefined ? '' : mw) + '|' +
-          col.join(',') + '|' + (stroke ? this.lw + this.join + '/' + this.miter : '') + '|' + a.toFixed(4) + ',' + b.toFixed(4) + ',' + c.toFixed(4) + ',' + d.toFixed(4) + '|' + fx + '|' + t;
+        // Texts whose font size keeps changing (pop-in and pulse animations: damage numbers, combo counts, STRIKE!,
+        // banners) would need a new picture every frame. On Medium / Low (snap) such a text is drawn at the next size of
+        // a 2^(1/4) ladder and its picture placed a little smaller (at most 16%): a few pictures per animation instead of
+        // one per frame. Once the size stays put (30 frames), the text is drawn at its exact size again.
+        let font = this.font, lw = this.lw, mwq = mw, k = 1;
+        if (snap) {
+          const m = FONT_PX.exec(font);
+          if (m) {
+            const px = +m[1], ak = (stroke ? 'S' : 'F') + font.replace(m[0], '') + '|' + t + '|' + col.join(',');
+            let z = textSizes.get(ak);
+            if (!z) { if (textSizes.size > 512) textSizes.clear(); textSizes.set(ak, (z = { px, until: 0 })); }
+            else if (z.px !== px) { z.px = px; z.until = frameNo + 30; }
+            if (frameNo < z.until && px > 1) {
+              const q = Math.round(Math.pow(2, Math.ceil(Math.log2(px) * 4 - 1e-6) / 4) * 4) / 4;
+              if (q > px) { k = px / q; font = font.replace(m[0], q + 'px'); lw = lw / k; if (mw !== undefined) mwq = mw / k; }
+            }
+          }
+        }
+        const key = (stroke ? 'S' : 'F') + font + '|' + this.align + '|' + this.baseline + '|' + (mwq === undefined ? '' : mwq) + '|' +
+          col.join(',') + '|' + (stroke ? lw + this.join + '/' + this.miter : '') + '|' + a.toFixed(4) + ',' + b.toFixed(4) + ',' + c.toFixed(4) + ',' + d.toFixed(4) + '|' + fx + '|' + t;
         let e = texts.get(key);
         if (!e) {
           const tt = P ? now() : 0;
-          const mt = metrics(t, this.font, this.align, this.baseline);
+          const mt = metrics(t, font, this.align, this.baseline);
           let w0 = mt.width, sxk = 1;
-          if (mw !== undefined && mw > 0 && w0 > mw) { sxk = mw / w0; }
-          const pad = (stroke ? this.lw : 0) + 2;
+          if (mwq !== undefined && mwq > 0 && w0 > mwq) { sxk = mwq / w0; }
+          const pad = (stroke ? lw : 0) + 2;
           const l = -mt.actualBoundingBoxLeft * sxk - pad, r = mt.actualBoundingBoxRight * sxk + pad, tp = -mt.actualBoundingBoxAscent - pad, bt = mt.actualBoundingBoxDescent + pad;
           let minx = 1e9, miny = 1e9, maxx = -1e9, maxy = -1e9;
           for (const [px, py] of [[l, tp], [r, tp], [r, bt], [l, bt]]) {
@@ -996,10 +1127,10 @@ window.ND = window.ND || {};
           tc.setTransform(1, 0, 0, 1, 0, 0); tc.globalAlpha = 1; tc.globalCompositeOperation = 'copy';
           tc.fillStyle = 'rgba(0,0,0,0)'; tc.fillRect(0, 0, w, h); tc.globalCompositeOperation = 'source-over';
           tc.setTransform(a, b, c, d, ox + fx, oy);
-          tc.font = this.font; tc.textAlign = this.align; tc.textBaseline = this.baseline;
+          tc.font = font; tc.textAlign = this.align; tc.textBaseline = this.baseline;
           const cs = `rgba(${col[0]},${col[1]},${col[2]},${col[3]})`;
-          if (stroke) { tc.strokeStyle = cs; tc.lineWidth = this.lw; tc.lineJoin = JOIN_N[this.join]; tc.miterLimit = this.miter; if (mw !== undefined) tc.strokeText(t, 0, 0, mw); else tc.strokeText(t, 0, 0); }
-          else { tc.fillStyle = cs; if (mw !== undefined) tc.fillText(t, 0, 0, mw); else tc.fillText(t, 0, 0); }
+          if (stroke) { tc.strokeStyle = cs; tc.lineWidth = lw; tc.lineJoin = JOIN_N[this.join]; tc.miterLimit = this.miter; if (mwq !== undefined) tc.strokeText(t, 0, 0, mwq); else tc.strokeText(t, 0, 0); }
+          else { tc.fillStyle = cs; if (mwq !== undefined) tc.fillText(t, 0, 0, mwq); else tc.fillText(t, 0, 0); }
           e = { x: r0.x, y: r0.y, w, h, ox, oy, used: frameNo, shelf: r0.shelf };
           r0.shelf.keys.push(key);
           // straight into the atlas (a GPU copy; the scratch canvas is reused by the next text)
@@ -1008,7 +1139,7 @@ window.ND = window.ND || {};
             gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
             gl.texSubImage2D(gl.TEXTURE_2D, 0, e.x, e.y, w, h, gl.RGBA, gl.UNSIGNED_BYTE, textCanvas);
             gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
-            textUploads++;
+            textUploads++; CNT.texUp++; CNT.texts++; CNT.texKB += (w * h) / 256;
           }
           texts.set(key, e);
           if (P) { P.texts++; P.textPx += w * h; P.textMs += now() - tt; if (P.textWhy.length < 6) P.textWhy.push(P.stacks ? key : t.slice(0, 24) + ' ' + w + 'x' + h); }
@@ -1018,8 +1149,8 @@ window.ND = window.ND || {};
         EU[0] = pack(al * 255, al * 255, al * 255, al * 255); EU[1] = PT_TEX; UVM = 0;
         nextZ();
         useState(this.pass, blend, TEXT_TEX, this.clp, this.sc);
-        const x0 = ix - e.ox, y0 = iy - e.oy, u0 = e.x / TA_W, v0 = e.y / TA_H, u1 = (e.x + e.w) / TA_W, v1 = (e.y + e.h) / TA_H;
-        QX[0] = x0; QY[0] = y0; QX[1] = x0 + e.w; QY[1] = y0; QX[2] = x0 + e.w; QY[2] = y0 + e.h; QX[3] = x0; QY[3] = y0 + e.h;
+        const x0 = ix - e.ox * k, y0 = iy - e.oy * k, qw = e.w * k, qh = e.h * k, u0 = e.x / TA_W, v0 = e.y / TA_H, u1 = (e.x + e.w) / TA_W, v1 = (e.y + e.h) / TA_H;
+        QX[0] = x0; QY[0] = y0; QX[1] = x0 + qw; QY[1] = y0; QX[2] = x0 + qw; QY[2] = y0 + qh; QX[3] = x0; QY[3] = y0 + qh;
         QU[0] = u0; QV[0] = v0; QU[1] = u1; QV[1] = v0; QU[2] = u1; QV[2] = v1; QU[3] = u0; QV[3] = v1;
         emitUV4();
       }
@@ -1226,7 +1357,7 @@ window.ND = window.ND || {};
       if (this.pass === 0) { ES[1] = this.sc.x; ES[2] = this.sc.y; } else { ES[1] = 0; ES[2] = 0; }
       return origPaint.call(this, style, mul);
     };
-    for (const k of ['clip', 'clearRect', 'drawImage', '_text']) {
+    for (const k of ['clip', 'clearRect', 'drawImage', 'drawSprite', '_text']) {
       const o = Ctx.prototype[k];
       Ctx.prototype[k] = function () {
         if (this.pass === 0) { ES[1] = this.sc.x; ES[2] = this.sc.y; } else { ES[1] = 0; ES[2] = 0; }
@@ -1343,7 +1474,7 @@ window.ND = window.ND || {};
     const QFS = `#version 300 es
       precision mediump float; out vec4 o; void main(){ o=vec4(0.0); }`;
     function compile(vs, fs, binds) {
-      const mk = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { const l = gl.getShaderInfoLog(s); gl.deleteShader(s); throw Error('shader: ' + l); } return s; };
+      const mk = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); CNT.shaders++; if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { const l = gl.getShaderInfoLog(s); gl.deleteShader(s); throw Error('shader: ' + l); } return s; };
       const v = mk(gl.VERTEX_SHADER, vs), f = mk(gl.FRAGMENT_SHADER, fs), p = gl.createProgram();
       gl.attachShader(p, v); gl.attachShader(p, f);
       if (binds) binds(p);
@@ -1361,7 +1492,8 @@ window.ND = window.ND || {};
       if (o.icap < i) { o.icap = i; gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, i * 4, gl.DYNAMIC_DRAW); if (P) P.bufAlloc++; }
     }
     function tex2d(w, h, internal, format, type, filter, data) {
-      const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+      const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); CNT.texNew++;
+      if (data) { CNT.texUp++; CNT.texKB += (w * h * (type === gl.FLOAT ? 16 : 4)) / 1024; }
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
       gl.texImage2D(gl.TEXTURE_2D, 0, internal, w, h, 0, format, type, data || null);
@@ -1410,6 +1542,7 @@ window.ND = window.ND || {};
       for (const e of images.values()) { e.tex = null; e.v = -1; e.pending = false; }
       images.clear(); pendingUploads = [];
       textClear(); textUploads = 0;
+      for (const p of spPages) { p.gen = -1; p.tex = null; } spPages.length = 0;
       ramps.clear(); rampFree = []; for (let i = RAMP_ROWS - 1; i >= 0; i--) rampFree.push(i); rampDirty = [];
       E.ready = true;
     };
@@ -1427,6 +1560,7 @@ window.ND = window.ND || {};
       if (t && t.w === w && t.h === h && t.samples === E.samples) return t;
       freeTarget(i);
       if (P) P.targetsNew++;
+      CNT.targets++;
       t = { w, h, samples: E.samples };
       t.tex = tex2d(w, h, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, gl.LINEAR, null);
       t.fbTex = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, t.fbTex);
@@ -1476,11 +1610,11 @@ window.ND = window.ND || {};
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
         e.w = e.nw; e.h = e.nh;
-        R.stats.uploads++;
+        R.stats.uploads++; CNT.texNew++; CNT.texUp++; CNT.texKB += (e.w * e.h) / 256;
       } else {
         gl.bindTexture(gl.TEXTURE_2D, e.tex);
         gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, src);
-        R.stats.uploads++;
+        R.stats.uploads++; CNT.texUp++; CNT.texKB += (e.w * e.h) / 256;
       }
       e.v = e.nv;
     }
@@ -1508,6 +1642,7 @@ window.ND = window.ND || {};
       if (rampDirty.length) {
         gl.bindTexture(gl.TEXTURE_2D, rampTex);
         for (const row of rampDirty) gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, row, RAMP_W, 1, gl.RGBA, gl.UNSIGNED_BYTE, rampData, row * RAMP_W * 4);
+        CNT.texUp += rampDirty.length; CNT.texKB += rampDirty.length;
         if (P) P.rampRows += rampDirty.length;
         rampDirty = [];
       }
@@ -1632,15 +1767,16 @@ window.ND = window.ND || {};
     E.lose = function () {
       E.ready = false; prog = quadProg = null; targets[0] = targets[1] = null;
       images.clear(); pendingUploads = []; textClear(); textUploads = 0; ramps.clear(); rampDirty = [];
+      for (const p of spPages) { p.gen = -1; p.tex = null; } spPages.length = 0;
       BL.length = 0;
     };
-    R.info = () => ({ samples: E.samples, maxSamples: E.maxSamples, layerAtlas: [AW, AH], textAtlas: [TA_W, TA_H], rampRows: RAMP_ROWS, images: images.size });
+    R.info = () => ({ samples: E.samples, maxSamples: E.maxSamples, layerAtlas: [AW, AH], textAtlas: [TA_W, TA_H], rampRows: RAMP_ROWS, images: images.size, sprites: R.spriteInfo() });
     R.memory = function () {
       let img = 0;
       for (const e of images.values()) img += e.w * e.h * 4;
       const s = Math.max(1, E.samples);
       const tgt = (w, h) => w * h * 4 * (E.samples ? 1 + 2 * s : 2); // resolved colour + (MSAA colour + depth/stencil) or depth/stencil
-      return { imagesBytes: img, textAtlasBytes: TA_W * TA_H * 4, rampBytes: RAMP_W * RAMP_ROWS * 4, paintBytes: PAINT_ROWS * 32,
+      return { imagesBytes: img, spriteBytes: spPages.length * SP_W * SP_H * 4 * 4 / 3, textAtlasBytes: TA_W * TA_H * 4, rampBytes: RAMP_W * RAMP_ROWS * 4, paintBytes: PAINT_ROWS * 32,
         layerTargetBytes: AW && AH ? tgt(AW, AH) : 0, sceneTargetBytes: R.W ? tgt(R.W, R.H) : 0 };
     };
     return R;

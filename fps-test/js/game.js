@@ -44,8 +44,10 @@
   const GL_FORCE = REN_Q === 'gl', GL_WANT = REN_Q !== 'canvas';
   // ?cap=0 / ?cap=1: frame pacing forced to Max / 60 for tests (see the pacer at the end); '' = the Frame rate setting
   const CAP_Q = QS.get('cap') === '0' ? '0' : QS.get('cap') === '1' ? '1' : '';
-  let glr = null, glShown = false;
-  const showGl = (on) => { if (glr && on !== glShown) { glShown = on; glr.canvas.style.visibility = on ? 'visible' : 'hidden'; } };
+  let glr = null, glShown = false, glSamples = null;
+  // (the Canvas 2D canvas under the opaque WebGL canvas is made fully transparent meanwhile: the page compositor then
+  // skips it instead of blending a second full-screen layer on every frame; it still takes the taps)
+  const showGl = (on) => { if (glr && on !== glShown) { glShown = on; glr.canvas.style.visibility = on ? 'visible' : 'hidden'; cv.style.opacity = on ? '0' : ''; } };
   // High bloom blur without ctx.filter (game.blurGlow): the bright 1/4 buffer is halved once (1/8, a 2×2 average),
   // then blurred there by two separable Gaussian passes, each a few offset copies of the image (fractional offsets:
   // bilinear sampling merges two kernel taps per copy). The copies are averaged 'source-over' onto an opaque image
@@ -434,10 +436,17 @@
       // Keep all match state and the round timer still while expensive first-use drawing is prepared.
       // Each fighter fills at most three missing cache entries per preparation frame; no partial drawing is visible.
       const jobs = [() => { this.behind = false; resize(); scene.drawBack(ctx); }];
-      for (const f of F) jobs.push(() => {
-        const draw = () => this.drawLit(f, f._litFn || (f._litFn = (c) => f.draw(c, false, true)));
-        return ND.prepareBaked ? ND.prepareBaked(draw) : (draw(), true);
-      });
+      // WebGL2 on Low: each fighter's part pictures go into the renderer's sprite atlas now (bake.js ND.warmBaked:
+      // every pose of its moves, turned and mirrored), about 12 ms of work per loading frame, so the fight itself
+      // makes almost no new pictures (each one used to be a new texture, and a stall on phones)
+      const warmGl = glr && this.rendererMode === 'gl' && glr.ready && GFX.tier === 'low' && ND.warmBaked;
+      for (const f of F) {
+        if (warmGl) { let w = null; jobs.push(() => (w || (w = ND.warmBaked(glr.R, f))).step(12)); continue; }
+        jobs.push(() => {
+          const draw = () => this.drawLit(f, f._litFn || (f._litFn = (c) => f.draw(c, false, true)));
+          return ND.prepareBaked ? ND.prepareBaked(draw) : (draw(), true);
+        });
+      }
       // Reveal one complete scene, never the intermediate partial part layers used by the warm-up jobs.
       jobs.push(() => this.render());
       this.preparing = ND.prepare.start(jobs, () => {
@@ -1072,7 +1081,7 @@
       // the default renderer broke for good (a GL error, or it kept refusing frames): free it, Canvas 2D from now on
       if (glr && !GL_FORCE && glr.error) {
         glWhy = glr.error; console.info('[ND.gl] WebGL2 renderer switched off; drawing with Canvas 2D', glWhy);
-        glr.dispose(); glr = null; glShown = false; this.rendererMode = 'canvas';
+        glr.dispose(); glr = null; glShown = false; cv.style.opacity = ''; this.rendererMode = 'canvas';
       }
       if (glr && this.rendererMode === 'gl' && !behindUi && !this.behind && glr.ready && this.renderGl()) return;
       showGl(false);
@@ -1095,6 +1104,11 @@
     renderGl() {
       // the tier's processor savings in the renderer (js/gfx.js TIERS: curve tolerance, texts on whole pixels)
       glr.R.setTolerance(GFX.f.tol); glr.R.textSnap = !!GFX.f.snap;
+      // Low: 2× multisampling instead of 4× (?msaa=n overrides). The fighters there are ready-made anti-aliased
+      // pictures and the backdrop is one picture; the samples mostly cost memory traffic: every pass writes and resolves
+      // them on every frame, which on a phone is power and heat.
+      const ms = QS.get('msaa') != null ? +QS.get('msaa') : GFX.tier === 'low' ? 2 : 4;
+      if (ms !== glSamples) { glr.setSamples(ms); glSamples = ms; }
       const g = glr.begin(cv.width, cv.height);
       let ok = false;
       ctx = g;
@@ -1311,8 +1325,8 @@
       for (let i = 0; i < 2; i++) {
         const f = F[i], E = hudEls(i + 1);
         sx(E.h, f.hp / f.maxHp); sx(E.g, f.ghost / f.maxHp);
-        const pw = Math.min(100, f.posture), pe = E.p;
-        if (pe._w !== pw) { pe.style.width = pw + '%'; pe._w = pw; }
+        // (a transform from the centre, not a width: the bar changes nearly every frame and a width is a new layout)
+        sx(E.p, Math.min(100, f.posture) / 100);
         tog(E.pb, 'hot', f.posture > 70);
         tog(E.hpb, 'low', f.hp > 0 && f.hp / f.maxHp < 0.25);
         sx(E.k, f.ki / 100);
@@ -2173,6 +2187,9 @@
     const behind = isBehind();
     if (behind !== !!game.behind) { game.behind = behind; resize(); lastDraw = -1e9; skipDraw = false; }
     if (behind && (skipDraw || w0 - lastDraw < 28)) { skipDraw = false; return; }
+    // Paused or an ad running: the fight picture does not change (the simulation stands still), so it is drawn about
+    // 10 times a second instead of on every screen refresh (the pause menu is the page's own; less heat while it is open)
+    if (!behind && (game.paused || (ND.portal && ND.portal.inAd)) && w0 - lastDraw < 100) return;
     lastDraw = w0;
     game.render();
     skipDraw = behind && performance.now() - w0 > 12;
