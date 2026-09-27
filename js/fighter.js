@@ -1040,9 +1040,14 @@
       if (a.slide && t >= a.slide[0] && t <= a.slide[1]) this.slideFx(a, t);
       if (a.hits) {
         const w = a.hits.findIndex((h) => t >= h[0] && t <= h[1]);
-        if (w >= 0 && w !== this.hitIdx) { this.hitIdx = w; this.hitDone = false; if (w > 0) au.swoosh(1.1, this.pan); }
+        if (w >= 0 && w !== this.hitIdx) { this.hitIdx = w; this.hitDone = false; if (w > 0 && !(this.ch.blunt && au.bo?.swing?.(this.pan, 1.1))) au.swoosh(1.1, this.pan); }
       }
-      if (a.sw != null && !this.sfx && t >= a.sw) { this.sfx = true; au.swoosh(a.pw, this.pan); if (a.special) au.swoosh(1.4, this.pan); }
+      if (a.sw != null && !this.sfx && t >= a.sw) {
+        this.sfx = true;
+        // the staff (Jin) has its own lower, rounder whoosh (ND.audio.bo; false = the old sound)
+        if (!(this.ch.blunt && au.bo?.swing?.(this.pan, a.pw))) au.swoosh(a.pw, this.pan);
+        if (a.special) au.swoosh(1.4, this.pan);
+      }
       if (a.cross && t >= a.active[0] && t <= a.active[1] + 0.05) {
         if (this.dashFrom == null) this.dashFrom = this.x;
         this.addGhost(0.4);
@@ -1264,7 +1269,10 @@
       // künt vuruş (bō, zincir ağırlığı, taş): kesik sesi/kan yok; gümbürtü, toz ve darbe halkası
       const blunt = !!(a.blunt || a.kind === 'whip' || (a.kind === 'blade' && from && from.ch && from.ch.blunt));
       const blade = a.kind === 'blade' && !blunt;
-      if (blunt) { au.thud(0.8 + raw / 22, pan); au.tone({ freq: 150 + raw * 2, freq1: 60, dur: 0.18, gain: 0.12 + raw * 0.006, send: 0.2, pan }); fx.dust(x, y, 4 + (raw / 4 | 0), 0.7); fx.spark(x, y, Math.atan2(-0.4, kdir), 8, 0.6, '235,225,205'); }
+      // the staff (Jin's bō, kind 'blade' + blunt): wood crack + body thump (ND.audio.bo); chain weights, gusts, stones: thud
+      if (blunt && a.kind === 'blade' && au.bo?.hit) au.bo.hit(raw, pan, !!(a.knock || a.special || a.launch));
+      else if (blunt) { au.thud(0.8 + raw / 22, pan); au.tone({ freq: 150 + raw * 2, freq1: 60, dur: 0.18, gain: 0.12 + raw * 0.006, send: 0.2, pan }); }
+      if (blunt) { fx.dust(x, y, 4 + (raw / 4 | 0), 0.7); fx.spark(x, y, Math.atan2(-0.4, kdir), 8, 0.6, '235,225,205'); }
       else if (a.kind === 'kick') { au.thud(1, pan); fx.dust(x, y, 4, 0.4); }
       else if (a.kind === 'shuriken') { au.cut(0.45, pan); }
       else au.cut(0.7 + raw / 25, pan);
@@ -1351,7 +1359,10 @@
       o.gainKi(3); this.lockAtk('block');
       fx.spark(x, y, Math.atan2(-0.6, -this.dir), isKick ? 6 : 16, isKick ? 0.6 : 1);
       const rn = ND.game.rally.n;
-      if (isKick) au.thud(0.8, pan); else au.clang(0.6 + a.post / 60 + rn * 0.05, pan, 1 + Math.min(rn, 8) * 0.06);
+      // a staff on either side (Jin): a wood knock, with a light ring when the other weapon is a blade (ND.audio.bo)
+      const staff = !isKick && (this.ch.blunt || o.ch.blunt);
+      if (isKick) au.thud(0.8, pan);
+      else if (!(staff && au.bo?.block?.(0.8 + a.post / 60 + rn * 0.05, pan, !(this.ch.blunt && o.ch.blunt), 1 + Math.min(rn, 8) * 0.03))) au.clang(0.6 + a.post / 60 + rn * 0.05, pan, 1 + Math.min(rn, 8) * 0.06);
       if (rn >= 2 && !isKick) { fx.spark(x, y, -Math.PI / 2, 8 + rn * 3, 1 + rn * 0.08); fx.ring(x, y, '255,236,190', 50 + rn * 10); }
       if (!a.special) this.vx = -this.dir * 120;
       // kılıç geri seker: saldıran kısa süre toparlanır, savunan karşılık penceresi kazanır

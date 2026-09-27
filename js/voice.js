@@ -2,6 +2,7 @@
 // licences and processing in docs/ASSET-LOG.md, casting in docs/SES-PLANI.md).
 //
 // Files: voice/announcer/<line>.mp3 and voice/<fighter id>/<line>.mp3 (mono MP3, trimmed, loudness-matched).
+// voice/bo-b/: Jin's staff-hit recordings (not voices; loaded here, played by js/core.js ND.audio.bo).
 // Loading: per match only the two fighters' sets + the announcer are fetched (when the VS screen / match starts) and
 // decoded once the audio context exists; every set stays cached. A file that fails to load is simply silent — the
 // fight never waits for a voice.
@@ -26,6 +27,10 @@
   const FIGHTER = ['atk1', 'atk2', 'atk3', 'hurt1', 'hurt2', 'ko', 'ki', 'win'];
   // sets with fewer attack shouts (Kage is the quiet one)
   const LINES = { announcer: ANNOUNCER, kage: ['atk1', 'atk2', 'hurt1', 'hurt2', 'ko', 'ki', 'win'] };
+  // Jin's staff-hit recordings (js/core.js ND.audio.bo, version b): voice/bo-b/. Not voices: only
+  // loaded and decoded here (ND.audio.bo plays them), so the Voices switch does not touch them.
+  const BOF = (ND.audio && ND.audio.bo && ND.audio.bo.FILES) || {};
+  for (const set of Object.keys(BOF)) LINES[set] = [...BOF[set].crack, ...BOF[set].body];
   const ROSTER = ['akane', 'aoi', 'kuro', 'yuki', 'hana', 'tetsu', 'ren', 'kage', 'tora', 'jin', 'mai', 'tsubame', 'shura'];
   const linesOf = (set) => LINES[set] || FIGHTER;
   const PRIO = { atk: 1, hurt: 2, ki: 3, win: 3, ko: 4 };
@@ -313,4 +318,7 @@
     V.setEnabled(!ND.settings || ND.settings.voice !== false);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', hook); else setTimeout(hook, 0);
+  // the staff-hit recordings of the chosen version (a few KB): fetched at once, decoded as soon as there is sound
+  const boSet = au && au.bo && au.bo.set();
+  if (boSet) V.loadSet(boSet);
 })(window.ND);

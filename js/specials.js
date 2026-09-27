@@ -1056,7 +1056,8 @@
   const snd2 = {
     chain(pan, g = 1) { for (let i = 0; i < 4; i++) au.noise({ type: 'bandpass', f0: rand(2600, 4400), q: 6, dur: 0.035, gain: 0.07 * g, send: 0.2, pan, delay: i * rand(0.02, 0.045) }); },
     chainThrow(pan) { au.noise({ type: 'bandpass', f0: 900, f1: 2600, q: 1.2, dur: 0.22, gain: 0.25, attack: 0.03, send: 0.2, pan }); snd2.chain(pan, 1.2); },
-    staff(pan, p = 1) { au.noise({ type: 'bandpass', f0: 240, f1: 900, q: 0.9, dur: 0.24, gain: 0.3 * p, attack: 0.06, send: 0.2, pan }); },
+    // (ND.audio.bo.swing: the staff's own whoosh, varied each time; false = the old one below)
+    staff(pan, p = 1) { if (au.bo?.swing?.(pan, p)) return; au.noise({ type: 'bandpass', f0: 240, f1: 900, q: 0.9, dur: 0.24, gain: 0.3 * p, attack: 0.06, send: 0.2, pan }); },
     fan(pan) { au.noise({ type: 'highpass', f0: 2400, dur: 0.06, gain: 0.1, send: 0.15, pan }); au.noise({ type: 'bandpass', f0: 1200, f1: 3000, q: 1.5, dur: 0.1, gain: 0.07, send: 0.2, pan, delay: 0.02 }); },
     gust(pan) { au.noise({ type: 'bandpass', f0: 500, f1: 2200, q: 0.8, dur: 0.45, gain: 0.4, attack: 0.04, send: 0.4, pan }); },
     draw(pan) { au.tone({ freq: 170, freq1: 260, dur: 0.3, gain: 0.04, type: 'triangle', send: 0.2, pan, attack: 0.2 }); au.noise({ type: 'bandpass', f0: 1800, q: 4, dur: 0.25, gain: 0.04, attack: 0.2, send: 0.1, pan }); },
@@ -1971,12 +1972,14 @@
     // --- temas/zanshin sesleri (kind: clang | ground | whiff | wrap | zan); bilinmeyen tür katana sesine düşer
     const K0 = KA.snd.katana;
     const tok = (pan, p = 1) => { au.tone({ freq: 310, freq1: 170, dur: 0.1, gain: 0.3 * p, type: 'triangle', send: 0.2, pan }); au.noise({ type: 'bandpass', f0: 950, q: 2, dur: 0.06, gain: 0.26 * p, send: 0.15, pan }); };
+    // the staff's knock: wood (ND.audio.bo.block; a light ring when it meets a blade), the old triangle tok in 'old'
+    const knock = (f, pan, p = 1) => au.bo?.block?.(p, pan, !!(f && f.opp && f.opp.ch && !f.opp.ch.blunt)) || tok(pan, p);
     Object.assign(KA.snd, {
       bo(f, k, pan) {
-        if (k === 'clang' || k === 'wrap') { tok(pan); snd2.staff(pan, 0.5); return; }
-        if (k === 'ground') { tok(pan, 1.3); au.thud(1, pan); return; }
+        if (k === 'clang' || k === 'wrap') { knock(f, pan); snd2.staff(pan, 0.5); return; }
+        if (k === 'ground') { au.bo?.block?.(1.3, pan, false, 0.85) || tok(pan, 1.3); au.thud(1, pan); return; }
         if (k === 'whiff') { snd2.staff(pan, 0.9); return; }
-        if (k === 'zan') { snd2.staff(pan, 0.35); tok(pan, 0.35); return; }
+        if (k === 'zan') { snd2.staff(pan, 0.35); au.bo?.block?.(0.35, pan, false) || tok(pan, 0.35); return; }
         K0(f, k, pan);
       },
       tessen(f, k, pan) {

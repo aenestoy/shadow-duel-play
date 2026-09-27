@@ -863,6 +863,20 @@ window.ND = window.ND || {};
     },
     ui() { this.tone({ freq: 1200, freq1: 900, dur: 0.09, gain: 0.07, send: 0.2, type: 'triangle' }); },
 
+    // One decoded sample (AudioBuffer) through the effects bus, like tone/noise: counted by the one-shot cap.
+    // o: gain, rate (playback speed = pitch), pan, send, delay. false when it did not play.
+    sample(buf, o) {
+      if (!this.ready || this.quiet || !buf) return false;
+      const c = this.ctx, t = c.currentTime + (o.delay || 0), rate = o.rate || 1, gain = o.gain ?? 0.5;
+      if (!this.oneShot(t, buf.duration / rate, gain)) return false;
+      const src = c.createBufferSource(); src.buffer = buf; src.playbackRate.value = rate;
+      const g = this.out(o.send ?? 0.15, o.pan);
+      g.gain.value = gain;
+      src.connect(g); src.start(t);
+      src.onended = () => { try { g.disconnect(); } catch (e) { /* already */ } };
+      return true;
+    },
+
     // Ortam sesi katmanları: rüzgâr, yağmur, tipi, ateş, su, çarşı, fırtına — arenaya göre yumuşak geçiş
     // (katmanlar ilk kullanıldıklarında kurulur; kullanılmayan arena ses işlemcisi harcamaz)
     ambience() {
@@ -930,6 +944,94 @@ window.ND = window.ND || {};
       this.tone({ freq: 48, freq1: 30, dur: 2.6, gain: 0.45, attack: 0.1, send: 0.4, delay: delay + 0.05 });
     },
     whoosh(power = 1) { this.noise({ type: 'bandpass', f0: 300, f1: 3000, q: 0.8, dur: 0.5, gain: 0.3 * power, attack: 0.35, send: 0.4 }); },
+  };
+
+  // ---------------------------------------------------------------- JIN'S STAFF (bō): hit, block, swing
+  // A hard-wood staff landing on a body: a sharp woody crack (the staff) + a short dull thump (the body), a little
+  // different every time (pitch, level, which recording, crack-to-thump gap). The owner picked b by ear (2026-09-27):
+  //   a: synthesis only (click + noise-excited wood resonances + a short low thump and a cloth slap; no files)
+  //   b: recordings: a wooden stick (bokuto) clacking on a hard floor (3 bounces) + a realistic punch through clothes
+  //   old: the sound before (thud + a falling "bwoop" tone, metal clang on a block)
+  // ?bohit=a|b|old picks one (tests); default BO_DEFAULT. The recordings are voice/bo-b/ (sources: docs/ASSET-LOG.md),
+  // fetched and decoded by js/voice.js like the voices (ND.voice.buffer); until they are decoded (or if they fail) b plays a.
+  const BO_DEFAULT = 'b';
+  const BO_FILES = { 'bo-b': { crack: ['crack1', 'crack2', 'crack3'], body: ['body1', 'body2'] } };
+  // mix of the recordings (files are peak-normalized): crack and body level per version, matched by measurement to the
+  // other hits (a blade cut, the old staff hit: about -28 dB RMS over the first 50 ms at the default volumes)
+  const BO_MIX = { 'bo-b': { crack: 1.1, body: 0.55 } };
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  const BO = A.bo = {
+    FILES: BO_FILES,
+    mode: (() => { const m = (qs.get('bohit') || '').toLowerCase(); return ['a', 'b', 'old'].includes(m) ? m : BO_DEFAULT; })(),
+    last: {},
+    set() { return this.mode === 'b' ? 'bo-b' : null; },
+    // a decoded recording of the current version (kind 'crack' | 'body'), never the same one twice in a row, or null
+    pick(kind) {
+      const set = this.set(), V = ND.voice, L = set && BO_FILES[set][kind];
+      if (!L || !V || !V.buffer) return null;
+      let i = (Math.random() * L.length) | 0;
+      if (L.length > 1 && i === this.last[set + kind]) i = (i + 1) % L.length;
+      this.last[set + kind] = i;
+      return V.buffer(set, L[i]) || V.buffer(set, L[0]);
+    },
+    // staff lands on a body; raw = unscaled damage (about 5–30), heavy = knockdown / special / big hit
+    hit(raw, pan, heavy) {
+      if (this.mode === 'old') {
+        A.thud(0.8 + raw / 22, pan); A.tone({ freq: 150 + raw * 2, freq1: 60, dur: 0.18, gain: 0.12 + raw * 0.006, send: 0.2, pan });
+        return;
+      }
+      const p = clamp(0.72 + raw / 32, 0.75, 1.6) * (heavy ? 1.1 : 1);
+      const crack = this.pick('crack'), body = crack && this.pick('body');
+      if (crack && body) {
+        const dt = rnd(0.002, 0.009), M = BO_MIX[this.set()];
+        A.sample(crack, { gain: M.crack * p * rnd(0.85, 1.1), rate: rnd(0.93, 1.08) * (heavy ? 0.95 : 1), pan, send: 0.14 });
+        A.sample(body, { gain: M.body * p * rnd(0.85, 1.05), rate: rnd(0.9, 1.06) * (heavy ? 0.92 : 1), pan, send: 0.08, delay: dt });
+        // weight under a big hit: a short low push (no pitch sweep you could hear as a tone)
+        if (heavy && !A.lite) A.noise({ type: 'lowpass', f0: 180, dur: 0.16, gain: 0.45 * p, attack: 0.006, send: 0.1, pan, delay: dt });
+        return;
+      }
+      this.synthHit(p, pan, heavy);
+    },
+    synthHit(p, pan, heavy) {
+      const k = rnd(0.92, 1.09), dt = rnd(0.002, 0.008), lite = A.lite;
+      // the staff: a hard click + two wood resonances rung by noise (a real knock, not a pitched beep)
+      // (a narrow band of noise carries little energy: hence the large gains of the two resonances)
+      A.noise({ type: 'highpass', f0: 2600 * k, dur: 0.014, gain: 1.2 * p, attack: 0.0006, send: 0.08, pan });
+      A.noise({ type: 'bandpass', f0: 1150 * k, q: 5, dur: rnd(0.05, 0.07), gain: 8 * p, attack: 0.0008, send: 0.12, pan });
+      if (!lite) A.noise({ type: 'bandpass', f0: 2350 * k * rnd(0.97, 1.03), q: 6, dur: rnd(0.03, 0.045), gain: 6 * p, attack: 0.0008, send: 0.1, pan });
+      A.tone({ freq: 640 * k, dur: 0.045, gain: 0.4 * p, type: 'sine', attack: 0.0008, send: 0.1, pan });
+      // the body: a short low thump (the drop is over before it can sound like a tone) + a muffled cloth slap
+      A.tone({ freq: 118 * k, freq1: 62, glide: 0.05, dur: heavy ? 0.16 : 0.11, gain: 0.75 * p, attack: 0.002, send: 0.06, pan, delay: dt });
+      A.noise({ type: 'lowpass', f0: 1500, f1: 420, dur: 0.075, gain: 1 * p, attack: 0.002, send: 0.06, pan, delay: dt });
+      if (heavy && !lite) A.noise({ type: 'lowpass', f0: 180, dur: 0.16, gain: 0.45 * p, attack: 0.006, send: 0.1, pan, delay: dt });
+    },
+    // wood knock without a body: a block, a parried counter, the staff striking the floor.
+    // steel: the other weapon is a blade (a light ring on top); pitch: rises through a long exchange like the clang.
+    // false in 'old' (the caller keeps its old sound)
+    block(p, pan, steel, pitch = 1) {
+      if (this.mode === 'old') return false;
+      const crack = this.pick('crack');
+      if (crack) A.sample(crack, { gain: BO_MIX[this.set()].crack * p * rnd(0.9, 1.1), rate: rnd(1.02, 1.12) * pitch, pan, send: 0.2 });
+      else {
+        const k = rnd(0.94, 1.07) * pitch;
+        A.noise({ type: 'highpass', f0: 3000 * k, dur: 0.012, gain: 0.9 * p, attack: 0.0006, send: 0.12, pan });
+        A.noise({ type: 'bandpass', f0: 1350 * k, q: 5, dur: rnd(0.06, 0.08), gain: 7 * p, attack: 0.0008, send: 0.2, pan });
+        if (!A.lite) A.noise({ type: 'bandpass', f0: 2700 * k, q: 6, dur: 0.04, gain: 4.5 * p, attack: 0.0008, send: 0.15, pan });
+        A.tone({ freq: 760 * k, dur: 0.05, gain: 0.3 * p, attack: 0.0008, send: 0.15, pan });
+      }
+      if (steel) A.clang(0.22 * p, pan, 1.5 * pitch);
+      return true;
+    },
+    // the staff cutting the air: low and round (a long pole), peak in the middle, a little different each time.
+    // false in 'old'
+    swing(pan, p = 1) {
+      if (this.mode === 'old') return false;
+      const k = rnd(0.88, 1.12), d = (0.2 + 0.07 * p) * rnd(0.92, 1.08);
+      A.noise({ type: 'bandpass', f0: 230 * k, f1: 1050 * k, q: 1.1, dur: d, gain: 0.3 * p * rnd(0.85, 1.1), attack: d * 0.5, send: 0.18, pan });
+      A.noise({ type: 'lowpass', f0: 480 * k, f1: 260, dur: d * 0.9, gain: 0.16 * p, attack: d * 0.55, send: 0.12, pan });
+      if (!A.lite) A.noise({ type: 'highpass', f0: 2800 * k, dur: d * 0.7, gain: 0.03 * p, attack: d * 0.45, send: 0.1, pan });
+      return true;
+    },
   };
 
   // Silence follows focus/visibility, the portal switch and ads (ND.portal hooks)
