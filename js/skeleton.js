@@ -2443,7 +2443,7 @@
 
   // Drawing steps and helpers shared with the part cache (bake.js)
   ND._draw = {
-    L, LT, TF, FF, HD, AG, LG, SW, TB: { BODY: TB_BODY, AO: TB_AO, RIM: TB_RIM, KNOT: TB_KNOT }, pal, updLight, torsoFrame, footFrame,
+    L, LT, TF, FF, HD, AG, LG, SW, TB: { BODY: TB_BODY, AO: TB_AO, RIM: TB_RIM, KNOT: TB_KNOT }, pal, updLight, torsoFrame, torsoPath, footFrame,
     legGeom, legShin, legFoot, legUpper, legShade, legLines, armGeom, armOutline, armSleeve, armFore, armMouth, handInfo, armHand,
     drawTorso, torsoAO, neckPart, juzu, tantoSheath, drawHead, kusazuri, drawSword, drawTessen, saya, sayaHip, quiverBack,
   };

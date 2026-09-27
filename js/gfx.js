@@ -5,9 +5,12 @@
 // What each tier draws (ND.gfx.f):
 //   high    everything: bloom + film grain, lantern shadows, light rays, dust motes, reflections, full weather;
 //           canvas up to 2× pixel ratio (phones 1.5×, weak phones 1.25×)
-//   medium  light bloom (small buffer, no blur filter, no grain), rays, half the motes, reflections, full weather;
-//           no lantern shadows; canvas up to 1.5× (phones 1.25×)
-//   low     no bloom / grain / shadows / rays / motes / reflections, every other weather particle; canvas 1×
+//   medium  light bloom (small buffer, no blur filter, no grain), rays, half the motes, reflections (not the faint
+//           ones), full weather;
+//           no lantern shadows; still near layer and baked stars, coarser curves, texts on whole pixels (TIERS below);
+//           canvas up to 1.5× (phones 1.25×)
+//   low     no bloom / grain / shadows / rays / motes / reflections, every other weather particle; the backdrop is one
+//           picture redrawn a few times a second (scene.js drawBackLow); coarser curves; canvas 1×
 //           (the fighters look as on the other tiers: detailed and lit, placed from cached part pictures, bake.js)
 // ND.settings.hq stays true only on High (older code and effects read it for their extra glows).
 // UI: ND.gfx.levels lists the choices, ND.gfx.setQuality(level) / ND.gfx.getQuality(), ND.gfx.onChange(fn).
@@ -21,10 +24,17 @@ window.ND = window.ND || {};
   // clearly weak phone/tablet: little memory or few cores
   const WEAK = MOBILE && (mem <= 2 || cores <= 4);
   const LEVELS = ['auto', 'high', 'medium', 'low'];
+  // Processor work per tier (on phones it limits the frame rate more than the pixel count does):
+  //   tol    curve flattening tolerance of the WebGL2 renderer, device px (gl2d.js): Medium / Low ~30% fewer points
+  //   snap   texts on whole pixels (gl2d.js): a text moving with the camera is drawn once, not once per quarter pixel
+  //   still  the near layer (bamboo / pines, torii) stands still and comes from a layer cache, and the stars are
+  //          baked into the sky picture (no per-frame drawing of ~70 stalks and 160 stars)
+  //   ltol   how much a cached background layer may be stretched (camera zoom) before it is drawn and uploaded again
+  //   reflectMin  floor reflections are drawn only on floors at least this reflective (Medium skips the faint 4–5% ones)
   const TIERS = {
-    high: { hq: true, rays: true, motes: 1, bloom: 2, grain: true, shadows: true, reflect: true, weather: 1, dpr: MOBILE ? (LOW_END ? 1.25 : 1.5) : 2 },
-    medium: { hq: false, rays: true, motes: 0.5, bloom: 1, grain: false, shadows: false, reflect: true, weather: 1, dpr: MOBILE ? 1.25 : 1.5 },
-    low: { hq: false, rays: false, motes: 0, bloom: 0, grain: false, shadows: false, reflect: false, weather: 2, dpr: 1 },
+    high: { hq: true, rays: true, motes: 1, bloom: 2, grain: true, shadows: true, reflect: true, weather: 1, tol: 0.2, snap: false, still: false, ltol: 0.015, dpr: MOBILE ? (LOW_END ? 1.25 : 1.5) : 2 },
+    medium: { hq: false, rays: true, motes: 0.5, bloom: 1, grain: false, shadows: false, reflect: true, reflectMin: 0.08, weather: 1, tol: 0.4, snap: true, still: true, ltol: 0.06, dpr: MOBILE ? 1.25 : 1.5 },
+    low: { hq: false, rays: false, motes: 0, bloom: 0, grain: false, shadows: false, reflect: false, weather: 2, tol: 0.5, snap: true, still: true, ltol: 0.06, dpr: 1 },
   };
   const fns = [];
   const G = ND.gfx = {

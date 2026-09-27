@@ -649,7 +649,7 @@
     skyCache() {
       const th = this.theme, W = cam.W, H = cam.H, C = tc(th), o = th.orb;
       const M = Math.ceil(0.02 * cam.s * 1100) + 2;
-      const low = this.lowTier();
+      const low = this.stillTier();
       if (C.sky && C.skyW === W && C.skyH === H && C.skyLow === low) return C.sky;
       const c = C.sky || document.createElement('canvas');
       c.width = W + 2 * M; c.height = H; C.skyW = W; C.skyH = H; C.skyM = M; C.skyLow = low;
@@ -663,7 +663,7 @@
         halo.addColorStop(0, `rgba(${o.halo},.35)`); halo.addColorStop(0.3, `rgba(${o.halo},.1)`); halo.addColorStop(1, `rgba(${o.halo},0)`);
         x.fillStyle = halo; x.fillRect(mx - mr * 6 - 1, my - mr * 6 - 1, mr * 12 + 2, mr * 12 + 2);
       }
-      // Low: the stars are baked in at their average brightness (no twinkle; they move with the halo's parallax)
+      // Medium / Low: the stars are baked in at their average brightness (no twinkle; they move with the halo's parallax)
       if (low && th.stars) this.drawStars(x, M, 0, null);
       return (C.sky = c);
     },
@@ -707,7 +707,7 @@
       const sh = Math.round(clamp(cam.x * 0.02 * cam.s, -M + 1, M - 1)); // halenin paralaksı (tam piksel)
       ctx.drawImage(sc, M + sh, 0, W, H, 0, 0, W, H);
       const mx = W * o?.x - cam.x * 0.02 * cam.s, my = H * o?.y, mr = H * o?.r;
-      if (th.stars && !this.lowTier()) this.drawStars(ctx, 0, sh, t);
+      if (th.stars && !this.stillTier()) this.drawStars(ctx, 0, sh, t);
       if (o) {
         const mg = ctx.createRadialGradient(mx - mr * 0.3, my - mr * 0.3, mr * 0.1, mx, my, mr);
         mg.addColorStop(0, o.c0); mg.addColorStop(1, o.c1);
@@ -860,6 +860,20 @@
         // sap: eğri yerine 6 düz parça (kalın eğri kontur GPU'da pahalı, düz çizgi hızlı yol). Sapma < 0.1 birim.
         // Ara eklemler yuvarlak uçla örtülür (opak renk → dikiş yok); en üst parça düz uçla biter (eskisi gibi).
         let px = b.x, py = 20;
+        if (ctx.isGL) {
+          // WebGL2 renderer: the same six pieces as one stroke with round joins (the bend at each joint is far below
+          // the curve tolerance, so a round join covers what the two round ends covered; the colour is opaque). The
+          // foot of the stalk (y 20) is behind the floor, so its butt end is never seen. One path instead of six.
+          const lj = ctx.lineJoin;
+          ctx.lineCap = 'butt'; ctx.lineJoin = 'round';
+          ctx.beginPath(); ctx.moveTo(px, py);
+          for (let s = 1; s <= 6; s++) {
+            const u = s / 6, iu = 1 - u;
+            ctx.lineTo(iu * iu * b.x + 2 * u * iu * (b.x + sway * 0.3) + u * u * (b.x + sway), iu * iu * 20 + 2 * u * iu * (-b.h * 0.5) + u * u * (-b.h));
+          }
+          ctx.stroke();
+          ctx.lineJoin = lj;
+        } else {
         ctx.lineCap = 'round';
         for (let s = 1; s <= 6; s++) {
           const u = s / 6, iu = 1 - u;
@@ -867,6 +881,7 @@
           if (s === 6) ctx.lineCap = 'butt';
           ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(qx, qy); ctx.stroke();
           px = qx; py = qy;
+        }
         }
         ctx.fillStyle = C.bam[d * 2 + 1];
         for (let y = 60; y < b.h; y += 70) {
@@ -1035,7 +1050,10 @@
       if (stale) {
         const c = B.c;
         if (c.width !== bw || c.height !== bh) { c.width = bw; c.height = bh; B.x2 = null; }
-        const x = B.x2 || (B.x2 = c.getContext('2d', { alpha: false }));
+        // (with the WebGL2 renderer a CPU canvas: its copy into WebGL is a plain pixel upload that never waits for the
+        // GPU; a GPU canvas had to be finished by the GPU first, about 11 times a second while the camera moves. The
+        // pictures drawn into it stay GPU canvases: measured, they are read back only when they change)
+        const x = B.x2 || (B.x2 = c.getContext('2d', ND.glHooked ? { alpha: false, willReadFrequently: true } : { alpha: false }));
         const sv = { W, H, s: cam.s, shx: cam.shx, shy: cam.shy }, kx = bw / W;
         cam.W = bw; cam.H = bh; cam.s = sv.s * kx; cam.shx = sv.shx * kx; cam.shy = sv.shy * kx;
         try {
@@ -1076,9 +1094,9 @@
       if (th.pagoda) this.drawPagoda(ctx, 420, -40, undefined, 'lights');
       if (pr && this['mid_' + pr] && !MID_STATIC[pr]) { ctx.save(); this['mid_' + pr](ctx); ctx.restore(); }
       PM('mid');
-      // Near layer: bamboo / pines sway, so they stay live on Medium and High. On Low the sway stops and the whole
+      // Near layer: bamboo / pines sway, so they stay live on High. On Medium and Low the sway stops and the whole
       // layer (grove + torii) comes from a layer cache too; the castle's gables never move and are cached on every tier.
-      if (NEAR_STATIC[pr] || ((th.near || th.torii) && this.lowTier())) {
+      if (NEAR_STATIC[pr] || ((th.near || th.torii) && this.stillTier())) {
         this.layerCache(ctx, 'near', 0.55, this._nearFn || (this._nearFn = (x) => this.nearLayer(x, true)), -1200, floorTop());
       } else {
         cam.layer(ctx, 0.55);
@@ -1101,8 +1119,11 @@
       PM('edge+decals');
     },
 
-    // Low tier active (foliage stands still, stars are baked into the sky, fighters drop their lighting pass)
+    // Low tier active (the backdrop is one cached picture, fighters are placed from part pictures, one cached light)
     lowTier() { return !!(ND.gfx && ND.gfx.tier === 'low'); },
+    // Medium and Low (js/gfx.js `still`): the near layer's foliage stands still (layer cache), the stars are baked
+    // into the sky picture
+    stillTier() { return !!(ND.gfx && ND.gfx.f && ND.gfx.f.still); },
     // Static part of the mid layer (layer 0.28), drawn into the 'mid' layer cache; x has the layer transform.
     // Trees outside the cache's width are skipped.
     midStatic(x) {
@@ -1137,12 +1158,16 @@
       if (!th.rays || !th.orb || !gfxF().rays) return;
       const W = cam.W, H = cam.H, ox = W * th.orb.x - cam.x * 0.02 * cam.s, oy = H * th.orb.y;
       ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalCompositeOperation = 'lighter';
+      // The shimmer scales the stops' alpha (a, 0.4a, 0): drawn as fixed stops (1, 0.4, 0) under globalAlpha a, the
+      // same picture (alpha interpolates linearly) with one gradient colour ramp for the whole fight instead of six
+      // new ones every frame (the WebGL2 renderer builds each new ramp on the processor).
+      const C = tc(th), S = C.rayS || (C.rayS = [`rgba(${th.rays},1)`, `rgba(${th.rays},0.4)`, `rgba(${th.rays},0)`]), A0 = ctx.globalAlpha;
       for (let i = 0; i < 6; i++) {
         const base = (th.orb.x > 0.5 ? Math.PI * 0.62 : Math.PI * 0.38) + (i - 2.5) * 0.09 + Math.sin(this.t * 0.13 + i * 1.7) * 0.03;
         const len = H * 1.25, w = 0.022 + (i % 3) * 0.01;
         const g = ctx.createLinearGradient(ox, oy, ox + Math.cos(base) * len, oy + Math.sin(base) * len);
-        const a = 0.05 + 0.03 * Math.sin(this.t * 0.4 + i * 2.3);
-        g.addColorStop(0, `rgba(${th.rays},${a})`); g.addColorStop(0.6, `rgba(${th.rays},${a * 0.4})`); g.addColorStop(1, `rgba(${th.rays},0)`);
+        ctx.globalAlpha = A0 * (0.05 + 0.03 * Math.sin(this.t * 0.4 + i * 2.3));
+        g.addColorStop(0, S[0]); g.addColorStop(0.6, S[1]); g.addColorStop(1, S[2]);
         ctx.fillStyle = g;
         ctx.beginPath(); ctx.moveTo(ox, oy);
         ctx.lineTo(ox + Math.cos(base - w) * len, oy + Math.sin(base - w) * len);
@@ -1310,18 +1335,26 @@
       if (Y1 <= Y0) return;
       let L = C[key], r = L ? k / L.k : 0;
       const ox = L ? tx - (L.tx - L.x0) * r : 0, oy = L ? ty - (L.ty - L.y0) * r : 0;
-      const q = ND.gfx ? ND.gfx.tier : '';
-      if (!L || L.W !== W || L.H !== H || L.q !== q || Math.abs(r - 1) > 0.015 || ox > 0 || ox + L.c.width * r < W || oy > Y0 || oy + L.c.height * r < Y1) {
+      // scale change allowed before a redraw: 1.5% on High, 6% on Medium / Low (js/gfx.js `ltol`: during a camera zoom
+      // the layer is stretched a little longer instead of being drawn and uploaded again every few frames)
+      const q = ND.gfx ? ND.gfx.tier : '', rt = (ND.gfx && ND.gfx.f && ND.gfx.f.ltol) || 0.015;
+      if (!L || L.W !== W || L.H !== H || L.q !== q || Math.abs(r - 1) > rt || ox > 0 || ox + L.c.width * r < W || oy > Y0 || oy + L.h * r < Y1) {
         const M = Math.ceil(W * 0.12), MY = Math.ceil(H * 0.12);
         const x0 = -M, y0 = Math.max(-MY, Math.floor(k * ly0 + ty) - 2), y1 = Math.min(H + MY, Math.ceil(Y1) + MY);
         if (!L) L = C[key] = { c: document.createElement('canvas') };
-        const c = L.c, x = c.getContext('2d');
-        if (c.width !== W + 2 * M || c.height !== y1 - y0) { c.width = W + 2 * M; c.height = y1 - y0; }
+        const c = L.c, x = c.getContext('2d'), cw = W + 2 * M, ch = y1 - y0;
+        // The canvas height only grows (a canvas of a new size becomes a new texture in WebGL, a stall on phones; the
+        // camera changes the needed height all the time): rows below ch stay empty and the drawing is clipped to ch
+        // rows, as the canvas edge did before.
+        if (c.width !== cw || c.height < ch) { c.width = cw; c.height = ch + (c.height && c.height < ch ? Math.ceil(ch * 0.1) : 0); }
         else { x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, c.width, c.height); }
+        const clip = c.height > ch;
+        if (clip) { x.save(); x.setTransform(1, 0, 0, 1, 0, 0); x.beginPath(); x.rect(0, 0, cw, ch); x.clip(); }
         x.setTransform(k, 0, 0, k, tx - x0, ty - y0);
         x.globalAlpha = 1; x.globalCompositeOperation = 'source-over';
         draw(x);
-        L.W = W; L.H = H; L.k = k; L.tx = tx; L.ty = ty; L.x0 = x0; L.y0 = y0; L.q = q; this.cacheDraws = (this.cacheDraws || 0) + 1;
+        if (clip) x.restore();
+        L.W = W; L.H = H; L.k = k; L.tx = tx; L.ty = ty; L.x0 = x0; L.y0 = y0; L.q = q; L.h = ch; this.cacheDraws = (this.cacheDraws || 0) + 1;
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.drawImage(c, x0, y0);
         return;

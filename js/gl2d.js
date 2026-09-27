@@ -11,6 +11,8 @@
 //   - gradients: linear and two-point conical (radial) evaluated per pixel from the user-space position; the colour
 //     stops are baked into one 256-texel row of a ramp texture (unpremultiplied interpolation, like Canvas)
 //   - drawImage: canvases / bitmaps become textures (re-uploaded only after something drew into them)
+//   - sprites (the Low tier's fighter part pictures, bake.js): drawn on a CPU canvas and copied into pages of one
+//     mip-mapped atlas (spriteBegin / spriteEnd / drawSprite): no new texture per picture, no wait for the GPU
 //   - text: each fillText / strokeText is drawn once by Canvas 2D into a text atlas (per string, font, colour,
 //     transform, quarter-pixel x position) and placed as a textured quad
 //   - globalCompositeOperation: source-over, lighter, source-atop, source-in, destination-over/-in/-out, screen,
@@ -121,7 +123,10 @@ window.ND = window.ND || {};
     'destination-out': 6, screen: 7, multiply: 8, copy: 9, clear: 10 };
   const OP_CLEAR = 10;
   const TAU = Math.PI * 2;
-  const TOL = 0.2; // curve flattening tolerance, device pixels
+  // Curve flattening tolerance, device pixels: the largest distance between a curve (arc, ellipse, Bézier, round
+  // join / cap) and its polygon. 0.2 by default (High); R.setTolerance(t) sets it for the next frames (game.js: Medium
+  // 0.4, Low 0.5: about 30% fewer points on every curve, still well under half a pixel off).
+  const TOL0 = 0.2;
   const K_DRAW = 1, K_SFILL = 2, K_CLIP = 3;
   const PT_SOLID = 0, PT_LIN = 1, PT_RAD = 2, PT_TEX = 3, PT_NONE = 4;
   const STRIDE = 7; // floats per vertex: x y z u v colour paint
@@ -129,6 +134,8 @@ window.ND = window.ND || {};
   ND.createGL2D = function (gl, opts = {}) {
     install();
     const R = { gl, unsupported: '', stats: null, prof: null };
+    // (a typed array, not a closure variable: a fractional number stored in a closure is a heap object per write)
+    const TL = new Float64Array(1); TL[0] = TOL0;
     // ---------------------------------------------------------------- profiling (render-check page / ?perf=1 only)
     // R.profile(true): every frame fills R.prof (one reused object): tessellation, text, picture and buffer upload
     // times and counts, and why each picture was uploaded. Off (default): no timing calls at all.
@@ -267,11 +274,11 @@ window.ND = window.ND || {};
       }
       S.sort((a, b) => a.o - b.o || a.i - b.i);
       const base = row * RAMP_W * 4;
+      let j = 0; // (t only grows along the row: the stop index carries over)
       for (let x = 0; x < RAMP_W; x++) {
         const t = x / (RAMP_W - 1);
         let r = 0, g = 0, b = 0, a = 0;
         if (S.length) {
-          let j = 0;
           while (j < S.length && S[j].o <= t) j++;
           if (j === 0) { const c = S[0].c; r = c[0]; g = c[1]; b = c[2]; a = c[3]; }
           else if (j === S.length) { const c = S[S.length - 1].c; r = c[0]; g = c[1]; b = c[2]; a = c[3]; }
@@ -315,6 +322,97 @@ window.ND = window.ND || {};
       return e;
     }
 
+    // ---------------------------------------------------------------- sprite atlas (fighter part pictures, bake.js)
+    // Pages of SP_W×SP_H texels with 3 mip levels (immutable storage, made once per page: never a new texture per
+    // picture). A sprite is a cell on a shelf: its picture is drawn by Canvas 2D on a CPU canvas (willReadFrequently)
+    // at a 2-texel offset, then the cell and its two halvings go into the page right away with texSubImage2D — a plain
+    // pixel copy that never waits for another context's GPU work (a GPU canvas or ImageBitmap has to be finished by
+    // the GPU first; on phones every new part picture stalled a frame that way). Cells are 4-aligned with an empty
+    // 2-texel border, so the halvings of neighbours stay apart; the mip levels let one picture size serve every camera
+    // zoom (trilinear sampling instead of a new picture per zoom step). A full atlas drops its least recently used
+    // page: its sprites are no longer valid (spriteOk) and are drawn again when next needed.
+    const SP_W = 1024, SP_H = 1024, SP_MAX = 16;
+    const spPages = [];
+    let spCanvas = null, spCtx = null, spM1 = null, spX1 = null, spM2 = null, spX2 = null, spW = 0, spH = 0, spGen = 0;
+    const cpuCanvas = (c) => c.getContext('2d', { willReadFrequently: true });
+    function spPage() {
+      const p = { tex: null, gen: ++spGen, shelves: [], top: 0, used: frameNo, n: 0 };
+      if (E.ready) {
+        p.tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, p.tex);
+        gl.texStorage2D(gl.TEXTURE_2D, 3, gl.RGBA8, SP_W, SP_H);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAX_LEVEL, 2);
+        CNT.texNew++; CNT.spritePages++;
+      }
+      spPages.push(p);
+      return p;
+    }
+    // a cw×ch cell (multiples of 4) on page p, or null
+    function spAlloc(p, cw, ch) {
+      for (const s of p.shelves) if (s.h >= ch && s.h <= ch + 8 && s.x + cw <= SP_W) { const r = { x: s.x, y: s.y }; s.x += cw; return r; }
+      const h = Math.ceil(ch / 8) * 8;
+      if (p.top + h > SP_H || cw > SP_W) return null;
+      const s = { y: p.top, h, x: cw }; p.top += h; p.shelves.push(s);
+      return { x: 0, y: s.y };
+    }
+    // the CPU canvas a w×h picture is drawn on (at offset 2, 2); cleared, identity transform
+    R.spriteBegin = function (w, h) {
+      const cw = Math.ceil((w + 4) / 4) * 4, ch = Math.ceil((h + 4) / 4) * 4;
+      if (!spCanvas) spCanvas = document.createElement('canvas');
+      if (spCanvas.width < cw || spCanvas.height < ch) {
+        spCanvas.width = Math.max(spCanvas.width, Math.ceil(cw / 64) * 64); spCanvas.height = Math.max(spCanvas.height, Math.ceil(ch / 64) * 64); spCtx = null;
+      }
+      if (!spCtx) spCtx = cpuCanvas(spCanvas);
+      const x = spCtx;
+      if (typeof x.reset === 'function') x.reset(); else { x.setTransform(1, 0, 0, 1, 0, 0); x.globalAlpha = 1; x.globalCompositeOperation = 'source-over'; }
+      x.clearRect(0, 0, cw, ch);
+      spW = w; spH = h;
+      return x;
+    };
+    // copies the picture drawn since spriteBegin into the atlas → sprite { page, gen, u0, v0, u1, v1 } (null: no room)
+    R.spriteEnd = function () {
+      if (!E.ready) return null;
+      const w = spW, h = spH, cw = Math.ceil((w + 4) / 4) * 4, ch = Math.ceil((h + 4) / 4) * 4;
+      if (cw > SP_W || ch > SP_H) return null;
+      let p = null, r = null;
+      for (let i = spPages.length - 1; i >= 0 && !r; i--) { r = spAlloc(spPages[i], cw, ch); if (r) p = spPages[i]; }
+      if (!r && spPages.length < SP_MAX) { p = spPage(); r = spAlloc(p, cw, ch); }
+      if (!r) {
+        // full: the least recently used page not drawn from in this frame starts again empty
+        let old = null;
+        for (const q of spPages) if (q.used < frameNo && (!old || q.used < old.used)) old = q;
+        if (!old) return null;
+        old.gen = ++spGen; old.shelves.length = 0; old.top = 0; old.n = 0; CNT.spriteDrops++;
+        p = old; r = spAlloc(p, cw, ch);
+        if (!r) return null;
+      }
+      // the cell and its two halvings (2×2 averages: a Canvas copy at exactly half size), straight into the page
+      const w1 = cw >> 1, h1 = ch >> 1, w2 = cw >> 2, h2 = ch >> 2;
+      if (!spM1) { spM1 = document.createElement('canvas'); spM2 = document.createElement('canvas'); }
+      if (spM1.width < w1 || spM1.height < h1) { spM1.width = Math.max(spM1.width, Math.ceil(w1 / 32) * 32); spM1.height = Math.max(spM1.height, Math.ceil(h1 / 32) * 32); spX1 = null; }
+      if (spM2.width < w2 || spM2.height < h2) { spM2.width = Math.max(spM2.width, Math.ceil(w2 / 16) * 16); spM2.height = Math.max(spM2.height, Math.ceil(h2 / 16) * 16); spX2 = null; }
+      if (!spX1) spX1 = cpuCanvas(spM1);
+      if (!spX2) spX2 = cpuCanvas(spM2);
+      spX1.setTransform(1, 0, 0, 1, 0, 0); spX1.globalAlpha = 1; spX1.globalCompositeOperation = 'copy'; spX1.imageSmoothingEnabled = true; spX1.imageSmoothingQuality = 'low';
+      spX1.drawImage(spCanvas, 0, 0, cw, ch, 0, 0, w1, h1);
+      spX2.setTransform(1, 0, 0, 1, 0, 0); spX2.globalAlpha = 1; spX2.globalCompositeOperation = 'copy'; spX2.imageSmoothingEnabled = true; spX2.imageSmoothingQuality = 'low';
+      spX2.drawImage(spM1, 0, 0, w1, h1, 0, 0, w2, h2);
+      gl.bindTexture(gl.TEXTURE_2D, p.tex);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, r.x, r.y, cw, ch, gl.RGBA, gl.UNSIGNED_BYTE, spCanvas);
+      gl.texSubImage2D(gl.TEXTURE_2D, 1, r.x >> 1, r.y >> 1, w1, h1, gl.RGBA, gl.UNSIGNED_BYTE, spM1);
+      gl.texSubImage2D(gl.TEXTURE_2D, 2, r.x >> 2, r.y >> 2, w2, h2, gl.RGBA, gl.UNSIGNED_BYTE, spM2);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+      CNT.texUp += 3; CNT.texKB += (cw * ch * 4 * 1.3125) / 1024; CNT.sprites++;
+      p.n++;
+      return { page: p, gen: p.gen, u0: (r.x + 2) / SP_W, v0: (r.y + 2) / SP_H, u1: (r.x + 2 + w) / SP_W, v1: (r.y + 2 + h) / SP_H };
+    };
+    R.spriteOk = (s) => !!s && s.gen === s.page.gen && !!s.page.tex;
+    R.spriteInfo = () => ({ pages: spPages.length, sprites: spPages.reduce((n, p) => n + p.n, 0), maxPages: SP_MAX, pageSize: [SP_W, SP_H] });
+    // Always-on counters (a few integer additions per upload; perf.js reads them per report window)
+    const CNT = R.count = { texNew: 0, texUp: 0, texKB: 0, texts: 0, shaders: 0, targets: 0, sprites: 0, spritePages: 0, spriteDrops: 0 };
+
     // ---------------------------------------------------------------- text atlas
     // Shelves (rows) of text pictures. When the atlas is full, the least recently used shelf that no text of this
     // frame is on is emptied (texts still on screen are never drawn again). Each new text is drawn by Canvas 2D on a
@@ -322,6 +420,8 @@ window.ND = window.ND || {};
     // (a GPU canvas has to be finished by the GPU first; on phones that stalled whole frames).
     const TA_W = 1024, TA_H = 1024;
     const texts = new Map(); // key → { x, y, w, h, ox, oy, used, shelf }
+    const textSizes = new Map(); // text without its size → { px (last size), until (frame: still animating) }
+    const FONT_PX = /(\d+(?:\.\d+)?)px/;
     const shelves = []; // { y, h, x, used, keys }
     let shelfTop = 0, textUploads = 0;
     let textCanvas = null, textCtx = null, measureCtx = null;
@@ -335,6 +435,23 @@ window.ND = window.ND || {};
       return textCtx;
     }
     function measurer() { return measureCtx || (measureCtx = document.createElement('canvas').getContext('2d')); }
+    // text metrics (width and ink box) of a new text picture, kept per text / font / alignment: the same text at
+    // another quarter-pixel position or colour needs no second measurement
+    const METRICS = new Map();
+    function metrics(t, font, align, baseline) {
+      const k = font + '|' + align + '|' + baseline + '|' + t;
+      let v = METRICS.get(k);
+      if (v) return v;
+      const m = measurer(); m.font = font; m.textAlign = align; m.textBaseline = baseline;
+      const mt = m.measureText(t);
+      v = { width: mt.width, actualBoundingBoxLeft: mt.actualBoundingBoxLeft, actualBoundingBoxRight: mt.actualBoundingBoxRight,
+        actualBoundingBoxAscent: mt.actualBoundingBoxAscent, actualBoundingBoxDescent: mt.actualBoundingBoxDescent };
+      // (not kept while a web font is still loading: the fallback font's box would outlive it)
+      if (typeof document !== 'undefined' && document.fonts && document.fonts.status !== 'loaded') return v;
+      if (METRICS.size > 2048) METRICS.clear();
+      METRICS.set(k, v);
+      return v;
+    }
     function textAlloc(w, h) {
       let best = null;
       for (const s of shelves) if (s.h >= h && s.h <= h * 1.25 + 4 && s.x + w + 1 <= TA_W && (!best || s.h < best.h)) best = s;
@@ -479,7 +596,7 @@ window.ND = window.ND || {};
         this.pass = pass; this.sc = sc; this.W = w; this.H = h; this.isGL = true;
         this.stack = []; this.sp = 0; // saved states (pool) and their count
         this.px = new Float64Array(512); this.py = new Float64Array(512); this.n = 0;
-        this.sub = new Int32Array(64); this.cl = new Uint8Array(64); this.ns = 0;
+        this.sub = new Int32Array(64); this.cl = new Uint8Array(64); this.cx = new Uint8Array(64); this.ns = 0; // cx: subpath known convex (one full ellipse)
         this.open = false; this.sx0 = 0; this.sy0 = 0;
         this._canvas = { width: w, height: h };
         this.reset();
@@ -515,9 +632,10 @@ window.ND = window.ND || {};
         this.op = v; this.opb = b;
       }
       get fillStyle() { return this.fsRaw; }
-      set fillStyle(v) { const s = styleOf(v); if (s) { this.fs = s; this.fsRaw = v; } }
+      // (the same value again, very common in the drawing code, keeps its parsed style: no colour lookup)
+      set fillStyle(v) { if (v === this.fsRaw) return; const s = styleOf(v); if (s) { this.fs = s; this.fsRaw = v; } }
       get strokeStyle() { return this.ssRaw; }
-      set strokeStyle(v) { const s = styleOf(v); if (s) { this.ss = s; this.ssRaw = v; } }
+      set strokeStyle(v) { if (v === this.ssRaw) return; const s = styleOf(v); if (s) { this.ss = s; this.ssRaw = v; } }
       get lineWidth() { return this.lw; }
       set lineWidth(v) { v = +v; if (v > 0 && v < Infinity) this.lw = v; }
       get lineCap() { return CAP_N[this.cap]; }
@@ -584,8 +702,8 @@ window.ND = window.ND || {};
       }
       _grow() { const c = this.px.length * 2, a = new Float64Array(c), b = new Float64Array(c); a.set(this.px); b.set(this.py); this.px = a; this.py = b; }
       _sub(x, y) {
-        if (this.ns >= this.sub.length) { const s = new Int32Array(this.sub.length * 2), c = new Uint8Array(this.sub.length * 2); s.set(this.sub); c.set(this.cl); this.sub = s; this.cl = c; }
-        this.sub[this.ns] = this.n; this.cl[this.ns] = 0; this.ns++;
+        if (this.ns >= this.sub.length) { const s = new Int32Array(this.sub.length * 2), c = new Uint8Array(this.sub.length * 2), v = new Uint8Array(this.sub.length * 2); s.set(this.sub); c.set(this.cl); v.set(this.cx); this.sub = s; this.cl = c; this.cx = v; }
+        this.sub[this.ns] = this.n; this.cl[this.ns] = 0; this.cx[this.ns] = 0; this.ns++;
         this.open = true; this.sx0 = x; this.sy0 = y;
         this._pt(x, y);
       }
@@ -597,6 +715,7 @@ window.ND = window.ND || {};
         if (!(Number.isFinite(x) && Number.isFinite(y))) return;
         const X = this.a * x + this.c * y + this.e, Y = this.b * x + this.d * y + this.f;
         if (!this.open) this._sub(X, Y);
+        this.cx[this.ns - 1] = 0;
         this._pt(X, Y);
       }
       closePath() {
@@ -609,9 +728,10 @@ window.ND = window.ND || {};
         const X1 = this.a * cx + this.c * cy + this.e, Y1 = this.b * cx + this.d * cy + this.f;
         const X2 = this.a * x + this.c * y + this.e, Y2 = this.b * x + this.d * y + this.f;
         if (!this.open) this._sub(X1, Y1);
+        this.cx[this.ns - 1] = 0;
         const X0 = this.px[this.n - 1], Y0 = this.py[this.n - 1];
         const ddx = X0 - 2 * X1 + X2, ddy = Y0 - 2 * Y1 + Y2, dd = Math.sqrt(ddx * ddx + ddy * ddy);
-        const m = Math.min(256, Math.max(1, Math.ceil(Math.sqrt(dd / (4 * TOL)))));
+        const m = Math.min(256, Math.max(1, Math.ceil(Math.sqrt(dd / (4 * TL[0])))));
         for (let i = 1; i < m; i++) {
           const t = i / m, u = 1 - t, A = u * u, B = 2 * u * t, C = t * t;
           this._pt(A * X0 + B * X1 + C * X2, A * Y0 + B * Y1 + C * Y2);
@@ -624,10 +744,11 @@ window.ND = window.ND || {};
         const X2 = this.a * c2x + this.c * c2y + this.e, Y2 = this.b * c2x + this.d * c2y + this.f;
         const X3 = this.a * x + this.c * y + this.e, Y3 = this.b * x + this.d * y + this.f;
         if (!this.open) this._sub(X1, Y1);
+        this.cx[this.ns - 1] = 0;
         const X0 = this.px[this.n - 1], Y0 = this.py[this.n - 1];
         const ex = X0 - 2 * X1 + X2, ey = Y0 - 2 * Y1 + Y2, gx = X1 - 2 * X2 + X3, gy = Y1 - 2 * Y2 + Y3;
         const d1 = Math.sqrt(ex * ex + ey * ey), d2 = Math.sqrt(gx * gx + gy * gy);
-        const m = Math.min(256, Math.max(1, Math.ceil(Math.sqrt((0.75 * Math.max(d1, d2)) / TOL))));
+        const m = Math.min(256, Math.max(1, Math.ceil(Math.sqrt((0.75 * Math.max(d1, d2)) / TL[0]))));
         for (let i = 1; i < m; i++) {
           const t = i / m, u = 1 - t, A = u * u * u, B = 3 * u * u * t, C = 3 * u * t * t, D = t * t * t;
           this._pt(A * X0 + B * X1 + C * X2 + D * X3, A * Y0 + B * Y1 + C * Y2 + D * Y3);
@@ -649,19 +770,22 @@ window.ND = window.ND || {};
         const a = this.a, b = this.b, c = this.c, d = this.d, e = this.e, f = this.f;
         const s = Math.sqrt(Math.max(a * a + b * b, c * c + d * d)), R = Math.max(rx, ry) * s;
         let m;
-        if (R <= TOL) m = 4;
-        else { const dt = 2 * Math.acos(Math.max(-1, 1 - TOL / R)); m = Math.ceil(Math.abs(sweep) / dt); }
+        const tol = TL[0];
+        if (R <= tol) m = 4;
+        else { const dt = 2 * Math.acos(Math.max(-1, 1 - tol / R)); m = Math.ceil(Math.abs(sweep) / dt); }
         m = Math.min(512, Math.max(Math.abs(sweep) >= TAU - 1e-9 ? 8 : 1, m));
         const cr = Math.cos(rot), sr = Math.sin(rot), step = sweep / m, cd = Math.cos(step), sd = Math.sin(step);
-        let co = Math.cos(a0), si = Math.sin(a0);
+        let co = Math.cos(a0), si = Math.sin(a0), fresh = false;
         for (let i = 0; i <= m; i++) {
           if (i === m) { co = Math.cos(a0 + sweep); si = Math.sin(a0 + sweep); } // exact end point
           const ct = co * rx, st = si * ry;
           const ux = x + ct * cr - st * sr, uy = y + ct * sr + st * cr;
           const X = a * ux + c * uy + e, Y = b * ux + d * uy + f;
-          if (i === 0) { if (this.open) this._pt(X, Y); else this._sub(X, Y); } else this._pt(X, Y);
+          if (i === 0) { if (this.open) { this._pt(X, Y); this.cx[this.ns - 1] = 0; } else { this._sub(X, Y); fresh = true; } } else this._pt(X, Y);
           const n = co * cd - si * sd; si = si * cd + co * sd; co = n; // rotate by one step
         }
+        // a subpath that is one whole ellipse is convex: its fill needs no convexity test (see _fillPath)
+        if (fresh && Math.abs(sweep) >= TAU - 1e-9) this.cx[this.ns - 1] = 1;
       }
       rect(x, y, w, h) {
         if (!(Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(w) && Number.isFinite(h))) return;
@@ -723,10 +847,11 @@ window.ND = window.ND || {};
         const pass = this.pass, sc = this.sc, clip = this.clp;
         const v0 = nv, i0 = ni;
         let mode = evenodd ? 2 : 0; // 0 simple, 2 stencil
-        let sign = 0;
+        let sign = 0, pre = -1; // pre: a single subpath is collected once (its points stay in SX/SY)
         if (!mode) {
           for (let s = 0; s < this.ns; s++) {
             const n = this._collect(s);
+            if (this.ns === 1) pre = n;
             if (n < 3) continue;
             let A = 0;
             for (let i = 0, j = n - 1; i < n; j = i++) A += SX[j] * SY[i] - SX[i] * SY[j];
@@ -739,12 +864,12 @@ window.ND = window.ND || {};
         if (!mode) {
           useState(pass, blend, null, clip, sc);
           for (let s = 0; s < this.ns && !mode; s++) {
-            let n = this._collect(s);
+            let n = pre >= 0 ? pre : this._collect(s);
             if (n < 3) continue;
             if (sign < 0) for (let i = 0, j = n - 1; i < j; i++, j--) { let t = SX[i]; SX[i] = SX[j]; SX[j] = t; t = SY[i]; SY[i] = SY[j]; SY[j] = t; }
             // convex (all turns one way, x and y each change direction at most twice): fan
             let convex = true, turns = 0, px = 0, py = 0, fx = 0, fy = 0, lastdx = 0, lastdy = 0;
-            for (let i = 0; i < n && convex; i++) {
+            for (let i = this.cx[s] ? n : 0; i < n && convex; i++) {
               const j = i + 1 < n ? i + 1 : 0, k = j + 1 < n ? j + 1 : 0;
               const ex = SX[j] - SX[i], ey = SY[j] - SY[i], gx = SX[k] - SX[j], gy = SY[k] - SY[j];
               if (ex * gy - ey * gx < -1e-9 * (Math.abs(ex) + Math.abs(ey)) * (Math.abs(gx) + Math.abs(gy))) convex = false;
@@ -916,6 +1041,24 @@ window.ND = window.ND || {};
         QU[0] = u0; QV[0] = v0; QU[1] = u1; QV[1] = v0; QU[2] = u1; QV[2] = v1; QU[3] = u0; QV[3] = v1;
         emitUV4();
       }
+      // a sprite of the atlas (R.spriteEnd) into the rectangle dx, dy, dw, dh of user space
+      drawSprite(s, dx, dy, dw, dh) {
+        if (!R.spriteOk(s)) return;
+        const p = s.page;
+        p.used = frameNo;
+        const blend = this._blend(), al = this.ga;
+        EU[0] = pack(al * 255, al * 255, al * 255, al * 255); EU[1] = PT_TEX; UVM = 0;
+        nextZ();
+        useState(this.pass, blend, p, this.clp, this.sc);
+        const a = this.a, b = this.b, c = this.c, d = this.d, e = this.e, f = this.f, x1 = dx + dw, y1 = dy + dh;
+        QX[0] = a * dx + c * dy + e; QY[0] = b * dx + d * dy + f; QX[1] = a * x1 + c * dy + e; QY[1] = b * x1 + d * dy + f;
+        QX[2] = a * x1 + c * y1 + e; QY[2] = b * x1 + d * y1 + f; QX[3] = a * dx + c * y1 + e; QY[3] = b * dx + d * y1 + f;
+        QU[0] = s.u0; QV[0] = s.v0; QU[1] = s.u1; QV[1] = s.v0; QU[2] = s.u1; QV[2] = s.v1; QU[3] = s.u0; QV[3] = s.v1;
+        emitUV4();
+      }
+      spriteBegin(w, h) { return R.spriteBegin(w, h); }
+      spriteEnd() { return R.spriteEnd(); }
+      spriteOk(s) { return R.spriteOk(s); }
       createLinearGradient(x0, y0, x1, y1) { return gradCtx().createLinearGradient(x0, y0, x1, y1); }
       createRadialGradient(x0, y0, r0, x1, y1, r1) { return gradCtx().createRadialGradient(x0, y0, r0, x1, y1, r1); }
       createPattern(img, rep) { return gradCtx().createPattern(img, rep); }
@@ -930,18 +1073,38 @@ window.ND = window.ND || {};
         if (st.t !== 0) { fail('gradient text'); return; }
         const a = this.a, b = this.b, c = this.c, d = this.d;
         const X = a * x + c * y + this.e, Y = b * x + d * y + this.f;
-        const ix = Math.floor(X), fx = Math.round((X - ix) * 4) / 4, iy = Math.round(Y);
+        const snap = R.textSnap;
+        let ix = snap ? Math.round(X) : Math.floor(X), fx = snap ? 0 : Math.round((X - ix) * 4) / 4;
+        if (fx === 1) { ix++; fx = 0; } // (a whole pixel further: the same picture as offset 0, not a fifth variant)
+        const iy = Math.round(Y);
         const col = st.c;
-        const key = (stroke ? 'S' : 'F') + this.font + '|' + this.align + '|' + this.baseline + '|' + (mw === undefined ? '' : mw) + '|' +
-          col.join(',') + '|' + (stroke ? this.lw + this.join + '/' + this.miter : '') + '|' + a.toFixed(4) + ',' + b.toFixed(4) + ',' + c.toFixed(4) + ',' + d.toFixed(4) + '|' + fx + '|' + t;
+        // Texts whose font size keeps changing (pop-in and pulse animations: damage numbers, combo counts, STRIKE!,
+        // banners) would need a new picture every frame. On Medium / Low (snap) such a text is drawn at the next size of
+        // a 2^(1/4) ladder and its picture placed a little smaller (at most 16%): a few pictures per animation instead of
+        // one per frame. Once the size stays put (30 frames), the text is drawn at its exact size again.
+        let font = this.font, lw = this.lw, mwq = mw, k = 1;
+        if (snap) {
+          const m = FONT_PX.exec(font);
+          if (m) {
+            const px = +m[1], ak = (stroke ? 'S' : 'F') + font.replace(m[0], '') + '|' + t + '|' + col.join(',');
+            let z = textSizes.get(ak);
+            if (!z) { if (textSizes.size > 512) textSizes.clear(); textSizes.set(ak, (z = { px, until: 0 })); }
+            else if (z.px !== px) { z.px = px; z.until = frameNo + 30; }
+            if (frameNo < z.until && px > 1) {
+              const q = Math.round(Math.pow(2, Math.ceil(Math.log2(px) * 4 - 1e-6) / 4) * 4) / 4;
+              if (q > px) { k = px / q; font = font.replace(m[0], q + 'px'); lw = lw / k; if (mw !== undefined) mwq = mw / k; }
+            }
+          }
+        }
+        const key = (stroke ? 'S' : 'F') + font + '|' + this.align + '|' + this.baseline + '|' + (mwq === undefined ? '' : mwq) + '|' +
+          col.join(',') + '|' + (stroke ? lw + this.join + '/' + this.miter : '') + '|' + a.toFixed(4) + ',' + b.toFixed(4) + ',' + c.toFixed(4) + ',' + d.toFixed(4) + '|' + fx + '|' + t;
         let e = texts.get(key);
         if (!e) {
           const tt = P ? now() : 0;
-          const m = measurer(); m.font = this.font; m.textAlign = this.align; m.textBaseline = this.baseline;
-          const mt = m.measureText(t);
+          const mt = metrics(t, font, this.align, this.baseline);
           let w0 = mt.width, sxk = 1;
-          if (mw !== undefined && mw > 0 && w0 > mw) { sxk = mw / w0; }
-          const pad = (stroke ? this.lw : 0) + 2;
+          if (mwq !== undefined && mwq > 0 && w0 > mwq) { sxk = mwq / w0; }
+          const pad = (stroke ? lw : 0) + 2;
           const l = -mt.actualBoundingBoxLeft * sxk - pad, r = mt.actualBoundingBoxRight * sxk + pad, tp = -mt.actualBoundingBoxAscent - pad, bt = mt.actualBoundingBoxDescent + pad;
           let minx = 1e9, miny = 1e9, maxx = -1e9, maxy = -1e9;
           for (const [px, py] of [[l, tp], [r, tp], [r, bt], [l, bt]]) {
@@ -964,10 +1127,10 @@ window.ND = window.ND || {};
           tc.setTransform(1, 0, 0, 1, 0, 0); tc.globalAlpha = 1; tc.globalCompositeOperation = 'copy';
           tc.fillStyle = 'rgba(0,0,0,0)'; tc.fillRect(0, 0, w, h); tc.globalCompositeOperation = 'source-over';
           tc.setTransform(a, b, c, d, ox + fx, oy);
-          tc.font = this.font; tc.textAlign = this.align; tc.textBaseline = this.baseline;
+          tc.font = font; tc.textAlign = this.align; tc.textBaseline = this.baseline;
           const cs = `rgba(${col[0]},${col[1]},${col[2]},${col[3]})`;
-          if (stroke) { tc.strokeStyle = cs; tc.lineWidth = this.lw; tc.lineJoin = JOIN_N[this.join]; tc.miterLimit = this.miter; if (mw !== undefined) tc.strokeText(t, 0, 0, mw); else tc.strokeText(t, 0, 0); }
-          else { tc.fillStyle = cs; if (mw !== undefined) tc.fillText(t, 0, 0, mw); else tc.fillText(t, 0, 0); }
+          if (stroke) { tc.strokeStyle = cs; tc.lineWidth = lw; tc.lineJoin = JOIN_N[this.join]; tc.miterLimit = this.miter; if (mwq !== undefined) tc.strokeText(t, 0, 0, mwq); else tc.strokeText(t, 0, 0); }
+          else { tc.fillStyle = cs; if (mwq !== undefined) tc.fillText(t, 0, 0, mwq); else tc.fillText(t, 0, 0); }
           e = { x: r0.x, y: r0.y, w, h, ox, oy, used: frameNo, shelf: r0.shelf };
           r0.shelf.keys.push(key);
           // straight into the atlas (a GPU copy; the scratch canvas is reused by the next text)
@@ -976,7 +1139,7 @@ window.ND = window.ND || {};
             gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
             gl.texSubImage2D(gl.TEXTURE_2D, 0, e.x, e.y, w, h, gl.RGBA, gl.UNSIGNED_BYTE, textCanvas);
             gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
-            textUploads++;
+            textUploads++; CNT.texUp++; CNT.texts++; CNT.texKB += (w * h) / 256;
           }
           texts.set(key, e);
           if (P) { P.texts++; P.textPx += w * h; P.textMs += now() - tt; if (P.textWhy.length < 6) P.textWhy.push(P.stacks ? key : t.slice(0, 24) + ' ' + w + 'x' + h); }
@@ -986,8 +1149,8 @@ window.ND = window.ND || {};
         EU[0] = pack(al * 255, al * 255, al * 255, al * 255); EU[1] = PT_TEX; UVM = 0;
         nextZ();
         useState(this.pass, blend, TEXT_TEX, this.clp, this.sc);
-        const x0 = ix - e.ox, y0 = iy - e.oy, u0 = e.x / TA_W, v0 = e.y / TA_H, u1 = (e.x + e.w) / TA_W, v1 = (e.y + e.h) / TA_H;
-        QX[0] = x0; QY[0] = y0; QX[1] = x0 + e.w; QY[1] = y0; QX[2] = x0 + e.w; QY[2] = y0 + e.h; QX[3] = x0; QY[3] = y0 + e.h;
+        const x0 = ix - e.ox * k, y0 = iy - e.oy * k, qw = e.w * k, qh = e.h * k, u0 = e.x / TA_W, v0 = e.y / TA_H, u1 = (e.x + e.w) / TA_W, v1 = (e.y + e.h) / TA_H;
+        QX[0] = x0; QY[0] = y0; QX[1] = x0 + qw; QY[1] = y0; QX[2] = x0 + qw; QY[2] = y0 + qh; QX[3] = x0; QY[3] = y0 + qh;
         QU[0] = u0; QV[0] = v0; QU[1] = u1; QV[1] = v0; QU[2] = u1; QV[2] = v1; QU[3] = u0; QV[3] = v1;
         emitUV4();
       }
@@ -1004,7 +1167,8 @@ window.ND = window.ND || {};
     function strokeWidth(hwDev) {
       if (hwDev === SW[0]) return; // same width as the previous stroke (rain, outlines): step already known
       SW[0] = hwDev;
-      if (hwDev <= TOL) { ES[17] = 1.6; STEPCAP = false; } else { ES[17] = 2 * Math.acos(Math.max(-1, 1 - TOL / hwDev)); STEPCAP = true; }
+      const tol = TL[0];
+      if (hwDev <= tol) { ES[17] = 1.6; STEPCAP = false; } else { ES[17] = 2 * Math.acos(Math.max(-1, 1 - tol / hwDev)); STEPCAP = true; }
       ES[18] = Math.cos(ES[17]);
     }
     const WP = new Float64Array(8); // wedge: 0-1 centre, 2-3 unit start direction, 4 signed angle, 5-6 unit end direction, 7 end known
@@ -1037,26 +1201,31 @@ window.ND = window.ND || {};
         const p = emit(QX, QY, 0, 4); tri(p, p + 1, p + 2); tri(p, p + 2, p + 3);
       }
     }
+    // first vertex of each segment's quad in the current polyline (-1: no quad) and the segments of one run
+    let SQ = new Int32Array(1024);
+    const RUN = new Int32Array(256);
     // polyline X/Y[i0 .. i0+n) (deduplicated)
     function strokeLine(X, Y, i0, n, closed) {
       const hw = ES[15], cap = CAP, join = JOIN;
       const segs = closed ? n : n - 1;
+      if (SQ.length < segs) SQ = new Int32Array(Math.max(segs, SQ.length * 2));
       // segment quads, emitted in runs of up to 256
       let q = 0;
       for (let s = 0; s < segs; s++) {
         const i = i0 + s, j = i0 + ((s + 1) % n);
         const x0 = X[i], y0 = Y[i], x1 = X[j], y1 = Y[j];
-        let dx = x1 - x0, dy = y1 - y0; const L = Math.sqrt(dx * dx + dy * dy); if (!L) continue;
+        let dx = x1 - x0, dy = y1 - y0; const L = Math.sqrt(dx * dx + dy * dy); if (!L) { SQ[s] = -1; continue; }
         dx /= L; dy /= L;
         const nx = -dy * hw, ny = dx * hw;
         let ex0 = 0, ey0 = 0, ex1 = 0, ey1 = 0;
         if (!closed && cap === 2) { if (s === 0) { ex0 = -dx * hw; ey0 = -dy * hw; } if (s === segs - 1) { ex1 = dx * hw; ey1 = dy * hw; } }
         QX[q] = x0 + nx + ex0; QY[q] = y0 + ny + ey0; QX[q + 1] = x0 - nx + ex0; QY[q + 1] = y0 - ny + ey0;
         QX[q + 2] = x1 + nx + ex1; QY[q + 2] = y1 + ny + ey1; QX[q + 3] = x1 - nx + ex1; QY[q + 3] = y1 - ny + ey1;
+        RUN[q >> 2] = s;
         q += 4;
-        if (q === 1024) { segQuads(q); q = 0; }
+        if (q === 1024) { runQuads(q); q = 0; }
       }
-      if (q) segQuads(q);
+      if (q) runQuads(q);
       // joins
       const j0 = closed ? 0 : 1, j1 = closed ? n : n - 1;
       for (let k = j0; k < j1; k++) {
@@ -1071,9 +1240,25 @@ window.ND = window.ND || {};
         const n0x = -ay * sg, n0y = ax * sg, n1x = -by * sg, n1y = bx * sg;
         const cx = X[i], cy = Y[i];
         if (join === 1) {
+          // The turn is within one round step (cos of the turn ≥ cos of the step): the join is the one triangle
+          // (centre, outer corner of the segment ending here, outer corner of the one starting here). Those two corners
+          // are already vertices of the two segment quads (the same numbers), and the triangle may start at the first
+          // segment's inner corner instead of the centre: the extra part lies inside the quads, and a path is drawn
+          // as the union of its triangles (depth test), so the same samples are covered, with no new vertex. (The extra
+          // part, inner corner → centre → outer corner, lies inside the second quad when that segment is at least
+          // half width × sin(turn) long; otherwise the centre wedge below.)
+          const single = Math.abs(cr) >= 1e-9 && n0x * n1x + n0y * n1y >= ES[18];
+          if (single && hw * Math.abs(cr) <= lb) {
+            const qa = SQ[k > 0 ? k - 1 : n - 1], qb = SQ[k];
+            if (qa >= 0 && qb >= 0) {
+              if (ni + 3 > capI) growI(ni + 3);
+              // quad corners: +0 start +normal, +1 start −normal, +2 end +normal, +3 end −normal; outer = sg·normal
+              if (sg > 0) { IX[ni++] = qa + 3; IX[ni++] = qa + 2; IX[ni++] = qb; } else { IX[ni++] = qa + 2; IX[ni++] = qa + 3; IX[ni++] = qb + 1; }
+              continue;
+            }
+          }
           WP[0] = cx; WP[1] = cy; WP[2] = n0x; WP[3] = n0y;
-          // the turn is within one round step (cos of the turn ≥ cos of the step): one triangle, no angle needed
-          if (Math.abs(cr) >= 1e-9 && n0x * n1x + n0y * n1y >= ES[18]) { WP[5] = n1x; WP[6] = n1y; WP[7] = 1; }
+          if (single) { WP[5] = n1x; WP[6] = n1y; WP[7] = 1; }
           else { WP[4] = Math.abs(cr) < 1e-9 ? Math.PI : Math.atan2(n0x * n1y - n0y * n1x, n0x * n1x + n0y * n1y); WP[7] = 0; }
           wedge();
         } else {
@@ -1097,11 +1282,17 @@ window.ND = window.ND || {};
         WP[0] = X[e]; WP[1] = Y[e]; WP[2] = dy / L; WP[3] = -dx / L; WP[4] = Math.PI; WP[7] = 0; wedge();
       }
     }
-    // q/4 segment quads in QX/QY: (p, p+1, p+2) and (p+2, p+1, p+3)
+    // q/4 segment quads in QX/QY: (p, p+1, p+2) and (p+2, p+1, p+3); returns the first vertex
     function segQuads(q) {
       const base = emit(QX, QY, 0, q);
       if (ni + q * 3 / 2 > capI) growI(ni + q * 3 / 2);
       for (let p = base, e = base + q; p < e; p += 4) { IX[ni++] = p; IX[ni++] = p + 1; IX[ni++] = p + 2; IX[ni++] = p + 2; IX[ni++] = p + 1; IX[ni++] = p + 3; }
+      return base;
+    }
+    // a run of strokeLine's segment quads (RUN: their segment numbers): emitted, first vertices noted in SQ
+    function runQuads(q) {
+      const base = segQuads(q);
+      for (let t = 0, m = q >> 2; t < m; t++) SQ[RUN[t]] = base + 4 * t;
     }
     function strokeDashed(n, closed, dash, off, dk) {
       // walk the polyline, emitting "on" pieces into TX/TY
@@ -1166,7 +1357,7 @@ window.ND = window.ND || {};
       if (this.pass === 0) { ES[1] = this.sc.x; ES[2] = this.sc.y; } else { ES[1] = 0; ES[2] = 0; }
       return origPaint.call(this, style, mul);
     };
-    for (const k of ['clip', 'clearRect', 'drawImage', '_text']) {
+    for (const k of ['clip', 'clearRect', 'drawImage', 'drawSprite', '_text']) {
       const o = Ctx.prototype[k];
       Ctx.prototype[k] = function () {
         if (this.pass === 0) { ES[1] = this.sc.x; ES[2] = this.sc.y; } else { ES[1] = 0; ES[2] = 0; }
@@ -1198,6 +1389,15 @@ window.ND = window.ND || {};
       return { vertices: nv, indices: ni, commands: cmds.length, paints: np, layersUsed: usedW * usedH };
     };
     R.main = () => main;
+    // curve flattening tolerance (device px) for the following frames; see TOL0
+    R.setTolerance = function (t) {
+      t = t > 0.05 && t < 2 ? +t : TOL0;
+      if (t !== TL[0]) { TL[0] = t; SW[0] = -1; }
+    };
+    R.tolerance = () => TL[0];
+    // Texts snapped to whole pixels (Medium, Low): one picture per text instead of one per quarter-pixel position,
+    // so a text moving with the camera is not drawn again every frame (High keeps the exact quarter-pixel placement)
+    R.textSnap = false;
     // timed wrappers of the tessellating calls (installed only while profiling)
     const TIMED = ['_fillPath', '_stroke', 'clip'], untimed = {};
     // opts.tess: false = no tessellation timing (its wrappers cost a little on every path); opts.stacks: upload causes
@@ -1274,7 +1474,7 @@ window.ND = window.ND || {};
     const QFS = `#version 300 es
       precision mediump float; out vec4 o; void main(){ o=vec4(0.0); }`;
     function compile(vs, fs, binds) {
-      const mk = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { const l = gl.getShaderInfoLog(s); gl.deleteShader(s); throw Error('shader: ' + l); } return s; };
+      const mk = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); CNT.shaders++; if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { const l = gl.getShaderInfoLog(s); gl.deleteShader(s); throw Error('shader: ' + l); } return s; };
       const v = mk(gl.VERTEX_SHADER, vs), f = mk(gl.FRAGMENT_SHADER, fs), p = gl.createProgram();
       gl.attachShader(p, v); gl.attachShader(p, f);
       if (binds) binds(p);
@@ -1292,7 +1492,8 @@ window.ND = window.ND || {};
       if (o.icap < i) { o.icap = i; gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, i * 4, gl.DYNAMIC_DRAW); if (P) P.bufAlloc++; }
     }
     function tex2d(w, h, internal, format, type, filter, data) {
-      const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+      const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); CNT.texNew++;
+      if (data) { CNT.texUp++; CNT.texKB += (w * h * (type === gl.FLOAT ? 16 : 4)) / 1024; }
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
       gl.texImage2D(gl.TEXTURE_2D, 0, internal, w, h, 0, format, type, data || null);
@@ -1341,6 +1542,7 @@ window.ND = window.ND || {};
       for (const e of images.values()) { e.tex = null; e.v = -1; e.pending = false; }
       images.clear(); pendingUploads = [];
       textClear(); textUploads = 0;
+      for (const p of spPages) { p.gen = -1; p.tex = null; } spPages.length = 0;
       ramps.clear(); rampFree = []; for (let i = RAMP_ROWS - 1; i >= 0; i--) rampFree.push(i); rampDirty = [];
       E.ready = true;
     };
@@ -1358,6 +1560,7 @@ window.ND = window.ND || {};
       if (t && t.w === w && t.h === h && t.samples === E.samples) return t;
       freeTarget(i);
       if (P) P.targetsNew++;
+      CNT.targets++;
       t = { w, h, samples: E.samples };
       t.tex = tex2d(w, h, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, gl.LINEAR, null);
       t.fbTex = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, t.fbTex);
@@ -1407,11 +1610,11 @@ window.ND = window.ND || {};
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
         e.w = e.nw; e.h = e.nh;
-        R.stats.uploads++;
+        R.stats.uploads++; CNT.texNew++; CNT.texUp++; CNT.texKB += (e.w * e.h) / 256;
       } else {
         gl.bindTexture(gl.TEXTURE_2D, e.tex);
         gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, src);
-        R.stats.uploads++;
+        R.stats.uploads++; CNT.texUp++; CNT.texKB += (e.w * e.h) / 256;
       }
       e.v = e.nv;
     }
@@ -1439,6 +1642,7 @@ window.ND = window.ND || {};
       if (rampDirty.length) {
         gl.bindTexture(gl.TEXTURE_2D, rampTex);
         for (const row of rampDirty) gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, row, RAMP_W, 1, gl.RGBA, gl.UNSIGNED_BYTE, rampData, row * RAMP_W * 4);
+        CNT.texUp += rampDirty.length; CNT.texKB += rampDirty.length;
         if (P) P.rampRows += rampDirty.length;
         rampDirty = [];
       }
@@ -1563,15 +1767,16 @@ window.ND = window.ND || {};
     E.lose = function () {
       E.ready = false; prog = quadProg = null; targets[0] = targets[1] = null;
       images.clear(); pendingUploads = []; textClear(); textUploads = 0; ramps.clear(); rampDirty = [];
+      for (const p of spPages) { p.gen = -1; p.tex = null; } spPages.length = 0;
       BL.length = 0;
     };
-    R.info = () => ({ samples: E.samples, maxSamples: E.maxSamples, layerAtlas: [AW, AH], textAtlas: [TA_W, TA_H], rampRows: RAMP_ROWS, images: images.size });
+    R.info = () => ({ samples: E.samples, maxSamples: E.maxSamples, layerAtlas: [AW, AH], textAtlas: [TA_W, TA_H], rampRows: RAMP_ROWS, images: images.size, sprites: R.spriteInfo() });
     R.memory = function () {
       let img = 0;
       for (const e of images.values()) img += e.w * e.h * 4;
       const s = Math.max(1, E.samples);
       const tgt = (w, h) => w * h * 4 * (E.samples ? 1 + 2 * s : 2); // resolved colour + (MSAA colour + depth/stencil) or depth/stencil
-      return { imagesBytes: img, textAtlasBytes: TA_W * TA_H * 4, rampBytes: RAMP_W * RAMP_ROWS * 4, paintBytes: PAINT_ROWS * 32,
+      return { imagesBytes: img, spriteBytes: spPages.length * SP_W * SP_H * 4 * 4 / 3, textAtlasBytes: TA_W * TA_H * 4, rampBytes: RAMP_W * RAMP_ROWS * 4, paintBytes: PAINT_ROWS * 32,
         layerTargetBytes: AW && AH ? tgt(AW, AH) : 0, sceneTargetBytes: R.W ? tgt(R.W, R.H) : 0 };
     };
     return R;

@@ -1,7 +1,11 @@
 // Shadow Duel — developer frame profiler. Off unless the address has ?perf=1 (costs one flag read otherwise).
-// Shows a small overlay: average / worst milliseconds per frame spent in each part (simulation steps, HUD DOM
-// updates, background, reflections, shadows, fighters, effects, bloom...), simulation steps per frame, frame gap,
-// canvas backing store size, graphics tier and a rough allocation rate (Chromium only).
+// Shows a small overlay, refreshed every second: frames per second, the screen's refresh rate as the browser delivers
+// it (estimated by the frame pacer) and the frame-rate cap, frame time median / 95th percentile, the frame's processor
+// time split into simulation / drawing (recording the picture) / WebGL, graphics quality, canvas backing store size and
+// pixel ratio; the one-off work of that second that frame timers do not see (WebGL texture uploads and their size, new
+// textures, shader compiles, fighter part pictures drawn / dropped / drawn as paths: each can stall a phone's GPU);
+// below it the average / worst milliseconds of each part (simulation steps, HUD DOM updates, background,
+// reflections, shadows, fighters, effects, bloom...), simulation steps per frame and a rough allocation rate.
 // Test switches (only together with ?perf=1): &dpr=3 pretends the screen has that pixel ratio (phone emulation on a
 // desktop browser), &phone=1 / &lowend=1 steer the device guesses, &flush=0|2 (see below).
 // Console: ND.prof.stats() = numbers of the last one-second window, ND.prof.avg(n) = average of the last n fight
@@ -45,8 +49,11 @@ window.ND = window.ND || {};
     order: [],
     steps: 0, stepsMax: 0, stepHist: [0, 0, 0, 0, 0, 0], curSteps: 0,
     gapSum: 0, gapMax: 0, gapCount: 0, slow: 0, lastBegin: 0, frameStart: 0, frameOpen: false, context: '',
-    heapPrev: 0, alloc: 0, gcs: 0,
+    heapPrev: 0, alloc: 0, gcs: 0, memN: 0,
     t0: now(), snap: null,
+    // frame gaps of the window (for the median and 95th percentile) and the match context of the last frame
+    gaps: new Float64Array(1024), nGaps: 0, ctx: [], ctxChanged: false, cv: null,
+    ck(i, v) { if (this.ctx[i] !== v) { this.ctx[i] = v; this.ctxChanged = true; } },
     // mark: time since the previous mark goes to bucket `name`
     m(name) {
       if (FLUSH_ALL) flush();
@@ -58,13 +65,17 @@ window.ND = window.ND || {};
     begin() {
       const t = now();
       // A report window never mixes gameplay with menus, pause, ads, quality changes or another arena.
-      const g = ND.game, cv = document.getElementById('cv');
-      const context = JSON.stringify([g?.mode, g?.phase, !!g?.paused, !!ND.portal?.inAd, !!document.hidden,
-        ND.gfx?.tier, cv?.width, cv?.height, ND.scene?.themeId, g?.F?.map((f) => f.ch?.id)]);
-      if (context !== this.context) { this.context = context; this.reset(true); this.lastBegin = 0; }
+      // (compared field by field: no string or array made per frame, so the profiler adds no garbage of its own)
+      const g = ND.game, cv = this.cv || (this.cv = document.getElementById('cv'));
+      this.ctxChanged = false;
+      this.ck(0, g?.mode); this.ck(1, g?.phase); this.ck(2, !!g?.paused); this.ck(3, !!ND.portal?.inAd); this.ck(4, !!document.hidden);
+      this.ck(5, ND.gfx?.tier); this.ck(6, cv?.width); this.ck(7, cv?.height); this.ck(8, ND.scene?.themeId);
+      this.ck(9, g?.F?.[0]?.ch?.id); this.ck(10, g?.F?.[1]?.ch?.id);
+      if (this.ctxChanged) { this.reset(true); this.lastBegin = 0; this.work0 = this.workNow(); }
       if (this.lastBegin) {
         const gap = t - this.lastBegin;
         this.gapSum += gap; this.gapCount++; if (gap > this.gapMax) this.gapMax = gap; if (gap > 20) this.slow++;
+        if (this.nGaps < this.gaps.length) this.gaps[this.nGaps++] = gap;
       }
       this.lastBegin = t; this.last = t; this.frameStart = t; this.frameOpen = true;
       this.curSteps = 0;
@@ -86,7 +97,8 @@ window.ND = window.ND || {};
       this.steps += this.curSteps;
       if (this.curSteps > this.stepsMax) this.stepsMax = this.curSteps;
       this.stepHist[Math.min(5, this.curSteps)]++;
-      const mem = performance.memory;
+      // heap size every 8th frame (reading performance.memory is itself slow; a drop between reads = a collection)
+      const mem = ++this.memN % 8 === 0 ? performance.memory : null;
       if (mem) {
         const h = mem.usedJSHeapSize;
         if (this.heapPrev) { if (h >= this.heapPrev) this.alloc += h - this.heapPrev; else this.gcs++; }
@@ -99,9 +111,28 @@ window.ND = window.ND || {};
       const n = Math.max(1, this.frames), secs = (now() - this.t0) / 1000, g = ND.game, cv = document.getElementById('cv');
       const parts = {};
       for (const k of this.order.concat(['TOTAL'])) if (this.sum[k] != null) parts[k] = { avg: +(this.sum[k] / n).toFixed(3), max: +(this.max[k] || 0).toFixed(2) };
+      // the summary groups of the overlay: simulation, recording the picture (Canvas calls → triangles), WebGL / post
+      const grp = { sim: 0, draw: 0, gl: 0, other: 0 };
+      for (const k in this.sum) {
+        if (k === 'TOTAL' || k === 'hudDom') continue;
+        const v = this.sum[k] / n;
+        if (k === 'sim' || k === 'pre-sim') grp.sim += v;
+        else if (k === 'post' || k === 'flush' || k === 'render-tail') grp.gl += v;
+        else if (k === 'input' || k === 'portal' || k === 'syncTouch' || k === 'other') grp.other += v;
+        else grp.draw += v;
+      }
+      for (const k in grp) grp[k] = +grp[k].toFixed(3);
+      // one-off work the frame timers do not see (GPU uploads and driver work): WebGL texture uploads and their size,
+      // new textures, shader compiles, render targets made, fighter part pictures drawn (bakes), dropped (evictions)
+      // and drawn as paths instead (budget), per window
+      const w0 = this.work0 || (this.work0 = this.workNow()), w1 = this.workNow(), work = {};
+      for (const k in w1) work[k] = +(w1[k] - (w0[k] || 0)).toFixed(k === 'texKB' ? 1 : 0);
+      this.work0 = w1;
+      const G = this.gaps.subarray(0, this.nGaps).sort(), pct = (p) => (G.length ? +G[Math.min(G.length - 1, Math.floor(p * G.length))].toFixed(2) : 0);
       this.snap = {
         frames: this.frames, seconds: +secs.toFixed(3),
         fps: +(n / secs).toFixed(1), gapAvg: +(this.gapSum / Math.max(1, this.gapCount)).toFixed(2), gapMax: +this.gapMax.toFixed(1), slowFrames: this.slow,
+        gapP50: pct(0.5), gapP95: pct(0.95), groups: grp,
         stepsAvg: +(this.steps / n).toFixed(2), stepsMax: this.stepsMax, stepHist: this.stepHist.slice(),
         allocKBps: +(this.alloc / 1024 / secs).toFixed(0), gcs: this.gcs,
         canvas: cv ? cv.width + 'x' + cv.height : '?', css: cv ? Math.round(cv.clientWidth) + 'x' + Math.round(cv.clientHeight) : '?',
@@ -110,6 +141,7 @@ window.ND = window.ND || {};
         mode: g?.mode, paused: !!g?.paused, hidden: !!document.hidden, inAd: !!ND.portal?.inAd,
         fighters: g?.F?.map((f) => f.ch?.id),
         caches: g?.F?.map((f) => f._bake && ND.bakeStats ? ND.bakeStats(f._bake) : null),
+        work,
         gl: g?.glStatus ? g.glStatus() : null,
         pace: g?.pace ? { on: g.pace.on, ...g.pace.stat() } : null,
         parts,
@@ -119,10 +151,16 @@ window.ND = window.ND || {};
       this.draw();
     },
     history: [],
+    // running totals (differences per window go into snap.work)
+    workNow() {
+      const R = ND.game?.glRenderer?.()?.R, C = R?.count || {}, o = { texUp: C.texUp || 0, texKB: C.texKB || 0, texNew: C.texNew || 0, texts: C.texts || 0, shaders: C.shaders || 0, targets: C.targets || 0, sprites: C.sprites || 0, spriteDrops: C.spriteDrops || 0, bakes: 0, evictions: 0, paths: 0 };
+      for (const f of ND.game?.F || []) { const b = f._bake; if (b) { o.bakes += b.bakes; o.evictions += b.evictions; o.paths += b.live; } }
+      return o;
+    },
     reset(keepHist) {
       this.frames = 0; this.sum = Object.create(null); this.max = Object.create(null);
       this.steps = 0; this.stepsMax = 0; this.stepHist = [0, 0, 0, 0, 0, 0];
-      this.gapSum = 0; this.gapMax = 0; this.gapCount = 0; this.slow = 0; this.alloc = 0; this.gcs = 0; this.t0 = now();
+      this.gapSum = 0; this.gapMax = 0; this.gapCount = 0; this.slow = 0; this.alloc = 0; this.gcs = 0; this.t0 = now(); this.nGaps = 0;
       if (!keepHist) { this.history.length = 0; this.lastBegin = 0; this.frameOpen = false; }
     },
     stats() { return this.snap; },
@@ -144,9 +182,9 @@ window.ND = window.ND || {};
     report() {
       const windows = this.history.filter((s) => this.isFight(s)).slice(-10);
       return {
-        report: 'shadow-duel-phone-v2',
+        report: 'shadow-duel-phone-v3',
         renderer: ND.game?.renderVersion || 'shared-surfaces',
-        note: 'Frame callback rate and synchronous CPU/Canvas submission only; GPU/display time is not measured. hudDom is included in sim and TOTAL.',
+        note: 'Frame callback rate and synchronous CPU/Canvas submission only; GPU/display time is not measured. hudDom is included in sim and TOTAL. work = per-window counts of WebGL texture uploads (texUp, texKB), new textures, shader compiles, render targets, fighter part pictures drawn (bakes), dropped (evictions) and drawn as paths (paths).',
         device: { userAgent: navigator.userAgent, dpr: window.devicePixelRatio, cores: navigator.hardwareConcurrency, memoryGB: navigator.deviceMemory },
         probeCopies: FLUSH_ALL ? 'per-mark' : FLUSH ? 'per-frame' : 'off',
         emulated: ['phone', 'lowend', 'dpr'].some((k) => qs.has(k)),
@@ -189,9 +227,27 @@ window.ND = window.ND || {};
         (document.getElementById('app') || document.body).appendChild(b);
       }
       const s = this.snap; if (!s) return;
-      let t = `${s.fps} fps  gap ${s.gapAvg}/${s.gapMax}ms  slow ${s.slowFrames}\nsteps ${s.stepsAvg} max ${s.stepsMax} [${s.stepHist.join(' ')}]\n${s.canvas} (${s.css} @${s.dpr}) ${s.tier} drs${s.drs}\nalloc ${s.allocKBps} KB/s  gc ${s.gcs}\n`;
-      if (qs.get('compact') === '1') t = `${s.fps} fps · CPU ${s.parts.TOTAL?.avg.toFixed(2)} ms\n${s.tier} · ${s.canvas}\nFight samples: ${this.history.filter((v) => this.isFight(v)).length} · report v2`;
+      // Summary first (the numbers to compare High / Medium / Low on a phone): frame rate, the screen's refresh rate
+      // as the browser delivers it and the game's frame-rate cap, frame time median / 95th percentile, the frame's
+      // processor time split into simulation / picture recording / WebGL, then quality, canvas size and pixel ratio.
+      // (the pacer's refresh estimate reads the gaps between frame callbacks: while frames are slower than the screen it
+      // reads the slower rate, so the fastest rate seen this session, e.g. in the menus, is shown too)
+      const pc = s.pace, hz = pc && pc.periodMs > 0 ? Math.round(1000 / pc.periodMs) : 0, cap = pc ? (pc.target ? String(pc.target) : 'max') : '?';
+      if (hz > (this.hzBest || 0)) this.hzBest = hz;
+      const gr = s.groups || {}, f2 = (v) => (v || 0).toFixed(2), g = ND.game;
+      const scr = !hz ? '?' : this.hzBest > hz * 1.1 ? `${hz} (up to ${this.hzBest})` : String(hz);
+      let t = `${s.fps} fps · screen ${scr} Hz · cap ${cap}\n` +
+        `frame p50 ${s.gapP50} · p95 ${s.gapP95} ms · slow ${s.slowFrames}\n` +
+        `CPU ${f2(s.parts.TOTAL?.avg)} ms = sim ${f2(gr.sim)} + draw ${f2(gr.draw)} + GL ${f2(gr.gl)} + other ${f2(gr.other)}\n` +
+        `${String(ND.gfx?.active ? ND.gfx.active() : s.tier).toUpperCase()} (${ND.gfx?.getQuality ? ND.gfx.getQuality() : ''}) ${s.canvas} · css ${s.css} @${s.dpr}` +
+        ` (max ${ND.gfx?.f?.dpr ?? '?'}${s.drs != null && s.drs !== 1 ? ' ×' + s.drs : ''}) · ${g?.rendererMode === 'gl' ? 'WebGL2' : 'Canvas'}\n`;
+      if (Math.max(hz, this.hzBest || 0) > 70 && pc && pc.target && pc.target < Math.max(hz, this.hzBest) - 5) t += `(cap ${pc.target}: Settings > Graphics > Frame rate 120 / Max for more)\n`;
+      const wk = s.work || {};
+      t += `uploads ${wk.texUp ?? '?'} (${wk.texKB ?? '?'} KB, texts ${wk.texts ?? '?'}) · new tex ${wk.texNew ?? '?'} · shaders ${wk.shaders ?? '?'} · bakes ${wk.bakes ?? '?'} evict ${wk.evictions ?? '?'} paths ${wk.paths ?? '?'}
+`;
+      if (qs.get('compact') === '1') t += `Fight samples: ${this.history.filter((v) => this.isFight(v)).length} · report v3`;
       else {
+        t += `steps ${s.stepsAvg} max ${s.stepsMax} [${s.stepHist.join(' ')}] · alloc ${s.allocKBps} KB/s gc ${s.gcs}\n`;
         t += 'CPU avg / max ms (GPU not measured)\n';
         for (const k in s.parts) t += `${k.padEnd(15)}${s.parts[k].avg.toFixed(2).padStart(6)} ${s.parts[k].max.toFixed(1).padStart(5)}\n`;
       }

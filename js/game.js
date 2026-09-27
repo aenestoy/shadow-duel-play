@@ -44,8 +44,10 @@
   const GL_FORCE = REN_Q === 'gl', GL_WANT = REN_Q !== 'canvas';
   // ?cap=0 / ?cap=1: frame pacing forced to Max / 60 for tests (see the pacer at the end); '' = the Frame rate setting
   const CAP_Q = QS.get('cap') === '0' ? '0' : QS.get('cap') === '1' ? '1' : '';
-  let glr = null, glShown = false;
-  const showGl = (on) => { if (glr && on !== glShown) { glShown = on; glr.canvas.style.visibility = on ? 'visible' : 'hidden'; } };
+  let glr = null, glShown = false, glSamples = null;
+  // (the Canvas 2D canvas under the opaque WebGL canvas is made fully transparent meanwhile: the page compositor then
+  // skips it instead of blending a second full-screen layer on every frame; it still takes the taps)
+  const showGl = (on) => { if (glr && on !== glShown) { glShown = on; glr.canvas.style.visibility = on ? 'visible' : 'hidden'; cv.style.opacity = on ? '0' : ''; } };
   // High bloom blur without ctx.filter (game.blurGlow): the bright 1/4 buffer is halved once (1/8, a 2×2 average),
   // then blurred there by two separable Gaussian passes, each a few offset copies of the image (fractional offsets:
   // bilinear sampling merges two kernel taps per copy). The copies are averaged 'source-over' onto an opaque image
@@ -434,10 +436,17 @@
       // Keep all match state and the round timer still while expensive first-use drawing is prepared.
       // Each fighter fills at most three missing cache entries per preparation frame; no partial drawing is visible.
       const jobs = [() => { this.behind = false; resize(); scene.drawBack(ctx); }];
-      for (const f of F) jobs.push(() => {
-        const draw = () => this.drawLit(f, f._litFn || (f._litFn = (c) => f.draw(c, false, true)));
-        return ND.prepareBaked ? ND.prepareBaked(draw) : (draw(), true);
-      });
+      // WebGL2 on Low: each fighter's part pictures go into the renderer's sprite atlas now (bake.js ND.warmBaked:
+      // every pose of its moves, turned and mirrored), about 12 ms of work per loading frame, so the fight itself
+      // makes almost no new pictures (each one used to be a new texture, and a stall on phones)
+      const warmGl = glr && this.rendererMode === 'gl' && glr.ready && GFX.tier === 'low' && ND.warmBaked;
+      for (const f of F) {
+        if (warmGl) { let w = null; jobs.push(() => (w || (w = ND.warmBaked(glr.R, f))).step(12)); continue; }
+        jobs.push(() => {
+          const draw = () => this.drawLit(f, f._litFn || (f._litFn = (c) => f.draw(c, false, true)));
+          return ND.prepareBaked ? ND.prepareBaked(draw) : (draw(), true);
+        });
+      }
       // Reveal one complete scene, never the intermediate partial part layers used by the warm-up jobs.
       jobs.push(() => this.render());
       this.preparing = ND.prepare.start(jobs, () => {
@@ -1072,7 +1081,7 @@
       // the default renderer broke for good (a GL error, or it kept refusing frames): free it, Canvas 2D from now on
       if (glr && !GL_FORCE && glr.error) {
         glWhy = glr.error; console.info('[ND.gl] WebGL2 renderer switched off; drawing with Canvas 2D', glWhy);
-        glr.dispose(); glr = null; glShown = false; this.rendererMode = 'canvas';
+        glr.dispose(); glr = null; glShown = false; cv.style.opacity = ''; this.rendererMode = 'canvas';
       }
       if (glr && this.rendererMode === 'gl' && !behindUi && !this.behind && glr.ready && this.renderGl()) return;
       showGl(false);
@@ -1093,6 +1102,13 @@
 
     // WebGL2 frame (see glr above). false: nothing was shown, the caller draws the frame with Canvas 2D.
     renderGl() {
+      // the tier's processor savings in the renderer (js/gfx.js TIERS: curve tolerance, texts on whole pixels)
+      glr.R.setTolerance(GFX.f.tol); glr.R.textSnap = !!GFX.f.snap;
+      // Low: 2× multisampling instead of 4× (?msaa=n overrides). The fighters there are ready-made anti-aliased
+      // pictures and the backdrop is one picture; the samples mostly cost memory traffic: every pass writes and resolves
+      // them on every frame, which on a phone is power and heat.
+      const ms = QS.get('msaa') != null ? +QS.get('msaa') : GFX.tier === 'low' ? 2 : 4;
+      if (ms !== glSamples) { glr.setSamples(ms); glSamples = ms; }
       const g = glr.begin(cv.width, cv.height);
       let ok = false;
       ctx = g;
@@ -1120,7 +1136,8 @@
       if (!withFighters) { scene.drawFront(ctx); PM('front'); return; }
       if (this.dim > 0) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = `rgba(0,0,0,${this.dim * 0.55})`; ctx.fillRect(0, 0, cam.W, cam.H); }
       cam.world(ctx);
-      if (GFX.f.reflect) {
+      // floor reflections (Medium: only where they show, js/gfx.js reflectMin: not the 4–5% ones of snow, village, castle)
+      if (GFX.f.reflect && scene.theme.reflect >= (GFX.f.reflectMin || 0)) {
         ctx.save(); ctx.globalAlpha = scene.theme.reflect; ctx.transform(1, 0, 0, -0.55, 0, 0);
         for (const f of F) f.draw(ctx, true);
         ctx.restore();
@@ -1302,22 +1319,24 @@
       this.bars = 1; this.overlays();
     },
 
+    // The HUD bars are DOM: written every frame, but each element only when its value changed (element lookups made
+    // once, no strings built per frame), so a frame where nothing changed touches no style at all.
     hud() {
       for (let i = 0; i < 2; i++) {
-        const f = F[i], n = i + 1;
-        sx($('h' + n), f.hp / f.maxHp); sx($('g' + n), f.ghost / f.maxHp);
-        const pw = Math.min(100, f.posture) + '%', pe = $('p' + n);
-        if (pe._w !== pw) { pe.style.width = pw; pe._w = pw; }
-        $('pb' + n).classList.toggle('hot', f.posture > 70);
-        $('hpb' + n).classList.toggle('low', f.hp > 0 && f.hp / f.maxHp < 0.25);
-        sx($('k' + n), f.ki / 100);
-        $('kb' + n).classList.toggle('full', f.ki >= 100);
-        const am = $('a' + n), cap = Math.max(f.ch.ammo, f.ammo), key = f.ammo + '/' + cap;
-        if (am._n !== key) { am._n = key; am.innerHTML = Array.from({ length: cap }, (_, k) => `<b class="${k < f.ammo ? 'on' : ''}"></b>`).join(''); }
-        const wb = $('w' + n).children; // round-win pips (live list: no array copy per frame)
-        for (let k = 0; k < wb.length; k++) wb[k].classList.toggle('on', k < this.wins[i]);
+        const f = F[i], E = hudEls(i + 1);
+        sx(E.h, f.hp / f.maxHp); sx(E.g, f.ghost / f.maxHp);
+        // (a transform from the centre, not a width: the bar changes nearly every frame and a width is a new layout)
+        sx(E.p, Math.min(100, f.posture) / 100);
+        tog(E.pb, 'hot', f.posture > 70);
+        tog(E.hpb, 'low', f.hp > 0 && f.hp / f.maxHp < 0.25);
+        sx(E.k, f.ki / 100);
+        tog(E.kb, 'full', f.ki >= 100);
+        const am = E.a, cap = Math.max(f.ch.ammo, f.ammo);
+        if (am._n !== f.ammo || am._c !== cap) { am._n = f.ammo; am._c = cap; am.innerHTML = Array.from({ length: cap }, (_, k) => `<b class="${k < f.ammo ? 'on' : ''}"></b>`).join(''); }
+        const wb = E.w.children; // round-win pips (live list: no array copy per frame)
+        for (let k = 0; k < wb.length; k++) tog(wb[k], 'on', k < this.wins[i]);
       }
-      const tt = this.mode === 'train' ? '∞' : Math.ceil(this.timer), te = $('timer');
+      const tt = this.mode === 'train' ? '∞' : Math.ceil(this.timer), te = HUD_T.timer || (HUD_T.timer = $('timer'));
       if (te._t !== tt) { te._t = tt; te.textContent = tt; $('clock').classList.toggle('urgent', tt <= 10); }
       if (this._touchOn) this.touchHud();
     },
@@ -1649,7 +1668,12 @@
       }
     },
   };
-  function sx(el, v) { const s = `scaleX(${Math.max(0, v).toFixed(3)})`; if (el._s !== s) { el.style.transform = s; el._s = s; } }
+  // HUD bar scale (3 decimals), written only when it changed
+  function sx(el, v) { const q = Math.round(Math.max(0, v) * 1000); if (el._q !== q) { el._q = q; el.style.transform = `scaleX(${(q / 1000).toFixed(3)})`; } }
+  // one class of a HUD element (each of these elements has only this one switching class), written only on a change
+  function tog(el, cls, on) { if (el._tg !== on) { el._tg = on; el.classList.toggle(cls, on); } }
+  const HUD_E = [], HUD_T = {};
+  const hudEls = (n) => HUD_E[n] || (HUD_E[n] = { h: $('h' + n), g: $('g' + n), p: $('p' + n), pb: $('pb' + n), hpb: $('hpb' + n), k: $('k' + n), kb: $('kb' + n), a: $('a' + n), w: $('w' + n) });
 
   // ---------------------------------------------------------------- UI bağlantıları
   function persist() {
@@ -2163,6 +2187,9 @@
     const behind = isBehind();
     if (behind !== !!game.behind) { game.behind = behind; resize(); lastDraw = -1e9; skipDraw = false; }
     if (behind && (skipDraw || w0 - lastDraw < 28)) { skipDraw = false; return; }
+    // Paused or an ad running: the fight picture does not change (the simulation stands still), so it is drawn about
+    // 10 times a second instead of on every screen refresh (the pause menu is the page's own; less heat while it is open)
+    if (!behind && (game.paused || (ND.portal && ND.portal.inAd)) && w0 - lastDraw < 100) return;
     lastDraw = w0;
     game.render();
     skipDraw = behind && performance.now() - w0 > 12;

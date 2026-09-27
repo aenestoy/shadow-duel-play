@@ -17,6 +17,10 @@
 // At most BUDGET pictures are made per fighter per display frame; remaining misses use the original paths.
 // Repeated draws within that frame share the budget. Memory: each fighter's cache keeps at most CAP bytes and drops the
 // least recently used pictures first (a fight on a phone uses about 1-2 MB per fighter).
+// WebGL2 renderer (the default): the pictures live in the renderer's sprite atlas (gl2d.js) instead: drawn on a CPU
+// canvas and copied into a mip-mapped atlas page (no new texture and no wait for the GPU per picture), all at one
+// scale level per fight (the closest camera zoom; farther zooms use the mip levels), and made before the fight on the
+// loading screen (ND.warmBaked: ~1,100 pictures for two fighters), so a fight makes almost none.
 window.ND = window.ND || {};
 (function (ND) {
   'use strict';
@@ -29,9 +33,10 @@ window.ND = window.ND || {};
   // m: key → { cv, x0, y0, w, h (local frame, world units), len (bone length when drawn), last (use), bytes }
   let frameId = 0;
   ND.beginBakeFrame = () => ++frameId;
-  function Cache() { return { m: new Map(), bytes: 0, frame: -1, fb: 0, lv: -1, bakes: 0, hits: 0, live: 0, evictions: 0, bornPixels: 0, readOnly: false, col: null, acc: null, wpn: null, ltx: null }; }
+  // m: pictures of the Canvas 2D renderer (ImageBitmaps / canvases); g: sprites of the WebGL2 renderer's atlas (gl2d.js)
+  function Cache() { return { m: new Map(), g: new Map(), bytes: 0, gbytes: 0, frame: -1, fb: 0, lv: -1, glv: -1, bakes: 0, hits: 0, live: 0, evictions: 0, bornPixels: 0, readOnly: false, col: null, acc: null, wpn: null, ltx: null }; }
   ND.bakeCache = Cache;
-  ND.bakeStats = (F) => ({ parts: F.m.size, kb: Math.round(F.bytes / 1024), bakes: F.bakes, hits: F.hits, live: F.live, evictions: F.evictions, bornPixels: F.bornPixels, level: F.lv });
+  ND.bakeStats = (F) => ({ parts: F.m.size + F.g.size, sprites: F.g.size, kb: Math.round((F.bytes + F.gbytes) / 1024), bakes: F.bakes, hits: F.hits, live: F.live, evictions: F.evictions, bornPixels: F.bornPixels, level: F.glv >= 0 ? F.glv : F.lv });
   // Match preparation may leave missing parts blank behind its opaque loading screen. Live drawing never does.
   let preparing = false, pending = 0;
   ND.prepareBaked = function (draw) {
@@ -40,7 +45,7 @@ window.ND = window.ND || {};
     try { draw(); return pending === 0; } finally { preparing = false; }
   };
   const release = (e) => { if (typeof e.cv.close === 'function') e.cv.close(); };
-  function clear(Fc) { Fc.evictions += Fc.m.size; for (const e of Fc.m.values()) release(e); Fc.m.clear(); Fc.bytes = 0; }
+  function clear(Fc) { Fc.evictions += Fc.m.size + Fc.g.size; for (const e of Fc.m.values()) release(e); Fc.m.clear(); Fc.bytes = 0; Fc.g.clear(); Fc.gbytes = 0; }
   ND.clearBakeCache = clear;
   function sameWeapon(a, b) {
     return a === b || !!a && !!b && a.type === b.type && a.blade === b.blade && a.handle === b.handle &&
@@ -48,9 +53,13 @@ window.ND = window.ND || {};
   }
 
   // state of the fighter being drawn (set by drawNinjaBaked, read by the part functions below)
-  let F = null, J = null, C = null, D = null, WPN = null, ACC = '', SD = 1, LV = 0, S = 1;
+  let F = null, J = null, C = null, D = null, WPN = null, ACC = '', SD = 1, LV = 0, S = 1, GLX = false, warming = false;
   let BM = null; // the target context's transform at the start (DOMMatrix)
   const lvScale = (lv) => Math.pow(2, lv / 4 - 3);
+  // scale level: the smallest 2^(n/4) that is not below the scale (by more than 3%)
+  const levelOf = (s) => Math.max(0, Math.min(31, Math.ceil((Math.log2(s) + 3) * 4 - 0.15)));
+  // closest camera zoom of a fight (scene.js cam.follow: 1.28; the KO / finisher focus 1.4)
+  const ZMAX = 1.4;
   const lb = (a) => { let b = Math.floor((a / TAU) * NB) % NB; if (b < 0) b += NB; return b; };
   // shade() in skeleton.js puts the highlight on the side whose normal faces the light: 1 when it flips
   const sflip = (dx, dy) => (-dy * LT.x + dx * LT.y < 0 ? 1 : 0);
@@ -94,33 +103,43 @@ window.ND = window.ND || {};
   // sets BB (local bounds, world units) and `draw(ctx)` paints the part in world coordinates, exactly as the path
   // renderer does.
   function part(ctx, pid, a, b, c, ox, oy, ang, m, len, box, draw) {
-    const k = key(pid, a, b, c);
-    let e = F.m.get(k);
+    const k = key(pid, a, b, c), gl = GLX;
+    const M = gl ? F.g : F.m;
+    let e = M.get(k);
+    // (a sprite whose atlas page was reused, or a lost WebGL context: drawn again below)
+    if (e && gl && !ctx.spriteOk(e.sp)) { M.delete(k); F.gbytes -= e.bytes; F.evictions++; e = null; }
     if (e) F.hits++;
     if (!e && F.readOnly) throw Error('Prepared character cache missed a required part');
-    if (!e && preparing && F.fb >= BUDGET) { pending++; return; }
+    if (!e && !warming && preparing && F.fb >= BUDGET) { pending++; return; }
     // Both tiers retain the authored paths when the real frame budget is exhausted.
-    if (!e && !preparing && F.fb >= BUDGET) { F.live++; restore(ctx); draw(ctx); return; }
+    if (!e && !warming && !preparing && F.fb >= BUDGET) { F.live++; restore(ctx); draw(ctx); return; }
     if (!e) {
       F.fb++;
       FO.x = ox; FO.y = oy; FO.a = ang; FO.m = m;
       box();
       const x0 = BB[0], y0 = BB[1], pw = Math.max(1, Math.ceil((BB[2] - x0) * S) + 2), ph = Math.max(1, Math.ceil((BB[3] - y0) * S) + 2);
-      const cv = newSprite(pw, ph), x = USE_BM ? OX : cv.getContext('2d');
+      // WebGL2: a CPU canvas whose picture goes into the renderer's sprite atlas (drawn at offset 2, 2); Canvas 2D: a
+      // picture of its own
+      const cv = gl ? null : newSprite(pw, ph), x = gl ? ctx.spriteBegin(pw, ph) : USE_BM ? OX : cv.getContext('2d'), o = gl ? 3 : 1;
       const ca = Math.cos(ang), sa = Math.sin(ang);
       // device = S·(local − (x0, y0)) + 1, local = (m·R(−ang)(w − o)).x, (R(−ang)(w − o)).y
-      x.setTransform(S * ca * m, -S * sa, S * sa * m, S * ca, S * (-(ca * ox + sa * oy) * m - x0) + 1, S * (sa * ox - ca * oy - y0) + 1);
+      x.setTransform(S * ca * m, -S * sa, S * sa * m, S * ca, S * (-(ca * ox + sa * oy) * m - x0) + o, S * (sa * ox - ca * oy - y0) + o);
       x.globalAlpha = 1; x.globalCompositeOperation = 'source-over'; x.lineJoin = 'round'; x.lineCap = 'round';
       draw(x);
-      e = { cv: USE_BM ? cv.transferToImageBitmap() : cv, x0: x0 - 1 / S, y0: y0 - 1 / S, w: pw / S, h: ph / S, len, last: 0, bytes: pw * ph * 4 };
-      F.m.set(k, e); F.bytes += e.bytes; F.bakes++; F.bornPixels += pw * ph;
+      e = { cv: null, sp: null, x0: x0 - 1 / S, y0: y0 - 1 / S, w: pw / S, h: ph / S, len, last: 0, bytes: pw * ph * 4 };
+      if (gl) {
+        e.sp = ctx.spriteEnd();
+        if (!e.sp) { F.live++; restore(ctx); draw(ctx); return; } // (no room in the atlas this frame: paths)
+        F.g.set(k, e); F.gbytes += e.bytes;
+      } else { e.cv = USE_BM ? cv.transferToImageBitmap() : cv; F.m.set(k, e); F.bytes += e.bytes; }
+      F.bakes++; F.bornPixels += pw * ph;
     }
     e.last = F.frame;
     const kx = m * (len > 0 && e.len > 0 ? len / e.len : 1), ca = Math.cos(ang), sa = Math.sin(ang);
     // transform = BM · translate(o) · rotate(ang) · scale(kx, 1)
     ctx.setTransform((BM.a * ca + BM.c * sa) * kx, (BM.b * ca + BM.d * sa) * kx, -BM.a * sa + BM.c * ca, -BM.b * sa + BM.d * ca,
       BM.a * ox + BM.c * oy + BM.e, BM.b * ox + BM.d * oy + BM.f);
-    ctx.drawImage(e.cv, e.x0, e.y0, e.w, e.h);
+    if (gl) ctx.drawSprite(e.sp, e.x0, e.y0, e.w, e.h); else ctx.drawImage(e.cv, e.x0, e.y0, e.w, e.h);
   }
   const BUDGET = 3; // Hard per-fighter display-frame limit, shared by all draws in that frame.
   const restore = (ctx) => ctx.setTransform(BM.a, BM.b, BM.c, BM.d, BM.e, BM.f);
@@ -323,7 +342,21 @@ window.ND = window.ND || {};
     x0 = Math.floor(x0); y0 = Math.floor(y0); x1 = Math.ceil(x1); y1 = Math.ceil(y1);
     const w = x1 - x0, h = y1 - y0;
     if (w <= 0 || h <= 0 || w > 4096 || h > 4096) return;
-    // (WebGL2 renderer: a CPU canvas, so its copy into a texture every frame never waits for the GPU)
+    // WebGL2 renderer: no scratch canvas (it had to be copied into a texture every frame, twice a frame for two
+    // fighters): the torso picture goes straight into the fighter's layer and the shadows are clipped to the torso
+    // outline, as the path renderer does (drawTorso)
+    if (ctx.isGL) {
+      part(ctx, P.BODY, a, b, 0, TF.hx, TF.hy, ta, 1, ln, bbRim, drBody);
+      restore(ctx);
+      ctx.save();
+      ctx.beginPath(); K.torsoPath(ctx); ctx.clip();
+      ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+      K.torsoAO(ctx, J);
+      ctx.restore();
+      restore(ctx);
+      return;
+    }
+    // (Canvas renderer fallback: a CPU canvas)
     if (!scr) { scr = newCanvas(w, h); scx = scr.getContext('2d', ND.glHooked ? { willReadFrequently: true } : undefined); }
     if (scr.width < w || scr.height < h) { scr.width = Math.max(scr.width, w); scr.height = Math.max(scr.height, h); scx = scr.getContext('2d'); }
     scx.setTransform(1, 0, 0, 1, 0, 0); scx.globalCompositeOperation = 'source-over'; scx.globalAlpha = 1;
@@ -395,8 +428,18 @@ window.ND = window.ND || {};
     if (!(s > 0.01) || Math.abs(M.a * M.d - M.b * M.c - s * s) > s * s * 0.01) return false; // needs a plain scale + rotation
     // scale level: the smallest 2^(n/4) at or just under the current scale; kept while the scale stays within
     // about -30% / +3% of it (camera zoom changes do not rebake everything at once)
-    let lv = Math.max(0, Math.min(31, Math.ceil((Math.log2(s) + 3) * 4 - 0.15)));
-    if (Fc.lv >= 0 && s <= lvScale(Fc.lv) * 1.03 && s >= lvScale(Fc.lv) * 0.7) lv = Fc.lv;
+    const gl = ctx.isGL === true && typeof ctx.spriteEnd === 'function';
+    let lv;
+    if (gl) {
+      // WebGL2: one picture size for the whole fight, made for the closest camera zoom (ZMAX) on this canvas; farther
+      // zooms sample the atlas's mip levels, so no new pictures are made while the camera moves in and out
+      lv = levelOf((ND.cam && ND.cam.s > 0 ? ND.cam.s : s) * ZMAX);
+      Fc.glv = lv;
+    } else {
+      lv = levelOf(s);
+      if (Fc.lv >= 0 && s <= lvScale(Fc.lv) * 1.03 && s >= lvScale(Fc.lv) * 0.7) lv = Fc.lv;
+      Fc.lv = lv;
+    }
     K.updLight();
     // another look, weapon or light side: start over
     if (Fc.col !== c || Fc.acc !== acc || !sameWeapon(Fc.wpn, wpn) || Fc.ltx !== (LT.x > 0)) {
@@ -405,9 +448,8 @@ window.ND = window.ND || {};
       Fc.col = c; Fc.acc = acc; Fc.wpn = wpn; Fc.ltx = LT.x > 0;
     }
     Fc.wpn = wpn;
-    Fc.lv = lv;
     if (Fc.frame !== frameId) { Fc.frame = frameId; Fc.fb = 0; }
-    F = Fc; J = j; C = c; WPN = wpn; ACC = acc; SD = j.dir < 0 ? -1 : 1; LV = lv; S = lvScale(lv); BM = M;
+    F = Fc; J = j; C = c; WPN = wpn; ACC = acc; SD = j.dir < 0 ? -1 : 1; LV = lv; S = lvScale(lv); BM = M; GLX = gl;
     D = K.pal(c);
     glint = X.glint || 0;
     ctx.lineJoin = 'round'; ctx.lineCap = 'round';
@@ -433,5 +475,90 @@ window.ND = window.ND || {};
     }
     trim(Fc);
     return true;
+  };
+
+  // ---------------------------------------------------------------- warm-up (match preparation, WebGL2)
+  // Draws a fighter's part pictures into the renderer's sprite atlas before the fight, so the fight itself makes
+  // (almost) no new ones: every pose of the move tables (ND.POSES, ND.ATK, the fighter's ND.MOVES / ND.SPECIALS ...)
+  // and the halfway point from the stance to it, turned through the 16 light directions (a whole turn in 1/16 steps:
+  // rolls, throws, falls and the KO rag doll reach them), facing both ways, with the sleeve flutter, the head
+  // ornaments and the weapon states (fan opening, arrows left, drawn bow, sheathed blade) at spread-out values.
+  // Nothing is shown: the parts are placed on a context that records nothing (only the atlas uploads happen), and no
+  // fight state is touched (own joints; the scene clock is put back).
+  // ND.warmBaked(R, f) → { step(ms) }: works for about ms milliseconds, true once everything is drawn.
+  const JOINTS = ['hip', 'neck', 'sh', 'head', 'elF', 'haF', 'tip', 'pom', 'elB', 'haB', 'knF', 'ftF', 'knB', 'ftB'];
+  const PKEYS = (ND.pose && ND.pose.KEYS) || [];
+  const isPose = (o) => { for (const k of PKEYS) if (!Number.isFinite(o[k])) return false; return PKEYS.length > 0; };
+  // The poses to sweep: the fighter's own move tables first, then the shared ones; near-duplicates (same shape to
+  // within a few units) once. At most POSE_MAX (the first dozen poses already give ~98% of all parts, measured).
+  const POSE_MAX = 28;
+  function posesOf(id) {
+    const out = [], seen = new Set(), shapes = new Set();
+    const scan = (o, d) => {
+      if (!o || typeof o !== 'object' || seen.has(o) || d > 7 || out.length >= POSE_MAX) return;
+      seen.add(o);
+      if (isPose(o)) {
+        const sh = PKEYS.map((k) => Math.round(o[k] / (k === 'lean' || k === 'hd' || k === 'sw' || k === 'grip' ? 0.15 : 8))).join(',');
+        if (!shapes.has(sh)) { shapes.add(sh); out.push(o); }
+        return;
+      }
+      for (const k in o) { const v = o[k]; if (v && typeof v === 'object') scan(v, d + 1); }
+    };
+    const P0 = ND.POSES || {};
+    if (P0.stance) scan(P0.stance, 0);
+    if (P0.guard) scan(P0.guard, 0);
+    for (const t of [ND.MOVES, ND.SPECIALS, ND.KITS]) if (t && id != null && t[id]) scan(t[id], 0);
+    scan(P0, 0);
+    for (const t of [ND.ATK, ND.KAESHI, ND.DEFL, ND.RALLY]) scan(t, 0);
+    return out;
+  }
+  const GRAD = { addColorStop() {} };
+  function nullCtx(R, s) {
+    const M = { a: s, b: 0, c: 0, d: s, e: 0, f: 0 };
+    const base = {
+      isGL: true, canvas: { width: 1, height: 1 },
+      getTransform: () => M, createLinearGradient: () => GRAD, createRadialGradient: () => GRAD, createPattern: () => null,
+      measureText: () => ({ width: 0 }), getLineDash: () => [],
+      spriteBegin: (w, h) => R.spriteBegin(w, h), spriteEnd: () => R.spriteEnd(), spriteOk: (sp) => R.spriteOk(sp),
+    };
+    const noop = () => {};
+    return new Proxy(base, { get: (o, k) => (k in o ? o[k] : noop), set: () => true });
+  }
+  ND.warmBaked = function (R, f) {
+    const X = { bake: f.bakeCache(), ropes: null, trail: null, glint: 0 }, wpn = f.wpn, acc = f.ch && f.ch.acc, col = f.col;
+    const stance = ND.POSES && ND.POSES.stance, poses = posesOf(f.ch && f.ch.id), jj = {}, half = {};
+    const ctx = nullCtx(R, (ND.cam && ND.cam.k) || 1);
+    const n = poses.length * 2 * 2 * 16;
+    let i = 0;
+    return {
+      total: n,
+      get done() { return i >= n; },
+      step(ms) {
+        if (!R || !R.spriteEnd || !stance) return true;
+        const t0 = performance.now(), sc = ND.scene, st = sc ? sc.t : 0;
+        warming = true;
+        try {
+          while (i < n && performance.now() - t0 < ms) {
+            // (index → rotation fastest, then facing, then the halfway variant, then the pose)
+            const r = i & 15, dir = (i >> 4) & 1 ? -1 : 1, mid = (i >> 5) & 1, p = poses[i >> 6];
+            const pose = mid ? ND.pose.lerp(stance, p, 0.5, half) : p;
+            ND.solve(pose, 0, 0, dir, jj, wpn);
+            const th = (r / 16) * Math.PI * 2 + (i % 7) * 0.05, cx = 0, cy = -72, c = Math.cos(th), sn = Math.sin(th);
+            if (r) for (const k of JOINTS) { const q = jj[k]; if (!q) continue; const dx = q.x - cx, dy = q.y - cy; q.x = cx + dx * c - dy * sn; q.y = cy + dx * sn + dy * c; }
+            jj.hang += r ? th : 0;
+            jj.hasSword = true; jj.chain = null;
+            jj._vs = i & 2 ? 12 : 0;
+            jj.wSheath = wpn && wpn.iai ? (i >> 1) & 1 : 0;
+            jj.wFan = (i % 17) / 16; jj.wFanB = ((i * 5) % 17) / 16;
+            jj.wBow = wpn && wpn.type === 'yumi' ? (i >> 2) & 1 : 0; jj.wAmmo = i % 6;
+            if (sc) sc.t = i * 0.0617;
+            ND.beginBakeFrame();
+            ND.drawNinjaBaked(ctx, jj, col, X, wpn, acc);
+            i++;
+          }
+        } finally { warming = false; if (sc) sc.t = st; }
+        return i >= n;
+      },
+    };
   };
 })(window.ND);

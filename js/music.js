@@ -26,7 +26,9 @@
       }
       this.ready = true;
       this.nextT = c.currentTime + 0.1;
-      this.timer = setInterval(() => this.schedule(), 30);
+      // notes are scheduled 0.35 s ahead, checked every 60 ms: a slow frame or a busy moment of up to ~0.3 s on the
+      // main thread no longer leaves a gap in the music (it was 0.15 s / 30 ms), and half the wake-ups
+      this.timer = setInterval(() => this.schedule(), 60);
     },
 
     level() { return this.enabled ? 0.38 * au.curve(au.vol.music) : 0; },
@@ -129,7 +131,7 @@
     schedule() {
       if (!this.ready || this.mode === 'off' || document.hidden || au.adMuted) { if (this.ready) this.nextT = Math.max(this.nextT, au.ctx.currentTime + 0.05); return; }
       const c = au.ctx;
-      while (this.nextT < c.currentTime + 0.15) {
+      while (this.nextT < c.currentTime + 0.35) {
         this.play(this.nextT, this.step);
         const spb = 60 / this.tempo / 4; // 16'lık
         this.nextT += spb;
