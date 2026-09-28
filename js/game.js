@@ -626,7 +626,7 @@
         const tch = f === f1 && tOn();
         const o = f.opp, L = tch ? [tx(TB.light || 'HAFİF'), tx(TB.guard || 'GARD')] : f === f1 ? [keyLabel('KeyF'), keyLabel('KeyS')] : [keyLabel('KeyK'), '↓'];
         let frac = -1, key, label, col;
-        const cw = f.counterUntil - this.clock;
+        const cw = f.counterLeft(); // (what a press can still use: fighter.js)
         if (cw > 0 && ['block', 'parry', 'guard', 'move', 'recoil'].includes(f.state)) {
           if (ND.cine) continue; // the STRIKE! prompt with its shrinking bar (ND.cine.draw) shows the counter window
           frac = cw / f.counterWin; key = L[0]; label = tx('KARŞILIK'); col = '255,210,122';

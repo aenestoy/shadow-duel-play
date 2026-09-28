@@ -5,6 +5,10 @@
   // Every choice the CPU makes draws from the fight's own random stream (ND.rng, core.js): the same fight state and
   // seed give the same decisions on every device and after a rollback (online). Never Math.random here.
   const rnd = () => ND.rng.next(), rand = (a, b) => ND.rng.range(a, b);
+  // A full KI the CPU has not used for this long (fight seconds) is spent at the next free moment in the technique's
+  // range. The per-decision chance stays by level (lv.smart); this only ends the long waits: an Apprentice CPU sat on a
+  // full, glowing KI bar for up to ~55 s of fighting (Master up to ~15 s), which read as "the CPU's KI does not work".
+  const KI_WAIT = 6;
 
   const LEVELS = ND.AI_LEVELS = {
     // combo layer: cmd = command normals as openers, str = string enders / launchers inside a chain,
@@ -26,7 +30,7 @@
       this.me = me; this.c = me.ctrl; this.lv = LEVELS[level] || LEVELS[1];
       this.held = {}; this.taps = []; this.t = 0; this.next = 0.4;
       this.seen = null; this.pending = null; this.guardUntil = 0; this.move = 0; this.moveUntil = 0;
-      this.chainDone = null; this.seenProj = new Set(); this.ideal = this.idealFor();
+      this.chainDone = null; this.seenProj = new Set(); this.ideal = this.idealFor(); this.kiFullT = 0;
     }
     setHeld(a, on) {
       if (on && !this.held[a]) { this.c.press(a, 'ai'); this.held[a] = true; }
@@ -42,6 +46,7 @@
       this.taps.length = 0;
       if (this.holdT && this.t >= this.holdT) { this.setHeld('heavy', false); this.holdT = 0; } // şarjlı atış: tuşu bırak
       if (me.locked || me.dead || o.dead) { this.releaseAll(); return; }
+      this.kiFullT = me.ki >= 100 ? this.kiFullT + dt : 0;
 
       if (me.state === 'lock') {
         this.mashT = (this.mashT || 0) - dt;
@@ -206,7 +211,7 @@
       const spR = (ND.SPECIALS && ND.SPECIALS[me.ch.id] && ND.SPECIALS[me.ch.id].range) || [90, 520]; // karaktere özel tekniğin menzili
       if (me.ki >= 100 && dist > spR[0] && dist < spR[1]) {
         const opening = o.state === 'stagger' || o.state === 'gbreak' || (o.state === 'atk' && o.atk.kind !== 'throw' && dist > Math.min(260, spR[1] * 0.5));
-        if (opening || rnd() < lv.smart * 0.25) { this.tap('special'); return; }
+        if (opening || rnd() < lv.smart * 0.25 || this.kiFullT > KI_WAIT) { this.tap('special'); return; }
       }
       // cezalandır
       if ((o.state === 'stagger' || o.state === 'gbreak') && dist < 210) { this.dirTap(o.state === 'gbreak' || r < 0.5 ? 'heavy' : 'light', 0); return; }

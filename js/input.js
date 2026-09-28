@@ -318,7 +318,14 @@
   // Easy assist, tap to parry: a parry needs guard pressed shortly before the blow AND still held when it lands. A
   // keyboard player presses and holds; a thumb tap often lifts first. So a short GUARD tap is held for at least the
   // parry window (GUARD_MIN, real time). The window itself is not changed: same timing as holding the key.
+  // guardMin(): the player's window in this fight (Apprentice 0.2 s, Mai's fans up to 0.28 s: ND.parryWin, fighter.js)
+  // plus one 60 Hz frame (a press counts from the simulation step before it), never less than GUARD_MIN. With a fixed
+  // 180 ms a tap early in a wider window lifted the guard before the blow and the tap was hit instead of parrying.
   const GUARD_MIN = 180;
+  const guardMin = () => {
+    const f = ND.game && ND.game.F && ND.game.F[0];
+    return Math.max(GUARD_MIN, f && ND.parryWin ? ND.parryWin(f) * 1000 + 17 : 0);
+  };
   // D-pad "tap to step": a quick tap on ◀ / ▶ walks for at least STEP_MS (one short step, same walk speed as holding)
   const STEP_MS = 170;
 
@@ -462,7 +469,7 @@
     };
     const off = (b, id, now) => {
       stopRep(id);
-      const act = b.dataset.act, src = 't' + id, left = GUARD_MIN - (performance.now() - (t0.get(id) || 0));
+      const act = b.dataset.act, src = 't' + id, left = guardMin() - (performance.now() - (t0.get(id) || 0));
       t0.delete(id);
       if (act === 'guard' && !now && left > 0 && pref('assist', true)) {
         setTimeout(() => { input.p1.release(act, src); if (!held(b)) b.classList.remove('on'); }, left);
@@ -516,7 +523,7 @@
     const up = (a, now) => {
       const s = st[a];
       s.on = false;
-      const min = now ? 0 : a === 'guard' ? (pref('assist', true) ? GUARD_MIN : 0) : (a === 'left' || a === 'right') && T_PREF().dtap ? STEP_MS : 0;
+      const min = now ? 0 : a === 'guard' ? (pref('assist', true) ? guardMin() : 0) : (a === 'left' || a === 'right') && T_PREF().dtap ? STEP_MS : 0;
       const left = min - (performance.now() - s.t0);
       const done = () => { s.timer = 0; input.p1.release(a, 'td'); const b = btn(a); if (b) b.classList.remove('on'); };
       if (left > 0) s.timer = setTimeout(done, left); else done();

@@ -344,8 +344,15 @@
             fx.ring(this.x, this.y); fx.spark(this.x, this.y, this.vx > 0 ? 0 : Math.PI, 14);
             fx.text(t.x, -190, 'YANSITMA!', '#ffe3a1'); au.parry(pan); ND.game.hitstop(0.08); t.gainKi(12);
           } else {
+            const pdir = Math.sign(this.vx);
             this.deflect(); t.posture += 9; t.sinceHit = 0;
             fx.spark(this.x, this.y, this.vx > 0 ? Math.PI : 0, 10); au.clang(0.45, pan, 1.7);
+            // a full posture bar breaks the guard, as blocked cuts, arrows and gusts do (specials.js chip); before, a
+            // shuriken could fill the bar to 100 % and nothing happened
+            if (t.posture >= 100) {
+              t.posture = 100; t.setState('gbreak'); t.vx = pdir * 220; t.counterUntil = 0;
+              fx.text(t.x, -205, 'DENGE KIRILDI!', '#ff9b7a'); au.clang(1.3, pan, 0.7); cam.punch(9); ND.game.hitstop(0.13);
+            }
           }
           return;
         }
@@ -407,7 +414,7 @@
     constructor(id, ctrl) {
       this.id = id; this.ctrl = ctrl;
       this.pose = pose.copy(PO.stance); this.entry = pose.copy(PO.stance); this.tmp = {}; this.rkE = pose.copy(PO.stance);
-      this.j = {}; this.prevBlade = null; this.ghosts = [];
+      this.j = {}; this.prevBlade = null; this.sweepFrom = null; this.sweepPom = null; this.ghosts = [];
       this.pdT = { light: null, heavy: null, kick: null }; this.pdD = { light: 0, heavy: 0, kick: 0 }; // direction held at each press
       // drawing scratch, reused every frame (draw() runs up to 3× per fighter per frame: reflection, cast shadow,
       // lit pass): one options object for ND.drawNinja, one trail callback, one bounds box
@@ -460,7 +467,7 @@
       ND.solve(this.pose, this.x, this.y, this.dir, this.j, this.wpn);
       ND.updateCloth(this.j, 0);
       this.tails.forEach((r) => (r.init = false)); this.sash.init = false;
-      this.prevBlade = null;
+      this.prevBlade = null; this.sweepFrom = null; this.sweepPom = null;
       if (this.id === 0 && ND.specialFx) ND.specialFx.clear();
     }
     setState(s, extra) {
@@ -795,6 +802,10 @@
       }
     }
 
+    // Counter window time a new press can still use (game s). A press is read at the next simulation step, after the
+    // clock has moved one step on (STEP × slow motion), so the window's last step is already too late for it. The
+    // prompts (STRIKE!, the counter ring, the touch pulse) show this instead of counterUntil: no dead press on screen.
+    counterLeft() { const G = ND.game; return this.counterUntil - G.clock - (G.STEP || 0) * (G.slow ?? 1) * (G.tz ?? 1); }
     // Karşılık penceresi açıkken saldırı → kaeshi-waza (yöne göre)
     tryCounter() {
       if (!this.onGround || ND.game.clock >= this.counterUntil) return false;
@@ -1149,7 +1160,9 @@
     checkBlade(a) {
       const o = this.opp, j = this.j;
       if (o.isInv() || !this.prevBlade) return;
-      const pb = this.prevBlade, dual = this.wpn.dual && j.pom && this.prevPom, og = o.wpn.dual && o.j.pom ? o.j.pom : o.j.haF;
+      // the swept blade: from the step before (sweepFrom, see afterCombat) to the joints of the latest solve
+      const pb = this.sweepFrom || this.prevBlade, pp = (this.sweepFrom && this.sweepPom) || this.prevPom;
+      const dual = this.wpn.dual && j.pom && pp, og = o.wpn.dual && o.j.pom ? o.j.pom : o.j.haF;
       if (o.bladeActive()) {
         let r = segSeg(j.haF.x, j.haF.y, j.tip.x, j.tip.y, og.x, og.y, o.j.tip.x, o.j.tip.y);
         if (dual && r.d >= 12) r = segSeg(j.haF.x, j.haF.y, j.pom.x, j.pom.y, og.x, og.y, o.j.tip.x, o.j.tip.y);
@@ -1157,7 +1170,7 @@
       }
       const hb = ND.hurtboxes(o.j), guarding = o.guardingFrom(this, this.dashFrom);
       for (let seg = 0; seg < (dual ? 2 : 1); seg++) {
-        const ex = seg ? j.pom.x : j.tip.x, ey = seg ? j.pom.y : j.tip.y, px = seg ? this.prevPom[0] : pb[2], py = seg ? this.prevPom[1] : pb[3];
+        const ex = seg ? j.pom.x : j.tip.x, ey = seg ? j.pom.y : j.tip.y, px = seg ? pp[0] : pb[2], py = seg ? pp[1] : pb[3];
         for (let s = 1; s <= 4; s++) {
           const u = s / 4;
           const hx = pb[0] + (j.haF.x - pb[0]) * u, hy = pb[1] + (j.haF.y - pb[1]) * u;
@@ -1491,6 +1504,11 @@
     afterCombat() {
       const j = this.j;
       if (this.dead) return;
+      // checkBlade runs inside the next update, before that step's solve: the joints it reads are this step's, the same
+      // as prevBlade, so the sweep starts one step earlier (sweepFrom). Before, the 4-point sweep had zero length (only
+      // the pose itself was tested) and a fast blade could pass through a body between two steps without a hit.
+      // A teleport clears prevBlade during the update (specials.js), and with it the sweep across the jump.
+      this.sweepFrom = this.prevBlade; this.sweepPom = this.prevBlade ? this.prevPom : null;
       this.prevBlade = [j.haF.x, j.haF.y, j.tip.x, j.tip.y];
       if (this.wpn.dual && j.pom) this.prevPom = [j.pom.x, j.pom.y];
     }

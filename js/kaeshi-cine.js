@@ -33,6 +33,8 @@
   const G = () => ND.game;
   const hq = () => !!(ND.settings && ND.settings.hq);
   const shown = () => { const g = G(); return !!g && g.mode !== 'attract'; };
+  // counter window left for a new press (fighter.js counterLeft: the window's last step is already too late for it)
+  const left = (f, g) => (f.counterLeft ? f.counterLeft() : f.counterUntil - g.clock);
 
   // ---------------------------------------------------------------- sounds (effects bus: tone/noise → dry/reverb)
   if (au && !au.kShing) {
@@ -146,7 +148,7 @@
       }
       // touch: the ATTACK button pulses while the counter window after a parry is open (the coach's pulse style)
       const g = G(), f = g && g.F && g.F[0];
-      const want = !!(f && ND.touch && ND.touch.active && !(ND.coach && ND.coach.on) && !(ND.tutor && ND.tutor.on) && this.human(f) && f.cwKind === 'parry' && f.counterUntil > g.clock && g.phase === 'fight');
+      const want = !!(f && ND.touch && ND.touch.active && !(ND.coach && ND.coach.on) && !(ND.tutor && ND.tutor.on) && this.human(f) && f.cwKind === 'parry' && left(f, g) > 0 && g.phase === 'fight');
       if (want !== !!this.pulsing) {
         this.pulsing = want;
         const pad = document.getElementById('touch');
@@ -208,7 +210,7 @@
     drawPrompt(ctx, f, s) {
       const g = G();
       if (!this.human(f) || f.dead || (ND.tutor && ND.tutor.on)) return; // the rally tutorial draws its own ATTACK!
-      const cw = f.counterUntil - g.clock;
+      const cw = left(f, g);
       if (!(cw > 0) || !['block', 'parry', 'guard', 'move', 'recoil'].includes(f.state)) return;
       const big = f.cwKind === 'parry';
       if (!big && !(ND.settings && ND.settings.hints)) return;
