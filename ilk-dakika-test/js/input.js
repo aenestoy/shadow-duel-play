@@ -21,14 +21,32 @@
   // between two frames always was) and the double-tap dash. So a FrameCtrl fed the same frames, tick by tick, is the
   // same controller, and a remote player's frames can be injected one tick at a time. frame() only reads a device
   // controller (keyboard, pads, touch): local play is unchanged.
+  //
+  // Tap to parry on keyboard and gamepad (the touch pad's rule, see GUARD_MIN below, on the simulation clock): a GUARD
+  // key / button let go sooner than guardHold() after it went down keeps reading as held until then (gx), so an early
+  // tap in the parry window still parries, exactly as if the key had been held that long. Holding longer is unchanged.
+  // A fresh press of a direction, jump or dodge ends it at once (the newest intent wins: walking away is not delayed).
+  // gx is let go only at a tick boundary (step(): game.tick before the clock moves, and frame()), so the held bit a
+  // frame records is what the fight reads in that tick and a FrameCtrl replays it bit for bit.
   const ACTS = ['left', 'right', 'up', 'guard', 'light', 'heavy', 'kick', 'throw', 'dodge', 'special'];
   const BIT = {}; ACTS.forEach((a, i) => (BIT[a] = 1 << i));
+  const GUARD_MIN = 180; // ms: the shortest tap hold (touch and keys)
+  // the parry window of the fighter this controller drives (ND.parryWin: level, Mai's fans) + one 60 Hz frame (a press
+  // counts from the simulation step before it), never less than GUARD_MIN; in seconds
+  const guardHold = (c) => {
+    const F = ND.game && ND.game.F, f = F && (F[1] && F[1].ctrl === c ? F[1] : F[0]);
+    return Math.max(GUARD_MIN / 1000, f && ND.parryWin ? ND.parryWin(f) + 0.017 : 0);
+  };
+  // keyboard ('k' + key code) and gamepad ('g' + pad index) presses; not touch (its own hold), the CPU, the tutorial
+  const keyOrPad = (src) => src.length > 1 && ((src[0] === 'k' && src[1] >= 'A' && src[1] <= 'Z') || (src[0] === 'g' && src[1] >= '0' && src[1] <= '9'));
+  const ENDS_GX = { left: 1, right: 1, up: 1, dodge: 1 };
   class Ctrl {
     constructor() { this.mask = null; this.lastSrc = ''; this.clear(); }
     clear() {
       this.srcs = {}; this.buf = {};
       this.lastTap = { left: -9, right: -9 }; this.tapDir = 0;
       this.edges = 0; // fresh presses since the last frame() (bit per ACTS index)
+      this.gT = null; this.gx = null; // the last live GUARD press (sim clock), the tap hold's end (see above)
     }
     press(a, src = 'k') {
       const s = this.srcs[a] || (this.srcs[a] = new Set());
@@ -36,10 +54,19 @@
       s.add(src);
       if (src !== 'tut') this.lastSrc = src;
       if (was) return;
-      if (this.mask && this.mask[a] && src !== 'tut') { if (this.maskAlias && src[0] === 't' && !this.mask[this.maskAlias]) this.buffer(this.maskAlias); return; }
+      if (this.mask && this.mask[a] && src !== 'tut') {
+        if (a === 'guard') this.gT = null;
+        if (this.maskAlias && src[0] === 't' && !this.mask[this.maskAlias]) this.buffer(this.maskAlias);
+        return;
+      }
       this.edges |= BIT[a] || 0;
       this.buffer(a);
+      if (a === 'guard') this.gT = now();
+      else if (ENDS_GX[a]) this.gx = null;
     }
+    // tick boundary: a tap hold that has run out lets go
+    step() { if (this.gx != null && now() >= this.gx) this.gx = null; }
+    guardHold() { return guardHold(this); }
     // a fresh press of a: its time in the buffer, the double-tap dash, the press listener
     buffer(a) {
       const t = now();
@@ -51,14 +78,26 @@
       if (a === 'dodge') this.tapDir = 0;
       if (this.onPress) { try { this.onPress(a, t); } catch (e) { /* listener (combo trial) must never break input */ } }
     }
-    release(a, src = 'k') { const s = this.srcs[a]; if (s) s.delete(src); }
-    held(a) { const s = this.srcs[a]; return !!(s && s.size) && (!this.mask || !this.mask[a] || s.has('tut')); }
+    release(a, src = 'k') {
+      const s = this.srcs[a];
+      if (!s || !s.delete(src)) return;
+      if (a === 'guard' && !s.size && this.gT != null && keyOrPad(src)) {
+        const until = this.gT + guardHold(this);
+        if (now() < until) this.gx = until;
+      }
+    }
+    held(a) {
+      const s = this.srcs[a];
+      if (s && s.size) return !this.mask || !this.mask[a] || s.has('tut');
+      return a === 'guard' && this.gx != null && (!this.mask || !this.mask.guard);
+    }
     axis() { return (this.held('right') ? 1 : 0) - (this.held('left') ? 1 : 0); }
     has(a, win = 0.2) { const t = this.buf[a]; return t != null && now() - t <= win; }
     take(a, win = 0.2) { if (this.has(a, win)) { this.buf[a] = null; return true; } return false; }
     since(a) { const t = this.buf[a]; return t == null ? 99 : now() - t; }
     // This tick's input frame (see above); clears the fresh-press bits. Call once per simulation tick.
     frame() {
+      this.step();
       let v = this.edges << 10;
       this.edges = 0;
       for (let i = 0; i < ACTS.length; i++) if (this.held(ACTS[i])) v |= 1 << i;
@@ -318,16 +357,12 @@
   // Handlers only read what was measured at the first touch; nothing here lays the page out per move.
   const T_PREF = () => ND.touchPrefs || {};
   // Easy assist, tap to parry: a parry needs guard pressed shortly before the blow AND still held when it lands. A
-  // keyboard player presses and holds; a thumb tap often lifts first. So a short GUARD tap is held for at least the
-  // parry window (GUARD_MIN, real time). The window itself is not changed: same timing as holding the key.
-  // guardMin(): the player's window in this fight (Apprentice 0.2 s, Mai's fans up to 0.28 s: ND.parryWin, fighter.js)
-  // plus one 60 Hz frame (a press counts from the simulation step before it), never less than GUARD_MIN. With a fixed
-  // 180 ms a tap early in a wider window lifted the guard before the blow and the tap was hit instead of parrying.
-  const GUARD_MIN = 180;
-  const guardMin = () => {
-    const f = ND.game && ND.game.F && ND.game.F[0];
-    return Math.max(GUARD_MIN, f && ND.parryWin ? ND.parryWin(f) * 1000 + 17 : 0);
-  };
+  // thumb tap often lifts first. So a short GUARD tap is held for at least the parry window (real time here; keys and
+  // pads get the same rule on the simulation clock, Ctrl above). The window itself is not changed: same timing as
+  // holding the key. guardMin(): the player's window in this fight (Apprentice 0.2 s, Mai's fans up to 0.28 s:
+  // ND.parryWin, fighter.js) plus one 60 Hz frame, never less than GUARD_MIN. With a fixed 180 ms a tap early in a
+  // wider window lifted the guard before the blow and the tap was hit instead of parrying.
+  const guardMin = () => guardHold(input.p1) * 1000;
   // D-pad "tap to step": a quick tap on ◀ / ▶ walks for at least STEP_MS (one short step, same walk speed as holding)
   const STEP_MS = 170;
 

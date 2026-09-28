@@ -1027,6 +1027,8 @@
       // rally tutorial: its time scale (0 frozen, slow motion, 1) for this step. The input buffers (press age,
       // parry window) run on the same scaled clock, so slow motion widens the windows the player has to hit.
       const STEP = this.STEP;
+      // tick boundary for the controllers: a keyboard / pad GUARD tap hold that has run out lets go (js/input.js)
+      for (const f of F) if (f.ctrl.step) f.ctrl.step();
       const tz = this.tz = ND.tutor && ND.tutor.on ? ND.tutor.pre(this, STEP) : 1;
       ND.simClock = (ND.simClock || 0) + STEP * tz;
       if (present) { this.update(STEP); return; }
