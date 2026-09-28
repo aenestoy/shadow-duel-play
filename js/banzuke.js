@@ -635,12 +635,19 @@
     },
     renderFoot() {
       const S = T(), f = $('hallFoot'); if (!f) return;
-      const st = $('hallSt'); if (st) { st.textContent = LB().statusText(); st.dataset.st = LB().statusKey(); }
+      const st = $('hallSt'); if (st) { st.textContent = LB().statusText(this.plat); st.dataset.st = LB().statusKey(this.plat); }
       if (f.querySelector('form.nick') && !LB().nameLocked) return;
       f.textContent = '';
       if ((LB().nameLocked || LB().adapter.needsName) && ND.lbUI) f.appendChild(ND.lbUI.nickLine(() => { LB().hallClear(); this.renderHall(); }));
       const pend = LB().pending();
       if (pend) f.appendChild(h('small', { class: 'hall-pend' }, S.hall.pending(pend)));
+      // platform boards (js/platform-boards.js): a guest who must sign in to post gets one button (never a prompt)
+      const PL = LB().plat, sb = PL && PL.signInButton(() => { LB().hallClear(); if (this.open === 'hall') this.renderHall(); });
+      if (sb) {
+        const LS = (ND.STR && ND.STR.lb) || {};
+        if (Object.keys(PL.pending()).length && LS.platPending) f.appendChild(h('small', { class: 'hall-pend' }, LS.platPending));
+        f.appendChild(sb);
+      }
       f.appendChild(h('button', { type: 'button', class: 'mini', on: { click: () => this.openClassic() } }, S.hall.classic));
       // CrazyGames guest: one small button to keep titles / Champion colors with the CrazyGames account (js/portal-user.js)
       const CG = ND.cgAccount, AC = ND.STR && ND.STR.acct;
@@ -658,6 +665,7 @@
     async renderHall() {
       const S = T(), body = $('hallBody'), meBox = $('hallMe'); if (!body) return;
       const tok = ++this.tok, W = weekNow();
+      this.plat = !!(LB().plat && LB().plat.hallKey(this.tab)); // a platform board stands behind this tab (until it fails)
       body.textContent = ''; meBox.hidden = true; meBox.textContent = '';
       body.setAttribute('aria-busy', 'true');
       const loading = h('p', { class: 'lb-empty' }, S.hall.loading);
@@ -680,6 +688,7 @@
         return;
       }
       if (tok !== this.tok || this.open !== 'hall') return;
+      this.plat = !!(data && data.plat);
       loading.remove(); body.removeAttribute('aria-busy');
       if (this.tab === 'archive') return this.renderArchive(body, data);
       if (this.tab === 'chars' && !this.charSel) return this.renderChars(body, data);
@@ -819,15 +828,20 @@
       const el = $('mlb'), L = LB();
       if (!el) return;
       if (!L) { el.hidden = true; return; }
-      const W = weekNow(), key = L.mode + '|' + W.key, C = this.champ;
-      if (C.key !== key) { C.key = key; C.t = 0; C.data = null; C.last = null; }
+      // Portal-only builds with the platform's own board (js/platform-boards.js): the card shows the platform's
+      // all-time tournament top 10 (the platforms have no monthly reset); if it cannot be read, this month's local board.
+      const pk = !!(L.plat && L.plat.hallKey('alltime'));
+      const W = weekNow(), key = L.mode + (pk ? '|p' : '') + '|' + W.key, C = this.champ;
+      if (C.key !== key) { C.key = key; C.t = 0; C.data = null; C.last = null; C.plat = false; }
       this.renderChamp();
       if (C.busy || (!force && C.data && Date.now() - C.t < 60000)) return;
       C.busy = true; C.t = Date.now();
       const done = () => { C.busy = false; if (C.key === key) this.renderChamp(); };
-      L.hall('week', W.key).then((d) => { if (C.key === key) C.data = d && Array.isArray(d.rows) ? d : { rows: [] }; },
-        () => { if (C.key === key && !C.data) C.data = { rows: [] }; })
-        .then(() => (L.online ? L.hall('archive', null).then((a) => {
+      const month = () => L.hall('week', W.key);
+      (pk ? L.hall('alltime').then((d) => (d && d.plat ? d : month()), month) : month())
+        .then((d) => { if (C.key === key) { C.plat = !!(d && d.plat); C.data = d && Array.isArray(d.rows) ? d : { rows: [] }; } },
+          () => { if (C.key === key && !C.data) C.data = { rows: [] }; })
+        .then(() => (L.online && !C.plat ? L.hall('archive', null).then((a) => {
           const prev = L.prevPeriod(W), w = a && a.weeks && a.weeks[0];
           if (C.key === key) C.last = w && prev && w.id === prev.id && w.rows && w.rows[0] ? w.rows[0] : null;
         }, () => {}) : null))
@@ -837,7 +851,7 @@
       const S = T(), M = S.menu || {}, L = LB(), C = this.champ;
       const el = $('mlb'), lab = $('champLab'), top = $('champTop'), list = $('champList'), last = $('champLast');
       if (!el || !lab || !top || !list || !L) return;
-      const live = !!L.online, rows = (C.data && C.data.rows) || [], title = (live ? M.champTitle : M.champLocal) || '';
+      const live = !!L.online, rows = (C.data && C.data.rows) || [], title = (C.plat ? M.champAll : live ? M.champTitle : M.champLocal) || '';
       lab.textContent = title;
       el.setAttribute('aria-busy', String(!C.data));
       el.setAttribute('aria-label', [M.hall, title, M.champOpen].filter(Boolean).join(' · '));
@@ -845,7 +859,7 @@
       const name = (r) => L.shownName(r.name) || (r.me ? L.shownName(L.getName()) || S.you : S.hall.anon);
       const r = rows[0];
       top.classList.toggle('empty', !r);
-      if (!r) add(top, h('span', { class: 'ch-pl', 'aria-hidden': 'true' }, '壱'), h('b', { class: 'ch-n' }, '—'), h('span', { class: 'ch-hint' }, C.data ? M.champEmpty : M.champLoading));
+      if (!r) add(top, h('span', { class: 'ch-pl', 'aria-hidden': 'true' }, '壱'), h('b', { class: 'ch-n' }, '—'), h('span', { class: 'ch-hint' }, C.data ? (C.plat ? M.champAllEmpty : M.champEmpty) : M.champLoading));
       else {
         const ch = ND.CHARS.find((c) => c.id === r.char);
         add(top, h('span', { class: 'ch-pl', 'aria-hidden': 'true' }, '壱'), h('b', { class: 'ch-n' }, name(r)), this.titleTag(r.title),
@@ -861,7 +875,7 @@
       }
       if (last) {
         let txt = '';
-        if (live && C.last && typeof M.champLast === 'function') txt = M.champLast(name(C.last));
+        if (live && !C.plat && C.last && typeof M.champLast === 'function') txt = M.champLast(name(C.last));
         else if (live && L._viewOnly() && S.ttl && S.ttl.local) txt = S.ttl.local;
         last.hidden = !txt; last.textContent = txt;
       }
@@ -888,7 +902,7 @@
       card('mtour', () => ui.lobbyTourney());
       card('mdan', () => ui.lobbyDan());
       // Hall of Champions card (this month's top 10 on the card): opens the full hall; refreshed while the menu is shown
-      card('mlb', () => { ui.hallFrom = 'mlb'; ui.showHall('week', null); });
+      card('mlb', () => { ui.hallFrom = 'mlb'; ui.showHall(ui.champ.plat ? 'alltime' : 'week', null); });
       const mc = $('mlb');
       if (mc) mc.onkeydown = (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === mc) { e.preventDefault(); e.stopPropagation(); mc.click(); } };
       setInterval(() => { const G = ND.game, m = $('menu'); if (G && G.mode === 'attract' && m && !m.hidden && !document.hidden && !ui.open) ui.champCard(); }, 15000);

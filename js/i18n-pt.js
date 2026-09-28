@@ -131,6 +131,9 @@
         saving: 'Salvando…',
         savedOnline: (r) => `Posição online: #${r}`,
         savedOnlineNoRank: 'Salvo no ranking online',
+        savedOnlineAll: (r) => `Posição online de todos os tempos: #${r}`,
+        platSignIn: 'Entre para enviar suas pontuações online',
+        platPending: 'Salvo neste dispositivo · entre para enviá-lo ao ranking online',
         savedOnlineGap: (r, g) => `Posição online: #${r} · faltam ${g} pts para o top 10`,
         reason: {
           needName: 'Escolha um apelido para entrar no ranking online',
@@ -190,6 +193,7 @@
           hallDesc: 'O top 10 do mês e os recordes de todos os tempos',
           nick: (n) => (n ? `Apelido: ${n}` : 'Escolha um apelido'),
           champTitle: 'Top 10 do mês', champLocal: 'Top 10 neste dispositivo', champEmpty: 'Seja o primeiro na tabela deste mês', champLoading: 'Carregando os líderes…',
+          champAll: 'Top 10 de todos os tempos', champAllEmpty: 'Seja o primeiro na tabela online',
           champLast: (n) => `Campeão do mês passado: ${n}`, champOpen: 'abrir o ranking mensal',
         },
         t: {

@@ -58,6 +58,7 @@
       this.pass = 0; this.beat = 0; this.from = 0; this.fails = 0; this.done = 0;
       this.frozen = null; this.prompt = null; this.assist = null; this.taps.length = 0; this.msg = null; this.shownKey = '';
       this.set('wait');
+      if (this.opts.first && ND.funnel) ND.funnel.step('tut');
       this.lv0 = G.matchLevel; G.matchLevel = 0;
       const sc = ND.score;
       this.score0 = sc ? { on: !!sc.on, level: sc.level } : null;
@@ -136,7 +137,11 @@
       return f.st >= w[0] ? 0 : (w[0] - f.st) / (f.ch.spd * (f.aspd || 1));
     },
     mine() { return this.beat >= this.from; },             // the current beat is the player's to do (not replayed)
-    note(ev) { if (this.log) this.log.push(ev); },
+    note(ev) {
+      if (this.log) this.log.push(ev);
+      // new-player funnel (js/funnel.js): the passes of the first fight's tutorial
+      if (this.opts.first && ND.funnel) { const k = { 'pass:1': 'tut1', 'pass:2': 'tut2', mastered: 'tut3' }[ev]; if (k) ND.funnel.step(k); }
+    },
     device() {
       if (ND.touch && ND.touch.active) return 'touch';
       const c = this.G && this.G.F[0].ctrl;

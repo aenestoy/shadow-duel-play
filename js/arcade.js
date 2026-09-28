@@ -203,6 +203,10 @@
       saving: 'Kaydediliyor…',
       savedOnline: (r) => `Çevrimiçi sıralama: #${r}`,
       savedOnlineNoRank: 'Çevrimiçi tabloya kaydedildi',
+      savedOnlineAll: (r) => `Çevrimiçi tüm zamanlar sıralaması: #${r}`,
+      // platform tabloları (Yandex / Playgama paketleri, js/platform-boards.js): misafir giriş yapınca gönderilir
+      platSignIn: 'Giriş yap, skorların çevrimiçi tabloya girsin',
+      platPending: 'Skor bu cihazda saklandı · giriş yapınca çevrimiçi tabloya gönderilir',
       savedOnlineGap: (r, g) => `Çevrimiçi sıralama: #${r} · ilk 10’a ${g} puan`,
       // çevrimiçi gönderim olmadıysa neden (skor her durumda yerel tabloda)
       reason: {
@@ -269,6 +273,7 @@
         hallDesc: 'Ayın ilk 10’u ve rekorlar',
         nick: (n) => (n ? `Takma ad: ${n}` : 'Takma ad seç'),
         champTitle: 'Bu ayın ilk 10’u', champLocal: 'Bu cihazdaki ilk 10', champEmpty: 'Bu ayın tablosunda ilk sen ol', champLoading: 'Liderler yükleniyor…',
+        champAll: 'Tüm zamanların ilk 10’u', champAllEmpty: 'Çevrimiçi tabloda ilk sen ol',
         champLast: (n) => `Geçen ayın şampiyonu: ${n}`, champOpen: 'aylık sıralamayı aç',
       },
       t: {
@@ -1119,6 +1124,7 @@
         return `<p class="ln ${side}" style="--lc:${col};animation-delay:${0.35 + k * 0.75}s"><b>${esc(ch.name)}</b><span>${esc(text)}</span></p>`;
       }).join('');
       this.vsT = 0;
+      ND.funnel?.step('vs');
       setTimeout(() => { if (G.phase === 'vs') $('vsGo').focus(); }, 0);
     },
 

@@ -1219,10 +1219,16 @@
       if (this.nameLocked && this._acctP && this.acctState === 'pending') await Promise.race([this._acctP, new Promise((r) => setTimeout(r, 9000))]);
       const loc = o.skipLocal ? null : await localAdapter.submit(board, e);
       this.hallClear();
+      // the platform's own board next to the local one (portal-only builds: js/platform-boards.js) → result.plat
+      const plat = !o.skipLocal && this.plat ? this.plat.submit(board, e).catch(() => null) : null;
       if (cur === localAdapter) {
         // çevrimiçi olabilirdi ama bağlantı yok → sonra gönderilmek üzere sakla
         if (!this.nameLocked && this.status === 'offline' && this._sbCfg) outAdd(board, e);
-        return loc || { ok: false, reason: 'offline' };
+        const res = loc || { ok: false, reason: 'offline' }, pr = plat ? await plat : null;
+        if (!pr) return res;
+        const out = Object.assign({}, res, { plat: pr });
+        this._res[board + '|' + e.date] = out;
+        return out;
       }
       let r;
       try { r = await cur.submit(board, e); } catch (err) { r = { ok: false, reason: 'error' }; }
@@ -1291,13 +1297,16 @@
     },
 
     // Şampiyonlar Salonu sorguları (önbellekli, 25 sn)
+    // A tab the platform's own board stands behind (js/platform-boards.js: All Time) comes from the platform, and
+    // from the local / online adapter as before whenever the platform cannot answer (the result then has no 'plat').
     hall(kind, arg, o = {}) {
-      const k = this.mode + '|' + kind + '|' + (arg || '');
+      const pk = this.plat ? this.plat.hallKey(kind) : null;
+      const k = this.mode + (pk ? '|p' : '') + '|' + kind + '|' + (arg || '');
       const c = hallCache.get(k);
       if (c && !o.fresh && Date.now() - c.t < 25000) return c.p;
       const ad = cur.hall ? cur : localAdapter;
       const ent = { t: Date.now(), p: null, v: null };
-      ent.p = ad.hall(kind, arg).then((v) => { ent.v = v; return v; }, (e) => { if (hallCache.get(k) === ent) hallCache.delete(k); throw e; });
+      ent.p = (pk ? this.plat.hall(kind).catch(() => ad.hall(kind, arg)) : ad.hall(kind, arg)).then((v) => { ent.v = v; return v; }, (e) => { if (hallCache.get(k) === ent) hallCache.delete(k); throw e; });
       hallCache.set(k, ent);
       return ent.p;
     },
@@ -1310,12 +1319,17 @@
       return c && c.v ? c.v.me : null;
     },
 
-    watch(board, char) { return cur.watch(board, char || null); },
-    peek(board, char) { return cur.peek(board, char || null); },
+    // classic tabs: the platform's board where one stands behind the tab (Arcade, all ninjas), else the adapter's
+    _pk(board, char) { return this.plat ? this.plat.classicKey(board, char || null) : null; },
+    watch(board, char) { return this._pk(board, char) ? this.plat.watch(board) : cur.watch(board, char || null); },
+    peek(board, char) { const p = this._pk(board, char) ? this.plat.peek(board) : null; return p || cur.peek(board, char || null); },
     async top(board, o = {}) { const rows = await cur.watch(board, o.char || null); return rows.slice(0, o.limit || TOP_N); },
-    mine(board, char) { return cur.mine(board, char || null); },
+    mine(board, char) { return this._pk(board, char) && this.plat.peek(board) ? this.plat.mine(board) : cur.mine(board, char || null); },
     async myBest(board, char) { await this.whenSettled(); return cur.mine(board, char || null); },
-    rank(board, char, score) { return cur.rank(board, char || null, score); },
+    rank(board, char, score) {
+      if (this._pk(board, char) && this.plat.peek(board)) { const m = this.plat.mine(board); return Promise.resolve(m ? m.rank : null); }
+      return cur.rank(board, char || null, score);
+    },
     names(ids) { return cur.names(ids); },
 
     // --- unvanlar (aylık turnuvanın ilk 3'ü) ve Şampiyon renkleri. Yerel / Claude tablolarında unvan yok (null).
@@ -1439,12 +1453,14 @@
     },
     _set(st) { if (this.status !== st) { this.status = st; } emit(); },
     _fail(reason) { this.lastError = reason; this._switch(localAdapter, 'local', 'error'); },
-    statusText() {
+    // plat: the view shows a platform board (js/platform-boards.js) → "online"
+    statusText(plat) {
       const T = S().status || {};
+      if (plat) return T.online || '';
       if (this.status === 'online' && this._viewOnly()) return T.readonly || '';
       return T[this.status] || '';
     },
-    statusKey() { return this.status === 'online' && this._viewOnly() ? 'readonly' : this.status; },
+    statusKey(plat) { return plat ? 'online' : this.status === 'online' && this._viewOnly() ? 'readonly' : this.status; },
     // Monthly titles and Champion colors are given by the server (Supabase nd_titles) to scores it holds: only an
     // online Supabase connection whose scores are sent counts. Not on Poki / offline / local (no network), the
     // claude.ai host, or for a signed-in CrazyGames player whose account our server has not verified (_viewOnly).
@@ -1591,9 +1607,9 @@
 
     render() {
       const T = S(), st = $('lbStatus');
-      st.textContent = LB.statusText(); st.dataset.st = LB.statusKey();
-      $('lbDesc').textContent = (T.boardDesc && T.boardDesc[this.board]) || '';
       const P = LB.peek(this.board, this.char), list = $('lbList');
+      st.textContent = LB.statusText(!!P.plat); st.dataset.st = LB.statusKey(!!P.plat);
+      $('lbDesc').textContent = (T.boardDesc && T.boardDesc[this.board]) || '';
       list.textContent = '';
       list.setAttribute('aria-busy', String(!!P.loading));
       const rows = P.rows;
@@ -1715,6 +1731,10 @@
     resultText(r) {
       const T = S();
       if (!r) return '';
+      // the platform's own board (js/platform-boards.js): its rank, or "saved here, sign in to post it"
+      const p = r.plat;
+      if (p && p.ok) return p.rank ? (p.key === 'tourney' && T.savedOnlineAll ? T.savedOnlineAll(p.rank) : T.savedOnline(p.rank)) : T.savedOnlineNoRank || '';
+      if (p && p.reason === 'signin' && T.platPending) return T.platPending;
       if (r.stored === 'online' || (r.ok && r.stored !== 'local')) {
         if (!r.rank) return T.savedOnlineNoRank || '';
         return r.gap > 0 && T.savedOnlineGap ? T.savedOnlineGap(r.rank, fmtNum(r.gap)) : T.savedOnline(r.rank);
@@ -1762,12 +1782,21 @@
       };
       const show = (r) => {
         st.textContent = this.resultText(r);
-        el.dataset.st = r && (r.stored === 'online' || (r.ok && LB.online)) ? 'online' : r && r.reason && LB.mode !== 'local' && !(r.reason === 'readonly' && LB.nameLocked) ? 'warn' : 'local';
+        el.dataset.st = r && ((r.plat && r.plat.ok) || r.stored === 'online' || (r.ok && LB.online)) ? 'online' : r && r.reason && LB.mode !== 'local' && !(r.reason === 'readonly' && LB.nameLocked) ? 'warn' : 'local';
       };
       LB.submit(board, entry).then((r) => {
         if (tok !== this.ptok) return;
         result = r;
         show(r);
+        // a guest on a platform that needs a sign-in to post: one button, the dialog opens only when it is pressed
+        if (r && r.plat && r.plat.reason === 'signin' && LB.plat) {
+          const b = LB.plat.signInButton((ok) => {
+            if (!ok || tok !== this.ptok) return;
+            result = Object.assign({}, r, { plat: { ok: true, key: r.plat.key, rank: null } });
+            show(result);
+          });
+          if (b) el.insertBefore(b, open);
+        }
         this.panelNameRefresh();
         if (opts.onResult) opts.onResult(r);
       });

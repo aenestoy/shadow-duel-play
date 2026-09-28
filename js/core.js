@@ -593,10 +593,19 @@ window.ND = window.ND || {};
     onAd(fn) { adFns.add(fn); return () => adFns.delete(fn); },
     // fn(muted) — the portal's own audio switch
     onMute(fn) { muteFns.add(fn); if (P.muted) fn(true); return () => muteFns.delete(fn); },
+    // An anonymous game step for the portal's own statistics (js/funnel.js); kept until the bridge is ready, then sent.
+    // Portals without such statistics ignore it (src/portal-bridge.ts track).
+    track(ev) { const a = api(); if (a && ready) a.track(ev); else if (trackQ.length < 30) trackQ.push(ev); },
+    // The platform's leaderboards (src/portal-bridge.ts boards), or null before the bridge exists
+    get boards() { const a = api(); return a && a.boards ? a.boards : null; },
   };
+  const trackQ = [];
+  let ready = false;
   const emit = (set, v) => set.forEach((fn) => { try { fn(v); } catch (e) { console.warn('[ND.portal] listener failed', e); } });
   PD.p.then((a) => {
     if (!a) return;
+    ready = true;
+    if (a.track) trackQ.splice(0).forEach((ev) => a.track(ev));
     if (want.loaded) a.loadingFinished();
     if (want.play) a.gameplayStart();
     a.onAd((ph) => { P.inAd = ph === 'start'; emit(adFns, ph); });

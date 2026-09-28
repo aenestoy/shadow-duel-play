@@ -128,6 +128,9 @@
         saving: 'Guardando…',
         savedOnline: (r) => `Puesto online: #${r}`,
         savedOnlineNoRank: 'Guardado en la clasificación online',
+        savedOnlineAll: (r) => `Puesto online histórico: #${r}`,
+        platSignIn: 'Inicia sesión para subir tus puntuaciones',
+        platPending: 'Guardado en este dispositivo · inicia sesión para subirlo a la clasificación online',
         savedOnlineGap: (r, g) => `Puesto online: #${r} · a ${g} pts del top 10`,
         reason: {
           needName: 'Elige un apodo para entrar en la clasificación online',
@@ -187,6 +190,7 @@
           hallDesc: 'El top 10 del mes y los récords históricos',
           nick: (n) => (n ? `Apodo: ${n}` : 'Elige un apodo'),
           champTitle: 'Top 10 del mes', champLocal: 'Top 10 en este dispositivo', champEmpty: 'Sé el primero en la tabla de este mes', champLoading: 'Cargando a los líderes…',
+          champAll: 'Top 10 histórico', champAllEmpty: 'Sé el primero en la tabla online',
           champLast: (n) => `Campeón del mes pasado: ${n}`, champOpen: 'abrir la clasificación mensual',
         },
         t: {

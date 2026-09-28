@@ -404,6 +404,7 @@
       if (mode === 'train') ND.training.onStart();
       // rally tutorial: Training → Parry drill (opts.drill), or ?tutorial=1 on this page load's first single-player fight
       if (!attract && ND.tutor) ND.tutor.autoStart(this, mode, opts);
+      if (!attract && mode !== 'watch') ND.funnel?.fightStarted(); // new-player funnel (js/funnel.js)
       if (attract && ND.arcade) ND.arcade.refreshMenu();
       if (!attract) this.prepareMatch();
     },
@@ -766,6 +767,7 @@
         this.startRound(); return;
       }
       if (this.runner && this.mode === this.runner.mode) this.runner.onRoundEnd(w);
+      if (this.mode !== 'watch') ND.funnel?.step('round1');
       if (w && this.stats && w.damageTaken === 0) this.stats[w.id].perfect++;
       if (score.on) score.roundEnd(w, this.timer, this.phase === 'ko' && !this.doubleKO);
       if (w) this.wins[w.id]++;
@@ -778,6 +780,7 @@
 
     matchEnd(w) {
       this.phase = 'end'; this.replay = null; this.bars = 0;
+      if (this.mode !== 'watch') ND.funnel?.fightEnded(w === f1);
       this.stats[0].parries = f1.parries || 0; this.stats[1].parries = f2.parries || 0;
       const vsCpu = this.mode === 'cpu';
       const nice = (n) => n[0] + n.slice(1).toLowerCase();
@@ -1346,6 +1349,7 @@
     openSelect(mode) {
       this.cancelPreparation();
       this.selMode = mode; this.phase = 'select'; this.pt = 0;
+      ND.funnel?.step('select');
       this.sel.ready = [false, false]; this.peek = [null, null];
       this.ais = []; F.forEach((f) => (f.locked = true));
       au.quiet = false; this.paused = false;
@@ -1688,6 +1692,7 @@
   function goMenu() { game.setSingle?.(false); game.start('attract'); mu.setMode('menu'); if ($('first')) $('first').hidden = true; refreshPlay(); setTimeout(() => $('mplay').focus(), 0); }
   // PLAY opens the saved character journeys. VS CPU remains the single-match entry.
   function playJourney() {
+    ND.funnel?.step('play'); // new-player funnel (js/funnel.js)
     if (ND.save && !ND.save.p.firstDone) { ND.save.p.firstDone = true; ND.save.commit(); }
     if ($('first')) $('first').hidden = true;
     choose('arcade');
@@ -1734,7 +1739,7 @@
   $('mwatch').onclick = () => choose('watch');
   $('mplay').onclick = playJourney;
   if ($('fPlay')) $('fPlay').onclick = playJourney;
-  if ($('fMenu')) $('fMenu').onclick = () => { unlockAudio(); au.ui(); if (ND.save) { ND.save.p.firstDone = true; ND.save.commit(); } $('first').hidden = true; $('menu').hidden = false; refreshPlay(); setTimeout(() => $('mplay').focus(), 0); };
+  if ($('fMenu')) $('fMenu').onclick = () => { unlockAudio(); au.ui(); ND.funnel?.step('modes'); if (ND.save) { ND.save.p.firstDone = true; ND.save.commit(); } $('first').hidden = true; $('menu').hidden = false; refreshPlay(); setTimeout(() => $('mplay').focus(), 0); };
   // Hall of Champions card (this month's top 10 on the card, js/banzuke.js champCard): opens over the menu (the attract
   // fight keeps running behind); closing returns to the menu. banzuke.js sets its own handlers when it is loaded.
   card('mlb', () => {
@@ -2267,7 +2272,7 @@
     portalTick(rdt, inAd);
     game.syncTouch();
     drawFrame(performance.now());
-    if (!loaded) { loaded = true; ND.portal?.loadingFinished(); if (glLater) setTimeout(startGl, 0); }
+    if (!loaded) { loaded = true; ND.portal?.loadingFinished(); ND.funnel?.step('menu'); if (glLater) setTimeout(startGl, 0); }
     aqWatch(gap, performance.now() - w0);
   }
   game._frame = frameBody;

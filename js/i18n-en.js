@@ -116,6 +116,9 @@
         saving: 'Saving…',
         savedOnline: (r) => `Online rank: #${r}`,
         savedOnlineNoRank: 'Saved to the online leaderboard',
+        savedOnlineAll: (r) => `Online all-time rank: #${r}`,
+        platSignIn: 'Sign in to post your scores online',
+        platPending: 'Saved on this device · sign in to post it to the online leaderboard',
         savedOnlineGap: (r, g) => `Online rank: #${r} · ${g} pts to the top 10`,
         reason: {
           needName: 'Pick a nickname to join the online leaderboard',
@@ -175,6 +178,7 @@
           hallDesc: 'The month’s top 10 and all-time records',
           nick: (n) => (n ? `Nickname: ${n}` : 'Pick a nickname'),
           champTitle: 'This month’s top 10', champLocal: 'Top 10 on this device', champEmpty: 'Be the first on this month’s board', champLoading: 'Loading the leaders…',
+          champAll: 'All-time top 10', champAllEmpty: 'Be the first on the online board',
           champLast: (n) => `Last month’s champion: ${n}`, champOpen: 'open the monthly ranking',
         },
         t: {

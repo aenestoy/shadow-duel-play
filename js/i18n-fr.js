@@ -128,6 +128,9 @@
         saving: 'Enregistrement…',
         savedOnline: (r) => `Rang en ligne\u00A0: #${r}`,
         savedOnlineNoRank: 'Enregistré au classement en ligne',
+        savedOnlineAll: (r) => `Rang en ligne de tous les temps\u00A0: #${r}`,
+        platSignIn: 'Connecte-toi pour publier tes scores en ligne',
+        platPending: 'Enregistré sur cet appareil · connecte-toi pour l’envoyer au classement en ligne',
         savedOnlineGap: (r, g) => `Rang en ligne\u00A0: #${r} · à ${g} pts du top 10`,
         reason: {
           needName: 'Choisis un pseudo pour entrer au classement en ligne',
@@ -187,6 +190,7 @@
           hallDesc: 'Le top 10 du mois et les records absolus',
           nick: (n) => (n ? `Pseudo\u00A0: ${n}` : 'Choisis un pseudo'),
           champTitle: 'Top 10 du mois', champLocal: 'Top 10 sur cet appareil', champEmpty: 'Sois le premier au classement de ce mois', champLoading: 'Chargement des meneurs…',
+          champAll: 'Top 10 de tous les temps', champAllEmpty: 'Sois le premier au classement en ligne',
           champLast: (n) => `Champion du mois dernier\u00A0: ${n}`, champOpen: 'ouvrir le classement du mois',
         },
         t: {
