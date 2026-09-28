@@ -537,6 +537,29 @@
         miss: 'Bir daha deneyelim.',
       },
       mastered: 'USTALAŞTIN!', masteredSub: 'Savun, karşılık ver, yeniden',
+      // warm-up before the first freeze (l: the ATTACK key chip, HTML); the nudge under the key chip (k: plain text)
+      warm: (l) => `Isın: ${l} ile üç kez vur`,
+      nudge: (k) => `${k} tuşuna bas`, nudgeT: (k) => `${k} düğmesine dokun`,
+    };
+  }
+
+  // ---------------------------------------------------------------- Turkish source additions: new player's first minutes
+  // onb: the select screen's one-time greeting (game.js openSelect) and the VS goal line's "?" button (arcade.js openVs).
+  // tips: just-in-time tips (js/coach.js ND.coach.tips); the arguments are key / button chips (HTML) of the current
+  // device; lessons(a, b) gets the menu names of Training and Tutorial. Catalogs: block "NEW PLAYER" in i18n-*.js.
+  if (ND.STR) {
+    ND.STR.onb = { selIntro: 'Ninjanı seç: her birinin kendi yolculuğu var', more: 'Ayrıntı' };
+    ND.STR.tips = {
+      head: 'İPUCU',
+      ki: (k) => `KI doldu! ${k}: özel hareket`,
+      gbreak: (k, h) => `Rakip hep gardda: ${k} tekme ya da ${h} ağır kesik sarı çubuğunu doldurur, gardını kırar`,
+      gbreakH: (h) => `Rakip hep gardda: ${h} ağır kesik sarı çubuğunu doldurur, gardını kırar`,
+      posture: (g) => `Duruş çubuğun doluyor: geri çekil ya da ${g} ile savuştur`,
+      dash: (a) => `Hızlıca iki kez ${a}: atıl`,
+      shuriken: (t) => `${t}: shuriken fırlat`,
+      heavy: (h) => `${h}: ağır kesik, yavaş ama sert`,
+      lessons: (a, b) => `Tüm dersler: ${a} → ${b}`,
+      controls: (a, b) => `Düğmeleri taşıyıp büyütebilirsin: ${a} → ${b}`,
     };
   }
 

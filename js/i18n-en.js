@@ -1118,6 +1118,27 @@
           miss: 'Let’s try that again.',
         },
         mastered: 'MASTERED!', masteredSub: 'Defend, counter, repeat',
+        warm: (l) => `Warm up: hit ${l} three times`,
+        nudge: (k) => `Press ${k}`, nudgeT: (k) => `Tap ${k}`,
+      },
+    });
+
+    // ================================================================ NEW PLAYER: the select screen's one-time greeting
+    // (game.js openSelect), the VS goal line's "?" (arcade.js openVs) and the just-in-time tips (js/coach.js ND.coach.tips;
+    // arguments: key / button chips, lessons: the menu names of Training and Tutorial). Turkish source in i18n.js.
+    merge(EN.STR, {
+      onb: { selIntro: 'Choose your ninja: each one has its own journey', more: 'Details' },
+      tips: {
+        head: 'TIP',
+        ki: (k) => `KI full! ${k}: special move`,
+        gbreak: (k, h) => `It keeps guarding: a ${k} kick or a ${h} heavy slash fills its yellow bar and breaks the guard`,
+        gbreakH: (h) => `It keeps guarding: a ${h} heavy slash fills its yellow bar and breaks the guard`,
+        posture: (g) => `Your posture bar is filling: back off, or parry with ${g}`,
+        dash: (a) => `Double-tap ${a}: dash`,
+        shuriken: (t) => `${t}: throw a shuriken`,
+        heavy: (h) => `${h}: heavy slash, slower but harder`,
+        lessons: (a, b) => `Full lessons: ${a} → ${b}`,
+        controls: (a, b) => `You can move and resize the buttons in ${a} → ${b}`,
       },
     });
 

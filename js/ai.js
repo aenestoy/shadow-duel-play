@@ -19,11 +19,24 @@
     // 2026-09 difficulty pass (owner: "too easy, the CPU defends and attacks too little"): every level defends, reads
     // and presses more; a light-attack spammer now loses from Usta up and struggles against Çırak.
     0: { name: 'Çırak', react: 0.3, parry: 0.12, guard: 0.55, dodge: 0.14, aggr: 0.46, combo: 0.5, tick: [0.22, 0.42], smart: 0.3, mash: 4.5, counter: 0.45, rally: 0.4, cmd: 0.12, str: 0.22, jug: 0.2, kc: 0.15, read: 0.4 },
-    1: { name: 'Usta', react: 0.2, parry: 0.4, guard: 0.74, dodge: 0.25, aggr: 0.6, combo: 0.78, tick: [0.13, 0.27], smart: 0.68, mash: 7, counter: 0.78, rally: 0.7, cmd: 0.32, str: 0.52, jug: 0.55, kc: 0.5, read: 0.8 },
+    // 2026-09-28 (owner: "struggling from the 2nd fight"): Usta reads a repeating player and counters a little less
+    // (read 0.8 → 0.65, counter 0.78 → 0.7); a light-attack spammer still loses more often than not
+    1: { name: 'Usta', react: 0.2, parry: 0.4, guard: 0.74, dodge: 0.25, aggr: 0.6, combo: 0.78, tick: [0.13, 0.27], smart: 0.68, mash: 7, counter: 0.7, rally: 0.7, cmd: 0.32, str: 0.52, jug: 0.55, kc: 0.5, read: 0.65 },
     2: { name: 'Efsane', react: 0.13, parry: 0.66, guard: 0.88, dodge: 0.36, aggr: 0.66, combo: 0.92, tick: [0.07, 0.17], smart: 0.95, mash: 9.5, counter: 0.9, rally: 0.92, cmd: 0.48, str: 0.76, jug: 0.85, kc: 0.8, read: 0.85 },
     // Arcade son patronu (Şura): daha hızlı tepki, daha çok savuşturma ve karşılık
     3: { name: 'Şura', react: 0.11, parry: 0.74, guard: 0.92, dodge: 0.38, aggr: 0.72, combo: 0.96, tick: [0.05, 0.14], smart: 1, mash: 11, counter: 0.96, rally: 0.95, cmd: 0.52, str: 0.84, jug: 0.92, kc: 0.9, read: 0.92 },
   };
+  // Apprentice+ (key 0.5): journey fights 2–3, a step between Apprentice and Usta (every number 40 % of the way from
+  // Apprentice to Usta). Its name is Apprentice's with a plus, in every language (the getter reads the translated name).
+  // It is an AI profile only: the fight's own level (score, honor, defence timing) stays Apprentice (journey.js ai).
+  LEVELS[0.5] = (() => {
+    const a = LEVELS[0], b = LEVELS[1], k = 0.4, o = {};
+    for (const key of Object.keys(a)) {
+      if (key === 'name') continue;
+      o[key] = Array.isArray(a[key]) ? a[key].map((v, i) => v + (b[key][i] - v) * k) : a[key] + (b[key] - a[key]) * k;
+    }
+    return Object.defineProperty(o, 'name', { get: () => LEVELS[0].name + '+', enumerable: true });
+  })();
 
   class AI {
     constructor(me, level) {

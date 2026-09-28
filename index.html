@@ -122,6 +122,14 @@
   .chip[aria-pressed="true"] { background: var(--gold); color: #17130a; }
   .chip[aria-pressed="true"] b { color: #17130a; }
   .sel-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  /* the new player's first select screen (game.js openSelect, once): one short line and the roster glows */
+  .sel-intro { justify-self: center; margin: 0; padding: 6px 14px; border: 1px solid var(--gold); background: rgba(217,179,108,.12); color: var(--gold-hi); font: 600 14px/1.3 var(--display); letter-spacing: .08em; text-align: center; animation: coachIn .45s cubic-bezier(.2,1.3,.4,1); }
+  #select.intro .roster { animation: selIntroGlow 1.1s ease-in-out 4 alternate; }
+  @keyframes selIntroGlow { to { box-shadow: 0 0 0 2px rgba(217,179,108,.55), 0 0 26px rgba(217,179,108,.45); } }
+  /* phones held upright: START (and the other actions) stay at the bottom of the screen while the list scrolls */
+  @media (orientation: portrait) {
+    #select .sel-actions { position: sticky; bottom: -1px; z-index: 3; margin-inline: -16px; padding: 12px 16px calc(10px + env(safe-area-inset-bottom, 0px)); background: linear-gradient(rgba(5,6,12,0), rgba(5,6,12,.94) 26%); }
+  }
   .sel-actions .btn { min-width: 200px; }
   .sel-hint { text-align: center; font-size: 12.5px; color: var(--muted); margin: 0; }
   .nm small { font: 500 11px/1 var(--display); letter-spacing: 0.14em; color: var(--muted); }
@@ -239,6 +247,9 @@
      a settings change / resize, never per frame. */
   .t-zone { position: absolute; left: 0; top: 24%; width: 44%; height: 76%; pointer-events: auto; touch-action: none; }
   #touch[data-move="dpad"] .t-zone, #touch:not([data-move="dpad"]) .t-dpad { display: none; }
+  /* the empty movement area of the d-pad and fixed-stick modes: invisible, catches only the swipe-to-dash flick (input.js SW) */
+  .t-swipe { position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: auto; touch-action: none; }
+  #touch[data-move="float"] .t-swipe { display: none; }
   /* Pad look: ink and lacquer. Rims, the ensō ring, paper grain, chevrons and the pause mark are small inline SVGs
      (no image files); each is drawn once per size. A press changes only transform / opacity (glow layers), nothing
      is animated per frame except the ki-ready pulse (opacity). Colours: gold = attacks, blue = guard, violet = ki. */
@@ -597,13 +608,21 @@
   .priv-link:focus-visible { outline: 2px solid var(--gold-hi); outline-offset: 2px; }
   .set-legal { margin: 2px 0 0; font-size: 12.5px; line-height: 1.4; color: var(--muted); }
   .nick .priv-link { font: 500 11px/1.2 var(--body); color: var(--muted); }
-  .priv-note { position: absolute; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 12px); transform: translateX(-50%); z-index: 55; box-sizing: border-box; width: max-content; max-width: min(560px, calc(100% - 24px)); padding: 10px 14px; background: linear-gradient(90deg, rgba(28,22,10,.96), rgba(10,12,22,.95)); border: 1px solid var(--line); box-shadow: 0 12px 30px rgba(0,0,0,.55); font: 400 13.5px/1.4 var(--body); color: var(--text); text-align: left; animation: toastIn .5s cubic-bezier(.2,1.3,.4,1); }
-  .priv-note p { margin: 0 0 8px; }
-  .pn-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 13px; }
+  /* privacy notice (js/privacy.js): a compact card in a corner (data-spot bl / br / tl / tr: the first corner where it
+     covers no button of the screen under it) */
+  .priv-note { position: absolute; z-index: 55; box-sizing: border-box; width: max-content; max-width: min(330px, calc(50% - 16px)); padding: 7px 10px; background: linear-gradient(90deg, rgba(28,22,10,.96), rgba(10,12,22,.95)); border: 1px solid var(--line); box-shadow: 0 10px 24px rgba(0,0,0,.5); font: 400 12px/1.35 var(--body); color: var(--text); text-align: left; animation: toastIn .5s cubic-bezier(.2,1.3,.4,1); }
+  .priv-note, .priv-note[data-spot="bl"] { left: max(8px, env(safe-area-inset-left, 0px)); right: auto; top: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 8px); }
+  .priv-note[data-spot="br"] { left: auto; right: max(8px, env(safe-area-inset-right, 0px)); top: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 8px); }
+  .priv-note[data-spot="tl"] { left: max(8px, env(safe-area-inset-left, 0px)); right: auto; bottom: auto; top: calc(env(safe-area-inset-top, 0px) + 8px); }
+  .priv-note[data-spot="tr"] { left: auto; right: max(8px, env(safe-area-inset-right, 0px)); bottom: auto; top: calc(env(safe-area-inset-top, 0px) + 8px); }
+  .priv-note p { margin: 0 0 5px; }
+  .pn-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 12px; }
   .pn-dot { color: var(--muted); }
-  .pn-ok { margin-left: auto; min-width: 64px; }
-  /* low landscape phones: one compact line at the very bottom, so it covers as little of the screen as it can */
-  @media (max-height: 500px) { .priv-note { bottom: calc(env(safe-area-inset-bottom, 0px) + 4px); display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; max-width: calc(100% - 16px); padding: 5px 10px; font-size: 12px; line-height: 1.3; } .priv-note p { margin: 0; } .pn-row { font-size: 12px; } .pn-ok { margin-left: 0; min-width: 52px; } }
+  .pn-ok { margin-left: auto; min-width: 48px; }
+  /* phones held upright: the corner card may take most of the width */
+  @media (max-width: 560px) { .priv-note { max-width: calc(100% - 16px); } }
+  /* low landscape phones: smaller still */
+  @media (max-height: 500px) { .priv-note { max-width: min(300px, calc(50% - 16px)); padding: 5px 8px; font-size: 11px; line-height: 1.3; } .priv-note p { margin: 0 0 3px; } .pn-row { font-size: 11px; } .pn-ok { min-width: 44px; } }
   .set-rc { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
   .set-code { font: 700 20px/1.2 ui-monospace, Consolas, monospace; letter-spacing: .12em; color: var(--gold-hi); user-select: all; -webkit-user-select: all; }
   .set-rcform { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
@@ -1469,6 +1488,13 @@
   .first-sub { margin: 0; color: var(--muted); font: 500 13px/1.3 var(--display); letter-spacing: .2em; text-transform: uppercase; }
   .first-menu { background: none; border: 0; border-bottom: 1px solid rgba(217,179,108,.35); color: var(--muted); cursor: pointer; font: 500 13px/1.4 var(--display); letter-spacing: .16em; text-transform: uppercase; padding: 4px 2px; }
   .first-menu:hover { color: var(--gold-hi); border-color: var(--gold); }
+  /* touch screen held upright: "turn your screen sideways" right on the first screen (the fight is landscape only) */
+  .rot-hint { display: none; margin: 0; align-items: center; gap: 8px; padding: 6px 12px; border: 1px solid rgba(217,179,108,.45); background: rgba(8,9,16,.7); color: var(--gold-hi); font: 600 13px/1.2 var(--display); letter-spacing: .12em; text-transform: uppercase; }
+  .rot-hint svg { width: 30px; height: 30px; flex: none; }
+  .rot-hint .rot-arc { stroke: var(--gold); }
+  .rot-hint .rot-ph { stroke: var(--gold-hi); transform-origin: 60px 62px; animation: rotPh 2.6s cubic-bezier(.6,0,.3,1) infinite; }
+  @media (orientation: portrait) { #app.touch .rot-hint { display: inline-flex; } }
+  @media (prefers-reduced-motion: reduce) { .rot-hint .rot-ph { animation: none; transform: rotate(-90deg); } }
   .mode.play { position: relative; overflow: hidden; }
   .mode.play strong { font-size: 28px; letter-spacing: .14em; }
   .mode.play .mk { grid-row: 1 / span 2; grid-column: 3; font-size: 38px; }
@@ -1480,13 +1506,17 @@
   @keyframes coachIn { from { opacity: 0; transform: translate(-50%, 16px); } }
   #app.touch #coach { bottom: auto; top: 26%; }
   #coach .tb { font-size: .78em; padding: 3px 9px; vertical-align: .05em; }
+  #coach.tip { pointer-events: auto; cursor: pointer; white-space: normal; max-width: min(640px, calc(100% - 32px)); font-size: clamp(13px, 1.7vw, 17px); line-height: 1.35; }
+  #coach.tip b { flex: none; }
   /* ilk dövüş koçu: ipucunun andığı düğme kumandada nabız gibi parlar */
-  #touch[data-coach="light"] .ta-light, #touch[data-coach="guard"] .ta-guard { animation: coachBtn .8s ease-in-out infinite alternate; }
+  #touch[data-coach="light"] .ta-light, #touch[data-coach="guard"] .ta-guard, #touch[data-coach="heavy"] .ta-heavy, #touch[data-coach="special"] .ta-ki,
+  #touch[data-coach="dodge"] .ta-dodge, #touch[data-coach="throw"] .ta-throw, #touch[data-coach="guard"] .td-d, #touch[data-coach="dodge"] .td-r { animation: coachBtn .8s ease-in-out infinite alternate; }
   @keyframes coachBtn { from { box-shadow: 0 0 0 0 rgba(241,214,156,.0); } to { box-shadow: 0 0 0 6px rgba(241,214,156,.35), 0 0 22px rgba(241,214,156,.7); } }
-  @media (prefers-reduced-motion: reduce) { #touch[data-coach="light"] .ta-light, #touch[data-coach="guard"] .ta-guard { animation: none; box-shadow: 0 0 0 4px rgba(241,214,156,.45); } }
+  @media (prefers-reduced-motion: reduce) { #touch[data-coach] .ta-light, #touch[data-coach] .ta-guard, #touch[data-coach] .ta-heavy, #touch[data-coach] .ta-ki, #touch[data-coach] .ta-dodge, #touch[data-coach] .ta-throw { animation: none; } }
   /* rally tutorial (js/tutorial.js): the button to press glows and grows; bigger while time is stopped ("… stop") */
   #touch[data-tutor^="light"] .ta-light, #touch[data-tutor^="guard"] .ta-guard, #touch[data-tutor^="guard"] .td-d { animation: tutorBtn .5s ease-in-out infinite alternate; }
-  #touch[data-tutor$="stop"] .ta-light, #touch[data-tutor$="stop"] .ta-guard, #touch[data-tutor$="stop"] .td-d { --tg: 1.3; }
+  #touch[data-tutor~="stop"] .ta-light, #touch[data-tutor~="stop"] .ta-guard, #touch[data-tutor~="stop"] .td-d { --tg: 1.3; }
+  #touch[data-tutor~="nudge"] .ta-light, #touch[data-tutor~="nudge"] .ta-guard, #touch[data-tutor~="nudge"] .td-d { --tg: 1.5; animation-duration: .38s; }
   #touch[data-tutor^="light"] .ta-light::after, #touch[data-tutor^="guard"] .ta-guard::after { opacity: 1; }
   #touch[data-tutor^="guard"] .t-base .d { opacity: 1; scale: 1.3; }
   @keyframes tutorBtn { from { scale: 1; box-shadow: 0 0 0 0 rgba(241,214,156,0); } to { scale: var(--tg, 1.16); box-shadow: 0 0 0 7px rgba(241,214,156,.4), 0 0 26px rgba(241,214,156,.8); } }
@@ -1720,6 +1750,9 @@
   .journey-chapters .earned, #journeyGoal.earned { color: var(--gold); }
   .journey-chapters .current { border-color: var(--gold); background: #24202a; }
   .journey-note { color: var(--gold); font: 14px/1.5 var(--body); padding: 9px 12px; border: 1px solid #655431; background: #11121ce8; }
+  #journeyVs { justify-self: center; display: flex; align-items: center; gap: 10px; }
+  .jv-more { flex: none; width: 22px; height: 22px; padding: 0; border-radius: 50%; border: 1px solid var(--gold); background: none; color: var(--gold); font: 700 13px/1 var(--display); cursor: pointer; }
+  #journeyVs.open .jv-more { background: var(--gold); color: #11121c; }
   /* Appearance slots on the select screen: Original · Legacy · Champion (locked slot says how to earn it) */
   .look-row { justify-self: start; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; max-width: 100%; }
   .look-row .look-l { font: 600 12px/1 var(--display); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
@@ -1802,6 +1835,7 @@
        control (default layout or the player's own, made in the layout editor, js/touch-editor.js); input.js handles the
        fingers (multi-touch). -->
   <div id="touch" class="simple" hidden>
+    <div class="t-swipe" id="tSwipe" aria-hidden="true"></div>
     <div class="t-zone" id="tStick" aria-hidden="true">
       <div class="t-base" id="tBase"><i class="u"></i><i class="d" data-s="touch.btn.down">GARD</i><i class="l"></i><i class="r"></i><b class="t-knob" id="tKnob"></b></div>
     </div>
@@ -1952,7 +1986,8 @@
       <div class="vk" aria-hidden="true">影の決闘</div>
       <h1>Gölge<br><em>Düel</em><em>losu</em></h1>
       <button class="btn primary first-play" id="fPlay" type="button"><span data-s="first.play">Oyna</span></button>
-      <p class="first-sub" data-s="menu.arcadeDesc"></p>
+      <p class="first-sub" data-s="first.sub">Tek tıkla dövüşe gir</p>
+      <p class="rot-hint" aria-live="polite"><svg viewBox="0 0 120 120" aria-hidden="true"><path class="rot-arc" d="M24 44 A42 42 0 0 1 86 20" fill="none" stroke-width="6" stroke-linecap="round"/><path class="rot-arc" d="M80 13 L88 20 L78 26" fill="none" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><g class="rot-ph"><rect x="42" y="30" width="36" height="64" rx="7" fill="none" stroke-width="6"/></g></svg><span data-s="touch.rotateTitle">Ekranı yan çevir</span></p>
       <button class="first-menu" id="fMenu" type="button" data-s="first.menu">Tüm modlar</button>
     </div>
   </div>
@@ -1960,6 +1995,7 @@
   <div id="select" class="overlay" hidden>
     <div class="sel-wrap">
       <h2 class="sel-title" id="selTitle">Ninjanı seç</h2>
+      <p class="sel-intro" id="selIntro" data-i18n-skip hidden></p>
       <div class="sel-grid" id="selGrid">
         <div class="slot" id="slot1">
           <div class="who" id="who1"></div><div class="rdy">Hazır</div>
@@ -1993,7 +2029,8 @@
     </div>
   </div>
 
-  <!-- Seçim ekranı: seçili ninjanın hareket listesi (game.js openMoves; ND.MOVELIST varsa ondan) -->
+  <!-- Seçim ekranı: seçili ninjanın hareket listesi; duraklatma menüsünde (#bPMoves) oyuncunun dövüşen ninjası
+       (game.js openMoves; ND.MOVELIST varsa ondan) -->
   <div id="movesOv" class="overlay" hidden role="dialog" aria-modal="true" aria-labelledby="mvTitle">
     <div class="mv-card card">
       <div class="mv-head"><b class="k" id="mvK" aria-hidden="true"></b><h2 id="mvTitle"></h2><button class="btn" id="mvClose" type="button" data-s="sel.close">Kapat</button></div>
@@ -2051,6 +2088,7 @@
       <div class="btns">
         <button class="btn primary" id="bResume">Devam et</button>
         <button class="btn set-btn" id="bSettings" type="button" data-set-open aria-haspopup="dialog"><svg class="set-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle class="t" cx="12" cy="12" r="8.6"/><circle cx="12" cy="12" r="5.6"/></svg><span data-s="set.title">Ayarlar</span></button>
+        <button class="btn" id="bPMoves" type="button" data-s="sel.moves" aria-haspopup="dialog">Hareketler</button>
         <button class="btn" id="bRestart">Maçı yeniden başlat</button>
         <button class="btn" id="bMenu">Ana menü</button>
       </div>
@@ -2205,20 +2243,22 @@
 <script  src="js/core.js?v=boards-1"></script>
 <script  src="js/perf.js?v=sd-fps-2"></script>
 <script  src="js/music.js?v=sd-fps-2"></script>
-<script  src="js/input.js"></script>
-<script  src="js/gfx.js?v=phone-perf-1"></script>
-<script  src="js/scene.js?v=sd-fps-2"></script>
+<script  src="js/input.js?v=comfort-1"></script>
+<script  src="js/gfx.js?v=wide-bg-1"></script>
+<script  src="js/scene.js?v=wide-bg-1"></script>
 <script  src="js/skeleton.js?v=render-fix-v1"></script>
 <script  src="js/bake.js?v=sd-fps-2"></script>
 <script  src="js/prepare.js"></script>
 <script  src="js/characters.js?v=champ-1"></script>
 <script  src="js/fighter.js?v=bo-sound-1"></script>
 <script  src="js/specials.js?v=bo-sound-1"></script>
+<script  src="js/haptics.js?v=comfort-1"></script>
+<script  src="js/telegraph.js?v=wide-bg-1"></script>
 <script  src="js/ai.js"></script>
 <script  src="js/honor.js"></script>
 <script  src="js/journey.js"></script>
 <script  src="js/journey-text.js"></script>
-<script  src="js/arcade.js?v=boards-1"></script>
+<script  src="js/arcade.js?v=comfort-1"></script>
 <script  src="js/roster2.js"></script>
 <script  src="js/funnel.js"></script>
 <script  src="js/config.js"></script>
@@ -2227,26 +2267,26 @@
 <script  src="js/platform-boards.js"></script>
 <script  src="js/banzuke.js?v=boards-1"></script>
 <script  src="js/ads.js"></script>
-<script  src="js/coach.js"></script>
+<script  src="js/coach.js?v=comfort-1"></script>
 <script  src="js/tutorial.js"></script>
-<script  src="js/kaeshi-cine.js"></script>
+<script  src="js/kaeshi-cine.js?v=comfort-1"></script>
 <script  src="js/combo-trial.js"></script>
-<script  src="js/touch.js"></script>
+<script  src="js/touch.js?v=comfort-1"></script>
 <script  src="js/touch-editor.js"></script>
 <script  src="js/volume.js"></script>
-<script  src="js/i18n-en.js?v=boards-1"></script>
-<script  src="js/i18n-es.js?v=boards-1"></script>
-<script  src="js/i18n-pt.js?v=boards-1"></script>
-<script  src="js/i18n-ru.js?v=boards-1"></script>
-<script  src="js/i18n-de.js?v=boards-1"></script>
-<script  src="js/i18n-fr.js?v=boards-1"></script>
-<script  src="js/i18n.js"></script>
+<script  src="js/i18n-en.js?v=comfort-1"></script>
+<script  src="js/i18n-es.js?v=comfort-1"></script>
+<script  src="js/i18n-pt.js?v=comfort-1"></script>
+<script  src="js/i18n-ru.js?v=comfort-1"></script>
+<script  src="js/i18n-de.js?v=comfort-1"></script>
+<script  src="js/i18n-fr.js?v=comfort-1"></script>
+<script  src="js/i18n.js?v=comfort-1"></script>
 <script  src="js/lang-ui.js"></script>
 <script  src="js/settings.js"></script>
 <script  src="js/privacy.js"></script>
-<script  src="js/gl2d.js?v=sd-fps-2"></script>
+<script  src="js/gl2d.js?v=wide-bg-1"></script>
 <script  src="js/gl-render.js?v=gl-2"></script>
-<script  src="js/game.js?v=boards-1"></script>
+<script  src="js/game.js?v=wide-bg-1"></script>
 <script  src="js/sim-state.js"></script>
 <!-- voices: fighters and announcer, files in voice/ (docs/SES-PLANI.md); ?voice=off silences, ?voice=log logs -->
 <script  src="js/voice.js?v=bo-sound-1"></script>

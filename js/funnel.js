@@ -10,8 +10,11 @@
 //   boot        the game's scripts are running (first page load)
 //   menu        the first screen / menu is up (the portal's loading phase ended)
 //   play        PLAY on the first screen (or the menu's Journey card)   · modes: "All modes" on the first screen instead
+//   direct      PLAY went straight into journey fight 1 (a new save: no select, no VS; game.js playJourney)
 //   select      the character select opened                              · vs: the VS screen of a journey fight
+//               (on the direct path both come after the first fight: the next journey fight / the next PLAY)
 //   fight1      the first fight started                                  · tut: the rally tutorial started in it
+//   warm        the tutorial's warm-up is done (the first blows landed on the CPU)
 //   tut1 tut2 tut3   tutorial pass 1 (frozen), 2 (slow motion), 3 (full speed) done (tut3 = MASTERED!)
 //   round1      the first round ended                                    · fight1_win / fight1_loss: the first fight ended
 //   fight2      a second fight started (next journey stage, a retry, any mode)
@@ -22,7 +25,7 @@
 (function (ND) {
   'use strict';
   const KEY = 'golge-duellosu-funnel', V = 1;
-  const STEPS = ['boot', 'menu', 'modes', 'play', 'select', 'vs', 'fight1', 'tut', 'tut1', 'tut2', 'tut3', 'round1', 'fight1_win', 'fight1_loss', 'fight2', 'm3', 'm5', 'm10'];
+  const STEPS = ['boot', 'menu', 'modes', 'play', 'direct', 'select', 'vs', 'fight1', 'tut', 'warm', 'tut1', 'tut2', 'tut3', 'round1', 'fight1_win', 'fight1_loss', 'fight2', 'm3', 'm5', 'm10'];
   const TIMES = [[180, 'm3'], [300, 'm5'], [600, 'm10']];
   const SESS_MAX = 12, SAVE_EVERY = 10;
   const ls = (() => { try { const s = window.localStorage, k = '__nd_fn'; s.setItem(k, '1'); s.removeItem(k); return s; } catch (e) { return null; } })();

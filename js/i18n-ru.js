@@ -1137,6 +1137,27 @@
           miss: 'Попробуем ещё раз.',
         },
         mastered: 'ОСВОЕНО!', masteredSub: 'Защита, контрудар, снова',
+        warm: (l) => `Разминка: три удара ${l}`,
+        nudge: (k) => `Нажми ${k}`, nudgeT: (k) => `Коснись ${k}`,
+      },
+    });
+
+    // ================================================================ NEW PLAYER: the select screen's one-time greeting
+    // (game.js openSelect), the VS goal line's "?" (arcade.js openVs) and the just-in-time tips (js/coach.js ND.coach.tips;
+    // arguments: key / button chips, lessons: the menu names of Training and Tutorial). Turkish source in i18n.js.
+    merge(EN.STR, {
+      onb: { selIntro: 'Выбери ниндзя: у каждого свой путь', more: 'Подробнее' },
+      tips: {
+        head: 'СОВЕТ',
+        ki: (k) => `КИ заполнена! ${k} — особый приём`,
+        gbreak: (k, h) => `Противник всё время в блоке: удар ногой ${k} или тяжёлый удар ${h} заполняет его жёлтую шкалу и пробивает блок`,
+        gbreakH: (h) => `Противник всё время в блоке: тяжёлый удар ${h} заполняет его жёлтую шкалу и пробивает блок`,
+        posture: (g) => `Твоя шкала стойки растёт: отступи или парируй ${g}`,
+        dash: (a) => `Дважды быстро ${a} — рывок`,
+        shuriken: (t) => `${t} — бросить сюрикен`,
+        heavy: (h) => `${h} — тяжёлый удар, медленнее, но сильнее`,
+        lessons: (a, b) => `Все уроки: ${a} → ${b}`,
+        controls: (a, b) => `Кнопки можно перемещать и менять их размер: ${a} → ${b}`,
       },
     });
 

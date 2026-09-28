@@ -305,7 +305,14 @@
   // the defender gets a real turn and mashing into a guard is a losing bet. Guard, parry, walking and dodging are not
   // locked, and neither is a counter (kaeshi-waza) earned by defending: the counter rally keeps its back-and-forth.
   // Before: the next attack could start ~0.33 s after a block or parry (0.16 s for moves that do not bounce back).
+  // What it looks like: the fighter stays knocked aside (its recoil pose, or a lighter off-balance lean after moves
+  // that do not bounce back) until the lock ends, and is back in its stance exactly when it may attack again (the
+  // pose leaves the recoil over LOCK_EASE and, with its 30/s follow, arrives as the lock ends; walking keeps the
+  // recoiled upper body over the walking legs). Presses (human players): the latest attack press made during the
+  // lock is kept and counts as pressed when the lock ends, unless the fighter has since guarded, dodged or jumped
+  // (the newest intent wins); other presses from the lock are dropped. The CPU keeps the plain 0.2 s buffer.
   const ATK_LOCK = ND.ATK_LOCK = { block: 0.45, parry: 0.5 };
+  const LOCK_EASE = 0.12, LOCK_LEAD = 0.03, LOCK_BTNS = ['light', 'heavy', 'kick', 'throw', 'special'];
   // states in which a fighter has recovered (or acts again): the combo against them ends
   const COMBO_RESET = { move: 1, guard: 1, block: 1, parry: 1, atk: 1, dodge: 1, lock: 1, clash: 1, getup: 1, win: 1 };
 
@@ -458,7 +465,7 @@
       this.dead = false; this.rag = null; this.looseSword = null; this.ammo = this.ch.ammo; this.ammoT = 0;
       this.gait = 0; this.walkBlend = 0; this.trail = []; this.inv = 0; this.jit = 0; this.airUsed = false; this.flash = 0;
       this.locked = true; this.damageTaken = 0; this.lastStepQ = [0, 0.5]; this.ghosts = []; this.wallBounced = false;
-      this.ki = this.ki || 0; this.counterUntil = 0; this.atkLock = 0; this.counterWin = 0.3; this.counterSource = null; this.counterStage = 0; this.aspd = 1; this.roll = 0;
+      this.ki = this.ki || 0; this.counterUntil = 0; this.atkLock = 0; this.lkFrom = null; this.lkP = null; this.counterWin = 0.3; this.counterSource = null; this.counterStage = 0; this.aspd = 1; this.roll = 0;
       this.jug = 0; this.comboN = 0; this.comboHits = 0; this.comboKey = -1; this.comboTxt = null; this.chainN = 0; this.late = null; this.cwKind = null;
       this.kvLast = null; this.kvN = 0; this.pdLast = null; this.pdDir = null;
       if (this.chain) this.chain.init = false;
@@ -471,6 +478,7 @@
       if (this.id === 0 && ND.specialFx) ND.specialFx.clear();
     }
     setState(s, extra) {
+      if (this.lkFrom != null && (s === 'guard' || s === 'dodge')) this.lkFrom = ND.simClock || 0; // newest intent (lockEnd)
       this.state = s; this.st = 0; this.hitDone = false; this.sfx = false; this.thrown = false; this.dashFrom = null;
       this.aspd = 1; this.turned = false; this.hitIdx = -1; this.serial = (this.serial || 0) + 1;
       this.evI = 0; this.mem = {}; this.hidden = false; this.vdir = 1; this.roll = 0; this.rk = null; this.pk = null; this.pv = null;
@@ -570,9 +578,36 @@
       return s && ATK[s.atk] ? s.atk : 'special';
     }
     gainKi(v) { this.ki = Math.min(100, this.ki + v); }
-    // ATK_LOCK: after a blocked / parried attack the next one waits (presses stay buffered for when it ends)
+    // ATK_LOCK: after a blocked / parried attack the next one waits (see ATK_LOCK for its look and the kept press)
     canAtk() { const g = ND.game; return !(g && g.clock < this.atkLock); }
-    lockAtk(kind) { const g = ND.game; if (g && g.clock != null) this.atkLock = Math.max(this.atkLock || 0, g.clock + ATK_LOCK[kind]); }
+    lockAtk(kind) {
+      const g = ND.game;
+      if (!g || g.clock == null) return;
+      if (this.canAtk()) { this.lkFrom = ND.simClock || 0; this.lkP = null; } // a new lock (a longer one keeps its start)
+      this.atkLock = Math.max(this.atkLock || 0, g.clock + ATK_LOCK[kind]);
+    }
+    // how far the lock pose still shows: 1 = fully knocked aside, easing to 0 just before the lock ends (LOCK_LEAD
+    // early, so the pose, which follows at 30/s, reaches the stance as the lock ends)
+    lockW() {
+      const g = ND.game;
+      if (!g || !(g.clock < this.atkLock)) return 0;
+      const u = clamp((this.atkLock - g.clock - LOCK_LEAD) / LOCK_EASE, 0, 1);
+      return u * u * (3 - 2 * u);
+    }
+    // the lock has run out: the latest attack press made during it counts as pressed now (human players; its
+    // direction stays the one held at the press), the other presses from the lock are dropped
+    lockEnd() {
+      const from = this.lkFrom, c = this.ctrl, G = ND.game;
+      this.lkFrom = null; this.lkP = null;
+      if (!(G && G.isHuman && G.isHuman(this))) return;
+      let best = null, bt = -Infinity;
+      for (const b of LOCK_BTNS) { const t = c.buf[b]; if (t != null && t >= from && t > bt) { bt = t; best = b; } }
+      for (const b of LOCK_BTNS) if (b !== best && c.buf[b] != null) c.buf[b] = null;
+      if (!best) return;
+      const now = ND.simClock || 0;
+      c.buf[best] = now;
+      if (this.pdT[best] === bt) this.pdT[best] = now;
+    }
     isInv() {
       return this.dead || this.inv > 0 || this.state === 'down' || this.state === 'getup' || this.state === 'lock' ||
         (this.state === 'launch' && this.jug >= COMBO.jugMax) || // juggle limit: no more air hits until we land
@@ -611,6 +646,7 @@
       if (this.id === 0 && ND.specialFx && !ND.specialFx.hooked) ND.specialFx.step(dt); // game.js çağırmıyorsa yedek
       if (this.dead) { this.updDead(dt); return; }
       const c = this.ctrl, o = this.opp, locked = this.locked;
+      if (this.lkFrom != null && this.canAtk()) this.lockEnd();
       this.sinceHit += dt;
       // remember the direction held when light/heavy/kick went down: a buffered string press keeps its direction even if
       // the stick/key was let go before the chain window opened (keyboard and touch)
@@ -641,8 +677,11 @@
           tp.hy += Math.sin(t * 2.3) * 1.3; tp.ay += Math.sin(t * 2.3 + 0.6) * 1.6; tp.sw += Math.sin(t * 1.15) * 0.035;
           tp.lean += clamp(this.vx * this.dir * 0.00035, -0.08, 0.1);
           if (this.hp / this.maxHp < 0.3) { tp.hy += 3 + Math.sin(t * 3.4) * 1.5; tp.lean += 0.08; tp.hd += 0.1; } // yorgun/yaralı duruş
-          pose.approach(this.pose, tp, 13, dt);
-          this.gaitFeet(dt);
+          // ATK_LOCK: still knocked aside (the recoil's pose, or an off-balance lean), walking legs underneath
+          const lw = this.lockW();
+          if (lw > 0) pose.lerp(tp, this.lkP || PO.recoil, lw * (this.lkP ? 1 : 0.6), tp);
+          pose.approach(this.pose, tp, lw > 0 || !this.canAtk() ? 30 : 13, dt);
+          this.gaitFeet(dt, lw > 0 ? tp : null);
           break;
         }
         case 'guard': {
@@ -661,10 +700,14 @@
         case 'recoil': {
           // karşılığın temasında tekniğe özel savrulma: kılıç yukarı (suriage), yere (uchiotoshi), boşa (nuki), yana (harai)
           const rk = this.rk, end = rk ? this.rkEnd : 0.32;
+          // ATK_LOCK outlasting the recoil: no easing back to the stance, the knocked-aside pose is held into 'move',
+          // which lets it go as the lock ends (lockW)
+          const G = ND.game, held = G && this.atkLock - G.clock > end - this.st + LOCK_LEAD;
+          if (held) this.lkP = rk || PO.recoil;
           if (rk) {
-            RK[0][0] = this.rkT; RK[0][1] = this.rkE; RK[1][0] = this.rkT + 0.07; RK[1][1] = rk; RK[2][0] = this.rkT + 0.12; RK[2][1] = rk; RK[3][0] = end; RK[3][1] = this.P.stance;
+            RK[0][0] = this.rkT; RK[0][1] = this.rkE; RK[1][0] = this.rkT + 0.07; RK[1][1] = rk; RK[2][0] = this.rkT + 0.12; RK[2][1] = rk; RK[3][0] = end; RK[3][1] = held ? rk : this.P.stance;
             pose.seq(RK, this.st, this.pose);
-          } else pose.seq([[0, this.entry], [0.06, PO.recoil, ease.outCubic], [0.32, this.P.stance, ease.inOut]], this.st, this.pose);
+          } else pose.seq([[0, this.entry], [0.06, PO.recoil, ease.outCubic], [0.32, held ? PO.recoil : this.P.stance, ease.inOut]], this.st, this.pose);
           fr = 8;
           if (!locked && this.st > 0.04) {
             if (c.held('guard')) { this.setState('guard'); break; }
@@ -993,6 +1036,7 @@
       }
       if (fromParry) return;
       if (c.take('up')) {
+        if (this.lkFrom != null) this.lkFrom = ND.simClock || 0; // newest intent (lockEnd)
         this.setState('air'); this.onGround = false; this.vy = JUMP_V; this.airUsed = false;
         this.vx = c.axis() * 260 * this.ch.walk; fx.dust(this.x, 0, 5); au.step(this.pan, 2.5); return;
       }
@@ -1134,7 +1178,9 @@
       }
     }
 
-    gaitFeet(dt) {
+    // stand: the standing feet (the stance's; while ATK_LOCK holds the recoil, that pose's)
+    gaitFeet(dt, stand) {
+      const B = stand || this.P.stance;
       const sp = Math.abs(this.vx);
       this.walkBlend = ND.M.approach(this.walkBlend, sp > 30 ? 1 : 0, 8, dt);
       const Ls = 24, lift = 12;
@@ -1148,8 +1194,8 @@
         if (q < 0.5) { x = s * Ls * (1 - 4 * q); y = 0; }
         else { const u = (q - 0.5) * 2; x = s * Ls * (-1 + 2 * u); y = -Math.sin(Math.PI * u) * lift; }
         const w = this.walkBlend;
-        this.pose[kx] = this.P.stance[kx] * (1 - w) + (base + x) * w;
-        this.pose[ky] = this.P.stance[ky] * (1 - w) + y * w;
+        this.pose[kx] = B[kx] * (1 - w) + (base + x) * w;
+        this.pose[ky] = B[ky] * (1 - w) + y * w;
         if (w > 0.5 && this.lastStepQ[i] > 0.9 && q < 0.1) { au.step(this.pan); ND.scene.footprint(this.x + (base + s * Ls) * this.dir, this.dir); }
         this.lastStepQ[i] = q;
       }

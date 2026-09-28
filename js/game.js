@@ -357,6 +357,7 @@
       // a new match (or leaving to the menu) ends any coach still running from the previous fight
       if (ND.coach && ND.coach.on) ND.coach.stop();
       if (ND.tutor && ND.tutor.on) ND.tutor.stop(); // and the rally tutorial (js/tutorial.js)
+      if (ND.coach && ND.coach.tips) ND.coach.tips.fightStarted(mode === 'attract' || mode === 'watch' || opts.drill ? 'off' : mode); // just-in-time tips (journey only)
       this.mode = mode;
       // Campaigns pass their current opponent's level; the saved CPU menu choice can be different.
       // Training uses Apprentice timing. Local 2P and spectator modes retain the shared base rules.
@@ -371,6 +372,7 @@
       f2.ctrl = mode === '2p' ? input.p2 : aiC2;
       input.solo = !!SOLO[mode];
       [aiC1, aiC2, input.p1, input.p2].forEach((c) => c.clear());
+      input.p1.noTap = input.p2.noTap = false; // a player's double-tap dash is always on (only the tutorial turns it off: js/tutorial.js)
       this.ais = [];
       let c1 = opts.c1, c2 = opts.c2, arena = opts.arena;
       if ((mode === 'watch' || mode === 'attract') && c1 == null) { // (tests and tools may name the pair and the arena)
@@ -383,7 +385,7 @@
         const lv = mode === 'attract' ? 1 : 2;
         this.ais.push(new ND.AI(f1, lv), new ND.AI(f2, lv));
       } else if (mode === 'cpu') this.ais.push(new ND.AI(f2, this.level));
-      else if (RUN_MODES[mode]) this.ais.push(new ND.AI(f2, opts.level ?? 1));
+      else if (RUN_MODES[mode]) this.ais.push(new ND.AI(f2, opts.ai ?? opts.level ?? 1)); // opts.ai: a journey fight's own CPU profile (Apprentice+)
       else if (mode === 'train') this.ais.push(ND.training.makeDummy(f2));
       if (arena === 'random' || !arena) arena = randArena(!RUN_MODES[mode]);
       scene.setTheme(arena);
@@ -436,7 +438,10 @@
       $('hud').hidden = true; $('pauseBtn').hidden = true;
       // Keep all match state and the round timer still while expensive first-use drawing is prepared.
       // Each fighter fills at most three missing cache entries per preparation frame; no partial drawing is visible.
-      const jobs = [() => { this.behind = false; resize(); scene.drawBack(ctx); }];
+      // The first background drawing makes the arena's wide layer caches (scene.js layerCache); the next job draws the
+      // pictures of the zoom bands this camera has not needed yet (~12 ms per loading frame), so no zoom, pan or jump
+      // of the fight draws or uploads a background layer.
+      const jobs = [() => { this.behind = false; resize(); scene.drawBack(ctx); }, () => scene.warmLayers(12)];
       // WebGL2 on Low: each fighter's part pictures go into the renderer's sprite atlas now (bake.js ND.warmBaked:
       // every pose of its moves, turned and mirrored), about 12 ms of work per loading frame, so the fight itself
       // makes almost no new pictures (each one used to be a new texture, and a stall on phones)
@@ -715,6 +720,11 @@
       if (this.phase === 'intro' && this.mode === 'train') {
         // antrenman: tanıtım yok, hemen başla
         if (pt > 0.3) { this.phase = 'fight'; F.forEach((f) => (f.locked = false)); }
+      } else if (this.phase === 'intro' && ND.tutor && ND.tutor.on && ND.tutor.G === this && ND.tutor.quick) {
+        // the new player's first fight (rally tutorial with its warm-up, js/tutorial.js): no round card, a short
+        // "Fight!" and the player's ATTACK is live at once
+        if (!fl.f) { fl.f = true; this.focus = null; this.banner('Dövüş!', '始め', '', 0.7); au.gong(); au.taiko(1.1); music('fight'); }
+        if (pt > 0.45) { this.phase = 'fight'; F.forEach((f) => (f.locked = false)); }
       } else if (this.phase === 'intro') {
         if (pt > 0.25 && !fl.r) {
           fl.r = true;
@@ -804,6 +814,9 @@
       $('endStats').innerHTML = rows.map((r, i) => `<div class="l" style="${i ? '' : 'color:var(--c1);font-weight:600'}">${r[0]}</div><div class="m">${r[1]}</div><div class="r" style="${i ? '' : 'color:var(--c2);font-weight:600'}">${r[2]}</div>`).join('');
       const res = score.matchEnd(w);
       this.showScore(null);
+      if (ND.save && ND.save.p && !ND.save.p.fought && this.mode !== 'watch') { ND.save.p.fought = true; ND.save.commit(); }
+      // touch screens, once: the buttons can be moved and resized (Settings → Controls), js/coach.js
+      if (ND.coach && ND.coach.tips && ND.coach.tips.afterFight) ND.coach.tips.afterFight(this.mode);
       // Onur: maç dökümü (koşu denetleyicisi bonus satırı ekleyebilir, sonra gösterilir)
       let hon = null;
       const settle = () => {
@@ -1019,6 +1032,8 @@
       // rally tutorial: its time scale (0 frozen, slow motion, 1) for this step. The input buffers (press age,
       // parry window) run on the same scaled clock, so slow motion widens the windows the player has to hit.
       const STEP = this.STEP;
+      // tick boundary for the controllers: a keyboard / pad GUARD tap hold that has run out lets go (js/input.js)
+      for (const f of F) if (f.ctrl.step) f.ctrl.step();
       const tz = this.tz = ND.tutor && ND.tutor.on ? ND.tutor.pre(this, STEP) : 1;
       ND.simClock = (ND.simClock || 0) + STEP * tz;
       if (present) { this.update(STEP); return; }
@@ -1170,6 +1185,7 @@
       fx.drawTexts(ctx);
       score.drawPops(ctx);
       this.drawPrompts();
+      if (ND.telegraph) ND.telegraph.draw(ctx, this); // the opponent's blow: glint on its weapon, Easy assist ring (js/telegraph.js)
       if (ND.cine) ND.cine.draw(ctx); // counter prompt, kaeshi-waza banner, screen slash, damage number, combo counter
       if (ND.tutor && ND.tutor.on) ND.tutor.draw(ctx); // rally tutorial: DEFEND! / ATTACK! with the key
       this.overlays();
@@ -1376,6 +1392,12 @@
       if (scene.themeId !== S.arena && S.arena !== 'random') scene.setTheme(S.arena);
       this.buildRoster(); this.buildArenas();
       this.refreshSelect();
+      // the first journey select of a new save (it comes after the first fight: PLAY went straight into it): one short
+      // line and the roster glows, once (ND.save.p.selIntro)
+      const P = ND.save && ND.save.p, intro = mode === 'arcade' && !!P && !P.selIntro, si = $('selIntro');
+      $('select').classList.toggle('intro', intro);
+      if (si) { si.hidden = !intro; si.textContent = intro ? tx((STR.onb && STR.onb.selIntro) || '') : ''; }
+      if (intro) { P.selIntro = true; ND.save.commit(); }
       mu.setMode('menu');
       // the screen opens at its top (roster and the chosen ninja first); focusing Start must not scroll it down
       $('select').scrollTop = 0;
@@ -1499,8 +1521,11 @@
       b.onclick = () => { if (this.phase !== 'select') return; persist(); au.taiko(0.8); ND.rival.begin(this.sel.c[0], ch.id); };
     },
     // Hareketler paneli (#movesOv): seçili ninjanın hareket listesi (ND.MOVELIST varsa ondan)
+    // In the pause menu (#bPMoves) it lists the player's own fighter in this fight (player 1), on the select screen the
+    // ninja shown in slot 1.
     fillMoves() {
-      const ch = ND.CHARS[this.selShown(0)]; if (!ch || !ND.training || !ND.training.movesHtml || !$('mvList')) return false;
+      const ch = this.paused && this.phase !== 'select' && f1.ch ? f1.ch : ND.CHARS[this.selShown(0)];
+      if (!ch || !ND.training || !ND.training.movesHtml || !$('mvList')) return false;
       const SS = STR.sel || {};
       $('mvK').textContent = ch.kanji; $('mvK').style.color = ch.col.ui;
       $('mvTitle').textContent = SS.movesOf ? SS.movesOf(ch.name) : ch.name;
@@ -1509,13 +1534,15 @@
     },
     openMoves() {
       const ov = $('movesOv'); if (!ov || !this.fillMoves()) return;
-      ov.hidden = false; au.ui();
+      ov.hidden = false; ov.scrollTop = 0; au.ui();
       setTimeout(() => $('mvClose').focus(), 0);
     },
+    // back to the button that opened it: the pause menu's (a fight is paused) or the select screen's
     closeMoves(focus) {
       const ov = $('movesOv'); if (!ov || ov.hidden) return false;
       ov.hidden = true;
-      if (focus) setTimeout(() => $('bMoves') && $('bMoves').focus(), 0);
+      const b = this.paused && this.phase !== 'select' ? $('bPMoves') : $('bMoves');
+      if (focus) setTimeout(() => b && !b.hidden && b.focus(), 0);
       return true;
     },
     get movesOpen() { const ov = $('movesOv'); return !!ov && !ov.hidden; },
@@ -1548,8 +1575,14 @@
       if (playing !== this._playing) { this._playing = playing; app.classList.toggle('playing', playing); }
       // dokunmatik dövüşte kamera: zemin biraz yukarıda, yanlarda ek pay (düğmeler dövüşçüleri daha az örter)
       const camT = T && !!TOUCH_MODES[this.mode];
-      if (camT !== this._camT) { this._camT = camT; cam.gyK = camT ? 0.48 : 0.6; cam.padX = camT ? 80 : 0; }
-      if (rot && !this.paused && (this.phase === 'fight' || this.phase === 'intro')) setPause(true);
+      if (camT !== this._camT) { this._camT = camT; cam.gyK = camT ? (this.phoneCam ? this.phoneGy : 0.48) : 0.6; cam.padX = camT ? 80 : 0; }
+      if (rot && !this.paused && (this.phase === 'fight' || this.phase === 'intro')) { setPause(true); this.rotPaused = true; }
+      // turned sideways again during the new player's first-fight tutorial (or a round intro): it goes on by itself,
+      // no extra tap on Resume (the tutorial never hurts; elsewhere the pause dialog stays, the CPU would strike at once)
+      else if (!rot && this.rotPaused) {
+        this.rotPaused = false;
+        if (this.paused && !$('pause').hidden && ((ND.tutor && ND.tutor.on) || this.phase === 'intro')) setPause(false);
+      }
       // stays drawn under the pause dialog (dimmed, not touchable) so size / layout / hand changes show at once
       const on = !this.preparing && T && !!TOUCH_MODES[this.mode] && !!TOUCH_PHASES[this.phase] && !this.replay && !rot;
       if (on !== this._touchOn) {
@@ -1691,10 +1724,44 @@
   function choose(mode) { unlockAudio(); au.ui(); if (mode === 'watch') { au.quiet = false; game.start('watch'); } else game.openSelect(mode); }
   function goMenu() { game.setSingle?.(false); game.start('attract'); mu.setMode('menu'); if ($('first')) $('first').hidden = true; refreshPlay(); setTimeout(() => $('mplay').focus(), 0); }
   // PLAY opens the saved character journeys. VS CPU remains the single-match entry.
+  // A new save (no fight played to its end yet, no journey past fight 1): PLAY goes straight into Akane's journey
+  // fight 1 (arcade.quickStart: no select, no VS; the rally tutorial with its warm-up starts in it). After the first
+  // fight the usual flow is back, and the select screen greets the player once (openSelect, "choose your ninja").
+  const DIRECT_CHAR = 'akane';
+  function directStart() {
+    const p = ND.save && ND.save.p;
+    if (!p || p.fought || !ND.arcade || !ND.arcade.quickStart) return -1;
+    const runs = p.journey && p.journey.runs ? Object.values(p.journey.runs) : [];
+    if (runs.some((r) => r && (r.i > 0 || r.done))) return -1;
+    const ci = ND.CHARS.findIndex((c) => c.id === DIRECT_CHAR);
+    return ci >= 0 && charOk(ci) ? ci : -1;
+  }
+  // Android phones on our own site: the first PLAY of the page load asks for fullscreen, and fullscreen asks for
+  // landscape (touch.js toggleFullscreen; Android Chrome allows the orientation lock only in fullscreen). Never inside a
+  // portal's frame (CrazyGames, Poki, Yandex, Playgama handle fullscreen themselves: touch.js fsAllowed), never on
+  // iPhone (no element fullscreen), and only once: a player who leaves fullscreen is not pulled back.
+  let landscapeTried = false;
+  function tryLandscape() {
+    if (landscapeTried) return;
+    landscapeTried = true;
+    try {
+      const T = ND.touch, UI = ND.touchUI;
+      if (!T || !T.active || !T.mobile || !UI || !UI.fsAllowed || !UI.fsAllowed()) return;
+      if (!/Android/i.test(navigator.userAgent || '') || document.fullscreenElement || document.webkitFullscreenElement) return;
+      UI.toggleFullscreen();
+    } catch (e) { /* refused: the rotate hint stays */ }
+  }
   function playJourney() {
     ND.funnel?.step('play'); // new-player funnel (js/funnel.js)
     if (ND.save && !ND.save.p.firstDone) { ND.save.p.firstDone = true; ND.save.commit(); }
     if ($('first')) $('first').hidden = true;
+    tryLandscape();
+    const ci = directStart();
+    if (ci >= 0) {
+      unlockAudio(); au.ui();
+      game.sel.c[0] = ci; persist();
+      return ND.arcade.quickStart(ci);
+    }
     choose('arcade');
   }
   game.quickPlay = playJourney;
@@ -1716,8 +1783,8 @@
     game.paused = v; $('pause').hidden = !v;
     const br = $('bRestart'); if (br) br.hidden = !!(game.runner && game.runner.noRestart && game.mode === game.runner.mode);
     // (pausing also cuts a voice line still sounding and drops announcer lines waiting in the queue)
-    if (v) { input.p1.clear(); input.p2.clear(); input.touchReset(); ND.voice?.stopAll?.(); $('bResume').focus(); }
-    else { input.p1.buf = {}; input.p2.buf = {}; } // presses made in the pause menu must not fire on resume
+    if (v) { input.p1.clear(); input.p2.clear(); input.touchReset(); ND.voice?.stopAll?.(); ND.haptics?.stop(); $('bResume').focus(); }
+    else { input.p1.buf = {}; input.p2.buf = {}; game.closeMoves(); } // presses made in the pause menu must not fire on resume
     game.syncTouch();
   }
   // Rol=button kartlar (içinde ek düğmeler olan mod kartları)
@@ -1959,6 +2026,8 @@
   if ($('movesOv')) $('movesOv').addEventListener('click', (e) => { if (e.target === $('movesOv')) game.closeMoves(true); });
   $('bBack').onclick = () => selBack();
   $('bResume').onclick = () => setPause(false);
+  // pause menu → the player's move list (the select screen's panel); Close / Back / B returns to the pause menu
+  if ($('bPMoves')) $('bPMoves').onclick = () => { if (game.paused) game.openMoves(); };
   $('bRestart').onclick = () => {
     setPause(false);
     if (ND.tutor && ND.tutor.on && ND.tutor.opts.drill) return game.startDrill();
@@ -2004,6 +2073,15 @@
       if (e.code === 'Enter' && !e.repeat) { game.fightFromSelect(); return true; }
       return false;
     }
+    // the move list over the pause menu: Back / M closes it (focus back on its button), P resumes, arrows scroll it
+    if (game.paused && game.movesOpen) {
+      if ((input.isBack(e) || e.code === 'KeyM') && !e.repeat) { game.closeMoves(true); return true; }
+      if (input.isPause(e)) { setPause(false); return true; }
+      const d = { ArrowUp: -1, KeyW: -1, ArrowDown: 1, KeyS: 1, PageUp: -4, PageDown: 4 }[e.code];
+      if (d) { $('movesOv').scrollTop += d * 60; return true; }
+      return false;
+    }
+    if (game.paused && !$('pause').hidden && e.code === 'KeyM' && !e.repeat) { game.openMoves(); return true; }
     if (input.isPause(e)) { setPause(!game.paused); return true; }
     if (game.mode === 'train' && ND.training?.onKey(e)) return true;
     if (e.code === 'Enter' && !e.repeat && game.mode === 'attract' && (document.activeElement === document.body || !document.activeElement)) {
@@ -2012,8 +2090,31 @@
     return false;
   };
   input.onPause = () => setPause(!game.paused);
+  // Gamepad in the pause menu: D-pad / stick up and down move the focus through its buttons, A presses the focused
+  // one, RB opens the move list, B resumes. In the move list up / down scroll it, B or RB close it (pause menu again).
+  const padWas = {};
+  function pausePad(st, prev, gp) {
+    const pr = (a) => st[a] && !prev[a], B = (gp && gp.buttons) || [], ay = (gp && gp.axes && gp.axes[1]) || 0;
+    const on = (i) => !!(B[i] && (B[i].pressed || B[i].value > 0.5));
+    const raw = { u: on(12) || ay < -0.5, d: on(13) || ay > 0.5, a: on(0) };
+    const id = gp ? gp.index : 0, was = padWas[id] || {};
+    padWas[id] = raw;
+    const hit = (k) => raw[k] && !was[k];
+    if (game.movesOpen) {
+      if (pr('kick') || pr('throw')) game.closeMoves(true);
+      else if (raw.u !== raw.d) $('movesOv').scrollTop += raw.d ? 14 : -14; // held: keeps scrolling
+      return;
+    }
+    if (pr('throw')) { game.openMoves(); return; }
+    if (pr('kick')) { setPause(false); return; }
+    const btns = [...document.querySelectorAll('#pause .btns .btn')].filter((b) => !b.hidden && b.offsetParent !== null);
+    if (!btns.length) return;
+    const cur = btns.indexOf(document.activeElement);
+    if (hit('u') || hit('d')) btns[cur < 0 ? 0 : (cur + (hit('d') ? 1 : -1) + btns.length) % btns.length].focus();
+    else if (hit('a') && cur >= 0) btns[cur].click();
+  }
   // Gamepad ile menü dışı ekranlar: X/A onay, B geri, yön seçim
-  input.onPad = (st, prev) => {
+  input.onPad = (st, prev, gp) => {
     if (ND.honor && ND.honor.roadOpen) {
       const p = (a) => st[a] && !prev[a];
       if (p('kick')) ND.honor.hideRoad(true);
@@ -2024,6 +2125,7 @@
     if (ND.banzuke && ND.banzuke.onPad(st, prev)) return;
     if ((game.phase === 'vs' || game.phase === 'ending') && game.runner && game.runner.onPad) return game.runner.onPad(st, prev);
     const pr = (a) => st[a] && !prev[a];
+    if (game.paused && !$('pause').hidden && !(ND.settingsUI && ND.settingsUI.isOpen)) { pausePad(st, prev, gp); return; }
     if (game.phase === 'select' && game.selMode !== '2p') {
       if (game.movesOpen) { if (pr('kick') || pr('throw')) game.closeMoves(true); return; }
       if (pr('throw')) { game.openMoves(); return; }
@@ -2073,6 +2175,15 @@
   // 1.5 / 1.25 / 1) × the current rung's scale. Very large screens (5K) stay near 4K pixels, phones near 2.2 MP.
   // The HUD is DOM, so it stays sharp whatever the canvas size.
   const MAX_PX = MOBILE ? 2.2e6 : 3840 * 2160;
+  // Phones in landscape (a small page on a device whose main pointer is a finger): the camera stands closer, the
+  // fighters are PHONE_ZOOM times bigger on screen (cam.s; when they stand far apart the fit-both zoom of cam.follow
+  // takes over as before), the ground line a bit higher (PHONE_GY, syncTouch) so the feet stay above the thumb
+  // buttons, and a jump zooms out enough to keep the head clear of the HUD (cam.topPx). Decided from the device and the
+  // page size, not from the touch UI being on (that can switch mid-fight, and the part cache's scale level for the
+  // fight follows cam.s, js/bake.js). Computers and tablets keep their framing.
+  const PHONE_ZOOM = 1.2, PHONE_GY = 0.45;
+  // (?phonecam=0: the old framing, to compare on a phone)
+  const phoneCam = (r) => QS.get('phonecam') !== '0' && !!(ND.touch && (ND.touch.mobile || ND.touch.forced === true)) && r.width > r.height && r.height <= 500 && r.width <= 1000;
   function resize() {
     const r = cv.getBoundingClientRect();
     if (r.width < 1 || r.height < 1) return;
@@ -2085,6 +2196,11 @@
     game.pxr = cv.width / r.width; // tuval pikseli / CSS pikseli (tuş istemi boyutu için)
     game.dprCap = GFX.f.dpr;       // select-screen previews use the same cap
     scene.resize(cv.width, cv.height);
+    const ph = phoneCam(r);
+    if (ph) cam.s *= PHONE_ZOOM;
+    // the HUD's bottom (index.html #hud: about 60 CSS px on a short screen) and a little room
+    cam.topPx = ph ? 60 * game.pxr : 0;
+    if (ph !== game.phoneCam) { game.phoneCam = ph; game.phoneGy = PHONE_GY; game._camT = null; }
   }
   // ---------------------------------------------------------------- graphics quality ladder (auto quality)
   // A ladder of rungs { tier, s (resolution scale) }. A fixed choice (High / Medium / Low) only moves between the
@@ -2179,6 +2295,7 @@
     if (playing !== wasPlaying) { wasPlaying = playing; if (ND.portal) playing ? ND.portal.gameplayStart() : ND.portal.gameplayStop(); }
     if (playing && game.phase === 'fight' && ND.ads) ND.ads.tick(rdt);
     if (ND.coach && ND.coach.on) ND.coach.tick(rdt, game);
+    if (ND.coach && ND.coach.tips && ND.coach.tips.on) ND.coach.tips.tick(rdt, game);
     if (ND.tutor && ND.tutor.on) ND.tutor.tick(rdt);
   }
   // Behind the menus (the attract demo under the title / menu screens) and the select, VS and ending screens the

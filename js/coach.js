@@ -81,4 +81,168 @@
       }
     },
   };
+
+  // ---------------------------------------------------------------- just-in-time tips (ND.coach.tips)
+  // Small tips in the new player's first journey fights for what a player does not find alone, each at the moment it
+  // matters. They never pause the fight, show in the coach's box (with the button on the touch pad pulsing) and go
+  // when the thing is done, when the box is tapped / clicked, or after SHOW seconds.
+  //   ki        the player's KI is full for the first time              → special (E · R3 · KI button)
+  //   gbreak    the CPU keeps guarding for a while                       → kick / heavy slash break the guard
+  //   posture   the player's own posture bar passes 70 %                 → back off or parry
+  //   dash      the opponent stands far away                             → double tap forward
+  //   shuriken  the opponent stands far away (a later time than dash)    → throw (not on the touch Simple layout)
+  //   heavy     no heavy slash yet after a while in the fight            → heavy slash
+  //   lessons   after the first journey win (a toast on the end screen)  → Training → Tutorial
+  //   controls  after the first journey fight played to its end, touch screens only (a toast) → Settings → Controls
+  // Rules: one tip at a time, GAP seconds between two, none in a round's first FIRST seconds, none during the rally
+  // tutorial, the coach's own steps, a cinematic, a blade lock or a pause; journey fights only (not 2P, watch, VS CPU,
+  // combo trials, the drill, tournaments…); each tip once ever: it is stored as seen in the progress save
+  // (ND.save.p.tips.seen) the moment it shows; only in the first FIGHTS journey fights of the save (p.tips.n).
+  // Saves from before the tips (a player past the first fight's coach) never get them (arcade.js normalize).
+  // Texts: ND.STR.tips (Turkish source in i18n.js, block "just-in-time tips"; catalogs in i18n-*.js).
+  const TIP_IDS = ['ki', 'gbreak', 'posture', 'dash', 'shuriken', 'heavy'];
+  const FIGHTS = 8, GAP = 9, FIRST = 3, SHOW = 8, FAR = 430;
+  // the touch button a tip talks about (#touch[data-coach] in index.html makes it pulse)
+  const TIP_MARK = { ki: 'special', gbreak: 'heavy', posture: 'guard', dash: 'dodge', shuriken: 'throw', heavy: 'heavy' };
+  // gamepad buttons (standard mapping, js/input.js pollPads) and keyboard keys (layout-aware names from ND.input)
+  const PAD = { light: 'X', heavy: 'Y', kick: 'B', throw: 'RB', guard: 'LB', dodge: 'RT', special: 'R3' };
+  const KEY = { light: 'KeyF', heavy: 'KeyG', kick: 'KeyR', throw: 'KeyT', guard: 'KeyS', dodge: 'ShiftLeft', special: 'KeyE' };
+  const TCLS = { light: 'tb-light', guard: 'tb-guard' };
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const tips = coach.tips = {
+    on: false, cur: null, t: 0, cool: 0, fightT: 0, cpuGuard: 0, far: 0, heavyUsed: false, parries0: 0, G: null,
+    // the progress save's record (arcade.js normalize: { n: journey fights with tips so far, seen: { id: 1 } })
+    rec() { const p = ND.save && ND.save.p; return p && p.tips && typeof p.tips === 'object' ? p.tips : null; },
+    seen(id) { const r = this.rec(); return !r || !!(r.seen && r.seen[id]); },
+    live() { const r = this.rec(); return !!r && (r.n | 0) < FIGHTS && TIP_IDS.concat('lessons').some((id) => !this.seen(id)); },
+    // a fight started (game.start): journey fights count toward FIGHTS; every fight resets the per-fight watchers
+    fightStarted(mode) {
+      this.hide(true);
+      this.fightT = 0; this.cpuGuard = 0; this.far = 0; this.heavyUsed = false; this.cool = FIRST;
+      this.on = mode === 'arcade' && this.live();
+      if (this.on) { const r = this.rec(); r.n = (r.n | 0) + 1; if (ND.save.commit) ND.save.commit(); }
+    },
+    stop() { this.on = false; this.hide(true); },
+    markSeen(id) { const r = this.rec(); if (!r) return; if (!r.seen || typeof r.seen !== 'object') r.seen = {}; r.seen[id] = 1; if (ND.save.commit) ND.save.commit(); },
+    // key / button chips of the current device: keyboard (layout-aware key names), gamepad, or the touch pad's button
+    device() {
+      if (ND.touch && ND.touch.active) return 'touch';
+      const c = this.G && this.G.F && this.G.F[0].ctrl;
+      return c && c.lastSrc && c.lastSrc[0] === 'g' ? 'pad' : 'key';
+    },
+    chip(act, dev) {
+      if (dev === 'touch') {
+        const TB = (ND.STR && ND.STR.touch && ND.STR.touch.btn) || {};
+        if (act === 'right' || act === 'left') return `<i class="tb">${act === 'left' ? '◀' : '▶'}</i>`;
+        return `<i class="tb ${TCLS[act] || ''}">${esc(TB[act] || act)}</i>`;
+      }
+      if (dev === 'pad') return `<kbd>${act === 'right' ? '▶' : act === 'left' ? '◀' : PAD[act] || act}</kbd>`;
+      const code = act === 'right' ? 'KeyD' : act === 'left' ? 'KeyA' : KEY[act];
+      return `<kbd>${esc(ND.input && ND.input.keyLabel ? ND.input.keyLabel(code) : code.replace(/^Key/, ''))}</kbd>`;
+    },
+    // the Simple touch layout has no KICK and no SHURIKEN button (js/touch.js)
+    touchHas(act) { const P = ND.touchPrefs; return !(P && P.layout !== 'full' && (act === 'kick' || act === 'throw')); },
+    text(id, dev) {
+      const T = (ND.STR && ND.STR.tips) || {}, f1 = this.G.F[0], ch = (a) => this.chip(a, dev);
+      const fwd = f1.opp && f1.opp.x < f1.x ? 'left' : 'right';
+      const f = (k, ...a) => (typeof T[k] === 'function' ? T[k](...a) : '');
+      if (id === 'ki') return f('ki', ch('special'));
+      if (id === 'gbreak') return dev === 'touch' && !this.touchHas('kick') ? f('gbreakH', ch('heavy')) : f('gbreak', ch('kick'), ch('heavy'));
+      if (id === 'posture') return f('posture', ch('guard'));
+      if (id === 'dash') return f('dash', ch(fwd));
+      if (id === 'shuriken') return f('shuriken', ch('throw'));
+      if (id === 'heavy') return f('heavy', ch('heavy'));
+      return '';
+    },
+    show(id) {
+      const el = $('coach'), dev = this.device(), html = this.text(id, dev);
+      if (!el || !html) return false;
+      const head = ((ND.STR && ND.STR.tips) || {}).head || '';
+      el.innerHTML = `<b>${esc(head)}</b><span>${html}</span>`;
+      el.dataset.tip = id; el.classList.add('tip');
+      el.hidden = false; el.classList.remove('in', 'warn'); void el.offsetWidth; el.classList.add('in');
+      // a tap / click on the box dismisses it
+      el.onclick = (e) => { if (e && e.stopPropagation) e.stopPropagation(); if (this.cur) this.hide(); };
+      coach.mark(dev === 'touch' ? TIP_MARK[id] : null);
+      this.cur = id; this.t = 0;
+      this.markSeen(id);
+      return true;
+    },
+    hide(quiet) {
+      const el = $('coach');
+      if (el && el.dataset && el.dataset.tip) { el.hidden = true; el.classList.remove('in', 'tip'); delete el.dataset.tip; el.onclick = null; }
+      if (this.cur) coach.mark(null);
+      if (this.cur && !quiet) this.cool = GAP;
+      this.cur = null;
+    },
+    // is it done? (the tip goes at once)
+    done(id, f1, f2) {
+      const atk = f1.state === 'atk' ? f1.atkName || '' : '';
+      if (id === 'ki') return f1.ki < 100 || (!!atk && !!(f1.atk && f1.atk.special));
+      if (id === 'gbreak') return f2.state === 'gbreak' || /^(heavy|kick)/.test(atk);
+      if (id === 'posture') return f1.posture < 35 || (f1.parries || 0) > this.parries0;
+      if (id === 'dash') return f1.state === 'dodge';
+      if (id === 'shuriken') return atk === 'throw';
+      if (id === 'heavy') return /^heavy/.test(atk);
+      return false;
+    },
+    // the moment for a tip that is not seen yet (most urgent first)
+    want(f1, f2, dev) {
+      const ok = (id) => !this.seen(id);
+      if (ok('posture') && f1.posture > 70) return 'posture';
+      if (ok('ki') && f1.ki >= 100) return 'ki';
+      if (ok('gbreak') && this.cpuGuard > 2.5) return 'gbreak';
+      if (this.far > 0.8) {
+        if (ok('dash')) return 'dash';
+        if (ok('shuriken') && f1.ammo > 0 && (dev !== 'touch' || this.touchHas('throw'))) return 'shuriken';
+      }
+      if (ok('heavy') && !this.heavyUsed && this.fightT > 18) return 'heavy';
+      return null;
+    },
+    // every frame (game.js portalTick)
+    tick(dt, G) {
+      if (!this.on || !G || !G.F) return;
+      this.G = G;
+      const f1 = G.F[0], f2 = G.F[1], T = ND.tutor;
+      const quiet = G.mode !== 'arcade' || G.phase !== 'fight' || G.paused || (T && T.on) || coach.on || G.cineT > 0 || !!G.lock || !!G.replay || f1.dead || f2.dead;
+      if (quiet) { if (this.cur && (G.phase !== 'fight' || G.mode !== 'arcade' || G.paused)) this.hide(true); return; }
+      this.fightT += dt;
+      if (f1.state === 'atk' && /^heavy/.test(f1.atkName || '')) this.heavyUsed = true;
+      const dist = Math.abs(f2.x - f1.x);
+      const guarding = (f2.state === 'guard' || f2.state === 'block' || f2.state === 'parry') && dist < 300;
+      this.cpuGuard = guarding ? this.cpuGuard + dt : Math.max(0, this.cpuGuard - dt * 0.5);
+      this.far = dist > FAR && f1.onGround && f2.onGround ? this.far + dt : 0;
+      if (this.cur) {
+        this.t += dt;
+        if (this.done(this.cur, f1, f2)) { if (ND.audio && ND.audio.ready) ND.audio.tick(0); this.hide(); }
+        else if (this.t > SHOW) this.hide();
+        return;
+      }
+      if ((this.cool -= dt) > 0) return;
+      const id = this.want(f1, f2, this.device());
+      if (id) { this.parries0 = f1.parries || 0; this.show(id); }
+    },
+    // after a journey win: once, a toast pointing at the full lessons (Training → Tutorial)
+    afterWin() {
+      const r = this.rec();
+      if (!r || this.seen('lessons') || (r.n | 0) > FIGHTS) return false;
+      const T = (ND.STR && ND.STR.tips) || {}, M = (ND.STR && ND.STR.menu) || {};
+      if (typeof T.lessons !== 'function' || !ND.toast) return false;
+      this.markSeen('lessons');
+      ND.toast(T.lessons(M.train || '', M.trainTut || ''), '道');
+      return true;
+    },
+    // after a journey fight played to its end on a touch screen: once, a toast pointing at the layout editor
+    // (Settings → Controls: move and resize the buttons). Same rules as the other tips: journey fights of a save that
+    // gets tips (not a save from before them), once ever (stored as seen).
+    afterFight(mode) {
+      const r = this.rec();
+      if (mode !== 'arcade' || !(ND.touch && ND.touch.active) || !r || this.seen('controls') || (r.n | 0) > FIGHTS) return false;
+      const T = (ND.STR && ND.STR.tips) || {}, S = (ND.STR && ND.STR.set) || {};
+      if (typeof T.controls !== 'function' || !ND.toast) return false;
+      this.markSeen('controls');
+      ND.toast(T.controls(S.title || '', (S.tabs && S.tabs.controls) || ''), '手');
+      return true;
+    },
+  };
 })(window.ND);

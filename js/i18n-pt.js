@@ -1132,6 +1132,27 @@
           miss: 'Vamos tentar de novo.',
         },
         mastered: 'DOMINADO!', masteredSub: 'Defenda, contra-ataque, repita',
+        warm: (l) => `Aquecimento: acerte três vezes com ${l}`,
+        nudge: (k) => `Aperte ${k}`, nudgeT: (k) => `Toque em ${k}`,
+      },
+    });
+
+    // ================================================================ NEW PLAYER: the select screen's one-time greeting
+    // (game.js openSelect), the VS goal line's "?" (arcade.js openVs) and the just-in-time tips (js/coach.js ND.coach.tips;
+    // arguments: key / button chips, lessons: the menu names of Training and Tutorial). Turkish source in i18n.js.
+    merge(EN.STR, {
+      onb: { selIntro: 'Escolha seu ninja: cada um tem sua própria jornada', more: 'Detalhes' },
+      tips: {
+        head: 'DICA',
+        ki: (k) => `KI cheio! ${k}: golpe especial`,
+        gbreak: (k, h) => `Ele não para de defender: um chute ${k} ou um golpe forte ${h} enche a barra amarela e quebra a defesa`,
+        gbreakH: (h) => `Ele não para de defender: um golpe forte ${h} enche a barra amarela e quebra a defesa`,
+        posture: (g) => `Sua barra de postura está enchendo: recue ou apare com ${g}`,
+        dash: (a) => `Dois toques rápidos em ${a}: impulso`,
+        shuriken: (t) => `${t}: arremesse um shuriken`,
+        heavy: (h) => `${h}: golpe forte, mais lento, mas mais duro`,
+        lessons: (a, b) => `Todas as lições: ${a} → ${b}`,
+        controls: (a, b) => `Você pode mover os botões e mudar o tamanho deles em ${a} → ${b}`,
       },
     });
 

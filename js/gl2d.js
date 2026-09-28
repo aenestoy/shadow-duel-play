@@ -21,6 +21,9 @@
 //   - layers (ctx.layer(w, h, key)): transparent offscreen pictures (the lit fighter layers, the cast-shadow
 //     silhouettes) drawn in a first pass into one atlas and then placed with drawImage — the first pass runs before
 //     the scene pass, so the scene is never interrupted by a render-target switch
+//   - surfaces (ctx.surface(key, w, h)): offscreen pictures that are KEPT between frames (Low's backdrop, scene.js
+//     drawBackLow): the frame that draws one renders it into its own texture before the scene pass; later frames
+//     place it with drawImage without drawing it again — a picture made on the GPU, never uploaded
 // Antialiasing: multisampling (opts.samples, default 4) on both passes, resolved once per pass.
 window.ND = window.ND || {};
 (function (ND) {
@@ -411,7 +414,7 @@ window.ND = window.ND || {};
     R.spriteOk = (s) => !!s && s.gen === s.page.gen && !!s.page.tex;
     R.spriteInfo = () => ({ pages: spPages.length, sprites: spPages.reduce((n, p) => n + p.n, 0), maxPages: SP_MAX, pageSize: [SP_W, SP_H] });
     // Always-on counters (a few integer additions per upload; perf.js reads them per report window)
-    const CNT = R.count = { texNew: 0, texUp: 0, texKB: 0, texts: 0, shaders: 0, targets: 0, sprites: 0, spritePages: 0, spriteDrops: 0 };
+    const CNT = R.count = { texNew: 0, texUp: 0, texKB: 0, texts: 0, shaders: 0, targets: 0, sprites: 0, spritePages: 0, spriteDrops: 0, surfaces: 0 };
 
     // ---------------------------------------------------------------- text atlas
     // Shelves (rows) of text pictures. When the atlas is full, the least recently used shelf that no text of this
@@ -1000,8 +1003,8 @@ window.ND = window.ND || {};
       // -------------------------------------------------- images
       drawImage(img, a1, a2, a3, a4, a5, a6, a7, a8) {
         let sx, sy, sw, sh, dx, dy, dw, dh;
-        const L = img && img.__glLayer;
-        const iw = L ? img.w : img.naturalWidth || img.videoWidth || img.width, ih = L ? img.h : img.naturalHeight || img.videoHeight || img.height;
+        const L = img && img.__glLayer, SF = img && img.__glSurf;
+        const iw = L || SF ? img.w : img.naturalWidth || img.videoWidth || img.width, ih = L || SF ? img.h : img.naturalHeight || img.videoHeight || img.height;
         if (!(iw > 0 && ih > 0)) return;
         const n = arguments.length;
         if (n === 3) { sx = 0; sy = 0; sw = iw; sh = ih; dx = a1; dy = a2; dw = iw; dh = ih; }
@@ -1024,6 +1027,10 @@ window.ND = window.ND || {};
           if (img.frame !== frameNo) { fail('stale layer'); return; }
           tex = LAYER_TEX;
           u0 = (img.x + sx) / AW; u1 = (img.x + sx + sw) / AW; v0 = 1 - (img.y + sy) / AH; v1 = 1 - (img.y + sy + sh) / AH;
+        } else if (SF) {
+          if (img.rec !== frameNo && !R.surfaceOk(img)) { fail('empty surface'); return; }
+          tex = img.ent;
+          u0 = sx / iw; u1 = (sx + sw) / iw; v0 = 1 - sy / ih; v1 = 1 - (sy + sh) / ih;
         } else {
           if (!img || typeof img.width !== 'number') { fail('image source'); return; }
           const e = imageEntry(img);
@@ -1158,6 +1165,9 @@ window.ND = window.ND || {};
       // A transparent picture of w×h device pixels (like a new canvas), drawn in the first pass; place it with
       // drawImage(layer, ...). `key` keeps one context (and its Canvas state) per use across frames.
       layer(w, h, key) { return R.layer(w, h, key); }
+      // kept offscreen picture (see R.surface); surfaceOk(s): its last drawing reached the GPU (drawImage shows it)
+      surface(key, w, h) { return R.surface(key, w, h); }
+      surfaceOk(s) { return R.surfaceOk(s); }
     }
     // stroke helpers. Points are in stroke space (device px, or user space when SU); the half width is ES[15] (ES[16]
     // in device px); round pieces advance ES[17] radians per step (TOL at this width), ES[18] = cos(ES[17]),
@@ -1351,6 +1361,30 @@ window.ND = window.ND || {};
       cx.clp = null; cx.sp = 0; cx.beginPath();
       return { __glLayer: true, x: r.x, y: r.y, w, h, width: w, height: h, frame: frameNo, ctx: cx };
     };
+    // Kept offscreen pictures. R.surface(key, w, h) → { __glSurf, ctx, w, h }: this frame draws the picture again through
+    // s.ctx (a context of its own pass, 2, 3 …); run() renders it into the surface's own texture (4× multisampled,
+    // resolved) after the layer pass and before the scene pass. drawImage(s, …) samples that texture in this frame and any
+    // later one. A frame drawn with Canvas 2D instead (refused) never renders what it recorded: surfaceOk(s) is false
+    // until a frame that draws it again reaches the GPU; so is a context restore (gen).
+    const surfaces = new Map();
+    let surfPass = 2, surfRec = [], gen = 0;
+    R.surface = function (key, w, h) {
+      w = Math.max(1, Math.ceil(w)); h = Math.max(1, Math.ceil(h));
+      let sf = surfaces.get(key);
+      if (!sf) {
+        const pass = surfPass++;
+        sf = { __glSurf: true, key, pass, w, h, width: w, height: h, rec: -1, done: -1, gen: -1, ctx: null,
+          ent: { get tex() { const t = targets[pass]; return t ? t.tex : null; } } };
+        surfaces.set(key, sf);
+      }
+      sf.w = sf.width = w; sf.h = sf.height = h;
+      const cx = sf.ctx || (sf.ctx = new Ctx(sf.pass, null, w, h));
+      cx.W = w; cx.H = h; cx._canvas = { width: w, height: h };
+      cx.reset(); cx.beginPath();
+      if (sf.rec !== frameNo) { sf.rec = frameNo; surfRec.push(sf); }
+      return sf;
+    };
+    R.surfaceOk = (sf) => !!sf && sf.gen === gen && sf.done >= 0 && sf.done === sf.rec && !!targets[sf.pass];
     // Layer contexts record with the offset of their atlas slot: emit() adds ES[1..2] for pass 0 draws.
     const origPaint = Ctx.prototype._paint;
     Ctx.prototype._paint = function (style, mul) {
@@ -1367,6 +1401,7 @@ window.ND = window.ND || {};
     R.begin = function (W, H) {
       frameNo++;
       nv = 0; ni = 0; np = 0; zc = 0; cmds = []; bPass = -1; bStart = 0; bBlend = -1; bTex = null; bClip = null; bSc = null;
+      surfRec.length = 0;
       R.unsupported = '';
       // text atlas more than half full: start it again before this frame places any text (moving, growing texts
       // keep making new pictures; only the current ones are needed)
@@ -1538,7 +1573,8 @@ window.ND = window.ND || {};
       E.samples = Math.max(0, Math.min(wantSamples, max));
       if (E.samples === 1) E.samples = 0;
       E.maxSamples = max;
-      targets[0] = targets[1] = null;
+      for (const k in targets) targets[k] = null;
+      gen++; surfRec.length = 0;
       for (const e of images.values()) { e.tex = null; e.v = -1; e.pending = false; }
       images.clear(); pendingUploads = [];
       textClear(); textUploads = 0;
@@ -1555,13 +1591,14 @@ window.ND = window.ND || {};
       targets[i] = null;
     }
     // render target: MSAA renderbuffers (colour + depth/stencil) resolved into `tex`, or `tex` drawn directly
-    function target(i, w, h) {
+    // (ns: samples of this target, default E.samples)
+    function target(i, w, h, ns = E.samples) {
       let t = targets[i];
-      if (t && t.w === w && t.h === h && t.samples === E.samples) return t;
+      if (t && t.w === w && t.h === h && t.samples === ns) return t;
       freeTarget(i);
       if (P) P.targetsNew++;
       CNT.targets++;
-      t = { w, h, samples: E.samples };
+      t = { w, h, samples: ns };
       t.tex = tex2d(w, h, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, gl.LINEAR, null);
       t.fbTex = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, t.fbTex);
       gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t.tex, 0);
@@ -1618,9 +1655,10 @@ window.ND = window.ND || {};
       }
       e.v = e.nv;
     }
-    // pictures not used for 10 s are released
+    // pictures not used for 10 s are released, except those marked __glKeep (scene.js wide layer caches: a close-up
+    // band may wait longer than that for its next use) until their canvas is emptied
     function sweepImages() {
-      for (const [k, e] of images) if (frameNo - e.used > 600) { if (e.tex) gl.deleteTexture(e.tex); images.delete(k); }
+      for (const [k, e] of images) if (frameNo - e.used > 600 && !(k.__glKeep && k.width > 0)) { if (e.tex) gl.deleteTexture(e.tex); images.delete(k); }
     }
     // executes the recorded frame into target 1 (and target 0 for layers); returns the resolved scene texture
     E.run = function () {
@@ -1665,12 +1703,18 @@ window.ND = window.ND || {};
       let hasLayers = false;
       for (const c of cmds) if (c.pass === 0) { hasLayers = true; break; }
       if (hasLayers) runPass(0, AW, AH, usedW, usedH);
+      // kept offscreen pictures drawn this frame (after the layers: they may place a layer of this frame, never the
+      // scene). 4× multisampled whatever the scene uses: a kept picture is small, drawn a few times a second and then
+      // shown enlarged; its edges match Canvas 2D's anti-aliasing more closely.
+      const sns = Math.min(4, E.maxSamples | 0) > 1 ? Math.min(4, E.maxSamples | 0) : 0;
+      for (const sf of surfRec) { runPass(sf.pass, sf.w, sf.h, sf.w, sf.h, sns); sf.done = sf.rec; sf.gen = gen; CNT.surfaces++; }
+      surfRec.length = 0;
       runPass(1, R.W, R.H, R.W, R.H);
       gl.bindVertexArray(null);
       sweepImages();
     }
-    function runPass(pass, w, h, uw, uh) {
-      const t = target(pass, w, h), st = R.stats;
+    function runPass(pass, w, h, uw, uh, ns) {
+      const t = target(pass, w, h, ns), st = R.stats;
       st.passes++;
       gl.bindFramebuffer(gl.FRAMEBUFFER, t.samples ? t.fbMS : t.fbTex);
       gl.viewport(0, 0, w, h);
@@ -1765,7 +1809,9 @@ window.ND = window.ND || {};
     E.targets = targets;
     E.quad = () => { gl.bindVertexArray(quadVao); gl.drawArrays(gl.TRIANGLES, 0, 3); gl.bindVertexArray(null); };
     E.lose = function () {
-      E.ready = false; prog = quadProg = null; targets[0] = targets[1] = null;
+      E.ready = false; prog = quadProg = null;
+      for (const k in targets) targets[k] = null;
+      gen++; surfRec.length = 0;
       images.clear(); pendingUploads = []; textClear(); textUploads = 0; ramps.clear(); rampDirty = [];
       for (const p of spPages) { p.gen = -1; p.tex = null; } spPages.length = 0;
       BL.length = 0;
@@ -1777,7 +1823,8 @@ window.ND = window.ND || {};
       const s = Math.max(1, E.samples);
       const tgt = (w, h) => w * h * 4 * (E.samples ? 1 + 2 * s : 2); // resolved colour + (MSAA colour + depth/stencil) or depth/stencil
       return { imagesBytes: img, spriteBytes: spPages.length * SP_W * SP_H * 4 * 4 / 3, textAtlasBytes: TA_W * TA_H * 4, rampBytes: RAMP_W * RAMP_ROWS * 4, paintBytes: PAINT_ROWS * 32,
-        layerTargetBytes: AW && AH ? tgt(AW, AH) : 0, sceneTargetBytes: R.W ? tgt(R.W, R.H) : 0 };
+        layerTargetBytes: AW && AH ? tgt(AW, AH) : 0, sceneTargetBytes: R.W ? tgt(R.W, R.H) : 0,
+        surfaceBytes: [...surfaces.values()].reduce((n, sf) => { const t = targets[sf.pass]; return n + (t ? sf.w * sf.h * 4 * (t.samples ? 1 + 2 * t.samples : 2) : 0); }, 0) };
     };
     return R;
   };

@@ -22,12 +22,15 @@
     route(id) {
       const r = routes[id]; if (!r) return [];
       const arenas = r[1].split(' '), tasks = r[2].split(' ');
-      // difficulty ladder (2026-09, harder start): 1 Apprentice (the learning fight), 2–3 Master, 4–6 Legend,
-      // 7 Legend with +15 % health, 8 the boss (J.level / J.hp; arcade.js uses the same for legacy routes)
-      return r[0].split(' ').map((opp, k) => ({ opp, arena: arenas[k], level: J.level(k), ...(J.hp(k) ? { hp: J.hp(k) } : {}),
+      // difficulty ladder (2026-09-28, gentler early and middle): 1 Apprentice (the learning fight), 2–3 Apprentice+
+      // (ai: the Apprentice+ CPU, ai.js; score, honor and defence timing of Apprentice), 4–5 Master, 6–7 Legend (7 with
+      // +15 % health), 8 the boss (J.level / J.ai / J.hp; arcade.js uses the same for legacy routes)
+      return r[0].split(' ').map((opp, k) => ({ opp, arena: arenas[k], level: J.level(k), ...(J.ai(k) != null ? { ai: J.ai(k) } : {}), ...(J.hp(k) ? { hp: J.hp(k) } : {}),
         ...(k === 7 ? { boss: true } : {}), goal: tasks[k], need: k < 2 ? 1 : goals[tasks[k]] }));
     },
-    level(k) { return k < 1 ? 0 : k < 3 ? 1 : k < 7 ? 2 : 3; },
+    level(k) { return k < 3 ? 0 : k < 5 ? 1 : k < 7 ? 2 : 3; },
+    // the CPU's own profile where it differs from the level (an ND.AI_LEVELS key): Apprentice+ in fights 2–3
+    ai(k) { return k === 1 || k === 2 ? 0.5 : null; },
     hp(k) { return k === 6 ? 1.15 : 0; },
     count(mask) { let n = 0; for (let i = 0; i < 8; i++) if ((mask | 0) & (1 << i)) n++; return n; },
     mask(value) { return typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.min(255, Math.floor(value))) : 0; },

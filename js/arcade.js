@@ -547,7 +547,7 @@
   let mirrorT = 0;
   const mirror = (k, v) => {
     const P = ND.portal;
-    if (!P || !PORTAL_SAVE[P.name] || !P.sdk || typeof v !== 'string' || v.length > MIRROR_MAX) return;
+    if (!P || !PORTAL_SAVE[P.name] || !P.sdk || typeof v !== 'string' || v.length > MIRROR_MAX || ND.NEWPLAYER) return;
     clearTimeout(mirrorT);
     mirrorT = setTimeout(() => { try { P.save(k, v); } catch (e) { /* yok */ } }, 500);
   };
@@ -576,7 +576,7 @@
         (authored ? f.opp !== authored[k].opp || f.arena !== authored[k].arena :
           (boss ? f.opp !== BOSS : f.opp === BOSS || f.opp === id || seen.has(f.opp)))) return null;
       seen.add(f.opp);
-      fights.push(authored ? authored[k] : { opp: f.opp, arena: boss ? bossArena() : f.arena, level: boss ? 3 : Math.min(2, J.level(k)), ...(!boss && J.hp(k) ? { hp: J.hp(k) } : {}), ...(boss ? { boss: true, alt: id === BOSS } : {}) });
+      fights.push(authored ? authored[k] : { opp: f.opp, arena: boss ? bossArena() : f.arena, level: boss ? 3 : Math.min(2, J.level(k)), ...(!boss && J.ai(k) != null ? { ai: J.ai(k) } : {}), ...(!boss && J.hp(k) ? { hp: J.hp(k) } : {}), ...(boss ? { boss: true, alt: id === BOSS } : {}) });
     }
     const i = journeyNumber(r.i, 8), out = { version: authored ? J.version : 1, fights, i, won: i, done: i === 8 && r.done === true,
       needsRetry: i < 8 && !!r.needsRetry, started: i < 8 && !!r.started, contUsed: !!r.contUsed, ranked: !!r.ranked,
@@ -604,11 +604,22 @@
   function normalize(p) {
     const d = { v: 1, chars: START_CHARS.slice(), arenas: START_ARENAS.slice(), wins: 0, clears: 0, bossWins: 0, best: 0, bestBy: {}, bestTime: 0, tutorial: false, lessons: [],
       scoreV: SCORE_V, cpuBest: {}, lb: { name: '', boards: {}, last: {}, out: [], champ: [], champSeen: [], champUse: {}, title: null }, bz: { t: {}, dan: { r: 0, best: 0, strikes: 0, tries: 0, passes: 0 } },
-      hon: { t: 0, f: {} }, journey: { runs: {}, cleared: {}, stars: {}, mastered: {}, looks: {} }, trials: {}, coached: false };
+      hon: { t: 0, f: {} }, journey: { runs: {}, cleared: {}, stars: {}, mastered: {}, looks: {} }, trials: {}, coached: false,
+      // new player (2026-09-28): fought = a fight was played to its end (until then PLAY goes straight into journey
+      // fight 1, game.js playJourney); selIntro = the select screen's "choose your ninja" highlight was shown;
+      // tips = just-in-time tips (js/coach.js ND.coach.tips): journey fights with tips so far, tips already shown
+      fought: false, selIntro: false, tips: { n: 0, seen: {} } };
     if (!p || typeof p !== 'object') return d;
     const o = Object.assign(d, p);
     // Saves from before the coach moved to the journey: anyone past the first screen has already had it.
     if (typeof p.coached !== 'boolean') o.coached = !!p.firstDone;
+    // Saves from before the new-player path: a player past the first screen keeps the usual flow (select, VS), sees no
+    // select highlight and gets no tips (a player past the first fight's coach already knows the basics)
+    if (typeof p.fought !== 'boolean') o.fought = !!(p.firstDone || p.coached || p.wins > 0);
+    if (typeof p.selIntro !== 'boolean') o.selIntro = !!p.firstDone;
+    const tp = p.tips && typeof p.tips === 'object' && !Array.isArray(p.tips) ? p.tips : null, TIPS = ['ki', 'gbreak', 'posture', 'dash', 'shuriken', 'heavy', 'lessons', 'controls'];
+    o.tips = { n: tp ? Math.max(0, Math.min(999, Math.floor(+tp.n) || 0)) : o.coached ? 999 : 0, seen: {} };
+    if (tp && tp.seen && typeof tp.seen === 'object') for (const k of TIPS) if (tp.seen[k]) o.tips.seen[k] = 1;
     for (const k of ['chars', 'arenas', 'lessons']) if (!Array.isArray(o[k])) o[k] = d[k].slice();
     START_CHARS.forEach((c) => { if (!o.chars.includes(c)) o.chars.push(c); });
     START_ARENAS.forEach((a) => { if (!o.arenas.includes(a)) o.arenas.push(a); });
@@ -684,7 +695,7 @@
     // Boot: adopt the portal copy when it is newer (another device), otherwise upload ours
     syncPortal() {
       const P = ND.portal;
-      if (!P || !P.ready) return;
+      if (!P || !P.ready || ND.NEWPLAYER) return; // ?newplayer=1 (core.js): the portal's copy of the real save stays untouched
       P.ready.then(() => (P.sdk && PORTAL_SAVE[P.name] ? P.load(PKEY) : undefined)).then((remote) => {
         if (!P.sdk || !PORTAL_SAVE[P.name]) return;
         let r = null;
@@ -1066,7 +1077,8 @@
     },
 
     // Each character keeps a separate route. Replaying a completed route is an explicit ending-screen action.
-    begin(ci, replay = false) {
+    // direct: straight into the fight, no VS screen (the new player's first fight: quickStart)
+    begin(ci, replay = false, direct = false) {
       const me = ND.CHARS[ci];
       const saved = save.p.journey.runs[me.id];
       if (saved && !replay) {
@@ -1074,13 +1086,21 @@
           fightPts: saved.fightPts.slice(), unlocked: saved.unlocked.map((e) => ({ ...e })), needsRetry: saved.needsRetry || saved.started, started: false, last: null, cur: null };
         this.G.runner = this;
         if (this.run.i >= this.run.fights.length) return this.showEnding();
-        return this.openVs();
+        return direct ? this.fight() : this.openVs();
       }
       const fights = J.route(me.id).map((f) => ({ ...f, opp: ND.CHARS.findIndex((c) => c.id === f.opp) }));
       this.run = { version: J.version, me: ci, fights, i: 0, time: 0, score: 0, retries: 0, perfect: 0, won: 0, last: null, cur: null, unlocked: [], rounds: 0, rw: 0, hits: 0 };
       this.G.runner = this;
       this.checkpoint();
+      if (direct) return this.fight();
       this.openVs();
+    },
+    // A new save's PLAY (game.js playJourney, until the first fight is played to its end): this ninja's journey
+    // fight 1 at once, in its own arena, without the select and VS screens. It is the journey's own fight 1: the run,
+    // checkpoint, score, honor and star count as usual, and the rally tutorial starts in it (fight()).
+    quickStart(ci) {
+      ND.funnel?.step('direct');
+      this.begin(ci, false, true);
     },
 
     get fightInfo() { const R = this.run; return R ? R.fights[R.i] : null; },
@@ -1106,11 +1126,25 @@
       const arena = ND.ARENAS.find((a) => a.id === F.arena);
       $('vsStage').textContent = R.version === J.version ? (F.boss ? J.text().rival : J.text().stage + ' ' + (R.i + 1) + ' / 8') + ' · ' + J.text().titles[me.id] : F.boss ? STR.vs.boss : STR.vs.stage(R.i + 1, R.fights.length);
       $('vsArena').innerHTML = arena ? `<b>${esc(arena.kanji)}</b>${esc(arena.name)}` : '';
-      $('vsLevel').textContent = (ND.AI_LEVELS[F.level] || ND.AI_LEVELS[1]).name + (F.hp > 1 && STR.bz && STR.bz.hpBonus ? ' · ' + STR.bz.hpBonus(Math.round((F.hp - 1) * 100)) : '');
+      $('vsLevel').textContent = (ND.AI_LEVELS[F.ai ?? F.level] || ND.AI_LEVELS[1]).name + (F.hp > 1 && STR.bz && STR.bz.hpBonus ? ' · ' + STR.bz.hpBonus(Math.round((F.hp - 1) * 100)) : '');
       $('vsQuit').textContent = STR.vs.quit; // VS ekranı turnuva/Dan ile paylaşılır
       const vm = $('vsMods'); if (vm) vm.hidden = true;
       const objective = $('journeyVs');
-      if (objective) { objective.hidden = !F.goal; objective.textContent = F.goal ? '☆ ' + J.text().optional + ' · ' + J.text().goals[F.goal] + ': ' + F.need + ' — ' + J.text().win : ''; }
+      if (objective) {
+        // one short line ("☆ Parry: 1"); the full sentence ("Optional mastery · … — win to keep the star") behind "?"
+        // (and in its title). Chapter 1, the learning fight, shows none (the journey panel on the select screen has it).
+        const T = J.text(), show = !!F.goal && R.i > 0;
+        objective.hidden = !show; objective.textContent = ''; objective.classList.remove('open');
+        if (show) {
+          const short = '☆ ' + T.goals[F.goal] + ': ' + F.need, full = '☆ ' + T.optional + ' · ' + T.goals[F.goal] + ': ' + F.need + ' — ' + T.win;
+          const s = document.createElement('span'), b = document.createElement('button');
+          s.textContent = short;
+          b.type = 'button'; b.className = 'jv-more'; b.textContent = '?'; b.title = full;
+          b.setAttribute('aria-label', (STR.onb && STR.onb.more) || '?'); b.setAttribute('aria-expanded', 'false');
+          b.onclick = (e) => { e.stopPropagation(); const open = objective.classList.toggle('open'); s.textContent = open ? full : short; b.setAttribute('aria-expanded', String(open)); };
+          objective.append(s, b);
+        }
+      }
       $('vsKeys').innerHTML = STR.pickT(STR.vs.keys, '');
       $('vsLadder').innerHTML = R.fights.map((f, k) => {
         const ch = ND.CHARS[f.opp], cls = k < R.i ? 'done' : k === R.i ? 'cur' : '';
@@ -1147,7 +1181,7 @@
       R.cur = { t: 0, lost: 0, perfect: 0, metrics: {} };
       this.checkpoint();
       ND.audio.gong();
-      this.G.start('arcade', { c1: R.me, c2: F.opp, arena: F.arena, level: F.level, oppHp: F.hp || null });
+      this.G.start('arcade', { c1: R.me, c2: F.opp, arena: F.arena, level: F.level, ai: F.ai, oppHp: F.hp || null });
       // The very first journey fight of a new save starts with the rally tutorial (js/tutorial.js: defend → counter →
       // defend → counter, three passes); when it is mastered it marks the save as coached and hands over to the coach's
       // attack / combo tips. Quitting before that shows it again on the next try. Without tutorial.js: the five-tip coach.
@@ -1190,7 +1224,7 @@
     hudTags() {
       const R = this.run, F = R && R.fights[R.i];
       if (!F) return [STR.hud.you, STR.hud.cpu];
-      const lv = ND.i18n ? ND.i18n.upper((ND.AI_LEVELS[F.level] || ND.AI_LEVELS[1]).name) : (ND.AI_LEVELS[F.level] || ND.AI_LEVELS[1]).name.toUpperCase();
+      const L = ND.AI_LEVELS[F.ai ?? F.level] || ND.AI_LEVELS[1], lv = ND.i18n ? ND.i18n.upper(L.name) : L.name.toUpperCase();
       return [STR.hud.you + ' · ' + STR.hud.stage(R.i + 1, R.fights.length), F.boss ? (R.version === J.version ? J.text().rival : STR.hud.boss) : STR.hud.cpu + ' · ' + lv];
     },
 
@@ -1234,6 +1268,7 @@
           save.recordWin(); if (F.boss) this.complete(); else this.checkpoint();
         });
         if (G.showScore) G.showScore(res, { note: STR.score.arcadeTotal(R.score) });
+        if (ND.coach && ND.coach.tips) ND.coach.tips.afterWin();
         if (F.boss) { setTimeout(() => { if (this.run === R && G.phase === 'end') this.showEnding(); }, 900); return true; }
         $('endK').textContent = '勝利';
         $('endTitle').textContent = E.winTitle;

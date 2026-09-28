@@ -1,5 +1,8 @@
 // Shadow Duel — first-fight rally tutorial (ND.tutor): "defend → counter → defend → counter", three passes.
 //
+//   0. warm-up (the new player's first fight and ?tutorial=1, not the drill): the fight opens with a short "Fight!"
+//      (game.js, tutor.quick) and the player's ATTACK is live at once: WARM blows on the CPU, which stands still and
+//      steps back into reach after each one. Then the passes.
 //   1. freeze: the CPU makes a slow, clear cut; just before it lands the game stops (the game's own time stop, not the
 //      pause) and DEFEND! + the guard key / button pulses. Only a guard press lets time run again, and that press is
 //      held for the player until the blade lands, so it always ends in a parry (the deflection plays). Then the game
@@ -36,7 +39,12 @@
   const GAP = 105;     // distance between the fighters when the CPU cuts (the rally's recoils push them apart)
   const LEAD = 0.03;   // freeze this long (game s) before the CPU blade's active window
   const RING = 0.6;    // the DEFEND ring closes over this many game seconds
-  const CARD = 2;      // real seconds the pass card is up before the first cut of a pass
+  const CARD = 1.4;    // real seconds the pass card is up before the first cut of the slow / full-speed pass (and the drill's first)
+  const CARD0 = 0.6;   // … of the freeze pass after the warm-up (the fighters walk into place meanwhile)
+  const WARM = 3;      // warm-up: blows the player lands on the standing CPU before the first freeze
+  const REACH = 85;    // warm-up: the CPU steps back to this distance after each blow (inside every ninja's light reach)
+  const NUDGE = 3.5;   // real seconds one button may be awaited (freeze, warm-up) before the nudge: bigger, pointing,
+  //                      and on a touch screen any tap on the pad counts as that button (Ctrl.maskAlias, input.js)
   const HOLD = 0.24;   // a guard press is kept down this long (game s) in the slow and full-speed passes
   // beats: 0 = defend the CPU cut, 1 = counter, 2 = defend the CPU's counter, 3 = counter that lands
   const STR = () => (ND.STR && ND.STR.tutor) || {};
@@ -48,6 +56,7 @@
     on: false, G: null, opts: {}, forced: FORCED, forcedUsed: false,
     pass: 0, beat: 0, from: 0, ph: 'off', phT: 0, card: 0, cardNeed: 0, frozen: null, prompt: null, contactAt: 0, fails: 0, done: 0,
     assist: null, taps: [], msg: null, msgT: 0, shownKey: '', anim: 0, mask: null, tzNow: 1, log: null, boxB: 0, boxT: 0,
+    warm: false, warmHits: 0, quick: false, waitT: 0, nudge: false, btnXY: null,
 
     // ---------------------------------------------------------------- lifecycle
     // opts: { first } new player's first journey fight · { drill } Training → Parry drill · { forced } ?tutorial=1
@@ -57,6 +66,9 @@
       this.G = G; this.on = true; this.opts = opts || {};
       this.pass = 0; this.beat = 0; this.from = 0; this.fails = 0; this.done = 0;
       this.frozen = null; this.prompt = null; this.assist = null; this.taps.length = 0; this.msg = null; this.shownKey = '';
+      // the first-fight tutorial (and ?tutorial=1) opens with the warm-up and a short round intro; the drill does not
+      this.warm = this.quick = !!(this.opts.first || this.opts.forced);
+      this.warmHits = 0; this.waitT = 0; this.nudge = false; this.btnXY = null;
       this.set('wait');
       if (this.opts.first && ND.funnel) ND.funnel.step('tut');
       this.lv0 = G.matchLevel; G.matchLevel = 0;
@@ -64,8 +76,11 @@
       this.score0 = sc ? { on: !!sc.on, level: sc.level } : null;
       if (sc && sc.on) sc.off();
       const [f1, f2] = G.F;
-      f1.ctrl.noTap0 = f1.ctrl.noTap; f2.ctrl.noTap0 = f2.ctrl.noTap;
-      f1.ctrl.noTap = true; f2.ctrl.noTap = true; // walking the fighters into place must never read as a double-tap dash
+      // walking the fighters into place must never read as a double-tap dash. The previous value is kept as a boolean:
+      // the player's controller has no noTap at all (undefined), and an undefined copy used to be skipped by cleanup(),
+      // which left the double-tap dash off for the rest of the page load after every tutorial.
+      f1.ctrl.noTap0 = !!f1.ctrl.noTap; f2.ctrl.noTap0 = !!f2.ctrl.noTap;
+      f1.ctrl.noTap = true; f2.ctrl.noTap = true;
       for (const ai of G.ais || []) if (ai && ai.releaseAll) ai.releaseAll();
       this.setMask(null);
     },
@@ -83,10 +98,10 @@
           for (const a of ALL) c.release(a, 'tut');
           if (c.noTap0 !== undefined) { c.noTap = c.noTap0; delete c.noTap0; }
         }
-        G.F[0].ctrl.mask = null;
+        G.F[0].ctrl.mask = null; G.F[0].ctrl.maskAlias = null;
         if (G.matchLevel === 0 && this.lv0 != null) G.matchLevel = this.lv0;
       }
-      this.mask = null; this.frozen = null; this.prompt = null; this.assist = null; this.taps.length = 0;
+      this.mask = null; this.frozen = null; this.prompt = null; this.assist = null; this.taps.length = 0; this.nudge = false; this.waitT = 0; this.quick = false;
       this.showBox(null);
       this.touchMark(null);
     },
@@ -140,7 +155,7 @@
     note(ev) {
       if (this.log) this.log.push(ev);
       // new-player funnel (js/funnel.js): the passes of the first fight's tutorial
-      if (this.opts.first && ND.funnel) { const k = { 'pass:1': 'tut1', 'pass:2': 'tut2', mastered: 'tut3' }[ev]; if (k) ND.funnel.step(k); }
+      if (this.opts.first && ND.funnel) { const k = { 'warm:done': 'warm', 'pass:1': 'tut1', 'pass:2': 'tut2', mastered: 'tut3' }[ev]; if (k) ND.funnel.step(k); }
     },
     device() {
       if (ND.touch && ND.touch.active) return 'touch';
@@ -160,7 +175,7 @@
       return this.device() === 'touch' ? `<i class="tb ${act === 'guard' ? 'tb-guard' : 'tb-light'}">${esc(this.label(act))}</i>` : `<kbd>${esc(this.label(act))}</kbd>`;
     },
     refill() {
-      for (const f of this.G.F) { f.hp = f.maxHp; f.ghost = f.maxHp; f.posture = 0; f.damageTaken = 0; }
+      for (const f of this.G.F) { f.hp = f.maxHp; f.ghost = f.maxHp; f.posture = 0; f.damageTaken = 0; f.ki = 0; } // (ki too: the warm-up's blows fill it, and a full bar changes the lesson's counters)
       this.hp1 = this.G.F[0].hp; this.hp2 = this.G.F[1].hp;
     },
     releaseAll() { for (const f of this.G.F) for (const a of ALL) f.ctrl.release(a, 'tut'); this.assist = null; this.holdUntil = 0; },
@@ -198,11 +213,45 @@
 
     step(G, rdt) {
       const [f1, f2] = G.F, P = PASSES[this.pass], slow = this.mine() ? P.tz : 1;
+      // one button awaited (a freeze, the warm-up): after NUDGE real seconds without it, the nudge
+      const waiting = !!this.frozen || (this.ph === 'warm' && this.warmHits < WARM);
+      this.waitT = waiting ? this.waitT + rdt : 0;
+      this.nudge = waiting && this.waitT >= NUDGE;
+      f1.ctrl.maskAlias = this.nudge && this.device() === 'touch' ? this.frozen || 'light' : null;
       switch (this.ph) {
         case 'wait':
           this.refill();
+          if (this.warm && this.warmHits < WARM) {
+            this.set('warm'); this.hp2 = f2.hp; this.lightBuf = f1.ctrl.buf.light; this.prompt = 'light'; this.waitT = 0;
+            this.setMask(['light']);
+            return 1;
+          }
           this.set('arrange'); this.card = 0; this.cardNeed = CARD;
           return 1;
+
+        // warm-up: the CPU stands (its AI sleeps and the tutor does not swing), steps back into reach after each blow,
+        // and only ATTACK is live; WARM landed blows (a quick three-hit string does it), then the freeze pass
+        case 'warm': {
+          // (after the last blow ATTACK goes dead, so a player who keeps pressing does not chain forever)
+          const more = this.warmHits < WARM;
+          this.setMask(more ? ['light'] : null);
+          this.prompt = more ? 'light' : null;
+          const c = f1.ctrl;
+          if (c.buf.light != null && c.buf.light !== this.lightBuf) { this.lightBuf = c.buf.light; this.waitT = 0; this.nudge = false; }
+          if (f2.hp < this.hp2) { this.warmHits++; this.note('warm:hit'); this.ok(); }
+          this.hp2 = f2.hp;
+          const side = f2.x >= f1.x ? 1 : -1, A = ND.ARENA || 880;
+          if (f2.state === 'move' && f2.onGround) this.walk(f2, clamp(f1.x + side * REACH, -A + 30, A - 30));
+          else { this.hold(f2, 'left', false); this.hold(f2, 'right', false); }
+          if (this.warmHits >= WARM && f1.state !== 'atk') {
+            for (const a of ['left', 'right']) this.hold(f2, a, false);
+            this.prompt = null; this.nudge = false; this.waitT = 0;
+            this.setMask(null);
+            this.note('warm:done');
+            this.set('arrange'); this.card = 0; this.cardNeed = CARD0;
+          }
+          return 1;
+        }
 
         // both walk (the tutor's own presses) to GAP apart; the pass card is read meanwhile
         case 'arrange': {
@@ -210,7 +259,10 @@
           this.card += rdt;
           const side = f2.x >= f1.x ? 1 : -1, A = ND.ARENA || 880;
           const gap = this.gap || GAP, c = clamp((f1.x + f2.x) / 2, -A + gap, A - gap);
-          const done1 = this.walk(f1, c - side * gap / 2), done2 = this.walk(f2, c + side * gap / 2);
+          // (a small offset does not start a walk, but the two small offsets must not add up: after the warm-up the
+          // fighters can stand 30 px too far apart, and a short-reach counter then misses)
+          const tol = Math.abs(Math.abs(f2.x - f1.x) - gap) > 12 ? 6 : 18;
+          const done1 = this.walk(f1, c - side * gap / 2, tol), done2 = this.walk(f2, c + side * gap / 2, tol);
           const idle = f1.state === 'move' && f2.state === 'move' && f1.onGround && f2.onGround;
           if (!idle) this.phT = 0;
           const ready = idle && ((done1 && done2 && Math.abs(f1.vx) < 30 && Math.abs(f2.vx) < 30) || this.phT > 3);
@@ -337,10 +389,10 @@
       return (w ? w[0] : 0.13) / (f.ch.spd || 1);
     },
 
-    walk(f, tx) {
+    walk(f, tx, tol = 18) {
       const dx = tx - f.x, far = Math.abs(dx);
       const hl = f.ctrl.srcs.left && f.ctrl.srcs.left.has('tut'), hr = f.ctrl.srcs.right && f.ctrl.srcs.right.has('tut');
-      if (far <= 5 || (!hl && !hr && far < 18)) { if (hl) this.hold(f, 'left', false); if (hr) this.hold(f, 'right', false); return true; }
+      if (far <= 5 || (!hl && !hr && far < tol)) { if (hl) this.hold(f, 'left', false); if (hr) this.hold(f, 'right', false); return true; }
       const want = dx > 0 ? 'right' : 'left', other = dx > 0 ? 'left' : 'right';
       if (f.ctrl.srcs[other] && f.ctrl.srcs[other].has('tut')) this.hold(f, other, false);
       if (!(f.ctrl.srcs[want] && f.ctrl.srcs[want].has('tut'))) this.hold(f, want, true);
@@ -386,7 +438,7 @@
       if (freezePass) {
         if (this.frozen === 'guard') {
           if (c.buf.guard != null) { // pressed: time runs again and the guard is held until the blade lands
-            this.frozen = null; this.assist = 'guard'; this.prompt = null;
+            this.frozen = null; this.assist = 'guard'; this.prompt = null; this.nudge = false; this.waitT = 0; c.maskAlias = null;
             this.note('press:guard');
             this.ok();
           } else return 0;
@@ -426,7 +478,7 @@
       }
       if (this.pass === 0) {
         if (this.frozen === 'light') {
-          if (c.buf.light != null) { this.frozen = null; this.assist = 'light'; this.note('press:light'); this.ok(); }
+          if (c.buf.light != null) { this.frozen = null; this.assist = 'light'; this.nudge = false; this.waitT = 0; c.maskAlias = null; this.note('press:light'); this.ok(); }
           else return 0;
         }
         if (this.assist === 'light') { c.buf.light = now(); this.setMask(['light']); return 1; }
@@ -441,7 +493,7 @@
 
     freeze(act) {
       const G = this.G, c = G.F[0].ctrl;
-      this.frozen = act; this.prompt = act;
+      this.frozen = act; this.prompt = act; this.waitT = 0; this.nudge = false;
       this.setMask([act]);
       c.buf[act] = null;      // only a press made now counts
       G.dim = Math.max(G.dim || 0, 0.5);
@@ -459,7 +511,10 @@
       const S = STR(), dev = this.device();
       let key = '', html = '';
       if (this.ph === 'mastered') key = '';
-      else if (this.ph === 'fail' && this.msg) {
+      else if (this.ph === 'warm') {
+        key = 'w:' + this.warmHits + dev;
+        html = `<b>${Math.min(this.warmHits, WARM)}/${WARM}</b><span>${typeof S.warm === 'function' ? S.warm(this.chip('light')) : ''}</span>`;
+      } else if (this.ph === 'fail' && this.msg) {
         key = 'f:' + this.msg + dev;
         html = `<b>${this.pass + 1}/3</b><span>${(S.fail && S.fail[this.msg]) || ''}</span>`;
       } else {
@@ -469,7 +524,19 @@
       }
       if (key !== this.shownKey) { this.shownKey = key; this.showBox(key ? html : null, key[0] === 'f'); this.boxT = 0; }
       if ((this.boxT -= rdt) <= 0) { this.boxT = 1; this.measureBox(); }
+      if (this.nudge && dev === 'touch' && (this.frozen || this.prompt) && (!this.btnXY || this.btnXY.act !== (this.frozen || this.prompt) || (this.btnT -= rdt) <= 0)) this.measureBtn(this.frozen || this.prompt);
       this.touchMark(dev === 'touch' && (this.frozen || this.prompt) ? this.frozen || this.prompt : null);
+    },
+    // the touch button to press, in canvas pixels (the nudge's arrow points at it); read once a second
+    measureBtn(act) {
+      this.btnT = 1; this.btnXY = null;
+      const t = $('touch'), cv = $('cv'), G = this.G;
+      if (!t || t.hidden || !cv || !t.querySelector) return;
+      const b = t.querySelector(act === 'guard' ? '.ta-guard, .td-d' : '.ta-light');
+      if (!b || !b.getBoundingClientRect) return;
+      const r = b.getBoundingClientRect(), c = cv.getBoundingClientRect(), k = (G && G.pxr) || 1;
+      if (r.width < 2) return;
+      this.btnXY = { act, x: (r.left + r.width / 2 - c.left) * k, y: (r.top + r.height / 2 - c.top) * k };
     },
     // bottom of the tip box in canvas pixels when it is in the upper half (touch), so the prompt keeps below it
     measureBox() {
@@ -487,32 +554,37 @@
       el.hidden = false; el.classList.toggle('warn', !!warn); el.classList.remove('in'); void el.offsetWidth; el.classList.add('in');
     },
     // touch: the button to press glows and grows (#touch[data-tutor] in index.html); bigger while time is stopped
+    // ("… stop") and bigger still with the nudge ("… nudge")
     touchMark(act) {
       const t = $('touch');
       if (!t) return;
-      const v = act ? act + (this.frozen ? ' stop' : '') : '';
+      const v = act ? act + (this.frozen ? ' stop' : '') + (this.nudge ? ' nudge' : '') : '';
       if ((t.dataset.tutor || '') === v) return;
       if (v) t.dataset.tutor = v; else delete t.dataset.tutor;
     },
 
     // ---------------------------------------------------------------- canvas prompt over the player's fighter
-    // DEFEND! / ATTACK! with the key chip; while time is stopped it pulses, in the slow and full-speed passes a ring
-    // closes on the moment to press (full speed: chip and ring only, a small reminder)
+    // DEFEND! / ATTACK! with the key chip; while time is stopped (and in the warm-up) it pulses, in the slow and
+    // full-speed passes a ring closes on the moment to press (full speed: chip and ring only, a small reminder).
+    // The nudge (NUDGE s without the awaited press): bigger, a stronger pulse, "Press S" / "Tap GUARD" under the chip
+    // and an arrow bouncing toward the key chip (touch: toward the button on the pad).
     draw(ctx) {
       const G = this.G, act = this.frozen || this.prompt;
       if (!this.on || !act || !G || G.phase !== 'fight' || G.paused) return;
       const cam = ND.cam, f = G.F[0];
       if (!cam || !f || f.dead) return;
       const S = STR(), guard = act === 'guard', col = guard ? '150,210,255' : '255,210,122';
+      const steady = !!this.frozen || this.ph === 'warm', nudge = this.nudge && steady;
       let frac = 1;
-      if (!this.frozen) {
+      if (!steady) {
         if (guard) frac = clamp((this.contactAt - G.clock) / RING, 0, 1);
         else frac = clamp((f.counterUntil - G.clock) / (f.counterWin || 0.5), 0, 1);
       }
       const tch = this.device() === 'touch';
-      let k = Math.max(cam.s, 0.7) * (this.pass === 2 && !this.frozen ? 0.95 : 1.3);
-      if (tch) k = Math.max(k, (G.pxr || 1) * (this.pass === 2 ? 0.85 : 1.1));
-      const pulse = this.frozen ? 1 + 0.09 * Math.sin(this.anim * 9) : 1;
+      let k = Math.max(cam.s, 0.7) * (this.pass === 2 && !steady ? 0.95 : 1.3);
+      if (tch) k = Math.max(k, (G.pxr || 1) * (this.pass === 2 && !steady ? 0.85 : 1.1));
+      if (nudge) k *= 1.2;
+      const pulse = steady ? 1 + (nudge ? 0.16 : 0.09) * Math.sin(this.anim * (nudge ? 7 : 9)) : 1;
       // over the head; when that runs into the HUD or the tip box, beside the fighter (away from the opponent)
       const top = Math.max(cam.H * 0.2, this.boxB || 0) + 30 * k;
       let x = cam.sx(f.x), y = cam.sy(f.y - 205) - 70 * k;
@@ -526,8 +598,8 @@
       // ring: closes on the moment (or a steady halo while frozen)
       const R0 = 17 * k;
       ctx.lineWidth = 3 * k;
-      ctx.strokeStyle = `rgba(${col},${this.frozen ? 0.55 + 0.35 * Math.sin(this.anim * 9) : 0.35 + 0.65 * (1 - frac)})`;
-      ctx.beginPath(); ctx.arc(x, ky, this.frozen ? R0 * 1.9 * pulse : R0 + 44 * k * frac, 0, 6.283); ctx.stroke();
+      ctx.strokeStyle = `rgba(${col},${steady ? 0.55 + 0.35 * Math.sin(this.anim * 9) : 0.35 + 0.65 * (1 - frac)})`;
+      ctx.beginPath(); ctx.arc(x, ky, steady ? R0 * 1.9 * pulse : R0 + 44 * k * frac, 0, 6.283); ctx.stroke();
       // key chip
       ctx.font = `700 ${Math.round(16 * k * pulse)}px Oswald, sans-serif`;
       const kw = Math.max(30 * k, ctx.measureText(key).width + 16 * k), kh = 26 * k;
@@ -535,15 +607,46 @@
       rr(ctx, x - kw / 2 * pulse, ky - kh / 2 * pulse, kw * pulse, kh * pulse, 6 * k); ctx.fill(); ctx.stroke();
       ctx.fillStyle = `rgb(${col})`; ctx.fillText(key, x, ky + k);
       // the word (not in the full-speed pass unless time is stopped)
-      if (this.pass < 2 || this.frozen) {
+      if (this.pass < 2 || steady) {
         const word = guard ? S.defend || 'DEFEND!' : S.attack || 'ATTACK!';
         ctx.font = `700 ${Math.round(32 * k * pulse)}px Oswald, sans-serif`;
         ctx.lineWidth = 6 * k; ctx.strokeStyle = 'rgba(5,6,12,.92)';
         ctx.strokeText(word, x, y - 6 * k); ctx.fillStyle = `rgb(${col})`; ctx.fillText(word, x, y - 6 * k);
       }
+      if (nudge) {
+        // "Press S" / "Tap GUARD" under the chip
+        const say = tch ? S.nudgeT : S.nudge, line = typeof say === 'function' ? say(key) : '';
+        if (line) {
+          ctx.font = `600 ${Math.round(14 * k)}px Oswald, sans-serif`;
+          ctx.lineWidth = 4 * k; ctx.strokeStyle = 'rgba(5,6,12,.92)';
+          ctx.strokeText(line, x, ky + 30 * k); ctx.fillStyle = '#f1d69c'; ctx.fillText(line, x, ky + 30 * k);
+        }
+        // the arrow: at the chip's left, pointing at it; on touch from the chip toward the button on the pad
+        const B = tch && this.btnXY && this.btnXY.act === act ? this.btnXY : null;
+        let dx = 1, dy = 0, ax = x - (kw / 2 + 46 * k), ay = ky;
+        if (B) {
+          const d = Math.hypot(B.x - x, B.y - ky) || 1;
+          dx = (B.x - x) / d; dy = (B.y - ky) / d;
+          const run = Math.min(d * 0.55, 160 * k);
+          ax = x + dx * (run - 30 * k); ay = ky + dy * (run - 30 * k);
+        }
+        const bob = Math.sin(this.anim * 8) * 7 * k;
+        arrow(ctx, ax + dx * bob, ay + dy * bob, dx, dy, 30 * k, `rgb(${col})`);
+      }
       ctx.restore();
     },
   };
+  // an arrow whose tip is at (x, y) + (dx, dy)·len/2, pointing along (dx, dy)
+  function arrow(ctx, x, y, dx, dy, len, col) {
+    const nx = -dy, ny = dx, h = len / 2, w = len * 0.28;
+    const tx = x + dx * h, ty = y + dy * h, bx = x - dx * h, by = y - dy * h, hx = tx - dx * len * 0.45, hy = ty - dy * len * 0.45;
+    ctx.beginPath();
+    ctx.moveTo(tx, ty); ctx.lineTo(hx + nx * w * 1.7, hy + ny * w * 1.7); ctx.lineTo(hx + nx * w * 0.55, hy + ny * w * 0.55);
+    ctx.lineTo(bx + nx * w * 0.55, by + ny * w * 0.55); ctx.lineTo(bx - nx * w * 0.55, by - ny * w * 0.55);
+    ctx.lineTo(hx - nx * w * 0.55, hy - ny * w * 0.55); ctx.lineTo(hx - nx * w * 1.7, hy - ny * w * 1.7); ctx.closePath();
+    ctx.lineWidth = Math.max(2, len * 0.12); ctx.strokeStyle = 'rgba(5,6,12,.92)'; ctx.stroke();
+    ctx.fillStyle = col; ctx.fill();
+  }
   function rr(ctx, x, y, w, h, r) {
     ctx.beginPath(); ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r); ctx.lineTo(x + w, y + h - r);
     ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h); ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r); ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y); ctx.closePath();

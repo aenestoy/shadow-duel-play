@@ -1129,6 +1129,27 @@
           miss: 'On réessaie.',
         },
         mastered: 'MAÎTRISÉ\u202F!', masteredSub: 'Défends, riposte, recommence',
+        warm: (l) => `Échauffement\u00A0: frappe trois fois avec ${l}`,
+        nudge: (k) => `Appuie sur ${k}`, nudgeT: (k) => `Touche ${k}`,
+      },
+    });
+
+    // ================================================================ NEW PLAYER: the select screen's one-time greeting
+    // (game.js openSelect), the VS goal line's "?" (arcade.js openVs) and the just-in-time tips (js/coach.js ND.coach.tips;
+    // arguments: key / button chips, lessons: the menu names of Training and Tutorial). Turkish source in i18n.js.
+    merge(EN.STR, {
+      onb: { selIntro: 'Choisis ton ninja\u00A0: chacun a son propre voyage', more: 'Détails' },
+      tips: {
+        head: 'ASTUCE',
+        ki: (k) => `KI plein\u202F! ${k}\u00A0: coup spécial`,
+        gbreak: (k, h) => `Il reste en garde\u00A0: un coup de pied ${k} ou un coup lourd ${h} remplit sa barre jaune et brise sa garde`,
+        gbreakH: (h) => `Il reste en garde\u00A0: un coup lourd ${h} remplit sa barre jaune et brise sa garde`,
+        posture: (g) => `Ta barre de posture se remplit\u00A0: recule, ou pare avec ${g}`,
+        dash: (a) => `Deux fois vite ${a}\u00A0: ruée`,
+        shuriken: (t) => `${t}\u00A0: lance un shuriken`,
+        heavy: (h) => `${h}\u00A0: coup lourd, plus lent mais plus fort`,
+        lessons: (a, b) => `Toutes les leçons\u00A0: ${a} → ${b}`,
+        controls: (a, b) => `Tu peux déplacer et redimensionner les boutons\u00A0: ${a} → ${b}`,
       },
     });
 

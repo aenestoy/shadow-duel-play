@@ -1132,6 +1132,27 @@
           miss: 'Versuchen wir das noch einmal.',
         },
         mastered: 'GEMEISTERT!', masteredSub: 'Abwehren, kontern, wiederholen',
+        warm: (l) => `Aufwärmen: dreimal mit ${l} treffen`,
+        nudge: (k) => `Drücke ${k}`, nudgeT: (k) => `Tippe auf ${k}`,
+      },
+    });
+
+    // ================================================================ NEW PLAYER: the select screen's one-time greeting
+    // (game.js openSelect), the VS goal line's "?" (arcade.js openVs) and the just-in-time tips (js/coach.js ND.coach.tips;
+    // arguments: key / button chips, lessons: the menu names of Training and Tutorial). Turkish source in i18n.js.
+    merge(EN.STR, {
+      onb: { selIntro: 'Wähle deinen Ninja: Jeder hat seine eigene Reise', more: 'Details' },
+      tips: {
+        head: 'TIPP',
+        ki: (k) => `KI voll! ${k}: Spezialangriff`,
+        gbreak: (k, h) => `Er bleibt in Deckung: ${k} Tritt oder ${h} schwerer Hieb füllt seine gelbe Leiste und bricht die Deckung`,
+        gbreakH: (h) => `Er bleibt in Deckung: ${h} schwerer Hieb füllt seine gelbe Leiste und bricht die Deckung`,
+        posture: (g) => `Deine Haltungsleiste füllt sich: zieh dich zurück oder pariere mit ${g}`,
+        dash: (a) => `Zweimal schnell ${a}: Sprint`,
+        shuriken: (t) => `${t}: Shuriken werfen`,
+        heavy: (h) => `${h}: schwerer Hieb, langsamer, aber härter`,
+        lessons: (a, b) => `Alle Lektionen: ${a} → ${b}`,
+        controls: (a, b) => `Tasten verschieben und ihre Größe ändern: ${a} → ${b}`,
       },
     });
 

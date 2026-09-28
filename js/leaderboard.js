@@ -1046,6 +1046,9 @@
   let cur = localAdapter, connTok = 0, settleRes = null, flushT = 0;
   let settled = new Promise((r) => { settleRes = r; });
   const hallCache = new Map();
+  // js/privacy.js: the privacy notice is on screen before anything is sent to our server (score, Dan rank, nickname,
+  // CrazyGames account link); called right before each of those sends
+  const notice = () => { try { if (ND.privacy && ND.privacy.beforeSend) ND.privacy.beforeSend(); } catch (e) { /* no notice module */ } };
   const LB = ND.leaderboard = {
     BOARDS: BOARD_IDS.slice(), TOP_N, GAME_V,
     ready: false, mode: 'local', status: 'loading', uid: null, lastError: null, _mock: null, platformUser: null, _res: {},
@@ -1095,6 +1098,7 @@
       const L = localData(), prev = L.name;
       if (cur.register) {
         // yerel ad ve adsız satırlar ancak sunucu kabul edince (ya da ağ yoksa) güncellenir
+        notice();
         try { await cur.register(r.name); } catch (er) {
           const c = (er && er.code) || 'error';
           if (c === 'network' || c === 'server') { this.setName(r.name); return { ok: true, name: r.name, offline: true }; } // ağ yok: yerelde kaldı, sonra kaydolur
@@ -1151,6 +1155,7 @@
       }
       const ad = cur;
       this.acctState = 'pending'; this.acctError = null; emit();
+      notice();
       const p = this._acctP = ad.signIn(fn).then(() => {
         if (this._acctP !== p) return;
         this.acctState = 'on'; this._acctTries = 0; this.uid = ad.uid;
@@ -1231,6 +1236,7 @@
         return out;
       }
       let r;
+      notice();
       try { r = await cur.submit(board, e); } catch (err) { r = { ok: false, reason: 'error' }; }
       if (!r || !r.ok) {
         if (r && r.retry) { outAdd(board, e); if (r.reason === 'rate') scheduleFlush(22000); else if (r.reason === 'offline') scheduleFlush(45000); }
@@ -1254,6 +1260,7 @@
         if (!Array.isArray(L.out)) L.out = [];
         try {
           if (L.danOut && cur.setDan) { const d = await this.flushDan(); if (d && !d.ok && d.retry) return; }
+          if (L.out.length) notice();
           while (L.out.length) {
             const it = L.out[0];
             if (!it || !outAlive(it)) { L.out.shift(); localCommit(); continue; }
@@ -1288,6 +1295,7 @@
       const L = localData(), d = L.danOut;
       if (!d || !cur.setDan) return null;
       let res;
+      notice();
       try { res = await cur.setDan(d.r, d.sum); } catch (e) { res = { ok: false, reason: 'error', retry: true }; }
       if (res.ok) { if (!res.pending || L.danOut !== d) { if (L.danOut === d) L.danOut = null; } else scheduleFlush(22000); }
       else if (res.retry) { if (res.reason !== 'needName') scheduleFlush(res.reason === 'rate' ? 22000 : 60000); }

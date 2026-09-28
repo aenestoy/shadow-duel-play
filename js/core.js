@@ -1,6 +1,28 @@
 // Gölge Düellosu — çekirdek: matematik yardımcıları + sentez ses motoru
 window.ND = window.ND || {};
 
+// ---------------------------------------------------------------- ?newplayer=1: a brand-new player on this page load
+// For trying the new-player path on a device that already has a save (the owner's phone): the page runs on throwaway
+// storage kept in memory, so it starts as a new save and the real one is neither read nor written. Every file (and
+// the portal layer's local adapter) reaches storage through window.localStorage, which is replaced here, before any
+// other script runs; the portal's cloud copy is not read or written either (arcade.js save: ND.NEWPLAYER).
+(function () {
+  let on = false;
+  try { on = /[?&]newplayer=1(&|$)/.test(location.search || ''); } catch (e) { on = false; }
+  if (!on) return;
+  const mem = new Map();
+  const store = {
+    getItem: (k) => (mem.has(String(k)) ? mem.get(String(k)) : null),
+    setItem: (k, v) => { mem.set(String(k), String(v)); },
+    removeItem: (k) => { mem.delete(String(k)); },
+    clear: () => { mem.clear(); },
+    key: (i) => { const k = [...mem.keys()][i]; return k === undefined ? null : k; },
+    get length() { return mem.size; },
+  };
+  try { Object.defineProperty(window, 'localStorage', { configurable: true, enumerable: true, get: () => store }); } catch (e) { /* the browser refused: storage stays as it is */ }
+  window.ND.NEWPLAYER = (() => { try { return window.localStorage === store; } catch (e) { return false; } })();
+})();
+
 // ---------------------------------------------------------------- DETERMINISTIC MATH (ND.DM)
 // Online play (rollback netcode) needs every device to compute the fight bit for bit the same. + - * / and sqrt are
 // exact IEEE-754 operations in every JavaScript engine, but Math.sin, cos, atan2, exp, pow... are not specified to the
