@@ -29,12 +29,14 @@ window.ND = window.ND || {};
   //   snap   texts on whole pixels (gl2d.js): a text moving with the camera is drawn once, not once per quarter pixel
   //   still  the near layer (bamboo / pines, torii) stands still and comes from a layer cache, and the stars are
   //          baked into the sky picture (no per-frame drawing of ~70 stalks and 160 stars)
-  //   ltol   how much a cached background layer may be stretched (camera zoom) before it is drawn and uploaded again
+  //   ltol   how much a cached background layer may be stretched (camera zoom) beyond the picture's own scale
+  //   lband  zoom band of a wide layer cache (scene.js layerCache): largest scale ratio between the band's closest and
+  //          farthest zoom (the picture, drawn at the closest, is shrunk by up to this much); fewer bands, less memory
   //   reflectMin  floor reflections are drawn only on floors at least this reflective (Medium skips the faint 4–5% ones)
   const TIERS = {
-    high: { hq: true, rays: true, motes: 1, bloom: 2, grain: true, shadows: true, reflect: true, weather: 1, tol: 0.2, snap: false, still: false, ltol: 0.015, dpr: MOBILE ? (LOW_END ? 1.25 : 1.5) : 2 },
-    medium: { hq: false, rays: true, motes: 0.5, bloom: 1, grain: false, shadows: false, reflect: true, reflectMin: 0.08, weather: 1, tol: 0.4, snap: true, still: true, ltol: 0.06, dpr: MOBILE ? 1.25 : 1.5 },
-    low: { hq: false, rays: false, motes: 0, bloom: 0, grain: false, shadows: false, reflect: false, weather: 2, tol: 0.5, snap: true, still: true, ltol: 0.06, dpr: 1 },
+    high: { hq: true, rays: true, motes: 1, bloom: 2, grain: true, shadows: true, reflect: true, weather: 1, tol: 0.2, snap: false, still: false, ltol: 0.015, lband: 1.2, dpr: MOBILE ? (LOW_END ? 1.25 : 1.5) : 2 },
+    medium: { hq: false, rays: true, motes: 0.5, bloom: 1, grain: false, shadows: false, reflect: true, reflectMin: 0.08, weather: 1, tol: 0.4, snap: true, still: true, ltol: 0.06, lband: 1.35, dpr: MOBILE ? 1.25 : 1.5 },
+    low: { hq: false, rays: false, motes: 0, bloom: 0, grain: false, shadows: false, reflect: false, weather: 2, tol: 0.5, snap: true, still: true, ltol: 0.06, lband: 1.35, dpr: 1 },
   };
   const fns = [];
   const G = ND.gfx = {

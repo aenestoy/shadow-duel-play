@@ -397,6 +397,18 @@
   // Low's backdrop picture (drawBackLow): k = resolution factor, t = redrawn at least this often (s), tol = camera
   // move that forces a redraw (floor pixels), zoom = zoom change that forces one (ND.scene.bgLow, tunable in the console)
   const BG_LOW = { k: 0.5, t: 0.2, tol: 2.5, zoom: 0.008 };
+  // Wide layer caches (layerCache): the camera range they cover. zlo..zhi: cam.z (cam.follow keeps 0.55..1.28; the
+  // parry / counter / KO close-ups reach about 1.55); yLo..yHi: cam.y (-118 on the ground, a jump or a launch lifts it by
+  // 0.35 × the fighter's height; the close-ups sit between -130 and -95); zFollow: the largest zoom of cam.follow, whose
+  // x clamp gives how far the camera pans (bands reaching past zFocus may also be centred anywhere in the arena: KO and
+  // counter close-ups are not clamped); shake: cam.shx / shy (screen px). budget: largest total size of the pictures
+  // (bytes, one GPU texture each; a layer that would not fit keeps the sliding cache), maxDim: largest side (px).
+  const WIDE = { zlo: 0.55, zhi: 1.6, yLo: -300, yHi: -40, zFollow: 1.28, zFocus: 1.3, shake: 24,
+    budget: () => (ND.gfx && ND.gfx.mobile ? 48 : 96) * 1048576, maxDim: 4096 };
+  // releases the pictures of a wide layer cache (their GL textures go 10 s after their last use, gl2d.js sweepImages)
+  function wideFree(P) {
+    for (const b of P.bands) if (b.c) { b.c.width = b.c.height = 0; b.c = null; }
+  }
   const CPUFF = [[-150, 4, 110, 18], [-70, -10, 80, 26], [20, -16, 95, 32], [110, -4, 90, 22], [190, 6, 80, 14], [0, 10, 230, 14]];
 
   // ------------------------------------------------------------ ARENA TEMALARI
@@ -558,7 +570,11 @@
       for (const k in THEMES) {
         const C = THEMES[k]._c;
         if (!C || THEMES[k] === this.theme) continue;
-        for (const n in C) { const v = C[n], c = v && (v.getContext ? v : v.c); if (c && c.getContext) c.width = c.height = 0; }
+        for (const n in C) {
+          const v = C[n], c = v && (v.getContext ? v : v.c);
+          if (c && c.getContext) c.width = c.height = 0;
+          if (v && v.bands) wideFree(v);
+        }
         THEMES[k]._c = null;
       }
       this.wind = this.theme.wind;
@@ -1038,6 +1054,7 @@
     },
 
     drawBack(ctx) {
+      if (this.widePrime && ctx.isGL) this.primeWide(ctx);
       if (this.lowTier()) { this.drawBackLow(ctx); return; }
       this.drawBackLayers(ctx, false);
     },
@@ -1046,11 +1063,16 @@
     // (more than ~2.5 px on the floor), zoomed, on a lightning flash, or every 0.2 s (BG_LOW) so lanterns, clouds and
     // fires keep moving at a lower rate. Floor stains and rain splashes stay live on top (full resolution).
     // On a phone this replaces 8–10 large blended fills per frame with one copy (the backdrop was about half of a Low frame).
+    // With the WebGL2 renderer the picture is a kept GPU surface (gl2d.js ctx.surface): redrawing it renders into its
+    // texture on the GPU, nothing is uploaded (its static layers are wide layer caches, uploaded once per fight). Canvas
+    // 2D (and a frame the renderer refused) draws it into a canvas as before.
     drawBackLow(ctx) {
-      const W = cam.W, H = cam.H, B = this._bgl || (this._bgl = { c: document.createElement('canvas') });
+      const W = cam.W, H = cam.H, B = this._bgl || (this._bgl = { c: null, sf: null });
       const P = BG_LOW, bw = Math.max(1, Math.round(W * P.k)), bh = Math.max(1, Math.round(H * P.k));
+      const gpu = !!ctx.isGL && typeof ctx.surface === 'function';
       const tol = P.tol / Math.max(0.01, cam.k);
-      const must = B.W !== W || B.H !== H || B.th !== this.theme || this.flashL > 0 || B.flash > 0 || B.k !== P.k;
+      const must = B.W !== W || B.H !== H || B.th !== this.theme || this.flashL > 0 || B.flash > 0 || B.k !== P.k ||
+        B.gpu !== gpu || (gpu && !ctx.surfaceOk(B.sf));
       const moved = Math.abs(cam.x - B.x) > tol || Math.abs(cam.y - B.y) > tol || Math.abs(cam.z / B.z - 1) > P.zoom ||
         Math.abs(cam.shx - B.shx) > P.tol || Math.abs(cam.shy - B.shy) > P.tol;
       // While the camera keeps moving the picture is redrawn every third frame; in between the previous one is moved
@@ -1058,12 +1080,14 @@
       const frame = (B.frame = (B.frame || 0) + 1);
       const stale = must || !(Math.abs(this.t - B.t) < P.t) || (moved && frame - B.built >= 3);
       if (stale) {
-        const c = B.c;
-        if (c.width !== bw || c.height !== bh) { c.width = bw; c.height = bh; B.x2 = null; }
-        // (with the WebGL2 renderer a CPU canvas: its copy into WebGL is a plain pixel upload that never waits for the
-        // GPU; a GPU canvas had to be finished by the GPU first, about 11 times a second while the camera moves. The
-        // pictures drawn into it stay GPU canvases: measured, they are read back only when they change)
-        const x = B.x2 || (B.x2 = c.getContext('2d', ND.glHooked ? { alpha: false, willReadFrequently: true } : { alpha: false }));
+        let x;
+        if (gpu) { B.sf = ctx.surface('bgLow', bw, bh); x = B.sf.ctx; }
+        else {
+          const c = B.c || (B.c = document.createElement('canvas'));
+          if (c.width !== bw || c.height !== bh) { c.width = bw; c.height = bh; B.x2 = null; }
+          // (Canvas 2D, as before: under the WebGL2 hooks a CPU canvas, whose copy never waits for the GPU)
+          x = B.x2 || (B.x2 = c.getContext('2d', ND.glHooked ? { alpha: false, willReadFrequently: true } : { alpha: false }));
+        }
         const sv = { W, H, s: cam.s, shx: cam.shx, shy: cam.shy }, kx = bw / W;
         cam.W = bw; cam.H = bh; cam.s = sv.s * kx; cam.shx = sv.shx * kx; cam.shy = sv.shy * kx;
         try {
@@ -1071,7 +1095,7 @@
           this.drawBackLayers(x, true);
           this.drawFrontStill(x, false);
         } finally { cam.W = sv.W; cam.H = sv.H; cam.s = sv.s; cam.shx = sv.shx; cam.shy = sv.shy; }
-        B.W = W; B.H = H; B.th = this.theme; B.x = cam.x; B.y = cam.y; B.z = cam.z; B.shx = cam.shx; B.shy = cam.shy; B.t = this.t; B.flash = this.flashL; B.k = P.k; B.built = frame;
+        B.W = W; B.H = H; B.th = this.theme; B.x = cam.x; B.y = cam.y; B.z = cam.z; B.shx = cam.shx; B.shy = cam.shy; B.t = this.t; B.flash = this.flashL; B.k = P.k; B.built = frame; B.gpu = gpu;
         this.cacheDraws = (this.cacheDraws || 0) + 1;
       }
       if (stale || !moved) ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -1079,7 +1103,7 @@
         const k0 = cam.s * B.z, k = cam.k, r = k / k0, gy = cam.gy;
         ctx.setTransform(r, 0, 0, r, W / 2 - (W / 2 + B.shx) * r + (B.x - cam.x) * k + cam.shx, gy - (gy + B.shy) * r + (B.y - cam.y) * k + cam.shy);
       }
-      ctx.drawImage(B.c, 0, 0, bw, bh, 0, 0, W, H);
+      ctx.drawImage(gpu ? B.sf : B.c, 0, 0, bw, bh, 0, 0, W, H);
       cam.world(ctx);
       if (this.theme.weather === 'rain') this.drawSplashes(ctx);
       fx.drawDecals(ctx);
@@ -1333,12 +1357,149 @@
       const k = cam.s * (1 + (cam.z - 1) * f), tx = cam.W / 2 - cam.x * f * k + cam.shx * f, ty = cam.gy - cam.y * cam.k + cam.shy * f;
       return { x0: -tx / k, x1: (cam.W - tx) / k, y0: -ty / k, y1: (cam.H - ty) / k, k };
     },
+    // Static parallax layer (ridges, far roofs, the mid layer's trees and walls, Medium / Low's still near layer, the
+    // waterfall cliffs), drawn from a wide layer cache: the layer is drawn once per fight (per arena, canvas size, camera
+    // scale and quality) into a few pictures, one per band of camera zoom (a band spans at most gfx `lband` in layer
+    // scale; it is drawn at the band's largest scale), each wide and tall enough for everything the camera can show of
+    // the layer inside that band (WIDE: pans, jumps and the phone camera's jump zoom-out, close-ups, shake). Every
+    // frame the band of the current zoom is placed with a transform: the GPU pans and scales it, so a moving or zooming
+    // camera costs no drawing and no texture upload. A view outside every band (rare: a counter punch-in past WIDE.zhi)
+    // or a layer too big for WIDE.budget uses the sliding cache (layerSlide) instead; wideMiss counts those frames.
+    // ly0: top of the layer's content (layer units); ybot: lowest screen row needed (the top of the opaque floor).
+    layerCache(ctx, key, f, draw, ly0 = -1e5, ybot = cam.H) {
+      const W = cam.W, H = cam.H, k = cam.s * (1 + (cam.z - 1) * f);
+      const tx = W / 2 - cam.x * f * k + cam.shx * f, ty = cam.gy - cam.y * cam.k + cam.shy * f;
+      const Y0 = Math.max(0, k * ly0 + ty), Y1 = Math.min(H, ybot);
+      if (Y1 <= Y0) return;
+      const P = this.widePlan(key, f, ly0, draw);
+      if (!P.off && !this.wideOff) { // (wideOff: tests draw the sliding cache instead, to compare the two)
+        // the view in layer units
+        const vx0 = -tx / k, vx1 = (W - tx) / k, vy0 = (Y0 - ty) / k, vy1 = (Y1 - ty) / k, up = 1 + P.up;
+        for (const b of P.bands) { // (bands by scale: the first that is not stretched and holds the view)
+          const e = 0.5 / b.kr; // (half a texel: the content top is met exactly, up to rounding)
+          if (k > b.kr * up || vx0 < b.x0 - e || vx1 > b.x1 + e || vy0 < b.y0 - e || vy1 > b.y1 + e) continue;
+          if (!b.c) this.wideBuild(P, b);
+          const kr = b.kr, r = k / kr;
+          // only the visible part of the picture (whole texels, one more around for the filter)
+          const sx = Math.max(0, Math.floor((vx0 - b.x0) * kr) - 1), sy = Math.max(0, Math.floor((vy0 - b.y0) * kr) - 1);
+          const sw = Math.min(b.w, Math.ceil((vx1 - b.x0) * kr) + 1) - sx, sh = Math.min(b.h, Math.ceil((vy1 - b.y0) * kr) + 1) - sy;
+          ctx.setTransform(r, 0, 0, r, b.x0 * k + tx, b.y0 * k + ty);
+          if (sw > 0 && sh > 0) ctx.drawImage(b.c, sx, sy, sw, sh, sx, sy, sw, sh);
+          return;
+        }
+        this.wideMiss = (this.wideMiss || 0) + 1;
+        this.wideLast = { key, z: +cam.z.toFixed(3), x: Math.round(cam.x), y: Math.round(cam.y), vx0: Math.round(vx0), vx1: Math.round(vx1), vy0: Math.round(vy0), vy1: Math.round(vy1), k: +k.toFixed(3), bands: P.bands.map((b) => [Math.round(b.x0), Math.round(b.x1), Math.round(b.y0), Math.round(b.y1), +b.kr.toFixed(3)]) };
+      }
+      this.layerSlide(ctx, key, f, draw, ly0, ybot);
+    },
+    // The bands of one layer (made again when the canvas size, the camera scale or ground line, or the quality changes).
+    // Each band [za, zb] of cam.z: scale kr = the layer's scale at zb; rectangle (layer units) = the union of the views
+    // over za..zb (sampled), camera x within ±X (cam.follow's pan limit at its closest zoom; bands reaching the
+    // close-ups: the whole arena), cam.y within WIDE.yLo..yHi, shake; rows from the content top (or the highest view)
+    // down to the lowest floor line.
+    widePlan(key, f, ly0, draw) {
+      const C = tc(this.theme), F = gfxF(), q = ND.gfx ? ND.gfx.tier : '';
+      const W = cam.W, H = cam.H, s = cam.s, gy = cam.gy, ratio = F.lband || 1.2;
+      let P = C['w:' + key];
+      if (P && P.W === W && P.H === H && P.s === s && P.gy === gy && P.q === q && P.ly0 === ly0 && P.f === f) { P.draw = draw; return P; }
+      if (P) wideFree(P);
+      // (pictures made for another canvas size or quality are dropped at once)
+      for (const n in C) { const o = C[n]; if (o && o.bands && (o.W !== W || o.H !== H || o.q !== q || o.s !== s)) { wideFree(o); delete C[n]; } }
+      P = C['w:' + key] = { key, W, H, s, gy, q, ly0, f, draw, up: F.ltol || 0.015, bands: [], bytes: 0, off: false };
+      const Sh = WIDE.shake, A = ND.ARENA, Xf = Math.min(A, Math.max(0, A + 120 - W / (2 * s * WIDE.zFollow)));
+      let za = WIDE.zlo;
+      for (let guard = 0; guard < 12; guard++) {
+        const ka = 1 + (za - 1) * f;
+        let zb = f > 0 ? 1 + (ratio * ka - 1) / f : WIDE.zhi;
+        if (zb > WIDE.zhi - 0.05) zb = WIDE.zhi; // no thin band at the top
+        const kr = s * (1 + (zb - 1) * f), X = zb > WIDE.zFocus ? A : Xf;
+        let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+        for (let i = 0; i <= 8; i++) {
+          const z = za + ((zb - za) * i) / 8, k = s * (1 + (z - 1) * f), half = (W / 2 + Sh * f) / k;
+          x0 = Math.min(x0, -X * f - half); x1 = Math.max(x1, X * f + half);
+          for (const cy of [WIDE.yLo, WIDE.yHi]) {
+            const ty = gy - cy * s * z;
+            y0 = Math.min(y0, -(ty + Sh * f) / k);
+            const fl = Math.min(H, Math.ceil(gy + (-45 - cy) * s * z + Sh) + 3);
+            y1 = Math.max(y1, (fl - ty + Sh * f) / k);
+          }
+        }
+        const m = 2 / kr; // two texels around
+        x0 -= m; x1 += m; y0 = Math.max(ly0, y0 - m); y1 += m;
+        const w = Math.ceil((x1 - x0) * kr), h = Math.ceil((y1 - y0) * kr);
+        if (h > 0 && w > 0) { P.bands.push({ za, zb, kr, x0, x1, y0, y1, w, h, c: null }); P.bytes += w * h * 4; }
+        if (zb >= WIDE.zhi) break;
+        za = zb;
+      }
+      // memory: this layer with the other wide layers of this arena at this size must stay within the budget
+      let used = 0;
+      for (const n in C) { const o = C[n]; if (o && o.bands && o !== P && !o.off && o.W === W && o.H === H) used += o.bytes; }
+      if (!P.bands.length || used + P.bytes > WIDE.budget() || P.bands.some((b) => b.w > WIDE.maxDim || b.h > WIDE.maxDim)) { P.off = true; P.bands.length = 0; }
+      return P;
+    },
+    // draws one band's picture (at fight start: game.js prepareMatch → warmLayers; otherwise when first needed)
+    wideBuild(P, b) {
+      const c = document.createElement('canvas');
+      c.width = b.w; c.height = b.h;
+      c.__glKeep = true; // (its texture stays while the canvas does, gl2d.js sweepImages)
+      // (WebGL2 renderer: a processor canvas, copied into its texture once, never waiting for the GPU; no second
+      // copy of it in GPU memory)
+      const x = c.getContext('2d', ND.glHooked ? { willReadFrequently: true } : undefined);
+      x.setTransform(b.kr, 0, 0, b.kr, -b.x0 * b.kr, -b.y0 * b.kr);
+      x.globalAlpha = 1; x.globalCompositeOperation = 'source-over';
+      P.draw(x);
+      b.c = c;
+      this.cacheDraws = (this.cacheDraws || 0) + 1;
+      this.wideBuilds = (this.wideBuilds || 0) + 1;
+    },
+    // Fight preparation: draws the bands of this arena's wide layer caches that are not drawn yet, for about `ms`
+    // milliseconds; true when all are done (the layers are known after the first drawBack of the preparation).
+    warmLayers(ms = 12) {
+      const C = tc(this.theme), t0 = performance.now();
+      for (const n in C) {
+        const P = C[n];
+        if (!P || !P.bands || P.off) continue;
+        for (const b of P.bands) {
+          if (b.c) continue;
+          if (performance.now() - t0 > ms) return false;
+          this.wideBuild(P, b);
+        }
+      }
+      this.widePrime = true;
+      return true;
+    },
+    // After warmLayers, the next WebGL2 frame (the preparation's last one) places every band picture once, invisibly
+    // (1 px, alpha 0): all of them become textures while the loading card is up, none in the middle of the fight.
+    primeWide(ctx) {
+      this.widePrime = false;
+      const C = tc(this.theme), a = ctx.globalAlpha;
+      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 0;
+      for (const n in C) { const P = C[n]; if (P && P.bands && !P.off) for (const b of P.bands) if (b.c) ctx.drawImage(b.c, 0, 0, 1, 1, 0, 0, 1, 1); }
+      ctx.globalAlpha = a;
+    },
+    // What the wide layer caches of this arena hold (tests, scripts/hitch-check.mjs): pictures, bytes, layers that
+    // use the sliding cache instead
+    wideInfo() {
+      const C = tc(this.theme), o = { layers: 0, bands: 0, built: 0, bytes: 0, off: [], list: [] };
+      for (const n in C) {
+        const P = C[n];
+        if (!P || !P.bands) continue;
+        if (P.off) { o.off.push(P.key); continue; }
+        o.layers++;
+        for (const b of P.bands) { o.bands++; if (b.c) { o.built++; o.bytes += b.w * b.h * 4; } o.list.push(`${P.key} z${b.za.toFixed(2)}-${b.zb.toFixed(2)} ${b.w}x${b.h}${b.c ? '' : ' (not drawn)'}`); }
+      }
+      o.misses = this.wideMiss || 0; o.draws = this.wideBuilds || 0; o.slides = this.slideDraws || 0; o.last = this.wideLast || null;
+      return o;
+    },
+    // Sliding layer cache (the fallback of layerCache): the static part of the layer drawn at screen resolution with
+    // a margin, then only shifted while the camera moves (1:1 when it stands still). Drawn again when the scale changes
+    // by more than gfx `ltol`, the margin runs out, or the canvas / theme changes.
     // Paralaks katmanı önbelleği: katmanın durağan kısmı ekran çözünürlüğünde (kenar paylı) bir kez çizilir, kamera
     // kaydıkça yalnız ötelenerek basılır (kamera durunca birebir). Ölçek %1.5'ten çok değişir, pay aşılır ya da
     // tuval/tema değişirse yeniden çizilir.
     // ly0: içeriğin katman uzayındaki üst sınırı; ybot: gereken en alt ekran satırı (ör. opak zeminin üstü) —
     // önbellek yalnız bu yatay bandı tutar (bellek).
-    layerCache(ctx, key, f, draw, ly0 = -1e5, ybot = cam.H) {
+    layerSlide(ctx, key, f, draw, ly0 = -1e5, ybot = cam.H) {
       const W = cam.W, H = cam.H, C = tc(this.theme), k = cam.s * (1 + (cam.z - 1) * f);
       const tx = W / 2 - cam.x * f * k + cam.shx * f, ty = cam.gy - cam.y * cam.k + cam.shy * f;
       const Y0 = Math.max(0, k * ly0 + ty), Y1 = Math.min(H, ybot);
@@ -1365,6 +1526,7 @@
         draw(x);
         if (clip) x.restore();
         L.W = W; L.H = H; L.k = k; L.tx = tx; L.ty = ty; L.x0 = x0; L.y0 = y0; L.q = q; L.h = ch; this.cacheDraws = (this.cacheDraws || 0) + 1;
+        this.slideDraws = (this.slideDraws || 0) + 1;
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.drawImage(c, x0, y0);
         return;
@@ -1691,9 +1853,16 @@
       const sx0 = Math.max(0, Math.floor(vk * (FX - FW - FB - 12) + vtx)), sx1 = Math.min(cam.W, Math.ceil(vk * (FX + FW + FB + 12) + vtx));
       const sy0 = Math.max(0, Math.floor(vk * (top - 8) + vty)), sy1 = Math.min(cam.H, Math.ceil(vk * 24 + vty));
       if (sx1 > sx0 && sy1 > sy0) {
-        const fw = sx1 - sx0, fh = sy1 - sy0, fc = this._fc || (this._fc = document.createElement('canvas')), f = fc.getContext('2d');
-        if (fc.width < fw) fc.width = Math.ceil(fw / 64) * 64;
-        if (fc.height < fh) fc.height = Math.ceil(fh / 64) * 64;
+        // (WebGL2 renderer: an offscreen layer of the frame, gl2d.js ctx.layer, drawn on the GPU; a canvas would be a
+        // texture upload of the whole curtain every frame)
+        const fw = sx1 - sx0, fh = sy1 - sy0, L = ctx.isGL && ctx.layer ? ctx.layer(fw, fh, 'falls') : null;
+        let fc = null, f;
+        if (L) f = L.ctx;
+        else {
+          fc = this._fc || (this._fc = document.createElement('canvas')); f = fc.getContext('2d');
+          if (fc.width < fw) fc.width = Math.ceil(fw / 64) * 64;
+          if (fc.height < fh) fc.height = Math.ceil(fh / 64) * 64;
+        }
         f.setTransform(1, 0, 0, 1, 0, 0); f.globalCompositeOperation = 'source-over'; f.globalAlpha = 1; f.clearRect(0, 0, fw, fh);
         f.setTransform(vk, 0, 0, vk, vtx - sx0, vty - sy0);
         const wg = f.createLinearGradient(0, top, 0, 0);
@@ -1714,7 +1883,7 @@
         f.fillStyle = pg; f.fillRect(FX - FW - FB, -260, (FW + FB) * 2, 280);
         f.globalCompositeOperation = 'source-over';
         ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.drawImage(fc, 0, 0, fw, fh, sx0, sy0, fw, fh);
+        ctx.drawImage(L || fc, 0, 0, fw, fh, sx0, sy0, fw, fh);
         cam.layer(ctx, 0.28);
       }
       ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.beginPath(); ctx.ellipse(FX, top + 3, FW + 4, 6, 0, 0, 6.283); ctx.fill();

@@ -55,7 +55,7 @@
     if (NO_TELL[A.kind]) return P;
     let w0, w1;
     if (A.release != null && A.kind === 'throw') { if (a.thrown) return P; w0 = A.release; w1 = A.release; }
-    else if (A.active) { const W = A.hits ? A.hits[0] : A.active; w0 = W[0]; w1 = W[1]; }
+    else if (A.active) { const W = A.hits && A.hits[0] ? A.hits[0] : A.active; if (!W) return P; w0 = W[0]; w1 = W[1]; }
     else return P;
     const J = a.j, part = A.kind === 'kick' ? J[A.limb || 'ftF'] || J.ftF : A.kind === 'throw' || A.kind === 'shoot' ? J.haB : null;
     let px, py;

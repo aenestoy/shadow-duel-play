@@ -438,7 +438,10 @@
       $('hud').hidden = true; $('pauseBtn').hidden = true;
       // Keep all match state and the round timer still while expensive first-use drawing is prepared.
       // Each fighter fills at most three missing cache entries per preparation frame; no partial drawing is visible.
-      const jobs = [() => { this.behind = false; resize(); scene.drawBack(ctx); }];
+      // The first background drawing makes the arena's wide layer caches (scene.js layerCache); the next job draws the
+      // pictures of the zoom bands this camera has not needed yet (~12 ms per loading frame), so no zoom, pan or jump
+      // of the fight draws or uploads a background layer.
+      const jobs = [() => { this.behind = false; resize(); scene.drawBack(ctx); }, () => scene.warmLayers(12)];
       // WebGL2 on Low: each fighter's part pictures go into the renderer's sprite atlas now (bake.js ND.warmBaked:
       // every pose of its moves, turned and mirrored), about 12 ms of work per loading frame, so the fight itself
       // makes almost no new pictures (each one used to be a new texture, and a stall on phones)
