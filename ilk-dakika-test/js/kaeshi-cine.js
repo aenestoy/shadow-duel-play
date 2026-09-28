@@ -166,8 +166,10 @@
       for (const n of this.nums) this.drawNum(ctx, n, s);
       if (shown()) {
         if (g.phase === 'fight') for (const f of g.F) this.drawPrompt(ctx, f, s);
-        if (this.banner) this.drawBanner(ctx, this.banner, s);
-        for (let i = 0; i < 2; i++) if (this.combos[i]) this.drawCombo(ctx, this.combos[i], i, s);
+        // (side-of-screen texts: the screen's scale, not the phone camera's closer one)
+        const u = cam.ui || s;
+        if (this.banner) this.drawBanner(ctx, this.banner, u);
+        for (let i = 0; i < 2; i++) if (this.combos[i]) this.drawCombo(ctx, this.combos[i], i, u);
       }
       ctx.restore();
     },

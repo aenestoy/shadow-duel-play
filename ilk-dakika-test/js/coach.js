@@ -93,6 +93,7 @@
   //   shuriken  the opponent stands far away (a later time than dash)    → throw (not on the touch Simple layout)
   //   heavy     no heavy slash yet after a while in the fight            → heavy slash
   //   lessons   after the first journey win (a toast on the end screen)  → Training → Tutorial
+  //   controls  after the first journey fight played to its end, touch screens only (a toast) → Settings → Controls
   // Rules: one tip at a time, GAP seconds between two, none in a round's first FIRST seconds, none during the rally
   // tutorial, the coach's own steps, a cinematic, a blade lock or a pause; journey fights only (not 2P, watch, VS CPU,
   // combo trials, the drill, tournaments…); each tip once ever: it is stored as seen in the progress save
@@ -229,6 +230,18 @@
       if (typeof T.lessons !== 'function' || !ND.toast) return false;
       this.markSeen('lessons');
       ND.toast(T.lessons(M.train || '', M.trainTut || ''), '道');
+      return true;
+    },
+    // after a journey fight played to its end on a touch screen: once, a toast pointing at the layout editor
+    // (Settings → Controls: move and resize the buttons). Same rules as the other tips: journey fights of a save that
+    // gets tips (not a save from before them), once ever (stored as seen).
+    afterFight(mode) {
+      const r = this.rec();
+      if (mode !== 'arcade' || !(ND.touch && ND.touch.active) || !r || this.seen('controls') || (r.n | 0) > FIGHTS) return false;
+      const T = (ND.STR && ND.STR.tips) || {}, S = (ND.STR && ND.STR.set) || {};
+      if (typeof T.controls !== 'function' || !ND.toast) return false;
+      this.markSeen('controls');
+      ND.toast(T.controls(S.title || '', (S.tabs && S.tabs.controls) || ''), '手');
       return true;
     },
   };

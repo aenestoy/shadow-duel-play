@@ -559,6 +559,7 @@
       shuriken: (t) => `${t}: shuriken fırlat`,
       heavy: (h) => `${h}: ağır kesik, yavaş ama sert`,
       lessons: (a, b) => `Tüm dersler: ${a} → ${b}`,
+      controls: (a, b) => `Düğmeleri taşıyıp büyütebilirsin: ${a} → ${b}`,
     };
   }
 

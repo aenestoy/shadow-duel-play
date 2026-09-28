@@ -90,7 +90,8 @@
   const cam = ND.cam = {
     // gyK: zemin çizgisinin ekran yüksekliğine oranı; padX: yakınlaştırmada ek yan pay (dokunmatik kumanda açıkken
     // dövüşçüler biraz yukarıda ve ortada kalsın, alt köşelerdeki başparmak düğmeleri çoğunlukla zemini örtsün)
-    x: 0, y: -118, z: 1, W: 1280, H: 720, s: 1, shk: 0, shx: 0, shy: 0, gyK: 0.6, padX: 0,
+    // topPx (phones, game.js resize): screen y the top of a jumping fighter's head must stay below (the HUD's bottom)
+    x: 0, y: -118, z: 1, W: 1280, H: 720, s: 1, ui: 1, shk: 0, shx: 0, shy: 0, gyK: 0.6, padX: 0, topPx: 0,
     get k() { return this.s * this.z; },
     get gy() { return this.H * this.gyK; },
     punch(a) { this.shk = Math.max(this.shk, a); },
@@ -106,6 +107,13 @@
         const top = Math.min(fa.y, fb.y);
         ty = -118 + Math.min(0, top) * 0.35;
         tz = clamp((this.W / this.s) / (d + 420 + this.padX), 0.55, 1.28);
+        // phones (closer camera): a jump must not carry a head under the HUD. The top of the higher fighter's jump (its
+        // apex, from the rising speed, so the zoom starts early) stays below topPx: zoom out as far as that needs.
+        if (this.topPx > 0) {
+          const aa = fa.y + (fa.vy < 0 ? -(fa.vy * fa.vy) / 5000 : 0), ab = fb.y + (fb.vy < 0 ? -(fb.vy * fb.vy) / 5000 : 0);
+          const head = Math.min(aa, ab) - 222, span = ty - head, room = this.gy - this.topPx;
+          if (span > 0 && room > 0) tz = Math.max(0.55, Math.min(tz, room / (this.s * span)));
+        }
         const half = this.W / (2 * this.s * tz);
         const lim = ND.ARENA + 120 - half;
         tx = lim > 0 ? clamp(tx, -lim, lim) : 0;
@@ -586,7 +594,9 @@
       while (fx.decals.length > decalCap()) fx.decals.shift();
     },
 
-    resize(W, H) { cam.W = W; cam.H = H; cam.s = Math.min(H / 720, W / 700); },
+    // cam.ui: the screen's own scale (side-of-screen texts); cam.s may be larger on a phone (game.js resize: the camera
+    // stands closer there, PHONE_ZOOM)
+    resize(W, H) { cam.W = W; cam.H = H; cam.s = cam.ui = Math.min(H / 720, W / 700); },
 
     // The scene clock t and the wind are fight state: fighters breathe on t (their pose, so their hit boxes) and cloth
     // blows with the wind. advance() is that part alone (game.tick simOnly); update() adds weather and lightning.

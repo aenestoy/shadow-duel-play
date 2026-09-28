@@ -5,6 +5,7 @@
 //   size    's' | 'm' | 'l'  global scale of every control (--tb, the base button diameter)
 //   left    left-handed: the default positions mirrored (movement on the right, buttons on the left)
 //   move    'float' stick appears where the thumb lands | 'fixed' stick stays where it was put | 'dpad' ◀ ▶ ▲ ▼ buttons
+//           (new players start on 'dpad' + dtap, see NEW_DEF; saves from before keep 'float')
 //   dtap    d-pad only: a quick tap on ◀ / ▶ is one short step (double tap still dashes)
 //   assist  input conveniences only (hold ATTACK to keep chaining, steadier stick): same rules, fair scores
 //   haptic  short vibration on press where the browser supports it
@@ -88,10 +89,19 @@
     }
     return n ? { v: 1, m: L.m === true, it } : null;
   }
+  // New players (2026-09-28): the d-pad with "tap to step" instead of the stick (a quick tap on ◀ / ▶ is one short
+  // step, so spacing is easy). Only a save that has no touch choice yet AND has not finished a fight gets it, and the
+  // choice is stored at once (it must not flip back after the first fight). A player with a saved touch choice keeps
+  // it; a returning player without one (a save from before, fights played) keeps the stick they know.
+  const NEW_DEF = { move: 'dpad', dtap: true };
+  function newPlayer() {
+    try { const p = ND.save && ND.save.p; return !!p && !p.fought; } catch (e) { return false; }
+  }
   function read() {
     let s = null;
     try { s = ND.save ? ND.save.settings().touch : null; } catch (e) { /* storage blocked */ }
     const p = Object.assign({}, DEF, { lay: {} });
+    if (!(s && typeof s === 'object') && newPlayer()) { Object.assign(p, NEW_DEF); p.fresh = true; }
     if (s && typeof s === 'object') {
       for (const k in OK) if (OK[k].includes(s[k])) p[k] = s[k];
       for (const k of BOOLS) if (typeof s[k] === 'boolean') p[k] = s[k];
@@ -106,9 +116,12 @@
       if (!ND.save) return;
       const s = ND.save.settings();
       s.touch = JSON.parse(JSON.stringify(prefs));
+      delete s.touch.fresh;
       ND.save.saveSettings(s);
     } catch (e) { /* storage blocked: the choice lasts this session */ }
   }
+  // the new player's default is kept from now on (see NEW_DEF)
+  if (prefs.fresh) { delete prefs.fresh; save(); }
 
   // ---------------------------------------------------------------- screen measures
   // --tb follows the screen height like the CSS used to (clamp(56px, 16vh, 76px) for M); it is set in px on #app so the
@@ -336,6 +349,15 @@
       base.style.width = base.style.height = st.d.toFixed(1) + 'px';
       base.style.setProperty('--o', st.o);
       base.style.setProperty('--r', (st.d / tb).toFixed(3));
+    }
+    // swipe-to-dash area of the d-pad and fixed-stick modes (input.js SW): where a floating stick would listen, around the
+    // d-pad's centre (or the fixed stick); the d-pad buttons and the fixed stick sit on top of it and keep their touches
+    const sz = $('tSwipe');
+    if (sz) {
+      const dc = prefs.move === 'dpad' ? dpadRing(items, tb) : null, c = dc ? { cx: dc.cx, cy: dc.cy, d: st.d } : st;
+      const { x, y, w, h } = stickZone('float', c, S, items.pause);
+      sz.style.left = x.toFixed(1) + 'px'; sz.style.top = y.toFixed(1) + 'px';
+      sz.style.width = w.toFixed(1) + 'px'; sz.style.height = h.toFixed(1) + 'px';
     }
   }
   function apply(keepFingers) {

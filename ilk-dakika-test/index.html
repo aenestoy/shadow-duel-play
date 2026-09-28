@@ -7,10 +7,8 @@
 <link rel="stylesheet" crossorigin href="./assets/index-CFtILYoN.css">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Shadow Duel</title>
-<!-- Fonts ship with the game (no external requests): fonts/fonts.css is written by scripts/font-subset.mjs -->
-
-<!-- Portal SDK bridge (module, bundled by Vite): publishes window.NDPortal; js/core.js wraps it as ND.portal -->
-
+<!-- Fonts ship with the game (no external requests): fonts/fonts.css is written by scripts/font-subset.mjs -->
+<!-- Portal SDK bridge (module, bundled by Vite): publishes window.NDPortal; js/core.js wraps it as ND.portal -->
 <style>
   #matchLoading { position: absolute; inset: 0; z-index: 1000; display: grid; place-items: center; background: #0c0d15; color: #ebe6da; }
   #matchLoading[hidden] { display: none; }
@@ -249,6 +247,9 @@
      a settings change / resize, never per frame. */
   .t-zone { position: absolute; left: 0; top: 24%; width: 44%; height: 76%; pointer-events: auto; touch-action: none; }
   #touch[data-move="dpad"] .t-zone, #touch:not([data-move="dpad"]) .t-dpad { display: none; }
+  /* the empty movement area of the d-pad and fixed-stick modes: invisible, catches only the swipe-to-dash flick (input.js SW) */
+  .t-swipe { position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: auto; touch-action: none; }
+  #touch[data-move="float"] .t-swipe { display: none; }
   /* Pad look: ink and lacquer. Rims, the ensō ring, paper grain, chevrons and the pause mark are small inline SVGs
      (no image files); each is drawn once per size. A press changes only transform / opacity (glow layers), nothing
      is animated per frame except the ki-ready pulse (opacity). Colours: gold = attacks, blue = guard, violet = ki. */
@@ -1834,6 +1835,7 @@
        control (default layout or the player's own, made in the layout editor, js/touch-editor.js); input.js handles the
        fingers (multi-touch). -->
   <div id="touch" class="simple" hidden>
+    <div class="t-swipe" id="tSwipe" aria-hidden="true"></div>
     <div class="t-zone" id="tStick" aria-hidden="true">
       <div class="t-base" id="tBase"><i class="u"></i><i class="d" data-s="touch.btn.down">GARD</i><i class="l"></i><i class="r"></i><b class="t-knob" id="tKnob"></b></div>
     </div>
@@ -2027,7 +2029,8 @@
     </div>
   </div>
 
-  <!-- Seçim ekranı: seçili ninjanın hareket listesi (game.js openMoves; ND.MOVELIST varsa ondan) -->
+  <!-- Seçim ekranı: seçili ninjanın hareket listesi; duraklatma menüsünde (#bPMoves) oyuncunun dövüşen ninjası
+       (game.js openMoves; ND.MOVELIST varsa ondan) -->
   <div id="movesOv" class="overlay" hidden role="dialog" aria-modal="true" aria-labelledby="mvTitle">
     <div class="mv-card card">
       <div class="mv-head"><b class="k" id="mvK" aria-hidden="true"></b><h2 id="mvTitle"></h2><button class="btn" id="mvClose" type="button" data-s="sel.close">Kapat</button></div>
@@ -2085,6 +2088,7 @@
       <div class="btns">
         <button class="btn primary" id="bResume">Devam et</button>
         <button class="btn set-btn" id="bSettings" type="button" data-set-open aria-haspopup="dialog"><svg class="set-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle class="t" cx="12" cy="12" r="8.6"/><circle cx="12" cy="12" r="5.6"/></svg><span data-s="set.title">Ayarlar</span></button>
+        <button class="btn" id="bPMoves" type="button" data-s="sel.moves" aria-haspopup="dialog">Hareketler</button>
         <button class="btn" id="bRestart">Maçı yeniden başlat</button>
         <button class="btn" id="bMenu">Ana menü</button>
       </div>
@@ -2239,20 +2243,22 @@
 <script  src="js/core.js?v=boards-1"></script>
 <script  src="js/perf.js?v=sd-fps-2"></script>
 <script  src="js/music.js?v=sd-fps-2"></script>
-<script  src="js/input.js"></script>
+<script  src="js/input.js?v=comfort-1"></script>
 <script  src="js/gfx.js?v=phone-perf-1"></script>
-<script  src="js/scene.js?v=sd-fps-2"></script>
+<script  src="js/scene.js?v=comfort-1"></script>
 <script  src="js/skeleton.js?v=render-fix-v1"></script>
 <script  src="js/bake.js?v=sd-fps-2"></script>
 <script  src="js/prepare.js"></script>
 <script  src="js/characters.js?v=champ-1"></script>
 <script  src="js/fighter.js?v=bo-sound-1"></script>
 <script  src="js/specials.js?v=bo-sound-1"></script>
+<script  src="js/haptics.js?v=comfort-1"></script>
+<script  src="js/telegraph.js?v=comfort-1"></script>
 <script  src="js/ai.js"></script>
 <script  src="js/honor.js"></script>
 <script  src="js/journey.js"></script>
 <script  src="js/journey-text.js"></script>
-<script  src="js/arcade.js?v=boards-1"></script>
+<script  src="js/arcade.js?v=comfort-1"></script>
 <script  src="js/roster2.js"></script>
 <script  src="js/funnel.js"></script>
 <script  src="js/config.js"></script>
@@ -2261,26 +2267,26 @@
 <script  src="js/platform-boards.js"></script>
 <script  src="js/banzuke.js?v=boards-1"></script>
 <script  src="js/ads.js"></script>
-<script  src="js/coach.js"></script>
+<script  src="js/coach.js?v=comfort-1"></script>
 <script  src="js/tutorial.js"></script>
-<script  src="js/kaeshi-cine.js"></script>
+<script  src="js/kaeshi-cine.js?v=comfort-1"></script>
 <script  src="js/combo-trial.js"></script>
-<script  src="js/touch.js"></script>
+<script  src="js/touch.js?v=comfort-1"></script>
 <script  src="js/touch-editor.js"></script>
 <script  src="js/volume.js"></script>
-<script  src="js/i18n-en.js?v=boards-1"></script>
-<script  src="js/i18n-es.js?v=boards-1"></script>
-<script  src="js/i18n-pt.js?v=boards-1"></script>
-<script  src="js/i18n-ru.js?v=boards-1"></script>
-<script  src="js/i18n-de.js?v=boards-1"></script>
-<script  src="js/i18n-fr.js?v=boards-1"></script>
-<script  src="js/i18n.js"></script>
+<script  src="js/i18n-en.js?v=comfort-1"></script>
+<script  src="js/i18n-es.js?v=comfort-1"></script>
+<script  src="js/i18n-pt.js?v=comfort-1"></script>
+<script  src="js/i18n-ru.js?v=comfort-1"></script>
+<script  src="js/i18n-de.js?v=comfort-1"></script>
+<script  src="js/i18n-fr.js?v=comfort-1"></script>
+<script  src="js/i18n.js?v=comfort-1"></script>
 <script  src="js/lang-ui.js"></script>
 <script  src="js/settings.js"></script>
 <script  src="js/privacy.js"></script>
 <script  src="js/gl2d.js?v=sd-fps-2"></script>
 <script  src="js/gl-render.js?v=gl-2"></script>
-<script  src="js/game.js?v=boards-1"></script>
+<script  src="js/game.js?v=comfort-1"></script>
 <script  src="js/sim-state.js"></script>
 <!-- voices: fighters and announcer, files in voice/ (docs/SES-PLANI.md); ?voice=off silences, ?voice=log logs -->
 <script  src="js/voice.js?v=bo-sound-1"></script>

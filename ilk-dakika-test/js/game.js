@@ -812,6 +812,8 @@
       const res = score.matchEnd(w);
       this.showScore(null);
       if (ND.save && ND.save.p && !ND.save.p.fought && this.mode !== 'watch') { ND.save.p.fought = true; ND.save.commit(); }
+      // touch screens, once: the buttons can be moved and resized (Settings → Controls), js/coach.js
+      if (ND.coach && ND.coach.tips && ND.coach.tips.afterFight) ND.coach.tips.afterFight(this.mode);
       // Onur: maç dökümü (koşu denetleyicisi bonus satırı ekleyebilir, sonra gösterilir)
       let hon = null;
       const settle = () => {
@@ -1180,6 +1182,7 @@
       fx.drawTexts(ctx);
       score.drawPops(ctx);
       this.drawPrompts();
+      if (ND.telegraph) ND.telegraph.draw(ctx, this); // the opponent's blow: glint on its weapon, Easy assist ring (js/telegraph.js)
       if (ND.cine) ND.cine.draw(ctx); // counter prompt, kaeshi-waza banner, screen slash, damage number, combo counter
       if (ND.tutor && ND.tutor.on) ND.tutor.draw(ctx); // rally tutorial: DEFEND! / ATTACK! with the key
       this.overlays();
@@ -1515,8 +1518,11 @@
       b.onclick = () => { if (this.phase !== 'select') return; persist(); au.taiko(0.8); ND.rival.begin(this.sel.c[0], ch.id); };
     },
     // Hareketler paneli (#movesOv): seçili ninjanın hareket listesi (ND.MOVELIST varsa ondan)
+    // In the pause menu (#bPMoves) it lists the player's own fighter in this fight (player 1), on the select screen the
+    // ninja shown in slot 1.
     fillMoves() {
-      const ch = ND.CHARS[this.selShown(0)]; if (!ch || !ND.training || !ND.training.movesHtml || !$('mvList')) return false;
+      const ch = this.paused && this.phase !== 'select' && f1.ch ? f1.ch : ND.CHARS[this.selShown(0)];
+      if (!ch || !ND.training || !ND.training.movesHtml || !$('mvList')) return false;
       const SS = STR.sel || {};
       $('mvK').textContent = ch.kanji; $('mvK').style.color = ch.col.ui;
       $('mvTitle').textContent = SS.movesOf ? SS.movesOf(ch.name) : ch.name;
@@ -1525,13 +1531,15 @@
     },
     openMoves() {
       const ov = $('movesOv'); if (!ov || !this.fillMoves()) return;
-      ov.hidden = false; au.ui();
+      ov.hidden = false; ov.scrollTop = 0; au.ui();
       setTimeout(() => $('mvClose').focus(), 0);
     },
+    // back to the button that opened it: the pause menu's (a fight is paused) or the select screen's
     closeMoves(focus) {
       const ov = $('movesOv'); if (!ov || ov.hidden) return false;
       ov.hidden = true;
-      if (focus) setTimeout(() => $('bMoves') && $('bMoves').focus(), 0);
+      const b = this.paused && this.phase !== 'select' ? $('bPMoves') : $('bMoves');
+      if (focus) setTimeout(() => b && !b.hidden && b.focus(), 0);
       return true;
     },
     get movesOpen() { const ov = $('movesOv'); return !!ov && !ov.hidden; },
@@ -1564,7 +1572,7 @@
       if (playing !== this._playing) { this._playing = playing; app.classList.toggle('playing', playing); }
       // dokunmatik dövüşte kamera: zemin biraz yukarıda, yanlarda ek pay (düğmeler dövüşçüleri daha az örter)
       const camT = T && !!TOUCH_MODES[this.mode];
-      if (camT !== this._camT) { this._camT = camT; cam.gyK = camT ? 0.48 : 0.6; cam.padX = camT ? 80 : 0; }
+      if (camT !== this._camT) { this._camT = camT; cam.gyK = camT ? (this.phoneCam ? this.phoneGy : 0.48) : 0.6; cam.padX = camT ? 80 : 0; }
       if (rot && !this.paused && (this.phase === 'fight' || this.phase === 'intro')) { setPause(true); this.rotPaused = true; }
       // turned sideways again during the new player's first-fight tutorial (or a round intro): it goes on by itself,
       // no extra tap on Resume (the tutorial never hurts; elsewhere the pause dialog stays, the CPU would strike at once)
@@ -1772,8 +1780,8 @@
     game.paused = v; $('pause').hidden = !v;
     const br = $('bRestart'); if (br) br.hidden = !!(game.runner && game.runner.noRestart && game.mode === game.runner.mode);
     // (pausing also cuts a voice line still sounding and drops announcer lines waiting in the queue)
-    if (v) { input.p1.clear(); input.p2.clear(); input.touchReset(); ND.voice?.stopAll?.(); $('bResume').focus(); }
-    else { input.p1.buf = {}; input.p2.buf = {}; } // presses made in the pause menu must not fire on resume
+    if (v) { input.p1.clear(); input.p2.clear(); input.touchReset(); ND.voice?.stopAll?.(); ND.haptics?.stop(); $('bResume').focus(); }
+    else { input.p1.buf = {}; input.p2.buf = {}; game.closeMoves(); } // presses made in the pause menu must not fire on resume
     game.syncTouch();
   }
   // Rol=button kartlar (içinde ek düğmeler olan mod kartları)
@@ -2015,6 +2023,8 @@
   if ($('movesOv')) $('movesOv').addEventListener('click', (e) => { if (e.target === $('movesOv')) game.closeMoves(true); });
   $('bBack').onclick = () => selBack();
   $('bResume').onclick = () => setPause(false);
+  // pause menu → the player's move list (the select screen's panel); Close / Back / B returns to the pause menu
+  if ($('bPMoves')) $('bPMoves').onclick = () => { if (game.paused) game.openMoves(); };
   $('bRestart').onclick = () => {
     setPause(false);
     if (ND.tutor && ND.tutor.on && ND.tutor.opts.drill) return game.startDrill();
@@ -2060,6 +2070,15 @@
       if (e.code === 'Enter' && !e.repeat) { game.fightFromSelect(); return true; }
       return false;
     }
+    // the move list over the pause menu: Back / M closes it (focus back on its button), P resumes, arrows scroll it
+    if (game.paused && game.movesOpen) {
+      if ((input.isBack(e) || e.code === 'KeyM') && !e.repeat) { game.closeMoves(true); return true; }
+      if (input.isPause(e)) { setPause(false); return true; }
+      const d = { ArrowUp: -1, KeyW: -1, ArrowDown: 1, KeyS: 1, PageUp: -4, PageDown: 4 }[e.code];
+      if (d) { $('movesOv').scrollTop += d * 60; return true; }
+      return false;
+    }
+    if (game.paused && !$('pause').hidden && e.code === 'KeyM' && !e.repeat) { game.openMoves(); return true; }
     if (input.isPause(e)) { setPause(!game.paused); return true; }
     if (game.mode === 'train' && ND.training?.onKey(e)) return true;
     if (e.code === 'Enter' && !e.repeat && game.mode === 'attract' && (document.activeElement === document.body || !document.activeElement)) {
@@ -2068,8 +2087,31 @@
     return false;
   };
   input.onPause = () => setPause(!game.paused);
+  // Gamepad in the pause menu: D-pad / stick up and down move the focus through its buttons, A presses the focused
+  // one, RB opens the move list, B resumes. In the move list up / down scroll it, B or RB close it (pause menu again).
+  const padWas = {};
+  function pausePad(st, prev, gp) {
+    const pr = (a) => st[a] && !prev[a], B = (gp && gp.buttons) || [], ay = (gp && gp.axes && gp.axes[1]) || 0;
+    const on = (i) => !!(B[i] && (B[i].pressed || B[i].value > 0.5));
+    const raw = { u: on(12) || ay < -0.5, d: on(13) || ay > 0.5, a: on(0) };
+    const id = gp ? gp.index : 0, was = padWas[id] || {};
+    padWas[id] = raw;
+    const hit = (k) => raw[k] && !was[k];
+    if (game.movesOpen) {
+      if (pr('kick') || pr('throw')) game.closeMoves(true);
+      else if (raw.u !== raw.d) $('movesOv').scrollTop += raw.d ? 14 : -14; // held: keeps scrolling
+      return;
+    }
+    if (pr('throw')) { game.openMoves(); return; }
+    if (pr('kick')) { setPause(false); return; }
+    const btns = [...document.querySelectorAll('#pause .btns .btn')].filter((b) => !b.hidden && b.offsetParent !== null);
+    if (!btns.length) return;
+    const cur = btns.indexOf(document.activeElement);
+    if (hit('u') || hit('d')) btns[cur < 0 ? 0 : (cur + (hit('d') ? 1 : -1) + btns.length) % btns.length].focus();
+    else if (hit('a') && cur >= 0) btns[cur].click();
+  }
   // Gamepad ile menü dışı ekranlar: X/A onay, B geri, yön seçim
-  input.onPad = (st, prev) => {
+  input.onPad = (st, prev, gp) => {
     if (ND.honor && ND.honor.roadOpen) {
       const p = (a) => st[a] && !prev[a];
       if (p('kick')) ND.honor.hideRoad(true);
@@ -2080,6 +2122,7 @@
     if (ND.banzuke && ND.banzuke.onPad(st, prev)) return;
     if ((game.phase === 'vs' || game.phase === 'ending') && game.runner && game.runner.onPad) return game.runner.onPad(st, prev);
     const pr = (a) => st[a] && !prev[a];
+    if (game.paused && !$('pause').hidden && !(ND.settingsUI && ND.settingsUI.isOpen)) { pausePad(st, prev, gp); return; }
     if (game.phase === 'select' && game.selMode !== '2p') {
       if (game.movesOpen) { if (pr('kick') || pr('throw')) game.closeMoves(true); return; }
       if (pr('throw')) { game.openMoves(); return; }
@@ -2129,6 +2172,15 @@
   // 1.5 / 1.25 / 1) × the current rung's scale. Very large screens (5K) stay near 4K pixels, phones near 2.2 MP.
   // The HUD is DOM, so it stays sharp whatever the canvas size.
   const MAX_PX = MOBILE ? 2.2e6 : 3840 * 2160;
+  // Phones in landscape (a small page on a device whose main pointer is a finger): the camera stands closer, the
+  // fighters are PHONE_ZOOM times bigger on screen (cam.s; when they stand far apart the fit-both zoom of cam.follow
+  // takes over as before), the ground line a bit higher (PHONE_GY, syncTouch) so the feet stay above the thumb
+  // buttons, and a jump zooms out enough to keep the head clear of the HUD (cam.topPx). Decided from the device and the
+  // page size, not from the touch UI being on (that can switch mid-fight, and the part cache's scale level for the
+  // fight follows cam.s, js/bake.js). Computers and tablets keep their framing.
+  const PHONE_ZOOM = 1.2, PHONE_GY = 0.45;
+  // (?phonecam=0: the old framing, to compare on a phone)
+  const phoneCam = (r) => QS.get('phonecam') !== '0' && !!(ND.touch && (ND.touch.mobile || ND.touch.forced === true)) && r.width > r.height && r.height <= 500 && r.width <= 1000;
   function resize() {
     const r = cv.getBoundingClientRect();
     if (r.width < 1 || r.height < 1) return;
@@ -2141,6 +2193,11 @@
     game.pxr = cv.width / r.width; // tuval pikseli / CSS pikseli (tuş istemi boyutu için)
     game.dprCap = GFX.f.dpr;       // select-screen previews use the same cap
     scene.resize(cv.width, cv.height);
+    const ph = phoneCam(r);
+    if (ph) cam.s *= PHONE_ZOOM;
+    // the HUD's bottom (index.html #hud: about 60 CSS px on a short screen) and a little room
+    cam.topPx = ph ? 60 * game.pxr : 0;
+    if (ph !== game.phoneCam) { game.phoneCam = ph; game.phoneGy = PHONE_GY; game._camT = null; }
   }
   // ---------------------------------------------------------------- graphics quality ladder (auto quality)
   // A ladder of rungs { tier, s (resolution scale) }. A fixed choice (High / Medium / Low) only moves between the

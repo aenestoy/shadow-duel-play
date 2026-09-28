@@ -1138,6 +1138,7 @@
         shuriken: (t) => `${t}: throw a shuriken`,
         heavy: (h) => `${h}: heavy slash, slower but harder`,
         lessons: (a, b) => `Full lessons: ${a} → ${b}`,
+        controls: (a, b) => `You can move and resize the buttons in ${a} → ${b}`,
       },
     });
 

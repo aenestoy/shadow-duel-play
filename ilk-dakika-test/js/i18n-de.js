@@ -1152,6 +1152,7 @@
         shuriken: (t) => `${t}: Shuriken werfen`,
         heavy: (h) => `${h}: schwerer Hieb, langsamer, aber härter`,
         lessons: (a, b) => `Alle Lektionen: ${a} → ${b}`,
+        controls: (a, b) => `Tasten verschieben und ihre Größe ändern: ${a} → ${b}`,
       },
     });
 

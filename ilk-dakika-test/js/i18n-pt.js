@@ -1152,6 +1152,7 @@
         shuriken: (t) => `${t}: arremesse um shuriken`,
         heavy: (h) => `${h}: golpe forte, mais lento, mas mais duro`,
         lessons: (a, b) => `Todas as lições: ${a} → ${b}`,
+        controls: (a, b) => `Você pode mover os botões e mudar o tamanho deles em ${a} → ${b}`,
       },
     });
 

@@ -47,6 +47,7 @@
       this.lastTap = { left: -9, right: -9 }; this.tapDir = 0;
       this.edges = 0; // fresh presses since the last frame() (bit per ACTS index)
       this.gT = null; this.gx = null; // the last live GUARD press (sim clock), the tap hold's end (see above)
+      this.swQ = null; this.dashT = null; // a swipe dash's second tap, waiting for the next tick (swipe below); last double tap
     }
     press(a, src = 'k') {
       const s = this.srcs[a] || (this.srcs[a] = new Set());
@@ -64,15 +65,34 @@
       if (a === 'guard') this.gT = now();
       else if (ENDS_GX[a]) this.gx = null;
     }
-    // tick boundary: a tap hold that has run out lets go
-    step() { if (this.gx != null && now() >= this.gx) this.gx = null; }
+    // tick boundary: a tap hold that has run out lets go; a swipe dash's second tap arrives
+    step() {
+      if (this.gx != null && now() >= this.gx) this.gx = null;
+      const q = this.swQ;
+      if (q && now() > q.t) {
+        this.swQ = null;
+        // (not when that direction was hidden meanwhile, or a dash already came from this gesture)
+        if (!(this.mask && this.mask[q.a]) && !(this.dashT != null && this.dashT >= q.t)) { this.edges |= BIT[q.a]; this.buffer(q.a); }
+      }
+    }
+    // Swipe to dash (the touch pad's quick sideways flick, see SW below): exactly a double tap of that direction. If it
+    // was not pressed just before (the flick started on the empty movement area), a first tap now; the second one at
+    // the next tick boundary (step), never in the same tick as the first, so an input frame (frame()) records two
+    // presses in two ticks like any double tap and a FrameCtrl fed those frames dashes on the same step.
+    swipe(a, src) {
+      if ((this.mask && this.mask[a]) || this.noTap) return false;
+      if (this.dashT != null && this.dashT === this.lastTap[a] && now() - this.dashT < 0.24) return true; // its own taps already dashed
+      if (!(now() - this.lastTap[a] < 0.24)) { this.press(a, src); this.release(a, src); }
+      this.swQ = { a, t: now() };
+      return true;
+    }
     guardHold() { return guardHold(this); }
     // a fresh press of a: its time in the buffer, the double-tap dash, the press listener
     buffer(a) {
       const t = now();
       this.buf[a] = t;
       if (!this.noTap && (a === 'left' || a === 'right')) {
-        if (t - this.lastTap[a] < 0.24) { this.buf.dodge = t; this.tapDir = a === 'left' ? -1 : 1; }
+        if (t - this.lastTap[a] < 0.24) { this.buf.dodge = t; this.tapDir = a === 'left' ? -1 : 1; this.dashT = t; }
         this.lastTap[a] = t;
       }
       if (a === 'dodge') this.tapDir = 0;
@@ -275,6 +295,7 @@
         tc.addEventListener('touchstart', (e) => { if (e.cancelable) e.preventDefault(); }, { passive: false });
       }
       initStick();
+      initSwipeZone();
       initActs();
       initDpad();
     },
@@ -286,6 +307,7 @@
 
     lockForAd(on) {
       input.adLocked = !!on;
+      if (on && ND.haptics) ND.haptics.stop();
       input.p1.clear(); input.p2.clear(); input.touchReset();
       const app = document.getElementById('app');
       if (app) app.classList.toggle('ad-lock', !!on);
@@ -331,7 +353,7 @@
           touch.pad = true;
           if (touch.active && touch.forced == null) touch.set(false); else if (first) touch.notify();
         }
-        if (input.onPad) input.onPad(st, prev);
+        if (input.onPad) input.onPad(st, prev, gp);
       }
     },
   };
@@ -344,7 +366,8 @@
     if (!pref('haptic', true)) return;
     try {
       const ua = navigator.userActivation;
-      if (typeof navigator.vibrate === 'function' && (!ua || ua.hasBeenActive)) navigator.vibrate(7);
+      // (not while an event pattern plays: ND.haptics, js/haptics.js; this would cut it off)
+      if (typeof navigator.vibrate === 'function' && (!ua || ua.hasBeenActive) && !(ND.haptics && ND.haptics.busy())) navigator.vibrate(7);
     } catch (e) { /* yok */ }
   };
   const wake = () => { try { ND.audio.init(); } catch (e) { /* yok */ } };
@@ -365,6 +388,38 @@
   const guardMin = () => guardHold(input.p1) * 1000;
   // D-pad "tap to step": a quick tap on ◀ / ▶ walks for at least STEP_MS (one short step, same walk speed as holding)
   const STEP_MS = 170;
+
+  // ---------------------------------------------------------------- swipe to dash
+  // A quick sideways flick on the movement side of the pad (the stick zone, the d-pad, and in the d-pad / fixed stick
+  // modes the empty movement area around them, #tSwipe) dashes that way, like a double tap of ◀ / ▶ (Ctrl.swipe, the
+  // very same presses). A flick: the finger goes down, travels at least SW.px sideways (SW.ratio times more than up or
+  // down), at SW.v px/ms or faster, and lifts within SW.ms of touching down. Walking (the thumb stays down), a short
+  // step, a slow drag and an up / down flick (jump, guard) never do. CSS pixels, real time (it is a hand gesture).
+  const SW = { ms: 230, px: 48, v: 0.4, ratio: 2 };
+  const swStart = (e) => ({ x: e.clientX, y: e.clientY, t: performance.now() });
+  function swEnd(s, e) {
+    if (!s || !e || input.adLocked || !input.enabled) return 0;
+    const dx = e.clientX - s.x, dy = e.clientY - s.y, dt = performance.now() - s.t, ax = Math.abs(dx);
+    if (dt > SW.ms || ax < SW.px || ax < Math.abs(dy) * SW.ratio || ax / Math.max(dt, 1) < SW.v) return 0;
+    return input.p1.swipe(dx > 0 ? 'right' : 'left', 'tw') ? Math.sign(dx) : 0;
+  }
+  input.SW = SW;
+  // the empty movement area (d-pad and fixed-stick modes; touch.js places it): swipes only, it never walks
+  function initSwipeZone() {
+    const z = document.getElementById('tSwipe');
+    if (!z) return;
+    const live = new Map();
+    z.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      live.set(e.pointerId, swStart(e));
+      try { z.setPointerCapture(e.pointerId); } catch (_) { /* yok */ }
+      wake();
+    });
+    z.addEventListener('pointerup', (e) => { const s = live.get(e.pointerId); live.delete(e.pointerId); if (s) swEnd(s, e); wake(); });
+    const drop = (e) => live.delete(e.pointerId);
+    z.addEventListener('pointercancel', drop);
+    z.addEventListener('lostpointercapture', drop);
+  }
 
   // ---------------------------------------------------------------- sanal yön çubuğu
   // Yukarı = zıpla, aşağı = gard, yana hızlıca iki kez it = atılma (Ctrl'ün çift dokunma algısı). Yüzen çubukta parmak
@@ -421,11 +476,12 @@
         S.cy = clamp(e.clientY - r.top, h, Math.max(h, r.height - h));
       }
       place(); base.classList.add('live');
+      S.sw = swStart(e); // a quick sideways flick dashes (SW)
       move(e); wake();
     });
     zone.addEventListener('pointermove', (e) => { if (e.pointerId === S.id) move(e); });
     const up = (e) => { if (e.pointerId === S.id) S.reset(); };
-    zone.addEventListener('pointerup', (e) => { up(e); wake(); });
+    zone.addEventListener('pointerup', (e) => { if (e.pointerId === S.id) swEnd(S.sw, e); up(e); wake(); });
     zone.addEventListener('pointercancel', up);
     zone.addEventListener('lostpointercapture', up);
     rest();
@@ -528,9 +584,10 @@
   // step (STEP_MS); with easy assist a quick ▼ tap lasts long enough to parry (GUARD_MIN).
   let dpad = null;
   function initDpad() {
-    const P = dpad = group('tDpad', (e) => { P.ptr.set(e.pointerId, pickDirs(e.clientX, e.clientY, true)); sync(); },
+    const sw = new Map(); // finger → where / when it went down (swipe to dash, SW)
+    const P = dpad = group('tDpad', (e) => { sw.set(e.pointerId, swStart(e)); P.ptr.set(e.pointerId, pickDirs(e.clientX, e.clientY, true)); sync(); },
       (e) => { const n = pickDirs(e.clientX, e.clientY, false); if (n !== P.ptr.get(e.pointerId)) { P.ptr.set(e.pointerId, n); sync(); } },
-      (e) => { P.ptr.delete(e.pointerId); sync(); });
+      (e) => { P.ptr.delete(e.pointerId); sync(); const s = sw.get(e.pointerId); sw.delete(e.pointerId); if (s && e.type === 'pointerup') swEnd(s, e); });
     if (!P) return;
     const DIRS = ['left', 'right', 'up', 'guard'];
     const st = {};

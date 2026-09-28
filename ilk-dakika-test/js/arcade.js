@@ -617,7 +617,7 @@
     // select highlight and gets no tips (a player past the first fight's coach already knows the basics)
     if (typeof p.fought !== 'boolean') o.fought = !!(p.firstDone || p.coached || p.wins > 0);
     if (typeof p.selIntro !== 'boolean') o.selIntro = !!p.firstDone;
-    const tp = p.tips && typeof p.tips === 'object' && !Array.isArray(p.tips) ? p.tips : null, TIPS = ['ki', 'gbreak', 'posture', 'dash', 'shuriken', 'heavy', 'lessons'];
+    const tp = p.tips && typeof p.tips === 'object' && !Array.isArray(p.tips) ? p.tips : null, TIPS = ['ki', 'gbreak', 'posture', 'dash', 'shuriken', 'heavy', 'lessons', 'controls'];
     o.tips = { n: tp ? Math.max(0, Math.min(999, Math.floor(+tp.n) || 0)) : o.coached ? 999 : 0, seen: {} };
     if (tp && tp.seen && typeof tp.seen === 'object') for (const k of TIPS) if (tp.seen[k]) o.tips.seen[k] = 1;
     for (const k of ['chars', 'arenas', 'lessons']) if (!Array.isArray(o[k])) o[k] = d[k].slice();
