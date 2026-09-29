@@ -149,7 +149,8 @@
         stallSince: 0, waitSince: 0, lastSkip: 0, lastDelay: 0, peerBg: false, bg: false,
         pending: new Map(), flushed: 0, snd: new Map(), sndFloor: 0, cur: -1, inStep: false, counts: null, quiet0: false,
         maxRoll: weak ? ROLL_WEAK : ROLL_MAX, weak, saveMs: [],
-        st: { rollbacks: 0, rolledSteps: 0, maxRolled: 0, stalls: 0, skips: 0, packetsIn: 0, packetsOut: 0, soundsCancelled: 0, soundsLate: 0, desync: null },
+        st: { rollbacks: 0, rolledSteps: 0, maxRolled: 0, stalls: 0, skips: 0, packetsIn: 0, packetsOut: 0, soundsCancelled: 0, soundsLate: 0, desync: null,
+          saves: 0, hashes: 0, saveMs: 0, hashMs: 0, rollMs: 0, stepMs: 0 },
         finished: false, result: null,
       };
       for (let i = 0; i < D; i++) S.L[i] = 0;
@@ -175,6 +176,8 @@
     keepalive() { if (S && S.goSent) this.sendInputs(); },
     // this match's session (tests, the online screens)
     session() { return S; },
+    // an online match stands still, waiting for the other player (game.js draws it less often meanwhile)
+    isWaiting() { return !!(S && S.waitSince && !S.finished); },
 
     // ---------------------------------------------------------------- one display frame
     frame() {
@@ -250,17 +253,19 @@
       const n = S.frame - s;
       S.st.rollbacks++; S.st.rolledSteps += n; if (n > S.st.maxRolled) S.st.maxRolled = n;
       const turns = G.rally && G.rally.turns ? G.rally.turns.join() : '';
+      const r0 = now();
       G.loadState(st);
       S.quiet0 = !!au.quiet;
       G.resim(n, (i) => {
         const t = s + i;
         if (i > 0) {
-          if (!(t & 1)) S.saves.set(t, G.saveState());
-          if (t % HASH_EVERY === 0) S.hashAt.set(t, G.hashState());
+          if (this.needSave(t)) this.save(t);
+          if (t % HASH_EVERY === 0) this.hash(t);
         }
         this.enter(t); this.apply(t);
       }, (i) => this.leave(s + i));
       S.inStep = false;
+      S.st.rollMs += now() - r0;
       // the rally counter is a HUD of the current state: refresh it when the corrected state has another count
       if (G.rally && G.rally.turns && G.rally.turns.join() !== turns && G.rallyHud) G.rallyHud();
     },
@@ -273,15 +278,31 @@
         S.L[S.nextLocal++] = v;
         while (S.nextLocal <= t + S.D) S.L[S.nextLocal++] = v & 0x3ff; // (the delay just grew: the same keys held)
       }
-      if (!(t & 1)) {
-        const c0 = now();
-        S.saves.set(t, G.saveState());
-        this.saveCost(now() - c0);
-      }
-      if (t % HASH_EVERY === 0) S.hashAt.set(t, G.hashState());
+      const c0 = now();
+      if (this.needSave(t)) this.saveCost(this.save(t));
+      if (t % HASH_EVERY === 0) this.hash(t);
       this.enter(t); this.apply(t);
       try { G.tick(true); } finally { this.leave(t); }
       S.frame = t + 1;
+      S.st.stepMs += now() - c0;
+    },
+    // A rollback restores the saved state at or before the first step whose remote input is still unknown (rRecv), so
+    // only even steps from rRecv - 1 on are saved: a step whose inputs are all known already (the other side's frames
+    // arrived before they were needed, the aim of the input delay) never needs its state again. (Saving is the main
+    // cost of rollback netcode: a deep copy of the fight, ~17 KB of objects, 60 times a second.)
+    needSave(t) { return !(t & 1) && t >= S.rRecv - 1; },
+    // the state before step t (even steps), kept for a rollback to it; returns the ms it took
+    save(t) {
+      const c0 = now();
+      S.saves.set(t, G.saveState());
+      const ms = now() - c0;
+      S.st.saves++; S.st.saveMs += ms;
+      return ms;
+    },
+    hash(t) {
+      const c0 = now();
+      S.hashAt.set(t, G.hashState());
+      S.st.hashes++; S.st.hashMs += now() - c0;
     },
     apply(t) {
       const l = S.L[t], r = S.R[t] !== undefined ? S.R[t] : S.rRecv ? S.R[S.rRecv - 1] & 0x3ff : 0;

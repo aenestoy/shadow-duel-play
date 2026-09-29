@@ -2378,11 +2378,15 @@
     if (behind && (skipDraw || w0 - lastDraw < 28)) { skipDraw = false; return; }
     // Paused or an ad running: the fight picture does not change (the simulation stands still), so it is drawn about
     // 10 times a second instead of on every screen refresh (the pause menu is the page's own; less heat while it is open)
-    if (!behind && (game.paused || (ND.portal && ND.portal.inAd)) && w0 - lastDraw < 100) return;
+    // The same for a result screen over the finished fight and an online match waiting for the other player (nothing
+    // moves there either): phones spent full frames redrawing a still picture under a dialog.
+    if (!behind && (game.paused || (ND.portal && ND.portal.inAd) || stillUnder()) && w0 - lastDraw < 100) return;
     lastDraw = w0;
     game.render();
     skipDraw = behind && performance.now() - w0 > 12;
   }
+  const endEl = $('end');
+  const stillUnder = () => (game.phase === 'end' && ((endEl && !endEl.hidden) || !!(ND.online && ND.online.endShown && ND.online.endShown()))) || !!(ND.net && ND.net.isWaiting && ND.net.isWaiting());
   game.isBehind = isBehind;
   // Show FPS readout (#fpsMeter, Settings → Graphics, saved as `showFps`). Costs nothing while off. While on, every
   // frame the game loop runs (callbacks the pacer skips never get here, so a 60 cap on a 120 Hz screen reads 60)

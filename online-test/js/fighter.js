@@ -1388,7 +1388,10 @@
       const source = { from: this, serial: this.serial, counter: !!a.counter };
       this.hitDone = true;
       o.sinceHit = 0;
-      if (!isKick && o.ctrl.since('guard') <= parryWin(o)) {
+      // kick rules (no parry, heavier on the guard, longer block stun, no counter window) for real kicks only: a body
+      // blow that opens an attack (a.parry: Ren's shoulder charge and head butt) is blocked and parried like a cut
+      const kickRules = isKick && !a.parry;
+      if (!kickRules && o.ctrl.since('guard') <= parryWin(o)) {
         const kind = DEFL.kind(this, a, y, o); // read the attack's shape before the recoil replaces it
         // seri içindeki karşılık savuşturulursa kılıç savrulur ama savunma imkânı kalır (film gibi karşılıklı akış)
         if (((!a.knock && !a.special && !a.crush) || (a.counter && a.fin)) && this.state === 'atk') { this.setState('recoil'); this.vx = -this.dir * 200; this.posture = Math.min(90, this.posture + 12); }
@@ -1409,7 +1412,7 @@
         o.parries = (o.parries || 0) + 1;
         return;
       }
-      o.posture += a.post * (isKick ? 1.2 * (this.ch.kickMul || 1) : 1) * (a.special ? 1 : this.ch.dmg) * (a.crush ? 2.2 : 1) * (a.gcrush || 1) * (this.ch.post || 1) * (o.ch.guardMul || 1);
+      o.posture += a.post * (kickRules ? 1.2 * (this.ch.kickMul || 1) : 1) * (a.special ? 1 : this.ch.dmg) * (a.crush ? 2.2 : 1) * (a.gcrush || 1) * (this.ch.post || 1) * (o.ch.guardMul || 1);
       // bloklanan kesik bazen kılıç kilidine döner (tsubazeriai)
       if (!isKick && !a.special && a.kind === 'blade' && this.state === 'atk' && this.onGround && o.onGround && o.posture < 95 && Math.abs(this.x - o.x) < 150 && ND.rng.next() < 0.3) {
         fx.spark(x, y, -Math.PI / 2, 18, 1); au.clang(1.1, pan); this.gainKi(5); o.gainKi(5);
@@ -1435,8 +1438,8 @@
         fx.text(o.x, -205, 'DENGE KIRILDI!', '#ff9b7a');
         au.clang(1.3, pan, 0.7); cam.punch(9); ND.game.hitstop(0.13);
       } else {
-        o.setState('block', { dur: isKick ? 0.38 : 0.16 + a.post * 0.004 });
-        if (!isKick && !midFlurry) o.openCounter(CWIN.block, 'block', source);
+        o.setState('block', { dur: kickRules ? 0.38 : 0.16 + a.post * 0.004 });
+        if (!kickRules && !midFlurry) o.openCounter(CWIN.block, 'block', source);
       }
     }
 
@@ -1654,7 +1657,7 @@
       ctx.save();
       if (this.jit > 0) ctx.translate((Math.random() - 0.5) * 5, 0);
       const o = this._dopt;
-      o.ropes = this.ropeList(); o.trail = reflect ? null : this._trailFn; o.glint = this.glint(); o.wpn = this.wpn; o.acc = this.ch.acc;
+      o.ropes = this.ropeList(); o.trail = reflect ? null : this._trailFn; o.glint = reflect ? 0 : this.glint(); o.wpn = this.wpn; o.acc = this.ch.acc;
       // reflections: the flat two-tone model (skeleton.js drawLow). Low graphics: the same detailed fighter, drawn
       // from its cached part pictures (bake.js) instead of paths (select-screen previews set fullDetail: paths)
       o.lod = reflect ? 'low' : 'high';

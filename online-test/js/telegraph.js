@@ -1,9 +1,11 @@
 // Shadow Duel — attack telegraph (ND.telegraph): the opponent's blow, read from its real timing.
-//   glint  a short flash on the part that will hit (blade tip, staff end, fan edge, chain weight, foot, the throwing /
-//          drawing hand), on every device, for any fighter whose opponent is a human player (the CPU in a solo fight,
-//          both players in 2P). It grows over LEAD seconds and is brightest on the first step of the move's hit window
-//          (ND.ATK[..].active / .hits[0] of the move actually running, variants included; the release of a thrown or
-//          shot projectile), then fades within FADE. Subtle on computers, bigger and brighter on phones.
+//   glint  a small, short twinkle on the part that will hit (blade tip, staff end, fan edge, chain weight, foot, the
+//          throwing / drawing hand), for a fighter whose opponent is a human player on this device (the CPU in a solo
+//          fight, both players in local 2P, only the other player online). It grows over LEAD seconds and is brightest on
+//          the first step of the move's hit window (ND.ATK[..].active / .hits[0] of the move actually running, variants
+//          included; the release of a thrown or shot projectile), then fades within FADE. A hint, not a flash: only the
+//          opening blow of a string (not its follow-ups), at most one every GAP seconds per attacker, small and half
+//          transparent (a little bigger on phones).
 //   ring   Easy assist on a touch screen (ND.touchPrefs.assist): a small ring over the player that shrinks and closes
 //          in the middle of the parry window, while the centre is lit exactly while a GUARD press parries: from the
 //          player's own window (ND.parryWin: level, Mai's fans) less one 60 Hz frame before the blow, up to the blow.
@@ -16,8 +18,9 @@
 (function (ND) {
   'use strict';
   const STEP = 1 / 120;
-  const LEAD = 0.26;   // s before the blow the glint starts
-  const FADE = 0.07;   // s after the blow starts it fades out
+  const LEAD = 0.2;    // s before the blow the glint starts
+  const FADE = 0.045;  // s after the blow starts it fades out
+  const GAP = 0.7;     // s: at most one glint per attacker in this time (simulation clock)
   const RING = 0.34;   // s the ring takes to close (it closes in the middle of the parry window)
   const MARGIN = 1 / 60; // the lit centre starts one 60 Hz frame inside the window (a blade may touch a step late)
   const NO_TELL = { feint: 1, stance: 1 };
@@ -75,7 +78,7 @@
         P.glint = 0.2 + 0.65 * k * k; // (up to 0.85: the blow's own first step is the brightest)
       }
       // the ring (parryable blows, a defender able to guard): lit while a press still parries, closed mid-window
-      if (!PROJ[A.kind] && A.kind !== 'kick' && READY[d.state] && d.onGround && !d.locked) {
+      if (!PROJ[A.kind] && (A.kind !== 'kick' || A.parry) && READY[d.state] && d.onGround && !d.locked) {
         const win = ND.parryWin ? ND.parryWin(d) : 0.17, mid = win / 2;
         P.win = win;
         if (u <= mid + RING) {
@@ -98,11 +101,11 @@
   const GLINT_HI = '#fff6dc', GLINT_CORE = '#ffffff', RING_OPEN = '#96d2ff', RING_LIT = '#e8f6ff', RING_BG = 'rgba(8,9,16,.7)';
   function drawGlint(ctx, cam, G, big) {
     const x = cam.sx(P.x), y = cam.sy(P.y), px = G.pxr || 1;
-    const g = P.glint, k = (big ? 1.35 : 1) * px, a0 = big ? 1 : 0.72;
-    const r = (7 + 15 * g) * k, r2 = r * 0.45;
+    const g = P.glint, k = (big ? 1.15 : 1) * px, a0 = big ? 0.7 : 0.5;
+    const r = (3 + 7 * g) * k, r2 = r * 0.4;
     ctx.globalCompositeOperation = 'lighter';
     ctx.globalAlpha = a0 * (0.35 + 0.65 * g);
-    ctx.strokeStyle = GLINT_HI; ctx.lineWidth = Math.max(1, 1.6 * k); ctx.lineCap = 'round';
+    ctx.strokeStyle = GLINT_HI; ctx.lineWidth = Math.max(1, 1.2 * k); ctx.lineCap = 'round';
     ctx.beginPath();
     ctx.moveTo(x - r, y); ctx.lineTo(x + r, y);
     ctx.moveTo(x, y - r); ctx.lineTo(x, y + r);
@@ -110,7 +113,7 @@
     ctx.moveTo(x - r2, y + r2); ctx.lineTo(x + r2, y - r2);
     ctx.stroke();
     ctx.fillStyle = GLINT_CORE; ctx.globalAlpha = a0 * g;
-    ctx.beginPath(); ctx.arc(x, y, (1.6 + 2.6 * g) * k, 0, 6.2832); ctx.fill();
+    ctx.beginPath(); ctx.arc(x, y, (1 + 1.6 * g) * k, 0, 6.2832); ctx.fill();
     ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
   }
   function drawRing(ctx, cam, G, f) {
@@ -126,8 +129,24 @@
     ctx.globalAlpha = 1;
   }
 
+  // which glints are shown: decided once when a glint starts (per attacker), kept until it ends
+  const EP = [{ on: false, show: false, t: -9 }, { on: false, show: false, t: -9 }];
+  function glintShown(i, a, on) {
+    const e = EP[i], now = ND.simClock || 0;
+    if (!on) { e.on = false; return false; }
+    if (!e.on) {
+      e.on = true;
+      // the opener of a string only (chainN 0), and not again within GAP (a flurry of blows is one hint)
+      e.show = !(a.chainN > 0) && (now - e.t >= GAP || now < e.t);
+      if (e.show) e.t = now;
+      if (ND.telegraph) ND.telegraph.count[e.show ? 0 : 1]++; // (glints shown / left out: tests, tuning)
+    }
+    return e.show;
+  }
+
   const T = ND.telegraph = {
-    LEAD, FADE, RING, MARGIN, probe,
+    LEAD, FADE, GAP, RING, MARGIN, probe,
+    count: [0, 0],
     // Easy assist ring for the player on a touch screen
     ringFor(f, G) {
       const P0 = ND.touchPrefs;
@@ -144,12 +163,14 @@
       if (!G || !cam || G.phase !== 'fight' || G.mode === 'attract' || !G.isHuman || !G.F) return;
       const big = !!(G.phoneCam || (ND.touch && ND.touch.active));
       ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+      const me = G.mode === 'online' && G.local ? G.local() : null;
       for (let i = 0; i < 2; i++) {
         const a = G.F[i], d = a && a.opp;
-        if (!d || d.dead || !G.isHuman(d)) continue;
+        if (!d || d.dead || !G.isHuman(d) || (me && d !== me)) { glintShown(i, a, false); continue; }
         probe(a, d, G);
+        const gl = glintShown(i, a, P.on && P.glint > 0.01);
         if (!P.on) continue;
-        if (P.glint > 0.01) drawGlint(ctx, cam, G, big);
+        if (gl) drawGlint(ctx, cam, G, big);
         if (P.ring && T.ringFor(d, G)) drawRing(ctx, cam, G, d);
       }
       ctx.restore();

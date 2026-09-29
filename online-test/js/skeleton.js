@@ -812,13 +812,13 @@
   }
   function tipGlint(ctx, tx, ty, glint) {
     if (glint <= 0) return;
-    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha *= glint;
-    const r = 26 * glint + 6;
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha *= glint * 0.75;
+    const r = 13 * glint + 4; // (a small twinkle on the blade of a special or heavy move, not a flash)
     const gg = ctx.createRadialGradient(tx, ty, 0, tx, ty, r);
     gg.addColorStop(0, 'rgba(255,255,255,1)'); gg.addColorStop(0.25, 'rgba(255,220,160,.6)'); gg.addColorStop(1, 'rgba(255,200,120,0)');
     ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(tx, ty, r, 0, 6.283); ctx.fill();
     ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.2;
-    ctx.beginPath(); ctx.moveTo(tx - r * 1.3, ty); ctx.lineTo(tx + r * 1.3, ty); ctx.moveTo(tx, ty - r * 1.3); ctx.lineTo(tx, ty + r * 1.3); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(tx - r * 1.1, ty); ctx.lineTo(tx + r * 1.1, ty); ctx.moveTo(tx, ty - r * 1.1); ctx.lineTo(tx, ty + r * 1.1); ctx.stroke();
     ctx.restore();
   }
 

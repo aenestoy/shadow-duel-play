@@ -481,6 +481,8 @@
   #app.online #pauseBtn { display: none !important; }
   #onl { display: flex; flex-direction: column; align-items: center; background: rgba(5,6,12,.8); z-index: 30; }
   .onl-card { box-sizing: border-box; width: min(640px, 100%); margin: auto 0; display: grid; gap: 14px; }
+  /* (no backdrop blur: the fight keeps moving behind the room screen, a phone would blur it again on every frame) */
+  #onl .onl-card, #onlEnd .card, #onlConfirm .card { backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(10,12,22,.94); }
   .onl-card p { margin: 0; }
   .onl-card p:empty { display: none; }
   .onl-head { display: flex; gap: 14px; align-items: center; }
@@ -785,6 +787,7 @@
     join: (code) => { if (available()) { build(); joinRoom(code); } },
     pick: setPick, arena: setArena, ready: toggleReady, rematch: () => { const b = $('onlRematch'); if (b) b.click(); }, toLobby: () => toLobby(true),
     state: () => ({ screen, role: R && R.role, code: R && R.code, connected: !!(R && R.connected), rtt: R ? Math.round(R.rtt) : 0, err: R ? R.err : '', peerPick: R && R.peerPick, ready: !!(R && R.ready), peerReady: !!(R && R.peerReady), result: R && R.result }),
+    endShown: () => screen === 'end' && !!$('onlEnd') && !$('onlEnd').hidden,
     onBegin: null, onEnd: null,
   };
 

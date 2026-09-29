@@ -2192,10 +2192,10 @@
       active: [0.37, 0.47], dmg: 24, post: 46, gcrush: 1.25, kb: 440, stun: 0.6, lunge: [0.34, 0.44, 420], knock: true, glint: [0.16, 0.38], sw: 0.36, pw: 1.6, kind: 'blade', sc: true,
       onHit(f, o, x) { fx.dust(x, 0, 10, 1.3); cam.punch(5); } });
     reg('rn_fl', { keys: [[0.07, 'rn_elbA', eo], [0.14, 'rn_sh', eq], [0.26, 'rn_sh'], [0.48, 'rn_stance', ei2]],
-      active: [0.1, 0.2], dmg: 5, post: 14, kb: 420, stun: 0.44, lunge: [0.04, 0.18, 640], chain: [0.2, 0.48], kind: 'kick', limb: 'sh', limbR: 17,
+      active: [0.1, 0.2], dmg: 5, post: 10, kb: 420, stun: 0.44, lunge: [0.04, 0.18, 640], chain: [0.2, 0.48], kind: 'kick', parry: true, limb: 'sh', limbR: 17,
       tick: ghostTick(0.04, 0.18, 0.2), ev: [[0.05, (f) => fx.dust(f.x, 0, 8, 1.1)]] });
     reg('rn_bl', { keys: [[0.08, 'rn_headA', eo], [0.15, 'rn_headB', eq], [0.24, 'rn_headB'], [0.44, 'rn_stance', ei2]],
-      active: [0.11, 0.18], dmg: 5, post: 10, kb: 260, stun: 0.52, lunge: [0.1, 0.17, 260], chain: [0.18, 0.44], kind: 'kick', limb: 'head', limbR: 13 });
+      active: [0.11, 0.18], dmg: 5, post: 10, kb: 260, stun: 0.52, lunge: [0.1, 0.17, 260], chain: [0.18, 0.44], kind: 'kick', parry: true, limb: 'head', limbR: 13 });
     reg('rn_up', { keys: [[0.12, 'rn_upA', es], [0.22, 'rn_upB', eq], [0.34, 'rn_upB'], [0.64, 'rn_stance', ei2]],
       active: [0.14, 0.25], dmg: 10, post: 20, kb: 60, stun: 0.5, launch: true, lunge: [0.1, 0.22, 340], chain: [0.27, 0.64], sw: 0.13, pw: 1.3, kind: 'blade', sc: true,
       ev: [[0.2, (f) => burst(10, () => ({ k: 'ember', x: f.x + f.dir * rand(10, 70), y: f.y - rand(40, 180), vx: f.dir * rand(0, 100), vy: rand(-380, -120), g: -60, drag: 1.8, life: rand(0.4, 0.8), sz: rand(1.5, 2.6), c: '255,140,60' }))]] });
