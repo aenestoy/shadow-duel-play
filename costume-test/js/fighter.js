@@ -1632,7 +1632,7 @@
       // a drawn costume with its own helmet (js/costumes.js): no headband tails, hair or hood ends under it (only the
       // sash; Aoi's are her coat's tails)
       const K = c.costume && ND.COSTUMES && ND.COSTUMES[c.costume];
-      if (K && K.head && this.ch.acc !== 'aoi') return [{ rope: this.sash, col: c.accent, w: 4 }];
+      if (K && K.head && !K.ownHead && this.ch.acc !== 'aoi') return [{ rope: this.sash, col: c.accent, w: 4 }];
       if (this.ch.acc === 'scarf') return [{ rope: this.tails[0], col: c.accent, w: 6 }, { rope: this.tails[1], col: c.accentDark, w: 5 }, { rope: this.sash, col: c.accentDark, w: 4 }];
       if (this.ch.acc === 'kasa') return [{ rope: this.tails[0], col: '#6b5a3a', w: 1.4 }, { rope: this.sash, col: c.accent, w: 4 }];
       if (this.ch.acc === 'ponytail') return [{ rope: this.tails[0], col: '#0c0a0b', w: 6 }, { rope: this.sash, col: c.accent, w: 4 }];

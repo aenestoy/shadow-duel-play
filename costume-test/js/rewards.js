@@ -93,7 +93,7 @@
     const out = { id: e.id, kind: e.kind, names };
     if (e.kind === 'costume') {
       const pal = cleanPal(d.pal), atlas = cleanAtlas(d.atlas);
-      const ids = Array.isArray(ND.COSTUME_IDS) ? ND.COSTUME_IDS : [];
+      const ids = Array.isArray(ND.COSTUME_IDS) ? ND.COSTUME_IDS : [];  // (a family id such as 'champion' too)
       const builtin = typeof d.builtin === 'string' && ids.includes(d.builtin) ? d.builtin : null;
       if (!pal && !atlas && !builtin) return null;
       out.base = d.base === 'alt' || d.base === 'champ' ? d.base : 'col';
@@ -177,12 +177,18 @@
     const k = ch.id + '|' + id;
     let p = palCache.get(k);
     if (p) return p;
+    // a drawn costume for this fighter (a family such as 'champion' draws each fighter's own; none yet: nothing)
+    const key = e.builtin && ND.costumeKey ? ND.costumeKey(e.builtin, ch.id) : null;
+    if (e.builtin && !key && !e.pal && !e.atlas) return null;
     const basePal = ND.palOf ? ND.palOf(ch, e.base === 'champ' ? 'champ' : e.base === 'alt') : ch.col;
-    p = Object.assign({}, basePal, e.pal || {});
-    if (e.pal && e.pal.hood && basePal.hood) p.hood = Object.assign({}, e.pal.hood); else if (basePal.hood && !(e.pal && e.pal.hood)) p.hood = basePal.hood;
+    const K = key && ND.COSTUMES ? ND.COSTUMES[key] : null;
+    p = Object.assign({}, basePal, (K && K.pal) || {}, e.pal || {});
+    if (e.pal && e.pal.hood && basePal.hood) p.hood = Object.assign({}, e.pal.hood);
+    else if (K && K.pal && K.pal.hood) p.hood = Object.assign({}, K.pal.hood);
+    else if (basePal.hood && !(e.pal && e.pal.hood)) p.hood = basePal.hood;
     if (e.atlas) Object.defineProperty(p, 'atlas', { value: atlasFor(e), enumerable: false });
     // a drawn costume (js/costumes.js): skeleton.js draws its parts over the fighter
-    if (e.builtin) Object.defineProperty(p, 'costume', { value: e.builtin, enumerable: false });
+    if (key) Object.defineProperty(p, 'costume', { value: key, enumerable: false });
     palCache.set(k, p);
     return p;
   }
@@ -261,7 +267,10 @@
     setOwned,
     owned: () => owned.ids.filter((id) => byId.has(id) && owns(id)),
     // costumes this player owns that fit this ninja (the select screen's appearance slots)
-    costumesFor(ninja) { return list.filter((e) => e.kind === 'costume' && owns(e.id) && (!e.ninjas || e.ninjas.includes(ninja))); },
+    costumesFor(ninja) {
+      const ch = ND.CHARS ? ND.CHARS.find((c) => c.id === ninja) : null;
+      return list.filter((e) => e.kind === 'costume' && owns(e.id) && (!e.ninjas || e.ninjas.includes(ninja)) && (!ch || !!palette(ch, e.id)));
+    },
     // a title / badge to show: { name, color, icon } | null
     title(id) { const e = byId.get(id); return e && e.kind !== 'costume' ? { id: e.id, name: nameOf(e), color: e.color, icon: e.icon } : null; },
     state: () => ({ src, entries: list.length, loadedAt, owned: owned.ids.slice(), atlases: [...atlases.values()].map((a) => a.state) }),

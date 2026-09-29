@@ -2416,7 +2416,7 @@
     if (wt === 'yumi' && j.wBow > 0.5 && j.hasSword) tantoSheath(ctx, c, D);
     if (K) ND.costumeLayer(K, 'body', ctx, j);
     // (a costume with its own helmet: the bare head under it, without the fighter's hat, hood tails or hair)
-    drawHead(ctx, j, c, D, K && ND.COSTUMES[K].head ? 'none' : acc);
+    drawHead(ctx, j, c, D, K && ND.COSTUMES[K].head && !ND.COSTUMES[K].ownHead ? 'none' : acc);
     if (K) ND.costumeLayer(K, 'head', ctx, j);
     // ön bacak
     drawLeg(ctx, j, true, c, D);

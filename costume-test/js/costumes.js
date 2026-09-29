@@ -374,8 +374,30 @@
   };
 
   ND.COSTUMES = { shogun_a: shogunA, shogun_b: shogunB, shogun_c: shogunC };
-  // the ids this build can draw (the server catalog's builtin field must be one of them)
-  ND.COSTUME_IDS = Object.keys(ND.COSTUMES);
+  // A family: one builtin id, a different costume for each fighter (js/costumes-champion.js registers
+  // ND.COSTUMES.champion_<fighter>). A fighter without its own design yet wears nothing from the family.
+  const FAMILIES = { champion: (chId) => 'champion_' + chId };
+  // the builtin ids this build can draw (the server catalog's builtin field must be one of them; the same list in
+  // ranked.sql nd_costume_builtins, ranked-admin.sql and studio/panel/validate.js)
+  ND.COSTUME_IDS = ['shogun_a', 'shogun_b', 'shogun_c', 'champion'];
+  // builtin id + fighter → the costume to draw (null: none for this fighter)
+  ND.costumeKey = (b, chId) => {
+    if (typeof b !== 'string' || !ND.COSTUME_IDS.includes(b)) return null;
+    const k = FAMILIES[b] ? FAMILIES[b](chId) : b;
+    return ND.COSTUMES[k] ? k : null;
+  };
+  // a palette wearing costume `key`: the costume's own colours over it (a design may keep or change the fighter's
+  // colours), the costume named for skeleton.js
+  ND.costumePal = (p, key) => {
+    const K = ND.COSTUMES[key];
+    const q = Object.assign({}, p, (K && K.pal) || {});
+    if (K && K.pal && K.pal.hood) q.hood = Object.assign({}, K.pal.hood); else if (p.hood) q.hood = p.hood;
+    if (p.atlas) Object.defineProperty(q, 'atlas', { value: p.atlas, enumerable: false });
+    Object.defineProperty(q, 'costume', { value: key, enumerable: false });
+    return q;
+  };
+  // the drawing kit for costume files (js/costumes-champion.js)
+  ND._costumeKit = { R, TAU, LINE, torso, P, poly, headFrame, hang, sway, lames, sodePlate, bowl, turnback };
   // ---------------------------------------------------------------- owner's preview switch (not for players)
   // ?costume=shogun_a|shogun_b|shogun_c puts that costume on every fighter (fights, fighter select, the menu demo);
   // ?costume=none (or the costume-test/ preview folder) only shows the toggle. Honoured ONLY on our own preview site
@@ -388,28 +410,24 @@
     const ours = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(host) || /(^|\.)github\.io$/.test(host);
     if (!ours || (ND.portalName && ND.portalName !== 'local')) return null;
     if (q == null && !/\/costume-test\//.test(path)) return null;
-    return { id: ND.COSTUMES[q] ? q : null };
+    return { id: ND.COSTUME_IDS.includes(q) ? q : null };
   })();
   ND.costumePreview = PV ? { get id() { return PV.id; }, set(id) { setPreview(id); } } : null;
   if (PV && ND.palOf) {
     const base = ND.palOf, cache = new Map();
     ND.palOf = (ch, look) => {
       const p = base(ch, look);
-      if (!PV.id || !ch || !p || p.costume === PV.id) return p;
-      const k = ch.id + '|' + String(look) + '|' + PV.id;
+      const key = PV.id && ch && p ? ND.costumeKey(PV.id, ch.id) : null;
+      if (!key || p.costume === key) return p;
+      const k = ch.id + '|' + String(look) + '|' + key;
       let q = cache.get(k);
-      if (!q) {
-        q = Object.assign({}, p);
-        if (p.atlas) Object.defineProperty(q, 'atlas', { value: p.atlas, enumerable: false });
-        Object.defineProperty(q, 'costume', { value: PV.id, enumerable: false });
-        cache.set(k, q);
-      }
+      if (!q) { q = ND.costumePal(p, key); cache.set(k, q); }
       return q;
     };
   }
   function setPreview(id) {
     if (!PV) return;
-    PV.id = ND.COSTUMES[id] ? id : null;
+    PV.id = ND.COSTUME_IDS.includes(id) ? id : null;
     try { const u = new URL(location.href); u.searchParams.set('costume', PV.id || 'none'); history.replaceState(null, '', u.pathname + u.search + u.hash); } catch (e) { /* no history */ }
     const G = ND.game;
     try {
@@ -430,7 +448,7 @@
       tog.style.cssText = 'position:absolute;top:calc(env(safe-area-inset-top,0px) + 8px);right:8px;z-index:40;display:flex;gap:4px;align-items:center;' +
         'padding:4px 6px;background:rgba(8,9,16,.88);border:1px solid #d9b36c;font:600 12px/1 Oswald,sans-serif;letter-spacing:.06em;color:#e8dcc0';
       const lab = document.createElement('span'); lab.textContent = 'Kostüm:'; lab.style.marginRight = '2px'; tog.appendChild(lab);
-      for (const [id, t] of [['shogun_a', 'A'], ['shogun_b', 'B'], ['shogun_c', 'C'], [null, 'yok']]) {
+      for (const [id, t] of [['champion', 'Şampiyon (her karaktere özel)'], ['shogun_a', 'A'], ['shogun_b', 'B'], ['shogun_c', 'C'], [null, 'yok']]) {
         const b = document.createElement('button');
         b.type = 'button'; b.textContent = t; b.dataset.id = id || '';
         b.style.cssText = 'min-width:34px;min-height:30px;padding:4px 8px;border:1px solid rgba(217,179,108,.45);background:transparent;color:inherit;font:inherit;cursor:pointer';
@@ -447,7 +465,7 @@
   }
   if (PV) setInterval(syncToggle, 300);
 
-  // one layer of a costume, never an error that stops the fighter's drawing
+  // one layer of a costume, never an error that stops the fighter's drawing (also: skeleton.js asks .ownHead)
   ND.costumeLayer = function (id, layer, ctx, j) {
     const K = ND.COSTUMES[id], fn = K && K[layer];
     if (!fn || !j || !j.hip || !j.head) return;
