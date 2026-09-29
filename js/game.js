@@ -142,7 +142,7 @@
     GFX._setTier(lv === 'auto' ? GFX.guess() : lv, 'init');
   }
   // Dokunmatik kumandanın görüneceği modlar (2P: 1. oyuncu dokunmatik, 2. oyuncu gamepad olabilir)
-  const TOUCH_MODES = { cpu: 1, arcade: 1, train: 1, '2p': 1, tourney: 1, dan: 1, rival: 1 };
+  const TOUCH_MODES = { cpu: 1, arcade: 1, train: 1, '2p': 1, tourney: 1, dan: 1, rival: 1, online: 1 };
   const TOUCH_PHASES = { intro: 1, fight: 1, ko: 1, timeup: 1 };
   const ROT_PHASES = { intro: 1, fight: 1, ko: 1, timeup: 1, replay: 1 };
   const PORTRAIT = (() => { try { return window.matchMedia('(orientation: portrait)'); } catch (e) { return { matches: false }; } })();
@@ -327,8 +327,12 @@
 
   // newMatch: a fighter's own drawing closures and part-picture cache survive the renewal (they draw that fighter)
   const RENEW_KEEP = { _trailFn: 1, _litFn: 1, _bake: 1 };
-  // Music follows the fight, but not while the fight is only re-simulated (simOnly, see game.tick)
-  const music = (m) => { if (!game.simOnly) mu.setMode(m); };
+  // Presentation that the fight step itself triggers (banners, music changes, the sword-lock hint, the rally counter,
+  // the KO replay's screen changes): shown at once offline, never while the fight is only re-simulated (simOnly, see
+  // game.tick). In an online match (js/net.js sets ND.presGate) it waits until its step is confirmed by both players'
+  // inputs, so a rollback can never show something that did not happen or show it twice.
+  const pres = (fn) => { if (ND.presGate) ND.presGate(fn); else if (!game.simOnly) fn(); };
+  const music = (m) => pres(() => mu.setMode(m));
 
   const game = ND.game = {
     renderVersion: 'fighter-surfaces-v1',
@@ -342,7 +346,7 @@
     fpsPref: GFX.FPS && GFX.FPS.includes(saved.fps) ? saved.fps : null,
     mode: 'attract', level: [0, 1, 2].includes(saved.level) ? saved.level : 1, phase: 'menu', pt: 0, projs: [], hitstopT: 0, slow: 1, slowT: 0,
     round: 1, wins: [0, 0], timer: ROUND_TIME, focus: null, paused: false, bars: 0, ais: [], bannerT: 0, dim: 0,
-    stats: null, flags: {}, lock: null, clock: 0, tz: 1, rally: { n: 0, last: null, t: 0 }, slowV: 0.35, cineT: 0, cineX: 0, recording: false, fxEvents: [], rec: [], recN: 0, koIndex: -1, replay: null,
+    stats: null, flags: {}, lock: null, clock: 0, tz: 1, rally: { n: 0, last: null, t: 0 }, slowV: 0.35, cineT: 0, cineX: 0, recording: false, fxEvents: [], recRing: [], recShift: 0, recN: 0, koIndex: -1, replay: null, localSide: 0,
     sel: { c: [charIdx(saved.c1, 0), charIdx(saved.c2, 1)], arena: saved.arena ?? 'temple', ready: [false, false] },
     F, pv: null, pvIds: ['pv1', 'pv2'],
 
@@ -357,8 +361,11 @@
       // a new match (or leaving to the menu) ends any coach still running from the previous fight
       if (ND.coach && ND.coach.on) ND.coach.stop();
       if (ND.tutor && ND.tutor.on) ND.tutor.stop(); // and the rally tutorial (js/tutorial.js)
-      if (ND.coach && ND.coach.tips) ND.coach.tips.fightStarted(mode === 'attract' || mode === 'watch' || opts.drill ? 'off' : mode); // just-in-time tips (journey only)
+      if (ND.coach && ND.coach.tips) ND.coach.tips.fightStarted(mode === 'attract' || mode === 'watch' || mode === 'online' || opts.drill ? 'off' : mode); // just-in-time tips (journey only)
       this.mode = mode;
+      // Online match (js/net.js): which fighter this device plays (0 = 1P host, 1 = 2P guest). Not fight state: the two
+      // devices differ here and nothing the fight computes reads it (only prompts, touch HUD, haptics, name tags).
+      this.localSide = mode === 'online' ? (opts.side ? 1 : 0) : 0;
       // Campaigns pass their current opponent's level; the saved CPU menu choice can be different.
       // Training uses Apprentice timing. Local 2P and spectator modes retain the shared base rules.
       this.matchLevel = mode === 'cpu' ? this.level : RUN_MODES[mode] ? (opts.level ?? 1) : mode === 'train' ? 0 : null;
@@ -368,9 +375,17 @@
       // kural değiştiriciler yalnız bu maç için (yoksa kapanır); raund sayısı ve rakip canı da buradan
       if (ND.mods) ND.mods.set(opts.mods || null);
       this.winsNeed = ND.mods ? ND.mods.winsNeed() : 2;
-      f1.ctrl = mode === 'watch' || mode === 'attract' ? aiC1 : input.p1;
-      f2.ctrl = mode === '2p' ? input.p2 : aiC2;
-      input.solo = !!SOLO[mode];
+      if (mode === 'online' && opts.ctrls) {
+        // both fighters are driven by input frames (the local player's own too, delayed like the remote one's)
+        [f1.ctrl, f2.ctrl] = opts.ctrls;
+        opts.ctrls.forEach((c) => c.clear());
+      } else {
+        f1.ctrl = mode === 'watch' || mode === 'attract' ? aiC1 : input.p1;
+        f2.ctrl = mode === '2p' ? input.p2 : aiC2;
+      }
+      // online: the local player uses both key sets, touch and every pad (their frames go to the net loop)
+      input.solo = !!SOLO[mode] || mode === 'online';
+      input.p1.owner = input.p2.owner = mode === 'online' ? F[this.localSide] : null;
       [aiC1, aiC2, input.p1, input.p2].forEach((c) => c.clear());
       input.p1.noTap = input.p2.noTap = false; // a player's double-tap dash is always on (only the tutorial turns it off: js/tutorial.js)
       this.ais = [];
@@ -390,6 +405,7 @@
       if (arena === 'random' || !arena) arena = randArena(!RUN_MODES[mode]);
       scene.setTheme(arena);
       this.wins = [0, 0]; this.round = 1;
+      this.recShift = 0; this.recN = 0; this.recRing = []; // KO replay pictures (see update)
       this.stats = [{ dmg: 0, parries: 0, specials: 0, counters: 0, rallies: 0, perfect: 0 }, { dmg: 0, parries: 0, specials: 0, counters: 0, rallies: 0, perfect: 0 }];
       F.forEach((f) => { f.parries = 0; f.ki = 0; });
       if (mode === 'cpu') score.begin(this.level); else if (RUN_MODES[mode]) score.begin(opts.level ?? 1); else score.off();
@@ -406,7 +422,7 @@
       if (mode === 'train') ND.training.onStart();
       // rally tutorial: Training → Parry drill (opts.drill), or ?tutorial=1 on this page load's first single-player fight
       if (!attract && ND.tutor) ND.tutor.autoStart(this, mode, opts);
-      if (!attract && mode !== 'watch') ND.funnel?.fightStarted(); // new-player funnel (js/funnel.js)
+      if (!attract && mode !== 'watch' && mode !== 'online') ND.funnel?.fightStarted(); // new-player funnel (js/funnel.js)
       if (attract && ND.arcade) ND.arcade.refreshMenu();
       if (!attract) this.prepareMatch();
     },
@@ -474,6 +490,7 @@
       else if (mode === 'cpu') { t1 = tx(H.you || 'SEN'); t2 = cpu + ' · ' + upper(ND.AI_LEVELS[this.level].name); }
       else if (RUN_MODES[mode] && this.runner) [t1, t2] = this.runner.hudTags();
       else if (mode === 'train') { t1 = tx(H.you || 'SEN'); t2 = tx(H.dummy || 'KUKLA'); }
+      else if (mode === 'online') { const you = tx(H.you || 'SEN'), fr = (ND.online && ND.online.friendTag) || 'FRIEND'; [t1, t2] = this.localSide ? [fr, you] : [you, fr]; }
       $('tag1').textContent = t1; $('tag2').textContent = t2;
       $('rlabel').textContent = tx('RAUND ' + this.round);
       for (const f of F) $('nm' + (f.id + 1)).textContent = f.ch.name;
@@ -526,9 +543,30 @@
       if (c2 != null) set(this.pv[1], c2, c1 === c2 && !legacy, -1);
     },
 
+    // Online room (js/online.js): the select screen's preview fighters, drawn into the room's own canvases (ids), in
+    // front of the chosen arena (the backdrop, as on the select screen). c1 / c2: 1P / 2P roster index, or null while
+    // not chosen. The match's look: no saved look, 2P in the other colours when both pick the same ninja. The previews
+    // draw the full model (fullDetail), so they make no part pictures (bake.js) the fight would use.
+    roomStage(ids, c1, c2, arena) {
+      if (this.phase !== 'select' || this.selMode !== 'online') {
+        this.showStage('select', ids, c1 != null ? c1 : c2 != null ? c2 : 0, null);
+        this.selMode = 'online';
+        for (const p of this.pv) p.pvKey = null;
+      }
+      this.pvIds = ids;
+      if (arena && scene.themeId !== arena) scene.setTheme(arena);
+      const set = (p, ci, alt, dir) => {
+        if (ci == null || !ND.CHARS[ci]) return;
+        const key = ci + (alt ? 'a' : '');
+        if (p.pvKey === key) return;
+        p.pvKey = key; p.setChar(ND.CHARS[ci], alt); p.reset(0); p.dir = dir; p.pvPose = null;
+      };
+      set(this.pv[0], c1, false, 1); set(this.pv[1], c2, c1 != null && c1 === c2, -1);
+    },
     applyChars(i1, i2) {
       const c1 = ND.CHARS[i1], c2 = ND.CHARS[i2];
-      const legacy = !['attract', 'watch', '2p'].includes(this.mode) && ND.save?.look ? ND.save.look(c1.id) : false;
+      // (online: the same look on both devices, whatever each player's own save holds)
+      const legacy = !['attract', 'watch', '2p', 'online'].includes(this.mode) && ND.save?.look ? ND.save.look(c1.id) : false;
       f1.setChar(c1, legacy); f2.setChar(c2, i1 === i2 && !legacy);
       for (const n of [1, 2]) {
         const f = F[n - 1];
@@ -539,10 +577,11 @@
 
     startRound() {
       f1.reset(-260); f2.reset(260);
-      this.projs = []; fx.clear(); ND.specialFx?.clear(); ND.cine?.clear(); this.lock = null; if (!this.simOnly) $('lockHint').hidden = true;
+      this.projs = []; fx.clear(); ND.specialFx?.clear(); ND.cine?.clear(); this.lock = null; pres(() => { $('lockHint').hidden = true; });
       this.timer = ROUND_TIME; this.phase = 'intro'; this.pt = 0; this.slow = 1; this.slowT = 0; this.hitstopT = 0; this.dim = 0;
       this.focus = { x: 0, y: -130, z: 0.82 }; this.flags = {}; this.doubleKO = false; this.winner = null;
-      this.rec = []; this.recN = 0; this.koIndex = -1; this.fxEvents = [];
+      // replay pictures are numbered on (recShift) instead of emptied: a rollback over this line must not lose them
+      this.recShift = (this.recShift || 0) + (this.recN || 0); this.recN = 0; this.koIndex = -1; this.fxEvents = [];
       this.rally = { n: 0, last: null, t: 0, turns: [0, 0], serial: null }; this.cineT = 0; this.cineZ = 0; this.rallyHud();
       if (ND.mods) ND.mods.roundStart(F); // değiştiriciler: dolu ki, üç kat shuriken, yarım can…
       score.roundStart();
@@ -552,7 +591,10 @@
     },
 
     banner(text, kanji, sub, dur = 1.1) {
-      if (this.mode === 'attract' || this.simOnly) return;
+      if (this.mode === 'attract') return;
+      pres(() => this.showBanner(text, kanji, sub, dur));
+    },
+    showBanner(text, kanji, sub, dur) {
       const el = $('banner');
       $('bt').textContent = tx(text); $('bk').textContent = kanji || ''; $('bs').textContent = sub ? tx(sub) : '';
       el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
@@ -610,26 +652,31 @@
       }
       ND.RALLY.reset(R); this.rallyHud();
     },
-    rallyHud() {
-      if (this.simOnly) return;
-      const R = this.rally, who = SOLO[this.mode] ? f1 : R.last;
+    rallyHud() { pres(() => this.rallyHudNow()); },
+    rallyHudNow() {
+      const R = this.rally, who = SOLO[this.mode] ? f1 : this.mode === 'online' ? this.local() : R.last;
       const n = (who && R.turns && R.turns[who.id]) || 0, el = $('rally');
       if (!el) return;
       el.hidden = n < 1 || this.mode === 'attract' || !!(ND.tutor && ND.tutor.on); // not during the rally tutorial (its tip box sits there)
       if (n >= 1) { $('rallyN').textContent = n + '×'; el.style.color = who.col.ui; el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); el.classList.toggle('hot', n >= 3); }
     },
-    isHuman(f) { return this.mode === '2p' || (SOLO[this.mode] && f === f1); },
+    isHuman(f) { return this.mode === '2p' || this.mode === 'online' || (SOLO[this.mode] && f === f1); },
+    // The fighter this device's player drives (online: host 1P, guest 2P; elsewhere 1P)
+    local() { return this.mode === 'online' && this.localSide ? f2 : f1; },
     // Filmdeki gibi tuş istemi: daralan halka doğru anı gösterir
     drawPrompts() {
       const tut = this.mode === 'train' && ND.training && ND.training.tut && !ND.training.finished;
       if ((!ND.settings.hints && !tut) || this.phase !== 'fight' || (ND.tutor && ND.tutor.on)) return;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       const TB = (STR.touch && STR.touch.btn) || {};
+      const online = this.mode === 'online';
       for (const f of F) {
         if (!this.isHuman(f) || f.dead) continue;
+        if (online && f !== this.local()) continue; // online: only this device's player gets prompts (its own keys)
         // dokunmatikte harf yerine düğme adı (HAFİF / GARD), halka da parmakla okunacak kadar büyük
-        const tch = f === f1 && tOn();
-        const o = f.opp, L = tch ? [tx(TB.light || 'HAFİF'), tx(TB.guard || 'GARD')] : f === f1 ? [keyLabel('KeyF'), keyLabel('KeyS')] : [keyLabel('KeyK'), '↓'];
+        const mine = f === f1 || online;
+        const tch = mine && tOn();
+        const o = f.opp, L = tch ? [tx(TB.light || 'HAFİF'), tx(TB.guard || 'GARD')] : mine ? [keyLabel('KeyF'), keyLabel('KeyS')] : [keyLabel('KeyK'), '↓'];
         let frac = -1, key, label, col;
         const cw = f.counterLeft(); // (what a press can still use: fighter.js)
         if (cw > 0 && ['block', 'parry', 'guard', 'move', 'recoil'].includes(f.state)) {
@@ -670,10 +717,12 @@
       a.x = mid - a.dir * 50; b.x = mid - b.dir * 50; a.vx = b.vx = 0;
       this.lock = { a, b, t: 0, pa: 0, pb: 0, sp: 0, mid, off: 0 };
       fx.text(mid, -235, 'KİLİTLENDİ!', '#ffe3a1');
-      if (this.mode !== 'attract' && !this.simOnly) {
-        const H = STR.hud || {};
-        const hint = SOLO[this.mode] && tOn() && STR.touch ? STR.touch.lock : SOLO[this.mode] ? H.lockSolo || 'F / K tuşuna hızlıca bas!' : H.lockDuo || 'Hafif ya da ağır tuşuna hızlıca bas!';
-        $('lockHint').textContent = tx(hint); $('lockHint').hidden = false;
+      if (this.mode !== 'attract') {
+        pres(() => {
+          const H = STR.hud || {}, solo = SOLO[this.mode] || this.mode === 'online';
+          const hint = solo && tOn() && STR.touch ? STR.touch.lock : solo ? H.lockSolo || 'F / K tuşuna hızlıca bas!' : H.lockDuo || 'Hafif ya da ağır tuşuna hızlıca bas!';
+          $('lockHint').textContent = tx(hint); $('lockHint').hidden = false;
+        });
       }
     },
     updateLock(dt) {
@@ -697,7 +746,7 @@
     },
     endLock(winner) {
       const L = this.lock; if (!L) return;
-      this.lock = null; if (!this.simOnly) $('lockHint').hidden = true;
+      this.lock = null; pres(() => { $('lockHint').hidden = true; });
       if (L.a.dead || L.b.dead) return;
       const c = (L.a.x + L.b.x) / 2;
       if (winner) {
@@ -789,6 +838,15 @@
     },
 
     matchEnd(w) {
+      if (this.mode === 'online') {
+        // Online: the fight state ends here on both devices; the result screen is the online one (js/online.js), shown
+        // once this step is confirmed. No score, honour, runner, funnel or save changes.
+        this.phase = 'end'; this.replay = null; this.bars = 0;
+        this.stats[0].parries = f1.parries || 0; this.stats[1].parries = f2.parries || 0;
+        const wid = w ? w.id : -1;
+        pres(() => { if (ND.net && ND.net.matchEnded) ND.net.matchEnded(wid); });
+        return;
+      }
       this.phase = 'end'; this.replay = null; this.bars = 0;
       if (this.mode !== 'watch') ND.funnel?.fightEnded(w === f1);
       this.stats[0].parries = f1.parries || 0; this.stats[1].parries = f2.parries || 0;
@@ -896,11 +954,11 @@
       const from = Math.max(0, this.koIndex - 100), to = Math.min(this.recN - 1, this.koIndex + 75);
       this.replay = { w, i: from, from, to, ko: this.koIndex, last: from - 1, decals: fx.decals.length };
       this.phase = 'replay'; this.pt = 0;
-      if (!this.simOnly) fx.clear();
-      if (!this.simOnly) {
+      pres(() => {
+        fx.clear();
         $('replayTag').hidden = false; $('banner').classList.remove('show');
         $('hud').hidden = true; $('pauseBtn').hidden = true; $('rally').hidden = true; // sinematik: HUD tekrar etiketinin üstüne binmesin
-      }
+      });
       music('menu');
     },
     updateReplay(rdt) {
@@ -911,11 +969,11 @@
       const idx = Math.min(R.to, Math.floor(R.i));
       if (!this.simOnly) {
         for (let k = R.last + 1; k <= idx; k++) {
-          const fr = this.rec[k];
+          const fr = this.recGet(k);
           if (fr) for (const [name, args] of fr.fx) fx['_' + name](...args);
         }
         fx.update(rdt * speed);
-        const s = this.rec[idx];
+        const s = this.recGet(idx);
         if (s) { cam.x = s.cam.x; cam.y = s.cam.y - 6; cam.z = s.cam.z * 1.12; cam.shx = cam.shy = 0; }
       }
       R.last = idx;
@@ -924,9 +982,23 @@
     finishReplay() {
       if (!this.replay) return;
       const w = this.replay.w;
-      if (!this.simOnly) { $('replayTag').hidden = true; $('hud').hidden = false; $('pauseBtn').hidden = false; }
+      pres(() => { $('replayTag').hidden = true; $('hud').hidden = false; $('pauseBtn').hidden = false; });
       this.replay = null;
       this.matchEnd(w);
+    },
+    // KO replay pictures: a ring numbered by recShift + recN (see update), so a picture belongs to one numbered step of
+    // the round whatever order the steps were computed in (an online rollback recomputes some of them).
+    REC_RING: 1024,
+    recGet(k) {
+      const a = (this.recShift || 0) + k, e = this.recRing && this.recRing[a & (this.REC_RING - 1)];
+      return e && e.a === a ? e.s : null;
+    },
+    recPut(s) {
+      const a = (this.recShift || 0) + this.recN - 1, i = a & (this.REC_RING - 1);
+      if (!this.recRing) this.recRing = [];
+      const old = this.recRing[i];
+      this.recRing[i] = { a, s };
+      return old && old.a === a ? old.s : null;
     },
     drawSnapFighter(c, s, f) {
       const mkRope = (r) => ({ rope: Object.assign(Object.create(ND.Rope.prototype), { p: r.p }), col: r.col, w: r.w });
@@ -997,9 +1069,18 @@
       let snap = false;
       if (this.recording) {
         this.recOdd = !this.recOdd;
-        if (this.recOdd || this.recN === 0) { snap = true; if (++this.recN > 900) { this.recN--; this.koIndex--; } }
+        if (this.recOdd || this.recN === 0) { snap = true; if (++this.recN > 900) { this.recN--; this.koIndex--; this.recShift++; } }
       }
-      if (sim) return;
+      if (sim) {
+        // online rollback: the recomputed step gets its replay picture too (camera and effects kept from the picture
+        // the predicted step left, if any: the camera does not move during a re-simulation)
+        if (snap && this.mode === 'online') {
+          const s = this.snapshot(), old = this.recPut(s);
+          if (old) { s.cam = old.cam; s.fx = old.fx; }
+        }
+        return;
+      }
+      this.presPart = true; // from here on the step only feeds the picture and sound (js/net.js leaves it alone)
       fx.update(fdt > 0 ? gdt : gdt * 0.25);
       ND.specialFx?.update(fdt > 0 ? gdt : gdt * 0.25);
       if (ND.cine) ND.cine.update(rdt);
@@ -1013,7 +1094,7 @@
       else if (!focus && this.rally.n >= 2 && Math.abs(f1.x - f2.x) < 420) focus = { x: mid, y: -116, z: Math.min(1.45, 1.08 + 0.06 * this.rally.n) };
       cam.follow(rdt, f1, f2, focus);
       this.bars = ND.M.approach(this.bars, (this.phase === 'ko' && this.pt < 3.5) || this.lock ? 1 : 0, 6, rdt);
-      if (snap) { this.rec.push(this.snapshot()); if (this.rec.length > 900) this.rec.shift(); }
+      if (snap) this.recPut(this.snapshot());
       if (this.mode !== 'attract' && !this.inBatch) this.hud();
     },
 
@@ -1036,9 +1117,10 @@
       for (const f of F) if (f.ctrl.step) f.ctrl.step();
       const tz = this.tz = ND.tutor && ND.tutor.on ? ND.tutor.pre(this, STEP) : 1;
       ND.simClock = (ND.simClock || 0) + STEP * tz;
-      if (present) { this.update(STEP); return; }
+      this.presPart = false;
+      if (present) { try { this.update(STEP); } finally { this.presPart = false; } return; }
       this.simOnly = true;
-      try { this.update(STEP); } finally { this.simOnly = false; }
+      try { this.update(STEP); } finally { this.simOnly = false; this.presPart = false; }
     },
     // Safety net only: the frame-time clamp (0.05 s) plus the < 0.8-step remainder already keeps a frame at ≤ 7
     // steps, so this never changes timing; it guards against a future change to that clamp.
@@ -1046,6 +1128,8 @@
     acc: 0,
     advance(rdt) {
       if (this.preparing) return 0;
+      // online match: the net loop (js/net.js) decides how many steps run, with which inputs, and rolls back
+      if (this.mode === 'online' && ND.net && ND.net.active) return ND.net.frame(rdt);
       const STEP = this.STEP, SLACK = 0.2;
       this.acc = Math.min(this.acc + rdt, 0.1);
       let n = Math.floor(this.acc / STEP + SLACK);
@@ -1312,7 +1396,7 @@
     },
 
     renderReplay() {
-      const R = this.replay, s = this.rec[Math.min(R.to, Math.floor(R.i))];
+      const R = this.replay, s = this.recGet(Math.min(R.to, Math.floor(R.i)));
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       scene.drawBack(ctx);
       if (s) {
@@ -1576,12 +1660,20 @@
       // dokunmatik dövüşte kamera: zemin biraz yukarıda, yanlarda ek pay (düğmeler dövüşçüleri daha az örter)
       const camT = T && !!TOUCH_MODES[this.mode];
       if (camT !== this._camT) { this._camT = camT; cam.gyK = camT ? (this.phoneCam ? this.phoneGy : 0.48) : 0.6; cam.padX = camT ? 80 : 0; }
-      if (rot && !this.paused && (this.phase === 'fight' || this.phase === 'intro')) { setPause(true); this.rotPaused = true; }
-      // turned sideways again during the new player's first-fight tutorial (or a round intro): it goes on by itself,
-      // no extra tap on Resume (the tutorial never hurts; elsewhere the pause dialog stays, the CPU would strike at once)
+      // (online: js/online.js pauses both players itself; the fight never pauses here)
+      if (rot && this.mode !== 'online' && (this.phase === 'fight' || this.phase === 'intro')) {
+        if (this.countT) { this.stopCount(); this.rotPaused = true; } // turned upright again during the count: paused again
+        if (!this.paused) { setPause(true); this.rotPaused = true; }
+      }
+      // Turned sideways again: the fight goes on by itself after a short 3-2-1 (no tap on Resume needed; the count
+      // gives the player time to take the phone properly before the CPU strikes). The rally tutorial and a round
+      // intro go on at once, as before.
       else if (!rot && this.rotPaused) {
         this.rotPaused = false;
-        if (this.paused && !$('pause').hidden && ((ND.tutor && ND.tutor.on) || this.phase === 'intro')) setPause(false);
+        if (this.paused && !$('pause').hidden) {
+          if ((ND.tutor && ND.tutor.on) || this.phase === 'intro') setPause(false);
+          else this.resumeCount();
+        }
       }
       // stays drawn under the pause dialog (dimmed, not touchable) so size / layout / hand changes show at once
       const on = !this.preparing && T && !!TOUCH_MODES[this.mode] && !!TOUCH_PHASES[this.phase] && !this.replay && !rot;
@@ -1590,12 +1682,34 @@
         if (on) this.touchHud(true); else input.touchReset();
       }
     },
+    // A 3-2-1 in the middle of the screen (n; 0 hides it): resuming after the phone was turned, online resumes
+    showCount(n) {
+      let el = $('cdown');
+      if (!el) { el = document.createElement('div'); el.id = 'cdown'; el.setAttribute('aria-live', 'assertive'); $('app').appendChild(el); }
+      el.hidden = !n;
+      if (n && el.textContent !== String(n)) { el.textContent = n; el.classList.remove('go'); void el.offsetWidth; el.classList.add('go'); }
+    },
+    // offline: the pause dialog goes, 3-2-1, the fight goes on (a press on Resume / P meanwhile goes on at once)
+    resumeCount() {
+      this.stopCount();
+      $('pause').hidden = true;
+      const t0 = performance.now(), n0 = 3, ms = 1800;
+      const tick = () => {
+        if (!this.countT) return;
+        const left = ms - (performance.now() - t0);
+        if (!this.paused || left <= 0) { clearTimeout(this.countT); this.countT = 0; this.showCount(0); if (this.paused) setPause(false); return; }
+        this.showCount(Math.max(1, Math.ceil(left / (ms / n0))));
+        this.countT = setTimeout(tick, 50);
+      };
+      this.countT = setTimeout(tick, 0);
+    },
+    stopCount() { if (this.countT) { clearTimeout(this.countT); this.countT = 0; } this.showCount(0); if (this.paused && this.mode !== 'online') $('pause').hidden = false; },
     // KI düğmesi (dolunca parlar) + shuriken sayısı
     touchHud(force) {
       const b = $('tKi'), am = $('tAmmo'); if (!b) return;
-      const k = Math.min(100, Math.floor(f1.ki));
+      const me = this.local(), k = Math.min(100, Math.floor(me.ki));
       if (force || b._k !== k) { b._k = k; b.style.setProperty('--ki', (k / 100).toFixed(2)); b.classList.toggle('ready', k >= 100); }
-      if (am && (force || am._n !== f1.ammo)) { am._n = f1.ammo; am.textContent = f1.ammo; am.parentNode.classList.toggle('empty', f1.ammo <= 0); }
+      if (am && (force || am._n !== me.ammo)) { am._n = me.ammo; am.textContent = me.ammo; am.parentNode.classList.toggle('empty', me.ammo <= 0); }
     },
     refreshSelect() {
       const S = this.sel, SS = STR.sel || {};
@@ -1779,7 +1893,8 @@
     goMenu();
   }
   function setPause(v) {
-    if (game.mode === 'attract' || game.phase === 'end' || game.phase === 'select' || game.phase === 'replay' || game.phase === 'vs' || game.phase === 'ending') return;
+    // (an online match never pauses: the other player's game runs on)
+    if (game.mode === 'attract' || game.mode === 'online' || game.phase === 'end' || game.phase === 'select' || game.phase === 'replay' || game.phase === 'vs' || game.phase === 'ending') return;
     game.paused = v; $('pause').hidden = !v;
     const br = $('bRestart'); if (br) br.hidden = !!(game.runner && game.runner.noRestart && game.mode === game.runner.mode);
     // (pausing also cuts a voice line still sounding and drops announcer lines waiting in the queue)
@@ -2035,7 +2150,8 @@
     if (game.mode === 'train') return ND.training.reset();
     game.start(game.mode, { c1: game.sel.c[0], c2: game.sel.c[1], arena: scene.themeId });
   };
-  $('bMenu').onclick = () => { setPause(false); if (game.runner && game.runner.abandon) game.runner.abandon(); goMenu(); };
+  // (online: the turn-your-phone hint's way out leaves the room, js/online.js; there is no pause menu online)
+  $('bMenu').onclick = () => { if (game.mode === 'online' && ND.online) { ND.online.leave(); return; } setPause(false); if (game.runner && game.runner.abandon) game.runner.abandon(); goMenu(); };
   // Natural break between matches: maybe an interstitial first (ads.js decides), then act
   const afterBreak = (fn) => {
     if (ND.ads && ND.ads.busy) return;
@@ -2052,17 +2168,19 @@
   $('bChange').onclick = () => afterBreak(() => { unlockAudio(); game.mode === 'watch' ? goMenu() : game.openSelect(game.mode); });
   $('bEndMenu').onclick = () => afterBreak(() => { if (game.runner && game.mode === game.runner.mode && game.runner.run && game.runner.quit) return game.runner.quit(); goMenu(); });
   $('pauseBtn').onclick = () => setPause(!game.paused);
-  cv.addEventListener('pointerdown', () => { if (game.phase === 'replay') game.finishReplay(); });
+  // (online: the replay is part of the shared fight, one device cannot skip it)
+  cv.addEventListener('pointerdown', () => { if (game.phase === 'replay' && game.mode !== 'online') game.finishReplay(); });
 
   input.onKey = (e) => {
+    if (ND.online && ND.online.onKey && ND.online.onKey(e)) return true; // the online room / match screens
     if (game.preparing) { if (input.isBack(e) && !e.repeat) goMenu(); return true; }
     if (ND.reveal && ND.reveal.close && !e.repeat && ND.reveal.close()) return true; // yeni ninja tanıtımı: herhangi bir tuş kapatır
     if (ND.honor && ND.honor.roadOpen) { if (input.isBack(e)) { ND.honor.hideRoad(true); return true; } return false; }
     if (ND.lbUI && ND.lbUI.open) return ND.lbUI.onKey(e);
     if (ND.banzuke && ND.banzuke.onKey(e)) return true; // salon / lobi açıkken
-    if (game.phase === 'replay' && !e.repeat) { game.finishReplay(); return true; }
+    if (game.phase === 'replay' && !e.repeat && game.mode !== 'online') { game.finishReplay(); return true; }
     if ((game.phase === 'vs' || game.phase === 'ending') && (game.runner || ND.arcade)) return (game.runner || ND.arcade).onKey(e);
-    if (game.phase === 'select') {
+    if (game.phase === 'select' && game.selMode !== 'online') { // (online room: its own screen, js/online.js)
       if (game.movesOpen) { if ((input.isBack(e) || e.code === 'KeyM') && !e.repeat) { game.closeMoves(true); return true; } return false; }
       if (e.code === 'KeyM' && !e.repeat) { game.openMoves(); return true; }
       const map = { KeyA: [0, -1], KeyD: [0, 1], ArrowLeft: [1, -1], ArrowRight: [1, 1] };
@@ -2126,7 +2244,7 @@
     if ((game.phase === 'vs' || game.phase === 'ending') && game.runner && game.runner.onPad) return game.runner.onPad(st, prev);
     const pr = (a) => st[a] && !prev[a];
     if (game.paused && !$('pause').hidden && !(ND.settingsUI && ND.settingsUI.isOpen)) { pausePad(st, prev, gp); return; }
-    if (game.phase === 'select' && game.selMode !== '2p') {
+    if (game.phase === 'select' && game.selMode !== '2p' && game.selMode !== 'online') {
       if (game.movesOpen) { if (pr('kick') || pr('throw')) game.closeMoves(true); return; }
       if (pr('throw')) { game.openMoves(); return; }
       if (pr('heavy')) { const b = $('bChallenge'); if (b && !b.hidden) { b.click(); return; } }
@@ -2311,11 +2429,15 @@
     if (behind && (skipDraw || w0 - lastDraw < 28)) { skipDraw = false; return; }
     // Paused or an ad running: the fight picture does not change (the simulation stands still), so it is drawn about
     // 10 times a second instead of on every screen refresh (the pause menu is the page's own; less heat while it is open)
-    if (!behind && (game.paused || (ND.portal && ND.portal.inAd)) && w0 - lastDraw < 100) return;
+    // The same for a result screen over the finished fight and an online match waiting for the other player (nothing
+    // moves there either): phones spent full frames redrawing a still picture under a dialog.
+    if (!behind && (game.paused || (ND.portal && ND.portal.inAd) || stillUnder()) && w0 - lastDraw < 100) return;
     lastDraw = w0;
     game.render();
     skipDraw = behind && performance.now() - w0 > 12;
   }
+  const endEl = $('end');
+  const stillUnder = () => (game.phase === 'end' && ((endEl && !endEl.hidden) || !!(ND.online && ND.online.endShown && ND.online.endShown()))) || !!(ND.net && ND.net.isWaiting && ND.net.isWaiting());
   game.isBehind = isBehind;
   // Show FPS readout (#fpsMeter, Settings → Graphics, saved as `showFps`). Costs nothing while off. While on, every
   // frame the game loop runs (callbacks the pacer skips never get here, so a 60 cap on a 120 Hz screen reads 60)

@@ -31,7 +31,8 @@
     player() {
       const G = ND.game;
       if (!G || !G.F || !ND.touch || !ND.touch.active) return null;
-      return G.isHuman && G.isHuman(G.F[0]) ? G.F[0] : null;
+      const me = G.local ? G.local() : G.F[0]; // (online guest: 2P)
+      return G.isHuman && G.isHuman(me) ? me : null;
     },
     // a fight step that is really shown and played
     live() {

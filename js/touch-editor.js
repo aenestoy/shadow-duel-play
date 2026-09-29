@@ -385,7 +385,7 @@
     for (const id of live()) if (overlaps(id)) unstack(id);
     P.move = st.move; P.dtap = st.dtap; P.op = Math.round(st.op * 100) / 100; P.snap = st.snap;
     P.left = st.left;
-    P.layout = layoutOf(st.items);
+    P.layout = layoutOf(st.items); P.lpick = true; // hiding both KICK and SHURIKEN here is the player's own choice
     for (const k in st.stash) { const d = st.stash[k]; if (d.dirty && k !== 'portrait') P.lay[k] = T.toLayout(d.items, d.S, d.tb, d.left); }
     P.lay[st.S.shape] = T.toLayout(st.items, st.S, st.tb, st.left);
     T.save();

@@ -963,8 +963,6 @@
     pick: setPick, arena: setArena, ready: toggleReady, rematch: () => { const b = $('onlRematch'); if (b) b.click(); }, toLobby: () => toLobby(true), syncAway: () => syncAway(),
     state: () => ({ screen, role: R && R.role, code: R && R.code, connected: !!(R && R.connected), rtt: R ? Math.round(R.rtt) : 0, err: R ? R.err : '', peerPick: R && R.peerPick, ready: !!(R && R.ready), peerReady: !!(R && R.peerReady), result: R && R.result, ice: R && R.ice }),
     endShown: () => screen === 'end' && !!$('onlEnd') && !$('onlEnd').hidden,
-    // the connection settings for another online mode (js/ranked.js): free STUN + the TURN relay's one-hour credentials
-    iceConfig: () => fetchTurn().then((t) => ({ iceServers: iceServers().concat(t || []), iceTransportPolicy: window.__ndIcePolicy === 'relay' ? 'relay' : 'all' })),
     onBegin: null, onEnd: null,
   };
 

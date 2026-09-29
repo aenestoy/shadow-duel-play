@@ -228,8 +228,12 @@
     const G = ND.game, FP = ND.Fighter && ND.Fighter.prototype;
     if (!G || !FP || G._voice) return;
     G._voice = true;
-    const live = () => G.mode !== 'attract' && !G.replay && !G.simOnly; // simOnly: a rollback re-simulation, already heard
+    // simOnly: a rollback re-simulation, already heard. Online (js/net.js sets ND.presGate) every line waits until its
+    // step is confirmed by both players' inputs (gate), so re-simulated steps decide again and a line of a step that
+    // was rolled away is never said.
+    const live = () => G.mode !== 'attract' && !G.replay && (!G.simOnly || !!ND.presGate);
     const safe = (fn) => { try { fn(); } catch (e) { if (V.debug) console.warn('[voice]', e); } };
+    const gate = (fn) => { if (ND.presGate) ND.presGate(() => safe(fn)); else fn(); };
     const idOf = (i) => (ND.CHARS && ND.CHARS[i] ? ND.CHARS[i].id : null);
 
     const start = G.start;
@@ -251,47 +255,47 @@
     G.banner = function (text, kanji) {
       const r = banner.apply(this, arguments);
       safe(() => {
-        if (this.mode === 'attract') return;
+        if (this.mode === 'attract' || (this.simOnly && !ND.presGate)) return;
         if (this.phase === 'intro') {
-          if (kanji === '始め') V.announce('fight');
+          if (kanji === '始め') gate(() => V.announce('fight'));
           else {
-            const need = this.winsNeed || 2, last = this.wins[0] === need - 1 && this.wins[1] === need - 1;
-            V.announce(last ? 'final' : 'round' + Math.min(3, this.round));
+            const need = this.winsNeed || 2, last = this.wins[0] === need - 1 && this.wins[1] === need - 1, line = last ? 'final' : 'round' + Math.min(3, this.round);
+            gate(() => V.announce(line));
           }
         } else if (this.phase === 'ko') {
-          V.announce('ko');
-          if (this.winner && this.winner.damageTaken === 0 && !this.doubleKO) V.announce('perfect', 'after ko');
-        } else if (this.phase === 'timeup') V.announce('time');
+          const perfect = this.winner && this.winner.damageTaken === 0 && !this.doubleKO;
+          gate(() => { V.announce('ko'); if (perfect) V.announce('perfect', 'after ko'); });
+        } else if (this.phase === 'timeup') gate(() => V.announce('time'));
       });
       return r;
     };
     const matchEnd = G.matchEnd;
     G.matchEnd = function (w) {
-      safe(() => { if (this.mode !== 'attract' && w) V.announce('decided'); });
+      safe(() => { if (this.mode !== 'attract' && w && !(this.simOnly && !ND.presGate)) gate(() => V.announce('decided')); });
       return matchEnd.apply(this, arguments);
     };
     const onSpecial = G.onSpecial;
     G.onSpecial = function (f) {
       const r = onSpecial.apply(this, arguments);
-      safe(() => { if (live()) V.special(f); });
+      safe(() => { if (live()) gate(() => V.special(f)); });
       return r;
     };
     const startAtk = FP.startAtk;
     FP.startAtk = function () {
       const r = startAtk.apply(this, arguments);
-      safe(() => { if (G.phase === 'fight' && live()) V.attack(this, this.atk); });
+      safe(() => { if (G.phase === 'fight' && live()) { const a = this.atk; gate(() => V.attack(this, a)); } });
       return r;
     };
     const take = FP.takeHit;
     FP.takeHit = function () {
       const hp0 = this.hp, r = take.apply(this, arguments);
-      safe(() => { if (live() && hp0 > this.hp) V.hurt(this, hp0 - this.hp); });
+      safe(() => { if (live() && hp0 > this.hp) { const d = hp0 - this.hp; gate(() => V.hurt(this, d)); } });
       return r;
     };
     const die = FP.die;
     FP.die = function () {
       const r = die.apply(this, arguments);
-      safe(() => { if (live()) V.say(this, 'ko'); });
+      safe(() => { if (live()) gate(() => V.say(this, 'ko')); });
       return r;
     };
     const setSt = FP.setState;
@@ -301,7 +305,7 @@
         if (s !== 'win' || was === 'win' || !live()) return;
         const need = G.winsNeed || 2, point = !!G.wins && G.wins[this.id] + 1 >= need;
         const chance = G.mode === 'train' ? R.winTrain : point ? 1 : R.winRound;
-        if (Math.random() < chance) V.say(this, 'win');
+        gate(() => { if (Math.random() < chance) V.say(this, 'win'); });
       });
       return r;
     };

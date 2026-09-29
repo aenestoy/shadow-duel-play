@@ -34,7 +34,8 @@
   // the parry window of the fighter this controller drives (ND.parryWin: level, Mai's fans) + one 60 Hz frame (a press
   // counts from the simulation step before it), never less than GUARD_MIN; in seconds
   const guardHold = (c) => {
-    const F = ND.game && ND.game.F, f = F && (F[1] && F[1].ctrl === c ? F[1] : F[0]);
+    // (c.owner: an online match's device controller, which drives no fighter directly: its player's fighter)
+    const F = ND.game && ND.game.F, f = c.owner || (F && (F[1] && F[1].ctrl === c ? F[1] : F[0]));
     return Math.max(GUARD_MIN / 1000, f && ND.parryWin ? ND.parryWin(f) + 0.017 : 0);
   };
   // keyboard ('k' + key code) and gamepad ('g' + pad index) presses; not touch (its own hold), the CPU, the tutorial

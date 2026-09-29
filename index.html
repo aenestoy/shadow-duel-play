@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
     <meta name="robots" content="noindex, nofollow" />
-<script type="module" crossorigin src="./assets/index-Cyh10XcP.js"></script>
+<script type="module" crossorigin src="./assets/index-BlVM8X7s.js"></script>
 <link rel="stylesheet" crossorigin href="./assets/index-CFtILYoN.css">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Shadow Duel</title>
@@ -36,7 +36,14 @@
     --jp: 'Noto Serif JP', 'Yu Mincho', 'Hiragino Mincho ProN', serif;
   }
   [hidden] { display: none !important; }
-  html, body { height: 100%; }
+  /* The page itself never scrolls and shows no scrollbar at any window size or zoom (Playgama moderation, 2026-09-29):
+     the game lives in #app (fixed to the viewport); a screen taller than the window scrolls inside its own panel. */
+  html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
+  @supports (height: 100dvh) { html, body { height: 100dvh; } }
+  /* No visible scrollbar anywhere, not even on the panels that scroll (menus, lists, settings, the room screen): they
+     still scroll by wheel, touch and keys. !important: some panels asked for a thin scrollbar before. */
+  * { scrollbar-width: none !important; }
+  *::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
   body { margin: 0; background: var(--ink); color: var(--text); font: 15px/1.5 var(--body); overflow: hidden; }
   #app { position: fixed; inset: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px) 0; overflow: hidden; background: var(--ink); user-select: none; -webkit-user-select: none; touch-action: none; }
   #cv { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
@@ -657,6 +664,10 @@
   }
 
   /* ---------------- Dik ekran uyarısı */
+  /* 3-2-1 before a fight goes on (after the phone was turned back, an online pause): game.js showCount */
+  #cdown { position: absolute; inset: 0; z-index: 40; display: grid; place-items: center; pointer-events: none; font: 700 clamp(64px, 16vh, 150px)/1 var(--display); color: var(--gold-hi); text-shadow: 0 4px 30px rgba(0,0,0,.85), 0 0 2px #000; }
+  #cdown.go { animation: cdIn .5s ease-out; }
+  @keyframes cdIn { from { transform: scale(1.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
   #rotate { position: absolute; inset: 0; z-index: 60; display: none; place-items: center; padding: 24px; text-align: center; background: radial-gradient(ellipse at 50% 42%, #161a2c, #05060c 72%); touch-action: none; }
   .rot-wrap { display: grid; justify-items: center; gap: 10px; max-width: 320px; }
   .rot-ic { width: 128px; height: 128px; margin-bottom: 6px; }
@@ -976,7 +987,7 @@
 
     /* Final */
     .ed-wrap { gap: 10px 16px; padding: 12px 14px; }
-    .ed-wrap canvas { height: calc(100vh - 60px); max-height: 300px; }
+    .ed-wrap canvas { height: calc(100vh - 60px); height: calc(100dvh - 60px); max-height: 300px; }
     .ed-head .title { font-size: 26px; }
     .ed-k { font-size: 40px; }
     .ed-text p { font-size: 12.5px; margin-bottom: 3px; line-height: 1.35; }
@@ -1834,7 +1845,7 @@
   <!-- Touch pad: a stick (floating or fixed) or d-pad buttons for movement, the action buttons. touch.js places every
        control (default layout or the player's own, made in the layout editor, js/touch-editor.js); input.js handles the
        fingers (multi-touch). -->
-  <div id="touch" class="simple" hidden>
+  <div id="touch" class="full" hidden>
     <div class="t-swipe" id="tSwipe" aria-hidden="true"></div>
     <div class="t-zone" id="tStick" aria-hidden="true">
       <div class="t-base" id="tBase"><i class="u"></i><i class="d" data-s="touch.btn.down">GARD</i><i class="l"></i><i class="r"></i><b class="t-knob" id="tKnob"></b></div>
@@ -1849,7 +1860,7 @@
       <button type="button" tabindex="-1" data-dir="guard" class="td-d"><small data-s="touch.btn.down">GARD</small></button>
     </div>
     <div class="t-acts" id="tActs" aria-hidden="true">
-      <!-- basit düzen 5 düğme, tam düzen 7 düğme; yerleri touch.js verir (#touch.simple / .full) -->
+      <!-- tam düzen 7 düğme (varsayılan), basit düzen 5 düğme; yerleri touch.js verir (#touch.full / .simple) -->
       <button type="button" tabindex="-1" data-act="light" class="ta-light"><span data-s="touch.btn.light">SALDIR</span></button>
       <button type="button" tabindex="-1" data-act="heavy" class="ta-heavy"><span data-s="touch.btn.heavy">AĞIR</span></button>
       <button type="button" tabindex="-1" data-act="dodge" class="ta-dodge"><span data-s="touch.btn.dodge">ATIL</span></button>
@@ -2257,6 +2268,7 @@
 <script  src="js/ai.js"></script>
 <script  src="js/honor.js"></script>
 <script  src="js/journey.js"></script>
+<script  src="js/tune.js"></script>
 <script  src="js/journey-text.js"></script>
 <script  src="js/arcade.js?v=comfort-1"></script>
 <script  src="js/roster2.js"></script>
@@ -2290,5 +2302,9 @@
 <script  src="js/sim-state.js"></script>
 <!-- voices: fighters and announcer, files in voice/ (docs/SES-PLANI.md); ?voice=off silences, ?voice=log logs -->
 <script  src="js/voice.js?v=bo-sound-1"></script>
+<!-- online "play with a friend" (docs/SHADOW-DUEL-ONLINE.md): the match loop and the rooms. data-online: left out of the
+     offline portal builds (Yandex, Playgama; vite.config.ts), so they carry no online code or address -->
+<script  data-online src="js/net.js"></script>
+<script  data-online src="js/online.js"></script>
 </body>
 </html>

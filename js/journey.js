@@ -28,10 +28,14 @@
       return r[0].split(' ').map((opp, k) => ({ opp, arena: arenas[k], level: J.level(k), ...(J.ai(k) != null ? { ai: J.ai(k) } : {}), ...(J.hp(k) ? { hp: J.hp(k) } : {}),
         ...(k === 7 ? { boss: true } : {}), goal: tasks[k], need: k < 2 ? 1 : goals[tasks[k]] }));
     },
-    level(k) { return k < 3 ? 0 : k < 5 ? 1 : k < 7 ? 2 : 3; },
-    // the CPU's own profile where it differs from the level (an ND.AI_LEVELS key): Apprentice+ in fights 2–3
-    ai(k) { return k === 1 || k === 2 ? 0.5 : null; },
-    hp(k) { return k === 6 ? 1.15 : 0; },
+    // The ladder by fight (0–7): levels = the fight's level (0–3), ai = the CPU's own profile where it differs from the
+    // level (an ND.AI_LEVELS key: Apprentice+ 0.5 in fights 2–3; null = the level's), hp = opponent health factor (0 =
+    // none). Remote tuning (js/tune.js) may change these numbers in place; a run in progress takes them the next time
+    // its route is built (a new run, or the next page load).
+    ladder: { levels: [0, 0, 0, 1, 1, 2, 2, 3], ai: [null, 0.5, 0.5, null, null, null, null, null], hp: [0, 0, 0, 0, 0, 0, 1.15, 0] },
+    level(k) { const v = J.ladder.levels[k]; return v != null ? v : k < 3 ? 0 : k < 5 ? 1 : k < 7 ? 2 : 3; },
+    ai(k) { const v = J.ladder.ai[k]; return v != null ? v : null; },
+    hp(k) { return J.ladder.hp[k] || 0; },
     count(mask) { let n = 0; for (let i = 0; i < 8; i++) if ((mask | 0) & (1 << i)) n++; return n; },
     mask(value) { return typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.min(255, Math.floor(value))) : 0; },
     // Hits are credited only after real health loss, never for a button press or a blocked attack.

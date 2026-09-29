@@ -8,7 +8,9 @@
   // A full KI the CPU has not used for this long (fight seconds) is spent at the next free moment in the technique's
   // range. The per-decision chance stays by level (lv.smart); this only ends the long waits: an Apprentice CPU sat on a
   // full, glowing KI bar for up to ~55 s of fighting (Master up to ~15 s), which read as "the CPU's KI does not work".
-  const KI_WAIT = 6;
+  // kiWait = that wait; apprenticePlusK = how far Apprentice+ sits from Apprentice towards Usta (below). Both, and the
+  // level numbers, may be changed by remote tuning (js/tune.js), only between fights (ND.tune.commit in the constructor).
+  const KNOBS = ND.AI_KNOBS = { kiWait: 6, apprenticePlusK: 0.4 };
 
   const LEVELS = ND.AI_LEVELS = {
     // combo layer: cmd = command normals as openers, str = string enders / launchers inside a chain,
@@ -29,17 +31,26 @@
   // Apprentice+ (key 0.5): journey fights 2–3, a step between Apprentice and Usta (every number 40 % of the way from
   // Apprentice to Usta). Its name is Apprentice's with a plus, in every language (the getter reads the translated name).
   // It is an AI profile only: the fight's own level (score, honor, defence timing) stays Apprentice (journey.js ai).
-  LEVELS[0.5] = (() => {
-    const a = LEVELS[0], b = LEVELS[1], k = 0.4, o = {};
+  // (k = KNOBS.apprenticePlusK.) Filled in place, again whenever remote tuning changes Apprentice, Usta or k: the same
+  // object and tick array stay (the fight state keeps CPU levels by reference, sim-state.js).
+  const derive = ND.aiDerive = () => {
+    const a = LEVELS[0], b = LEVELS[1], k = KNOBS.apprenticePlusK, o = LEVELS[0.5];
     for (const key of Object.keys(a)) {
       if (key === 'name') continue;
-      o[key] = Array.isArray(a[key]) ? a[key].map((v, i) => v + (b[key][i] - v) * k) : a[key] + (b[key] - a[key]) * k;
+      if (Array.isArray(a[key])) { const t = o[key] || (o[key] = []); a[key].forEach((v, i) => { t[i] = v + (b[key][i] - v) * k; }); }
+      else o[key] = a[key] + (b[key] - a[key]) * k;
     }
-    return Object.defineProperty(o, 'name', { get: () => LEVELS[0].name + '+', enumerable: true });
-  })();
+  };
+  LEVELS[0.5] = {};
+  derive();
+  Object.defineProperty(LEVELS[0.5], 'name', { get: () => LEVELS[0].name + '+', enumerable: true });
 
   class AI {
     constructor(me, level) {
+      // A CPU is made when a match starts (game.js start: ND.game.ais is empty then): a remote tune that arrived since
+      // the last match is put in place now, before the fight's first step, and stays fixed for the whole fight.
+      // (Not while a fight's CPUs exist, e.g. a training dummy switching behaviour in the middle of a session.)
+      if (ND.tune && !(ND.game && ND.game.ais && ND.game.ais.length)) ND.tune.commit();
       this.me = me; this.c = me.ctrl; this.lv = LEVELS[level] || LEVELS[1];
       this.held = {}; this.taps = []; this.t = 0; this.next = 0.4;
       this.seen = null; this.pending = null; this.guardUntil = 0; this.move = 0; this.moveUntil = 0;
@@ -224,7 +235,7 @@
       const spR = (ND.SPECIALS && ND.SPECIALS[me.ch.id] && ND.SPECIALS[me.ch.id].range) || [90, 520]; // karaktere özel tekniğin menzili
       if (me.ki >= 100 && dist > spR[0] && dist < spR[1]) {
         const opening = o.state === 'stagger' || o.state === 'gbreak' || (o.state === 'atk' && o.atk.kind !== 'throw' && dist > Math.min(260, spR[1] * 0.5));
-        if (opening || rnd() < lv.smart * 0.25 || this.kiFullT > KI_WAIT) { this.tap('special'); return; }
+        if (opening || rnd() < lv.smart * 0.25 || this.kiFullT > KNOBS.kiWait) { this.tap('special'); return; }
       }
       // cezalandır
       if ((o.state === 'stagger' || o.state === 'gbreak') && dist < 210) { this.dirTap(o.state === 'gbreak' || r < 0.5 ? 'heavy' : 'light', 0); return; }

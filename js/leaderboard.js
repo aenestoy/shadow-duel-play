@@ -54,7 +54,7 @@
   }
   ND.platform = Object.assign(detectPlatform(), ND.platform || {});
 
-  const GAME_V = '1.1.0', DOC_V = 1; // = package.json version (scripts/version-check.mjs)
+  const GAME_V = '1.2.0', DOC_V = 1; // = package.json version (scripts/version-check.mjs)
   const TOP_N = 20, HALL_N = 50, LOCAL_KEEP = 10, MAX_SUBS = 8, SETTLE_MS = 11000, OUT_MAX = 12;
   // Pano tanımları; max = makul üst sınır (üstündeki değerler kurcalanmış sayılır ve gösterilmez)
   const BOARDS = {

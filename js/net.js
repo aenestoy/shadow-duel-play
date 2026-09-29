@@ -18,10 +18,6 @@
 //    now and then until both run level.
 //  - Desync check: every 60 steps the fingerprint (game.hashState) of the confirmed state goes to the other side and is
 //    compared there. A mismatch ends the match ("out of sync", not counted).
-//  - Input digests (ranked, js/ranked.js): three running FNV-1a sums over every confirmed step's input frames in 1P / 2P
-//    order (1P's keys, 2P's keys, both), so both devices get the same three numbers for the same match; kept every 60
-//    confirmed steps for the ranked checkpoints, and in the result. The whole input log (both players, run-length packed)
-//    is kept for the server's audit when it asks (net.inputLog()).
 //  - Connection: no packet for 1 s (or waiting that long for the other side, or its tab in the background) → "Waiting
 //    for your friend…", nothing moves; 10 s → the match ends. No pause in an online match.
 //
@@ -53,10 +49,6 @@
   const MAX_SEND = 64;          // input frames in one packet at most
   const SND_KEEP = 2;           // steps of sound memory kept behind the confirmed step
   const now = () => performance.now();
-  // FNV-1a (32 bit) over a 20-bit input frame (3 bytes)
-  const fnv = (h, x) => { h = Math.imul(h ^ ((x >> 16) & 255), 16777619); h = Math.imul(h ^ ((x >> 8) & 255), 16777619); return Math.imul(h ^ (x & 255), 16777619) >>> 0; };
-  const FNV0 = 2166136261;
-  const hex8 = (n) => (n >>> 0).toString(16).padStart(8, '0');
 
   // ---------------------------------------------------------------- packets (binary, ~30–60 bytes)
   // [u8 1][u8 match][u32 first][u8 count][u32 ack][u32 frame][i16 advantage×16][u8 flags][hash?: u32 step, u32, u32]
@@ -165,14 +157,9 @@
           saves: 0, hashes: 0, saveMs: 0, hashMs: 0, rollMs: 0, stepMs: 0 },
         finished: false, result: null,
         pause: { mine: null, peer: null, at: -1, since: 0, resumeAt: 0 },
-        dig: [FNV0, FNV0, FNV0], digAt: new Map(),
       };
       for (let i = 0; i < D; i++) S.L[i] = 0;
-      G.newMatch('online', { c1: o.chars[0], c2: o.chars[1], arena: o.arena, seed: o.seed, side: S.side, ctrls: S.ctrls, looks: o.looks || null });
-      // test hook (scripts/ranked-check.mjs): both pages shorten every fighter's life the same way for quick KOs (the
-      // fight stays identical on both); never set in play
-      const T = window.__ndNetTest;
-      if (T && T.hp > 0 && T.hp < 1) for (const f of G.F) { f.maxHp = Math.max(1, Math.round(f.maxHp * T.hp)); f.hp = f.ghost = f.maxHp; }
+      G.newMatch('online', { c1: o.chars[0], c2: o.chars[1], arena: o.arena, seed: o.seed, side: S.side, ctrls: S.ctrls });
       ND.presGate = presGate;
       this.active = true;
       return S;
@@ -349,7 +336,6 @@
       const lim = Math.min(S.rRecv, S.frame);
       while (S && S.flushed < lim && !S.finished) {
         const t = S.flushed++;
-        this.digest(t);
         const list = S.pending.get(t);
         S.pending.delete(t);
         if (list) for (const fn of list) { try { fn(); } catch (e) { console.warn('[net] presentation', e); } }
@@ -373,37 +359,6 @@
         S.peerHash.delete(h);
         if (mine !== x) { S.st.desync = { step: h, mine, theirs: x }; console.warn('[net] out of sync at step', h, mine, x); this.end('desync', -1); return; }
       }
-    },
-
-    // step t is confirmed: its two input frames go into the digests (1P / 2P order, the same on both devices)
-    digest(t) {
-      const a = S.side === 0 ? S.L[t] : S.R[t], b = S.side === 0 ? S.R[t] : S.L[t], x = (a | 0) & 0xfffff, y = (b | 0) & 0xfffff, d = S.dig;
-      d[0] = fnv(d[0], x); d[1] = fnv(d[1], y); d[2] = fnv(fnv(d[2], x), y);
-      if ((t + 1) % HASH_EVERY === 0) {
-        S.digAt.set(t + 1, d.map(hex8));
-        if (S.digAt.size > 64) S.digAt.delete(S.digAt.keys().next().value);
-      }
-    },
-    /** The confirmed fingerprint of step h (a multiple of 60), if this device still has it */
-    finalAt(h) { return S ? S.finalMap.get(h) || null : null; },
-    /** Input digests of the confirmed steps so far: { step (steps covered), dig: [1P, 2P, both] (hex) } */
-    digests() { return S ? { step: S.flushed, dig: S.dig.map(hex8) } : null; },
-    /** A checkpoint for the ranked server: the last confirmed 60th step, its fingerprint and the input digests up to it */
-    checkpoint() {
-      if (!S || !S.myFinal) return null;
-      const h = S.myFinal[0], d = S.digAt.get(h);
-      return { step: h, hash: S.myFinal[1], dig: d || null, wins: G.wins.slice() };
-    },
-    /** The match's input frames of both players in 1P / 2P order, run-length packed: "L1:v,n;v,n…|v,n;…" (base 36) */
-    inputLog() {
-      if (!S) return '';
-      const n = S.flushed, pack = (arr) => {
-        const out = [];
-        for (let i = 0; i < n;) { const v = (arr[i] | 0) & 0xfffff; let k = 1; while (i + k < n && ((arr[i + k] | 0) & 0xfffff) === v) k++; out.push(v.toString(36) + ',' + k.toString(36)); i += k; }
-        return out.join(';');
-      };
-      const p1 = S.side === 0 ? S.L : S.R, p2 = S.side === 0 ? S.R : S.L;
-      return 'L1:' + pack(p1) + '.' + pack(p2);
     },
 
     sendInputs() {
@@ -506,8 +461,7 @@
     end(reason, winner) {
       if (!S || S.finished) return;
       S.finished = true;
-      S.result = { reason, winner, side: S.side, wins: G.wins.slice(), round: G.round, frame: S.frame, stats: this.stats(),
-        confirmed: S.flushed, dig: S.dig.map(hex8) };
+      S.result = { reason, winner, side: S.side, wins: G.wins.slice(), round: G.round, frame: S.frame, stats: this.stats() };
       try { if (S.o.onEnd) S.o.onEnd(S.result); } catch (e) { console.warn('[net] end', e); }
     },
     stop() {

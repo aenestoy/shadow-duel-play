@@ -22,7 +22,7 @@
   // Game fields that are fight state (the rest of ND.game is menus, screens, HUD and renderer bookkeeping).
   const GAME_KEYS = ['mode', 'matchLevel', 'winsNeed', 'phase', 'pt', 'round', 'wins', 'timer', 'clock', 'projs', 'lock', 'rally',
     'hitstopT', 'slow', 'slowT', 'slowV', 'cineT', 'cineX', 'cineZ', 'dim', 'focus', 'flags', 'doubleKO', 'winner', 'loser',
-    'stats', 'recording', 'recOdd', 'recN', 'koIndex', 'replay', 'tz'];
+    'stats', 'recording', 'recOdd', 'recN', 'recShift', 'koIndex', 'replay', 'tz'];
   // Fighter fields never saved, restored or fingerprinted: drawing caches and presentation links, and the purely visual
   // state the fight never reads (hair / scarf / sash cloth, blade streak, afterimages). After a rollback those simply
   // carry on from the picture the player saw.
@@ -115,10 +115,17 @@
 
   // ------------------------------------------------------------ fingerprint
   // FNV-1a over 32-bit words, two lanes; numbers by their exact IEEE bits, object keys in sorted order.
+  // Shared tables (STATIC: moves, poses, characters, palettes…) are never part of what diverges: a fighter points into
+  // them, and the fight's own fields (state, move and pose names, timers, positions…) say where it is. They count as one
+  // word, not their contents: hashing them was most of the work (~0.5 ms a fingerprint; ~12 ms on a slow phone, twice a
+  // second online), and their texts follow the player's language (ND.CHARS titles): two players in different
+  // languages would have looked out of sync.
   const F64 = new Float64Array(1), U32 = new Uint32Array(F64.buffer);
   function hasher(pre) {
-    let a = 0x811c9dc5, b = 0x9e3779b9;
-    const w = (x) => { a = Math.imul(a ^ (x | 0), 16777619); b = Math.imul(b ^ (x | 0), 2246822519) ^ (b >>> 15); };
+    // (the two lanes live in an Int32Array: as closure variables most 32-bit values were boxed, one allocation per word)
+    const H = new Int32Array(2);
+    H[0] = 0x811c9dc5; H[1] = 0x9e3779b9;
+    const w = (x) => { H[0] = Math.imul(H[0] ^ (x | 0), 16777619); H[1] = Math.imul(H[1] ^ (x | 0), 2246822519) ^ (H[1] >>> 15); };
     const seen = new Map();
     if (pre) for (const o of pre) seen.set(o, -1 - seen.size); // other parts: referenced, not repeated
     const val = (v) => {
@@ -133,6 +140,7 @@
         default:
       }
       if (v === null) { w(7); return; }
+      if (STATIC.has(v)) { w(15); return; }
       const id = seen.get(v);
       if (id !== undefined) { w(8); w(id); return; }
       seen.set(v, seen.size);
@@ -142,9 +150,12 @@
       if (v instanceof Set) { w(11); w(v.size); for (const x of v) val(x); return; }
       if (v instanceof Map) { w(12); w(v.size); for (const [k, x] of v) { val(k); val(x); } return; }
       w(13);
-      const keys = Object.keys(v).filter((k) => !SKIP[k] && !NOHASH[k] && v[k] !== undefined).sort(); // undefined = absent
-      w(keys.length);
-      for (const k of keys) { val(k); val(v[k]); }
+      const keys = Object.keys(v); // (filtered in place: one array per object)
+      let n = 0;
+      for (let i = 0; i < keys.length; i++) { const k = keys[i]; if (!SKIP[k] && !NOHASH[k] && v[k] !== undefined) keys[n++] = k; } // undefined = absent
+      keys.length = n; keys.sort();
+      w(n);
+      for (let i = 0; i < n; i++) { val(keys[i]); val(v[keys[i]]); }
     };
     // a controller as the fight sees it: which actions are held, the press buffer, the double-tap memory
     const ctrl = (c) => {
@@ -153,7 +164,7 @@
       for (let i = 0; i < ND.Ctrl.ACTS.length; i++) if (c.held(ND.Ctrl.ACTS[i])) m |= 1 << i;
       w(m); val(c.buf); val(c.lastTap); val(c.tapDir); val(!!c.noTap); val(c.mask || null);
     };
-    return { val, hex: () => (a >>> 0).toString(16).padStart(8, '0') + (b >>> 0).toString(16).padStart(8, '0') };
+    return { val, hex: () => (H[0] >>> 0).toString(16).padStart(8, '0') + (H[1] >>> 0).toString(16).padStart(8, '0') };
   }
   // one fingerprint per part (easier to see what diverged first) and a combined one
   G.hashParts = function () {

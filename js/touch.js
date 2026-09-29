@@ -1,7 +1,10 @@
 // Shadow Duel — touch controls: player preferences, where every control sits, their settings panel, fullscreen and
 // the portrait hint. The pad itself (stick, d-pad, buttons, multi-touch) lives in input.js; the layout editor in
 // touch-editor.js. This file decides how the pad looks and behaves:
-//   layout  'simple' (default: ATTACK, HEAVY, GUARD, KI, DASH) | 'full' (+ KICK, SHURIKEN)
+//   layout  'full' (default: ATTACK, HEAVY, DASH, GUARD, KICK, SHURIKEN, KI) | 'simple' (no KICK, SHURIKEN)
+//   lpick   the layout was picked by the player (Settings → Controls, or saved from the layout editor). Until
+//           2026-09-29 'simple' was the default and every save stored it, picked or not: such a save (layout 'simple',
+//           no lpick) is read as 'full' once, so the KICK and SHURIKEN buttons come back (iPhone report, 2026-09-29).
 //   size    's' | 'm' | 'l'  global scale of every control (--tb, the base button diameter)
 //   left    left-handed: the default positions mirrored (movement on the right, buttons on the left)
 //   move    'float' stick appears where the thumb lands | 'fixed' stick stays where it was put | 'dpad' ◀ ▶ ▲ ▼ buttons
@@ -47,9 +50,10 @@
     dl: ['L', 0.63, 1.5, 0.95], dr: ['L', 2.47, 1.5, 0.95], du: ['L', 1.55, 2.42, 0.95], dd: ['L', 1.55, 0.58, 0.95],
   };
   const PRESETS = {
+    // (full: SHURIKEN sits low, between DASH and KICK, so it stays under the fighters' feet with the closer phone camera)
     right: {
       full: { light: ['R', 0.95, 0.9, 1.3], heavy: ['R', 2.4, 0.62, 1], dodge: ['R', 3.65, 0.52, 0.85], guard: ['R', 0.8, 2.25, 1],
-        kick: ['R', 2.05, 1.85, 1], throw: ['R', 3.25, 1.6, 0.85], special: ['R', 4.45, 1.25, 0.95] },
+        kick: ['R', 2.05, 1.85, 1], throw: ['R', 3.2, 1.35, 0.85], special: ['R', 4.45, 1.25, 0.95] },
       simple: { light: ['R', 0.98, 0.95, 1.45], heavy: ['R', 2.47, 0.68, 1.05], guard: ['R', 0.88, 2.52, 1.15], special: ['R', 2.25, 1.98, 1.02],
         dodge: ['R', 3.72, 0.58, 0.9], kick: ['R', 2.05, 1.85, 1], throw: ['R', 3.25, 1.6, 0.85] },
     },
@@ -63,9 +67,9 @@
   };
 
   // ---------------------------------------------------------------- preferences
-  const DEF = { layout: 'simple', size: 'm', left: false, assist: true, haptic: true, move: 'float', dtap: false, op: 1, snap: true, lay: {} };
+  const DEF = { layout: 'full', lpick: false, size: 'm', left: false, assist: true, haptic: true, move: 'float', dtap: false, op: 1, snap: true, lay: {} };
   const OK = { layout: ['simple', 'full'], size: ['s', 'm', 'l'], move: ['float', 'fixed', 'dpad'] };
-  const BOOLS = ['left', 'assist', 'haptic', 'dtap', 'snap'];
+  const BOOLS = ['left', 'assist', 'haptic', 'dtap', 'snap', 'lpick'];
   const SHAPES = ['phone', 'tablet', 'portrait'];
   const T = () => (ND.STR && ND.STR.touch && ND.STR.touch.opt) || {};
   const E = () => (ND.STR && ND.STR.tedit) || {};
@@ -97,6 +101,8 @@
   function newPlayer() {
     try { const p = ND.save && ND.save.p; return !!p && !p.fought; } catch (e) { return false; }
   }
+  // KICK and SHURIKEN shown in every saved layout (the Full layout's buttons)
+  function showAll(p) { for (const k of SHAPES) { const L = p.lay[k]; if (L) for (const id of ['kick', 'throw']) if (L.it[id]) L.it[id].h = false; } }
   function read() {
     let s = null;
     try { s = ND.save ? ND.save.settings().touch : null; } catch (e) { /* storage blocked */ }
@@ -107,6 +113,8 @@
       for (const k of BOOLS) if (typeof s[k] === 'boolean') p[k] = s[k];
       if (num(s.op)) p.op = clamp(s.op, OMIN, 1);
       if (s.lay && typeof s.lay === 'object') for (const k of SHAPES) { const L = cleanLayout(s.lay[k]); if (L) p.lay[k] = L; }
+      // the old default, never picked: the full set of buttons (saved layouts show KICK and SHURIKEN again), stored at once
+      if (p.layout === 'simple' && !p.lpick) { p.layout = 'full'; showAll(p); p.fresh = true; }
     }
     return p;
   }
@@ -120,7 +128,7 @@
       ND.save.saveSettings(s);
     } catch (e) { /* storage blocked: the choice lasts this session */ }
   }
-  // the new player's default is kept from now on (see NEW_DEF)
+  // the new player's default (see NEW_DEF) and a save moved off the old Simple default are kept from now on
   if (prefs.fresh) { delete prefs.fresh; save(); }
 
   // ---------------------------------------------------------------- screen measures
@@ -437,7 +445,7 @@
       const k = b.dataset.tp;
       if (k === 'assist' || k === 'haptic' || k === 'dtap') prefs[k] = !prefs[k];
       else if (k === 'left') setLeft(b.dataset.v === '1');
-      else if (k === 'layout') setLayout(b.dataset.v);
+      else if (k === 'layout') { setLayout(b.dataset.v); prefs.lpick = true; }
       else prefs[k] = b.dataset.v;
       save(); apply();
       try { if (ND.audio && ND.audio.ready) ND.audio.ui(); } catch (err) { /* yok */ }
