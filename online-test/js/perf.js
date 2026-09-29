@@ -10,6 +10,14 @@
 // desktop browser), &phone=1 / &lowend=1 steer the device guesses, &flush=0|2 (see below).
 // Console: ND.prof.stats() = numbers of the last one-second window, ND.prof.avg(n) = average of the last n fight
 // windows, ND.prof.reset().
+// Hitch recorder (ND.prof.hitches): every frame that comes much later than it should — at least 40 ms and twice the
+// display interval and twice the usual frame time of the last second — is kept (the last 200) with what happened since
+// the frame before it: the game's state and screen, that frame's processor time and its heaviest parts, simulation
+// steps, online rollbacks, fighter part pictures drawn (bakes), WebGL texture uploads (count, KB), new textures,
+// shader compiles, sprite atlas draws, a heap drop (a garbage collection, where the browser reports memory), audio
+// decodes / new sound buffers / sounds started, DOM changes and HUD time, vibrations, resize / visibility events and
+// the browser's long tasks (PerformanceObserver 'longtask'). The COPY REPORT button copies a short text report: the
+// device, the session summary and the last 50 hitches with their likely causes (nothing is sent anywhere).
 window.ND = window.ND || {};
 (function (ND) {
   'use strict';
@@ -64,6 +72,7 @@ window.ND = window.ND || {};
     },
     begin() {
       const t = now();
+      HR.frame(t);
       // A report window never mixes gameplay with menus, pause, ads, quality changes or another arena.
       // (compared field by field: no string or array made per frame, so the profiler adds no garbage of its own)
       const g = ND.game, cv = this.cv || (this.cv = document.getElementById('cv'));
@@ -152,8 +161,9 @@ window.ND = window.ND || {};
     },
     history: [],
     // running totals (differences per window go into snap.work)
-    workNow() {
-      const R = ND.game?.glRenderer?.()?.R, C = R?.count || {}, o = { texUp: C.texUp || 0, texKB: C.texKB || 0, texNew: C.texNew || 0, texts: C.texts || 0, shaders: C.shaders || 0, targets: C.targets || 0, sprites: C.sprites || 0, spriteDrops: C.spriteDrops || 0, bakes: 0, evictions: 0, paths: 0 };
+    workNow(into) {
+      const R = ND.game?.glRenderer?.()?.R, C = R?.count || {}, o = into || {};
+      o.texUp = C.texUp || 0; o.texKB = C.texKB || 0; o.texNew = C.texNew || 0; o.texts = C.texts || 0; o.shaders = C.shaders || 0; o.targets = C.targets || 0; o.sprites = C.sprites || 0; o.spriteDrops = C.spriteDrops || 0; o.bakes = 0; o.evictions = 0; o.paths = 0;
       for (const f of ND.game?.F || []) { const b = f._bake; if (b) { o.bakes += b.bakes; o.evictions += b.evictions; o.paths += b.live; } }
       return o;
     },
@@ -192,9 +202,7 @@ window.ND = window.ND || {};
       };
     },
     async copyReport() {
-      const report = this.report();
-      if (!report.windows.length) { this.copyButton.textContent = 'PLAY A FIGHT FIRST'; return; }
-      const text = JSON.stringify(report, null, 2);
+      const text = HR.text();
       try {
         if (!navigator.clipboard?.writeText) throw Error('Clipboard unavailable');
         await navigator.clipboard.writeText(text);
@@ -222,6 +230,7 @@ window.ND = window.ND || {};
         (document.getElementById('app') || document.body).appendChild(d);
         const b = this.copyButton = document.createElement('button');
         b.id = 'perfCopy'; b.type = 'button'; b.textContent = 'COPY REPORT';
+        b.setAttribute('translate', 'no');
         b.style.cssText = 'position:fixed;right:8px;top:48px;z-index:100000;padding:10px 14px;font:600 12px sans-serif;background:#17232b;color:#cfe;border:1px solid #8bbaac;touch-action:manipulation';
         b.onclick = () => this.copyReport();
         (document.getElementById('app') || document.body).appendChild(b);
@@ -245,6 +254,7 @@ window.ND = window.ND || {};
       const wk = s.work || {};
       t += `uploads ${wk.texUp ?? '?'} (${wk.texKB ?? '?'} KB, texts ${wk.texts ?? '?'}) · new tex ${wk.texNew ?? '?'} · shaders ${wk.shaders ?? '?'} · bakes ${wk.bakes ?? '?'} evict ${wk.evictions ?? '?'} paths ${wk.paths ?? '?'}
 `;
+      t += `hitches ${HR.count} (worst ${HR.worst.toFixed(0)} ms)${HR.list.length ? ' · last: ' + HR.brief(HR.list[HR.list.length - 1]) : ''}\n`;
       if (qs.get('compact') === '1') t += `Fight samples: ${this.history.filter((v) => this.isFight(v)).length} · report v3`;
       else {
         t += `steps ${s.stepsAvg} max ${s.stepsMax} [${s.stepHist.join(' ')}] · alloc ${s.allocKBps} KB/s gc ${s.gcs}\n`;
@@ -254,6 +264,131 @@ window.ND = window.ND || {};
       this.el.textContent = t;
     },
   };
+
+  // ---------------------------------------------------------------- hitch recorder (see the header)
+  const HR = P.hr = {
+    list: [], count: 0, worst: 0, frames: 0, t0: now(), last: 0, recent: new Float64Array(60), nRecent: 0, iRecent: 0,
+    w0: null, w1: {}, ev: { decodes: 0, buffers: 0, sounds: 0, vibrates: 0, resizes: 0, vis: 0, dom: 0, keys: 0 }, ev0: null,
+    long: [], heap: 0, rb: 0, rbSteps: 0, loadAt: -1, byCtx: Object.create(null),
+    // the usual frame time: the median of the last 60 gaps
+    usual() {
+      const n = this.nRecent; if (!n) return 16.7;
+      const a = Array.from(this.recent.subarray(0, n)).sort((x, y) => x - y);
+      return a[n >> 1];
+    },
+    period() { const pc = ND.game?.pace?.stat?.(); return pc && pc.periodMs > 0 ? pc.periodMs * (pc.every || 1) : 16.7; },
+    frame(t) {
+      const gap = this.last ? t - this.last : 0, prev = this.last;
+      this.last = t; this.frames++;
+      const w = P.workNow(this.w1);
+      const S = ND.net?.session?.(), rb = S ? S.st.rollbacks : 0, rbs = S ? S.st.rolledSteps : 0;
+      const mem = performance.memory, heap = mem ? mem.usedJSHeapSize : 0;
+      if (gap > 0) {
+        const lim = Math.max(40, 2 * this.period(), 2 * this.usual());
+        if (gap >= lim && this.w0) this.record(t, prev, gap, w, rb, rbs, heap);
+        if (gap < 1000) { this.recent[this.iRecent] = gap; this.iRecent = (this.iRecent + 1) % this.recent.length; if (this.nRecent < this.recent.length) this.nRecent++; }
+      }
+      // counters of the interval that starts now
+      this.w0 = Object.assign(this.w0 || {}, w); this.ev0 = Object.assign(this.ev0 || {}, this.ev);
+      this.rb = rb; this.rbSteps = rbs; this.heap = heap;
+      if (this.long.length > 40) this.long.splice(0, this.long.length - 40);
+    },
+    screen() {
+      const g = ND.game, vis = (id) => { const e = document.getElementById(id); return !!e && !e.hidden; };
+      const scr = ['onl', 'onlEnd', 'onlWait', 'end', 'pause', 'select', 'menu', 'first', 'lb', 'hall', 'bzLobby', 'bzRes', 'movesOv', 'rotate'].filter((id) => id === 'rotate' ? getComputedStyle(document.getElementById(id) || document.body).display !== 'none' && !!document.getElementById(id) : vis(id));
+      if (document.getElementById('setOv') && !document.getElementById('setOv').hidden) scr.push('settings');
+      const on = ND.online?.state?.().screen;
+      return (g ? g.mode + '/' + g.phase + (g.paused ? '/paused' : '') + (g.preparing ? '/loading' : '') : '?') + (on ? ' online:' + on : '') + (scr.length ? ' [' + scr.join(',') + ']' : '');
+    },
+    record(t, prev, gap, w, rb, rbs, heap) {
+      const d = (k) => +((w[k] || 0) - (this.w0[k] || 0)).toFixed(k === 'texKB' ? 0 : 0), e = (k) => this.ev[k] - (this.ev0[k] || 0);
+      const parts = Object.keys(P.cur).filter((k) => k !== 'hudDom').map((k) => [k, P.cur[k]]).sort((x, y) => y[1] - x[1]).slice(0, 3).filter((x) => x[1] >= 1);
+      const cpu = P.frameStart && P.last >= P.frameStart ? P.last - P.frameStart : 0;
+      const longs = this.long.filter((l) => l.end > prev - 5 && l.start < t).map((l) => Math.round(l.dur));
+      const h = {
+        at: +((t - this.t0) / 1000).toFixed(1), gap: Math.round(gap), where: this.screen(),
+        cpu: Math.round(cpu), parts: parts.map((x) => x[0] + ' ' + x[1].toFixed(0)).join(', '), steps: P.curSteps, hud: +(P.cur.hudDom || 0).toFixed(1),
+        rollbacks: rb - this.rb, rolled: rbs - this.rbSteps,
+        bakes: d('bakes'), texUp: d('texUp'), texKB: d('texKB'), texNew: d('texNew'), shaders: d('shaders'), sprites: d('sprites'), evictions: d('evictions'),
+        gc: this.heap && heap && heap < this.heap - 256 * 1024 ? Math.round((this.heap - heap) / 1048576 * 10) / 10 : 0,
+        decodes: e('decodes'), buffers: e('buffers'), sounds: e('sounds'), vibrates: e('vibrates'), resizes: e('resizes'), vis: e('vis'), dom: e('dom'), keys: e('keys'),
+        longtasks: longs, loading: this.loadAt > prev, hidden: document.hidden || e('vis') > 0, from: prev, to: t,
+      };
+      h.causes = this.causes(h);
+      this.list.push(h); if (this.list.length > 200) this.list.shift();
+      if (!h.loading && !h.hidden) { this.count++; if (gap > this.worst) this.worst = gap; const k = h.where.split(' ')[0]; this.byCtx[k] = (this.byCtx[k] || 0) + 1; }
+    },
+    causes(h) {
+      const c = [];
+      if (h.loading) c.push('after loading');
+      if (h.hidden) c.push('tab hidden / shown');
+      if (h.resizes) c.push('resize ×' + h.resizes);
+      if (h.shaders) c.push('shader compile ×' + h.shaders);
+      if (h.texNew || h.texUp) c.push(`texture upload ×${h.texUp} (${h.texKB} KB, new ${h.texNew})`);
+      if (h.bakes) c.push('part pictures drawn ×' + h.bakes);
+      if (h.sprites) c.push('atlas draws ×' + h.sprites);
+      if (h.gc) c.push('garbage collection? (heap -' + h.gc + ' MB)');
+      if (h.decodes || h.buffers) c.push(`audio decode ×${h.decodes} / new buffers ×${h.buffers}`);
+      if (h.sounds > 12) c.push('many sounds ×' + h.sounds);
+      if (h.rolled > 12) c.push(`rollback (${h.rollbacks}, ${h.rolled} steps)`);
+      if (h.steps > 3) c.push('catch-up steps ×' + h.steps);
+      if (h.dom > 60 || h.hud > 3) c.push(`DOM changes ×${h.dom} (HUD ${h.hud} ms)`);
+      if (h.vibrates) c.push('vibrate ×' + h.vibrates);
+      if (h.longtasks.length) c.push('long task ' + h.longtasks.join('+') + ' ms');
+      if (h.cpu > h.gap * 0.6) c.push('slow frame work (' + h.cpu + ' ms: ' + h.parts + ')');
+      if (!c.length) c.push(h.cpu < 8 ? 'outside the game (browser / GPU / system)' : 'frame work ' + h.cpu + ' ms (' + h.parts + ')');
+      return c;
+    },
+    brief(h) { return `${h.at}s ${h.gap}ms ${h.causes[0]}`; },
+    text() {
+      const g = ND.game, cv = document.getElementById('cv'), pc = g?.pace?.stat?.() || {}, mins = Math.max(1 / 60, (now() - this.t0) / 60000);
+      const L = [];
+      L.push('Shadow Duel hitch report · ' + new Date().toISOString().slice(0, 19).replace('T', ' ') + (ND.game?.renderVersion ? ' · ' + ND.game.renderVersion : ''));
+      L.push('Device: ' + navigator.userAgent);
+      L.push(`cores ${navigator.hardwareConcurrency || '?'} · memory ${navigator.deviceMemory || '?'} GB · dpr ${window.devicePixelRatio} · screen ${screen.width}x${screen.height} · canvas ${cv ? cv.width + 'x' + cv.height : '?'} (css ${cv ? Math.round(cv.clientWidth) + 'x' + Math.round(cv.clientHeight) : '?'})`);
+      L.push(`quality ${ND.gfx?.getQuality ? ND.gfx.getQuality() : '?'} → ${ND.gfx?.active ? ND.gfx.active() : '?'} · renderer ${g?.rendererMode === 'gl' ? 'WebGL2' : 'Canvas'} · fps cap ${pc.target || 'max'} · refresh ${pc.periodMs ? Math.round(1000 / pc.periodMs) : '?'} Hz (best ${P.hzBest || '?'}) · ${qs.has('phone') || qs.has('lowend') || qs.has('dpr') ? 'EMULATED' : 'real device'}`);
+      const S = P.snap;
+      L.push(`Session: ${(mins).toFixed(1)} min, ${this.frames} frames, ${this.count} hitches (${(this.count / mins).toFixed(1)}/min), worst ${Math.round(this.worst)} ms, usual frame ${this.usual().toFixed(1)} ms${S ? ` · last second: ${S.fps} fps, p95 ${S.gapP95} ms, CPU ${S.parts.TOTAL ? S.parts.TOTAL.avg : '?'} ms/frame, alloc ${S.allocKBps} KB/s` : ''}`);
+      L.push('Hitches by state: ' + (Object.keys(this.byCtx).map((k) => k + ' ' + this.byCtx[k]).join(', ') || 'none'));
+      const a = P.avg(10);
+      if (a) L.push(`Fight average (last ${a.windows} s): ${a.fps} fps, frame ${a.gapAvg} ms, steps ${a.stepsAvg}, alloc ${a.allocKBps} KB/s; heaviest: ` + Object.keys(a.parts).filter((k) => k !== 'TOTAL').sort((x, y) => a.parts[y].avg - a.parts[x].avg).slice(0, 5).map((k) => `${k} ${a.parts[k].avg}/${a.parts[k].max}`).join(', '));
+      L.push('');
+      L.push('Last hitches (seconds since start · frame gap · state · causes):');
+      for (const h of this.list.slice(-50)) {
+        L.push(`${h.at}s ${h.gap}ms ${h.where} · cpu ${h.cpu} (${h.parts || '-'}) steps ${h.steps}${h.rolled ? ' rb ' + h.rolled : ''} · ${h.causes.join('; ')}`);
+      }
+      if (!this.list.length) L.push('(none recorded yet: play a while, then copy again)');
+      return L.join('\n');
+    },
+  };
+  // counters the recorder reads (installed only with ?perf=1)
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (AC && AC.prototype.decodeAudioData) { const f = AC.prototype.decodeAudioData; AC.prototype.decodeAudioData = function () { HR.ev.decodes++; return f.apply(this, arguments); }; }
+    const BAC = window.BaseAudioContext;
+    for (const C of [BAC, AC]) if (C && C.prototype.createBuffer && !C.prototype.createBuffer.__hr) { const f = C.prototype.createBuffer; C.prototype.createBuffer = function () { HR.ev.buffers++; return f.apply(this, arguments); }; C.prototype.createBuffer.__hr = true; }
+    const SN = window.AudioScheduledSourceNode;
+    if (SN && SN.prototype.start) { const f = SN.prototype.start; SN.prototype.start = function () { HR.ev.sounds++; return f.apply(this, arguments); }; }
+  } catch (e) { /* no audio API */ }
+  try { if (typeof navigator.vibrate === 'function') { const v = navigator.vibrate.bind(navigator); navigator.vibrate = (x) => { HR.ev.vibrates++; return v(x); }; } } catch (e) { /* read-only */ }
+  window.addEventListener('resize', () => HR.ev.resizes++);
+  window.addEventListener('orientationchange', () => HR.ev.resizes++);
+  window.addEventListener('keydown', () => HR.ev.keys++, true);
+  document.addEventListener('visibilitychange', () => HR.ev.vis++);
+  try { new MutationObserver((l) => { HR.ev.dom += l.length; }).observe(document.documentElement, { subtree: true, childList: true, attributes: true, characterData: true }); } catch (e) { /* none */ }
+  try {
+    // (long-task entries arrive a little after the frame that recorded the hitch: they are added to it then)
+    new PerformanceObserver((l) => {
+      for (const e of l.getEntries()) {
+        const L = { start: e.startTime, end: e.startTime + e.duration, dur: e.duration };
+        HR.long.push(L);
+        for (let i = HR.list.length - 1; i >= 0 && i >= HR.list.length - 5; i--) {
+          const h = HR.list[i];
+          if (L.end > h.from - 5 && L.start < h.to && !h.longtasks.includes(Math.round(L.dur))) { h.longtasks.push(Math.round(L.dur)); h.causes = HR.causes(h); }
+        }
+      }
+    }).observe({ type: 'longtask', buffered: true });
+  } catch (e) { /* no longtask API (Safari, Firefox) */ }
 
   // Hooks: wrap the game's own methods once every script has run (method calls are looked up at call time)
   function hook() {
@@ -267,6 +402,7 @@ window.ND = window.ND || {};
     wrap(g, 'update', function (orig, a) { P.curSteps++; return orig.apply(this, a); });
     wrap(g, 'hud', function (orig, a) { const t = now(); const r = orig.apply(this, a); P.cur.hudDom = (P.cur.hudDom || 0) + now() - t; if (!P.order.includes('hudDom')) P.order.push('hudDom'); return r; });
     wrap(g, 'syncTouch', function (orig, a) { P.m('portal'); const r = orig.apply(this, a); P.m('syncTouch'); return r; });
+    wrap(g, 'prepareMatch', function (orig, a) { HR.loadAt = now(); return orig.apply(this, a); });
     wrap(g, 'render', function (orig, a) { const r = orig.apply(this, a); if (this.preparing) return r; if (FLUSH) { P.m('render-tail'); flush(); P.m('flush'); } P.end(); return r; });
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setTimeout(hook, 0)); else setTimeout(hook, 0);
