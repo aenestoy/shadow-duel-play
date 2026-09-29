@@ -27,38 +27,35 @@
   const ROOM_TTL = 10 * 60 * 1000;              // a room nobody joined closes after 10 minutes
   const FIND_MS = 8000, CONNECT_MS = 20000, PING_MS = 500;
   const T_PING = 2, T_PONG = 3;
-  const MSG = {
-    title: 'Play with a friend',
-    menuSub: 'Online duel · share a link or a 6-letter code',
-    homeSub: 'Create a room and send your friend the link, or type the code your friend sent you.',
-    create: 'Create a room', join: 'Join', codePh: 'CODE', haveCode: 'Room code',
-    back: 'Back', leave: 'Leave room', copy: 'Copy link', copied: 'Copied', share: 'Share', invite: 'Invite a friend',
-    inviteNote: 'Send the link, or tell your friend the code.',
-    waitFriend: 'Waiting for your friend to join…', joining: 'Looking for the room…', connecting: 'Connecting to your friend…',
-    connected: 'Connected', you: 'You', friend: 'Friend', friendTag: 'FRIEND', waitPick: 'Choosing…',
-    pickTitle: 'Your fighter', arenaTitle: 'Arena', arenaHost: 'Your friend picks the arena',
-    ready: 'Ready', notReady: 'Not ready', readyWait: 'Waiting for your friend to be ready…', bothReady: 'Starting…',
+  // Texts: Turkish is the game's source language (like the tables in arcade.js); the language catalogs
+  // (js/i18n-xx.js STR.online) overlay ND.STR.online with the chosen language. This file runs after js/i18n.js, so the
+  // source table is read through M(): the catalog's table when one is applied, else this one (Turkish).
+  const TR = {
+    title: 'Arkadaşla oyna', menuSub: 'Çevrimiçi düello · bağlantı ya da 6 harfli kod paylaş',
+    homeSub: 'Bir oda kur ve bağlantıyı arkadaşına gönder ya da arkadaşının gönderdiği kodu yaz.',
+    create: 'Oda kur', join: 'Katıl', codePh: 'KOD', haveCode: 'Oda kodu', room: 'Oda', linkLabel: 'Davet bağlantısı',
+    back: 'Geri', leave: 'Odadan çık', copy: 'Bağlantıyı kopyala', copied: 'Kopyalandı', share: 'Paylaş', invite: 'Arkadaşını davet et',
+    shareText: (c) => `Gölge Düellosu'nda benimle düello et! Oda ${c}`,
+    inviteNote: 'Bağlantıyı gönder ya da kodu arkadaşına söyle.',
+    waitFriend: 'Arkadaşının katılması bekleniyor…', joining: 'Oda aranıyor…', connecting: 'Arkadaşına bağlanılıyor…', connected: 'Bağlandı',
+    you: 'Sen', friend: 'Arkadaş', friendTag: 'ARKADAŞ', waitPick: 'Seçiyor…',
+    pickTitle: 'Dövüşçün', arenaTitle: 'Arena', arenaHost: 'Arenayı arkadaşın seçiyor',
+    ready: 'Hazır', notReady: 'Hazır değil', readyWait: 'Arkadaşının hazır olması bekleniyor…', bothReady: 'Başlıyor…',
     ping: (ms) => `Ping ${ms} ms`,
-    badCode: 'A room code has 6 letters.',
-    noRoom: 'No room with this code. Check the code with your friend.',
-    full: 'This room is full.',
-    expired: 'Nobody joined for 10 minutes, so the room closed.',
-    noDirect: "Couldn't connect directly to your friend's network. Try another network (Wi-Fi / mobile data).",
-    retry: 'Try again',
-    version: 'You and your friend have different versions of the game. Both of you reload the page.',
-    signalDown: 'Could not reach the game server. Check your internet connection.',
-    friendLeft: 'Your friend left the room.',
-    waitIn: (s) => `Waiting for your friend… ${s}`,
-    away: (s) => `Your friend switched away from the game… ${s}`,
-    leaveQ: 'Leave the match?', leaveSub: 'Your friend wins this one.', stay: 'Keep playing', leaveMatch: 'Leave',
-    win: 'You win', lose: 'You lose', draw: 'Draw', over: 'Match over',
-    whyDrop: "Your friend's connection was lost. You win (not recorded).",
-    whyLeft: 'Your friend left the match.',
-    whyAway: 'The match ended while you were away.',
-    whyDesync: "The match went out of sync (a connection problem), so it doesn't count.",
-    rematch: 'Rematch', rematchWait: 'Waiting for your friend…', rematchAsk: 'Rematch (your friend wants one)', change: 'Change fighters',
-    rounds: (a, b) => `Rounds ${a} – ${b}`,
+    badCode: 'Oda kodu 6 harflidir.', noRoom: 'Bu kodla bir oda yok. Kodu arkadaşınla kontrol et.', full: 'Bu oda dolu.',
+    expired: '10 dakika kimse katılmadığı için oda kapandı.',
+    noDirect: 'Arkadaşının ağına doğrudan bağlanılamadı. Başka bir ağ dene (Wi-Fi / mobil veri).', retry: 'Tekrar dene',
+    version: 'Sende ve arkadaşında oyunun farklı sürümleri var. İkiniz de sayfayı yenileyin.',
+    signalDown: 'Oyun sunucusuna ulaşılamadı. İnternet bağlantını kontrol et.', friendLeft: 'Arkadaşın odadan çıktı.',
+    waitIn: (s) => `Arkadaşın bekleniyor… ${s}`, away: (s) => `Arkadaşın oyundan başka bir yere geçti… ${s}`,
+    leaveQ: 'Maçtan çıkılsın mı?', leaveSub: 'Bu maçı arkadaşın kazanır.', stay: 'Oynamaya devam et', leaveMatch: 'Çık',
+    win: 'Kazandın', lose: 'Kaybettin', draw: 'Berabere', over: 'Maç bitti',
+    whyDrop: 'Arkadaşının bağlantısı koptu. Sen kazandın (kayda geçmez).', whyLeft: 'Arkadaşın maçtan çıktı.',
+    whyAway: 'Sen yokken maç bitti.', whyDesync: 'Bağlantı sorunu yüzünden iki cihaz maçı farklı hesapladı; bu maç sayılmaz.',
+    rematch: 'Rövanş', rematchWait: 'Arkadaşın bekleniyor…', rematchAsk: 'Rövanş (arkadaşın istiyor)', change: 'Dövüşçü değiştir',
+    rounds: (a, b) => `Raund ${a} – ${b}`,
   };
+  const M = () => (ND.STR && ND.STR.online && typeof ND.STR.online.title === 'string' ? ND.STR.online : TR);
 
   // ---------------------------------------------------------------- can this build / page play online at all?
   const url = typeof C.SUPABASE_URL === 'string' ? C.SUPABASE_URL.trim().replace(/\/+$/, '') : '';
@@ -186,11 +183,11 @@
     teardown(true);
     R = room('host', newCode());
     const r = R;
-    r.status = MSG.waitFriend;
+    r.status = M().waitFriend;
     r.sig = signal(r.code, { id: r.id, role: 'host', v: PROTO }, sigHandlers(r));
     later(() => {
       if (r.connected || r.peerId) return;
-      fail(MSG.expired);
+      fail(M().expired);
       if (r.sig) { r.sig.close(); r.sig = null; }
       portalRooms((P) => P.close());
     }, ROOM_TTL);
@@ -199,13 +196,13 @@
   }
   function joinRoom(code) {
     code = cleanCode(code);
-    if (!validCode(code)) { flash(MSG.badCode); return; }
+    if (!validCode(code)) { flash(M().badCode); return; }
     teardown(true);
     R = room('guest', code);
     const r = R;
-    r.status = MSG.joining;
+    r.status = M().joining;
     r.sig = signal(code, { id: r.id, role: 'guest', v: PROTO }, sigHandlers(r));
-    later(() => { if (!r.peerId && !r.connected) fail(MSG.noRoom); }, FIND_MS);
+    later(() => { if (!r.peerId && !r.connected) fail(M().noRoom); }, FIND_MS);
     show('room');
   }
   function fail(text, retry) {
@@ -217,7 +214,7 @@
   function sigHandlers(r) {
     return {
       onOpen() {},
-      onError(why) { if (R === r && !r.connected) fail(MSG.signalDown); },
+      onError(why) { if (R === r && !r.connected) fail(M().signalDown); },
       onPresence(list, initial) {
         if (R !== r) return;
         const others = list.filter((p) => p.id !== r.id);
@@ -231,12 +228,12 @@
           for (const p of others) if (p.role === 'guest' && p.id !== r.peerId) r.sig.send({ t: 'full', to: p.id });
         } else {
           const h = others.find((p) => p.role === 'host');
-          if (h && !r.peerId) { r.peerId = h.id; r.status = MSG.connecting; if (h.v !== PROTO) fail(MSG.version); render(); }
+          if (h && !r.peerId) { r.peerId = h.id; r.status = M().connecting; if (h.v !== PROTO) fail(M().version); render(); }
         }
       },
       onMessage(m) {
         if (R !== r || !m || m.to !== r.id) return;
-        if (m.t === 'full' && r.role === 'guest' && !r.connected) fail(MSG.full);
+        if (m.t === 'full' && r.role === 'guest' && !r.connected) fail(M().full);
         else if (m.t === 'offer' && r.role === 'guest') acceptOffer(r, m);
         else if (m.t === 'answer' && r.role === 'host' && m.from === r.peerId && r.pc) {
           r.pc.setRemoteDescription(m.sdp).then(() => { r.haveRemote = true; flushIce(r); }).catch((e) => console.warn('[online] answer', e));
@@ -255,38 +252,38 @@
     const watch = () => {
       if (R !== r) return;
       const s = pc.connectionState || pc.iceConnectionState;
-      if (s === 'failed') { if (!r.connected) fail(MSG.noDirect, true); else lost(r); }
+      if (s === 'failed') { if (!r.connected) fail(M().noDirect, true); else lost(r); }
       else if (s === 'closed' && r.connected) lost(r);
     };
     pc.onconnectionstatechange = watch; pc.oniceconnectionstatechange = watch;
     pc.ondatachannel = (e) => wire(r, e.channel);
-    later(() => { if (!r.connected) fail(MSG.noDirect, true); }, CONNECT_MS);
+    later(() => { if (!r.connected) fail(M().noDirect, true); }, CONNECT_MS);
     return pc;
   }
   function startPeer(r) {
-    r.status = MSG.connecting; r.err = '';
+    r.status = M().connecting; r.err = '';
     const pc = r.pc = makePc(r);
     wire(r, pc.createDataChannel('ctl', { ordered: true }));
     wire(r, pc.createDataChannel('in', { ordered: false, maxRetransmits: 0 }));
     pc.createOffer().then((o) => pc.setLocalDescription(o)).then(() => {
       if (R === r && r.sig) r.sig.send({ t: 'offer', to: r.peerId, from: r.id, v: PROTO, sdp: pc.localDescription.toJSON ? pc.localDescription.toJSON() : pc.localDescription });
-    }).catch((e) => { console.warn('[online] offer', e); fail(MSG.noDirect, true); });
+    }).catch((e) => { console.warn('[online] offer', e); fail(M().noDirect, true); });
     render();
   }
   function acceptOffer(r, m) {
     if (r.pc) return;
-    if (m.v !== PROTO) { fail(MSG.version); return; }
-    r.peerId = m.from; r.status = MSG.connecting;
+    if (m.v !== PROTO) { fail(M().version); return; }
+    r.peerId = m.from; r.status = M().connecting;
     const pc = r.pc = makePc(r);
     pc.setRemoteDescription(m.sdp).then(() => { r.haveRemote = true; flushIce(r); return pc.createAnswer(); }).then((a) => pc.setLocalDescription(a)).then(() => {
       if (R === r && r.sig) r.sig.send({ t: 'answer', to: r.peerId, from: r.id, sdp: pc.localDescription.toJSON ? pc.localDescription.toJSON() : pc.localDescription });
-    }).catch((e) => { console.warn('[online] answer', e); fail(MSG.noDirect, true); });
+    }).catch((e) => { console.warn('[online] answer', e); fail(M().noDirect, true); });
     render();
   }
   // host: forget the half-made connection and wait for a guest again (the same code)
   function resetPeer(r) {
     try { if (r.pc) r.pc.close(); } catch (e) { /* closed */ }
-    Object.assign(r, { pc: null, ctl: null, inp: null, peerId: null, connected: false, haveRemote: false, iceQ: [], peerPick: null, ready: false, peerReady: false, err: '', status: MSG.waitFriend });
+    Object.assign(r, { pc: null, ctl: null, inp: null, peerId: null, connected: false, haveRemote: false, iceQ: [], peerPick: null, ready: false, peerReady: false, err: '', status: M().waitFriend });
     clearInterval(r.pingT);
     if (!r.sig) { r.checked = true; r.sig = signal(r.code, { id: r.id, role: 'host', v: PROTO }, sigHandlers(r)); }
     portalRooms((P) => P.open(r.code, true));
@@ -297,7 +294,7 @@
     else { r.ctl = ch; ch.onmessage = (e) => { let m = null; try { m = JSON.parse(e.data); } catch (err) { return; } onCtl(r, m); }; }
     ch.onopen = () => {
       if (R !== r || r.connected || !r.ctl || !r.inp || r.ctl.readyState !== 'open' || r.inp.readyState !== 'open') return;
-      r.connected = true; r.err = ''; r.status = MSG.connected;
+      r.connected = true; r.err = ''; r.status = M().connected;
       // the server is not needed any more: the room's channel closes (fewer open connections on the server; the host
       // opens it again if the friend leaves and the room waits for someone else)
       if (r.sig) { const s = r.sig; r.sig = null; setTimeout(() => { try { s.close(); } catch (e) { /* closed */ } }, 2000); }
@@ -314,8 +311,8 @@
     r.connected = false;
     clearInterval(r.pingT);
     if (screen === 'match' && NET.active) { NET.end('drop', r.side); return; }
-    if (r.role === 'host' && screen === 'room') { resetPeer(r); r.err = MSG.friendLeft; render(); return; }
-    r.err = MSG.friendLeft; render();
+    if (r.role === 'host' && screen === 'room') { resetPeer(r); r.err = M().friendLeft; render(); return; }
+    r.err = M().friendLeft; render();
   }
 
   // test hook: artificial delay, jitter and loss on the unreliable channel ({ delay, jitter, loss }, ms / 0..1)
@@ -362,7 +359,7 @@
     if (R !== r || !m || typeof m.t !== 'string') return;
     switch (m.t) {
       case 'hello':
-        if (m.v !== PROTO) { fail(MSG.version); return; }
+        if (m.v !== PROTO) { fail(M().version); return; }
         if (charOk(m.pick)) r.peerPick = m.pick;
         if (r.role === 'guest' && arenaOk(m.arena)) r.arena = m.arena;
         render(); break;
@@ -378,8 +375,8 @@
       case 'leave':
         if (screen === 'match' && NET.active) { NET.end('left', r.side); r.connected = false; return; }
         r.connected = false; clearInterval(r.pingT);
-        if (r.role === 'host' && screen === 'room') { resetPeer(r); r.err = MSG.friendLeft; render(); }
-        else { r.err = MSG.friendLeft; if (screen === 'end') renderEnd(); else render(); }
+        if (r.role === 'host' && screen === 'room') { resetPeer(r); r.err = M().friendLeft; render(); }
+        else { r.err = M().friendLeft; if (screen === 'end') renderEnd(); else render(); }
         break;
       default:
     }
@@ -532,15 +529,22 @@
     app.appendChild(mk('<div id="onl" class="overlay" hidden role="dialog" aria-modal="true" aria-labelledby="onlTitle"></div>'));
     app.appendChild(mk('<div id="onlHud" hidden><span class="onl-ping" id="onlPing"></span><button class="btn" id="onlQuit" type="button"></button></div>'));
     app.appendChild(mk('<div id="onlWait" hidden role="status" aria-live="polite"><p id="onlWaitT"></p><button class="btn" id="onlWaitQuit" type="button"></button></div>'));
-    app.appendChild(mk('<div id="onlConfirm" class="overlay" hidden role="dialog" aria-modal="true"><div class="dialog card"><p class="title" style="font-size:30px">' + esc(MSG.leaveQ) +
-      '</p><p class="sub">' + esc(MSG.leaveSub) + '</p><div class="btns"><button class="btn primary" id="onlStay" type="button">' + esc(MSG.stay) +
-      '</button><button class="btn" id="onlLeaveNow" type="button">' + esc(MSG.leaveMatch) + '</button></div></div></div>'));
+    app.appendChild(mk('<div id="onlConfirm" class="overlay" hidden role="dialog" aria-modal="true"><div class="dialog card"><p class="title" style="font-size:30px" id="onlCfT"></p>' +
+      '<p class="sub" id="onlCfS"></p><div class="btns"><button class="btn primary" id="onlStay" type="button"></button>' +
+      '<button class="btn" id="onlLeaveNow" type="button"></button></div></div></div>'));
     app.appendChild(mk('<div id="onlEnd" class="overlay" hidden role="dialog" aria-modal="true"></div>'));
-    $('onlQuit').textContent = MSG.leaveMatch; $('onlWaitQuit').textContent = MSG.leaveMatch;
+    relabel();
     $('onlQuit').onclick = () => confirmLeave(true);
     $('onlWaitQuit').onclick = () => leave();
     $('onlStay').onclick = () => confirmLeave(false);
     $('onlLeaveNow').onclick = () => { confirmLeave(false); leave(); };
+  }
+  // texts of the parts built once (the language can change while they exist)
+  function relabel() {
+    const L = M(), set = (id, t) => { const e = $(id); if (e) e.textContent = t; };
+    set('onlQuit', L.leaveMatch); set('onlWaitQuit', L.leaveMatch); set('onlCfT', L.leaveQ); set('onlCfS', L.leaveSub); set('onlStay', L.stay); set('onlLeaveNow', L.leaveMatch);
+    const b = $('mfriend');
+    if (b) { b.querySelector('strong').textContent = L.title; b.querySelector('span').textContent = L.menuSub; }
   }
   function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
   function hideAll() { ['onl', 'onlEnd', 'onlConfirm'].forEach((id) => { const e = $(id); if (e) e.hidden = true; }); }
@@ -567,14 +571,14 @@
       <div class="onl-head"><b class="onl-k" aria-hidden="true">友</b><div><p class="onl-title" id="onlTitle"></p><p class="onl-sub" id="onlHomeSub"></p></div></div>
       <button class="btn primary" id="onlCreate" type="button"></button>
       <div class="onl-row"><div class="grow"><label class="onl-lbl" for="onlCode" id="onlCodeL"></label>
-        <input class="onl-in code" id="onlCode" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" inputmode="text" enterkeyhint="go"></div>
+        <input class="onl-in code" id="onlCode" lang="en" translate="no" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" inputmode="text" enterkeyhint="go"></div>
         <button class="btn" id="onlJoin" type="button" style="align-self:flex-end"></button></div>
       <p class="onl-err" id="onlErr"></p>
       <div class="onl-btns"><button class="btn" id="onlBack" type="button"></button></div>
     </div>`;
-    $('onlTitle').textContent = MSG.title; $('onlHomeSub').textContent = MSG.homeSub;
-    $('onlCreate').textContent = MSG.create; $('onlJoin').textContent = MSG.join; $('onlBack').textContent = MSG.back;
-    $('onlCodeL').textContent = MSG.haveCode; $('onlCode').placeholder = MSG.codePh;
+    $('onlTitle').textContent = M().title; $('onlHomeSub').textContent = M().homeSub;
+    $('onlCreate').textContent = M().create; $('onlJoin').textContent = M().join; $('onlBack').textContent = M().back;
+    $('onlCodeL').textContent = M().haveCode; $('onlCode').placeholder = M().codePh;
     $('onlErr').textContent = flashMsg; flashMsg = '';
     $('onlCreate').onclick = () => createRoom();
     const code = $('onlCode');
@@ -584,6 +588,8 @@
     $('onlBack').onclick = () => close();
     setTimeout(() => { const b = $('onlCreate'); if (b) b.focus(); }, 0);
   }
+  // a fighter name in its own element with lang="en": the page language must not case it (Turkish would turn i into İ)
+  function nameEl(i) { const n = document.createElement('span'); n.lang = 'en'; n.setAttribute('translate', 'no'); n.textContent = charName(i); return n; }
   function charName(i) { const c = ND.CHARS[i]; return c ? c.name.charAt(0) + c.name.slice(1).toLowerCase() : ''; }
   function charCol(i, alt) { const c = ND.CHARS[i]; if (!c) return 'var(--gold)'; const p = ND.palOf ? ND.palOf(c, alt) : c.col; return (p && p.ui) || 'var(--gold)'; }
   function arenaName(id) { const a = ND.ARENAS.find((x) => x.id === id); return a ? a.name : id; }
@@ -594,8 +600,8 @@
     const colOf = (who) => (who === 'me' ? charCol(r.pick, r.side === 1 && pc[0] === pc[1]) : charOk(r.peerPick) ? charCol(r.peerPick, r.side === 0 && pc[0] === pc[1]) : 'var(--line)');
     box.innerHTML = `<div class="onl-card card">
       <div class="onl-head"><b class="onl-k" aria-hidden="true">友</b><div style="min-width:0"><p class="onl-title" id="onlTitle"></p>
-        <div class="onl-row"><span class="onl-lbl">Room</span><span class="onl-code" id="onlRoomCode"></span></div></div></div>
-      <div class="onl-row" id="onlInvite"><div class="grow"><input class="onl-in" id="onlLink" readonly aria-label="Invite link"></div>
+        <div class="onl-row"><span class="onl-lbl" id="onlRoomL"></span><span class="onl-code" id="onlRoomCode" lang="en" translate="no"></span></div></div></div>
+      <div class="onl-row" id="onlInvite"><div class="grow"><input class="onl-in" id="onlLink" readonly lang="en" translate="no"></div>
         <button class="btn" id="onlCopy" type="button"></button><button class="btn" id="onlShare" type="button" hidden></button></div>
       <p class="onl-st"><span id="onlSt"></span> <span class="onl-ping" id="onlRtt"></span></p>
       <p class="onl-err" id="onlErr"></p>
@@ -605,78 +611,79 @@
       <div><p class="onl-lbl" id="onlArenaL" style="margin:0 0 6px"></p><div class="diff" id="onlArenas"></div></div>
       <div class="onl-btns"><button class="btn primary" id="onlReady" type="button"></button><button class="btn" id="onlLeave" type="button"></button></div>
     </div>`;
-    $('onlTitle').textContent = MSG.title; $('onlRoomCode').textContent = r.code;
+    $('onlTitle').textContent = M().title; $('onlRoomCode').textContent = r.code; $('onlRoomL').textContent = M().room;
+    $('onlLink').setAttribute('aria-label', M().linkLabel);
     $('onlLink').value = link;
     $('onlLink').onfocus = (e) => { try { e.target.select(); } catch (err) { /* no */ } };
     const copy = $('onlCopy');
-    copy.textContent = bridge() ? MSG.invite : MSG.copy;
-    copy.onclick = () => copyText(link).then((ok) => { if (ok) { copy.textContent = MSG.copied; setTimeout(() => { if (copy.isConnected) copy.textContent = bridge() ? MSG.invite : MSG.copy; }, 1500); } });
+    copy.textContent = bridge() ? M().invite : M().copy;
+    copy.onclick = () => copyText(link).then((ok) => { if (ok) { copy.textContent = M().copied; setTimeout(() => { if (copy.isConnected) copy.textContent = bridge() ? M().invite : M().copy; }, 1500); } });
     if (navigator.share && (ND.touch && ND.touch.mobile)) {
-      const sh = $('onlShare'); sh.hidden = false; sh.textContent = MSG.share;
-      sh.onclick = () => navigator.share({ title: 'Shadow Duel', text: `Duel me in Shadow Duel! Room ${r.code}`, url: link }).catch(() => {});
+      const sh = $('onlShare'); sh.hidden = false; sh.textContent = M().share;
+      sh.onclick = () => navigator.share({ title: document.title || 'Shadow Duel', text: M().shareText(r.code), url: link }).catch(() => {});
     }
     $('onlInvite').hidden = r.connected || r.role !== 'host';
-    $('onlSt').textContent = r.err ? '' : r.connected ? MSG.connected : r.status;
+    $('onlSt').textContent = r.err ? '' : r.connected ? M().connected : r.status;
     renderPing();
     const err = $('onlErr');
-    err.textContent = r.err || (r.role === 'host' && !r.connected ? MSG.inviteNote : '');
+    err.textContent = r.err || (r.role === 'host' && !r.connected ? M().inviteNote : '');
     err.className = r.err ? 'onl-err' : 'onl-st';
     if (r.err && r.retry) {
-      const b = document.createElement('button'); b.className = 'btn'; b.type = 'button'; b.textContent = MSG.retry; b.style.marginLeft = '10px';
+      const b = document.createElement('button'); b.className = 'btn'; b.type = 'button'; b.textContent = M().retry; b.style.marginLeft = '10px';
       b.onclick = () => (r.role === 'host' ? (resetPeer(r), render()) : joinRoom(r.code));
       err.appendChild(b);
     }
-    $('onlMeL').textContent = MSG.you + (r.side === 0 ? ' · 1P' : ' · 2P');
-    $('onlPeerL').textContent = MSG.friend + (r.side === 0 ? ' · 2P' : ' · 1P');
-    const nm = (el, i) => { el.textContent = ''; if (!charOk(i)) { el.textContent = MSG.waitPick; return; } const k = document.createElement('span'); k.className = 'k'; k.textContent = ND.CHARS[i].kanji; el.append(k, charName(i)); };
+    $('onlMeL').textContent = M().you + (r.side === 0 ? ' · 1P' : ' · 2P');
+    $('onlPeerL').textContent = M().friend + (r.side === 0 ? ' · 2P' : ' · 1P');
+    const nm = (el, i) => { el.textContent = ''; if (!charOk(i)) { el.textContent = M().waitPick; return; } const k = document.createElement('span'); k.className = 'k'; k.textContent = ND.CHARS[i].kanji; el.append(k, nameEl(i)); };
     nm($('onlMeN'), r.pick);
     if (r.connected) nm($('onlPeerN'), r.peerPick); else $('onlPeerN').textContent = '—';
-    const rd = (el, on) => { el.textContent = on ? MSG.ready : MSG.notReady; el.classList.toggle('on', on); };
+    const rd = (el, on) => { el.textContent = on ? M().ready : M().notReady; el.classList.toggle('on', on); };
     rd($('onlMeR'), r.ready); rd($('onlPeerR'), r.connected && r.peerReady);
-    $('onlPickL').textContent = MSG.pickTitle;
+    $('onlPickL').textContent = M().pickTitle;
     const grid = $('onlGrid');
     ND.CHARS.forEach((c, i) => {
       const b = document.createElement('button');
       b.type = 'button'; b.className = 'onl-ch'; b.setAttribute('aria-pressed', String(i === r.pick));
       b.style.setProperty('--cc', charCol(i, false));
       const k = document.createElement('span'); k.className = 'k'; k.textContent = c.kanji;
-      b.append(k, charName(i));
-      if (r.connected && i === r.peerPick) { const f = document.createElement('span'); f.className = 'fr'; f.textContent = MSG.friend.toUpperCase(); b.appendChild(f); }
+      b.append(k, nameEl(i));
+      if (r.connected && i === r.peerPick) { const f = document.createElement('span'); f.className = 'fr'; f.textContent = M().friendTag; b.appendChild(f); }
       b.onclick = () => setPick(i);
       grid.appendChild(b);
     });
     const ar = $('onlArenas');
     if (r.role === 'host') {
-      $('onlArenaL').textContent = MSG.arenaTitle;
+      $('onlArenaL').textContent = M().arenaTitle;
       for (const a of ND.ARENAS) {
         const b = document.createElement('button'); b.type = 'button'; b.className = 'seg'; b.textContent = a.name; b.setAttribute('aria-pressed', String(a.id === r.arena));
         b.onclick = () => setArena(a.id);
         ar.appendChild(b);
       }
     } else {
-      $('onlArenaL').textContent = MSG.arenaHost;
+      $('onlArenaL').textContent = M().arenaHost;
       const s = document.createElement('span'); s.className = 'seg'; s.setAttribute('aria-pressed', 'true'); s.textContent = arenaName(r.arena);
       ar.appendChild(s);
     }
     const rb = $('onlReady');
     rb.disabled = !r.connected || !charOk(r.peerPick);
-    rb.textContent = r.ready ? (r.peerReady ? MSG.bothReady : MSG.readyWait) : MSG.ready;
+    rb.textContent = r.ready ? (r.peerReady ? M().bothReady : M().readyWait) : M().ready;
     rb.style.opacity = rb.disabled ? '.5' : '';
     rb.onclick = () => toggleReady();
-    $('onlLeave').textContent = MSG.leave;
+    $('onlLeave').textContent = M().leave;
     $('onlLeave').onclick = () => leave();
   }
   function pingClass(ms) { return ms < 80 ? 'good' : ms < 160 ? 'ok' : 'bad'; }
   function renderPing() {
     const el = $('onlRtt'); if (!el || !R) return;
     const ms = Math.round(R.rtt);
-    el.textContent = R.connected && ms ? MSG.ping(ms) : '';
+    el.textContent = R.connected && ms ? M().ping(ms) : '';
     el.className = 'onl-ping ' + (ms ? pingClass(ms) : '');
   }
   function hudPing() {
     const el = $('onlPing'); if (!el || !R) return;
     const ms = Math.round(R.rtt), s = NET.stats();
-    el.textContent = ms ? MSG.ping(ms) + (DEBUG && s ? ` · D${s.delay} · rb ${s.rollbacks}/${s.maxRolled} · adv ${s.adv}` : '') : '';
+    el.textContent = ms ? M().ping(ms) + (DEBUG && s ? ` · D${s.delay} · rb ${s.rollbacks}/${s.maxRolled} · adv ${s.adv}` : '') : '';
     el.className = 'onl-ping ' + (ms ? pingClass(ms) : '');
   }
   const DEBUG = /[?&]netdebug=1\b/.test(location.search);
@@ -686,7 +693,7 @@
     const w = $('onlWait');
     if (kind !== 'wait') { w.hidden = true; return; }
     const s = Math.ceil((info.left || 0) / 1000);
-    $('onlWaitT').textContent = info.away ? MSG.away(s) : MSG.waitIn(s);
+    $('onlWaitT').textContent = info.away ? M().away(s) : M().waitIn(s);
     w.hidden = false;
   }
   function confirmLeave(on) { const c = $('onlConfirm'); if (!c) return; c.hidden = !on; if (on) setTimeout(() => $('onlStay').focus(), 0); }
@@ -695,25 +702,25 @@
     const r = R, res = r && r.result;
     if (!res) return;
     const box = $('onlEnd'), me = r.side;
-    let title = MSG.over, why = '';
-    if (res.reason === 'ko') title = res.winner < 0 ? MSG.draw : res.winner === me ? MSG.win : MSG.lose;
-    else if (res.reason === 'drop') why = MSG.whyDrop;
-    else if (res.reason === 'left') why = MSG.whyLeft;
-    else if (res.reason === 'away') why = MSG.whyAway;
-    else if (res.reason === 'desync') why = MSG.whyDesync;
+    let title = M().over, why = '';
+    if (res.reason === 'ko') title = res.winner < 0 ? M().draw : res.winner === me ? M().win : M().lose;
+    else if (res.reason === 'drop') why = M().whyDrop;
+    else if (res.reason === 'left') why = M().whyLeft;
+    else if (res.reason === 'away') why = M().whyAway;
+    else if (res.reason === 'desync') why = M().whyDesync;
     const w = res.wins || [0, 0], alive = r.connected && res.reason !== 'left';
     box.innerHTML = `<div class="dialog card"><div class="bigk" aria-hidden="true">${res.reason === 'ko' && res.winner === me ? '勝利' : '試合'}</div>
       <p class="title" id="onlEndT"></p><p class="sub" id="onlEndS"></p><p class="onl-st" id="onlEndW" style="margin:0 0 16px"></p>
       <div class="btns"><button class="btn primary" id="onlRematch" type="button"></button><button class="btn" id="onlChange" type="button"></button><button class="btn" id="onlEndLeave" type="button"></button></div></div>`;
     $('onlEndT').textContent = title;
-    $('onlEndS').textContent = MSG.rounds(w[me], w[1 - me]) + ' · ' + arenaName(r.last ? r.last.arena : '');
+    $('onlEndS').textContent = M().rounds(w[me], w[1 - me]) + ' · ' + arenaName(r.last ? r.last.arena : '');
     $('onlEndW').textContent = why || (r.err || '');
     const rb = $('onlRematch');
-    rb.textContent = r.rematch ? MSG.rematchWait : r.peerRematch ? MSG.rematchAsk : MSG.rematch;
+    rb.textContent = r.rematch ? M().rematchWait : r.peerRematch ? M().rematchAsk : M().rematch;
     rb.hidden = !alive; $('onlChange').hidden = !alive;
     rb.onclick = () => { if (!R || R.rematch) return; R.rematch = true; ctlSend({ t: 'rematch', on: true }); renderEnd(); maybeRematch(); };
-    $('onlChange').textContent = MSG.change; $('onlChange').onclick = () => toLobby(true);
-    $('onlEndLeave').textContent = MSG.leave; $('onlEndLeave').onclick = () => leave();
+    $('onlChange').textContent = M().change; $('onlChange').onclick = () => toLobby(true);
+    $('onlEndLeave').textContent = M().leave; $('onlEndLeave').onclick = () => leave();
     box.hidden = false;
     setTimeout(() => { const b = alive ? rb : $('onlEndLeave'); if (b && !box.hidden) b.focus(); }, 0);
   }
@@ -755,8 +762,8 @@
     if (!anchor) return;
     const b = document.createElement('button');
     b.className = 'mode friend'; b.id = 'mfriend'; b.type = 'button';
-    const s = document.createElement('strong'); s.textContent = MSG.title;
-    const d = document.createElement('span'); d.textContent = MSG.menuSub;
+    const s = document.createElement('strong'); s.textContent = M().title;
+    const d = document.createElement('span'); d.textContent = M().menuSub;
     const k = document.createElement('b'); k.className = 'mk'; k.setAttribute('aria-hidden', 'true'); k.textContent = '友';
     b.append(s, d, k);
     b.onclick = () => { if (ND.audio && ND.audio.ui) { try { ND.audio.init(); ND.audio.ui(); } catch (e) { /* no sound yet */ } } open(); };
@@ -773,7 +780,7 @@
   window.addEventListener('pagehide', () => { if (R) teardown(true); });
 
   ND.online = {
-    available, open, close, leave, onKey, friendTag: MSG.friendTag,
+    available, open, close, leave, onKey, get friendTag() { return M().friendTag; },
     create: () => { if (available()) { build(); createRoom(); } return R && R.code; },
     join: (code) => { if (available()) { build(); joinRoom(code); } },
     pick: setPick, arena: setArena, ready: toggleReady, rematch: () => { const b = $('onlRematch'); if (b) b.click(); }, toLobby: () => toLobby(true),
@@ -783,6 +790,13 @@
 
   if (!available()) return;
   addMenuEntry();
+  // another language chosen (Settings): the open screen and the parts built once follow
+  if (ND.i18n && ND.i18n.onChange) {
+    ND.i18n.onChange(() => {
+      relabel();
+      if (screen === 'home' || screen === 'room') render(); else if (screen === 'end') renderEnd(); else if (screen === 'match') hudPing();
+    });
+  }
   const q = /[?&]room=([A-Za-z]{6})\b/.exec(location.search);
   if (q) setTimeout(() => joinFromInvite(q[1]), 0);
   // CrazyGames: the invite this game was opened from, and invites accepted while it runs

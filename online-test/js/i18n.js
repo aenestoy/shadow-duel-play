@@ -186,6 +186,37 @@
     }
     rec.out = out;
     if (v !== out) n.nodeValue = out;
+    if (I.lang === SOURCE) guardCase(n);
+  }
+  // Turkish page (<html lang="tr">): CSS text-transform: uppercase follows Turkish casing, i → İ. Names that are not
+  // Turkish (fighter names written "Jin" / "Yuki", technique names like "Kage Bunshin") in an uppercased element would
+  // read "JİN", "KAGE BUNSHİN". Such a name goes into its own <span lang="en"> so it is cased as written elsewhere.
+  // Only names with a small i matter (the other letters case the same); the page's own Turkish words keep Turkish casing.
+  let foreignRe = null, foreignN = -1;
+  function foreignNames() {
+    const S = ND.SPECIALS || {}, n = (ND.CHARS || []).length * 1000 + Object.keys(S).length;
+    if (n === foreignN) return foreignRe;
+    foreignN = n;
+    const words = new Set();
+    for (const c of ND.CHARS || []) { const s = String((c && c.name) || ''); if (s) words.add(s.charAt(0) + s.slice(1).toLowerCase()); }
+    for (const k of Object.keys(S)) { const s = S[k] && S[k].name; if (typeof s === 'string' && /^[A-Za-z\sōū'-]+$/.test(s)) words.add(s); }
+    const list = [...words].filter((w) => w.includes('i')).sort((a, b) => b.length - a.length).map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    foreignRe = list.length ? new RegExp('(^|[^\\p{L}])(' + list.join('|') + ')(?![\\p{L}])', 'u') : null;
+    return foreignRe;
+  }
+  function guardCase(n) {
+    const p = n.parentElement, v = n.nodeValue;
+    if (!p || p.lang || !v || !v.includes('i') || typeof getComputedStyle !== 'function') return;
+    const re = foreignNames(), m = re && re.exec(v);
+    if (!m) return;
+    let tt = '';
+    try { tt = getComputedStyle(p).textTransform; } catch (e) { return; }
+    if (tt !== 'uppercase') return;
+    const name = n.splitText(m.index + m[1].length), rest = name.splitText(m[2].length);
+    const sp = document.createElement('span');
+    sp.lang = 'en'; sp.textContent = m[2];
+    name.replaceWith(sp);
+    guardCase(rest);
   }
   function element(el, EN) {
     let rec = elSrc.get(el);
