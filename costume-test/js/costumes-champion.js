@@ -5,7 +5,7 @@
 // It is not the Monthly Tournament's "Champion colors" (a recolour of the same outfit): these are new shapes.
 // A design may bring its own colours (pal) and may keep the fighter's own head (ownHead: hair, mask, helmet stay and the
 // costume adds to them). Drawing only: nothing here changes the fight.
-// Done: akane, kuro, tetsu, ren (batch 1); aoi, yuki, hana, kage (batch 2).
+// Done: all 12 pickable fighters (Shura, the boss, is not in ranked and has none).
 (function (ND) {
   'use strict';
   const K = ND._costumeKit;
@@ -503,6 +503,227 @@
     },
   };
 
+
+  // ================================================================ TORA 虎 — Chain Tiger: the tiger-pelt hunter chief
+  // The kusarigama hunter as chief of the hunt: the head of a great tiger worn as a hood (ears, eyes, fangs over the
+  // brow), its striped pelt thrown over the shoulders and down the back with the tail swinging, a necklace of claws.
+  const TO = { fur: '#e08a1e', furHi: '#f7b54a', furDk: '#9c5409', stripe: '#1a100a', belly: '#f6ead2', claw: '#f3ecd8', gold: '#f6cf1d' };
+  function stripes(ctx, pts, w) {
+    ctx.strokeStyle = TO.stripe; ctx.lineWidth = w; ctx.lineCap = 'round';
+    for (const seg of pts) { ctx.beginPath(); seg.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.stroke(); }
+  }
+  const tora = {
+    pal: { accent: '#f6cf1d', accentDark: '#8a5a10' },
+    back(ctx, j) {
+      const F = torso(j), s = sway(1.9, 2.5);
+      // the pelt over the back, to the thighs; the tail swings from its end
+      poly(ctx, F, [[60, -4], [58, -16], [30, -22 + s * 0.4], [-12, -22 + s], [-16, -12 + s], [0, -8], [30, -8]]);
+      fillStroke(ctx, grad(ctx, F.x(58, -12), F.y(58, -12), F.x(-12, -20), F.y(-12, -20), [[0, TO.furHi], [0.5, TO.fur], [1, TO.furDk]]), 1.3);
+      stripes(ctx, [[45, 30, 15, 0].map((u) => [F.x(u, -9), F.y(u, -9)]).slice(0, 1).concat([[F.x(44, -19), F.y(44, -19)]]),
+        [[F.x(34, -9), F.y(34, -9)], [F.x(30, -20 + s * 0.3), F.y(30, -20 + s * 0.3)]], [[F.x(18, -9), F.y(18, -9)], [F.x(14, -21 + s * 0.6), F.y(14, -21 + s * 0.6)]],
+        [[F.x(2, -10), F.y(2, -10)], [F.x(-2, -20 + s * 0.8), F.y(-2, -20 + s * 0.8)]]], 2.2);
+      ctx.strokeStyle = LINE; ctx.lineWidth = 5; ctx.lineCap = 'round';
+      const tail = () => { ctx.beginPath(); ctx.moveTo(F.x(-14, -16 + s), F.y(-14, -16 + s)); ctx.bezierCurveTo(F.x(-30, -24 + s * 1.4), F.y(-30, -24 + s * 1.4), F.x(-44, -10 + s * 1.6), F.y(-44, -10 + s * 1.6), F.x(-36, -2 + s * 1.8), F.y(-36, -2 + s * 1.8)); };
+      tail(); ctx.stroke(); tail(); ctx.strokeStyle = TO.fur; ctx.lineWidth = 3.2; ctx.stroke();
+      ctx.setLineDash([2.5, 3.5]); tail(); ctx.strokeStyle = TO.stripe; ctx.lineWidth = 3.2; ctx.stroke(); ctx.setLineDash([]);
+    },
+    body(ctx, j) {
+      const F = torso(j);
+      // the pelt over the top of the back and shoulders (seen over the body), striped
+      poly(ctx, F, [[60, -12], [57, -4], [22, -7], [16, -15], [40, -16]]);
+      fillStroke(ctx, grad(ctx, F.x(58, -8), F.y(58, -8), F.x(18, -12), F.y(18, -12), [[0, TO.furHi], [1, TO.fur]]), 1.1);
+      stripes(ctx, [[[F.x(50, -15), F.y(50, -15)], [F.x(48, -6), F.y(48, -6)]], [[F.x(40, -16), F.y(40, -16)], [F.x(38, -6.5), F.y(38, -6.5)]], [[F.x(30, -15.5), F.y(30, -15.5)], [F.x(29, -7), F.y(29, -7)]]], 1.8);
+      // the forelegs of the pelt knotted over the chest, and the claw necklace
+      poly(ctx, F, [[60, -2], [58, 12], [48, 14], [50, 4], [54, -4]]);
+      fillStroke(ctx, grad(ctx, F.x(60, 8), F.y(60, 8), F.x(48, 8), F.y(48, 8), [[0, TO.furHi], [1, TO.fur]]), 1.1);
+      stripes(ctx, [[[F.x(56, 2), F.y(56, 2)], [F.x(54, 11), F.y(54, 11)]]], 1.8);
+      for (let i = 0; i < 7; i++) {
+        const t = i / 6, u = 50 - Math.sin(t * Math.PI) * 10, n = -8 + t * 20;
+        ctx.save(); ctx.translate(F.x(u, n), F.y(u, n)); ctx.rotate(Math.atan2(F.uy, F.ux) + Math.PI);
+        ctx.beginPath(); ctx.moveTo(-1.4, 0); ctx.quadraticCurveTo(0, 5, 1.8, 6.2); ctx.quadraticCurveTo(0.6, 3, 1.4, 0); ctx.closePath(); fillStroke(ctx, TO.claw, 0.7);
+        ctx.restore();
+      }
+    },
+    head(ctx, j) {
+      ctx.save(); headFrame(ctx, j);
+      // the pelt falling from the back of the head to the shoulders
+      ctx.beginPath(); ctx.moveTo(-R * 0.2, -R * 1.1); ctx.quadraticCurveTo(-R * 1.7, -R * 0.7, -R * 1.5, R * 1.1); ctx.lineTo(-R * 0.6, R * 0.6); ctx.quadraticCurveTo(-R * 0.7, -R * 0.2, -R * 0.2, -R * 0.5); ctx.closePath();
+      fillStroke(ctx, grad(ctx, 0, -R, -R * 1.4, R, [[0, TO.fur], [1, TO.furDk]]), 1.1);
+      // the tiger's head as a hood: skull and brow over the top of the head
+      ctx.beginPath(); ctx.moveTo(-R * 1.05, -1); ctx.bezierCurveTo(-R * 1.15, -R * 1.5, R * 1.2, -R * 1.55, R * 1.45, -R * 0.35); ctx.quadraticCurveTo(R * 0.8, -R * 0.55, R * 0.1, -R * 0.35); ctx.quadraticCurveTo(-R * 0.5, -R * 0.3, -R * 1.05, -1); ctx.closePath();
+      fillStroke(ctx, grad(ctx, R * 0.5, -R * 1.4, -R * 0.5, 0, [[0, TO.furHi], [0.5, TO.fur], [1, TO.furDk]]), 1.3);
+      // ears
+      for (const x of [-R * 0.55, R * 0.1]) { ctx.beginPath(); ctx.arc(x, -R * 1.2, 3.4, Math.PI, TAU); ctx.closePath(); fillStroke(ctx, TO.fur, 1); ctx.fillStyle = TO.belly; ctx.beginPath(); ctx.arc(x, -R * 1.18, 1.7, Math.PI, TAU); ctx.fill(); }
+      stripes(ctx, [[[R * 0.1, -R * 1.3], [R * 0.05, -R * 0.75]], [[-R * 0.35, -R * 1.3], [-R * 0.45, -R * 0.7]], [[R * 0.55, -R * 1.1], [R * 0.4, -R * 0.7]]], 1.6);
+      // the tiger's muzzle over the brow: an eye, a nose and the upper fangs
+      ctx.fillStyle = TO.belly; ctx.beginPath(); ctx.ellipse(R * 1.15, -R * 0.42, 4.2, 2.6, 0.1, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#1a100a'; ctx.beginPath(); ctx.arc(R * 1.55, -R * 0.42, 1.3, 0, TAU); ctx.fill();
+      ctx.fillStyle = TO.gold; ctx.beginPath(); ctx.ellipse(R * 0.6, -R * 0.82, 1.8, 1.1, -0.3, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#1a100a'; ctx.beginPath(); ctx.ellipse(R * 0.62, -R * 0.82, 0.5, 1, -0.3, 0, TAU); ctx.fill();
+      for (const x of [R * 1.0, R * 1.3]) { ctx.beginPath(); ctx.moveTo(x - 1, -R * 0.3); ctx.lineTo(x, -R * 0.3 + 4.4); ctx.lineTo(x + 1, -R * 0.3); ctx.closePath(); fillStroke(ctx, TO.claw, 0.6); }
+      ctx.restore();
+    },
+  };
+
+  // ================================================================ JIN 仁 — Iron Staff Monk: the high abbot
+  // The bō monk as abbot of the mountain temple: deep purple robes falling to the ankles with a gold hem, a gold
+  // brocade kesa of patchwork squares over one shoulder held by a jade ring, a long crystal rosary and the gold mark of
+  // wisdom on his brow. He stays bald, his staff stays.
+  const JI = { purple: '#3f1f5e', purpleHi: '#62388c', purpleDk: '#24103a', gold: '#dcae42', goldHi: '#f7da8a', goldDk: '#8e6516', red: '#9c2f2a', jade: '#3fae7d', crystal: '#e6f0ff' };
+  const jin = {
+    ownHead: true,
+    pal: { cloth: '#46236a', clothHi: '#6a3f95', clothDark: '#27113d', accent: '#dcae42', accentDark: '#8e6516', ui: '#f0c860' },
+    back(ctx, j) {
+      const F = torso(j);
+      // the kesa's back panel
+      poly(ctx, F, [[56, -10], [54, -16], [14, -16], [12, -8]]);
+      fillStroke(ctx, grad(ctx, F.x(54, -14), F.y(54, -14), F.x(14, -14), F.y(14, -14), [[0, JI.goldHi], [0.5, JI.gold], [1, JI.goldDk]]), 1.1);
+    },
+    body(ctx, j) {
+      const F = torso(j);
+      // the kesa over the far shoulder, across the chest to the near hip, patchwork of gold squares with red seams
+      poly(ctx, F, [[58, -12], [50, -14], [12, 4], [10, 16], [22, 16], [58, -2]]);
+      fillStroke(ctx, grad(ctx, F.x(56, -8), F.y(56, -8), F.x(14, 14), F.y(14, 14), [[0, JI.goldHi], [0.45, JI.gold], [1, JI.goldDk]]), 1.3);
+      ctx.strokeStyle = JI.red; ctx.lineWidth = 1; ctx.beginPath();
+      for (const t of [0.2, 0.4, 0.6, 0.8]) { const u0 = 58 - t * 46, n0 = -12 + t * 16; ctx.moveTo(F.x(u0, n0 - 2), F.y(u0, n0 - 2)); ctx.lineTo(F.x(u0 + 2, n0 + 11), F.y(u0 + 2, n0 + 11)); }
+      ctx.moveTo(F.x(54, -6), F.y(54, -6)); ctx.lineTo(F.x(16, 10), F.y(16, 10));
+      ctx.stroke();
+      // the jade ring holding it
+      ctx.strokeStyle = LINE; ctx.lineWidth = 3.4; ctx.beginPath(); ctx.arc(F.x(46, 2), F.y(46, 2), 3, 0, TAU); ctx.stroke();
+      ctx.strokeStyle = JI.jade; ctx.lineWidth = 2; ctx.stroke();
+      // the crystal rosary: a long loop from the neck
+      for (let i = 0; i <= 14; i++) {
+        const t = i / 14, a = t * Math.PI, u = 56 - Math.sin(a) * 22, n = -6 + t * 16;
+        ctx.beginPath(); ctx.arc(F.x(u, n), F.y(u, n), i === 7 ? 2.6 : 1.7, 0, TAU); fillStroke(ctx, i === 7 ? JI.jade : JI.crystal, 0.7);
+      }
+    },
+    hem(ctx, j) {
+      const F = torso(j), s = sway(1.6, 1.5);
+      // the long robe to the ankles over the legs, with a gold hem band
+      poly(ctx, F, [[8, -14], [8, 16], [-66, 26 + s], [-70, 4 + s], [-66, -22 + s]]);
+      fillStroke(ctx, grad(ctx, F.x(8, 0), F.y(8, 0), F.x(-66, 0), F.y(-66, 0), [[0, JI.purpleHi], [0.5, JI.purple], [1, JI.purpleDk]]), 1.3);
+      ctx.strokeStyle = JI.gold; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(F.x(-65, -21 + s), F.y(-65, -21 + s)); ctx.lineTo(F.x(-69, 4 + s), F.y(-69, 4 + s)); ctx.lineTo(F.x(-65, 25 + s), F.y(-65, 25 + s)); ctx.stroke();
+      ctx.strokeStyle = 'rgba(0,0,0,.3)'; ctx.lineWidth = 1.1; ctx.beginPath();
+      for (const n of [-12, -2, 8]) { ctx.moveTo(F.x(4, n), F.y(4, n)); ctx.lineTo(F.x(-62, n * 1.5 + s), F.y(-62, n * 1.5 + s)); }
+      ctx.stroke();
+    },
+    head(ctx, j) {
+      ctx.save(); headFrame(ctx, j);
+      // the gold mark of wisdom on the brow
+      ctx.beginPath(); ctx.arc(R * 0.72, -R * 0.62, 1.7, 0, TAU); fillStroke(ctx, JI.goldHi, 0.7);
+      ctx.restore();
+    },
+  };
+
+  // ================================================================ MAI 舞 — Fan Dancer: the court dancer
+  // The war-fan kunoichi in a court dancer's formal attire: layered robes whose colours show at the collar, long
+  // furisode sleeves falling from her arms, a trailing train behind, and a tall gold dancer's crown hung with chimes
+  // and a crimson ribbon. Her fans stay.
+  const MA = { robe: '#8e1e7e', robeHi: '#c248b0', robeDk: '#4e0c45', layers: ['#f7e6b8', '#2f8f6a', '#ffffff', '#e04fd8'], gold: '#e6b94a', goldHi: '#fff0b0', red: '#c81e3a', white: '#fbf5ee' };
+  function sleeve(ctx, el, ha, dim) {
+    // a long hanging sleeve from the forearm (it falls, whatever the arm does)
+    const mx = (el.x + ha.x) / 2, my = (el.y + ha.y) / 2, s = sway(2.2, 2);
+    ctx.beginPath(); ctx.moveTo(el.x, el.y); ctx.quadraticCurveTo(mx - 6 + s, my + 22, mx - 2 + s, my + 34); ctx.lineTo(mx + 9 + s, my + 30); ctx.quadraticCurveTo(ha.x + 4, ha.y + 12, ha.x, ha.y); ctx.closePath();
+    fillStroke(ctx, dim ? MA.robeDk : grad(ctx, el.x, el.y, mx, my + 34, [[0, MA.robeHi], [0.6, MA.robe], [1, MA.robeDk]]), 1.1);
+    if (dim) return;
+    ctx.strokeStyle = MA.layers[0]; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(mx - 2 + s, my + 34); ctx.lineTo(mx + 9 + s, my + 30); ctx.stroke();
+  }
+  const mai = {
+    ownHead: true,
+    pal: { cloth: '#9a2488', clothHi: '#cc55b8', clothDark: '#521048', accent: '#e6b94a', accentDark: '#8f6a1c', ui: '#ec63e4',
+      hood: { cloth: '#2a0f28', clothHi: '#4a1f46', clothDark: '#170816' } },
+    back(ctx, j) {
+      const F = torso(j), s = sway(1.4, 2);
+      // the trailing train from the waist down behind to the floor and past it
+      poly(ctx, F, [[16, -10], [10, -16], [-50, -34 + s], [-86, -48 + s * 1.3], [-84, -30 + s], [-60, -12], [-20, -6]]);
+      fillStroke(ctx, grad(ctx, F.x(12, -12), F.y(12, -12), F.x(-84, -40), F.y(-84, -40), [[0, MA.robeHi], [0.5, MA.robe], [1, MA.robeDk]]), 1.2);
+      ctx.strokeStyle = MA.gold; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(F.x(-86, -48 + s * 1.3), F.y(-86, -48 + s * 1.3)); ctx.lineTo(F.x(-84, -30 + s), F.y(-84, -30 + s)); ctx.stroke();
+    },
+    backArm(ctx, j) { sleeve(ctx, j.elB, j.haB, true); },
+    body(ctx, j) {
+      const F = torso(j);
+      // the layered collars: the colours of each robe showing one inside the other
+      MA.layers.forEach((col, i) => {
+        ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.beginPath();
+        ctx.moveTo(F.x(56 - i * 0.5, -2 + i * 2.2), F.y(56 - i * 0.5, -2 + i * 2.2)); ctx.lineTo(F.x(30 - i, 13 + i * 0.4), F.y(30 - i, 13 + i * 0.4)); ctx.stroke();
+      });
+      // a gold brocade obi with a crimson cord
+      poly(ctx, F, [[20, -13.5], [20, 16], [9, 16.5], [9, -14]]);
+      fillStroke(ctx, grad(ctx, F.x(20, 0), F.y(20, 0), F.x(9, 0), F.y(9, 0), [[0, MA.goldHi], [0.5, MA.gold], [1, '#8f6a1c']]), 1.2);
+      ctx.strokeStyle = MA.red; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(F.x(14.5, -13.5), F.y(14.5, -13.5)); ctx.lineTo(F.x(14.5, 16.2), F.y(14.5, 16.2)); ctx.stroke();
+    },
+    front(ctx, j) { sleeve(ctx, j.elF, j.haF, false); },
+    head(ctx, j) {
+      ctx.save(); headFrame(ctx, j);
+      // the dancer's crown: a gold band with a tall front piece (a phoenix-like crest), chimes and a crimson ribbon
+      ctx.strokeStyle = LINE; ctx.lineWidth = 3.4; ctx.beginPath(); ctx.ellipse(-1, -5.5, R * 1.02, R * 0.46, -0.1, Math.PI * 1.03, Math.PI * 1.97); ctx.stroke();
+      ctx.strokeStyle = MA.gold; ctx.lineWidth = 2; ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(R * 0.25, -R * 0.95); ctx.lineTo(R * 0.1, -R * 2.0); ctx.quadraticCurveTo(R * 0.5, -R * 1.85, R * 0.75, -R * 2.3); ctx.quadraticCurveTo(R * 0.8, -R * 1.5, R * 0.85, -R * 0.85); ctx.closePath();
+      fillStroke(ctx, grad(ctx, 0, -R * 2.2, 0, -R * 0.8, [[0, MA.goldHi], [1, MA.gold]]), 1);
+      ctx.fillStyle = MA.red; ctx.beginPath(); ctx.arc(R * 0.5, -R * 1.4, 1.6, 0, TAU); ctx.fill();
+      ctx.strokeStyle = MA.gold; ctx.lineWidth = 0.8; ctx.beginPath();
+      for (const x of [-R * 0.6, -R * 0.2, R * 0.2]) { ctx.moveTo(x, -R * 0.95); ctx.lineTo(x - 1, -R * 0.35); }
+      ctx.stroke();
+      ctx.fillStyle = MA.goldHi; for (const x of [-R * 0.6, -R * 0.2, R * 0.2]) { ctx.beginPath(); ctx.arc(x - 1, -R * 0.3, 1.1, 0, TAU); ctx.fill(); }
+      const s = sway(2.4, 2);
+      ctx.strokeStyle = MA.red; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-R * 0.9, -R * 0.7); ctx.quadraticCurveTo(-R * 1.6 + s, R * 0.2, -R * 1.3 + s, R * 1.3); ctx.stroke();
+      ctx.restore();
+    },
+  };
+
+  // ================================================================ TSUBAME 燕 — Swallow Archer: the mounted archer
+  // The swallow archer in the yabusame archer's attire: a flat round woven ayaigasa hat with a lacquered boss, an indigo
+  // hitatare jacket with wide sleeves and red cords, the deerskin mukabaki aprons over the legs and a white swallow
+  // crest. Her bow and quiver stay.
+  const TS = { hat: '#b98a4a', hatHi: '#e7c07a', hatDk: '#6e4a1c', indigo: '#1f3350', indigoHi: '#3b5a86', indigoDk: '#0f1a2a', red: '#c42a2a', deer: '#b8763a', deerHi: '#dca064', deerDk: '#6b3e16', white: '#f4f1ea' };
+  const tsubame = {
+    pal: { cloth: '#243a5c', clothHi: '#3e5f8e', clothDark: '#121f33', accent: '#45dcef', accentDark: '#1a7a88' },
+    body(ctx, j) {
+      const F = torso(j);
+      // the hitatare's crossed collar in white and the swallow crest; red chest cord (munahimo)
+      ctx.strokeStyle = TS.white; ctx.lineWidth = 2.4; ctx.beginPath(); ctx.moveTo(F.x(56, 0), F.y(56, 0)); ctx.lineTo(F.x(32, 13), F.y(32, 13)); ctx.stroke();
+      ctx.save(); ctx.translate(F.x(42, -4), F.y(42, -4)); ctx.scale(F.d, 1);
+      ctx.beginPath(); ctx.moveTo(-4.5, -1.5); ctx.quadraticCurveTo(-1, 0, 0, 2.6); ctx.quadraticCurveTo(1, 0, 4.5, -1.5); ctx.quadraticCurveTo(1.4, 0.6, 0.6, 4.6); ctx.lineTo(-0.6, 4.6); ctx.quadraticCurveTo(-1.4, 0.6, -4.5, -1.5); ctx.closePath();
+      ctx.fillStyle = TS.white; ctx.fill(); ctx.restore();
+      ctx.strokeStyle = TS.red; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(F.x(40, 12), F.y(40, 12)); ctx.lineTo(F.x(34, 17), F.y(34, 17)); ctx.moveTo(F.x(40, 12), F.y(40, 12)); ctx.lineTo(F.x(36, 18.5), F.y(36, 18.5)); ctx.stroke();
+      // a white waist sash
+      poly(ctx, F, [[14, -13.5], [14, 15.5], [8, 16], [8, -14]]); fillStroke(ctx, TS.white, 1);
+    },
+    hem(ctx, j) {
+      const F = torso(j), s = sway(2, 1.2);
+      // the mukabaki: deerskin aprons over the front of the legs, spotted, down to the knees
+      poly(ctx, F, [[8, -2], [8, 17], [-40, 22 + s], [-44, 8 + s], [-40, -4 + s]]);
+      fillStroke(ctx, grad(ctx, F.x(8, 8), F.y(8, 8), F.x(-42, 8), F.y(-42, 8), [[0, TS.deerHi], [0.5, TS.deer], [1, TS.deerDk]]), 1.2);
+      ctx.fillStyle = '#f3e3c6';
+      for (const [u, n] of [[-6, 4], [-14, 12], [-20, 2], [-28, 9], [-34, 16], [-8, 14], [-24, 18], [-36, 3]]) { ctx.beginPath(); ctx.ellipse(F.x(u, n + s * 0.4), F.y(u, n + s * 0.4), 1.5, 1, 0, 0, TAU); ctx.fill(); }
+      ctx.strokeStyle = TS.deerDk; ctx.lineWidth = 1.8; ctx.beginPath(); ctx.moveTo(F.x(-40, -4 + s), F.y(-40, -4 + s)); ctx.lineTo(F.x(-44, 8 + s), F.y(-44, 8 + s)); ctx.lineTo(F.x(-40, 22 + s), F.y(-40, 22 + s)); ctx.stroke();
+    },
+    front(ctx, j) {
+      // the wide sleeve's red cord (sode-kukuri) at the near wrist
+      const e = j.elF, h = j.haF, mx = e.x + (h.x - e.x) * 0.72, my = e.y + (h.y - e.y) * 0.72;
+      ctx.strokeStyle = TS.red; ctx.lineWidth = 1.8; ctx.beginPath(); ctx.arc(mx, my, 4.2, 0, TAU); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(mx, my + 4); ctx.lineTo(mx - 2, my + 10 + sway(2.5, 1.5)); ctx.stroke();
+    },
+    head(ctx, j) {
+      ctx.save(); headFrame(ctx, j);
+      // red chin cords
+      ctx.strokeStyle = TS.red; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(-R * 0.35, -R * 0.4); ctx.quadraticCurveTo(R * 0.2, R * 0.9, R * 0.8, R * 0.72); ctx.stroke();
+      // the ayaigasa: a flat round woven hat with a raised boss, tilted forward
+      ctx.save(); ctx.rotate(0.12);
+      const hy = -R * 0.7;
+      ctx.beginPath(); ctx.ellipse(0, hy, R * 1.9, R * 0.42, 0, 0, TAU);
+      fillStroke(ctx, grad(ctx, R, hy - 4, -R, hy + 4, [[0, TS.hatHi], [0.5, TS.hat], [1, TS.hatDk]]), 1.3);
+      ctx.strokeStyle = 'rgba(80,50,20,.5)'; ctx.lineWidth = 0.7; ctx.beginPath();
+      for (const r of [0.45, 0.9, 1.4]) ctx.ellipse(0, hy, R * r, R * r * 0.22, 0, 0, TAU);
+      ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(0, hy - 2.4, R * 0.55, R * 0.42, 0, Math.PI, TAU); ctx.closePath(); fillStroke(ctx, '#2a1a10', 1.1);
+      ctx.strokeStyle = TS.red; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.ellipse(0, hy - 0.4, R * 0.56, R * 0.14, 0, 0, Math.PI); ctx.stroke();
+      ctx.restore();
+      ctx.restore();
+    },
+  };
+
   Object.assign(ND.COSTUMES, { champion_akane: akane, champion_kuro: kuro, champion_tetsu: tetsu, champion_ren: ren,
-    champion_aoi: aoi, champion_yuki: yuki, champion_hana: hana, champion_kage: kage });
+    champion_aoi: aoi, champion_yuki: yuki, champion_hana: hana, champion_kage: kage,
+    champion_tora: tora, champion_jin: jin, champion_mai: mai, champion_tsubame: tsubame });
 })(window.ND);

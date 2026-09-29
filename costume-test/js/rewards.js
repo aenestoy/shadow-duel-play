@@ -5,7 +5,7 @@
 //   { id, kind: 'costume' | 'title' | 'badge', names: { en, tr, es, pt, ru, de, fr }, data }
 //   costume data: { v: 1, base?: 'col' | 'alt' | 'champ', pal?: { cloth: '#rrggbb', … }, ninjas?: ['akane', …],
 //                   atlas?: { url, w?, h?, parts: { head: { x, y, w, h, bone: ['neck', 'head'], ox, oy, s, rot }, … } },
-//                   builtin?: 'shogun_a', placeholder?: true }
+//                   builtin?: 'champion', placeholder?: true }
 //     builtin: a costume drawn by the game itself (js/costumes.js: new shapes, a helmet, armour, a coat…); its drawing
 //            ships with a game update, so only the ids this build knows are kept (ND.COSTUME_IDS, the allow-list)
 //     pal: a recolour of the fighter's palette (the same keys as js/characters.js; any key left out keeps the base's)
