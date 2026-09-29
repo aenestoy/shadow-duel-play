@@ -543,6 +543,26 @@
       if (c2 != null) set(this.pv[1], c2, c1 === c2 && !legacy, -1);
     },
 
+    // Online room (js/online.js): the select screen's preview fighters, drawn into the room's own canvases (ids), in
+    // front of the chosen arena (the backdrop, as on the select screen). c1 / c2: 1P / 2P roster index, or null while
+    // not chosen. The match's look: no saved look, 2P in the other colours when both pick the same ninja. The previews
+    // draw the full model (fullDetail), so they make no part pictures (bake.js) the fight would use.
+    roomStage(ids, c1, c2, arena) {
+      if (this.phase !== 'select' || this.selMode !== 'online') {
+        this.showStage('select', ids, c1 != null ? c1 : c2 != null ? c2 : 0, null);
+        this.selMode = 'online';
+        for (const p of this.pv) p.pvKey = null;
+      }
+      this.pvIds = ids;
+      if (arena && scene.themeId !== arena) scene.setTheme(arena);
+      const set = (p, ci, alt, dir) => {
+        if (ci == null || !ND.CHARS[ci]) return;
+        const key = ci + (alt ? 'a' : '');
+        if (p.pvKey === key) return;
+        p.pvKey = key; p.setChar(ND.CHARS[ci], alt); p.reset(0); p.dir = dir; p.pvPose = null;
+      };
+      set(this.pv[0], c1, false, 1); set(this.pv[1], c2, c1 != null && c1 === c2, -1);
+    },
     applyChars(i1, i2) {
       const c1 = ND.CHARS[i1], c2 = ND.CHARS[i2];
       // (online: the same look on both devices, whatever each player's own save holds)
@@ -1640,12 +1660,20 @@
       // dokunmatik dövüşte kamera: zemin biraz yukarıda, yanlarda ek pay (düğmeler dövüşçüleri daha az örter)
       const camT = T && !!TOUCH_MODES[this.mode];
       if (camT !== this._camT) { this._camT = camT; cam.gyK = camT ? (this.phoneCam ? this.phoneGy : 0.48) : 0.6; cam.padX = camT ? 80 : 0; }
-      if (rot && !this.paused && (this.phase === 'fight' || this.phase === 'intro')) { setPause(true); this.rotPaused = true; }
-      // turned sideways again during the new player's first-fight tutorial (or a round intro): it goes on by itself,
-      // no extra tap on Resume (the tutorial never hurts; elsewhere the pause dialog stays, the CPU would strike at once)
+      // (online: js/online.js pauses both players itself; the fight never pauses here)
+      if (rot && this.mode !== 'online' && (this.phase === 'fight' || this.phase === 'intro')) {
+        if (this.countT) { this.stopCount(); this.rotPaused = true; } // turned upright again during the count: paused again
+        if (!this.paused) { setPause(true); this.rotPaused = true; }
+      }
+      // Turned sideways again: the fight goes on by itself after a short 3-2-1 (no tap on Resume needed; the count
+      // gives the player time to take the phone properly before the CPU strikes). The rally tutorial and a round
+      // intro go on at once, as before.
       else if (!rot && this.rotPaused) {
         this.rotPaused = false;
-        if (this.paused && !$('pause').hidden && ((ND.tutor && ND.tutor.on) || this.phase === 'intro')) setPause(false);
+        if (this.paused && !$('pause').hidden) {
+          if ((ND.tutor && ND.tutor.on) || this.phase === 'intro') setPause(false);
+          else this.resumeCount();
+        }
       }
       // stays drawn under the pause dialog (dimmed, not touchable) so size / layout / hand changes show at once
       const on = !this.preparing && T && !!TOUCH_MODES[this.mode] && !!TOUCH_PHASES[this.phase] && !this.replay && !rot;
@@ -1654,6 +1682,28 @@
         if (on) this.touchHud(true); else input.touchReset();
       }
     },
+    // A 3-2-1 in the middle of the screen (n; 0 hides it): resuming after the phone was turned, online resumes
+    showCount(n) {
+      let el = $('cdown');
+      if (!el) { el = document.createElement('div'); el.id = 'cdown'; el.setAttribute('aria-live', 'assertive'); $('app').appendChild(el); }
+      el.hidden = !n;
+      if (n && el.textContent !== String(n)) { el.textContent = n; el.classList.remove('go'); void el.offsetWidth; el.classList.add('go'); }
+    },
+    // offline: the pause dialog goes, 3-2-1, the fight goes on (a press on Resume / P meanwhile goes on at once)
+    resumeCount() {
+      this.stopCount();
+      $('pause').hidden = true;
+      const t0 = performance.now(), n0 = 3, ms = 1800;
+      const tick = () => {
+        if (!this.countT) return;
+        const left = ms - (performance.now() - t0);
+        if (!this.paused || left <= 0) { clearTimeout(this.countT); this.countT = 0; this.showCount(0); if (this.paused) setPause(false); return; }
+        this.showCount(Math.max(1, Math.ceil(left / (ms / n0))));
+        this.countT = setTimeout(tick, 50);
+      };
+      this.countT = setTimeout(tick, 0);
+    },
+    stopCount() { if (this.countT) { clearTimeout(this.countT); this.countT = 0; } this.showCount(0); if (this.paused && this.mode !== 'online') $('pause').hidden = false; },
     // KI düğmesi (dolunca parlar) + shuriken sayısı
     touchHud(force) {
       const b = $('tKi'), am = $('tAmmo'); if (!b) return;
@@ -2100,7 +2150,8 @@
     if (game.mode === 'train') return ND.training.reset();
     game.start(game.mode, { c1: game.sel.c[0], c2: game.sel.c[1], arena: scene.themeId });
   };
-  $('bMenu').onclick = () => { setPause(false); if (game.runner && game.runner.abandon) game.runner.abandon(); goMenu(); };
+  // (online: the turn-your-phone hint's way out leaves the room, js/online.js; there is no pause menu online)
+  $('bMenu').onclick = () => { if (game.mode === 'online' && ND.online) { ND.online.leave(); return; } setPause(false); if (game.runner && game.runner.abandon) game.runner.abandon(); goMenu(); };
   // Natural break between matches: maybe an interstitial first (ads.js decides), then act
   const afterBreak = (fn) => {
     if (ND.ads && ND.ads.busy) return;
@@ -2129,7 +2180,7 @@
     if (ND.banzuke && ND.banzuke.onKey(e)) return true; // salon / lobi açıkken
     if (game.phase === 'replay' && !e.repeat && game.mode !== 'online') { game.finishReplay(); return true; }
     if ((game.phase === 'vs' || game.phase === 'ending') && (game.runner || ND.arcade)) return (game.runner || ND.arcade).onKey(e);
-    if (game.phase === 'select') {
+    if (game.phase === 'select' && game.selMode !== 'online') { // (online room: its own screen, js/online.js)
       if (game.movesOpen) { if ((input.isBack(e) || e.code === 'KeyM') && !e.repeat) { game.closeMoves(true); return true; } return false; }
       if (e.code === 'KeyM' && !e.repeat) { game.openMoves(); return true; }
       const map = { KeyA: [0, -1], KeyD: [0, 1], ArrowLeft: [1, -1], ArrowRight: [1, 1] };
@@ -2193,7 +2244,7 @@
     if ((game.phase === 'vs' || game.phase === 'ending') && game.runner && game.runner.onPad) return game.runner.onPad(st, prev);
     const pr = (a) => st[a] && !prev[a];
     if (game.paused && !$('pause').hidden && !(ND.settingsUI && ND.settingsUI.isOpen)) { pausePad(st, prev, gp); return; }
-    if (game.phase === 'select' && game.selMode !== '2p') {
+    if (game.phase === 'select' && game.selMode !== '2p' && game.selMode !== 'online') {
       if (game.movesOpen) { if (pr('kick') || pr('throw')) game.closeMoves(true); return; }
       if (pr('throw')) { game.openMoves(); return; }
       if (pr('heavy')) { const b = $('bChallenge'); if (b && !b.hidden) { b.click(); return; } }

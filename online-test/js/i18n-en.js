@@ -1184,6 +1184,7 @@
         expired: 'Nobody joined for 10 minutes, so the room closed.',
         noDirect: "Couldn't connect directly to your friend's network. Try another network (Wi-Fi / mobile data).",
         retry: 'Try again',
+        noConnect: "Couldn't connect to your friend. Check your internet connection and try again.",
         version: 'You and your friend have different versions of the game. Both of you reload the page.',
         signalDown: 'Could not reach the game server. Check your internet connection.',
         friendLeft: 'Your friend left the room.',
@@ -1206,6 +1207,11 @@
         rematchAsk: 'Rematch (your friend wants one)',
         change: 'Change fighters',
         rounds: (a, b) => `Rounds ${a} – ${b}`,
+        turning: (s) => `Your friend is turning their phone… ${s}`,
+        paused: 'Paused',
+        whyPauseWin: "Your friend didn't come back in time. You win (not recorded).",
+        whyPauseLose: "You didn't come back in time, so the match ended.",
+        whyPauseBoth: "Neither of you came back in time, so the match ended.",
       },
     });
 

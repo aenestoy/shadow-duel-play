@@ -1198,6 +1198,7 @@
         expired: 'In 10 Minuten ist niemand beigetreten, deshalb wurde der Raum geschlossen.',
         noDirect: 'Keine direkte Verbindung zum Netz deines Freundes möglich. Versuch ein anderes Netz (WLAN / mobile Daten).',
         retry: 'Erneut versuchen',
+        noConnect: 'Keine Verbindung zu deinem Freund. Prüf deine Internetverbindung und versuch es erneut.',
         version: 'Du und dein Freund habt verschiedene Versionen des Spiels. Ladet beide die Seite neu.',
         signalDown: 'Der Spielserver ist nicht erreichbar. Prüf deine Internetverbindung.',
         friendLeft: 'Dein Freund hat den Raum verlassen.',
@@ -1220,6 +1221,11 @@
         rematchAsk: 'Revanche (dein Freund will eine)',
         change: 'Kämpfer wechseln',
         rounds: (a, b) => `Runden ${a} – ${b}`,
+        turning: (s) => `Dein Freund dreht sein Handy… ${s}`,
+        paused: 'Pausiert',
+        whyPauseWin: 'Dein Freund ist nicht rechtzeitig zurückgekommen. Du gewinnst (wird nicht gewertet).',
+        whyPauseLose: 'Du bist nicht rechtzeitig zurückgekommen, deshalb ist das Match vorbei.',
+        whyPauseBoth: 'Keiner von euch ist rechtzeitig zurückgekommen, deshalb ist das Match vorbei.',
       },
     });
 

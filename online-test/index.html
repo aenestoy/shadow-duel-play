@@ -664,6 +664,10 @@
   }
 
   /* ---------------- Dik ekran uyarısı */
+  /* 3-2-1 before a fight goes on (after the phone was turned back, an online pause): game.js showCount */
+  #cdown { position: absolute; inset: 0; z-index: 40; display: grid; place-items: center; pointer-events: none; font: 700 clamp(64px, 16vh, 150px)/1 var(--display); color: var(--gold-hi); text-shadow: 0 4px 30px rgba(0,0,0,.85), 0 0 2px #000; }
+  #cdown.go { animation: cdIn .5s ease-out; }
+  @keyframes cdIn { from { transform: scale(1.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
   #rotate { position: absolute; inset: 0; z-index: 60; display: none; place-items: center; padding: 24px; text-align: center; background: radial-gradient(ellipse at 50% 42%, #161a2c, #05060c 72%); touch-action: none; }
   .rot-wrap { display: grid; justify-items: center; gap: 10px; max-width: 320px; }
   .rot-ic { width: 128px; height: 128px; margin-bottom: 6px; }

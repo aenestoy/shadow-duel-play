@@ -19,6 +19,9 @@ window.ND.CONFIG = Object.assign({
   // other (WebRTC iceServers). Free public STUN only for now. A TURN relay (for players whose network allows no direct
   // route, e.g. some mobile operators) is added here, no code change needed, e.g.
   //   { urls: ['turn:turn.example.com:3478', 'turns:turn.example.com:5349'], username: '…', credential: '…' }
+  // TURN relay for players whose network allows no direct route: the Supabase Edge Function of this name
+  // (supabase/functions/turn-credentials, Cloudflare Realtime TURN) hands out one-hour credentials; '' = none.
+  TURN_FUNCTION: 'turn-credentials',
   ICE_SERVERS: [
     { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
     { urls: 'stun:stun.cloudflare.com:3478' },

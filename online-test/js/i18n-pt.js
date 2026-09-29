@@ -1198,6 +1198,7 @@
         expired: 'Ninguém entrou em 10 minutos, então a sala fechou.',
         noDirect: 'Não foi possível conectar diretamente à rede do seu amigo. Tente outra rede (Wi-Fi / dados móveis).',
         retry: 'Tentar de novo',
+        noConnect: 'Não foi possível conectar ao seu amigo. Verifique sua conexão com a internet e tente de novo.',
         version: 'Você e seu amigo têm versões diferentes do jogo. Os dois devem recarregar a página.',
         signalDown: 'Não foi possível acessar o servidor do jogo. Verifique sua conexão com a internet.',
         friendLeft: 'Seu amigo saiu da sala.',
@@ -1220,6 +1221,11 @@
         rematchAsk: 'Revanche (seu amigo quer uma)',
         change: 'Trocar lutadores',
         rounds: (a, b) => `Rounds ${a} – ${b}`,
+        turning: (s) => `Seu amigo está girando o celular… ${s}`,
+        paused: 'Pausado',
+        whyPauseWin: 'Seu amigo não voltou a tempo. Você vence (não conta).',
+        whyPauseLose: 'Você não voltou a tempo, então a partida terminou.',
+        whyPauseBoth: 'Nenhum de vocês voltou a tempo, então a partida terminou.',
       },
     });
 

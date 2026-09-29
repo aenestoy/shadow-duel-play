@@ -45,6 +45,7 @@
     badCode: 'Oda kodu 6 harflidir.', noRoom: 'Bu kodla bir oda yok. Kodu arkadaşınla kontrol et.', full: 'Bu oda dolu.',
     expired: '10 dakika kimse katılmadığı için oda kapandı.',
     noDirect: 'Arkadaşının ağına doğrudan bağlanılamadı. Başka bir ağ dene (Wi-Fi / mobil veri).', retry: 'Tekrar dene',
+    noConnect: 'Arkadaşına bağlanılamadı. İnternet bağlantınızı kontrol edip tekrar deneyin.',
     version: 'Sende ve arkadaşında oyunun farklı sürümleri var. İkiniz de sayfayı yenileyin.',
     signalDown: 'Oyun sunucusuna ulaşılamadı. İnternet bağlantını kontrol et.', friendLeft: 'Arkadaşın odadan çıktı.',
     waitIn: (s) => `Arkadaşın bekleniyor… ${s}`, away: (s) => `Arkadaşın oyundan başka bir yere geçti… ${s}`,
@@ -54,6 +55,9 @@
     whyAway: 'Sen yokken maç bitti.', whyDesync: 'Bağlantı sorunu yüzünden iki cihaz maçı farklı hesapladı; bu maç sayılmaz.',
     rematch: 'Rövanş', rematchWait: 'Arkadaşın bekleniyor…', rematchAsk: 'Rövanş (arkadaşın istiyor)', change: 'Dövüşçü değiştir',
     rounds: (a, b) => `Raund ${a} – ${b}`,
+    turning: (s) => `Arkadaşın telefonunu çeviriyor… ${s}`, paused: 'Duraklatıldı',
+    whyPauseWin: 'Arkadaşın zamanında dönmedi. Sen kazandın (kayda geçmez).', whyPauseLose: 'Zamanında dönmedin; maç bitti.',
+    whyPauseBoth: 'İkiniz de zamanında dönmediniz; maç bitti.',
   };
   const M = () => (ND.STR && ND.STR.online && typeof ND.STR.online.title === 'string' ? ND.STR.online : TR);
 
@@ -68,8 +72,48 @@
     if (customSignal()) return true;
     return /^https:\/\/[^\s/?#]+$/i.test(url) && key.length >= 20 && !/secret|service_role/i.test(key);
   }
-  // the network servers for finding a direct route (js/config.js; a TURN relay goes there too)
+  // the network servers for finding a direct route (js/config.js ICE_SERVERS: free STUN)
   const iceServers = () => (Array.isArray(C.ICE_SERVERS) ? C.ICE_SERVERS : []);
+  // TURN relay (for networks that allow no direct route): one-hour credentials from our Supabase Edge Function
+  // (supabase/functions/turn-credentials; js/config.js TURN_FUNCTION, '' = none), asked when a room opens, at most
+  // TURN_MS; without them the room connects directly or not at all, as before.
+  const TURN_MS = 2000;
+  function turnUrl() {
+    const n = typeof C.TURN_FUNCTION === 'string' ? C.TURN_FUNCTION.trim() : '';
+    return n && /^[a-z0-9-]+$/.test(n) && /^https:\/\/[^\s/?#]+$/i.test(url) ? url + '/functions/v1/' + n : '';
+  }
+  function cleanIce(list) {
+    const out = [];
+    for (const e of Array.isArray(list) ? list.slice(0, 8) : []) {
+      if (!e || typeof e !== 'object') continue;
+      const urls = (Array.isArray(e.urls) ? e.urls : [e.urls]).filter((u) => typeof u === 'string' && u.length < 200 && /^(stun|turns?):/i.test(u));
+      if (!urls.length) continue;
+      const o = { urls };
+      if (typeof e.username === 'string') o.username = e.username;
+      if (typeof e.credential === 'string') o.credential = e.credential;
+      out.push(o);
+    }
+    return out;
+  }
+  function fetchTurn() {
+    const u = turnUrl();
+    if (!u || typeof fetch !== 'function') return Promise.resolve([]);
+    return new Promise((done) => {
+      const ctl = typeof AbortController === 'function' ? new AbortController() : null;
+      const t = setTimeout(() => { if (ctl) ctl.abort(); done([]); }, TURN_MS);
+      fetch(u, { method: 'GET', headers: { apikey: key }, credentials: 'omit', cache: 'no-store', signal: ctl ? ctl.signal : undefined })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((j) => { clearTimeout(t); done(cleanIce(j && j.iceServers)); })
+        .catch(() => { clearTimeout(t); done([]); });
+    });
+  }
+  // the connection's settings: free STUN + the relay if we got one (test hook: window.__ndIcePolicy = 'relay')
+  const hasTurn = (r) => !!(r.turn && r.turn.some((e) => e.urls.some((u) => /^turns?:/i.test(u))));
+  const pcConfig = (r) => ({ iceServers: iceServers().concat(r.turn || []), iceTransportPolicy: window.__ndIcePolicy === 'relay' ? 'relay' : 'all' });
+  // (waits for the relay's answer, at most TURN_MS after the room opened)
+  function withIce(r, fn) { (r.icePromise || Promise.resolve([])).then((l) => { r.turn = l || []; if (R === r) fn(); }); }
+  // no connection: without a relay the networks allow no direct route (another network may); with one, something else
+  const noConnect = (r) => (hasTurn(r) ? M().noConnect : M().noDirect);
 
   // ---------------------------------------------------------------- signalling: Supabase Realtime over its websocket
   // h: { onOpen(), onPresence(list, initial), onMessage(msg), onError(why) }. list: [{ id, role, v }] of everyone in the
@@ -183,6 +227,7 @@
     teardown(true);
     R = room('host', newCode());
     const r = R;
+    r.icePromise = fetchTurn();
     r.status = M().waitFriend;
     r.sig = signal(r.code, { id: r.id, role: 'host', v: PROTO }, sigHandlers(r));
     later(() => {
@@ -200,6 +245,7 @@
     teardown(true);
     R = room('guest', code);
     const r = R;
+    r.icePromise = fetchTurn();
     r.status = M().joining;
     r.sig = signal(code, { id: r.id, role: 'guest', v: PROTO }, sigHandlers(r));
     later(() => { if (!r.peerId && !r.connected) fail(M().noRoom); }, FIND_MS);
@@ -247,37 +293,46 @@
 
   // ---------------------------------------------------------------- the direct connection
   function makePc(r) {
-    const pc = new RTCPeerConnection({ iceServers: iceServers() });
+    const cfg = pcConfig(r), pc = new RTCPeerConnection(cfg);
+    r.ice = { servers: cfg.iceServers.length, turn: hasTurn(r), policy: cfg.iceTransportPolicy };
     pc.onicecandidate = (e) => { if (e.candidate && r.sig) r.sig.send({ t: 'ice', to: r.peerId, from: r.id, c: e.candidate.toJSON ? e.candidate.toJSON() : e.candidate }); };
     const watch = () => {
       if (R !== r) return;
       const s = pc.connectionState || pc.iceConnectionState;
-      if (s === 'failed') { if (!r.connected) fail(M().noDirect, true); else lost(r); }
+      if (s === 'failed') { if (!r.connected) fail(noConnect(r), true); else lost(r); }
       else if (s === 'closed' && r.connected) lost(r);
     };
     pc.onconnectionstatechange = watch; pc.oniceconnectionstatechange = watch;
     pc.ondatachannel = (e) => wire(r, e.channel);
-    later(() => { if (!r.connected) fail(M().noDirect, true); }, CONNECT_MS);
+    later(() => { if (!r.connected) fail(noConnect(r), true); }, CONNECT_MS);
     return pc;
   }
   function startPeer(r) {
     r.status = M().connecting; r.err = '';
+    render();
+    withIce(r, () => { if (!r.pc && r.peerId) offer(r); });
+  }
+  function offer(r) {
     const pc = r.pc = makePc(r);
     wire(r, pc.createDataChannel('ctl', { ordered: true }));
     wire(r, pc.createDataChannel('in', { ordered: false, maxRetransmits: 0 }));
     pc.createOffer().then((o) => pc.setLocalDescription(o)).then(() => {
       if (R === r && r.sig) r.sig.send({ t: 'offer', to: r.peerId, from: r.id, v: PROTO, sdp: pc.localDescription.toJSON ? pc.localDescription.toJSON() : pc.localDescription });
-    }).catch((e) => { console.warn('[online] offer', e); fail(M().noDirect, true); });
+    }).catch((e) => { console.warn('[online] offer', e); fail(noConnect(r), true); });
     render();
   }
   function acceptOffer(r, m) {
-    if (r.pc) return;
+    if (r.pc || r.accepting) return;
     if (m.v !== PROTO) { fail(M().version); return; }
-    r.peerId = m.from; r.status = M().connecting;
+    r.peerId = m.from; r.status = M().connecting; r.accepting = true;
+    render();
+    withIce(r, () => { r.accepting = false; if (!r.pc) answer(r, m); });
+  }
+  function answer(r, m) {
     const pc = r.pc = makePc(r);
     pc.setRemoteDescription(m.sdp).then(() => { r.haveRemote = true; flushIce(r); return pc.createAnswer(); }).then((a) => pc.setLocalDescription(a)).then(() => {
       if (R === r && r.sig) r.sig.send({ t: 'answer', to: r.peerId, from: r.id, sdp: pc.localDescription.toJSON ? pc.localDescription.toJSON() : pc.localDescription });
-    }).catch((e) => { console.warn('[online] answer', e); fail(M().noDirect, true); });
+    }).catch((e) => { console.warn('[online] answer', e); fail(noConnect(r), true); });
     render();
   }
   // host: forget the half-made connection and wait for a guest again (the same code)
@@ -370,8 +425,14 @@
       case 'go': NET.peerReady(m.m); break;
       case 'rematch': r.peerRematch = !!m.on; if (screen === 'end') renderEnd(); maybeRematch(); break;
       case 'lobby': toLobby(false); break;
-      case 'end': // the other side ended the match (its own view): e.g. it gave up waiting for this tab
-        if (NET.active) NET.end(m.why === 'desync' ? 'desync' : 'away', -1); break;
+      case 'end': { // the other side ended the match (its own view): e.g. it gave up waiting for this tab
+        // (only this match: a late message of an earlier one must never end the rematch)
+        const S = NET.active && NET.session();
+        if (S && !S.finished && (m.m & 255) === S.m) NET.end(m.why === 'desync' ? 'desync' : 'away', -1);
+        break;
+      }
+      case 'pause': NET.peerPause(m.m, m.at, m.why); break;
+      case 'resume': NET.peerResume(m.m); break;
       case 'leave':
         if (screen === 'match' && NET.active) { NET.end('left', r.side); r.connected = false; return; }
         r.connected = false; clearInterval(r.pingT);
@@ -436,14 +497,14 @@
     });
     NET.setHidden(document.hidden);
     clearInterval(r.keepT);
-    r.keepT = setInterval(() => { if (R === r && NET.active) NET.keepalive(); }, 250);
+    r.keepT = setInterval(() => { if (R === r && NET.active) { syncAway(); NET.keepalive(); } }, 250);
     hudShow(true);
     if (typeof ND.online.onBegin === 'function') ND.online.onBegin(m);
   }
   function matchOver(r, res) {
     if (R !== r) return;
     r.result = res;
-    if (res.reason === 'drop' || res.reason === 'desync') ctlSend({ t: 'end', why: res.reason }, r);
+    if (res.reason === 'drop' || res.reason === 'desync' || res.reason === 'pause') ctlSend({ t: 'end', why: res.reason, m: r.matchNo }, r);
     waitUi('ok');
     hudShow(false);
     setTimeout(() => { if (R === r && r.result === res) { screen = 'end'; renderEnd(); } }, res.reason === 'ko' ? 400 : 0);
@@ -458,6 +519,7 @@
     clearInterval(r.keepT);
     r.ready = r.peerReady = r.rematch = r.peerRematch = false; r.result = null;
     hudShow(false); waitUi('ok');
+    screen = null; // (not a match any more: the start below is not a way out of one)
     G.start('attract');
     show('room');
   }
@@ -498,17 +560,33 @@
   .onl-st { color: var(--muted); font-size: 14px; min-height: 1.4em; }
   .onl-st b { color: var(--text); font-weight: 600; }
   .onl-err { color: #ffb4a8; font-size: 14px; margin: 0; }
-  .onl-vs { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .onl-p { padding: 10px 12px; border: 1px solid var(--line); border-top: 3px solid var(--pc, var(--gold)); background: rgba(10,12,22,.6); display: grid; gap: 4px; }
+  /* the room: 1P card | roster and arena | 2P card (phones: the two cards side by side, the roster under them) */
+  .onl-card.onl-room { width: min(1080px, 100%); gap: 12px; }
+  .onl-top { display: flex; gap: 8px 18px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+  .onl-stage { display: grid; grid-template-columns: minmax(150px, 1fr) minmax(0, 2.4fr) minmax(150px, 1fr); gap: 12px; align-items: stretch; }
+  .onl-mid { display: grid; gap: 6px; align-content: start; min-width: 0; }
+  .onl-mid > .onl-lbl { margin: 4px 0 0; }
+  .onl-p { padding: 10px 12px; border: 1px solid var(--line); border-top: 3px solid var(--pc, var(--gold)); background: rgba(10,12,22,.6); display: grid; gap: 4px; align-content: start; min-width: 0; }
+  .onl-pv { display: grid; place-items: center; width: 100%; height: clamp(120px, 32vh, 270px); color: var(--muted); font: 600 13px/1.2 var(--display); letter-spacing: .1em; text-transform: uppercase; }
   .onl-p .nm { font: 600 18px/1.1 var(--display); letter-spacing: .06em; }
-  .onl-p .nm .k { font-family: var(--jp); margin-right: 6px; }
+  .onl-p .nm .k { font-family: var(--jp); margin-right: 6px; color: var(--pc); }
+  .onl-p .onl-ln { font-size: 12.5px; line-height: 1.3; color: var(--muted); min-height: 1.3em; }
   .onl-p .rd { font: 600 11px/1 var(--display); letter-spacing: .18em; text-transform: uppercase; color: var(--muted); }
   .onl-p .rd.on { color: #9be29b; }
-  .onl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; }
-  .onl-ch { position: relative; padding: 8px 6px; background: rgba(255,255,255,.035); border: 1px solid var(--line); cursor: pointer; color: var(--text); font: 600 14px/1.1 var(--display); letter-spacing: .06em; text-align: center; }
-  .onl-ch .k { display: block; font: 700 22px/1.1 var(--jp); color: var(--cc); }
+  .onl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 6px; }
+  .onl-ch { position: relative; display: grid; justify-items: center; gap: 1px; padding: 4px 4px 6px; background: rgba(255,255,255,.035); border: 1px solid var(--line); cursor: pointer; color: var(--text); font: 600 13px/1.1 var(--display); letter-spacing: .05em; text-align: center; overflow: hidden; }
+  .onl-ch .onl-th { width: 100%; height: 50px; object-fit: contain; }
+  .onl-ch .k { position: absolute; top: 3px; left: 5px; font: 700 13px/1 var(--jp); color: var(--cc); }
   .onl-ch[aria-pressed="true"] { border-color: var(--gold-hi); background: rgba(217,179,108,.2); box-shadow: inset 0 0 0 1px var(--gold-hi); }
-  .onl-ch .fr { position: absolute; top: 3px; right: 4px; font: 600 9px/1 var(--display); letter-spacing: .1em; color: var(--muted); }
+  .onl-ch .fr { position: absolute; top: 3px; right: 4px; font: 600 9px/1 var(--display); letter-spacing: .1em; color: var(--gold-hi); background: rgba(8,9,16,.8); padding: 2px 3px; }
+  .onl-arena { display: grid; grid-template-columns: minmax(110px, 200px) minmax(0, 1fr); gap: 8px; align-items: center; }
+  .onl-arv { width: 100%; aspect-ratio: 16 / 7; border: 1px solid var(--line); background: #05060c; }
+  @media (max-width: 760px) {
+    .onl-stage { grid-template-columns: 1fr 1fr; }
+    .onl-mid { grid-column: 1 / -1; grid-row: 2; }
+    .onl-arena { grid-template-columns: 1fr; }
+    .onl-arv { max-height: 90px; }
+  }
   .onl-btns { display: flex; gap: 8px; flex-wrap: wrap; }
   .onl-btns .btn { flex: 1 1 160px; }
   .onl-ping { font: 600 12px/1 var(--display); letter-spacing: .12em; color: var(--muted); }
@@ -519,7 +597,7 @@
   #onlWait { position: absolute; left: 50%; top: 38%; translate: -50% 0; padding: 14px 18px; background: rgba(8,9,16,.88); border: 1px solid var(--gold); text-align: center; z-index: 31; display: grid; gap: 10px; min-width: 240px; }
   #onlWait p { margin: 0; font: 600 16px/1.3 var(--display); letter-spacing: .06em; }
   #onlConfirm, #onlEnd { display: grid; place-items: center; background: rgba(5,6,12,.72); z-index: 32; }
-  @media (max-height: 460px) { .onl-card { gap: 9px; padding: 14px; } .onl-k { font-size: 32px; } .onl-grid { grid-template-columns: repeat(auto-fill, minmax(82px, 1fr)); } .onl-ch { padding: 5px; } .onl-ch .k { font-size: 18px; } }
+  @media (max-height: 460px) { .onl-card { gap: 8px; padding: 12px; } .onl-k { font-size: 30px; } .onl-code { font-size: 26px; } .onl-title { font-size: 22px; } .onl-pv { height: clamp(100px, 42vh, 170px); } .onl-grid { grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 4px; } .onl-ch .onl-th { height: 40px; } .onl-p { padding: 8px; } }
   `;
   let built = false;
   function build() {
@@ -595,22 +673,79 @@
   function charName(i) { const c = ND.CHARS[i]; return c ? c.name.charAt(0) + c.name.slice(1).toLowerCase() : ''; }
   function charCol(i, alt) { const c = ND.CHARS[i]; if (!c) return 'var(--gold)'; const p = ND.palOf ? ND.palOf(c, alt) : c.col; return (p && p.ui) || 'var(--gold)'; }
   function arenaName(id) { const a = ND.ARENAS.find((x) => x.id === id); return a ? a.name : id; }
+  // Fighter pictures for the roster (the select screen's own drawing: a fighter in its stance, full model, head and
+  // shoulders), drawn once each, one per display frame, and kept for the session (canvas elements, moved into each
+  // new roster). No part pictures are made (fullDetail), so nothing here is baked for the fight.
+  const thumbs = new Map(), thumbQ = [];
+  let thumbF = null, thumbBusy = false;
+  function thumb(i) {
+    let c = thumbs.get(i);
+    if (!c) {
+      c = document.createElement('canvas'); c.className = 'onl-th'; c.setAttribute('aria-hidden', 'true');
+      thumbs.set(i, c); thumbQ.push(i);
+      if (!thumbBusy) { thumbBusy = true; requestAnimationFrame(drawThumbs); }
+    }
+    return c;
+  }
+  function drawThumbs() {
+    const i = thumbQ.shift();
+    if (i != null) { try { drawThumb(i, thumbs.get(i)); } catch (e) { console.warn('[online] thumb', e); } }
+    if (thumbQ.length) requestAnimationFrame(drawThumbs); else thumbBusy = false;
+  }
+  function drawThumb(i, c) {
+    const ch = ND.CHARS[i];
+    if (!ch || !ND.Fighter) return;
+    if (!thumbF) { thumbF = new ND.Fighter(0, new ND.Ctrl()); thumbF.fullDetail = true; }
+    const f = thumbF, dpr = Math.min(2, window.devicePixelRatio || 1);
+    f.setChar(ch, false); f.reset(0); f.dir = 1; f.pvPose = null;
+    const tp = ND.pose.copy((f.P && f.P.stance) || ND.POSES.stance, {});
+    for (let k = 0; k < 12; k++) { ND.pose.approach(f.pose, tp, 10, 0.05); f.solve(0.05); ND.updateCloth(f.j, 0.05); }
+    const W = Math.round(72 * dpr), H = Math.round(56 * dpr);
+    c.width = W; c.height = H;
+    const pc = c.getContext('2d'), k = H / 88;
+    pc.setTransform(k, 0, 0, k, W / 2 - 10 * k, 4 + 194 * k); // (the top of the head just inside the frame) // head and shoulders: the feet are far below the frame
+    f.draw(pc, false);
+    if (ND.eyeGlow) ND.eyeGlow(pc, f.j, f.col, f.ch.acc);
+  }
+  // the chosen arena: the room shows the live backdrop behind it (as the select screen does) through a small window
+  let arenaT = 0;
+  function arenaWindow() {
+    const c = $('onlArv'), cv = $('cv');
+    if (!c || !cv || screen !== 'room' || $('onl').hidden) { arenaT = 0; return; }
+    const now = performance.now();
+    if (now - arenaT > 120 && cv.width > 2) {
+      arenaT = now;
+      const r = c.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
+      const W = Math.max(1, Math.round(r.width * dpr)), H = Math.max(1, Math.round(r.height * dpr));
+      if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
+      // the middle band of the backdrop, the arena's width fitted to the window
+      const sh = Math.min(cv.height, cv.width * H / W), sy = Math.max(0, (cv.height - sh) * 0.55);
+      try { c.getContext('2d').drawImage(cv, 0, sy, cv.width, sh, 0, 0, W, H); } catch (e) { /* not drawable yet */ }
+    }
+    requestAnimationFrame(arenaWindow);
+  }
   function renderRoom(box) {
     const r = R;
     const link = inviteLink(r.code);
-    const pc = r.side === 0 ? [r.pick, r.peerPick] : [r.peerPick, r.pick];
-    const colOf = (who) => (who === 'me' ? charCol(r.pick, r.side === 1 && pc[0] === pc[1]) : charOk(r.peerPick) ? charCol(r.peerPick, r.side === 0 && pc[0] === pc[1]) : 'var(--line)');
-    box.innerHTML = `<div class="onl-card card">
-      <div class="onl-head"><b class="onl-k" aria-hidden="true">友</b><div style="min-width:0"><p class="onl-title" id="onlTitle"></p>
+    // 1P (host) on the left, 2P (guest) on the right, as in the match
+    const pk = r.side === 0 ? [r.pick, r.connected ? r.peerPick : null] : [r.connected ? r.peerPick : null, r.pick];
+    const same = charOk(pk[0]) && pk[0] === pk[1];
+    box.innerHTML = `<div class="onl-card card onl-room">
+      <div class="onl-top"><div class="onl-head"><b class="onl-k" aria-hidden="true">友</b><div style="min-width:0"><p class="onl-title" id="onlTitle"></p>
         <div class="onl-row"><span class="onl-lbl" id="onlRoomL"></span><span class="onl-code" id="onlRoomCode" lang="en" translate="no"></span></div></div></div>
+        <p class="onl-st"><span id="onlSt"></span> <span class="onl-ping" id="onlRtt"></span></p></div>
       <div class="onl-row" id="onlInvite"><div class="grow"><input class="onl-in" id="onlLink" readonly lang="en" translate="no"></div>
         <button class="btn" id="onlCopy" type="button"></button><button class="btn" id="onlShare" type="button" hidden></button></div>
-      <p class="onl-st"><span id="onlSt"></span> <span class="onl-ping" id="onlRtt"></span></p>
       <p class="onl-err" id="onlErr"></p>
-      <div class="onl-vs"><div class="onl-p" style="--pc:${colOf('me')}"><span class="onl-lbl" id="onlMeL"></span><span class="nm" id="onlMeN"></span><span class="rd" id="onlMeR"></span></div>
-        <div class="onl-p" style="--pc:${colOf('peer')}"><span class="onl-lbl" id="onlPeerL"></span><span class="nm" id="onlPeerN"></span><span class="rd" id="onlPeerR"></span></div></div>
-      <div><p class="onl-lbl" id="onlPickL" style="margin:0 0 6px"></p><div class="onl-grid" id="onlGrid"></div></div>
-      <div><p class="onl-lbl" id="onlArenaL" style="margin:0 0 6px"></p><div class="diff" id="onlArenas"></div></div>
+      <div class="onl-stage">
+        <div class="onl-p p1" id="onlP1"></div>
+        <div class="onl-mid">
+          <p class="onl-lbl" id="onlPickL"></p><div class="onl-grid" id="onlGrid"></div>
+          <p class="onl-lbl" id="onlArenaL"></p>
+          <div class="onl-arena"><canvas class="onl-arv" id="onlArv" aria-hidden="true"></canvas><div class="diff" id="onlArenas"></div></div>
+        </div>
+        <div class="onl-p p2" id="onlP2"></div>
+      </div>
       <div class="onl-btns"><button class="btn primary" id="onlReady" type="button"></button><button class="btn" id="onlLeave" type="button"></button></div>
     </div>`;
     $('onlTitle').textContent = M().title; $('onlRoomCode').textContent = r.code; $('onlRoomL').textContent = M().room;
@@ -635,21 +770,33 @@
       b.onclick = () => (r.role === 'host' ? (resetPeer(r), render()) : joinRoom(r.code));
       err.appendChild(b);
     }
-    $('onlMeL').textContent = M().you + (r.side === 0 ? ' · 1P' : ' · 2P');
-    $('onlPeerL').textContent = M().friend + (r.side === 0 ? ' · 2P' : ' · 1P');
-    const nm = (el, i) => { el.textContent = ''; if (!charOk(i)) { el.textContent = M().waitPick; return; } const k = document.createElement('span'); k.className = 'k'; k.textContent = ND.CHARS[i].kanji; el.append(k, nameEl(i)); };
-    nm($('onlMeN'), r.pick);
-    if (r.connected) nm($('onlPeerN'), r.peerPick); else $('onlPeerN').textContent = '—';
-    const rd = (el, on) => { el.textContent = on ? M().ready : M().notReady; el.classList.toggle('on', on); };
-    rd($('onlMeR'), r.ready); rd($('onlPeerR'), r.connected && r.peerReady);
+    // the two player cards: label, the fighter itself (the select screen's animated preview), name, title · weapon, ready
+    for (let s = 0; s < 2; s++) {
+      const el = $('onlP' + (s + 1)), ci = pk[s], mine = s === r.side, alt = s === 1 && same;
+      el.style.setProperty('--pc', charOk(ci) ? charCol(ci, alt) : 'var(--line)');
+      const lbl = document.createElement('span'); lbl.className = 'onl-lbl'; lbl.textContent = (mine ? M().you : M().friend) + (s === 0 ? ' · 1P' : ' · 2P');
+      const pv = document.createElement(charOk(ci) ? 'canvas' : 'div'); pv.className = 'onl-pv';
+      if (charOk(ci)) { pv.id = 'onlPv' + (s + 1); pv.setAttribute('aria-hidden', 'true'); } else pv.textContent = r.connected || mine ? M().waitPick : '—';
+      const nm = document.createElement('span'); nm.className = 'nm';
+      const ln = document.createElement('span'); ln.className = 'onl-ln';
+      if (charOk(ci)) {
+        const k = document.createElement('span'); k.className = 'k'; k.textContent = ND.CHARS[ci].kanji;
+        nm.append(k, nameEl(ci));
+        ln.textContent = ND.CHARS[ci].title + ' · ' + ND.CHARS[ci].weapon;
+      }
+      const rd = document.createElement('span'), on = mine ? r.ready : r.connected && r.peerReady;
+      rd.className = 'rd' + (on ? ' on' : ''); rd.textContent = on ? M().ready : M().notReady;
+      el.append(lbl, pv, nm, ln, rd);
+    }
     $('onlPickL').textContent = M().pickTitle;
     const grid = $('onlGrid');
     ND.CHARS.forEach((c, i) => {
       const b = document.createElement('button');
       b.type = 'button'; b.className = 'onl-ch'; b.setAttribute('aria-pressed', String(i === r.pick));
       b.style.setProperty('--cc', charCol(i, false));
-      const k = document.createElement('span'); k.className = 'k'; k.textContent = c.kanji;
-      b.append(k, nameEl(i));
+      b.setAttribute('aria-label', charName(i) + ' · ' + c.title);
+      const k = document.createElement('span'); k.className = 'k'; k.textContent = c.kanji; k.setAttribute('aria-hidden', 'true');
+      b.append(thumb(i), k, nameEl(i));
       if (r.connected && i === r.peerPick) { const f = document.createElement('span'); f.className = 'fr'; f.textContent = M().friendTag; b.appendChild(f); }
       b.onclick = () => setPick(i);
       grid.appendChild(b);
@@ -674,6 +821,9 @@
     rb.onclick = () => toggleReady();
     $('onlLeave').textContent = M().leave;
     $('onlLeave').onclick = () => leave();
+    // the game draws the two previews and the arena behind (its select stage)
+    G.roomStage(['onlPv1', 'onlPv2'], charOk(pk[0]) ? pk[0] : null, charOk(pk[1]) ? pk[1] : null, r.arena);
+    if (!arenaT) { arenaT = 1; requestAnimationFrame(arenaWindow); }
   }
   function pingClass(ms) { return ms < 80 ? 'good' : ms < 160 ? 'ok' : 'bad'; }
   function renderPing() {
@@ -693,9 +843,15 @@
   function waitUi(kind, info) {
     build();
     const w = $('onlWait');
-    if (kind !== 'wait') { w.hidden = true; return; }
+    if (kind === 'count') { w.hidden = true; if (G.showCount) G.showCount(info.n); return; }
+    if (G.showCount) G.showCount(0);
+    if (kind !== 'wait' && kind !== 'pause') { w.hidden = true; return; }
     const s = Math.ceil((info.left || 0) / 1000);
-    $('onlWaitT').textContent = info.away ? M().away(s) : M().waitIn(s);
+    let t;
+    if (kind === 'wait') t = info.away ? M().away(s) : M().waitIn(s);
+    else if (info.peer) t = info.peer === 'turn' ? M().turning(s) : M().away(s);
+    else t = M().paused; // this player's own pause (the turn-your-phone hint covers it on a phone)
+    $('onlWaitT').textContent = t;
     w.hidden = false;
   }
   function confirmLeave(on) { const c = $('onlConfirm'); if (!c) return; c.hidden = !on; if (on) setTimeout(() => $('onlStay').focus(), 0); }
@@ -710,6 +866,7 @@
     else if (res.reason === 'left') why = M().whyLeft;
     else if (res.reason === 'away') why = M().whyAway;
     else if (res.reason === 'desync') why = M().whyDesync;
+    else if (res.reason === 'pause') why = res.winner === me ? M().whyPauseWin : res.winner < 0 ? M().whyPauseBoth : M().whyPauseLose;
     const w = res.wins || [0, 0], alive = r.connected && res.reason !== 'left';
     box.innerHTML = `<div class="dialog card"><div class="bigk" aria-hidden="true">${res.reason === 'ko' && res.winner === me ? '勝利' : '試合'}</div>
       <p class="title" id="onlEndT"></p><p class="sub" id="onlEndS"></p><p class="onl-st" id="onlEndW" style="margin:0 0 16px"></p>
@@ -778,21 +935,47 @@
     build();
     joinRoom(code);
   }
-  document.addEventListener('visibilitychange', () => { if (NET.active) { NET.setHidden(document.hidden); NET.keepalive(); } });
+  document.addEventListener('visibilitychange', () => { if (NET.active) { NET.setHidden(document.hidden); syncAway(); NET.keepalive(); } });
+  // Away from the match (an agreed pause of both players, js/net.js): the phone held upright (the turn-your-phone hint
+  // is up), the tab hidden, or fullscreen just left (a moment to settle).
+  let fsLeftAt = 0, fsWas = false;
+  const PORTRAIT = (() => { try { return window.matchMedia('(orientation: portrait)'); } catch (e) { return { matches: false }; } })();
+  function awayWhy() {
+    if (screen !== 'match' || !NET.active) return null;
+    if (document.hidden) return 'away';
+    if (ND.touch && ND.touch.active && PORTRAIT.matches) return 'turn';
+    if (fsLeftAt && performance.now() - fsLeftAt < 1500) return 'turn';
+    return null;
+  }
+  function syncAway() { if (NET.active) NET.setAway(awayWhy()); }
+  ['resize', 'orientationchange'].forEach((ev) => window.addEventListener(ev, () => syncAway()));
+  ['fullscreenchange', 'webkitfullscreenchange'].forEach((ev) => document.addEventListener(ev, () => {
+    const fs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+    if (fsWas && !fs && screen === 'match') fsLeftAt = performance.now();
+    fsWas = fs; syncAway();
+  }));
   window.addEventListener('pagehide', () => { if (R) teardown(true); });
 
   ND.online = {
     available, open, close, leave, onKey, get friendTag() { return M().friendTag; },
     create: () => { if (available()) { build(); createRoom(); } return R && R.code; },
     join: (code) => { if (available()) { build(); joinRoom(code); } },
-    pick: setPick, arena: setArena, ready: toggleReady, rematch: () => { const b = $('onlRematch'); if (b) b.click(); }, toLobby: () => toLobby(true),
-    state: () => ({ screen, role: R && R.role, code: R && R.code, connected: !!(R && R.connected), rtt: R ? Math.round(R.rtt) : 0, err: R ? R.err : '', peerPick: R && R.peerPick, ready: !!(R && R.ready), peerReady: !!(R && R.peerReady), result: R && R.result }),
+    pick: setPick, arena: setArena, ready: toggleReady, rematch: () => { const b = $('onlRematch'); if (b) b.click(); }, toLobby: () => toLobby(true), syncAway: () => syncAway(),
+    state: () => ({ screen, role: R && R.role, code: R && R.code, connected: !!(R && R.connected), rtt: R ? Math.round(R.rtt) : 0, err: R ? R.err : '', peerPick: R && R.peerPick, ready: !!(R && R.ready), peerReady: !!(R && R.peerReady), result: R && R.result, ice: R && R.ice }),
     endShown: () => screen === 'end' && !!$('onlEnd') && !$('onlEnd').hidden,
     onBegin: null, onEnd: null,
   };
 
   if (!available()) return;
   addMenuEntry();
+  // Anything that takes the game out of a running online match without going through the room (a menu button, a
+  // key) leaves the room properly: the friend is told at once instead of waiting 10 s, and no result of this match
+  // can come up later over another screen.
+  const start0 = G.start;
+  G.start = function (mode) {
+    if (mode !== 'online' && screen === 'match' && R) { teardown(true); hudShow(false); waitUi('ok'); hideAll(); screen = null; }
+    return start0.apply(this, arguments);
+  };
   // another language chosen (Settings): the open screen and the parts built once follow
   if (ND.i18n && ND.i18n.onChange) {
     ND.i18n.onChange(() => {

@@ -1195,6 +1195,7 @@
         expired: "Personne n'a rejoint en 10 minutes, le salon a donc fermé.",
         noDirect: 'Impossible de se connecter directement au réseau de ton ami. Essaie un autre réseau (Wi-Fi / données mobiles).',
         retry: 'Réessayer',
+        noConnect: 'Impossible de se connecter à ton ami. Vérifie ta connexion internet et réessaie.',
         version: 'Ton ami et toi avez des versions différentes du jeu. Rechargez la page tous les deux.',
         signalDown: 'Impossible de joindre le serveur du jeu. Vérifie ta connexion internet.',
         friendLeft: 'Ton ami a quitté le salon.',
@@ -1217,6 +1218,11 @@
         rematchAsk: 'Revanche (ton ami en veut une)',
         change: 'Changer de combattants',
         rounds: (a, b) => `Manches ${a} – ${b}`,
+        turning: (s) => `Ton ami tourne son téléphone… ${s}`,
+        paused: 'En pause',
+        whyPauseWin: "Ton ami n'est pas revenu à temps. Tu gagnes (non comptabilisé).",
+        whyPauseLose: "Tu n'es pas revenu à temps, le match est donc terminé.",
+        whyPauseBoth: "Aucun de vous n'est revenu à temps, le match est donc terminé.",
       },
     });
 

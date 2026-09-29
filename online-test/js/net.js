@@ -42,6 +42,10 @@
   const ROLL_MAX = 10, ROLL_WEAK = 6;
   const MAX_STEPS = 8;          // steps in one display frame at most (catch-up after a slow frame)
   const WAIT_MS = 1000, DROP_MS = 10000;
+  // A player turning the phone upright (the turn-your-phone hint), leaving the tab or fullscreen asks for a pause:
+  // both sides stop at the same step (PAUSE_LEAD after the later of the two), wait up to PAUSE_MS for that player,
+  // then count 3-2-1 (RESUME_MS) and go on. A plain packet stall keeps the 10 s rule.
+  const PAUSE_LEAD = 24, PAUSE_MS = 60000, RESUME_MS = 1800;
   const MAX_SEND = 64;          // input frames in one packet at most
   const SND_KEEP = 2;           // steps of sound memory kept behind the confirmed step
   const now = () => performance.now();
@@ -149,9 +153,10 @@
         stallSince: 0, waitSince: 0, lastSkip: 0, lastDelay: 0, peerBg: false, bg: false,
         pending: new Map(), flushed: 0, snd: new Map(), sndFloor: 0, cur: -1, inStep: false, counts: null, quiet0: false,
         maxRoll: weak ? ROLL_WEAK : ROLL_MAX, weak, saveMs: [],
-        st: { rollbacks: 0, rolledSteps: 0, maxRolled: 0, stalls: 0, skips: 0, packetsIn: 0, packetsOut: 0, soundsCancelled: 0, soundsLate: 0, desync: null,
+        st: { rollbacks: 0, rolledSteps: 0, maxRolled: 0, stalls: 0, skips: 0, packetsIn: 0, packetsOut: 0, soundsCancelled: 0, soundsLate: 0, desync: null, pauses: 0,
           saves: 0, hashes: 0, saveMs: 0, hashMs: 0, rollMs: 0, stepMs: 0 },
         finished: false, result: null,
+        pause: { mine: null, peer: null, at: -1, since: 0, resumeAt: 0 },
       };
       for (let i = 0; i < D; i++) S.L[i] = 0;
       G.newMatch('online', { c1: o.chars[0], c2: o.chars[1], arena: o.arena, seed: o.seed, side: S.side, ctrls: S.ctrls });
@@ -177,7 +182,7 @@
     // this match's session (tests, the online screens)
     session() { return S; },
     // an online match stands still, waiting for the other player (game.js draws it less often meanwhile)
-    isWaiting() { return !!(S && S.waitSince && !S.finished); },
+    isWaiting() { return !!(S && !S.finished && (S.waitSince || (S.pause.at >= 0 && S.frame >= S.pause.at))); },
 
     // ---------------------------------------------------------------- one display frame
     frame() {
@@ -192,6 +197,7 @@
       if (S.finished) { this.sendInputs(); return 1; }
       const dt = Math.min(0.25, Math.max(0, (t0 - S.lastT) / 1000));
       S.lastT = t0;
+      if (this.paused(t0)) { S.acc = 0; this.flush(); this.sendInputs(); return 1; }
       if (this.waiting(t0)) { S.acc = 0; this.sendInputs(); return 1; }
       if (t0 - S.lastDelay > 2000) { S.lastDelay = t0; this.adjustDelay(); }
       S.acc += dt;
@@ -203,6 +209,7 @@
       G.inBatch = true;
       try {
         for (let i = 0; i < n; i++) {
+          if (S.pause.at >= 0 && S.frame >= S.pause.at) { S.acc = 0; break; } // the agreed pause step
           if (S.frame >= S.rRecv + S.maxRoll) { // too far ahead: this step waits
             if (!S.stallSince) S.stallSince = t0;
             S.st.stalls++;
@@ -362,7 +369,60 @@
       try { S.o.send(buf); } catch (e) { /* channel closed: online.js notices */ }
     },
 
+    // ---------------------------------------------------------------- the agreed pause (see PAUSE_LEAD)
+    /** This device's player is away (why: 'turn' = phone upright / fullscreen left, 'away' = tab hidden) or back (null). */
+    setAway(why) {
+      if (!S || !S.goSent || S.finished) return;
+      why = why || null;
+      const P = S.pause;
+      if (why === P.mine) return;
+      const was = P.mine;
+      P.mine = why;
+      if (why) {
+        if (!was) this.pauseAt(Math.max(S.frame, S.peerFrame) + PAUSE_LEAD);
+        S.o.sendCtl({ t: 'pause', m: S.m, at: P.at, why });
+      } else S.o.sendCtl({ t: 'resume', m: S.m });
+    },
+    peerPause(m, at, why) {
+      if (!S || (m & 255) !== S.m || S.finished || !(at >= 0)) return;
+      S.pause.peer = why === 'turn' ? 'turn' : 'away';
+      this.pauseAt(at | 0);
+    },
+    peerResume(m) { if (S && (m & 255) === S.m) S.pause.peer = null; },
+    // both devices stop at the earlier of the steps asked (a device already past it stops where it is)
+    pauseAt(at) {
+      const P = S.pause;
+      if (P.at < 0) { P.at = at; P.since = 0; P.resumeAt = 0; S.st.pauses++; } else P.at = Math.min(P.at, at);
+    },
+    // true while the match stands still for an agreed pause (and its count-down)
+    paused(t0) {
+      const P = S.pause;
+      if (P.at < 0) return false;
+      const away = !!(P.mine || P.peer);
+      if (S.frame < P.at) {
+        // still on the way to the pause step (a player whose tab is hidden gets there when back); no 10 s rule meanwhile
+        if (away) this.status('pause', { left: PAUSE_MS, mine: P.mine, peer: P.peer });
+        return false;
+      }
+      if (!P.since) P.since = t0;
+      if (away) {
+        P.resumeAt = 0;
+        const left = PAUSE_MS - (t0 - P.since);
+        this.status('pause', { left: Math.max(0, left), mine: P.mine, peer: P.peer });
+        if (left <= 0) this.end('pause', P.mine && !P.peer ? 1 - S.side : P.peer && !P.mine ? S.side : -1);
+        return true;
+      }
+      if (!P.resumeAt) P.resumeAt = t0 + RESUME_MS;
+      if (t0 < P.resumeAt) { this.status('count', { n: Math.max(1, Math.ceil((P.resumeAt - t0) / (RESUME_MS / 3))) }); return true; }
+      P.at = -1; P.since = 0; P.resumeAt = 0;
+      S.lastT = t0; S.lastRecv = Math.max(S.lastRecv, t0); S.stallSince = 0; S.waitSince = 0;
+      this.status('ok');
+      return false;
+    },
+    isPaused() { return !!(S && S.pause.at >= 0 && S.frame >= S.pause.at); },
+
     waiting(t0) {
+      if (S.pause.at >= 0) { S.stallSince = 0; S.waitSince = 0; return false; } // an agreed pause is on its way: its own rules
       if (S.frame < S.rRecv + S.maxRoll) S.stallSince = 0;
       const silent = t0 - S.lastRecv > WAIT_MS, stalled = S.stallSince && t0 - S.stallSince > WAIT_MS;
       if (silent || stalled || S.peerBg) {
@@ -396,7 +456,8 @@
 
     // the match ended with this confirmed step (game.matchEnd → presGate)
     matchEnded(winner) { this.end('ko', winner); },
-    // reason: 'ko' | 'drop' (the other side is gone; winner = this side) | 'desync' | 'left' (the other side left)
+    // reason: 'ko' | 'drop' (the other side is gone; winner = this side) | 'desync' | 'left' (the other side left) |
+    // 'pause' (an agreed pause ran out: winner = the player who was there, -1 when both were away) | 'away'
     end(reason, winner) {
       if (!S || S.finished) return;
       S.finished = true;
