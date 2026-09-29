@@ -5,7 +5,7 @@
 // It is not the Monthly Tournament's "Champion colors" (a recolour of the same outfit): these are new shapes.
 // A design may bring its own colours (pal) and may keep the fighter's own head (ownHead: hair, mask, helmet stay and the
 // costume adds to them). Drawing only: nothing here changes the fight.
-// Done: akane, kuro, tetsu, ren (batch 1).
+// Done: akane, kuro, tetsu, ren (batch 1); aoi, yuki, hana, kage (batch 2).
 (function (ND) {
   'use strict';
   const K = ND._costumeKit;
@@ -280,5 +280,229 @@
     },
   };
 
-  Object.assign(ND.COSTUMES, { champion_akane: akane, champion_kuro: kuro, champion_tetsu: tetsu, champion_ren: ren });
+
+  // ================================================================ AOI 葵 — Blue Wind: the wind lord
+  // The one-handed tachi fencer as the wind's own lord (Fūjin's attire): a white court haori over deep indigo, a silver
+  // breastplate laced in sky blue, a silver circlet with a wind-swirl crest on her tall topknot, and the wind bag: a
+  // long white sash that arches in the air behind her from shoulder to shoulder, its ends always in the wind.
+  const AO = { white: '#eef3f8', whiteDk: '#aebdd0', blue: '#1f5aa0', blueHi: '#4a8fd6', silver: '#d6dde8', silverDk: '#7d8898' };
+  function swirl(ctx, x, y, r, col) {
+    ctx.strokeStyle = col; ctx.lineWidth = Math.max(0.8, r * 0.22); ctx.beginPath();
+    for (let a = 0; a < 3.4 * Math.PI; a += 0.25) { const q = r * (1 - a / (3.6 * Math.PI)); const px = x + Math.cos(a) * q, py = y + Math.sin(a) * q; if (!a) ctx.moveTo(px, py); else ctx.lineTo(px, py); }
+    ctx.stroke();
+  }
+  const aoi = {
+    ownHead: true,
+    pal: { cloth: '#e8eef5', clothHi: '#ffffff', clothDark: '#a9b8cc', haori: AO.blue, accent: '#7fc4ff', accentDark: '#2c6aa8' },
+    back(ctx, j) {
+      const F = torso(j), s = sway(1.7, 3);
+      // the wind bag: a broad white sash in a high arch behind the body, from the back shoulder over the head to the front
+      const path = (w) => {
+        ctx.beginPath();
+        ctx.moveTo(F.x(50, -12), F.y(50, -12));
+        ctx.bezierCurveTo(F.x(92, -46 + s), F.y(92, -46 + s), F.x(112, 14 + s), F.y(112, 14 + s), F.x(70, 30 + s * 0.5), F.y(70, 30 + s * 0.5));
+        ctx.lineTo(F.x(70 - w * 0.3, 30 + w + s * 0.5), F.y(70 - w * 0.3, 30 + w + s * 0.5));
+        ctx.bezierCurveTo(F.x(104, 18 + w + s), F.y(104, 18 + w + s), F.x(86, -40 + w + s), F.y(86, -40 + w + s), F.x(46, -12 + w * 0.4), F.y(46, -12 + w * 0.4));
+        ctx.closePath();
+      };
+      path(7);
+      fillStroke(ctx, grad(ctx, F.x(100, -20), F.y(100, -20), F.x(60, 20), F.y(60, 20), [[0, '#ffffff'], [0.6, AO.white], [1, AO.whiteDk]]), 1.3);
+      swirl(ctx, F.x(98, -18 + s), F.y(98, -18 + s), 4, AO.blueHi);
+      swirl(ctx, F.x(96, 12 + s), F.y(96, 12 + s), 3.4, AO.blueHi);
+      // the fluttering tie at the front end
+      ctx.strokeStyle = AO.blue; ctx.lineWidth = 2; ctx.beginPath();
+      ctx.moveTo(F.x(68, 32 + s * 0.5), F.y(68, 32 + s * 0.5)); ctx.quadraticCurveTo(F.x(60, 44 + s), F.y(60, 44 + s), F.x(54, 40 + s * 1.4), F.y(54, 40 + s * 1.4)); ctx.stroke();
+    },
+    body(ctx, j) {
+      const F = torso(j);
+      // the silver breastplate laced in sky blue over the white robe
+      poly(ctx, F, [[26, -12], [26, 13], [46, 15], [52, 7], [52, -9], [45, -13]]);
+      fillStroke(ctx, grad(ctx, F.x(50, 13), F.y(50, 13), F.x(26, -12), F.y(26, -12), [[0, '#ffffff'], [0.5, AO.silver], [1, AO.silverDk]]), 1.3);
+      ctx.strokeStyle = AO.blueHi; ctx.lineWidth = 1.2; ctx.beginPath();
+      for (const u of [31, 37]) { ctx.moveTo(F.x(u, -11), F.y(u, -11)); ctx.lineTo(F.x(u, 14), F.y(u, 14)); }
+      ctx.stroke();
+      swirl(ctx, F.x(44, 3), F.y(44, 3), 3.6, AO.blue);
+      // a deep blue sash at the waist
+      poly(ctx, F, [[14, -13], [14, 15], [8, 15.5], [8, -13.5]]); fillStroke(ctx, AO.blue, 1.1);
+    },
+    head(ctx, j) {
+      ctx.save(); headFrame(ctx, j);
+      // the silver circlet round the brow, the wind-swirl crest at the front, silver ties on the topknot
+      ctx.strokeStyle = LINE; ctx.lineWidth = 3.4; ctx.beginPath(); ctx.ellipse(-1, -4.8, R * 1.04, R * 0.5, -0.1, Math.PI * 1.02, Math.PI * 1.98); ctx.stroke();
+      ctx.strokeStyle = AO.silver; ctx.lineWidth = 1.9; ctx.stroke();
+      ctx.beginPath(); ctx.arc(R * 0.72, -R * 0.78, 3.4, 0, TAU); fillStroke(ctx, AO.silver, 0.9);
+      swirl(ctx, R * 0.72, -R * 0.78, 2.4, AO.blue);
+      ctx.fillStyle = AO.silver; ctx.fillRect(-R * 0.62, -R * 1.5, R * 0.52, 2.2);
+      ctx.restore();
+    },
+  };
+
+  // ================================================================ YUKI 雪 — Snow Fox: the white kitsune
+  // The fastest blade becomes the snow fox spirit: a white winter shinobi suit with ice-blue trim, a white fox mask
+  // with red markings, fox ears on the hood and three great white tails behind her. Her long scarf stays.
+  const YU = { white: '#f3f6fa', whiteDk: '#b9c4d2', ice: '#8fd3ff', red: '#d6283a', fur: '#ffffff', furDk: '#c9d3df' };
+  const yuki = {
+    ownHead: true,
+    pal: { cloth: '#e7ecf3', clothHi: '#ffffff', clothDark: '#9ba8ba', wrap: '#c8d2df', wrapDark: '#8e9aab', accent: '#bfe6ff', accentDark: '#5a8fb8', ui: '#bfe6ff' },
+    back(ctx, j) {
+      const F = torso(j);
+      // three fox tails from the small of the back, each its own sway
+      for (let i = 0; i < 3; i++) {
+        const s = sway(1.6 + i * 0.35, 3), a = -1 + i;
+        ctx.beginPath();
+        ctx.moveTo(F.x(8, -10), F.y(8, -10));
+        ctx.bezierCurveTo(F.x(-4 + a * 6, -26 + s), F.y(-4 + a * 6, -26 + s), F.x(10 + a * 16, -44 + s), F.y(10 + a * 16, -44 + s), F.x(24 + a * 18, -40 + s * 1.3), F.y(24 + a * 18, -40 + s * 1.3));
+        ctx.bezierCurveTo(F.x(12 + a * 10, -34 + s), F.y(12 + a * 10, -34 + s), F.x(10, -20), F.y(10, -20), F.x(14, -10), F.y(14, -10));
+        ctx.closePath();
+        fillStroke(ctx, grad(ctx, F.x(10, -10), F.y(10, -10), F.x(20 + a * 16, -42), F.y(20 + a * 16, -42), [[0, YU.furDk], [0.6, YU.fur], [1, '#ffffff']]), 1.2);
+        // the ice-blue tip
+        ctx.beginPath(); ctx.arc(F.x(22 + a * 17, -40 + s * 1.3), F.y(22 + a * 17, -40 + s * 1.3), 2.6, 0, TAU); ctx.fillStyle = YU.ice; ctx.fill();
+      }
+    },
+    body(ctx, j) {
+      const F = torso(j);
+      // a snowflake crest on the chest and an ice-blue belt with a silver clasp
+      ctx.save(); ctx.translate(F.x(42, 5), F.y(42, 5)); ctx.strokeStyle = YU.ice; ctx.lineWidth = 1.1; ctx.beginPath();
+      for (let i = 0; i < 6; i++) { const a = (i / 6) * TAU; ctx.moveTo(0, 0); ctx.lineTo(Math.cos(a) * 4, Math.sin(a) * 4); ctx.moveTo(Math.cos(a) * 2.4, Math.sin(a) * 2.4); ctx.lineTo(Math.cos(a + 0.5) * 3.2, Math.sin(a + 0.5) * 3.2); }
+      ctx.stroke(); ctx.restore();
+      poly(ctx, F, [[13, -13], [13, 15.5], [8, 16], [8, -13.5]]); fillStroke(ctx, '#5a8fb8', 1.1);
+      ctx.beginPath(); ctx.arc(F.x(10.5, 12), F.y(10.5, 12), 2, 0, TAU); fillStroke(ctx, '#e6edf6', 0.8);
+    },
+    head(ctx, j) {
+      ctx.save(); headFrame(ctx, j);
+      // fox ears on the hood
+      const ear = (x, sc) => {
+        ctx.beginPath(); ctx.moveTo(x - 3 * sc, -R * 0.82); ctx.lineTo(x - 1 * sc, -R * 1.72); ctx.lineTo(x + 4 * sc, -R * 0.9); ctx.closePath(); fillStroke(ctx, YU.white, 1.1);
+        ctx.beginPath(); ctx.moveTo(x - 1.4 * sc, -R * 0.95); ctx.lineTo(x - 0.6 * sc, -R * 1.5); ctx.lineTo(x + 2.2 * sc, -R * 0.98); ctx.closePath(); ctx.fillStyle = '#f2a9b6'; ctx.fill();
+      };
+      ear(-R * 0.55, 0.85); ear(R * 0.15, 1);
+      // the white fox mask over the face: a pointed snout, red markings, slit eyes
+      ctx.beginPath(); ctx.moveTo(R * 0.05, -R * 0.62); ctx.quadraticCurveTo(R * 0.85, -R * 0.62, R * 1.02, -2.4);
+      ctx.lineTo(R * 1.65, 2.2); ctx.quadraticCurveTo(R * 1.35, 4.6, R * 0.9, 4.2); ctx.quadraticCurveTo(R * 0.6, R * 0.62, R * 0.05, R * 0.5); ctx.closePath();
+      fillStroke(ctx, grad(ctx, R * 1.2, -R * 0.5, 0, R * 0.5, [[0, '#ffffff'], [1, YU.whiteDk]]), 1.2);
+      ctx.strokeStyle = YU.red; ctx.lineWidth = 1.3; ctx.lineCap = 'round'; ctx.beginPath();
+      ctx.moveTo(R * 0.45, -R * 0.45); ctx.quadraticCurveTo(R * 0.7, -R * 0.2, R * 0.95, -R * 0.35);
+      ctx.moveTo(R * 0.55, 1); ctx.lineTo(R * 1.05, 0.2); ctx.moveTo(R * 0.55, 3); ctx.lineTo(R * 1.0, 2.8);
+      ctx.stroke();
+      ctx.fillStyle = '#101216'; ctx.beginPath(); ctx.ellipse(R * 0.8, -2.2, 1.8, 0.7, -0.3, 0, TAU); ctx.fill();
+      ctx.fillStyle = YU.red; ctx.beginPath(); ctx.arc(R * 1.6, 2.2, 1, 0, TAU); ctx.fill();
+      ctx.restore();
+    },
+  };
+
+  // ================================================================ HANA 花 — Cherry Dance: the blossom princess
+  // The kunoichi of twin tantō in a dancer-princess's kimono of falling sakura: a pale pink kimono top patterned with
+  // blossoms, a gold obi with a great butterfly bow at her back, a short kimono skirt over dark leggings, sakura
+  // kanzashi in her ponytail with dangling petals.
+  const HA = { pink: '#f7d7e4', pinkHi: '#fff1f6', pinkDk: '#c4819e', petal: '#ff8fbf', petalDk: '#d45a8f', gold: '#e8b94e', goldDk: '#9a7022', plum: '#3a1830' };
+  function blossom(ctx, x, y, r, col, core) {
+    ctx.fillStyle = col;
+    for (let i = 0; i < 5; i++) { const a = (i / 5) * TAU - Math.PI / 2; ctx.beginPath(); ctx.ellipse(x + Math.cos(a) * r * 0.55, y + Math.sin(a) * r * 0.55, r * 0.5, r * 0.34, a, 0, TAU); ctx.fill(); }
+    ctx.fillStyle = core; ctx.beginPath(); ctx.arc(x, y, r * 0.22, 0, TAU); ctx.fill();
+  }
+  const hana = {
+    ownHead: true,
+    pal: { cloth: '#f4d3e1', clothHi: '#fff0f6', clothDark: '#b97a95', hakama: '#2e1427', hakamaDark: '#1b0b17', accent: '#ff7fb6', accentDark: '#b53a74', ui: '#ff8fbf',
+      hood: { cloth: '#2e1427', clothHi: '#4c2542', clothDark: '#1b0b17' } },
+    back(ctx, j) {
+      const F = torso(j), s = sway(2, 1.5);
+      // the butterfly obi bow at the back of the waist: two big loops and two hanging tails
+      for (const [du, dn] of [[10, -12], [-8, -14]]) {
+        ctx.beginPath(); ctx.moveTo(F.x(14, -12), F.y(14, -12));
+        ctx.bezierCurveTo(F.x(14 + du * 1.6, -12 + dn), F.y(14 + du * 1.6, -12 + dn), F.x(14 + du * 2.4, -12 + dn * 2.4 + s), F.y(14 + du * 2.4, -12 + dn * 2.4 + s), F.x(14 + du * 0.6, -14 + dn * 1.8 + s), F.y(14 + du * 0.6, -14 + dn * 1.8 + s));
+        ctx.closePath(); fillStroke(ctx, grad(ctx, F.x(14, -12), F.y(14, -12), F.x(14 + du * 2, -12 + dn * 2), F.y(14 + du * 2, -12 + dn * 2), [[0, HA.goldDk], [0.5, HA.gold], [1, '#fff0c2']]), 1.2);
+      }
+      for (const dn of [-4, 2]) {
+        poly(ctx, F, [[12, -13 + dn], [-18, -15 + dn + s], [-20, -9 + dn + s], [10, -9 + dn]]);
+        fillStroke(ctx, HA.petalDk, 1);
+      }
+      ctx.beginPath(); ctx.arc(F.x(14, -13), F.y(14, -13), 3, 0, TAU); fillStroke(ctx, HA.petal, 0.9);
+    },
+    body(ctx, j) {
+      const F = torso(j);
+      // blossoms over the kimono top, the gold obi with a pink cord
+      for (const [u, n, r] of [[44, 6, 3.2], [36, -5, 2.6], [28, 8, 2.8], [48, -6, 2.2], [22, -2, 2.4]]) blossom(ctx, F.x(u, n), F.y(u, n), r, HA.petal, HA.gold);
+      poly(ctx, F, [[18, -13.5], [18, 16], [8, 16.5], [8, -14]]);
+      fillStroke(ctx, grad(ctx, F.x(18, 0), F.y(18, 0), F.x(8, 0), F.y(8, 0), [[0, '#fff0c2'], [0.5, HA.gold], [1, HA.goldDk]]), 1.2);
+      ctx.strokeStyle = HA.petalDk; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(F.x(13, -13.5), F.y(13, -13.5)); ctx.lineTo(F.x(13, 16.2), F.y(13, 16.2)); ctx.stroke();
+      // a crossed pink collar
+      ctx.strokeStyle = HA.petal; ctx.lineWidth = 2.2; ctx.beginPath(); ctx.moveTo(F.x(55, 2), F.y(55, 2)); ctx.lineTo(F.x(36, 12), F.y(36, 12)); ctx.stroke();
+    },
+    hem(ctx, j) {
+      const F = torso(j), s = sway(2.3, 1.5);
+      // the short kimono skirt over the thighs, its hem sprinkled with petals
+      poly(ctx, F, [[9, -14], [9, 16.5], [-12, 23 + s], [-17, 5 + s], [-14, -20 + s]]);
+      fillStroke(ctx, grad(ctx, F.x(8, 0), F.y(8, 0), F.x(-15, 0), F.y(-15, 0), [[0, HA.pinkHi], [0.5, HA.pink], [1, HA.pinkDk]]), 1.2);
+      ctx.strokeStyle = HA.petalDk; ctx.lineWidth = 2.2; ctx.beginPath(); ctx.moveTo(F.x(-14, -20 + s), F.y(-14, -20 + s)); ctx.lineTo(F.x(-17, 5 + s), F.y(-17, 5 + s)); ctx.lineTo(F.x(-12, 23 + s), F.y(-12, 23 + s)); ctx.stroke();
+      for (const [u, n] of [[-6, 10], [-2, -6], [-10, 3]]) blossom(ctx, F.x(u, n + s * 0.5), F.y(u, n + s * 0.5), 2.4, HA.petal, HA.gold);
+    },
+    head(ctx, j) {
+      ctx.save(); headFrame(ctx, j);
+      // sakura kanzashi in the hair: a cluster of blossoms and hanging petal strings
+      for (const [x, y, r] of [[-R * 0.55, -R * 1.02, 3.4], [-R * 0.1, -R * 1.12, 2.8], [-R * 0.9, -R * 0.7, 2.6]]) blossom(ctx, x, y, r, HA.petal, HA.gold);
+      ctx.strokeStyle = HA.gold; ctx.lineWidth = 0.9; ctx.beginPath();
+      ctx.moveTo(-R * 0.9, -R * 0.6); ctx.lineTo(-R * 1.0, R * 0.1); ctx.moveTo(-R * 0.7, -R * 0.62); ctx.lineTo(-R * 0.76, R * 0.25); ctx.stroke();
+      for (const [x, y] of [[-R * 1.0, R * 0.12], [-R * 0.76, R * 0.27]]) { ctx.fillStyle = HA.petal; ctx.beginPath(); ctx.ellipse(x, y + 1.4, 1.2, 2, 0, 0, TAU); ctx.fill(); }
+      ctx.restore();
+    },
+  };
+
+  // ================================================================ KAGE 影 — the Shadow itself: the shadow lord
+  // The hooded shadow crowned lord of the dark: a great black cloak to the ankles, its torn hem and high collar edged in
+  // his green ghost-fire, a deep outer cowl over his hood with a silver crest, a silver chain clasp. The reversed
+  // ninjatō stays.
+  const KA = { cloak: '#0b0c0f', cloakHi: '#23262e', cloakDk: '#040405', fire: '#7be08f', fireDk: '#2a6b38', silver: '#c9cfd8' };
+  function ghostEdge(ctx, pts) {
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    ctx.strokeStyle = 'rgba(123,224,143,.55)'; ctx.lineWidth = 3; ctx.beginPath();
+    pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.stroke();
+    ctx.strokeStyle = 'rgba(210,255,220,.8)'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.restore();
+  }
+  const kage = {
+    ownHead: true,
+    pal: { accent: '#8dff9f', accentDark: '#2f7f40' },
+    back(ctx, j) {
+      const F = torso(j), s = sway(1.8, 3);
+      // the cloak: from the shoulders down to the ankles, torn into flame-like points at the hem
+      const hem = [];
+      for (let i = 0; i <= 8; i++) { const n = -2 - i * 5; hem.push([(i % 2 ? -78 : -66) + s * (0.5 + i * 0.1), n + s * 0.4]); }
+      const pts = [[58, -4], [56, -18], [24, -34 + s * 0.5], ...hem.reverse(), [-60, 2], [10, -8]];
+      poly(ctx, F, pts);
+      fillStroke(ctx, grad(ctx, F.x(56, -10), F.y(56, -10), F.x(-60, -20), F.y(-60, -20), [[0, KA.cloakHi], [0.4, KA.cloak], [1, KA.cloakDk]]), 1.3);
+      ghostEdge(ctx, hem.map(([u, n]) => [F.x(u, n), F.y(u, n)]));
+    },
+    body(ctx, j) {
+      const F = torso(j);
+      // the high standing collar round the neck and the silver chain clasp
+      poly(ctx, F, [[66, -12], [68, 4], [58, 10], [54, -2], [56, -12]]);
+      fillStroke(ctx, grad(ctx, F.x(66, 0), F.y(66, 0), F.x(54, 0), F.y(54, 0), [[0, KA.cloakHi], [1, KA.cloakDk]]), 1.2);
+      ghostEdge(ctx, [[F.x(66, -12), F.y(66, -12)], [F.x(68, 4), F.y(68, 4)], [F.x(58, 10), F.y(58, 10)]]);
+      ctx.strokeStyle = KA.silver; ctx.lineWidth = 1.3; ctx.beginPath(); ctx.moveTo(F.x(54, -6), F.y(54, -6)); ctx.quadraticCurveTo(F.x(49, 3), F.y(49, 3), F.x(54, 9), F.y(54, 9)); ctx.stroke();
+      ctx.beginPath(); ctx.arc(F.x(51, 2), F.y(51, 2), 2.2, 0, TAU); fillStroke(ctx, KA.silver, 0.8);
+    },
+    front(ctx, j) {
+      const F = torso(j), s = sway(1.8, 1.5);
+      // a short cape over the near shoulder
+      poly(ctx, F, [[58, -2], [58, 14], [38, 18 + s], [34, 8 + s], [46, 0]]);
+      fillStroke(ctx, grad(ctx, F.x(58, 6), F.y(58, 6), F.x(36, 14), F.y(36, 14), [[0, KA.cloakHi], [1, KA.cloak]]), 1.2);
+      ghostEdge(ctx, [[F.x(58, 14), F.y(58, 14)], [F.x(38, 18 + s), F.y(38, 18 + s)], [F.x(34, 8 + s), F.y(34, 8 + s)]]);
+    },
+    head(ctx, j) {
+      ctx.save(); headFrame(ctx, j);
+      // the outer cowl: deeper and higher than the hood, pointed back, a silver crest at the brow
+      ctx.beginPath(); ctx.moveTo(R * 1.35, -4); ctx.quadraticCurveTo(R * 0.8, -R * 1.9, -R * 0.6, -R * 1.95);
+      ctx.quadraticCurveTo(-R * 2.3, -R * 1.5, -R * 1.9, R * 0.9); ctx.quadraticCurveTo(-R * 1.1, 0, -R * 0.6, -R * 1.2);
+      ctx.quadraticCurveTo(R * 0.3, -R * 1.3, R * 1.1, -5.8); ctx.closePath();
+      fillStroke(ctx, grad(ctx, R, -R * 1.8, -R * 1.5, R * 0.5, [[0, KA.cloakHi], [0.5, KA.cloak], [1, KA.cloakDk]]), 1.4);
+      ghostEdge(ctx, [[R * 1.35, -4], [R * 0.8, -R * 1.72], [-R * 0.6, -R * 1.9]]);
+      ctx.save(); ctx.translate(R * 0.55, -R * 1.45); ctx.rotate(-0.3);
+      ctx.beginPath(); ctx.moveTo(0, -3.4); ctx.lineTo(2.4, 0); ctx.lineTo(0, 3.4); ctx.lineTo(-2.4, 0); ctx.closePath(); fillStroke(ctx, KA.silver, 0.8);
+      ctx.restore();
+      ctx.restore();
+    },
+  };
+
+  Object.assign(ND.COSTUMES, { champion_akane: akane, champion_kuro: kuro, champion_tetsu: tetsu, champion_ren: ren,
+    champion_aoi: aoi, champion_yuki: yuki, champion_hana: hana, champion_kage: kage });
 })(window.ND);
