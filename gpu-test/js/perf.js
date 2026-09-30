@@ -158,6 +158,12 @@ window.ND = window.ND || {};
         parts,
       };
       this.history.push(this.snap); if (this.history.length > 120) this.history.shift();
+      // per-minute fight numbers for the whole session (a phone that heats up slows down minute by minute)
+      if (this.isFight(this.snap)) {
+        const m = Math.floor((now() - HR.t0) / 60000), M = HR.mins[m] || (HR.mins[m] = { s: 0, f: 0, cpu: 0, lag: 0, lagN: 0, hitches: 0 });
+        M.s += secs; M.f += this.frames; M.cpu += (this.snap.parts.TOTAL ? this.snap.parts.TOTAL.avg : 0) * this.frames;
+        if (this.snap.gpu && this.snap.gpu.lag != null) { M.lag += this.snap.gpu.lag; M.lagN++; }
+      }
       this.reset(true);
       this.draw();
     },
@@ -280,7 +286,7 @@ window.ND = window.ND || {};
   // pass, post = glow + present); lag: frames between submitting a frame and the GPU finishing it (a GPU that cannot
   // keep up shows here even where timer queries are missing, e.g. many Mali phones).
   const GP = P.gpu = {
-    N: 1024, n: 0, nl: 0, ms: new Float64Array(1024), sc: new Float64Array(1024), po: new Float64Array(1024), lag: new Float64Array(1024),
+    N: 1024, n: 0, nl: 0, ms: new Float64Array(1024), sc: new Float64Array(1024), po: new Float64Array(1024), lag: new Float64Array(1024), lagMs: new Float64Array(1024),
     timer: null, lastId: 0, byId: new Map(),
     frame() {
       const glr = ND.game?.glRenderer?.();
@@ -293,7 +299,7 @@ window.ND = window.ND || {};
         const d = D[i];
         if (d.gpuMs !== undefined) {
           if (d.gpuMs >= 0 && this.n < this.N) { this.ms[this.n] = d.gpuMs; this.sc[this.n] = d.sceneMs; this.po[this.n] = d.postMs; this.n++; }
-        } else if (d.lag !== undefined && this.nl < this.N) this.lag[this.nl++] = d.lag;
+        } else if (d.lag !== undefined && this.nl < this.N) { this.lag[this.nl] = d.lag; this.lagMs[this.nl] = d.lagMs; this.nl++; }
         HR.gpuResult(d);
         if (this.sink) this.sink(d); // (scripts/bench-gfx.mjs --gpu: every measurement)
       }
@@ -307,7 +313,7 @@ window.ND = window.ND || {};
       const avg = (a, n) => { let s = 0; for (let i = 0; i < n; i++) s += a[i]; return s / n; };
       const o = { timer: !!this.n };
       if (this.n) { o.avg = +avg(this.ms, this.n).toFixed(3); o.p95 = +pct(this.ms, this.n, 0.95).toFixed(2); o.max = +pct(this.ms, this.n, 1).toFixed(2); o.scene = +avg(this.sc, this.n).toFixed(3); o.post = +avg(this.po, this.n).toFixed(3); }
-      if (this.nl) { o.lag = +avg(this.lag, this.nl).toFixed(2); o.lagMax = pct(this.lag, this.nl, 1); }
+      if (this.nl) { o.lag = +avg(this.lag, this.nl).toFixed(2); o.lagMax = pct(this.lag, this.nl, 1); o.lagMs = +avg(this.lagMs, this.nl).toFixed(1); }
       if (!this.n && this.timer === false) o.timer = false;
       return o;
     },
@@ -315,7 +321,7 @@ window.ND = window.ND || {};
     line(w, gl) {
       if (!gl) return 'GPU - (Canvas 2D frame)';
       if (!w) return 'GPU (measuring...)';
-      const lag = w.lag != null ? ` · lag ${w.lag} (max ${w.lagMax}) frames` : '';
+      const lag = w.lag != null ? ` · lag ${w.lag} (max ${w.lagMax}) frames, ${w.lagMs} ms` : '';
       if (w.avg == null) return `GPU time n/a (no timer on this browser)${lag}`;
       return `GPU ${w.avg.toFixed(2)} ms = scene ${w.scene.toFixed(2)} + post ${w.post.toFixed(2)} · p95 ${w.p95} max ${w.max}${lag}`;
     },
@@ -325,7 +331,7 @@ window.ND = window.ND || {};
   const HR = P.hr = {
     list: [], count: 0, worst: 0, frames: 0, t0: now(), last: 0, recent: new Float64Array(60), nRecent: 0, iRecent: 0,
     w0: null, w1: {}, ev: { decodes: 0, buffers: 0, sounds: 0, vibrates: 0, resizes: 0, vis: 0, dom: 0, keys: 0 }, ev0: null,
-    long: [], heap: 0, rb: 0, rbSteps: 0, loadAt: -1, byCtx: Object.create(null),
+    long: [], mins: [], heap: 0, rb: 0, rbSteps: 0, loadAt: -1, byCtx: Object.create(null),
     // the usual frame time: the median of the last 60 gaps
     usual() {
       const n = this.nRecent; if (!n) return 16.7;
@@ -365,16 +371,16 @@ window.ND = window.ND || {};
         at: +((t - this.t0) / 1000).toFixed(1), gap: Math.round(gap), where: this.screen(),
         cpu: Math.round(cpu), parts: parts.map((x) => x[0] + ' ' + x[1].toFixed(0)).join(', '), steps: P.curSteps, hud: +(P.cur.hudDom || 0).toFixed(1),
         rollbacks: rb - this.rb, rolled: rbs - this.rbSteps,
-        bakes: d('bakes'), texUp: d('texUp'), texKB: d('texKB'), texNew: d('texNew'), shaders: d('shaders'), sprites: d('sprites'), evictions: d('evictions'),
+        bakes: d('bakes'), texts: d('texts'), texUp: d('texUp'), texKB: d('texKB'), texNew: d('texNew'), shaders: d('shaders'), sprites: d('sprites'), evictions: d('evictions'),
         gc: this.heap && heap && heap < this.heap - 256 * 1024 ? Math.round((this.heap - heap) / 1048576 * 10) / 10 : 0,
         decodes: e('decodes'), buffers: e('buffers'), sounds: e('sounds'), vibrates: e('vibrates'), resizes: e('resizes'), vis: e('vis'), dom: e('dom'), keys: e('keys'),
-        longtasks: longs, loading: this.loadAt > prev, hidden: document.hidden || e('vis') > 0, from: prev, to: t,
+        longtasks: longs, loaf: [], loading: this.loadAt > prev, ld: this.loadAt > prev && this.ld ? { n: this.ld.n, ms: Math.round(this.ld.ms), max: Math.round(this.ld.max) } : null, hidden: document.hidden || e('vis') > 0, from: prev, to: t,
         // GPU time / lag of the last WebGL frames before the hitch (filled in when the results arrive: gpuResult)
         glId: GP.lastId, gpu: -1, lag: -1,
       };
       h.causes = this.causes(h);
       this.list.push(h); if (this.list.length > 200) this.list.shift();
-      if (!h.loading && !h.hidden) { this.count++; if (gap > this.worst) this.worst = gap; const k = h.where.split(' ')[0]; this.byCtx[k] = (this.byCtx[k] || 0) + 1; }
+      if (!h.loading && !h.hidden) { const Mn = this.mins[Math.floor((t - this.t0) / 60000)]; if (Mn) Mn.hitches++; this.count++; if (gap > this.worst) this.worst = gap; const k = h.where.split(' ')[0]; this.byCtx[k] = (this.byCtx[k] || 0) + 1; }
     },
     // a GPU measurement (GP.frame) for one of the three WebGL frames before a recent hitch
     gpuResult(d) {
@@ -389,11 +395,11 @@ window.ND = window.ND || {};
     },
     causes(h) {
       const c = [];
-      if (h.loading) c.push('after loading');
+      if (h.loading) c.push(h.ld ? `loading screen ${h.ld.n} frames, ${h.ld.ms} ms work, longest frame ${h.ld.max} ms (not a fight hitch)` : 'after loading');
       if (h.hidden) c.push('tab hidden / shown');
       if (h.resizes) c.push('resize ×' + h.resizes);
       if (h.shaders) c.push('shader compile ×' + h.shaders);
-      if (h.texNew || h.texUp) c.push(`texture upload ×${h.texUp} (${h.texKB} KB, new ${h.texNew})`);
+      if (h.texNew || h.texUp) c.push(`texture upload ×${h.texUp} (${h.texKB} KB, new ${h.texNew}${h.texts ? ', text pictures ' + h.texts : ''})`);
       if (h.bakes) c.push('part pictures drawn ×' + h.bakes);
       if (h.sprites) c.push('atlas draws ×' + h.sprites);
       if (h.gc) c.push('garbage collection? (heap -' + h.gc + ' MB)');
@@ -404,7 +410,8 @@ window.ND = window.ND || {};
       if (h.dom > 60 || h.hud > 3) c.push(`DOM changes ×${h.dom} (HUD ${h.hud} ms)`);
       if (h.vibrates) c.push('vibrate ×' + h.vibrates);
       if (h.longtasks.length) c.push('long task ' + h.longtasks.join('+') + ' ms');
-      if (h.cpu > h.gap * 0.6) c.push('slow frame work (' + h.cpu + ' ms: ' + h.parts + ')');
+      for (const F of h.loaf || []) c.push(`long frame ${F.d} ms (script ${F.script}${F.top.length ? ': ' + F.top.join(', ') : ''}, style+layout+paint ${F.style})`);
+      if (h.cpu > h.gap * 0.6 && !h.loading) c.push('slow frame work (' + h.cpu + ' ms: ' + h.parts + ')');
       if (h.gpu > Math.max(16, h.gap * 0.4)) c.push('GPU busy (' + h.gpu + ' ms)');
       if (h.lag >= 3) c.push('GPU behind (' + h.lag + ' frames)');
       if (!c.length) c.push(h.cpu < 8 ? (h.gpu >= 0 ? `outside the game (browser / system; GPU ${h.gpu} ms)` : 'outside the game (browser / GPU / system)') : 'frame work ' + h.cpu + ' ms (' + h.parts + ')');
@@ -425,6 +432,8 @@ window.ND = window.ND || {};
       const a = P.avg(10);
       if (a) L.push(`Fight average (last ${a.windows} s): ${a.fps} fps, frame ${a.gapAvg} ms, steps ${a.stepsAvg}, alloc ${a.allocKBps} KB/s; heaviest: ` + Object.keys(a.parts).filter((k) => k !== 'TOTAL').sort((x, y) => a.parts[y].avg - a.parts[x].avg).slice(0, 5).map((k) => `${k} ${a.parts[k].avg}/${a.parts[k].max}`).join(', '));
       if (a) L.push('Fight GPU: ' + (a.gpu ? (a.gpu.avg != null ? `${a.gpu.avg} ms/frame (scene ${a.gpu.scene} + post ${a.gpu.post}), worst p95 ${a.gpu.p95} ms` : 'no timer on this browser') + (a.gpu.lag != null ? `, lag ${a.gpu.lag} frames` : '') : (g?.rendererMode === 'gl' ? 'not measured yet' : 'Canvas 2D (not measured)')) + ` · CPU ${a.parts.TOTAL ? a.parts.TOTAL.avg : '?'} ms/frame`);
+      const MS = this.mins.map((M, i) => (M && M.s >= 5 ? `m${i + 1} ${Math.round(M.s)}s ${(M.f / M.s).toFixed(0)}fps cpu ${(M.cpu / Math.max(1, M.f)).toFixed(1)} lag ${M.lagN ? (M.lag / M.lagN).toFixed(1) : '-'} hitch ${M.hitches}` : null)).filter(Boolean);
+      if (MS.length) L.push('Per minute (fight time): ' + MS.join(' · '));
       L.push('');
       L.push('Last hitches (seconds since start · frame gap · state · causes):');
       for (const h of this.list.slice(-50)) {
@@ -462,6 +471,23 @@ window.ND = window.ND || {};
       }
     }).observe({ type: 'longtask', buffered: true });
   } catch (e) { /* no longtask API (Safari, Firefox) */ }
+  // Long animation frames (Chrome 123+): where a slow frame's main-thread time went — scripts, style + layout, the
+  // rendering update. A hitch with none of these was waiting outside the page's main thread (GPU / compositor).
+  try {
+    new PerformanceObserver((l) => {
+      for (const e of l.getEntries()) {
+        const end = e.startTime + e.duration;
+        const style = e.styleAndLayoutStart ? end - e.styleAndLayoutStart : 0;
+        let script = 0; const top = [];
+        for (const sc of e.scripts || []) { script += sc.duration; if (top.length < 2 && sc.duration >= 5) top.push(`${sc.sourceFunctionName || sc.invoker || '?'} ${Math.round(sc.duration)}`); }
+        const F = { start: e.startTime, end, d: Math.round(e.duration), script: Math.round(script), style: Math.round(style), top };
+        for (let i = HR.list.length - 1; i >= 0 && i >= HR.list.length - 5; i--) {
+          const h = HR.list[i];
+          if (F.end > h.from - 5 && F.start < h.to && !h.loaf.some((x) => x.start === F.start)) { h.loaf.push(F); h.causes = HR.causes(h); }
+        }
+      }
+    }).observe({ type: 'long-animation-frame', buffered: false });
+  } catch (e) { /* no long-animation-frame API */ }
 
   // Hooks: wrap the game's own methods once every script has run (method calls are looked up at call time)
   function hook() {
@@ -475,7 +501,17 @@ window.ND = window.ND || {};
     wrap(g, 'update', function (orig, a) { P.curSteps++; return orig.apply(this, a); });
     wrap(g, 'hud', function (orig, a) { const t = now(); const r = orig.apply(this, a); P.cur.hudDom = (P.cur.hudDom || 0) + now() - t; if (!P.order.includes('hudDom')) P.order.push('hudDom'); return r; });
     wrap(g, 'syncTouch', function (orig, a) { P.m('portal'); const r = orig.apply(this, a); P.m('syncTouch'); return r; });
-    wrap(g, 'prepareMatch', function (orig, a) { HR.loadAt = now(); return orig.apply(this, a); });
+    wrap(g, 'prepareMatch', function (orig, a) { HR.loadAt = now(); HR.ld = { n: 0, ms: 0, max: 0, t0: now() }; return orig.apply(this, a); });
+    // the loading screen's frames (one preparation job each, js/prepare.js): how many, their total and the longest —
+    // the longest is how long the loading screen itself stood still
+    if (ND.prepare && ND.prepare.start && !ND.prepare._hr) {
+      const st = ND.prepare.start; ND.prepare._hr = true;
+      ND.prepare.start = function () {
+        const o = st.apply(this, arguments), step = o.step;
+        o.step = function () { const t = now(); try { return step.apply(this, arguments); } finally { const d = now() - t, L = HR.ld; if (L) { L.n++; L.ms += d; if (d > L.max) L.max = d; } } };
+        return o;
+      };
+    }
     wrap(g, 'render', function (orig, a) { const r = orig.apply(this, a); if (this.preparing) return r; if (FLUSH) { P.m('render-tail'); flush(); P.m('flush'); } P.end(); return r; });
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setTimeout(hook, 0)); else setTimeout(hook, 0);

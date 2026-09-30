@@ -45,7 +45,8 @@ window.ND = window.ND || {};
     try { draw(); return pending === 0; } finally { preparing = false; }
   };
   const release = (e) => { if (typeof e.cv.close === 'function') e.cv.close(); };
-  function clear(Fc) { Fc.evictions += Fc.m.size + Fc.g.size; for (const e of Fc.m.values()) release(e); Fc.m.clear(); Fc.bytes = 0; Fc.g.clear(); Fc.gbytes = 0; }
+  // (a WebGL2 cache gives its atlas pages back: gl2d.js R.spriteRelease)
+  function clear(Fc) { if (Fc.gRel && Fc.g.size) Fc.gRel(Fc); Fc.evictions += Fc.m.size + Fc.g.size; for (const e of Fc.m.values()) release(e); Fc.m.clear(); Fc.bytes = 0; Fc.g.clear(); Fc.gbytes = 0; }
   ND.clearBakeCache = clear;
   function sameWeapon(a, b) {
     return a === b || !!a && !!b && a.type === b.type && a.blade === b.blade && a.handle === b.handle &&
@@ -449,6 +450,7 @@ window.ND = window.ND || {};
     }
     Fc.wpn = wpn;
     if (Fc.frame !== frameId) { Fc.frame = frameId; Fc.fb = 0; }
+    if (gl && typeof ctx.spriteOwner === 'function') { ctx.spriteOwner(Fc); Fc.gRel = (o) => ctx.spriteRelease(o); }
     F = Fc; J = j; C = c; WPN = wpn; ACC = acc; SD = j.dir < 0 ? -1 : 1; LV = lv; S = lvScale(lv); BM = M; GLX = gl;
     D = K.pal(c);
     glint = X.glint || 0;
@@ -520,6 +522,7 @@ window.ND = window.ND || {};
       getTransform: () => M, createLinearGradient: () => GRAD, createRadialGradient: () => GRAD, createPattern: () => null,
       measureText: () => ({ width: 0 }), getLineDash: () => [],
       spriteBegin: (w, h) => R.spriteBegin(w, h), spriteEnd: () => R.spriteEnd(), spriteOk: (sp) => R.spriteOk(sp),
+      spriteOwner: (o) => R.spriteOwner && R.spriteOwner(o), spriteRelease: (o) => R.spriteRelease && R.spriteRelease(o),
     };
     const noop = () => {};
     return new Proxy(base, { get: (o, k) => (k in o ? o[k] : noop), set: () => true });

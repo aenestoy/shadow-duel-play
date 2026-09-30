@@ -1240,6 +1240,8 @@
       glr.R.setTolerance(GFX.f.tol); glr.R.textSnap = !!GFX.f.snap;
       // ?renderer=gpu, High / Medium: part pictures sampled sharper (mip bias; they are made for the closest zoom)
       glr.R.spriteBias = GPU_PATH && GFX.tier !== 'low' ? SPRITE_BIAS : 0;
+      // GPU path: three copies of the text atlas in turn (gl2d.js R.textRing; ?textring=0 / 1 to compare)
+      glr.R.textRing = QS.get('textring') != null ? QS.get('textring') === '1' : GPU_PATH;
       // Low: 2× multisampling instead of 4× (?msaa=n overrides). The fighters there are ready-made anti-aliased
       // pictures and the backdrop is one picture; the samples mostly cost memory traffic: every pass writes and resolves
       // them on every frame, which on a phone is power and heat.
@@ -1839,7 +1841,10 @@
         if (!c) continue;
         const r = c.getBoundingClientRect(), dpr = Math.min(this.dprCap || 2, window.devicePixelRatio || 1);
         if (r.width < 2 || r.height < 2) continue;
-        const pc = c.getContext('2d');
+        // (drawn by the processor, willReadFrequently: the first select screen used to wait ~1 s on phones — no game
+        // work, no long task — most likely the GPU compiling the canvas's path and gradient shaders for these
+        // full-detail previews; small pictures, cheap on the CPU)
+        const pc = c.__pv2d || (c.__pv2d = c.getContext('2d', { willReadFrequently: true }));
         const W = Math.max(1, Math.round(r.width * dpr)), H = Math.max(1, Math.round(r.height * dpr));
         if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
         pc.setTransform(1, 0, 0, 1, 0, 0); pc.clearRect(0, 0, W, H);

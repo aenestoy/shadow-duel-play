@@ -337,9 +337,19 @@ window.ND = window.ND || {};
     const SP_W = 1024, SP_H = 1024, SP_MAX = 16;
     const spPages = [];
     let spCanvas = null, spCtx = null, spM1 = null, spX1 = null, spM2 = null, spX2 = null, spW = 0, spH = 0, spGen = 0;
+    // Pages belong to one owner (a fighter's part cache, bake.js: R.spriteOwner before its pictures are made); when a
+    // fighter changes look its cache releases its pages (R.spriteRelease), which then serve the next owner. Before
+    // this, pages of fighters from earlier fights filled the atlas, and in the fourth fight or so the warm-up kept
+    // dropping pages it had just filled (the least recently used page was always one written in the same warm-up):
+    // seconds of re-drawing on the loading screen.
+    let spOwner = null;
+    R.spriteOwner = (o) => { spOwner = o || null; };
+    R.spriteRelease = (o) => {
+      for (const q of spPages) if (q.owner === o) { q.owner = null; q.gen = ++spGen; q.shelves.length = 0; q.top = 0; q.n = 0; }
+    };
     const cpuCanvas = (c) => c.getContext('2d', { willReadFrequently: true });
     function spPage() {
-      const p = { tex: null, gen: ++spGen, shelves: [], top: 0, used: frameNo, n: 0 };
+      const p = { tex: null, gen: ++spGen, shelves: [], top: 0, used: frameNo, n: 0, owner: spOwner };
       if (E.ready) {
         p.tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, p.tex);
         gl.texStorage2D(gl.TEXTURE_2D, 3, gl.RGBA8, SP_W, SP_H);
@@ -379,14 +389,16 @@ window.ND = window.ND || {};
       const w = spW, h = spH, cw = Math.ceil((w + 4) / 4) * 4, ch = Math.ceil((h + 4) / 4) * 4;
       if (cw > SP_W || ch > SP_H) return null;
       let p = null, r = null;
-      for (let i = spPages.length - 1; i >= 0 && !r; i--) { r = spAlloc(spPages[i], cw, ch); if (r) p = spPages[i]; }
+      for (let i = spPages.length - 1; i >= 0 && !r; i--) if (spPages[i].owner === spOwner) { r = spAlloc(spPages[i], cw, ch); if (r) p = spPages[i]; }
+      // a released (empty) page, then a new one
+      if (!r) for (const q of spPages) if (!q.owner && !q.n && q !== p) { q.owner = spOwner; q.shelves.length = 0; q.top = 0; r = spAlloc(q, cw, ch); if (r) { p = q; break; } }
       if (!r && spPages.length < SP_MAX) { p = spPage(); r = spAlloc(p, cw, ch); }
       if (!r) {
         // full: the least recently used page not drawn from in this frame starts again empty
         let old = null;
         for (const q of spPages) if (q.used < frameNo && (!old || q.used < old.used)) old = q;
         if (!old) return null;
-        old.gen = ++spGen; old.shelves.length = 0; old.top = 0; old.n = 0; CNT.spriteDrops++;
+        old.gen = ++spGen; old.shelves.length = 0; old.top = 0; old.n = 0; old.owner = spOwner; CNT.spriteDrops++;
         p = old; r = spAlloc(p, cw, ch);
         if (!r) return null;
       }
@@ -408,7 +420,7 @@ window.ND = window.ND || {};
       gl.texSubImage2D(gl.TEXTURE_2D, 2, r.x >> 2, r.y >> 2, w2, h2, gl.RGBA, gl.UNSIGNED_BYTE, spM2);
       gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
       CNT.texUp += 3; CNT.texKB += (cw * ch * 4 * 1.3125) / 1024; CNT.sprites++;
-      p.n++;
+      p.n++; p.used = frameNo; // (a page written in this frame, or in this warm-up, is never the one dropped)
       return { page: p, gen: p.gen, u0: (r.x + 2) / SP_W, v0: (r.y + 2) / SP_H, u1: (r.x + 2 + w) / SP_W, v1: (r.y + 2 + h) / SP_H };
     };
     R.spriteOk = (s) => !!s && s.gen === s.page.gen && !!s.page.tex;
@@ -428,7 +440,14 @@ window.ND = window.ND || {};
     const shelves = []; // { y, h, x, used, keys }
     let shelfTop = 0, textUploads = 0;
     let textCanvas = null, textCtx = null, measureCtx = null;
-    function textClear() { texts.clear(); shelves.length = 0; shelfTop = 0; }
+    function textClear() { texts.clear(); shelves.length = 0; shelfTop = 0; for (const q of textQ) q.length = 0; }
+    // R.textRing (the GPU path, game.js): three copies of the atlas used in turn, one per frame, laid out alike. A new
+    // text picture goes into this frame's copy (last read three frames ago) and is queued for the other two, written
+    // when their turn comes. Writing into the one atlas while queued frames still read it makes some mobile drivers
+    // copy the whole 4 MB texture or wait; that coincided with most "GPU behind" hitches (the pop-up texts of hits).
+    let textRing = [], textCur = 0;
+    const textQ = [[], [], []];
+    R.textRing = false;
     function textScratch(w, h) {
       if (!textCanvas) { textCanvas = document.createElement('canvas'); textCtx = null; }
       if (textCanvas.width < w || textCanvas.height < h) {
@@ -1070,6 +1089,8 @@ window.ND = window.ND || {};
       spriteBegin(w, h) { return R.spriteBegin(w, h); }
       spriteEnd() { return R.spriteEnd(); }
       spriteOk(s) { return R.spriteOk(s); }
+      spriteOwner(o) { R.spriteOwner(o); }
+      spriteRelease(o) { R.spriteRelease(o); }
       createLinearGradient(x0, y0, x1, y1) { return gradCtx().createLinearGradient(x0, y0, x1, y1); }
       createRadialGradient(x0, y0, r0, x1, y1, r1) { return gradCtx().createRadialGradient(x0, y0, r0, x1, y1, r1); }
       createPattern(img, rep) { return gradCtx().createPattern(img, rep); }
@@ -1150,6 +1171,10 @@ window.ND = window.ND || {};
             gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
             gl.texSubImage2D(gl.TEXTURE_2D, 0, e.x, e.y, w, h, gl.RGBA, gl.UNSIGNED_BYTE, textCanvas);
             gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+            if (textRing.length === 3) {
+              const px = tc.getImageData(0, 0, w, h).data, u = { x: e.x, y: e.y, w, h, px };
+              for (let i = 1; i < 3; i++) textQ[(textCur + i) % 3].push(u);
+            }
             textUploads++; CNT.texUp++; CNT.texts++; CNT.texKB += (w * h) / 256;
           }
           texts.set(key, e);
@@ -1416,6 +1441,25 @@ window.ND = window.ND || {};
         return o.apply(this, arguments);
       };
     }
+    // (R.begin) this frame's copy of the text atlas; the texts queued for it written first
+    function textTurn() {
+      const want = !!R.textRing && E.ready;
+      if (want !== (textRing.length === 3)) {
+        // switched on / off: the copies start empty (every text is drawn again)
+        if (textRing.length) { textTex = textRing[0]; for (let i = 1; i < textRing.length; i++) gl.deleteTexture(textRing[i]); }
+        textRing = want ? [textTex, tex2d(TA_W, TA_H, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, gl.LINEAR, null), tex2d(TA_W, TA_H, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, gl.LINEAR, null)] : [];
+        textCur = 0; textClear();
+      }
+      if (textRing.length !== 3) return;
+      textCur = (textCur + 1) % 3; textTex = textRing[textCur];
+      const q = textQ[textCur];
+      if (!q.length) return;
+      gl.bindTexture(gl.TEXTURE_2D, textTex);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+      for (const u of q) { gl.texSubImage2D(gl.TEXTURE_2D, 0, u.x, u.y, u.w, u.h, gl.RGBA, gl.UNSIGNED_BYTE, u.px); CNT.texUp++; CNT.texKB += (u.w * u.h) / 256; }
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+      q.length = 0;
+    }
     R.begin = function (W, H) {
       frameNo++;
       nv = 0; ni = 0; np = 0; zc = 0; cmds = []; bPass = -1; bStart = 0; bBlend = -1; bTex = null; bClip = null; bSc = null;
@@ -1431,6 +1475,7 @@ window.ND = window.ND || {};
       }
       if (AW !== wantAW || AH !== wantAH) { AW = wantAW; AH = wantAH; R._layerResize = true; }
       shelfX = shelfY = shelfH = usedW = usedH = 0; layerQuads.length = 0;
+      textTurn();
       if (!main) main = new Ctx(1, null, W, H);
       main.W = W; main.H = H; main._canvas = { width: W, height: H };
       main.clp = null; main.sp = 0; main.beginPath();
@@ -1482,6 +1527,7 @@ window.ND = window.ND || {};
 
     // ---------------------------------------------------------------- GL executor
     const E = R.exec = {};
+    let paintRing = [], paintI = 0;
     let emptyTex = null, prog = null, vao = null, rampTex = null, paintTex = null, textTex = null, quadProg = null, quadVao = null, quadBuf = null;
     let U = {};
     const targets = { 0: null, 1: null };
@@ -1588,8 +1634,11 @@ window.ND = window.ND || {};
       gl.bindVertexArray(null);
       gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
       rampTex = tex2d(RAMP_W, RAMP_ROWS, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, gl.LINEAR, rampData);
-      paintTex = tex2d(2, PAINT_ROWS, gl.RGBA32F, gl.RGBA, gl.FLOAT, gl.NEAREST, null);
-      textTex = tex2d(TA_W, TA_H, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, gl.LINEAR, null);
+      // three paint textures used in turn, like the vertex buffers: a frame's gradient records go into one the GPU has
+      // finished with (writing into a texture that queued frames still read makes some mobile drivers copy it or wait)
+      paintRing = [0, 1, 2].map(() => tex2d(2, PAINT_ROWS, gl.RGBA32F, gl.RGBA, gl.FLOAT, gl.NEAREST, null)); paintI = 0;
+      paintTex = paintRing[0];
+      textTex = tex2d(TA_W, TA_H, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, gl.LINEAR, null); textRing = []; textCur = 0; for (const q of textQ) q.length = 0;
       emptyTex = tex2d(1, 1, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, gl.NEAREST, new Uint8Array(4));
       const max = gl.getParameter(gl.MAX_SAMPLES) | 0;
       E.samples = Math.max(0, Math.min(wantSamples, max));
@@ -1713,7 +1762,7 @@ window.ND = window.ND || {};
         if (P) P.rampRows += rampDirty.length;
         rampDirty = [];
       }
-      if (np) { gl.bindTexture(gl.TEXTURE_2D, paintTex); gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 2, np, gl.RGBA, gl.FLOAT, paintData, 0); }
+      if (np) { paintI = (paintI + 1) % paintRing.length; paintTex = paintRing[paintI]; gl.bindTexture(gl.TEXTURE_2D, paintTex); gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 2, np, gl.RGBA, gl.FLOAT, paintData, 0); }
       const tb = P ? now() : 0;
       ringI = (ringI + 1) % ring.length;
       const rb = ring[ringI];
