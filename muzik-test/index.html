@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Shadow Duel müzik dinleme</title>
+<!-- Listening page for the new generated music (js/music.js): one button per theme and mode, ~30 s each.
+     Published as muzik-test/ next to a copy of js/core.js and js/music.js. The music is made live in the browser by
+     the game's own code, at the game's default volumes. -->
+<style>
+  :root { color-scheme: dark; --bg: #12131a; --card: #1b1d28; --line: #2a2c38; --txt: #eee; --dim: #aab; --acc: #ffd35a; --btn: #23263a; --btnb: #444a60; --on: #6b1f24; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--txt); font: 16px/1.45 system-ui, sans-serif; }
+  main { max-width: 680px; margin: auto; padding: 16px; }
+  h1 { font-size: 20px; margin: 4px 0 8px; }
+  p.n { color: var(--dim); font-size: 14px; margin: 0 0 12px; }
+  .bar { position: sticky; top: 0; z-index: 2; background: var(--bg); padding: 10px 0; border-bottom: 1px solid var(--line); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .bar b { flex: 1 1 200px; font-weight: 600; min-height: 1.4em; }
+  .bar small { color: var(--dim); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin: 12px 0; }
+  .card h2 { font-size: 16px; margin: 0 0 2px; }
+  .card p { margin: 0 0 10px; color: var(--dim); font-size: 14px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; }
+  button { font: inherit; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--btnb); background: var(--btn); color: var(--txt); min-height: 44px; }
+  button.on { background: var(--on); border-color: #a33; outline: 2px solid var(--acc); }
+  label { display: flex; gap: 8px; align-items: center; color: var(--dim); font-size: 14px; }
+  input[type=checkbox] { width: 20px; height: 20px; }
+  .prog { height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; width: 100%; }
+  .prog i { display: block; height: 100%; width: 0; background: var(--acc); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Shadow Duel: yeni müzikler</h1>
+  <p class="n">Telefonun sesini açın (sessiz modu kapatın). Her düğme yaklaşık 30 saniye çalar. Hepsi oyunun kendi kodu ile şu an telefonda üretiliyor, ses dosyası yok; bu yüzden her dinleyişte biraz farklıdır. Ses düzeyi oyundaki varsayılan ayarlarla aynı. Oyunun tamamı: <a style="color:var(--acc)" href="../muzik-oyun/">muzik-oyun</a>.</p>
+  <div class="bar">
+    <b id="now">Bir düğmeye basın</b>
+    <button id="stop" type="button">Durdur</button>
+    <label><input id="amb" type="checkbox"> Arena sesiyle (yağmur, ateş…)</label>
+    <div class="prog"><i id="pg"></i></div>
+  </div>
+  <div id="list"></div>
+</main>
+<script src="js/core.js"></script>
+<script src="js/music.js"></script>
+<script>
+(function () {
+  'use strict';
+  const au = ND.audio, mu = ND.music, SEC = 30;
+  // [theme, title, description, ambience]
+  const ARENAS = [
+    ['temple', 'Ay Işığı Tapınağı', 'Bugünkü müzik, olduğu gibi (in-sen dizisi, Re). Koto, shakuhachi, taiko; arada yumuşak bir tapınak çanı. Tempo 98, son raund 116.', 'wind'],
+    ['rain', 'Fırtınalı Bambu Ormanı', 'Kumoijōshi dizisi, Do. Daha yavaş ve pes, yağmurun altında kalır: bükülen biwa, gök gürültüsü gibi davul yuvarlanması, uzun shakuhachi. Tempo 84, son raund 100.', 'rain'],
+    ['snow', 'Karlı Zirve', 'In-sen dizisi, Mi. Seyrek ve soğuk: shakuhachi önde, tiz koto titremesi, bir şarkı çanağı. Tempo 76, son raund 92.', 'blizzard'],
+    ['village', 'Yanan Köy', 'Iwato dizisi, Re. Hızlı ve gergin: ağır taiko, sürükleyen shamisen, bükülen biwa vuruşları, nefesli flüt. Tempo 120, son raund 136.', 'fire'],
+    ['market', 'Gece Çarşısı', 'Yo-sen dizisi, Sol. Bayram (matsuri) havası: küçük gong, shime davul kalıpları, hafif shamisen, shinobue flüt ezgileri. Tempo 112, son raund 128.', 'market'],
+    ['waterfall', 'Şelale', 'Hirajōshi dizisi, La. Sakin ve akan: koto arpejleri, su gibi aşağı dökülen koto kaydırmaları, yumuşak kotsuzumi davulu. Tempo 88, son raund 104.', 'water'],
+    ['castle', 'Kale Çatısı', 'Yo-sen dizisi, Re. Ağırbaşlı bir yürüyüş: büyük odaiko, vuruşlarda biwa, ikili koto, tapınak çanı. Tempo 84, son raund 100.', 'gale'],
+  ];
+  const SPECIAL = [
+    ['boss', 'Şura (son patron)', 'Iwato dizisi, Si. Karanlık ve ağır: alçak bir uğultu, sert biwa, kalın taiko, pürüzlü nefesli shakuhachi. Tempo 104, son raund 120.', 'gale'],
+    ['ranked', 'Dereceli maç', 'Hirajōshi dizisi, Do diyez. Gergin ve biraz modern (düzenli alçak nabız, arka vuruş) ama aynı çalgılar: shamisen, flüt, tahta tokmaklar. Tempo 124, son raund 140.', null],
+  ];
+  const MENUS = [
+    ['menuA', 'Menü A (bugünkü)', 'Bugünkü menü müziği, olduğu gibi. In-sen, Re, tempo 64.'],
+    ['menuB', 'Menü B, "şafak"', 'Yo-sen, Fa. İki koto sesi, yumuşak kotsuzumi, dört ölçüde bir shakuhachi. Tempo 58.'],
+    ['menuC', 'Menü C, "ada gecesi"', 'Ryūkyū (Okinawa) dizisi, Do. Sanshin ezgisi, küçük tahta tıkırtılar, arada sessiz bir shinobue. Tempo 76.'],
+  ];
+  const list = document.getElementById('list'), now = document.getElementById('now'), pg = document.getElementById('pg'), ambBox = document.getElementById('amb');
+  let timer = 0, t0 = 0, dur = SEC, cur = null, seq = [];
+  const card = (title, desc, buttons) => {
+    const c = document.createElement('div'); c.className = 'card';
+    c.innerHTML = '<h2></h2><p></p><div class="row"></div>';
+    c.querySelector('h2').textContent = title; c.querySelector('p').textContent = desc;
+    for (const [label, fn] of buttons) { const b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.onclick = () => { mark(b); fn(); }; c.querySelector('.row').append(b); }
+    list.append(c);
+  };
+  const mark = (b) => { document.querySelectorAll('button.on').forEach((x) => x.classList.remove('on')); if (b) b.classList.add('on'); };
+  function start() {
+    au.init(); au.setEnabled(true);
+    if (au.ctx && au.ctx.state !== 'running') { try { au.ctx.resume(); } catch (e) { /* the tap will do */ } }
+    mu.init(); mu.setEnabled(true);
+  }
+  function amb(kind) { if (au.setAmbience) au.setAmbience(ambBox.checked ? kind : null); }
+  function play(th, md, title, ambKind, secs) {
+    start(); seq.forEach(clearTimeout); seq = [];
+    cur = ambKind; amb(ambKind);
+    mu.force(th, md);
+    now.textContent = title;
+    run(secs || SEC);
+  }
+  function run(secs) {
+    clearInterval(timer); t0 = performance.now(); dur = secs;
+    timer = setInterval(() => {
+      const k = (performance.now() - t0) / 1000 / dur;
+      pg.style.width = Math.min(100, k * 100) + '%';
+      if (k >= 1) stop();
+    }, 200);
+  }
+  function stop() {
+    clearInterval(timer); seq.forEach(clearTimeout); seq = []; pg.style.width = '0';
+    if (mu.ready) {
+      mu.fixed = null; mu.setMode('off');
+      try { mu.out.gain.setTargetAtTime(0, au.ctx.currentTime, 0.4); } catch (e) { /* stopped anyway */ }
+    }
+    if (au.setAmbience && au.ready) au.setAmbience(null);
+    now.textContent = 'Bir düğmeye basın'; mark(null);
+  }
+  document.getElementById('stop').onclick = stop;
+  ambBox.onchange = () => { if (au.ready && mu.mode !== 'off') amb(cur); };
+  for (const [th, title, desc, a] of ARENAS.concat(SPECIAL)) {
+    card(title, desc, [
+      ['Dövüş', () => play(th, 'fight', title + ': dövüş', a)],
+      ['Son raund', () => play(th, 'final', title + ': son raund', a)],
+      ['Giriş / sonuç ekranı', () => play(th, 'intro', title + ': sakin giriş (VS kartı, sonuç ekranı)', a)],
+    ]);
+  }
+  for (const [th, title, desc] of MENUS) card(title, desc, [['Dinle', () => play(th, 'menu', title, null)]]);
+  card('Yolculuk sonu', 'Yolculuğu bitirince çalan parça: tapınak çanı, yükselen koto, iki shakuhachi cümlesi, son akor; sonra sakin bir döngü. Yo-sen, Re, tempo 60. 40 saniye.', [['Dinle', () => play('ending', 'menu', 'Yolculuk sonu', null, 40)]]);
+  card('Nakavt (KO)', 'Nakavtta çalan kısa parça, her arenanın kendi dizisinde. Örnek: Tapınak ve Yanan Köy.', [
+    ['Tapınak KO', () => play('temple', 'ko', 'Nakavt: tapınak', 'wind', 8)],
+    ['Yanan Köy KO', () => play('village', 'ko', 'Nakavt: yanan köy', 'fire', 8)],
+  ]);
+  // the game's own order, to hear the crossfades: menu → VS card → fight → final round → KO → result screen
+  card('Oyundaki gibi geçişler', 'Menü → VS kartı → dövüş → son raund → nakavt → sonuç ekranı (Yanan Köy). Parçalar birbirine yumuşakça geçer. 45 saniye.', [['Dinle', () => {
+    play('menuA', 'menu', 'Menü', null, 45);
+    const steps = [[7, 'village', 'intro', 'VS kartı (Yanan Köy)'], [13, 'village', 'fight', 'Dövüş'], [25, 'village', 'final', 'Son raund'], [35, 'village', 'ko', 'Nakavt'], [39, 'village', 'intro', 'Sonuç ekranı']];
+    for (const [s, th, md, label] of steps) seq.push(setTimeout(() => { if (md === 'intro' && th === 'village') amb('fire'); cur = 'fire'; mu.force(th, md); now.textContent = label; }, s * 1000));
+  }]]);
+})();
+</script>
+</body>
+</html>
