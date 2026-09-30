@@ -155,13 +155,18 @@ window.ND = window.ND || {};
         gl: g?.glStatus ? g.glStatus() : null,
         pace: g?.pace ? { on: g.pace.on, ...g.pace.stat() } : null,
         gpu: GP.window(),
+        // what the GPU drew in the last frame (gl-render.js api.last): multisampled passes (size × samples), post passes
+        passes: (() => { const L = g?.glRenderer?.()?.last; if (!L || !L.targets) return null; const t = (x) => (x ? x[0] + 'x' + x[1] + (x[2] ? '×' + x[2] : '') : '-'); return `layers ${t(L.targets[0])}, scene ${t(L.targets[1])}, +${L.postPasses} post, ${L.draws} draws`; })(),
+        // refreshes not drawn because the GPU queue was full (game.js gpuq)
+        skips: (g?.gpuSkips || 0) - (this.skips0 || 0),
         parts,
       };
+      this.skips0 = g?.gpuSkips || 0;
       this.history.push(this.snap); if (this.history.length > 120) this.history.shift();
       // per-minute fight numbers for the whole session (a phone that heats up slows down minute by minute)
       if (this.isFight(this.snap)) {
         const m = Math.floor((now() - HR.t0) / 60000), M = HR.mins[m] || (HR.mins[m] = { s: 0, f: 0, cpu: 0, lag: 0, lagN: 0, hitches: 0 });
-        M.s += secs; M.f += this.frames; M.cpu += (this.snap.parts.TOTAL ? this.snap.parts.TOTAL.avg : 0) * this.frames;
+        M.s += secs; M.f += this.frames; M.sk = (M.sk || 0) + (this.snap.skips || 0); M.cpu += (this.snap.parts.TOTAL ? this.snap.parts.TOTAL.avg : 0) * this.frames;
         if (this.snap.gpu && this.snap.gpu.lag != null) { M.lag += this.snap.gpu.lag; M.lagN++; }
       }
       this.reset(true);
@@ -262,6 +267,7 @@ window.ND = window.ND || {};
         `frame p50 ${s.gapP50} · p95 ${s.gapP95} ms · slow ${s.slowFrames}\n` +
         `CPU ${f2(s.parts.TOTAL?.avg)} ms = sim ${f2(gr.sim)} + draw ${f2(gr.draw)} + GL ${f2(gr.gl)} + other ${f2(gr.other)}\n` +
         `${GP.line(s.gpu, g?.rendererMode === 'gl')}\n` +
+        (s.passes ? `GPU passes: ${s.passes}${s.skips ? ` · ${s.skips} refreshes not drawn (GPU queue full)` : ''}\n` : '') +
         `${String(ND.gfx?.active ? ND.gfx.active() : s.tier).toUpperCase()} (${ND.gfx?.getQuality ? ND.gfx.getQuality() : ''}) ${s.canvas} · css ${s.css} @${s.dpr}` +
         ` (max ${ND.gfx?.f?.dpr ?? '?'}${s.drs != null && s.drs !== 1 ? ' ×' + s.drs : ''}) · ${g?.rendererMode === 'gl' ? 'WebGL2' : 'Canvas'}\n`;
       if (Math.max(hz, this.hzBest || 0) > 70 && pc && pc.target && pc.target < Math.max(hz, this.hzBest) - 5) t += `(cap ${pc.target}: Settings > Graphics > Frame rate 120 / Max for more)\n`;
@@ -431,8 +437,9 @@ window.ND = window.ND || {};
       L.push('Hitches by state: ' + (Object.keys(this.byCtx).map((k) => k + ' ' + this.byCtx[k]).join(', ') || 'none'));
       const a = P.avg(10);
       if (a) L.push(`Fight average (last ${a.windows} s): ${a.fps} fps, frame ${a.gapAvg} ms, steps ${a.stepsAvg}, alloc ${a.allocKBps} KB/s; heaviest: ` + Object.keys(a.parts).filter((k) => k !== 'TOTAL').sort((x, y) => a.parts[y].avg - a.parts[x].avg).slice(0, 5).map((k) => `${k} ${a.parts[k].avg}/${a.parts[k].max}`).join(', '));
+      if (P.snap && P.snap.passes) L.push('GPU passes (last frame): ' + P.snap.passes + (P.snap.skips ? ` · refreshes not drawn in the last second (GPU queue full): ${P.snap.skips}` : ''));
       if (a) L.push('Fight GPU: ' + (a.gpu ? (a.gpu.avg != null ? `${a.gpu.avg} ms/frame (scene ${a.gpu.scene} + post ${a.gpu.post}), worst p95 ${a.gpu.p95} ms` : 'no timer on this browser') + (a.gpu.lag != null ? `, lag ${a.gpu.lag} frames` : '') : (g?.rendererMode === 'gl' ? 'not measured yet' : 'Canvas 2D (not measured)')) + ` · CPU ${a.parts.TOTAL ? a.parts.TOTAL.avg : '?'} ms/frame`);
-      const MS = this.mins.map((M, i) => (M && M.s >= 5 ? `m${i + 1} ${Math.round(M.s)}s ${(M.f / M.s).toFixed(0)}fps cpu ${(M.cpu / Math.max(1, M.f)).toFixed(1)} lag ${M.lagN ? (M.lag / M.lagN).toFixed(1) : '-'} hitch ${M.hitches}` : null)).filter(Boolean);
+      const MS = this.mins.map((M, i) => (M && M.s >= 5 ? `m${i + 1} ${Math.round(M.s)}s ${(M.f / M.s).toFixed(0)}fps cpu ${(M.cpu / Math.max(1, M.f)).toFixed(1)} lag ${M.lagN ? (M.lag / M.lagN).toFixed(1) : '-'} hitch ${M.hitches}${M.sk ? ' skip ' + M.sk : ''}` : null)).filter(Boolean);
       if (MS.length) L.push('Per minute (fight time): ' + MS.join(' · '));
       L.push('');
       L.push('Last hitches (seconds since start · frame gap · state · causes):');

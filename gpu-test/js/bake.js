@@ -445,6 +445,7 @@ window.ND = window.ND || {};
       Fc.lv = lv;
     }
     K.updLight();
+    if (FORCE_LX) LT.x = FORCE_LX; // (warm-up of the other light side, ND.warmBaked side)
     // another look, weapon or light side: start over
     LTB = LT.x > 0 ? 1 : 0;
     if (Fc.col !== c || Fc.acc !== acc || !sameWeapon(Fc.wpn, wpn)) {
@@ -531,14 +532,17 @@ window.ND = window.ND || {};
     const noop = () => {};
     return new Proxy(base, { get: (o, k) => (k in o ? o[k] : noop), set: () => true });
   }
-  ND.warmBaked = function (R, f) {
+  let FORCE_LX = 0;
+  // side: 1 / -1 warms the pictures for a key light from that side instead of the current arena's (game.js: the
+  // result screen warms the side the next arena may need, while the GPU is idle)
+  ND.warmBaked = function (R, f, side) {
     const X = { bake: f.bakeCache(), ropes: null, trail: null, glint: 0 }, wpn = f.wpn, acc = f.ch && f.ch.acc, col = f.col;
     const stance = ND.POSES && ND.POSES.stance, poses = posesOf(f.ch && f.ch.id), jj = {}, half = {};
     const ctx = nullCtx(R, (ND.cam && ND.cam.k) || 1);
     const n = poses.length * 2 * 2 * 16;
     let i = 0;
     // already warmed for this look, picture scale and light side (the same fighter in the next fight): nothing to do
-    const sig = () => { K.updLight(); return levelOf(((ND.cam && ND.cam.s > 0 ? ND.cam.s : 1)) * ZMAX) + '|' + (LT.x > 0 ? 1 : 0); };
+    const sig = () => { K.updLight(); const lx = side ? side * Math.abs(LT.x) : LT.x; return levelOf(((ND.cam && ND.cam.s > 0 ? ND.cam.s : 1)) * ZMAX) + '|' + (lx > 0 ? 1 : 0); };
     if (X.bake.warmSigs && X.bake.warmSigs.has(sig()) && X.bake.col === col && X.bake.acc === acc && sameWeapon(X.bake.wpn, wpn) && X.bake.g.size) i = n;
     return {
       total: n,
@@ -548,6 +552,7 @@ window.ND = window.ND || {};
         if (i >= n) return true;
         const t0 = performance.now(), sc = ND.scene, st = sc ? sc.t : 0;
         warming = true;
+        if (side) { K.updLight(); FORCE_LX = side * Math.abs(LT.x); }
         try {
           while (i < n && performance.now() - t0 < ms) {
             // (index → rotation fastest, then facing, then the halfway variant, then the pose)
@@ -567,7 +572,7 @@ window.ND = window.ND || {};
             ND.drawNinjaBaked(ctx, jj, col, X, wpn, acc);
             i++;
           }
-        } finally { warming = false; if (sc) sc.t = st; }
+        } finally { warming = false; if (FORCE_LX) { FORCE_LX = 0; K.updLight(); } if (sc) sc.t = st; }
         if (i >= n) (X.bake.warmSigs || (X.bake.warmSigs = new Set())).add(sig());
         return i >= n;
       },

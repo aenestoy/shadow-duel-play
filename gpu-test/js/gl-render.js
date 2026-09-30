@@ -193,7 +193,7 @@ window.ND = window.ND || {};
     }
     function init() { E.init(); initPost(); }
     try { init(); } catch (e) { error = String(e && e.message || e); return null; }
-    canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); lost = true; E.lose(); queries.length = fences.length = 0; tq = tq2 = null; tqx = undefined; glowProg = finalProg = liteProg = liteFinalProg = smallProg = vblurProg = null; glowTex = glowFb = liteTex = liteFb = glow2Tex = glow2Fb = null; });
+    canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); lost = true; E.lose(); inflight.length = 0; queries.length = fences.length = 0; tq = tq2 = null; tqx = undefined; glowProg = finalProg = liteProg = liteFinalProg = smallProg = vblurProg = null; glowTex = glowFb = liteTex = liteFb = glow2Tex = glow2Fb = null; });
     canvas.addEventListener('webglcontextrestored', () => {
       try { init(); lost = false; checked = false; streak = 0; } catch (e) { error = String(e && e.message || e); return; }
       if (!api.selfCheck()) console.info('[ND.gl] WebGL2 self-check failed after a context restore; drawing with Canvas 2D', error);
@@ -329,6 +329,12 @@ window.ND = window.ND || {};
     }
     // (the extension object must be taken while the context is alive: a lost context hands out no extensions)
     let loseX = null, settleFence = null;
+    // frames submitted whose GPU work has not finished (api.queueLimit > 0 only): api.queued()
+    const inflight = [];
+    function queued() {
+      while (inflight.length && gl.getSyncParameter(inflight[0], gl.SYNC_STATUS) === gl.SIGNALED) gl.deleteSync(inflight.shift());
+      return inflight.length;
+    }
     const loseExt = () => loseX || (loseX = gl.isContextLost() ? null : gl.getExtension('WEBGL_lose_context'));
     const api = {
       canvas, gl, R,
@@ -354,9 +360,14 @@ window.ND = window.ND || {};
           const t1 = P ? performance.now() : 0;
           post(scene, R.W, R.H, p);
           if (P) { gpuEnd(); P.postMs = performance.now() - t1; P.endMs = performance.now() - t0; P.frameId = frameId; }
+          if (api.queueLimit > 0 && inflight.length < 16) { const f = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0); if (f) inflight.push(f); }
           if (!checked) { const code = gl.getError(); if (code !== gl.NO_ERROR) throw Error('GL error ' + code); checked = true; }
           frames++; streak = 0;
           api.last = Object.assign({}, rec, R.stats);
+          // what the GPU drew this frame (perf.js report): multisampled passes (size × samples) and the post passes
+          const T = E.targets, pm = p.mode == null ? 2 : p.mode;
+          api.last.targets = [T[0] && R.stats.passes > 1 ? [T[0].w, T[0].h, T[0].samples] : null, T[1] ? [T[1].w, T[1].h, T[1].samples] : null];
+          api.last.postPasses = pm === 2 ? (p.smallBlur ? 3 : 2) : pm === 1 ? 2 : 1;
           return true;
         } catch (e) {
           error = String(e && e.message || e); lastReason = error; fallbacks++;
@@ -417,6 +428,9 @@ window.ND = window.ND || {};
       // true once the GPU has finished everything submitted so far (a fence polled once per call; match preparation
       // waits for it behind the loading screen, so the first fight frames do not queue behind the part pictures'
       // uploads and the first draws with every shader)
+      // GPU path (game.js ?gpuq): at most this many frames may wait for the GPU; the caller skips drawing while more do
+      queueLimit: 0,
+      queued() { if (lost || gl.isContextLost()) { inflight.length = 0; return 0; } return queued(); },
       settle() {
         if (lost || gl.isContextLost()) { settleFence = null; return true; }
         if (!settleFence) { settleFence = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0); gl.flush(); return !settleFence; }

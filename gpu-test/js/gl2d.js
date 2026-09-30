@@ -1528,6 +1528,7 @@ window.ND = window.ND || {};
       if (P) P.stacks = !!opts.stacks;
     };
     // tests: copy of the recorded frame (x, y per vertex, triangle indices, commands)
+    R.indexCount = () => ni; // (bench: which part of the frame recorded which triangles)
     R.dump = () => {
       const xy = new Float64Array(nv * 2);
       const uv = new Float64Array(nv * 2);

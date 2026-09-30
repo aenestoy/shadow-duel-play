@@ -58,6 +58,7 @@
   //   ?dprmax=x         cap on the canvas pixel ratio (any renderer), to compare render scales
   const BLUR_SMALL = GPU_PATH ? QS.get('blur') !== 'full' : QS.get('blur') === 'small';
   const LMSAA = QS.get('lmsaa') != null ? +QS.get('lmsaa') | 0 : null;
+  const GPU_Q = QS.get('gpuq') != null ? Math.max(0, +QS.get('gpuq') | 0) : GPU_PATH ? 3 : 0;
   const DPR_Q = +QS.get('dprmax') > 0 ? +QS.get('dprmax') : Infinity;
   // ?cap=0 / ?cap=1: frame pacing forced to Max / 60 for tests (see the pacer at the end); '' = the Frame rate setting
   const CAP_Q = QS.get('cap') === '0' ? '0' : QS.get('cap') === '1' ? '1' : '';
@@ -2422,7 +2423,10 @@
     let dpr = Math.min(window.devicePixelRatio || 1, GFX.f.dpr, DPR_Q);
     const px = r.width * r.height * dpr * dpr;
     if (px > MAX_PX) dpr *= Math.sqrt(MAX_PX / px);
-    const k = dpr * aq.R[aq.i].s * (GFX.f.scale || 1) * (game.behind ? BEHIND_SCALE : 1);
+    // (GPU path: menus at the fight's own size — the backdrop is drawn at most ~30 times a second either way, and a
+    // size change between menu and fight rebuilt every background picture and render target: ~9 MB of uploads at
+    // each menu / VS / fight switch)
+    const k = dpr * aq.R[aq.i].s * (GFX.f.scale || 1) * (game.behind && !GPU_PATH ? BEHIND_SCALE : 1);
     const w = Math.max(1, Math.round(r.width * k)), h = Math.max(1, Math.round(r.height * k));
     if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
     game.pxr = cv.width / r.width; // tuval pikseli / CSS pikseli (tuş istemi boyutu için)
@@ -2547,9 +2551,25 @@
     // The same for a result screen over the finished fight and an online match waiting for the other player (nothing
     // moves there either): phones spent full frames redrawing a still picture under a dialog.
     if (!behind && (game.paused || (ND.portal && ND.portal.inAd) || stillUnder()) && w0 - lastDraw < 100) return;
+    // GPU path: while 3 or more drawn frames still wait for the GPU, this refresh draws nothing (the simulation has
+    // already advanced): a slow GPU frame no longer piles later frames up behind it (the owner's phone showed 3–6
+    // frames queued and 40–100 ms freezes); ?gpuq=n sets the limit, 0 off
+    if (GPU_Q && glr && game.rendererMode === 'gl' && glr.ready) {
+      glr.queueLimit = GPU_Q;
+      if (glr.queued() >= GPU_Q) { game.gpuSkips = (game.gpuSkips || 0) + 1; return; }
+    }
     lastDraw = w0;
     game.render();
     skipDraw = behind && performance.now() - w0 > 12;
+  }
+  // GPU path, result screen (the GPU draws a still picture there): the two fighters' part pictures for a key light from
+  // the other side are made a few milliseconds per frame, so a rematch or the next fight in an arena lit from that side
+  // does not make them all on its loading screen (it did: 1,282 pictures, ~44 MB, ~1 s on the owner's phone)
+  let bgW = null;
+  function bgWarm() {
+    if (!(GPU_PATH && glr && glr.ready && game.rendererMode === 'gl' && game.phase === 'end' && !game.preparing && ND.warmBaked && ND._draw)) { bgW = null; return; }
+    if (!bgW) { ND._draw.updLight(); const side = ND._draw.LT.x > 0 ? -1 : 1; bgW = F.map((f) => ND.warmBaked(glr.R, f, side)); }
+    for (const w of bgW) if (!w.done) { w.step(4); break; }
   }
   const endEl = $('end');
   const stillUnder = () => (game.phase === 'end' && ((endEl && !endEl.hidden) || !!(ND.online && ND.online.endShown && ND.online.endShown()))) || !!(ND.net && ND.net.isWaiting && ND.net.isWaiting());
@@ -2626,6 +2646,7 @@
     portalTick(rdt, inAd);
     game.syncTouch();
     drawFrame(performance.now());
+    bgWarm();
     if (!loaded) { loaded = true; ND.portal?.loadingFinished(); ND.funnel?.step('menu'); if (glLater) setTimeout(startGl, 0); }
     aqWatch(gap, performance.now() - w0);
   }
