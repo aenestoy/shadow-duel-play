@@ -745,6 +745,7 @@
         muted: 'Le son est coupé. Bouge un curseur pour le rallumer.',
         // Settings > Audio: character / announcer voices switch (js/voice.js) and the courtesy credit under it
         voice: 'Voix',
+        uiSfx: 'Sons du menu',
         credit: 'Voix: ユーフルカ (youfulca.com) · 効果音ラボ · すぱらんど',
       },
     });
@@ -1249,7 +1250,7 @@
         signIn: 'Connecte-toi pour gagner des points', guestNote: 'En invité, tu joues sans classement.', nickNote: 'Choisis un pseudo pour jouer en classé.',
         back: 'Retour', you: 'Toi', titleLbl: 'Titre', noTitle: 'Aucun',
         searching: "Recherche d'un adversaire…", window: (n) => `Écart de cote ±${n}`, windowAny: 'Toutes les cotes', people: (n, m) => `${n} en recherche · ${m} matchs dans la dernière heure`,
-        warm: "Échauffe-toi contre l'ordinateur en attendant", warmTag: 'Échauffement · CPU · non classé', warmBack: 'Retour à la recherche', cancel: 'Annuler',
+        warm: "Échauffe-toi contre l'ordinateur en attendant", warmTag: 'Échauffement · CPU · non classé', searchShort: 'Recherche', warmBack: 'Retour à la recherche', cancel: 'Annuler',
         none: "Aucun adversaire pour l'instant.", foundTitle: 'Adversaire trouvé !', accept: 'Accepter', decline: 'Refuser',
         ranked: 'Classé', unranked: 'Non classé · pas de points',
         why: { guest: 'un joueur est invité', same_network: 'vous êtes sur le même réseau', pair_limit: "vous avez déjà joué 3 matchs classés ensemble aujourd'hui", daily_limit: 'limite quotidienne de matchs classés' },

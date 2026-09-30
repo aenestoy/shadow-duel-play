@@ -733,6 +733,7 @@
         muted: 'Sound is off. Move a slider to turn it back on.',
         // Settings > Audio: character / announcer voices switch (js/voice.js) and the courtesy credit under it
         voice: 'Voices',
+        uiSfx: 'Menu sounds',
         credit: 'Voices: ユーフルカ (youfulca.com) · 効果音ラボ · すぱらんど',
       },
     });
@@ -1238,7 +1239,7 @@
         signIn: 'Sign in to earn points', guestNote: 'As a guest you play unranked.', nickNote: 'Pick a nickname to play ranked.',
         back: 'Back', you: 'You', titleLbl: 'Title', noTitle: 'None',
         searching: 'Searching for an opponent…', window: (n) => `Rating range ±${n}`, windowAny: 'Any rating', people: (n, m) => `${n} searching now · ${m} matches in the last hour`,
-        warm: 'Warm up vs CPU while waiting', warmTag: 'Warm-up · CPU · unranked', warmBack: 'Back to search', cancel: 'Cancel',
+        warm: 'Warm up vs CPU while waiting', warmTag: 'Warm-up · CPU · unranked', searchShort: 'Searching', warmBack: 'Back to search', cancel: 'Cancel',
         none: 'No opponents right now.', foundTitle: 'Opponent found!', accept: 'Accept', decline: 'Decline',
         ranked: 'Ranked', unranked: 'Unranked · no points',
         why: { guest: 'a player is a guest', same_network: 'you are on the same network', pair_limit: 'you played 3 ranked matches with them today', daily_limit: 'daily ranked match limit' },

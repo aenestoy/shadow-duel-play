@@ -748,6 +748,7 @@
         muted: 'Der Ton ist aus. Beweg einen Regler, um ihn wieder einzuschalten.',
         // Settings > Audio: character / announcer voices switch (js/voice.js) and the courtesy credit under it
         voice: 'Stimmen',
+        uiSfx: 'Menütöne',
         credit: 'Stimmen: ユーフルカ (youfulca.com) · 効果音ラボ · すぱらんど',
       },
     });
@@ -1252,7 +1253,7 @@
         signIn: 'Anmelden, um Punkte zu sammeln', guestNote: 'Als Gast spielst du ohne Wertung.', nickNote: 'Wähle einen Spitznamen, um mit Wertung zu spielen.',
         back: 'Zurück', you: 'Du', titleLbl: 'Titel', noTitle: 'Keiner',
         searching: 'Gegner wird gesucht…', window: (n) => `Wertungsbereich ±${n}`, windowAny: 'Jede Wertung', people: (n, m) => `${n} suchen gerade · ${m} Matches in der letzten Stunde`,
-        warm: 'Beim Warten gegen die CPU aufwärmen', warmTag: 'Aufwärmen · CPU · ohne Wertung', warmBack: 'Zurück zur Suche', cancel: 'Abbrechen',
+        warm: 'Beim Warten gegen die CPU aufwärmen', warmTag: 'Aufwärmen · CPU · ohne Wertung', searchShort: 'Suche', warmBack: 'Zurück zur Suche', cancel: 'Abbrechen',
         none: 'Gerade keine Gegner.', foundTitle: 'Gegner gefunden!', accept: 'Annehmen', decline: 'Ablehnen',
         ranked: 'Mit Wertung', unranked: 'Ohne Wertung · keine Punkte',
         why: { guest: 'ein Spieler ist Gast', same_network: 'ihr seid im selben Netzwerk', pair_limit: 'du hast heute schon 3 gewertete Matches gegen ihn gespielt', daily_limit: 'tägliches Limit für gewertete Matches' },

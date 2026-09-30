@@ -34,7 +34,7 @@
     signIn: 'Puan kazanmak için giriş yap', guestNote: 'Misafir olarak puansız oynarsın.', nickNote: 'Puanlı oynamak için bir takma ad seç.',
     back: 'Geri', you: 'Sen', titleLbl: 'Unvan', noTitle: 'Yok',
     searching: 'Rakip aranıyor…', window: (n) => `Puan aralığı ±${n}`, windowAny: 'Her puan aralığı', people: (n, m) => `Şu an ${n} kişi arıyor · son 1 saatte ${m} maç`,
-    warm: 'Beklerken CPU ile ısın', warmTag: 'Isınma · CPU · puansız', warmBack: 'Aramaya dön', cancel: 'Vazgeç',
+    warm: 'Beklerken CPU ile ısın', warmTag: 'Isınma · CPU · puansız', searchShort: 'Aranıyor', warmBack: 'Aramaya dön', cancel: 'Vazgeç',
     none: 'Şu an rakip yok.', foundTitle: 'Rakip bulundu!', accept: 'Kabul et', decline: 'Reddet',
     ranked: 'Puanlı', unranked: 'Puansız · puan değişmez',
     why: { guest: 'bir oyuncu misafir', same_network: 'aynı ağdasınız', pair_limit: 'bugün bu rakiple 3 puanlı maç yaptın', daily_limit: 'günlük puanlı maç sınırı' },
@@ -247,6 +247,9 @@
     pollMatchSoon(POLL_MATCH);
   }
   function alertFound() {
+    // (once per match: a repeated found view never plays it twice)
+    if (X && X.alerted) return;
+    if (X) X.alerted = true;
     try { if (ND.audio) { ND.audio.init(); if (ND.audio.sfx) ND.audio.sfx.matchFound(); else if (ND.audio.gong) ND.audio.gong(); else if (ND.audio.ui) ND.audio.ui(); } } catch (e) { /* no sound */ }
     if (!document.hidden) return;
     const t0 = document.title, msg = M().foundTitle;
@@ -708,13 +711,24 @@
     .rk-big { padding: 8px 10px; column-gap: 12px; } .rk-big .rk-badge { font-size: 16px; padding: 7px 10px; } .rk-big .rk-badge b { font-size: 26px; } .rk-num { font-size: 22px; }
   }
   /* touch screens: every ranked button at least 44 px tall */
-  #app.touch #rk button:not(.rk-ch), #app.touch #rkBar button, #app.touch #rkHud .btn { min-height: 44px; }
+  #app.touch #rk button:not(.rk-ch), #app.touch #rkHud .btn { min-height: 44px; }
   /* the search bar over the warm-up fight: one compact row under the fight's HUD (#hud), never over it */
-  #rkBar { flex-wrap: nowrap; gap: 8px; padding: 4px 6px 4px 12px; font-size: 12px; top: calc(env(safe-area-inset-top, 0px) + 104px); }
-  @media (max-height: 540px) { #rkBar { top: calc(env(safe-area-inset-top, 0px) + 64px); } }
-  #rkBar .rk-bt { display: grid; gap: 2px; text-align: left; white-space: nowrap; }
-  #rkBar .rk-bt .tag { font-size: 10.5px; letter-spacing: .08em; }
-  #rkBar button { padding: 6px 10px; }
+  /* the search during the warm-up fight: a slim pill just under the HUD's clock, over the sky, never over the fighters,
+     the touch controls or a menu (z-index under every overlay: pause 5, settings 60; also hidden while one is open).
+     Tap it: back to the search screen; the cross: stop searching. Their touch area (44 px) reaches up into the HUD,
+     which takes no touches, instead of down into the arena. */
+  #rkBar { z-index: 4; top: calc(env(safe-area-inset-top, 0px) + 100px); padding: 0; gap: 0; height: 24px; box-sizing: border-box; flex-wrap: nowrap;
+    background: rgba(8,9,16,.72); border: 1px solid rgba(217,179,108,.5); border-radius: 999px; font: 600 11px/1 var(--display); letter-spacing: .1em; text-transform: uppercase; pointer-events: none; max-width: none; }
+  @media (max-height: 540px) { #rkBar { top: calc(env(safe-area-inset-top, 0px) + 61px); } }
+  #rkBar button { pointer-events: auto; position: relative; height: 22px; min-height: 0 !important; margin: 0; border: 0; background: none; color: var(--text, #eee); font: inherit; letter-spacing: inherit; text-transform: inherit; cursor: pointer; display: flex; align-items: center; white-space: nowrap; }
+  #rkBar button::before { content: ''; position: absolute; left: 0; right: 0; bottom: 0; top: -22px; }
+  #rkBar .rk-pill { gap: 7px; padding: 0 9px 0 10px; }
+  #rkBar .rk-pill .tag { color: rgba(255,180,168,.9); font-weight: 500; }
+  #rkBar .rk-x { padding: 0 10px 0 8px; border-left: 1px solid rgba(217,179,108,.3); color: var(--muted); font-size: 13px; }
+  #rkBar button:hover, #rkBar button:focus-visible { color: #f1d69c; }
+  #rkBar .rk-dot { width: 7px; height: 7px; border-radius: 50%; background: #e2583e; box-shadow: 0 0 6px rgba(226,88,62,.8); animation: rkBeat 1.2s ease-in-out infinite; }
+  @keyframes rkBeat { 0%, 100% { opacity: .45; transform: scale(.85); } 18% { opacity: 1; transform: scale(1.15); } 36% { opacity: .7; transform: scale(.95); } }
+  @media (prefers-reduced-motion: reduce) { #rkBar .rk-dot { animation: none; } }
 
   /* ---- the RANKED entry in the main menu: lacquer panel, gold edge, the player's tier seal, season tag */
   #mranked { position: relative; overflow: hidden; isolation: isolate; border-color: rgba(217,179,108,.72);
@@ -891,22 +905,44 @@
     renderQueue.t = setTimeout(() => { if (screen === 'queue') renderQueue(); }, 1000);
   }
   // the search bar over the warm-up fight
+  // (a menu over the warm-up fight: pause, settings, moves, the result screen, the turn-your-phone hint, an ad)
+  const OVER = ['pause', 'end', 'setOv', 'movesOv', 'honorOv', 'rk', 'rkConfirm'];
+  const covered = () => !!(G.paused || (ND.portal && ND.portal.inAd) || OVER.some((id) => { const e = $(id); return e && !e.hidden && e.getClientRects().length > 0; }) ||
+    (() => { const r = $('rotate'); return !!(r && getComputedStyle(r).display !== 'none'); })());
   function renderBar() {
     const b = $('rkBar');
     if (!b) return;
     const on = !!(Q && Q.warm && screen === null);
-    b.hidden = !on;
-    clearTimeout(renderBar.t);
-    if (!on) return;
+    clearTimeout(renderBar.t); clearInterval(renderBar.v);
+    if (!on) { b.hidden = true; return; }
     const L = M();
-    b.textContent = '';
-    const t = el('span', 'rk-bt'); t.append(el('span', null, L.searching + ' ' + fmtClock(Date.now() - Q.since)), el('span', 'tag', L.warmTag));
-    b.append(t);
-    // just under the fight's HUD (names, health, clock), whatever its size on this screen
-    try { const hud = $('hud'), app = $('app'), hr = hud && hud.getBoundingClientRect(); if (hr && app && hr.height > 8) b.style.top = Math.round(hr.bottom - app.getBoundingClientRect().top + 6) + 'px'; } catch (e) { /* default place */ }
-    const back = el('button', 'mini', L.warmBack); back.type = 'button'; back.onclick = () => endWarm(true);
-    const cancel = el('button', 'mini', L.cancel); cancel.type = 'button'; cancel.onclick = () => { stopQueue(true); G.goMenu(); };
-    b.append(back, cancel);
+    if (!b.firstChild) {
+      const pill = el('button', 'rk-pill'); pill.type = 'button';
+      pill.append(el('span', 'rk-dot'), el('span', 'rk-clk'), el('span', 'tag'));
+      pill.onclick = () => endWarm(true);
+      const x = el('button', 'rk-x', '✕'); x.type = 'button';
+      x.onclick = () => { stopQueue(true); G.goMenu(); };
+      b.append(pill, x);
+    }
+    const pill = b.querySelector('.rk-pill'), x = b.querySelector('.rk-x');
+    pill.querySelector('.rk-clk').textContent = (L.searchShort || L.searching) + ' ' + fmtClock(Date.now() - Q.since);
+    pill.querySelector('.tag').textContent = L.warmTag; // (Warm-up · CPU · unranked: this fight counts for nothing)
+    pill.setAttribute('aria-label', L.searching + ' ' + fmtClock(Date.now() - Q.since) + ' · ' + L.warmTag + ' · ' + L.warmBack); pill.title = L.warmBack;
+    x.setAttribute('aria-label', L.cancel); x.title = L.cancel;
+    // just under the fight's HUD clock (the HUD's own height on this screen)
+    // (and above the touch pad's swipe area, which starts lower on taller screens)
+    try {
+      const hud = $('hud'), app = $('app'), hr = hud && hud.getBoundingClientRect(), ar = app.getBoundingClientRect();
+      if (hr && hr.height > 8) {
+        let top = hr.bottom - ar.top + 2;
+        const sw = $('tSwipe'), sr = sw && sw.getClientRects().length ? sw.getBoundingClientRect() : null;
+        if (sr && sr.height > 0 && getComputedStyle(sw).visibility !== 'hidden') top = Math.min(top, sr.top - ar.top - 24 - 2);
+        b.style.top = Math.round(Math.max(0, top)) + 'px';
+      }
+    } catch (e) { /* default place */ }
+    const sync = () => { const hide = covered(); if (b.hidden !== hide) b.hidden = hide; };
+    sync();
+    renderBar.v = setInterval(sync, 150); // a pause or a menu hides it at once, resuming brings it back
     renderBar.t = setTimeout(renderBar, 1000);
   }
   function oppCard(v) {

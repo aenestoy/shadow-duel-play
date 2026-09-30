@@ -160,6 +160,9 @@
   ND.settings.music = saved.music !== false;
   // Voices (Settings > Audio): fighters' shouts and the announcer (js/voice.js); on unless the player turned them off
   ND.settings.voice = saved.voice !== false;
+  // Menu sounds (Settings > Audio): button clicks, back, confirm, toasts and coins; off leaves the fight, voices, music
+  // and the big alerts (match found, rank up / down, results) as they are (js/core.js ui, js/sfx.js)
+  ND.settings.uiSfx = saved.uiSfx !== false;
   ND.settings.hints = saved.hints !== false;
   // Show FPS (Settings → Graphics): the small frame-rate readout, off unless the player turned it on (fpsMeter below)
   ND.settings.showFps = saved.showFps === true;
@@ -1909,7 +1912,7 @@
     const gfx = forced ? GFX_SAVED : GFX.pref, hq = gfx !== 'low', hqUser = !!gfx && gfx !== 'auto';
     const gfxK = gfx === 'custom' ? (!forced && GFX.pref === 'custom' ? GFX.custom : saved.gfxK) : undefined;
     // merged into what is stored, so settings kept by other files (touch controls: key "touch", js/touch.js) survive
-    store.set(Object.assign(store.get(), { sound: ND.settings.sound, bloodOptIn: ND.settings.blood, music: ND.settings.music, voice: ND.settings.voice, hints: ND.settings.hints, showFps: ND.settings.showFps || undefined, gfx, gfxK, hq, hqUser, fps: game.fpsPref || undefined, level: game.level, c1: id(game.sel.c[0]), c2: id(game.sel.c[1]), arena: game.sel.arena }));
+    store.set(Object.assign(store.get(), { sound: ND.settings.sound, bloodOptIn: ND.settings.blood, music: ND.settings.music, voice: ND.settings.voice, uiSfx: ND.settings.uiSfx, hints: ND.settings.hints, showFps: ND.settings.showFps || undefined, gfx, gfxK, hq, hqUser, fps: game.fpsPref || undefined, level: game.level, c1: id(game.sel.c[0]), c2: id(game.sel.c[1]), arena: game.sel.arena }));
   }
   function unlockAudio() { au.init(); au.setEnabled(ND.settings.sound); mu.init(); mu.setEnabled(ND.settings.music); if (mu.mode === 'off') mu.setMode(game.phase === 'fight' ? 'fight' : 'menu'); }
   function choose(mode) { unlockAudio(); au.ui(); if (mode === 'watch') { au.quiet = false; game.start('watch'); } else game.openSelect(mode); }
@@ -2041,7 +2044,7 @@
       document.querySelectorAll('.seg[data-lv]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
     };
   });
-  const toggles = { tSound: 'sound', tBlood: 'blood', tMusic: 'music', tHints: 'hints', tFps: 'showFps', tVoice: 'voice' };
+  const toggles = { tSound: 'sound', tBlood: 'blood', tMusic: 'music', tHints: 'hints', tFps: 'showFps', tVoice: 'voice', tUiSfx: 'uiSfx' };
   // Graphics choice: the [data-gq] rows in the menu's options and the pause dialog (index.html), four .seg buttons
   // data-gfx="auto|high|medium|low". A press applies and saves (ND.gfx.setQuality → the GFX.onChange listener below
   // persists). Texts from ND.STR.gfx: title, levels, and one line under the row — on Auto it says which tier is drawn

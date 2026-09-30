@@ -602,6 +602,7 @@
     muted: 'Ses kapalı. Bir sürgüyü oynatınca yeniden açılır.',
     // Ayarlar > Ses: karakter ve sunucu sesleri anahtarı (js/voice.js) ve altındaki teşekkür satırı
     voice: 'Seslendirme',
+    uiSfx: 'Menü sesleri',
     credit: 'Seslendirme: ユーフルカ (youfulca.com) · 効果音ラボ · すぱらんど',
   });
 

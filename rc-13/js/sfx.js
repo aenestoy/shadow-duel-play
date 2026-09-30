@@ -4,8 +4,9 @@
 // too. The koto notes are the music's own plucked-string samples (js/music.js kotoBufs) played as effects.
 //
 // Where (hooks are wrappers and page listeners, as in js/voice.js; no fight code reads anything here):
-//   buttons      every button / card press plays a click unless its own handler already made a sound; back and close
-//                buttons (and Escape closing a screen) a lower "back"; mouse hover and keyboard focus moves a soft tick
+//   buttons      a real confirm (Play, Fight, Find opponent, primary buttons) plays one soft click + drum and back /
+//                close buttons (and Escape closing a screen) a soft "back", unless the button's own handler made a
+//                sound; other buttons, hover and focus make none. Settings > Audio > Menu sounds turns these off
 //   fight        guard raised, jump, dash scuff, ki bar full, PERFECT, time up (Fighter.setState / gainKi, game.banner)
 //   screens      VS card, result (win / lose), journey ending, a new ninja revealed, honor gained, toasts
 //   online       ranked: search start + a slow heartbeat while searching, match found, rank up / down (js/ranked.js
@@ -33,25 +34,26 @@
       A.tone({ freq: freq * 2.76, dur: dur * 0.5, gain: gain * 0.35, attack: 0.002, send: 0.7, delay, pan });
     },
     // ---- menus
-    // (not counted as "a sound was made": focus returning after Escape must not swallow the back sound)
-    hover() { const n = A.nPlayed; A.menu(() => { A.noise({ type: 'bandpass', f0: 3600 * vr(0.06), q: 4, dur: 0.014, gain: 0.5, attack: 0.001, send: 0.05 }); A.tone({ freq: 1500 * vr(0.03), dur: 0.025, gain: 0.02, attack: 0.001, send: 0.05 }); }); A.nPlayed = n; },
+    // back / close: a soft, falling wooden note (Menu sounds switch)
     back() {
+      if (!A.uiOn()) return;
       A.menu(() => {
         const k = vr(0.04);
-        A.noise({ type: 'bandpass', f0: 1700 * k, q: 3, dur: 0.028, gain: 1, attack: 0.001, send: 0.12 });
-        A.tone({ freq: 700 * k, freq1: 520 * k, dur: 0.09, gain: 0.16, attack: 0.002, send: 0.15, type: 'triangle' });
+        A.tone({ freq: 460 * k, freq1: 360 * k, dur: 0.08, gain: 0.16, attack: 0.008, send: 0.12, type: 'triangle' });
+        A.noise({ type: 'lowpass', f0: 1000 * k, dur: 0.02, gain: 0.3, attack: 0.004, send: 0.08 });
       });
     },
-    // a start / primary button: the click with a small drum under it
+    // a real start / confirm button (Play, Fight, Find opponent…): the soft click with a small, round drum under it
     confirm() {
+      if (!A.uiOn()) return;
       A.menu(() => {
         A.ui();
-        A.tone({ freq: 190 * vr(0.05), freq1: 80, glide: 0.12, dur: 0.22, gain: 1, attack: 0.002, send: 0.2 });
-        A.noise({ type: 'lowpass', f0: 600, dur: 0.06, gain: 0.75, send: 0.15 });
+        A.tone({ freq: 150 * vr(0.05), freq1: 85, glide: 0.1, dur: 0.16, gain: 0.5, attack: 0.008, send: 0.15 });
       });
     },
-    toast() { A.menu(() => { S.bell(1568 * vr(0.01), 0.03, 0, 0.9); S.bell(2093, 0.02, 0.07, 0.8); }); },
+    toast() { if (!A.uiOn()) return; A.menu(() => { S.bell(1568 * vr(0.01), 0.03, 0, 0.9); S.bell(2093, 0.02, 0.07, 0.8); }); },
     coin(n = 1) {
+      if (!A.uiOn()) return;
       A.menu(() => {
         for (let i = 0; i < Math.min(4, n); i++) { const k = vr(0.02); A.tone({ freq: 2637 * k, dur: 0.22, gain: 0.05, attack: 0.001, send: 0.35, delay: i * 0.075 }); A.tone({ freq: 3951 * k, dur: 0.16, gain: 0.03, attack: 0.001, send: 0.35, delay: i * 0.075 + 0.03 }); }
       });
@@ -119,9 +121,10 @@
       });
     },
     // ---- ranked / online
-    queueStart() { A.menu(() => { A.taiko(0.6); S.pluck(7, 0.5, 0.08); S.pluck(10, 0.45, 0.2); }); },
+    queueStart() { if (!A.uiOn()) return; A.menu(() => { A.taiko(0.6); S.pluck(7, 0.5, 0.08); S.pluck(10, 0.45, 0.2); }); },
     // while searching: a slow, quiet heartbeat on the drum and a stray koto note
     queuePulse() {
+      if (!A.uiOn()) return;
       A.menu(() => {
         A.tone({ freq: 72, freq1: 50, dur: 0.16, gain: 0.3, attack: 0.004, send: 0.2 });
         A.tone({ freq: 72, freq1: 50, dur: 0.14, gain: 0.2, attack: 0.004, send: 0.2, delay: 0.24 });
@@ -158,8 +161,10 @@
   // Level of each (× everything it schedules), set by measurement like ND.audio.MIX: the menu sounds sit with the
   // click (about -33 LUFS), the fight details (guard, dash, jump) near the footsteps and swings (-38), the big cues
   // (match found, rank up, win) under the KO (-15 … -19)
-  const LV = { hover: 22, back: 14, guardUp: 7, dash: 8.6, jump: 2.4, kiReady: 0.85, timeUp: 1.4, win: 0.56, lose: 0.6,
-    queueStart: 0.6, queuePulse: 0.7, matchFound: 0.67, rankUp: 0.67, rankDown: 0.84, unlock: 0.65, coin: 6.3, vs: 0.6, toast: 1.7, joined: 0.8 };
+  // (2026-09-30, owner's feedback "the sounds felt disturbing": everything the sound pass added is calmer; the ranked
+  // search, toasts and coins are also menu sounds: the Menu sounds switch turns them off)
+  const LV = { back: 4, guardUp: 7, dash: 8.6, jump: 2.4, kiReady: 0.6, timeUp: 1.4, win: 0.35, lose: 0.42,
+    queueStart: 0.38, queuePulse: 0.39, matchFound: 0.53, rankUp: 0.42, rankDown: 0.67, unlock: 0.65, coin: 1.6, vs: 0.42, toast: 0.95, joined: 0.5 };
   for (const k of Object.keys(LV)) { const fn = S[k]; S[k] = function () { const a = arguments; return A.scaled(LV[k], () => fn.apply(S, a)); }; }
 
   // ---------------------------------------------------------------- menus: every press, back, hover
@@ -168,17 +173,33 @@
   const isBack = (el) => {
     const s = ((el.id || '') + ' ' + (el.className && el.className.baseVal == null ? el.className : '') + ' ' + (el.getAttribute('aria-label') || '')).toLowerCase();
     const t = (el.textContent || '').trim();
-    return /(^|[^a-z])(back|close|cancel|quit|leave)|menu$|mvclose|setclose|lbclose|bback|bmenu|bendmenu|edmenu|vsquit/.test(s) || /^[×✕✖←◀‹]/.test(t);
+    return /(^|[^a-z])(back|close|cancel|quit|leave)|menu$|mvclose|setclose|lbclose|bback|bmenu|bendmenu|edmenu|vsquit|rkcancel|onlcancel/.test(s) || /^[×✕✖←◀‹]/.test(t);
   };
   const isPrimary = (el) => /\bprimary\b/.test(typeof el.className === 'string' ? el.className : '') || /^(bFight|vsGo|bRematch|fPlay|mplay|bzGo|rkAgain|edAgain)$/.test(el.id || '');
-  // a press whose own handler made no sound gets one (after the handler ran: a handler that plays its own sound wins)
+  // Each press's kind, noted before its own handler runs (capture phase): 'confirm' (a primary button, a main menu card:
+  // Play, Single match, Play with a friend, Ranked…), 'back' (back / close / cancel, Escape) or 'minor'. A.ui() only
+  // clicks for confirm and back; cleared once the press's handlers have run.
+  // (Find opponent: the search's own start cue is its sound, js/sfx.js hook below: no click as well)
+  const kindOf = (el) => (!el || el.id === 'rkFind' ? 'minor' : isBack(el) ? 'back' : isPrimary(el) || (el.classList && el.classList.contains('mode') && el.closest('#menu')) ? 'confirm' : 'minor');
+  const mark = (k) => { A._press = k; setTimeout(() => { if (A._press === k) A._press = null; }, 0); };
+  A._pressGate = true;
+  document.addEventListener('click', (e) => { mark(kindOf(e.target && e.target.closest ? e.target.closest(BTN) : null)); }, true);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' || e.key === 'Backspace') mark('back');
+    else if (e.key === 'Enter' || e.key === ' ') mark(kindOf(document.activeElement && document.activeElement.closest ? document.activeElement.closest(BTN) : null));
+  }, true);
+  // A real confirm (Play, Fight, Find opponent, a primary button) or a back / close press whose own handler made no
+  // sound gets one soft cue; every other button stays silent here (2026-09-30: a click on every press was too much).
+  // One sound per press: nothing when the handler already played one.
   document.addEventListener('click', (e) => {
     const el = e.target && e.target.closest ? e.target.closest(BTN) : null;
-    if (!el || el.disabled || !A.ready) return;
+    if (!el || el.disabled || !A.ready || !A.uiOn()) return;
     // (the on-screen fight buttons of a touch screen are not menu presses: no click over the fight)
     if (el.closest('#touch')) return;
+    const k = kindOf(el), back = k === 'back', prim = k === 'confirm';
+    if (!back && !prim) return;
     const n0 = A.nPlayed | 0;
-    setTimeout(() => { if ((A.nPlayed | 0) !== n0) return; if (isBack(el)) S.back(); else if (isPrimary(el)) S.confirm(); else A.ui(); }, 0);
+    setTimeout(() => { if ((A.nPlayed | 0) !== n0) return; if (back) S.back(); else S.confirm(); }, 0);
   }, true);
   // Escape / Backspace that closes a screen: the back sound
   const openSig = () => ['menu', 'select', 'vs', 'pause', 'setOv', 'end', 'lb', 'hall', 'honorOv', 'reveal', 'bzLobby', 'bzRes', 'rk', 'movesOv', 'journeyPanel', 'singlePick']
@@ -191,20 +212,7 @@
     const n0 = A.nPlayed | 0, s0 = openSig();
     setTimeout(() => { if ((A.nPlayed | 0) === n0 && openSig() !== s0) S.back(); }, 0);
   }, true);
-  // hover (a mouse) and focus moved by keys / pad: a soft tick, at most every 60 ms
-  let lastHover = 0, hoverEl = null;
-  const tickHover = (el) => { const t = now(); if (el === hoverEl || t - lastHover < 60 || !A.ready) return; hoverEl = el; lastHover = t; S.hover(); };
-  document.addEventListener('pointerover', (e) => {
-    if (e.pointerType !== 'mouse') return;
-    const el = e.target && e.target.closest ? e.target.closest(BTN) : null;
-    if (!el || el.disabled) { if (!el) hoverEl = null; return; }
-    tickHover(el);
-  }, true);
-  document.addEventListener('focusin', (e) => {
-    if (now() - lastKey > 200 && !(ND.input && ND.input.padActive)) return;
-    const el = e.target && e.target.closest ? e.target.closest(BTN) : null;
-    if (el && !el.disabled) tickHover(el);
-  }, true);
+  // (no hover or focus tick: removed 2026-09-30, owner's feedback)
 
   // ---------------------------------------------------------------- screens (shown / hidden)
   let lastWinner = null;

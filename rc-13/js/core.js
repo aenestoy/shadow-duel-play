@@ -879,7 +879,7 @@ window.ND = window.ND || {};
     // volumes, BS.1770 momentary, against the voices and the music. Before it the hits sat 15 dB under the voices, the
     // footsteps and the menu click were inaudible (about -75 / -60 LUFS). MIX scales each family; every repeated
     // sound varies a little in pitch, length and level (vr) so a long exchange does not sound like a loop.
-    MIX: { swing: 1.5, clang: 1.5, cut: 4.6, thud: 3.3, step: 3.5, whistle: 4.5, tick: 7, whoosh: 1.8, ui: 14, grind: 6.8, amb: 0.8 },
+    MIX: { swing: 1.5, clang: 1.5, cut: 4.6, thud: 3.3, step: 3.5, whistle: 4.5, tick: 7, whoosh: 1.8, ui: 5.9, grind: 1.8, amb: 0.8 },
     swoosh(power = 1, pan = 0) {
       const k = this.vr(0.12), d = (0.16 + 0.12 * power) * this.vr(0.1), m = this.MIX.swing * this.vr(0.12);
       this.noise({ type: 'bandpass', f0: (500 + 300 * power) * k, f1: (2600 + 900 * power) * k, q: 1.4, dur: d, gain: (0.22 + 0.2 * power) * m, attack: d * 0.55, send: 0.12, pan });
@@ -944,20 +944,32 @@ window.ND = window.ND || {};
       this.tone({ freq: 880, freq1: 660, dur: 2.8, gain: 0.05, send: 0.9, delay: 0.1 });
       this.duck(8, 1.4);
     },
-    // a menu press: a short wooden "tok" (a hard click and a hollow body), a little different each time
+    // Menu sounds switch (Settings > Audio, ND.settings.uiSfx): off → no clicks, back, confirm, toasts or coins
+    uiOn() { return !(ND.settings && ND.settings.uiSfx === false); },
+    // a menu press: a soft, low wooden "tok" (rounded attack, short, well under the fight; owner's feedback 2026-09-30:
+    // the sound-pass click was ~9 dB louder, brighter and sharper)
+    // Only a real confirm or a back press clicks (js/sfx.js notes each press's kind before its handler runs, _press):
+    // the many handlers that call ui() for minor buttons, tabs, chips and arrow-key cycling stay silent.
     ui() {
+      if (!this.uiOn()) return;
+      if (this._pressGate && this._press !== 'confirm' && this._press !== 'back') return;
       this.menu(() => {
-        const k = this.vr(0.05), m = this.MIX.ui;
-        this.noise({ type: 'bandpass', f0: 2300 * k, q: 3, dur: 0.028, gain: 1.1 * m, attack: 0.001, send: 0.12 });
-        this.tone({ freq: 880 * k, freq1: 760 * k, dur: 0.07, gain: 0.16 * m, attack: 0.002, send: 0.15, type: 'triangle' });
-        this.tone({ freq: 1760 * k, dur: 0.035, gain: 0.05 * m, attack: 0.001, send: 0.1 });
+        const k = this.vr(0.04), m = this.MIX.ui;
+        this.tone({ freq: 520 * k, freq1: 430 * k, dur: 0.055, gain: 0.16 * m, attack: 0.006, send: 0.1, type: 'triangle' });
+        this.noise({ type: 'lowpass', f0: 1300 * k, dur: 0.02, gain: 0.35 * m, attack: 0.004, send: 0.08 });
       });
     },
-    // the swords locked (tsubazeriai): steel grinding on steel, every 80 ms while the lock holds (game.js)
+    // the swords locked (tsubazeriai), every 80 ms while the lock holds (game.js): a quiet, low metallic tension (a soft
+    // resonant hum, two inharmonic partials, and now and then a faint irregular scrape) that fades in over the first half
+    // second, far under the hits and clashes (owner's feedback: the sound-pass grind was harsh and loud)
     grind(pan = 0) {
-      const m = this.MIX.grind;
-      this.noise({ type: 'bandpass', f0: 3000 + Math.random() * 1200, q: 5, dur: 0.09, gain: 0.5 * m, attack: 0.01, send: 0.3, pan });
-      this.tone({ freq: 1900 * this.vr(0.08), dur: 0.08, gain: 0.02 * m, attack: 0.01, send: 0.3, pan, type: 'sawtooth' });
+      const m = this.MIX.grind, t = this.ctx ? this.ctx.currentTime : 0;
+      if (!(t - (this._grT || -9) < 0.25)) this._grN = 0;
+      this._grT = t; this._grN = (this._grN || 0) + 1;
+      const fade = Math.min(1, this._grN / 7), f = 185 * (1 + 0.006 * Math.sin(this._grN * 0.9)), g = 0.1 * fade * m;
+      this.tone({ freq: f, dur: 0.2, gain: g, attack: 0.07, send: 0.35, pan });
+      this.tone({ freq: f * 2.76, dur: 0.16, gain: g * 0.3, attack: 0.07, send: 0.4, pan });
+      if (Math.random() < 0.35) this.noise({ type: 'bandpass', f0: 1700 + Math.random() * 900, q: 7, dur: 0.07, gain: 0.05 * fade * m, attack: 0.02, send: 0.3, pan });
     },
 
     // One decoded sample (AudioBuffer) through the effects bus, like tone/noise: counted by the one-shot cap.

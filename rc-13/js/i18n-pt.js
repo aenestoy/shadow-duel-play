@@ -748,6 +748,7 @@
         muted: 'O som está desligado. Mexa num controle para religar.',
         // Settings > Audio: character / announcer voices switch (js/voice.js) and the courtesy credit under it
         voice: 'Vozes',
+        uiSfx: 'Sons do menu',
         credit: 'Vozes: ユーフルカ (youfulca.com) · 効果音ラボ · すぱらんど',
       },
     });
@@ -1252,7 +1253,7 @@
         signIn: 'Entre para ganhar pontos', guestNote: 'Como convidado, você joga sem pontos.', nickNote: 'Escolha um apelido para jogar com pontos.',
         back: 'Voltar', you: 'Você', titleLbl: 'Título', noTitle: 'Nenhum',
         searching: 'Procurando adversário…', window: (n) => `Margem de pontuação ±${n}`, windowAny: 'Qualquer pontuação', people: (n, m) => `${n} procurando agora · ${m} partidas na última hora`,
-        warm: 'Aqueça contra a CPU enquanto espera', warmTag: 'Aquecimento · CPU · sem pontos', warmBack: 'Voltar à busca', cancel: 'Cancelar',
+        warm: 'Aqueça contra a CPU enquanto espera', warmTag: 'Aquecimento · CPU · sem pontos', searchShort: 'Procurando', warmBack: 'Voltar à busca', cancel: 'Cancelar',
         none: 'Nenhum adversário agora.', foundTitle: 'Adversário encontrado!', accept: 'Aceitar', decline: 'Recusar',
         ranked: 'Com pontos', unranked: 'Sem pontos · não mudam',
         why: { guest: 'um jogador é convidado', same_network: 'vocês estão na mesma rede', pair_limit: 'você já jogou 3 partidas com pontos contra ele hoje', daily_limit: 'limite diário de partidas com pontos' },
