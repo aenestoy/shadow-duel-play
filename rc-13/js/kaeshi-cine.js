@@ -68,6 +68,8 @@
   const cine = ND.cine = {
     TY,
     slashes: [], nums: [], rings: [], banner: null, combos: [null, null], pops: [null, null],
+    // damage numbers and combo counters shown this session (warmTexts draws their pictures before the next fight)
+    seen: { nums: new Map(), combos: new Map() },
     clear() { this.slashes.length = 0; this.nums.length = 0; this.rings.length = 0; this.banner = null; this.combos[0] = this.combos[1] = null; this.pops[0] = this.pops[1] = null; },
     type(f) { return f && f.state === 'atk' && f.atk && f.atk.counter ? TY[f.atkName] || TY.riposte : null; },
     rgb(f) { const t = this.type(f); return t ? t.col : null; },
@@ -117,7 +119,10 @@
       const t = this.type(f) || TY.riposte, g = G(), dir = f.dir;
       const cuts = t.id === 'sandan' ? [t.cuts[Math.min(t.cuts.length - 1, Math.max(0, f.hitIdx))]] : t.cuts;
       cuts.forEach((ang, i) => this.slashes.push({ x, y: t.low ? Math.max(y, -60) : y, a: ang * dir, col: t.col, age: -i * 0.06, life: 0.55 }));
-      if (dmg > 0) this.nums.push({ x: x + dir * 60, y: y - 85, v: dmg, col: t.col, age: 0, life: 1.1 }); // clear of the technique's name pop-up
+      if (dmg > 0) {
+        this.nums.push({ x: x + dir * 60, y: y - 85, v: dmg, col: t.col, age: 0, life: 1.1 }); // clear of the technique's name pop-up
+        if (this.seen.nums.size < 200) this.seen.nums.set(dmg + '|' + t.col, [dmg, t.col]); // (warmTexts)
+      }
       fx.blood(x, y, dir, -0.3, 30, 1.4);
       if (t.ground) { fx.ring(o.x, -4, `${t.col}`, 150); fx.dust(o.x, 0, 14, 1.6); }
       fx.spark(x, y, Math.atan2(-0.4, dir), 18, 1.2, t.col);
@@ -134,7 +139,8 @@
     combo(from, to, hits, name) {
       if (!shown()) return false;
       const c = this.combos[from.id];
-      this.combos[from.id] = { n: hits, name: name || (c && c.to === to && c.age < 1.2 ? c.name : null), age: 0, life: 1.5, col: from.col.ui, to, named: !!name && !(c && c.name === name) };
+      const cb = this.combos[from.id] = { n: hits, name: name || (c && c.to === to && c.age < 1.2 ? c.name : null), age: 0, life: 1.5, col: from.col.ui, to, named: !!name && !(c && c.name === name) };
+      if (this.seen.combos.size < 200) this.seen.combos.set(from.id + '|' + hits + '|' + cb.name + '|' + cb.named + '|' + cb.col, [from.id, hits, cb.name, cb.named, cb.col]); // (warmTexts)
       return true;
     },
 
@@ -216,11 +222,7 @@
       if (!(cw > 0) || !['block', 'parry', 'guard', 'move', 'recoil'].includes(f.state)) return;
       const big = f.cwKind === 'parry';
       if (!big && !(ND.settings && ND.settings.hints)) return;
-      const L = S(), tch = f === g.F[0] && !!(ND.touch && ND.touch.active);
-      const TB = (ND.STR && ND.STR.touch && ND.STR.touch.btn) || {};
-      const key = tch ? tt(TB.light || 'SALDIR') : f === g.F[0] ? (ND.input.keyLabel ? ND.input.keyLabel('KeyF') : 'F') : ND.input.keyLabel ? ND.input.keyLabel('KeyK') : 'K';
-      let k = s * (big ? 1 : 0.72);
-      if (tch) k = Math.max(k, (g.pxr || 1) * (big ? 1.05 : 0.8));
+      const PL = this.promptLook(f, big, s), k = PL.k;
       const frac = clamp(cw / (f.counterWin || 0.5), 0, 1), p = this.pops[f.id], pt = p ? p.t : 1;
       const pop = big ? 1 + Math.max(0, 0.16 - pt) * 3 : 1, pulse = 1 + 0.06 * Math.sin(g.pt * 22);
       // above the PARRY! pop-up (world y −205); when that would run into the HUD (phones, zoomed camera) the block goes
@@ -230,11 +232,23 @@
         const away = f.opp && f.opp.x > f.x ? -1 : 1;
         x = clamp(x + away * 105 * k, 60 * k, cam.W - 60 * k); y = Math.max(cam.H * 0.2 + 20 * k, cam.sy(f.y - 150));
       }
+      this.drawPromptAt(ctx, x, y, k, pop, pulse, frac, PL.key, PL.word);
+    },
+    // the prompt's key label, scale and word for fighter f (big: after a parry)
+    promptLook(f, big, s) {
+      const g = G(), L = S(), tch = f === g.F[0] && !!(ND.touch && ND.touch.active), P = this._pl || (this._pl = { key: '', k: 1, word: '' });
+      const TB = (ND.STR && ND.STR.touch && ND.STR.touch.btn) || {};
+      P.key = tch ? tt(TB.light || 'SALDIR') : f === g.F[0] ? (ND.input.keyLabel ? ND.input.keyLabel('KeyF') : 'F') : ND.input.keyLabel ? ND.input.keyLabel('KeyK') : 'K';
+      let k = s * (big ? 1 : 0.72);
+      if (tch) k = Math.max(k, (g.pxr || 1) * (big ? 1.05 : 0.8));
+      P.k = k; P.word = tt(L.strike || 'VUR!');
+      return P;
+    },
+    drawPromptAt(ctx, x, y, k, pop, pulse, frac, key, word) {
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       // STRIKE!
       ctx.font = `700 ${Math.round(30 * k * pop * pulse)}px Oswald, sans-serif`;
       ctx.lineWidth = 6 * k; ctx.strokeStyle = 'rgba(5,6,12,.92)';
-      const word = tt(L.strike || 'VUR!');
       ctx.strokeText(word, x, y); ctx.fillStyle = '#ffd27a'; ctx.fillText(word, x, y);
       // key chip
       ctx.font = `700 ${Math.round(15 * k)}px Oswald, sans-serif`;
@@ -288,6 +302,54 @@
         ctx.strokeText(c.name, x, y + 58 * k); ctx.fillStyle = '#ffd27a'; ctx.fillText(c.name, x, y + 58 * k);
       }
       ctx.globalAlpha = 1; ctx.textBaseline = 'alphabetic';
+    },
+    // Match preparation (game.js warmTexts, GPU path): the text pictures of this module's pop-ups, drawn through the
+    // real drawing code with made-up items over each animation's sizes (W(1): the sizes of a pop-in or pulse, W(2): the
+    // size it rests at); the renderer only makes the pictures (gl2d.js R.textWarm). Returns the jobs, most useful first:
+    // STRIKE! over a human player, the counter's name banners, combo counters 2-6, then what this session showed.
+    warmTexts(ctx, W) {
+      const g = G(); if (!g || !g.F) return [];
+      const J = [], s = cam.s, u = cam.ui || s;
+      const job = (fn) => J.push(() => { ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); try { fn(); } finally { W(0); ctx.restore(); } });
+      for (const f of g.F) {
+        if (!this.human(f)) continue;
+        for (const big of [true, false]) {
+          if (!big && !(ND.settings && ND.settings.hints)) continue;
+          job(() => {
+            const P = this.promptLook(f, big, s), k = P.k, key = P.key, word = P.word;
+            W(2); this.drawPromptAt(ctx, 0, 0, k, 1, 1, 1, key, word);
+            for (let pt = 0; pt <= 0.161; pt += big ? 0.004 : 1) {
+              const pop = big ? 1 + Math.max(0, 0.16 - pt) * 3 : 1;
+              for (let i = 0; i <= 24; i++) { W(1); this.drawPromptAt(ctx, 0, 0, k, pop, 1 + 0.06 * Math.sin((i / 24) * 2 * Math.PI), 1, key, word); }
+            }
+          });
+        }
+      }
+      const Ls = S();
+      for (const id in TY) {
+        const t = TY[id], name = (Ls.names && Ls.names[t.id]) || t.id.toUpperCase(), label = (Ls.labels && Ls.labels[t.id]) || '';
+        for (const f of g.F) job(() => {
+          const b = { f, t, stage: 1, age: 0, life: 1.05, name, label };
+          for (let st = 3; st >= 1; st--) { b.stage = st; b.age = 0.5; W(2); this.drawBanner(ctx, b, u); }
+          for (b.age = 0; b.age < 0.122; b.age += 0.004) { W(1); this.drawBanner(ctx, b, u); }
+          b.age = 0.5; W(2); this.drawBanner(ctx, b, u);
+        });
+      }
+      const combo = (side, n, name, named, col) => job(() => {
+        const c = { n, name, age: 0.5, life: 1.5, col, to: null, named };
+        W(2); this.drawCombo(ctx, c, side, u);
+        for (c.age = 0; c.age < 0.152; c.age += 0.004) { W(1); this.drawCombo(ctx, c, side, u); }
+        c.age = 0.5; W(2); this.drawCombo(ctx, c, side, u);
+      });
+      for (const f of g.F) for (let n = 2; n <= 6; n++) combo(f.id, n, null, false, f.col.ui);
+      for (const [side, n, name, named, col] of this.seen.combos.values()) combo(side, n, name, named, col);
+      for (const [v, col] of this.seen.nums.values()) job(() => {
+        const n = { x: 0, y: -200, v, col, age: 0.5, life: 1.1 };
+        W(2); this.drawNum(ctx, n, s);
+        for (n.age = 0; n.age < 0.182; n.age += 0.004) { W(1); this.drawNum(ctx, n, s); }
+        n.age = 0.5; W(2); this.drawNum(ctx, n, s);
+      });
+      return J;
     },
     rr(ctx, x, y, w, h, r) {
       ctx.beginPath(); ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r); ctx.lineTo(x + w, y + h - r);

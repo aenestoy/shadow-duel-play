@@ -76,6 +76,18 @@
   // ?cap=0 / ?cap=1: frame pacing forced to Max / 60 for tests (see the pacer at the end); '' = the Frame rate setting
   const CAP_Q = QS.get('cap') === '0' ? '0' : QS.get('cap') === '1' ? '1' : '';
   let glr = null, glShown = false, glSamples = null;
+  // the renderer's text modes for this tier (every WebGL2 frame, and the text warm-up before a fight: game.warmTexts)
+  function glTextFlags() {
+    glr.R.textSnap = !!GFX.f.snap;
+    // GPU path: three copies of the text atlas in turn (gl2d.js R.textRing; ?textring=0 / 1 to compare)
+    glr.R.textRing = QS.get('textring') != null ? QS.get('textring') === '1' : GPU_PATH;
+    // GPU path: texts placed at their exact position and growing texts on the size ladder (gl2d.js R.textFree;
+    // ?textfree=0 / 1 to compare): almost no new text pictures (uploads) during a fight
+    glr.R.textFree = QS.get('textfree') != null ? QS.get('textfree') === '1' : GPU_PATH;
+  }
+  // pop-up texts shown in this session's fights (GPU path), drawn again at each match preparation (game.warmTexts):
+  // fx: [text, colour] of fx.text; pops: [value, big] of the score pop-ups; nums / combos: kaeshi-cine.js warmTexts
+  const popSeen = { fx: new Map(), pops: new Map(), nums: new Map(), combos: new Map() };
   // (the Canvas 2D canvas under the opaque WebGL canvas is made fully transparent meanwhile: the page compositor then
   // skips it instead of blending a second full-screen layer on every frame; it still takes the taps)
   const showGl = (on) => { if (glr && on !== glShown) { glShown = on; glr.canvas.style.visibility = on ? 'visible' : 'hidden'; cv.style.opacity = on ? '0' : ''; } };
@@ -118,7 +130,12 @@
   }
   function initGl() {
     const m = QS.get('msaa');
-    try { glr = ND.createGlRenderer({ grain, samples: m == null ? 4 : +m, glowTaps: GLOW_TAPS, auto: !GL_FORCE }); } catch (e) { glr = null; glWhy = String(e && e.message || e); }
+    // GPU path: a 2048 x 2048 text atlas (three copies: 48 MB; 2048 x 1024 on devices reporting under 4 GB), so every
+    // size a fight's pop-up texts animate through stays in it (warmTexts) instead of being drawn again whenever the
+    // 1024 x 1024 atlas filled up mid-fight (?tatlas=WxH to compare)
+    const ta = /^(\d+)x(\d+)$/.exec(QS.get('tatlas') || ''), lowMem = +navigator.deviceMemory > 0 && +navigator.deviceMemory < 4;
+    const textAtlas = ta ? [+ta[1], +ta[2]] : GPU_PATH ? [2048, lowMem ? 1024 : 2048] : null;
+    try { glr = ND.createGlRenderer({ grain, samples: m == null ? 4 : +m, glowTaps: GLOW_TAPS, auto: !GL_FORCE, textAtlas }); } catch (e) { glr = null; glWhy = String(e && e.message || e); }
     if (!glr) glWhy = glWhy || 'no WebGL2';
     if (glr) {
       glr.canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;visibility:hidden';
@@ -132,6 +149,15 @@
     }
   }
   const input = ND.input, au = ND.audio, cam = ND.cam, fx = ND.fx, scene = ND.scene, mu = ND.music;
+  // GPU path: every pop-up text a fight shows is noted for the next match preparation's text warm-up (popSeen)
+  if (GPU_PATH && fx && fx.text) {
+    const fxText = fx.text;
+    fx.text = function () {
+      fxText.apply(this, arguments);
+      const t = this.texts[this.texts.length - 1];
+      if (t && popSeen.fx.size < 300) { const k = t.str + '|' + t.color; if (!popSeen.fx.has(k)) popSeen.fx.set(k, [t.str, t.color]); }
+    };
+  }
   ND.simClock = 0; // simulation clock (seconds of fixed steps); input buffers read it, see game.advance
   // Text that is not in ND.STR (fallbacks, composed banners) goes through the i18n phrase table
   const tx = (s) => (ND.i18n ? ND.i18n.t(s) : s);
@@ -339,8 +365,19 @@
         c.lineWidth = Math.max(3, fs * 0.22); c.strokeStyle = 'rgba(5,6,12,.88)';
         c.strokeText(s, X, Y);
         c.fillStyle = p.big ? '#f1d69c' : '#ffe08a'; c.fillText(s, X, Y);
+        if (p.rec !== p.v && GPU_PATH) { p.rec = p.v; if (popSeen.pops.size < 300) popSeen.pops.set(p.v + (p.big ? 'b' : ''), [p.v, p.big]); } // (warmTexts)
       }
       c.restore();
+    },
+    // match preparation (game.warmTexts): the pictures of pop-up value v through its pop-in (W(1)) and at rest (W(2))
+    warmPop(c, v, big, W) {
+      const keep = this.pops, p = { x: 0, y: -200, v, age: 0, life: big ? 1.6 : 1.1, big, rec: v };
+      this.pops = [p];
+      try {
+        p.age = 0.5; W(2); this.drawPops(c);
+        for (let a = 0; a < 0.122; a += 0.002) { p.age = a; W(1); this.drawPops(c); }
+        p.age = 0.5; W(2); this.drawPops(c);
+      } finally { this.pops = keep; W(0); }
     },
   };
 
@@ -497,6 +534,50 @@
     cancelPreparation() {
       if (this.preparing) { this.preparing.cancel(); this.preparing = null; }
     },
+    // Pop-up texts of the fight (GPU path): PARRY!, CLASH!, COUNTER HIT!, the counter's name banner and damage number,
+    // the combo counter, STRIKE!, the score pop-ups... Each size such a text animates through is a picture in the
+    // renderer's text atlas; one drawn for the first time costs 1-4 ms of processor time on a phone (Canvas 2D text
+    // outline, copy, three uploads: gl2d.js), and several came together exactly on the frames of a block, parry,
+    // clash or counter (the owner's stutter). Here, behind the loading screen, each one this fight can show is drawn
+    // once through the real drawing code with made-up pop-ups (the renderer only makes the pictures: gl2d.js
+    // R.textWarm): a fixed list, the two fighters' own texts, and what earlier fights of this session showed (popSeen).
+    // The look is unchanged: they are the same pictures the fight would have made on those frames.
+    warmTexts() {
+      const R = glr.R, L = [];
+      const W = (lv) => { R.textWarm = lv; };
+      R.textWarmFull = false;
+      const c = glr.begin(cv.width, cv.height); // (a frame that is never shown: the next frame starts over)
+      const items = new Map();
+      const add = (str, color) => { if (str) items.set(str + '|' + color, [str, color]); };
+      // what a block, parry, clash, lock, guard break or hit can say (fighter.js / game.js, their colours; fx.text
+      // translates the same way)
+      for (const k of ['SAVUŞTURMA!', 'ÇARPIŞMA!', 'KİLİTLENDİ!', 'İTTİ!', 'YANSITMA!']) add(tx(k), '#ffe3a1');
+      add(tx('DENGE KIRILDI!'), '#ff9b7a');
+      for (const k of ['KARŞI!', 'KRİTİK!', 'KARŞILIK!', 'SÜPÜRME!', 'ARKADAN!']) add(tx(k), '#ffd27a');
+      if (ND.TXT) for (const k of ['kSuriage', 'kHarai', 'kNuki', 'kUchiotoshi']) if (ND.TXT[k]) add(tx(ND.TXT[k]), '#ffd27a');
+      add(tx('KAFA!'), '#f2d0c8');
+      add(tx((ND.TXT && ND.TXT.launch) || 'HAVAYA!'), '#d9dbe6'); add(tx('YERE SERİLDİ'), '#d9dbe6');
+      for (const f of F) { const kj = ND.SPECIALS?.[f.ch.id]?.kanji || '影斬り'; add(tx(kj), '#ffd27a'); add(tx(kj), f.col.ui); }
+      for (const v of popSeen.fx.values()) items.set(v[0] + '|' + v[1], v);
+      for (const it of items.values()) L.push(() => fx.warmTexts(c, it[0], it[1], W));
+      for (const [v, big] of popSeen.pops.values()) L.push(() => score.warmPop(c, v, big, W));
+      if (ND.cine && ND.cine.warmTexts) L.push(...ND.cine.warmTexts(c, W));
+      // the parry hint before a counter comes (drawPrompts, hints on; on a phone its size follows the screen)
+      if (ND.settings.hints && tOn()) {
+        const TB = (STR.touch && STR.touch.btn) || {};
+        L.push(() => { try { W(2); this.promptText(c, 0, 0, Math.max(cam.s * 0.9, (this.pxr || 1) * 1.05), tx(TB.guard || 'GARD'), tx('SAVUŞTUR'), '150,210,255'); } finally { W(0); } });
+      }
+      let i = 0;
+      return {
+        // about `ms` of drawing per loading frame; true when every pop-up is done
+        step(ms) {
+          const t0 = performance.now();
+          if (!glr || !glr.ready) return true;
+          try { while (i < L.length && !R.textWarmFull && performance.now() - t0 < ms) L[i++](); } finally { W(0); game.textWarmMs = (game.textWarmMs || 0) + performance.now() - t0; }
+          return i >= L.length || R.textWarmFull;
+        },
+      };
+    },
     prepareMatch() {
       startGl(); // the fight renderer is ready before the first fight frame (normally it already is: see startGl)
       if (!ND.prepare) return;
@@ -518,6 +599,8 @@
           return ND.prepareBaked ? ND.prepareBaked(draw) : (draw(), true);
         });
       }
+      // GPU path: the fight's pop-up texts at every size they animate through (warmTexts; ?textwarm=0 to compare)
+      if (warmGl && GPU_PATH && QS.get('textwarm') !== '0') { let w = null; jobs.push(() => { glTextFlags(); return (w || (w = this.warmTexts())).step(12); }); }
       // Reveal one complete scene, never the intermediate partial part layers used by the warm-up jobs.
       jobs.push(() => this.render());
       // WebGL2: wait (behind the loading screen, at most ~2.5 s) until the GPU has digested the uploads and that first
@@ -755,14 +838,17 @@
         ctx.beginPath(); ctx.arc(x, y, (15 + 38 * frac) * s, 0, 6.283); ctx.stroke();
         ctx.fillStyle = 'rgba(8,9,16,.85)'; ctx.beginPath(); ctx.arc(x, y, 15 * s, 0, 6.283); ctx.fill();
         ctx.strokeStyle = `rgb(${col})`; ctx.lineWidth = 2 * s; ctx.stroke();
-        ctx.fillStyle = `rgb(${col})`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        let fs = Math.round(15 * s);
-        ctx.font = `700 ${fs}px Oswald, sans-serif`;
-        if (key.length > 1) { const w = ctx.measureText(key).width, mw = 25 * s; if (w > mw) { fs = Math.max(6, Math.floor(fs * mw / w)); ctx.font = `700 ${fs}px Oswald, sans-serif`; } }
-        ctx.fillText(key, x, y + s);
-        ctx.font = `600 ${Math.round(10 * s)}px Oswald, sans-serif`; ctx.fillText(label, x, y + 27 * s);
-        ctx.textBaseline = 'alphabetic';
+        this.promptText(ctx, x, y, s, key, label, col);
       }
+    },
+    promptText(c, x, y, s, key, label, col) {
+      c.fillStyle = `rgb(${col})`; c.textAlign = 'center'; c.textBaseline = 'middle';
+      let fs = Math.round(15 * s);
+      c.font = `700 ${fs}px Oswald, sans-serif`;
+      if (key.length > 1) { const w = c.measureText(key).width, mw = 25 * s; if (w > mw) { fs = Math.max(6, Math.floor(fs * mw / w)); c.font = `700 ${fs}px Oswald, sans-serif`; } }
+      c.fillText(key, x, y + s);
+      c.font = `600 ${Math.round(10 * s)}px Oswald, sans-serif`; c.fillText(label, x, y + 27 * s);
+      c.textBaseline = 'alphabetic';
     },
 
     // ---------------------------------------------------- kılıç kilitlenmesi (tsubazeriai)
@@ -1268,14 +1354,10 @@
     // WebGL2 frame (see glr above). false: nothing was shown, the caller draws the frame with Canvas 2D.
     renderGl(behindUi) {
       // the tier's processor savings in the renderer (js/gfx.js TIERS: curve tolerance, texts on whole pixels)
-      glr.R.setTolerance(GFX.f.tol); glr.R.textSnap = !!GFX.f.snap;
+      glr.R.setTolerance(GFX.f.tol);
       // ?renderer=gpu, High / Medium: part pictures sampled sharper (mip bias; they are made for the closest zoom)
       glr.R.spriteBias = GPU_PATH && GFX.tier !== 'low' ? SPRITE_BIAS : 0;
-      // GPU path: three copies of the text atlas in turn (gl2d.js R.textRing; ?textring=0 / 1 to compare)
-      glr.R.textRing = QS.get('textring') != null ? QS.get('textring') === '1' : GPU_PATH;
-      // GPU path: texts placed at their exact position and growing texts on the size ladder (gl2d.js R.textFree;
-      // ?textfree=0 / 1 to compare): almost no new text pictures (uploads) during a fight
-      glr.R.textFree = QS.get('textfree') != null ? QS.get('textfree') === '1' : GPU_PATH;
+      glTextFlags();
       // Low: 2× multisampling instead of 4× (?msaa=n overrides). The fighters there are ready-made anti-aliased
       // pictures and the backdrop is one picture; the samples mostly cost memory traffic: every pass writes and resolves
       // them on every frame, which on a phone is power and heat.
@@ -2689,10 +2771,14 @@
     portalTick(rdt, inAd);
     game.syncTouch();
     drawFrame(performance.now());
+    // a vibration of this frame's hit / parry goes to the browser once the frame is handed over (js/haptics.js defer)
+    if (ND.haptics && ND.haptics.pending) setTimeout(hFlush, 0);
     bgWarm();
     if (!loaded) { loaded = true; ND.portal?.loadingFinished(); ND.funnel?.step('menu'); if (glLater) setTimeout(startGl, 0); }
     aqWatch(gap, performance.now() - w0);
   }
   game._frame = frameBody;
+  const hFlush = () => ND.haptics.flush();
+  if (ND.haptics) { ND.haptics.defer = true; ND.haptics.off = QS.get('vib') === '0'; }
   requestAnimationFrame(frame);
 })(window.ND);

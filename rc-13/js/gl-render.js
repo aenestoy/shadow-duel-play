@@ -30,7 +30,7 @@ window.ND = window.ND || {};
         preserveDrawingBuffer: false, powerPreference: 'high-performance', desynchronized: false, failIfMajorPerformanceCaveat: !!opts.auto });
     } catch (e) { gl = null; }
     if (!gl) return null;
-    const R = ND.createGL2D(gl, { samples: opts.samples });
+    const R = ND.createGL2D(gl, { samples: opts.samples, textAtlas: opts.textAtlas });
     const E = R.exec;
     let lost = false, error = '', checked = false, lastReason = '', frames = 0, fallbacks = 0, streak = 0;
     // auto mode: this many refused frames in a row (~3 s at 60 fps) switch the renderer off for the session

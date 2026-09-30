@@ -433,7 +433,9 @@ window.ND = window.ND || {};
     // frame is on is emptied (texts still on screen are never drawn again). Each new text is drawn by Canvas 2D on a
     // CPU canvas (willReadFrequently): its copy into the atlas is a plain pixel upload that never waits for the GPU
     // (a GPU canvas has to be finished by the GPU first; on phones that stalled whole frames).
-    const TA_W = 1024, TA_H = 1024;
+    // (opts.textAtlas [w, h]: the GPU path uses a larger atlas, so a fight's pop-up texts at every size they animate
+    // through stay in it and are not drawn again; game.js initGl)
+    const TA_W = (opts.textAtlas && opts.textAtlas[0]) || 1024, TA_H = (opts.textAtlas && opts.textAtlas[1]) || 1024;
     const texts = new Map(); // key → { x, y, w, h, ox, oy, used, shelf }
     const textSizes = new Map(); // text without its size → { px (last size), until (frame: still animating) }
     const FONT_PX = /(\d+(?:\.\d+)?)px/;
@@ -448,6 +450,9 @@ window.ND = window.ND || {};
     let textRing = [], textCur = 0;
     const textQ = [[], [], []];
     R.textRing = false;
+    R.textWarm = 0; R.textWarmFull = false; // (see _text)
+    // what the text atlas holds (tests, scripts/parry-hitch-check.mjs): pictures, rows used, pictures made so far
+    R.textUse = (detail) => ({ texts: texts.size, rows: shelfTop, height: TA_H, width: TA_W, made: textUploads, keys: detail ? [...texts].map(([k, e]) => [k, e.w * e.h]) : undefined });
     function textScratch(w, h) {
       if (!textCanvas) { textCanvas = document.createElement('canvas'); textCtx = null; }
       if (textCanvas.width < w || textCanvas.height < h) {
@@ -1117,6 +1122,26 @@ window.ND = window.ND || {};
         // banners) would need a new picture every frame. On Medium / Low (snap) such a text is drawn at the next size of
         // a 2^(1/4) ladder and its picture placed a little smaller (at most 16%): a few pictures per animation instead of
         // one per frame. Once the size stays put (30 frames), the text is drawn at its exact size again.
+        // R.textWarm (match preparation, game.js warmTexts; nothing is drawn): a made-up pop-up is drawn through its
+        // animation. 1: a size it animates through - its ladder picture is made (when the size differs from the previous
+        // call's, or its outline: a text of fixed size drawn along needs none); 2: the size it comes to rest at - the
+        // exact picture and the ladder one.
+        // The last size is noted as the text's current one, so its first real pop-in takes the ladder pictures as every
+        // later one does. The fight's pop-ups are then in the atlas before the first hit, parry or counter shows them:
+        // no text picture is drawn or uploaded on those frames. A full atlas ends the warm-up (R.textWarmFull).
+        if (R.textWarm) {
+          if (!(snap || free) || R.textWarmFull) return;
+          const m = FONT_PX.exec(this.font), px = m ? +m[1] : 0;
+          const ak = m ? (stroke ? 'S' : 'F') + this.font.replace(m[0], '') + '|' + t + '|' + col.join(',') : '';
+          const z = m ? textSizes.get(ak) : null;
+          const q = px > 1 ? Math.round(Math.pow(2, Math.ceil(Math.log2(px) * 4 - 1e-6) / 4) * 4) / 4 : px;
+          if (R.textWarm === 2 || !(q > px)) this._textPic(t, stroke, col, this.font, this.lw, mw, 0);
+          // (at rest too: the same text at another size elsewhere - STRIKE!'s key after a parry and after a block -
+          // makes its next appearance take the ladder picture)
+          if (q > px && (R.textWarm === 2 || !(z && z.px === px && (!stroke || z.lw === this.lw)))) { const k = px / q; this._textPic(t, stroke, col, this.font.replace(m[0], q + 'px'), this.lw / k, mw === undefined ? undefined : mw / k, 0); }
+          if (m) { if (z) { z.px = px; z.until = 0; z.lw = this.lw; } else { if (textSizes.size > 512) textSizes.clear(); textSizes.set(ak, { px, until: 0, lw: this.lw }); } }
+          return;
+        }
         let font = this.font, lw = this.lw, mwq = mw, k = 1;
         if (snap || free) {
           const m = FONT_PX.exec(font);
@@ -1131,9 +1156,31 @@ window.ND = window.ND || {};
             }
           }
         }
+        const e = this._textPic(t, stroke, col, font, lw, mwq, fx);
+        if (!e) return;
+        const blend = this._blend(), al = this.ga;
+        EU[0] = pack(al * 255, al * 255, al * 255, al * 255); EU[1] = PT_TEX; UVM = 0;
+        nextZ();
+        useState(this.pass, blend, TEXT_TEX, this.clp, this.sc);
+        // (free: placed at a fractional position, the picture is sampled between texels: its outer texel, always part of the
+        // transparent margin, is left out, so nothing next to it in the atlas bleeds in)
+        const ins = free ? 1 : 0;
+        const x0 = ix - (e.ox - ins) * k, y0 = iy - (e.oy - ins) * k, qw = (e.w - 2 * ins) * k, qh = (e.h - 2 * ins) * k, u0 = (e.x + ins) / TA_W, v0 = (e.y + ins) / TA_H, u1 = (e.x + e.w - ins) / TA_W, v1 = (e.y + e.h - ins) / TA_H;
+        QX[0] = x0; QY[0] = y0; QX[1] = x0 + qw; QY[1] = y0; QX[2] = x0 + qw; QY[2] = y0 + qh; QX[3] = x0; QY[3] = y0 + qh;
+        QU[0] = u0; QV[0] = v0; QU[1] = u1; QV[1] = v0; QU[2] = u1; QV[2] = v1; QU[3] = u0; QV[3] = v1;
+        emitUV4();
+      }
+      // The atlas picture of text t (this context's alignment, baseline, join and transform) in `font`, colour col,
+      // outline lw (stroke), max width mwq and sub-pixel offset fx: found, or drawn and uploaded now. null: the atlas
+      // is full (the frame is refused and drawn with Canvas 2D).
+      _textPic(t, stroke, col, font, lw, mwq, fx) {
+        const a = this.a, b = this.b, c = this.c, d = this.d;
         // (free: an outline width that follows the camera zoom is kept to half pixels, or every zoom step of the
         // camera would make a new picture of each outlined text)
-        if (free && stroke) lw = Math.max(0.5, Math.round(lw * 2) / 2);
+        if (!R.textSnap && R.textFree && stroke) lw = Math.max(0.5, Math.round(lw * 2) / 2);
+        // a max width the text fits in changes nothing in its picture: left out of the key (on the size ladder the max
+        // width is scaled per size, so a banner name that fits made a new picture at every size of its pop-in)
+        if (mwq !== undefined && !(metrics(t, font, this.align, this.baseline).width > mwq)) mwq = undefined;
         const key = (stroke ? 'S' : 'F') + font + '|' + this.align + '|' + this.baseline + '|' + (mwq === undefined ? '' : mwq) + '|' +
           col.join(',') + '|' + (stroke ? lw + this.join + '/' + this.miter : '') + '|' + a.toFixed(4) + ',' + b.toFixed(4) + ',' + c.toFixed(4) + ',' + d.toFixed(4) + '|' + fx + '|' + t;
         let e = texts.get(key);
@@ -1151,15 +1198,16 @@ window.ND = window.ND || {};
           }
           const ox = Math.ceil(-minx) + 1, oy = Math.ceil(-miny) + 1;
           const w = Math.min(TA_W, Math.ceil(maxx + fx) + ox + 2), h = Math.min(TA_H, Math.ceil(maxy) + oy + 2);
-          if (w <= 0 || h <= 0) return;
+          if (w <= 0 || h <= 0) return null;
           let r0 = textAlloc(w, h);
           if (!r0) {
+            if (R.textWarm) { R.textWarmFull = true; return null; } // (the warm-up stops; what it made stays)
             // full: start the atlas again; texts placed earlier in this frame may be overwritten, so this frame is
             // drawn with Canvas 2D (rare: the atlas holds a few hundred distinct texts)
             textClear();
             if (P) P.textAtlasFull++;
             fail('text atlas full');
-            return;
+            return null;
           }
           const tc = textScratch(w, h);
           tc.setTransform(1, 0, 0, 1, 0, 0); tc.globalAlpha = 1; tc.globalCompositeOperation = 'copy';
@@ -1173,31 +1221,27 @@ window.ND = window.ND || {};
           r0.shelf.keys.push(key);
           // straight into the atlas (a GPU copy; the scratch canvas is reused by the next text)
           if (E.ready) {
-            gl.bindTexture(gl.TEXTURE_2D, textTex);
             gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
-            gl.texSubImage2D(gl.TEXTURE_2D, 0, e.x, e.y, w, h, gl.RGBA, gl.UNSIGNED_BYTE, textCanvas);
-            gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
-            if (textRing.length === 3) {
-              const px = tc.getImageData(0, 0, w, h).data, u = { x: e.x, y: e.y, w, h, px };
-              for (let i = 1; i < 3; i++) textQ[(textCur + i) % 3].push(u);
+            if (R.textWarm && textRing.length === 3) {
+              // warm-up (no frame on screen): into every copy of the atlas at once, nothing is left queued for the fight
+              for (const T of textRing) { gl.bindTexture(gl.TEXTURE_2D, T); gl.texSubImage2D(gl.TEXTURE_2D, 0, e.x, e.y, w, h, gl.RGBA, gl.UNSIGNED_BYTE, textCanvas); }
+              CNT.texUp += 2; CNT.texKB += (w * h) / 128;
+            } else {
+              gl.bindTexture(gl.TEXTURE_2D, textTex);
+              gl.texSubImage2D(gl.TEXTURE_2D, 0, e.x, e.y, w, h, gl.RGBA, gl.UNSIGNED_BYTE, textCanvas);
+              if (textRing.length === 3) {
+                const px = tc.getImageData(0, 0, w, h).data, u = { x: e.x, y: e.y, w, h, px };
+                for (let i = 1; i < 3; i++) textQ[(textCur + i) % 3].push(u);
+              }
             }
+            gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
             textUploads++; CNT.texUp++; CNT.texts++; CNT.texKB += (w * h) / 256;
           }
           texts.set(key, e);
           if (P) { P.texts++; P.textPx += w * h; P.textMs += now() - tt; if (P.textWhy.length < 6) P.textWhy.push(P.stacks ? key : t.slice(0, 24) + ' ' + w + 'x' + h); }
         }
         e.used = frameNo; e.shelf.used = frameNo;
-        const blend = this._blend(), al = this.ga;
-        EU[0] = pack(al * 255, al * 255, al * 255, al * 255); EU[1] = PT_TEX; UVM = 0;
-        nextZ();
-        useState(this.pass, blend, TEXT_TEX, this.clp, this.sc);
-        // (free: placed at a fractional position, the picture is sampled between texels: its outer texel, always part of the
-        // transparent margin, is left out, so nothing next to it in the atlas bleeds in)
-        const ins = free ? 1 : 0;
-        const x0 = ix - (e.ox - ins) * k, y0 = iy - (e.oy - ins) * k, qw = (e.w - 2 * ins) * k, qh = (e.h - 2 * ins) * k, u0 = (e.x + ins) / TA_W, v0 = (e.y + ins) / TA_H, u1 = (e.x + e.w - ins) / TA_W, v1 = (e.y + e.h - ins) / TA_H;
-        QX[0] = x0; QY[0] = y0; QX[1] = x0 + qw; QY[1] = y0; QX[2] = x0 + qw; QY[2] = y0 + qh; QX[3] = x0; QY[3] = y0 + qh;
-        QU[0] = u0; QV[0] = v0; QU[1] = u1; QV[1] = v0; QU[2] = u1; QV[2] = v1; QU[3] = u0; QV[3] = v1;
-        emitUV4();
+        return e;
       }
       // -------------------------------------------------- layers
       // A transparent picture of w×h device pixels (like a new canvas), drawn in the first pass; place it with

@@ -387,6 +387,17 @@
         ctx.restore();
       }
     },
+    // Match preparation (game.js warmTexts, GPU path): the pictures of pop-up text str in colour at every size of its
+    // pop-in (W(1)) and at the size it rests at (W(2)), through drawTexts with a made-up text (nothing is drawn)
+    warmTexts(ctx, str, color, W) {
+      const keep = this.texts, T = { x: 0, y: -200, str, color, life: 1.1, max: 1.1 };
+      this.texts = [T];
+      try {
+        T.life = 0.6; W(2); this.drawTexts(ctx);
+        for (let l = T.max; l > T.max - 0.125; l -= 0.004) { T.life = l; W(1); this.drawTexts(ctx); }
+        T.life = 0.6; W(2); this.drawTexts(ctx);
+      } finally { this.texts = keep; W(0); }
+    },
   };
 
   const BUSH = [[-0.7, 0.15, 0.55], [-0.1, -0.2, 0.7], [0.55, 0.05, 0.6], [0.1, 0.25, 0.8]], BUSH_HI = [[-0.2, -0.45, 0.4], [0.45, -0.2, 0.3]];
