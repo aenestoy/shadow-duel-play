@@ -1409,7 +1409,7 @@
     const horiz = 1 - Math.abs(uy);
     const t = ND.scene.t, amp = 0.7 + Math.min(1.6, Math.abs(j._vs || 0) * 0.25);
     const fl = Math.sin(t * 9 + (front ? 0 : 1.7) + sh.x * 0.03) * amp;
-    AG.sag = horiz * (4.8 + fl) + 0.6 * fl + 1;
+    AG.sag = horiz * (4.8 + fl) + 0.6 * fl + 1 + ((front ? j._slF : j._slB) || 0); // _sl*: sleeve billow (js/anim.js)
     AG.ux = ux; AG.uy = uy; AG.nx = nx; AG.ny = ny;
     AG.mx = (sh.x + el.x) * 0.5; AG.my = (sh.y + el.y) * 0.5;
     const hdx = ha.x - el.x, hdy = ha.y - el.y, hd = Math.hypot(hdx, hdy) || 1;

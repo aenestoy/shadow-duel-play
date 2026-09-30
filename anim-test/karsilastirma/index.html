@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8" />
+<meta name="robots" content="noindex, nofollow" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Kılıç Hareketi — Önce / Sonra</title>
+<style>
+  :root { --bg: #0e1015; --card: #171a22; --tx: #e9ecf3; --mut: #9aa3b5; --red: #ff6b6b; --grn: #4ade80; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--tx); font: 16px/1.5 "Segoe UI", system-ui, sans-serif; }
+  main { max-width: 1320px; margin: 0 auto; padding: 20px 16px 60px; }
+  h1 { font-size: 26px; margin: 0 0 6px; }
+  p.lead { color: var(--mut); margin: 0 0 18px; }
+  .play a { display: inline-block; margin: 0 10px 10px 0; padding: 10px 16px; border-radius: 10px; background: #2b3242; color: var(--tx); text-decoration: none; font-weight: 600; }
+  .play a.new { background: #1f7a45; }
+  section { background: var(--card); border-radius: 14px; padding: 16px; margin: 18px 0; }
+  h2 { font-size: 20px; margin: 0 0 4px; }
+  .cap { margin: 0 0 12px; }
+  .cap b.r { color: var(--red); } .cap b.g { color: var(--grn); }
+  video, img { width: 100%; height: auto; border-radius: 10px; display: block; background: #000; }
+  .row { display: grid; gap: 12px; grid-template-columns: 1fr; }
+  @media (min-width: 900px) { .row { grid-template-columns: 1fr 1fr; } }
+  details { margin-top: 10px; } summary { cursor: pointer; color: var(--mut); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Kılıç hareketi — önce / sonra</h1>
+  <p class="lead">Her örnekte solda eski çizim (ÖNCE), sağda yeni çizim (SONRA) var. Dövüşün kendisi aynı: aynı an, aynı vuruş, aynı hasar. Videolar 1/4 hızda; sorunlu karede görüntü 2 saniye durur ve sorun işaretlenir.</p>
+  <div class="play">
+    <a class="new" href="../">Yeni hâliyle oyna</a>
+    <a href="../?anim=0">Eski hâliyle oyna (karşılaştırma)</a>
+  </div>
+  <div id="list"></div>
+</main>
+<script>
+  const S = [
+    ['1-kuro-kilic-kaldirma', 'head', 'Kuro · ağır saldırı: kılıcı kaldırış', 'el ve kılıç yüzün / şapkanın içinden geçiyor', 'el yüzün önünden yay çizerek başın üstüne çıkıyor'],
+    ['4-kuro-savusturma', 'snap', 'Kuro · savuşturma', 'kılıç tek karede ~120° zıplıyor (arada kare yok)', 'kılıç arada görünerek karşılamaya gidiyor'],
+    ['3-kuro-yere-gomulme', 'floor', 'Kuro · ağır saldırı: bitiş', 'kılıcın ucu yerin içine gömülüyor', 'kılıcın ucu yerde duruyor'],
+    ['2-kuro-kesik-izi', 'trail', 'Kuro · ağır saldırı: kesik izi', 'kılıç izi kırık kırık, köşeli yelpaze', 'kılıç izi ucun çizdiği düzgün yay'],
+    ['6-yuki-hizli-kesik', 'trail', 'Yuki · hızlı kesik izi', 'hızlı kesikte iz köşeli yelpaze', 'iz ucun gerçek yayını izliyor'],
+    ['7-kuro-vurusta-durma', 'onion', 'Kuro · vuruş anı (çizgiler: kılıcın art arda kareleri)', 'kılıç vuruş anında duruyor, sonra birden devam ediyor', 'kılıç vuruştan akarak geçiyor, hız kesilmiyor'],
+    ['8-kuro-agirlik', 'onion', 'Kuro · ağır kılıcın toparlanması', 'ağır kılıç hafif bir çubuk gibi dümdüz toparlanıyor', 'ağır kılıç savrulup geç oturuyor (ağırlık hissi)'],
+    ['9-hana-hafif', 'onion', 'Hana · hafif silahın toparlanması', 'hafif silah da ağır silahla aynı yavaşlıkta dönüyor', 'hafif silah çabucak, çevik biçimde gardına dönüyor'],
+    ['10-jin-tutus', 'grip', 'Jin · sopayı iki elle tutuş', 'arka el sopadan kopuyor, havada kalıyor', 'arka el sopayı bırakmıyor, üstünde kayıyor'],
+  ];
+  const L = document.getElementById('list');
+  for (const [n, k, t, b, a] of S) {
+    const s = document.createElement('section');
+    const strip = k === 'onion' ? '' : `<details><summary>Kare kare şerit</summary><img loading="lazy" src="${n}-kare-${k}.png" alt="${t}: kare şeridi"></details>`;
+    s.innerHTML = `<h2>${t}</h2><p class="cap"><b class="r">ÖNCE:</b> ${b}<br><b class="g">SONRA:</b> ${a}</p>
+      <div class="row"><video src="${n}.mp4" controls loop muted playsinline preload="metadata"></video><img loading="lazy" src="${n}-durdurulmus-${k}.jpg" alt="${t}: durdurulmuş kare"></div>${strip}`;
+    L.appendChild(s);
+  }
+</script>
+</body>
+</html>

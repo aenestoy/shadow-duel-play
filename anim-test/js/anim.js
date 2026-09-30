@@ -34,8 +34,8 @@
 
   function mk(f) {
     return {
-      p: pose.copy(f.pose), prevT: pose.copy(f.pose), from: pose.copy(f.pose), pa: {}, pb: {}, lj: {},
-      j: {}, cu: 0, cuDur: 0, gw: 1, prevState: f.state, prevSerial: f.serial, ok: false, stamp: -1, chain: null,
+      p: pose.copy(f.pose), prevT: pose.copy(f.pose), from: pose.copy(f.pose), pa: {}, pb: {}, lj: {}, lt: {},
+      j: {}, cu: 0, cuDur: 0, gw: 1, gp: NaN, gv: 0, gs: 1, gsb: 1, wc: null, wch: null, sy: [0, 0, 0], sv: [0, 0, 0], sx: [0, 0, 0], sinit: false, ws: 0, sl: [0, 0], slv: [0, 0], sla: [NaN, NaN], prevState: f.state, prevSerial: f.serial, ok: false, stamp: -1, chain: null,
     };
   }
 
@@ -61,9 +61,11 @@
     ARC.x = 0; ARC.y = 0;
     const ra = Math.hypot(a.ax, a.ay), rb = Math.hypot(b.ax, b.ay);
     if (ra < 14 || rb < 14) return ARC;
-    const ta = Math.atan2(a.ay, a.ax), d = wrap(Math.atan2(b.ay, b.ax) - ta), ad = Math.abs(d);
-    if (ad < 0.25 || ad > 2.8) return ARC; // (a near half turn: which way round is not known; keep the straight path)
-    const w = ad > 2.3 ? (2.8 - ad) / 0.5 : 1;
+    // (the hand never swings round behind the head: angles are taken in (-π, π] from "forward", and the plain
+    // difference goes the way that does not cross "straight back"; only an all-but-full turn keeps the straight path)
+    const ta = Math.atan2(a.ay, a.ax), d = Math.atan2(b.ay, b.ax) - ta, ad = Math.abs(d);
+    if (ad < 0.25 || ad > 3.1) return ARC;
+    const w = ad > 2.9 ? (3.1 - ad) / 0.2 : 1;
     const r = ra + (rb - ra) * e, th = ta + d * e;
     const px = Math.cos(th) * r, py = Math.sin(th) * r;
     const lx = a.ax + (b.ax - a.ax) * e, ly = a.ay + (b.ay - a.ay) * e;
@@ -96,6 +98,102 @@
       Math.abs(a.lean - b.lean) * 1.4, Math.abs(a.hx - b.hx) / 26, Math.abs(a.hy - b.hy) / 26);
   }
   const outCubic = (u) => 1 - (1 - u) * (1 - u) * (1 - u);
+
+
+  // ------------------------------------------------------------ round 2: flow, weight, grip, sleeves
+  // 6. no dead stop at the contact key: where a cut eases to a stop on a key and the next segment carries on the same
+  //    way at full speed (outQuart into outCubic), the timing round that key is replaced by a smooth curve (monotone
+  //    cubic in the move's progress): the blade keeps its designed path but flows through the key.
+  // How far the drawn blade may run ahead of / behind the fight's while a blow can hit: the flow through the contact
+  // key needs some room (a cut moves 50-150 px per 1/60 s frame there, so ~26 px is not seen as a mismatch); the
+  // other shaping (arcs, head clearance) keeps to ACT_PX on its own and everything together to ACT_MAX.
+  const FLOW_PX = 26, ACT_PX = 12, ACT_MAX = 30;
+  const FLOW = { a: null, b: null, e: 0, ps: 0, pd: 0, A: null, B: null, C: null };
+  function pAt(keys, m, t) {
+    const k0 = keys[m - 1], k1 = keys[m], k2 = keys[m + 1];
+    if (t <= k1[0]) return (k1[2] || inOutSine)(clamp((t - k0[0]) / Math.max(1e-4, k1[0] - k0[0]), 0, 1));
+    return 1 + (k2[2] || inOutSine)(clamp((t - k1[0]) / Math.max(1e-4, k2[0] - k1[0]), 0, 1));
+  }
+  function hitch(keys, m) {
+    if (m < 1 || m + 1 >= keys.length) return false;
+    const k0 = keys[m - 1], k1 = keys[m], k2 = keys[m + 1], A = k0[1], B = k1[1], C = k2[1];
+    if (!A || !B || !C) return false;
+    const d1 = k1[0] - k0[0], d2 = k2[0] - k1[0];
+    if (d1 < 0.02 || d2 < 0.02) return false;
+    const e1 = k1[2] || inOutSine, e2 = k2[2] || inOutSine, h = 0.03;
+    const vin = (1 - e1(1 - h)) / (h * d1), vout = e2(h) / (h * d2);
+    if (!(vin < 0.4 * vout)) return false;
+    const x1 = B.sw - A.sw, y1 = (B.ax - A.ax) / 40, z1 = (B.ay - A.ay) / 40, x2 = C.sw - B.sw, y2 = (C.ax - B.ax) / 40, z2 = (C.ay - B.ay) / 40;
+    const n1 = Math.hypot(x1, y1, z1), n2 = Math.hypot(x2, y2, z2);
+    return n1 > 0.08 && n2 > 0.08 && (x1 * x2 + y1 * y2 + z1 * z2) / (n1 * n2) > 0.25;
+  }
+  function flowAt(keys, t, cap, blade) {
+    if (!keys || keys.length < 3) return null;
+    let i = 1;
+    while (i < keys.length && t > keys[i][0]) i++;
+    if (i >= keys.length) return null;
+    for (const m of [i, i - 1]) {
+      if (!hitch(keys, m)) continue;
+      const tm = keys[m][0], d1 = tm - keys[m - 1][0], d2 = keys[m + 1][0] - tm;
+      const ta = tm - 0.5 * d1, tb = tm + 0.45 * d2;
+      if (!(t > ta && t < tb)) continue;
+      const ep = 0.002, pa = pAt(keys, m, ta), pb = pAt(keys, m, tb), hh = tb - ta;
+      let ma = (pAt(keys, m, ta + ep) - pAt(keys, m, ta - ep)) / (2 * ep), mb = (pAt(keys, m, tb + ep) - pAt(keys, m, tb - ep)) / (2 * ep);
+      const dl = (pb - pa) / hh;
+      if (dl <= 0) return null;
+      const al = ma / dl, be = mb / dl, r = al * al + be * be;
+      if (r > 9) { const tau = 3 / Math.sqrt(r); ma *= tau; mb *= tau; }
+      const u = (t - ta) / hh, u2 = u * u, u3 = u2 * u;
+      let pd = (2 * u3 - 3 * u2 + 1) * pa + (u3 - 2 * u2 + u) * hh * ma + (-2 * u3 + 3 * u2) * pb + (u3 - u2) * hh * mb;
+      const ps = pAt(keys, m, t);
+      const A = keys[m - 1][1], B = keys[m][1], C = keys[m + 1][1];
+      if (cap) { // while the blow can hit: the drawn tip stays within ~FLOW_PX of the fight's
+        const P = ps < 1 ? A : B, Q = ps < 1 ? B : C, Lp = Math.abs(Q.sw - P.sw) * blade + Math.hypot(Q.ax - P.ax, Q.ay - P.ay);
+        const mx = FLOW_PX / Math.max(1, Lp);
+        pd = clamp(pd, ps - mx, ps + mx);
+      }
+      FLOW.ps = ps; FLOW.pd = pd; FLOW.A = A; FLOW.B = B; FLOW.C = C;
+      FLOW.a = pd < 1 ? A : B; FLOW.b = pd < 1 ? B : C; FLOW.e = pd < 1 ? pd : pd - 1;
+      return FLOW;
+    }
+    return null;
+  }
+  const lerpP = (A, B, C, p, k) => (p < 1 ? A[k] + (B[k] - A[k]) * p : B[k] + (C[k] - B[k]) * (p - 1));
+
+  // 7. weight: how the weapon carries on and settles. A spring on the sword angle and hand drags behind a slow move
+  //    and carries past a stop (the follow-through, the settle after a wind-up); heavy weapons (nodachi, naginata,
+  //    bō) swing on a soft spring and settle late, light ones (tantō, kodachi, tessen, kusarigama) on a stiff one and
+  //    snap back to guard early. It is held to the fight's pose while a blow can hit and in blade contact.
+  const WEIGHT = {
+    heavy: { f: 4.4, z: 0.32, rec: 1.55, sw: 0.6, px: 16 },
+    mid: { f: 8.5, z: 0.5, rec: 1, sw: 0.3, px: 9 },
+    light: { f: 15, z: 0.72, rec: 0.55, sw: 0.14, px: 5 },
+  };
+  function weightOf(f) {
+    const w = f.wpn, t = w.type;
+    if (t === 'naginata' || t === 'bo' || (w.blade || 0) >= 120) return WEIGHT.heavy;
+    if (w.twin || t === 'kusarigama' || (w.blade || 96) <= 72) return WEIGHT.light;
+    return WEIGHT.mid;
+  }
+  const SPK = ['sw', 'ax', 'ay'];
+  const CONTACT = { parry: 1, block: 1, lock: 1, clash: 1, shove: 1 };
+
+  // 8. a two-handed grip holds: when the rear hand cannot reach its place on the hilt / shaft, it slides along the
+  //    grip to the nearest place it can reach instead of floating off the weapon (Jin's bō most of all).
+  const GRIP_OFF = { tessen: 1, kusarigama: 1, yumi: 1 };
+  function gripSlide(D, wpn, lj) {
+    ND.solve(D, 0, 0, 1, lj, wpn);
+    const sx = lj.sh.x - 3, sy = lj.sh.y + 1, ux = Math.cos(D.sw), uy = Math.sin(D.sw), hx = lj.haF.x, hy = lj.haF.y;
+    const r = L.uArm + L.fArm - 1.5, t0 = wpn.handle * 0.55;
+    if (Math.hypot(hx - ux * t0 - sx, hy - uy * t0 - sy) <= r) return;
+    const wx = hx - sx, wy = hy - sy, wu = wx * ux + wy * uy, disc = wu * wu - (wx * wx + wy * wy) + r * r;
+    if (disc < 0) return;
+    const q = Math.sqrt(disc), lo = 8, hi = Math.max(lo, wpn.handle);
+    let best = null;
+    for (const t of [wu - q, wu + q]) if (t >= lo && t <= hi && (best === null || Math.abs(t - t0) < Math.abs(best - t0))) best = t;
+    if (best === null) return;
+    D.gx = hx - ux * best - lj.sh.x; D.gy = hy - uy * best - lj.sh.y; D.grip = 0;
+  }
 
   // the display chain (kusarigama): the fight's chain with its two held ends moved onto the display hands
   function dispChain(S, f, j, sj) {
@@ -137,10 +235,26 @@
     const at = f.state === 'atk' ? f.atk : null;
     const act = !!at && !!(at.hits ? at.hits.some((h) => f.st >= h[0] - 0.02 && f.st <= h[1] + 0.02) : at.active && f.st >= at.active[0] - 0.02 && f.st <= at.active[1] + 0.02);
     const keys = f.state === 'atk' ? f.keys : f.state === 'parry' ? f.pk : null;
-    const sg = keys ? segAt(keys, f.st) : null;
+    let sg = keys ? segAt(keys, f.st) : null;
+    if (S.wch !== f.ch) { S.wch = f.ch; S.wc = weightOf(f); }
+    const W = S.wc;
+    // 6: flow through a contact key (same designed path, smoother timing)
+    const fl = f.state === 'atk' ? flowAt(keys, f.st, act, f.wpn.blade || L.blade) : null;
+    if (fl) {
+      for (const q of KEYS) D[q] += lerpP(fl.A, fl.B, fl.C, fl.pd, q) - lerpP(fl.A, fl.B, fl.C, fl.ps, q);
+      SEG.a = fl.a; SEG.b = fl.b; SEG.e = fl.e; sg = SEG;
+    } else if (sg && at && keys.length > 2 && sg.b === keys[keys.length - 1][1] && W.rec !== 1) {
+      // 7b: the last segment back to guard: heavy weapons linger in the follow-through, light ones snap back
+      const ae = at.hits ? at.hits[at.hits.length - 1][1] : at.active ? at.active[1] : 0;
+      if (f.st > ae + 0.02) {
+        const ed = W.rec > 1 ? Math.pow(sg.e, W.rec) : 1 - Math.pow(1 - sg.e, 1 / W.rec);
+        for (const q of KEYS) D[q] += (sg.b[q] - sg.a[q]) * (ed - sg.e);
+        sg.e = ed;
+      }
+    }
     if (sg) {
       // (while the blow can hit, the drawn hand stays within 12 px of the fight's own: what hits is what is seen)
-      const fx = arcFix(sg.a, sg.b, sg.e, act ? 12 : 22);
+      const fx = arcFix(sg.a, sg.b, sg.e, act ? ACT_PX : 34);
       D.ax += fx.x; D.ay += fx.y;
       const R = HEAD_R[f.ch.acc] || 15;
       if (!NO_CLEAR[f.wpn.type] && !f.wpn.twin) {
@@ -152,10 +266,18 @@
           if (ex > 0) { const m = Math.min(ex + 1.5, 16); D.ax += nx * m; D.ay += ny * m; }
         }
       }
-      if (act) { // both shifts together stay within 12 px of the fight's hand
-        const dx = D.ax - T.ax, dy = D.ay - T.ay, m = Math.hypot(dx, dy);
-        if (m > 12) { D.ax = T.ax + (dx * 12) / m; D.ay = T.ay + (dy * 12) / m; }
+      if (act) { // arcs and head clearance together stay within ACT_PX of where the hand would be without them
+        const bx = fl ? T.ax + lerpP(fl.A, fl.B, fl.C, fl.pd, 'ax') - lerpP(fl.A, fl.B, fl.C, fl.ps, 'ax') : T.ax;
+        const by = fl ? T.ay + lerpP(fl.A, fl.B, fl.C, fl.pd, 'ay') - lerpP(fl.A, fl.B, fl.C, fl.ps, 'ay') : T.ay;
+        const dx = D.ax - bx, dy = D.ay - by, m = Math.hypot(dx, dy);
+        if (m > ACT_PX) { D.ax = bx + (dx * ACT_PX) / m; D.ay = by + (dy * ACT_PX) / m; }
       }
+    }
+    // while a blow can hit, everything above together keeps the drawn blade within ACT_MAX px of the fight's
+    if (act) {
+      ND.solve(T, 0, 0, 1, S.lt, f.wpn); ND.solve(D, 0, 0, 1, S.lj, f.wpn);
+      const e = Math.max(Math.hypot(S.lj.tip.x - S.lt.tip.x, S.lj.tip.y - S.lt.tip.y), Math.hypot(S.lj.haF.x - S.lt.haF.x, S.lj.haF.y - S.lt.haF.y));
+      if (e > ACT_MAX) { const k = ACT_MAX / e; for (const q of KEYS) D[q] = T[q] + (D[q] - T[q]) * k; }
     }
     // 3: catch-up after a jump
     if (S.cuDur > 0) {
@@ -167,19 +289,52 @@
         for (const q of KEYS) D[q] = F[q] + (D[q] - F[q]) * k;
       }
     }
+    // 7: weight spring (not while a blow can hit, in blade contact, in a catch-up or a roll)
+    const contact = act || !!CONTACT[f.state] || S.cuDur > 0 || !!f.roll;
+    const soon = !!(at && at.active && f.st < at.active[0] - 0.02 && f.st > at.active[0] - 0.08); // fade out just before the blow
+    if (!hold) {
+      const h = Math.max(dt, 1e-4), om = TAU * W.f, z = W.z, X = S.sx, Y = S.sy, V = S.sv;
+      for (let c = 0; c < 3; c++) {
+        let x = D[SPK[c]];
+        if (c === 0 && S.sinit) x += TAU * Math.round((X[0] - x) / TAU);
+        if (!S.sinit || contact) { V[c] = S.sinit ? (x - X[c]) / h : 0; Y[c] = x; }
+        else { V[c] += (om * om * (x - Y[c]) - 2 * z * om * V[c]) * h; Y[c] += V[c] * h; }
+        X[c] = x;
+      }
+      S.sinit = true;
+      const tw = contact || soon ? 0 : 1;
+      S.ws = tw < S.ws ? Math.max(tw, S.ws - h / 0.03) : Math.min(tw, S.ws + h / 0.06);
+    }
+    if (S.ws > 0) {
+      const o0 = clamp(S.sy[0] - S.sx[0], -W.sw, W.sw);
+      let ox = S.sy[1] - S.sx[1], oy = S.sy[2] - S.sx[2]; const om2 = Math.hypot(ox, oy);
+      if (om2 > W.px) { ox *= W.px / om2; oy *= W.px / om2; }
+      D.sw += o0 * S.ws; D.ax += ox * S.ws; D.ay += oy * S.ws;
+    }
+    // 8: the rear hand stays on a two-handed grip
+    if (!f.wpn.twin && !GRIP_OFF[f.wpn.type] && D.grip >= 0.9) gripSlide(D, f.wpn, S.lj);
     // joints
     const sj = f.j, j = S.j, dir = f.dir * (f.vdir ?? 1);
     ND.solve(D, f.x, f.y, dir, j, f.wpn);
     // 5: the blade stays above the floor: a tip that would go into the ground turns up round the hand to lie on it
     // (not while the blow can hit: there the drawn blade is the fight's; it settles onto the floor after, ~0.06 s)
-    if (!hold) S.gw = act ? 0 : Math.min(1, S.gw + dt / 0.06);
+    if (!hold) {
+      S.gw = act ? 0 : Math.min(1, S.gw + dt / 0.06);
+      // how fast the blade is turning (smoothed): a quick sweep through "straight down" is let through the floor for
+      // the instant it takes; a slow or held downward blade is laid on the floor
+      const sv = S.gp === S.gp ? Math.abs(wrap(D.sw - S.gp)) / Math.max(dt, 1e-4) : 0;
+      S.gp = D.sw; S.gv += (sv - S.gv) * Math.min(1, dt / 0.05);
+      const c = Math.cos(D.sw);
+      if (Math.abs(c) > 0.25) S.gs = c >= 0 ? 1 : -1; // the side it lies to, kept while it points straight down
+      S.gsb += clamp(S.gs - S.gsb, -dt / 0.12, dt / 0.12);
+    }
     if (!f.roll && j.tip.y > GROUND && S.gw > 0) {
       const len = f.wpn.blade || L.blade, s = (GROUND - j.haF.y) / len;
       if (s > -1 && s < 1) {
-        // (a blade swept through straight down is left as it is round the vertical, where it would have to jump
-        // from lying forward to lying back: the weight fades to 0 there, so it never flips)
-        const c = Math.cos(D.sw), a0 = Math.asin(s), wv = clamp((Math.abs(c) - 0.25) / 0.3, 0, 1);
-        let sw = c >= 0 ? a0 : Math.PI - a0;
+        const c = Math.cos(D.sw), a0 = Math.asin(s);
+        const wv = Math.max(clamp((Math.abs(c) - 0.25) / 0.3, 0, 1), clamp(1 - (S.gv - 2) / 4, 0, 1));
+        // (lying forward: a0; lying back: π − a0; a change of side turns through the vertical in ~0.12 s)
+        let sw = a0 + (Math.PI - 2 * a0) * (1 - (S.gsb + 1) / 2);
         sw += TAU * Math.round((D.sw - sw) / TAU);
         D.sw += (sw - D.sw) * S.gw * wv * wv * (3 - 2 * wv);
         ND.solve(D, f.x, f.y, dir, j, f.wpn);
@@ -193,6 +348,17 @@
     j.hasSword = sj.hasSword;
     for (const k of WKEYS) j[k] = sj[k];
     j.chain = sj.chain ? dispChain(S, f, j, sj) : null;
+    // 9: sleeves billow with the arm's swing and settle with a little wobble (skeleton.js armGeom reads _slF / _slB)
+    if (!hold) {
+      const h = Math.max(dt, 1e-4), om = TAU * 6.5;
+      for (let k = 0; k < 2; k++) {
+        const el = k ? j.elB : j.elF, a = Math.atan2(el.y - j.sh.y, el.x - j.sh.x), pa = S.sla[k];
+        const w = pa === pa ? Math.abs(wrap(a - pa)) / h : 0, tgt = Math.min(7, w * 0.45);
+        S.slv[k] += (om * om * (tgt - S.sl[k]) - 2 * 0.28 * om * S.slv[k]) * h; S.sl[k] += S.slv[k] * h;
+        S.sl[k] = clamp(S.sl[k], -2, 9); S.sla[k] = a;
+      }
+    }
+    j._slF = S.sl[0]; j._slB = S.sl[1];
     S.ok = true;
     if (!hold) f.cloth(j, dt);
   };
