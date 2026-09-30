@@ -46,7 +46,7 @@ window.ND = window.ND || {};
   };
   const release = (e) => { if (typeof e.cv.close === 'function') e.cv.close(); };
   // (a WebGL2 cache gives its atlas pages back: gl2d.js R.spriteRelease)
-  function clear(Fc) { if (Fc.gRel && Fc.g.size) Fc.gRel(Fc); Fc.evictions += Fc.m.size + Fc.g.size; for (const e of Fc.m.values()) release(e); Fc.m.clear(); Fc.bytes = 0; Fc.g.clear(); Fc.gbytes = 0; }
+  function clear(Fc) { Fc.warmSigs = null; if (Fc.gRel && Fc.g.size) Fc.gRel(Fc); Fc.evictions += Fc.m.size + Fc.g.size; for (const e of Fc.m.values()) release(e); Fc.m.clear(); Fc.bytes = 0; Fc.g.clear(); Fc.gbytes = 0; }
   ND.clearBakeCache = clear;
   function sameWeapon(a, b) {
     return a === b || !!a && !!b && a.type === b.type && a.blade === b.blade && a.handle === b.handle &&
@@ -65,7 +65,10 @@ window.ND = window.ND || {};
   // shade() in skeleton.js puts the highlight on the side whose normal faces the light: 1 when it flips
   const sflip = (dx, dy) => (-dy * LT.x + dx * LT.y < 0 ? 1 : 0);
   // Numeric keys avoid per-part string allocation.
-  const key = (pid, a, b, c) => pid + 64 * (LV + 32 * (a + 64 * (b + 256 * c)));
+  // (LTB: the side the scene's key light comes from; part of the key, so a fighter keeps its pictures for both sides
+  // and an arena lit from the other side does not make it draw everything again)
+  let LTB = 0;
+  const key = (pid, a, b, c) => pid + 64 * (LV + 32 * (LTB + 2 * (a + 64 * (b + 256 * c))));
 
   // local bounding box (world units) of the part being baked, and its frame
   const BB = [0, 0, 0, 0];
@@ -443,7 +446,8 @@ window.ND = window.ND || {};
     }
     K.updLight();
     // another look, weapon or light side: start over
-    if (Fc.col !== c || Fc.acc !== acc || !sameWeapon(Fc.wpn, wpn) || Fc.ltx !== (LT.x > 0)) {
+    LTB = LT.x > 0 ? 1 : 0;
+    if (Fc.col !== c || Fc.acc !== acc || !sameWeapon(Fc.wpn, wpn)) {
       if (Fc.readOnly) throw Error('Prepared character cache invalidated');
       clear(Fc);
       Fc.col = c; Fc.acc = acc; Fc.wpn = wpn; Fc.ltx = LT.x > 0;
@@ -533,11 +537,15 @@ window.ND = window.ND || {};
     const ctx = nullCtx(R, (ND.cam && ND.cam.k) || 1);
     const n = poses.length * 2 * 2 * 16;
     let i = 0;
+    // already warmed for this look, picture scale and light side (the same fighter in the next fight): nothing to do
+    const sig = () => { K.updLight(); return levelOf(((ND.cam && ND.cam.s > 0 ? ND.cam.s : 1)) * ZMAX) + '|' + (LT.x > 0 ? 1 : 0); };
+    if (X.bake.warmSigs && X.bake.warmSigs.has(sig()) && X.bake.col === col && X.bake.acc === acc && sameWeapon(X.bake.wpn, wpn) && X.bake.g.size) i = n;
     return {
       total: n,
       get done() { return i >= n; },
       step(ms) {
         if (!R || !R.spriteEnd || !stance) return true;
+        if (i >= n) return true;
         const t0 = performance.now(), sc = ND.scene, st = sc ? sc.t : 0;
         warming = true;
         try {
@@ -560,6 +568,7 @@ window.ND = window.ND || {};
             i++;
           }
         } finally { warming = false; if (sc) sc.t = st; }
+        if (i >= n) (X.bake.warmSigs || (X.bake.warmSigs = new Set())).add(sig());
         return i >= n;
       },
     };

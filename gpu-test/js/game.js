@@ -422,6 +422,9 @@
       if ((mode === 'watch' || mode === 'attract') && c1 == null) { // (tests and tools may name the pair and the arena)
         [c1, c2] = pickPair();
         arena = randArena(false);
+        // GPU path: the menu demo stands in the arena the select screen will show (the player's last choice), so
+        // opening the select screen does not make and upload a new arena's pictures (~9 MB) at that moment
+        if (GPU_PATH && mode === 'attract' && this.sel && this.sel.arena && this.sel.arena !== 'random' && ND.ARENAS && ND.ARENAS.some((a) => a.id === this.sel.arena)) arena = this.sel.arena;
       }
       this.applyChars(c1 ?? 0, c2 ?? 1);
       if (opts.oppHp > 0 && RUN_MODES[mode]) f2.maxHp = Math.round(f2.ch.hp * opts.oppHp); // Dan sınavı: güçlendirilmiş rakip
@@ -618,7 +621,7 @@
       if (ND.mods) ND.mods.roundStart(F); // değiştiriciler: dolu ki, üç kat shuriken, yarım can…
       score.roundStart();
       $('rlabel').textContent = tx('RAUND ' + this.round);
-      if (this.mode === 'attract' && this.round > 1) scene.setTheme(randArena(false));
+      if (this.mode === 'attract' && this.round > 1 && !GPU_PATH) scene.setTheme(randArena(false)); // (GPU path: the demo keeps its arena)
       if (this.mode === 'train') { this.focus = null; $('rlabel').textContent = upper(tx(STR.train && STR.train.title || 'Antrenman')); }
     },
 
@@ -1217,7 +1220,13 @@
         glWhy = glr.error; console.info('[ND.gl] WebGL2 renderer switched off; drawing with Canvas 2D', glWhy);
         glr.dispose(); glr = null; glShown = false; cv.style.opacity = ''; this.rendererMode = 'canvas';
       }
-      if (glr && this.rendererMode === 'gl' && !behindUi && !this.behind && glr.ready && this.renderGl()) return;
+      // (GPU path: the menus' demo fight and the select / VS / ending backdrops too, so the browser's own Canvas 2D
+      // drawing on the GPU — new shaders and pictures the first time a screen opens — never runs next to WebGL2; the
+      // first select screen used to wait ~1 s on a phone with the page's main thread idle)
+      if (glr && this.rendererMode === 'gl' && (GPU_PATH || (!behindUi && !this.behind)) && glr.ready && this.renderGl(behindUi)) {
+        if (behindUi) this.renderSelect();
+        return;
+      }
       showGl(false);
       // scene layer (see sceneCv): with bloom on, the Canvas post-processing reads the finished scene from it
       const layer = GFX.f.bloom > 0;
@@ -1235,13 +1244,16 @@
     },
 
     // WebGL2 frame (see glr above). false: nothing was shown, the caller draws the frame with Canvas 2D.
-    renderGl() {
+    renderGl(behindUi) {
       // the tier's processor savings in the renderer (js/gfx.js TIERS: curve tolerance, texts on whole pixels)
       glr.R.setTolerance(GFX.f.tol); glr.R.textSnap = !!GFX.f.snap;
       // ?renderer=gpu, High / Medium: part pictures sampled sharper (mip bias; they are made for the closest zoom)
       glr.R.spriteBias = GPU_PATH && GFX.tier !== 'low' ? SPRITE_BIAS : 0;
       // GPU path: three copies of the text atlas in turn (gl2d.js R.textRing; ?textring=0 / 1 to compare)
       glr.R.textRing = QS.get('textring') != null ? QS.get('textring') === '1' : GPU_PATH;
+      // GPU path: texts placed at their exact position and growing texts on the size ladder (gl2d.js R.textFree;
+      // ?textfree=0 / 1 to compare): almost no new text pictures (uploads) during a fight
+      glr.R.textFree = QS.get('textfree') != null ? QS.get('textfree') === '1' : GPU_PATH;
       // Low: 2× multisampling instead of 4× (?msaa=n overrides). The fighters there are ready-made anti-aliased
       // pictures and the backdrop is one picture; the samples mostly cost memory traffic: every pass writes and resolves
       // them on every frame, which on a phone is power and heat.
@@ -1252,7 +1264,8 @@
       let ok = false;
       ctx = g;
       try {
-        if (this.phase === 'replay') this.renderReplay();
+        if (behindUi) this.renderScene(false);
+        else if (this.phase === 'replay') this.renderReplay();
         else this.renderScene(true);
         ok = true;
       } catch (e) { glr.fail(e); console.warn('[ND.gl] frame failed; drawing it with Canvas 2D', e); }

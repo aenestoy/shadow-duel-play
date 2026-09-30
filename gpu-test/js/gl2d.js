@@ -1105,17 +1105,20 @@ window.ND = window.ND || {};
         if (st.t !== 0) { fail('gradient text'); return; }
         const a = this.a, b = this.b, c = this.c, d = this.d;
         const X = a * x + c * y + this.e, Y = b * x + d * y + this.f;
-        const snap = R.textSnap;
-        let ix = snap ? Math.round(X) : Math.floor(X), fx = snap ? 0 : Math.round((X - ix) * 4) / 4;
+        // R.textFree (the GPU path): a text's picture is made once at a whole-pixel offset and placed at its exact
+        // (fractional) position by the GPU, and a text whose size keeps changing uses the size ladder below as on
+        // Medium: a pop-up text makes a few pictures once instead of one or more per frame (each one an upload)
+        const snap = R.textSnap, free = !snap && !!R.textFree;
+        let ix = snap ? Math.round(X) : free ? X : Math.floor(X), fx = snap || free ? 0 : Math.round((X - ix) * 4) / 4;
         if (fx === 1) { ix++; fx = 0; } // (a whole pixel further: the same picture as offset 0, not a fifth variant)
-        const iy = Math.round(Y);
+        const iy = free ? Y : Math.round(Y);
         const col = st.c;
         // Texts whose font size keeps changing (pop-in and pulse animations: damage numbers, combo counts, STRIKE!,
         // banners) would need a new picture every frame. On Medium / Low (snap) such a text is drawn at the next size of
         // a 2^(1/4) ladder and its picture placed a little smaller (at most 16%): a few pictures per animation instead of
         // one per frame. Once the size stays put (30 frames), the text is drawn at its exact size again.
         let font = this.font, lw = this.lw, mwq = mw, k = 1;
-        if (snap) {
+        if (snap || free) {
           const m = FONT_PX.exec(font);
           if (m) {
             const px = +m[1], ak = (stroke ? 'S' : 'F') + font.replace(m[0], '') + '|' + t + '|' + col.join(',');
@@ -1128,6 +1131,9 @@ window.ND = window.ND || {};
             }
           }
         }
+        // (free: an outline width that follows the camera zoom is kept to half pixels, or every zoom step of the
+        // camera would make a new picture of each outlined text)
+        if (free && stroke) lw = Math.max(0.5, Math.round(lw * 2) / 2);
         const key = (stroke ? 'S' : 'F') + font + '|' + this.align + '|' + this.baseline + '|' + (mwq === undefined ? '' : mwq) + '|' +
           col.join(',') + '|' + (stroke ? lw + this.join + '/' + this.miter : '') + '|' + a.toFixed(4) + ',' + b.toFixed(4) + ',' + c.toFixed(4) + ',' + d.toFixed(4) + '|' + fx + '|' + t;
         let e = texts.get(key);
@@ -1185,7 +1191,10 @@ window.ND = window.ND || {};
         EU[0] = pack(al * 255, al * 255, al * 255, al * 255); EU[1] = PT_TEX; UVM = 0;
         nextZ();
         useState(this.pass, blend, TEXT_TEX, this.clp, this.sc);
-        const x0 = ix - e.ox * k, y0 = iy - e.oy * k, qw = e.w * k, qh = e.h * k, u0 = e.x / TA_W, v0 = e.y / TA_H, u1 = (e.x + e.w) / TA_W, v1 = (e.y + e.h) / TA_H;
+        // (free: placed at a fractional position, the picture is sampled between texels: its outer texel, always part of the
+        // transparent margin, is left out, so nothing next to it in the atlas bleeds in)
+        const ins = free ? 1 : 0;
+        const x0 = ix - (e.ox - ins) * k, y0 = iy - (e.oy - ins) * k, qw = (e.w - 2 * ins) * k, qh = (e.h - 2 * ins) * k, u0 = (e.x + ins) / TA_W, v0 = (e.y + ins) / TA_H, u1 = (e.x + e.w - ins) / TA_W, v1 = (e.y + e.h - ins) / TA_H;
         QX[0] = x0; QY[0] = y0; QX[1] = x0 + qw; QY[1] = y0; QX[2] = x0 + qw; QY[2] = y0 + qh; QX[3] = x0; QY[3] = y0 + qh;
         QU[0] = u0; QV[0] = v0; QU[1] = u1; QV[1] = v0; QU[2] = u1; QV[2] = v1; QU[3] = u0; QV[3] = v1;
         emitUV4();
@@ -1496,6 +1505,7 @@ window.ND = window.ND || {};
     // Texts snapped to whole pixels (Medium, Low): one picture per text instead of one per quarter-pixel position,
     // so a text moving with the camera is not drawn again every frame (High keeps the exact quarter-pixel placement)
     R.textSnap = false;
+    R.textFree = false;
     // mip level bias of textured draws (only the sprite atlas has mip levels): negative = sharper part pictures when
     // the camera is farther out than the zoom they were made for (game.js sets it for ?renderer=gpu)
     R.spriteBias = 0;
