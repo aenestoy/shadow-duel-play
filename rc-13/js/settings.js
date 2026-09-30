@@ -142,6 +142,57 @@
     if (panes) panes.scrollTop = 0;
   }
 
+  // ---------------------------------------------------------------- slide to the next tab without lifting the finger
+  // (owner, 2026-09-30) A finger (or the mouse) put down on a tab and slid along the tab bar selects each tab it passes,
+  // like a segmented control. A quick sideways swipe on the content goes to the next / previous tab; a swipe that starts
+  // on a control (a slider, a switch, a button, a field) is that control's, never a tab change.
+  let scrubbedAt = -1e9;
+  function scrubAndSwipe() {
+    const bar = ov.querySelector('[role="tablist"]'), panes = ov.querySelector('.set-panes');
+    if (bar) {
+      let id = null, moved = false;
+      const tabAt = (x, y) => {
+        for (const b of bar.querySelectorAll('[role="tab"]')) { const r = b.getBoundingClientRect(); if (x >= r.left && x <= r.right && y >= r.top - 6 && y <= r.bottom + 6) return b; }
+        return null;
+      };
+      bar.addEventListener('pointerdown', (e) => {
+        if (e.button > 0 || !e.target.closest('[role="tab"]')) return;
+        id = e.pointerId; moved = false;
+        try { bar.setPointerCapture(id); } catch (err) { /* no capture */ }
+      });
+      bar.addEventListener('pointermove', (e) => {
+        if (e.pointerId !== id) return;
+        const b = tabAt(e.clientX, e.clientY);
+        if (b && b.dataset.tab !== tab) {
+          moved = true; select(b.dataset.tab, true);
+          try { b.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (err) { /* old browser */ }
+        }
+      });
+      const end = (e) => { if (e.pointerId !== id) return; id = null; if (moved) { scrubbedAt = performance.now(); ui(); } };
+      bar.addEventListener('pointerup', end);
+      bar.addEventListener('pointercancel', end);
+    }
+    if (panes) {
+      const CTRL = 'input, button, select, textarea, a, label, [role="slider"], [role="button"], .seg, .tog, [contenteditable]';
+      let s = null;
+      panes.addEventListener('pointerdown', (e) => {
+        s = null;
+        if (e.button > 0 || (e.target.closest && e.target.closest(CTRL))) return;
+        s = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now() };
+      });
+      panes.addEventListener('pointerup', (e) => {
+        if (!s || e.pointerId !== s.id) return;
+        const dx = e.clientX - s.x, dy = e.clientY - s.y, dt = performance.now() - s.t;
+        s = null;
+        if (dt > 700 || Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.6) return;
+        const i = TABS.indexOf(tab), j = i + (dx < 0 ? 1 : -1);
+        if (j < 0 || j >= TABS.length) return;
+        select(TABS[j], false); ui();
+      });
+      panes.addEventListener('pointercancel', () => { s = null; });
+    }
+  }
+
   // ---------------------------------------------------------------- open / close
   function open(name) {
     ov = ov || $('setOv');
@@ -208,7 +259,8 @@
     const c = $('setClose');
     if (c) c.onclick = (e) => { e.stopPropagation(); close(true); ui(); };
     ov.addEventListener('click', (e) => { if (e.target === ov) close(true); });
-    ov.querySelectorAll('[role="tab"]').forEach((b) => { b.onclick = (e) => { e.stopPropagation(); select(b.dataset.tab, true); ui(); }; });
+    ov.querySelectorAll('[role="tab"]').forEach((b) => { b.onclick = (e) => { e.stopPropagation(); if (performance.now() - scrubbedAt < 400) return; select(b.dataset.tab, true); ui(); }; });
+    scrubAndSwipe();
     window.addEventListener('keydown', (e) => { if (ov && !ov.hidden && onKey(e)) e.stopPropagation(); }, true);
     // a pause that ends (Resume by gamepad Start, Main menu) takes the panel opened from it along
     const pz = $('pause');
