@@ -247,7 +247,7 @@
     pollMatchSoon(POLL_MATCH);
   }
   function alertFound() {
-    try { if (ND.audio) { ND.audio.init(); if (ND.audio.gong) ND.audio.gong(); else if (ND.audio.ui) ND.audio.ui(); } } catch (e) { /* no sound */ }
+    try { if (ND.audio) { ND.audio.init(); if (ND.audio.sfx) ND.audio.sfx.matchFound(); else if (ND.audio.gong) ND.audio.gong(); else if (ND.audio.ui) ND.audio.ui(); } } catch (e) { /* no sound */ }
     if (!document.hidden) return;
     const t0 = document.title, msg = M().foundTitle;
     let n = 0;
@@ -1011,7 +1011,7 @@
         const T = tierInfo(my.tier), s = el('p', 'rk-seal', T.k); s.style.setProperty('--tc', T.col); c.append(s);
         c.append(el('p', 'rk-st', (my.tier > my.tier_before ? L.promoted : L.demoted) + ' '));
         c.lastChild.appendChild(badge(my.tier, 0, true));
-        try { if (my.tier > my.tier_before && ND.audio && ND.audio.gong) ND.audio.gong(); } catch (e) { /* no sound */ }
+        try { if (!x.tierSnd && ND.audio) { x.tierSnd = true; const S = ND.audio.sfx; if (S) (my.tier > my.tier_before ? S.rankUp : S.rankDown)(); else if (my.tier > my.tier_before && ND.audio.gong) ND.audio.gong(); } } catch (e) { /* no sound */ }
       } else if (my.placement > 0) c.append(el('p', 'rk-st', L.placement(Math.max(0, placementTotal() - my.placement), placementTotal())));
       else c.append(badge(my.tier, 0));
       if (!x.meReloaded) { x.meReloaded = true; loadMe(); }

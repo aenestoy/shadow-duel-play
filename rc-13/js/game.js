@@ -792,7 +792,7 @@
       if (L.sp <= 0) {
         L.sp = 0.08;
         if (!this.simOnly) fx._spark(c, -132, -Math.PI / 2, 3, 0.45);
-        au.noise({ type: 'bandpass', f0: 3200 + Math.random() * 800, q: 8, dur: 0.09, gain: 0.08, send: 0.3, pan: cam.pan(c) });
+        au.grind(cam.pan(c));
         cam.punch(1.2);
       }
       if (Math.abs(diff) >= 7 || L.t > 2.8) this.endLock(diff > 0 ? L.a : diff < 0 ? L.b : null);

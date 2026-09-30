@@ -48,7 +48,9 @@
     winRound: 0.5,    // chance of the victory line after a round that does not end the match (always on match point)
     winTrain: 0.3,    // training: the dummy goes down again and again
   };
-  const LEVEL = { fighter: 0.8, announcer: 0.95 }; // voice gain into the effects bus (files are loudness-matched)
+  // voice gain into the effects bus (files are loudness-matched). Lowered in the 2026-09-30 sound pass: the voices sat
+  // about 15 dB over the sword hits (announcer -16, shouts -20 LUFS against cuts at -37); now -17 / -22, cuts -26
+  const LEVEL = { fighter: 0.41, announcer: 0.54 };
   const DUCK_DB = 7;
 
   const au = ND.audio;

@@ -1,8 +1,8 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
     <meta name="robots" content="noindex, nofollow" />
+<meta charset="utf-8">
 <script type="module" crossorigin src="./assets/index-D_-EcQHr.js"></script>
 <link rel="stylesheet" crossorigin href="./assets/index-CFtILYoN.css">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -37,8 +37,8 @@
   };
 })();
 </script>
-<!-- Fonts ship with the game (no external requests): fonts/fonts.css is written by scripts/font-subset.mjs -->
-<!-- Portal SDK bridge (module, bundled by Vite): publishes window.NDPortal; js/core.js wraps it as ND.portal -->
+<!-- Fonts ship with the game (no external requests): fonts/fonts.css is written by scripts/font-subset.mjs -->
+<!-- Portal SDK bridge (module, bundled by Vite): publishes window.NDPortal; js/core.js wraps it as ND.portal -->
 <style>
   #matchLoading { position: absolute; inset: 0; z-index: 1000; display: grid; place-items: center; background: #0c0d15; color: #ebe6da; }
   #matchLoading[hidden] { display: none; }
@@ -2294,7 +2294,7 @@
   </div>
 </div>
 
-<script  src="js/core.js?v=boards-1"></script>
+<script  src="js/core.js?v=sfx-1"></script>
 <script  src="js/perf.js?v=sd-fps-2"></script>
 <script  src="js/music.js?v=sd-fps-2"></script>
 <script  src="js/input.js?v=comfort-1"></script>
@@ -2345,10 +2345,12 @@
 <script  src="js/privacy.js"></script>
 <script  src="js/gl2d.js?v=wide-bg-1"></script>
 <script  src="js/gl-render.js?v=gl-2"></script>
-<script  src="js/game.js?v=wide-bg-1"></script>
+<script  src="js/game.js?v=sfx-1"></script>
 <script  src="js/sim-state.js"></script>
 <!-- voices: fighters and announcer, files in voice/ (docs/SES-PLANI.md); ?voice=off silences, ?voice=log logs -->
-<script  src="js/voice.js?v=bo-sound-1"></script>
+<script  src="js/voice.js?v=sfx-1"></script>
+<!-- the sound pass of 2026-09-30: menu clicks / hover / back, guard, jump, ki ready, result stings, ranked cues (js/sfx.js) -->
+<script  src="js/sfx.js?v=sfx-1"></script>
 <!-- online "play with a friend" (docs/SHADOW-DUEL-ONLINE.md): the match loop and the rooms. data-online: left out of the
      offline portal builds (Yandex, Playgama; vite.config.ts), so they carry no online code or address -->
 <script  data-online src="js/net.js"></script>
