@@ -1629,7 +1629,8 @@
       b.onclick = () => {
         if (ND.ads.busy) return;
         ND.ads.rewarded().then((got) => {
-          if (!got) { if (ND.toast) ND.toast(A.fail || '', '忍'); return; }
+          // (no reward: a notice; and when this session gets no rewarded ads at all, the offer goes away)
+          if (!got) { if (ND.toast) ND.toast(A.fail || '', '忍'); if (!ND.ads.rewardedAvailable()) b.hidden = true; return; }
           if (this.phase !== 'select') return;
           this.trialPrev = this.sel.c[0]; ND._trial = ch.id;
           this.sel.c[0] = k; b.hidden = true;

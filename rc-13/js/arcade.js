@@ -1311,7 +1311,7 @@
           bc.onclick = () => {
             if (ND.ads.busy) return;
             ND.ads.rewarded().then((ok) => {
-              if (!ok) { if (ND.toast) ND.toast(A.fail || '', '忍'); return; }
+              if (!ok) { if (ND.toast) ND.toast(A.fail || '', '忍'); if (!ND.ads.rewardedAvailable()) bc.hidden = true; return; }
               if (!this.run || this.run !== R) return;
               R.contUsed = true; R.needsRetry = false; bc.hidden = true; this.fight();
             });

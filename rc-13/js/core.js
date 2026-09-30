@@ -602,6 +602,10 @@ window.ND = window.ND || {};
     interstitial() { const a = api(); return a ? a.interstitial() : Promise.resolve(); },
     // Rewarded ad; true only when the reward must be granted. Without a bridge (plain file serve) it grants.
     rewarded() { const a = api(); return a ? a.rewarded() : Promise.resolve(true); },
+    // false when this session will get no rewarded ad (CrazyGames Basic Launch, an ad blocker, no fill again and
+    // again; or the bridge is not ready): the game hides its rewarded offers then. Without a bridge: available.
+    rewardedAvailable() { const a = api(); try { return a ? (a.rewardedAvailable ? a.rewardedAvailable() !== false : true) : true; } catch (e) { return false; } },
+    lastAdError() { const a = api(); try { return a && a.lastAdError ? a.lastAdError() : null; } catch (e) { return null; } },
     save(k, v) { const a = api(); return a ? a.save(k, v) : Promise.resolve(); },
     load(k) { const a = api(); return a ? a.load(k) : Promise.resolve(undefined); },
     language() { const a = api(); try { return a ? a.language() : (navigator.language || 'en').slice(0, 2).toLowerCase(); } catch (e) { return 'en'; } },

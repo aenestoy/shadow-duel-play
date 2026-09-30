@@ -4,8 +4,9 @@
 // - Interstitials only at natural breaks between matches (end screen → next fight / rematch / menu),
 //   never during a fight, the first one only after 3 minutes of actual fighting, then at most one every 3 minutes
 //   (portals add their own cooldown on top). No interstitial at a break where a rewarded offer was shown.
-// - Rewarded ads only when the player asks; the reward is granted only when the ad completed. With an ad blocker
-//   the game still works fully, the offer just gives nothing.
+// - Rewarded ads only when the player asks; the reward is granted only when the ad completed (never on an ad error:
+//   CrazyGames rule). Once the portal says this session gets no rewarded ads (CrazyGames Basic Launch, an ad blocker,
+//   no fill again and again) the offers are hidden. The game still works fully without ads.
 // - While an ad runs the game is frozen (game.js checks ND.portal.inAd), silent (core.js) and input is locked (input.js).
 // - On the plain local build (own site, dev server) there is no ad network: no interstitials, no rewarded offers.
 //   Add ?ads=1 to exercise the whole flow with the local portal's simulated ad overlay.
@@ -26,7 +27,9 @@
     busy: false,
     // A real ad network behind the bridge (or ?ads=1 for testing with the simulated local ad)
     get enabled() { return !!P && (P.name !== 'local' || (ND.qs && ND.qs.get('ads') === '1')); },
-    rewardedAvailable() { return this.enabled; },
+    // (and the portal still offers rewarded ads this session: CrazyGames Basic Launch answers every request with an
+    // error and an ad blocker blocks them, and an ad error never pays out, so the offer is hidden, not shown for free)
+    rewardedAvailable() { return this.enabled && !(P && P.rewardedAvailable && P.rewardedAvailable() === false); },
     // game.js calls this every frame with rdt while a match is being fought
     tick(dt) { if (!this.busy) this.playSec += dt; },
     eligible() {
