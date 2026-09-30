@@ -33,7 +33,8 @@
       A.tone({ freq: freq * 2.76, dur: dur * 0.5, gain: gain * 0.35, attack: 0.002, send: 0.7, delay, pan });
     },
     // ---- menus
-    hover() { A.menu(() => { A.noise({ type: 'bandpass', f0: 3600 * vr(0.06), q: 4, dur: 0.014, gain: 0.5, attack: 0.001, send: 0.05 }); A.tone({ freq: 1500 * vr(0.03), dur: 0.025, gain: 0.02, attack: 0.001, send: 0.05 }); }); },
+    // (not counted as "a sound was made": focus returning after Escape must not swallow the back sound)
+    hover() { const n = A.nPlayed; A.menu(() => { A.noise({ type: 'bandpass', f0: 3600 * vr(0.06), q: 4, dur: 0.014, gain: 0.5, attack: 0.001, send: 0.05 }); A.tone({ freq: 1500 * vr(0.03), dur: 0.025, gain: 0.02, attack: 0.001, send: 0.05 }); }); A.nPlayed = n; },
     back() {
       A.menu(() => {
         const k = vr(0.04);
