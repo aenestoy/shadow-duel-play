@@ -50,6 +50,15 @@
   const GPU_PATH = REN_Q === 'gpu' || QS.get('gpu') === '1' || (window.__ndGpuDefault === true && REN_Q !== 'gl' && REN_Q !== 'canvas' && QS.get('gpu') !== '0');
   ND.gpuPath = GPU_PATH;
   const SPRITE_BIAS = QS.get('bias') != null ? +QS.get('bias') || 0 : -0.5;
+  // GPU load of the GPU path (High / Medium; measured on phones, docs/SHADOW-DUEL-GPU.md), each overridable to compare:
+  //   ?blur=small|full  High bloom: the vertical blur taps on the small glow picture (one read per screen pixel instead
+  //                     of nine) — default small on the GPU path
+  //   ?lmsaa=n          multisampling of the fighter layer pass alone (the fighters are ready-made anti-aliased
+  //                     pictures there); default: as the scene
+  //   ?dprmax=x         cap on the canvas pixel ratio (any renderer), to compare render scales
+  const BLUR_SMALL = GPU_PATH ? QS.get('blur') !== 'full' : QS.get('blur') === 'small';
+  const LMSAA = QS.get('lmsaa') != null ? +QS.get('lmsaa') | 0 : null;
+  const DPR_Q = +QS.get('dprmax') > 0 ? +QS.get('dprmax') : Infinity;
   // ?cap=0 / ?cap=1: frame pacing forced to Max / 60 for tests (see the pacer at the end); '' = the Frame rate setting
   const CAP_Q = QS.get('cap') === '0' ? '0' : QS.get('cap') === '1' ? '1' : '';
   let glr = null, glShown = false, glSamples = null;
@@ -145,12 +154,21 @@
   const TCH = ND.touch || {}, MOBILE = !!TCH.mobile;
   const GFX = ND.gfx;
   const GFX_Q = GFX.levels.includes(QS.get('gfx')) ? QS.get('gfx') : null, GFX_SAVED = saved.gfx;
+  // ?gk=msaa:2,bloom:1 (tests, the GPU preview's comparison links): advanced knobs on top of ?gfx (or the saved tier),
+  // for this visit only
+  let GK_CUSTOM = null;
+  const GK_Q = (() => { const q = QS.get('gk'); if (!q) return null; const o = {}; for (const p of q.split(',')) { const [k, v] = p.split(':'); if (k && v != null) o[k] = +v; } return o; })();
   {
     let lv = GFX.levels.includes(saved.gfx) ? saved.gfx : saved.hqUser ? (saved.hq !== false ? 'high' : 'low') : 'auto';
     // ?gfx=high|medium|low|auto (test pages: the GPU preview's A/B links) overrides it for this visit without saving it
     if (GFX_Q) lv = GFX_Q;
-    GFX.pref = lv;
-    GFX._setTier(lv === 'auto' ? GFX.guess() : lv, 'init');
+    // Advanced settings: a custom set of the five knobs (js/gfx.js), key gfxK
+    if (!GFX_Q && saved.gfx === 'custom' && saved.gfxK) GFX.setCustom(saved.gfxK, 'init');
+    else {
+      GFX.pref = lv;
+      GFX._setTier(lv === 'auto' ? GFX.guess() : lv, 'init');
+    }
+    if (GK_Q) { GFX.setCustom(Object.assign(GFX.knobs(), GK_Q), 'init'); GK_CUSTOM = GFX.custom; }
   }
   // Dokunmatik kumandanın görüneceği modlar (2P: 1. oyuncu dokunmatik, 2. oyuncu gamepad olabilir)
   const TOUCH_MODES = { cpu: 1, arcade: 1, train: 1, '2p': 1, tourney: 1, dan: 1, rival: 1, online: 1 };
@@ -482,6 +500,9 @@
       }
       // Reveal one complete scene, never the intermediate partial part layers used by the warm-up jobs.
       jobs.push(() => this.render());
+      // WebGL2: wait (behind the loading screen, at most ~2.5 s) until the GPU has digested the uploads and that first
+      // full frame (every pass and shader used once), so the fight does not start with frames queued behind them
+      if (glr) { let n = 0; jobs.push(() => !glr.ready || this.rendererMode !== 'gl' || ++n > 150 || glr.settle()); }
       this.preparing = ND.prepare.start(jobs, () => {
         this.preparing = null; this.acc = 0;
         [aiC1, aiC2, input.p1, input.p2].forEach((c) => c.clear());
@@ -1222,8 +1243,9 @@
       // Low: 2× multisampling instead of 4× (?msaa=n overrides). The fighters there are ready-made anti-aliased
       // pictures and the backdrop is one picture; the samples mostly cost memory traffic: every pass writes and resolves
       // them on every frame, which on a phone is power and heat.
-      const ms = QS.get('msaa') != null ? +QS.get('msaa') : GFX.tier === 'low' ? 2 : 4;
+      const ms = QS.get('msaa') != null ? +QS.get('msaa') : GFX.f.msaa != null ? GFX.f.msaa : GFX.tier === 'low' ? 2 : 4;
       if (ms !== glSamples) { glr.setSamples(ms); glSamples = ms; }
+      glr.setLayerSamples(GPU_PATH && GFX.tier !== 'low' ? LMSAA : null);
       const g = glr.begin(cv.width, cv.height);
       let ok = false;
       ctx = g;
@@ -1238,7 +1260,7 @@
       // draw none there either)
       const mode = GFX.f.bloom === 2 ? 2 : GFX.f.bloom ? 1 : 0;
       const gx = mode === 2 ? (Math.random() * 128) | 0 : 0, gy = mode === 2 ? (Math.random() * 128) | 0 : 0;
-      if (!glr.end({ mode, bloom: scene.theme.bloom ?? 0.5, grainX: gx, grainY: gy, grain: mode === 2 })) return false;
+      if (!glr.end({ mode, bloom: scene.theme.bloom ?? 0.5, grainX: gx, grainY: gy, grain: mode === 2, smallBlur: BLUR_SMALL })) return false;
       showGl(true);
       this.renderVersion = 'gl-v1';
       PM('post');
@@ -1844,9 +1866,11 @@
     const id = (i) => (ND.CHARS[i] ? ND.CHARS[i].id : i);
     // graphics: the player's choice (Auto's own steps are not saved); hq / hqUser keep older builds reading it right
     // (a quality forced by ?gfx= is not saved while it is still the one in use)
-    const gfx = GFX_Q && GFX.pref === GFX_Q ? GFX_SAVED : GFX.pref, hq = gfx !== 'low', hqUser = !!gfx && gfx !== 'auto';
+    const forced = (GFX_Q && GFX.pref === GFX_Q) || (GK_Q && GFX.pref === 'custom' && GFX.custom === GK_CUSTOM);
+    const gfx = forced ? GFX_SAVED : GFX.pref, hq = gfx !== 'low', hqUser = !!gfx && gfx !== 'auto';
+    const gfxK = gfx === 'custom' ? (!forced && GFX.pref === 'custom' ? GFX.custom : saved.gfxK) : undefined;
     // merged into what is stored, so settings kept by other files (touch controls: key "touch", js/touch.js) survive
-    store.set(Object.assign(store.get(), { sound: ND.settings.sound, bloodOptIn: ND.settings.blood, music: ND.settings.music, voice: ND.settings.voice, hints: ND.settings.hints, showFps: ND.settings.showFps || undefined, gfx, hq, hqUser, fps: game.fpsPref || undefined, level: game.level, c1: id(game.sel.c[0]), c2: id(game.sel.c[1]), arena: game.sel.arena }));
+    store.set(Object.assign(store.get(), { sound: ND.settings.sound, bloodOptIn: ND.settings.blood, music: ND.settings.music, voice: ND.settings.voice, hints: ND.settings.hints, showFps: ND.settings.showFps || undefined, gfx, gfxK, hq, hqUser, fps: game.fpsPref || undefined, level: game.level, c1: id(game.sel.c[0]), c2: id(game.sel.c[1]), arena: game.sel.arena }));
   }
   function unlockAudio() { au.init(); au.setEnabled(ND.settings.sound); mu.init(); mu.setEnabled(ND.settings.music); if (mu.mode === 'off') mu.setMode(game.phase === 'fight' ? 'fight' : 'menu'); }
   function choose(mode) { unlockAudio(); au.ui(); if (mode === 'watch') { au.quiet = false; game.start('watch'); } else game.openSelect(mode); }
@@ -1991,7 +2015,10 @@
       if (t) t.textContent = G.title || '';
       row.setAttribute('aria-label', G.title || '');
       row.querySelectorAll('[data-gfx]').forEach((b) => { b.textContent = L[b.dataset.gfx] || b.dataset.gfx; });
+      const cu = row.querySelector('[data-gfx-custom]');
+      if (cu) cu.textContent = L.custom || 'Custom';
     });
+    advTexts();
     syncGfx();
   }
   function syncGfx() {
@@ -2000,12 +2027,67 @@
     if (pref === 'auto' && typeof G.now === 'function') { try { now = G.now(L[GFX.active()] || GFX.active()); } catch (e) { now = ''; } }
     gfxRows().forEach((row) => {
       row.querySelectorAll('[data-gfx]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.gfx === pref)));
+      const cu = row.querySelector('[data-gfx-custom]');
+      if (cu) cu.hidden = pref !== 'custom';
       const n = row.querySelector('[data-gq-now]'), d = row.querySelector('[data-gq-d]');
       if (n && n.textContent !== now) n.textContent = now;
       if (n) n.hidden = !now;
       const desc = N[pref] || '';
       if (d && d.textContent !== desc) d.textContent = desc;
     });
+    syncAdv();
+  }
+  // Advanced graphics (Settings → Graphics, #setAdv): a switch that opens one row per knob of js/gfx.js (KNOBS:
+  // resolution, anti-aliasing, glow, shadows & reflections, weather & particles). A press sets that knob alone
+  // (GFX.setKnob: the choice becomes Custom, the quality row shows it) and is saved (settings key gfxK); pressing a
+  // preset restores its values. The three heaviest rows (resolution, anti-aliasing, glow) carry a "heats the phone the
+  // most" hint. Texts ND.STR.gfx.adv.
+  const ADV_WORD = { msaa: { 0: 'off' }, bloom: { 0: 'off', 1: 'low', 2: 'full' }, shadows: { 0: 'off', 1: 'simple', 2: 'full' }, effects: { 0: 'low', 1: 'mid', 2: 'full' } };
+  const ADV_HOT = { scale: 1, msaa: 1, bloom: 1 };
+  let advOpen = false;
+  function gfxAdvBuild() {
+    const adv = $('setAdv');
+    if (!adv || adv.dataset.built) return;
+    adv.dataset.built = '1';
+    let h = '<button type="button" class="tog" id="tGfxAdv" aria-pressed="false" aria-expanded="false" aria-controls="setAdvRows"><i></i><span data-gk-adv></span></button><div class="gq-adv-rows" id="setAdvRows" hidden><small class="gq-n" data-gk-note></small>';
+    for (const k in GFX.knobList) {
+      h += `<div class="gq" role="group" data-gk="${k}"><span class="gq-t" data-gk-t></span><span class="gq-segs">` +
+        GFX.knobList[k].map((v) => `<button type="button" class="seg" data-v="${v}" aria-pressed="false"></button>`).join('') + '</span>' +
+        (ADV_HOT[k] ? '<small class="gq-hot" data-gk-hot></small>' : '') + '</div>';
+    }
+    adv.innerHTML = h + '</div>';
+    $('tGfxAdv').onclick = (e) => { e.stopPropagation(); advOpen = !advOpen; syncAdv(); unlockAudio(); au.ui(); };
+    adv.querySelectorAll('[data-gk]').forEach((row) => row.querySelectorAll('[data-v]').forEach((b) => {
+      b.onclick = (e) => { e.stopPropagation(); GFX.setKnob(row.dataset.gk, +b.dataset.v); unlockAudio(); au.ui(); };
+    }));
+  }
+  function advTexts() {
+    gfxAdvBuild();
+    const adv = $('setAdv');
+    if (!adv) return;
+    const A = (STR.gfx && STR.gfx.adv) || {}, K = A.knob || {}, V = A.val || {};
+    const set = (el, t) => { if (el && el.textContent !== t) el.textContent = t; };
+    set(adv.querySelector('[data-gk-adv]'), A.title || 'Advanced');
+    set(adv.querySelector('[data-gk-note]'), A.note || '');
+    adv.querySelectorAll('[data-gk]').forEach((row) => {
+      const k = row.dataset.gk;
+      set(row.querySelector('[data-gk-t]'), K[k] || k);
+      row.setAttribute('aria-label', K[k] || k);
+      set(row.querySelector('[data-gk-hot]'), A.hot || '');
+      row.querySelectorAll('[data-v]').forEach((b) => {
+        const v = +b.dataset.v, w = ADV_WORD[k] && ADV_WORD[k][v];
+        set(b, k === 'scale' ? Math.round(v * 100) + '%' : w ? V[w] || w : v + '×');
+      });
+    });
+  }
+  function syncAdv() {
+    const adv = $('setAdv');
+    if (!adv || !adv.dataset.built) return;
+    const b = $('tGfxAdv'), rows = $('setAdvRows');
+    b.setAttribute('aria-pressed', String(advOpen)); b.setAttribute('aria-expanded', String(advOpen));
+    rows.hidden = !advOpen;
+    const K = GFX.knobs();
+    adv.querySelectorAll('[data-gk]').forEach((row) => row.querySelectorAll('[data-v]').forEach((x) => x.setAttribute('aria-pressed', String(+x.dataset.v === K[row.dataset.gk]))));
   }
   gfxRows().forEach((row) => row.querySelectorAll('[data-gfx]').forEach((b) => {
     b.onclick = (e) => { e.stopPropagation(); GFX.setQuality(b.dataset.gfx); unlockAudio(); au.ui(); };
@@ -2319,10 +2401,10 @@
   function resize() {
     const r = cv.getBoundingClientRect();
     if (r.width < 1 || r.height < 1) return;
-    let dpr = Math.min(window.devicePixelRatio || 1, GFX.f.dpr);
+    let dpr = Math.min(window.devicePixelRatio || 1, GFX.f.dpr, DPR_Q);
     const px = r.width * r.height * dpr * dpr;
     if (px > MAX_PX) dpr *= Math.sqrt(MAX_PX / px);
-    const k = dpr * aq.R[aq.i].s * (game.behind ? BEHIND_SCALE : 1);
+    const k = dpr * aq.R[aq.i].s * (GFX.f.scale || 1) * (game.behind ? BEHIND_SCALE : 1);
     const w = Math.max(1, Math.round(r.width * k)), h = Math.max(1, Math.round(r.height * k));
     if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
     game.pxr = cv.width / r.width; // tuval pikseli / CSS pikseli (tuş istemi boyutu için)
@@ -2345,6 +2427,7 @@
   const SCALES = MOBILE ? [1, 0.85, 0.7, 0.6] : [1, 0.85, 0.7];
   function ladder(pref) {
     const R = [];
+    if (pref === 'custom') return [{ tier: GFX.tier, s: 1 }]; // the player's own knobs: no automatic steps
     if (pref === 'auto') {
       const T = GFX.tiers.slice(Math.max(0, GFX.tiers.indexOf(GFX.guess())));
       T.forEach((tier, i) => (i === T.length - 1 ? SCALES : SCALES.slice(0, 2)).forEach((s) => R.push({ tier, s })));

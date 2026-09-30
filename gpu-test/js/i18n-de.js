@@ -1002,14 +1002,24 @@
     merge(EN.STR, {
       gfx: {
         title: 'Grafik',
-        levels: { auto: 'Auto', high: 'Hoch', medium: 'Mittel', low: 'Niedrig' },
+        levels: { auto: 'Auto', high: 'Hoch', medium: 'Mittel', low: 'Niedrig', custom: 'Eigene' },
         note: {
           auto: 'Wählt passend zum Gerät und senkt sich selbst, wenn ein Kampf ruckelt.',
           high: 'Alle Lichter und Effekte. Für starke Geräte.',
           medium: 'Leichtes Leuchten, keine Schatten. Für die meisten Handys.',
           low: 'Am flüssigsten. Für ältere Handys.',
+          custom: 'Deine eigenen Einstellungen (Erweitert).',
         },
         now: (lv) => `Jetzt: ${lv}`,
+        // Settings → Graphics → Advanced (game.js gfxAdvBuild, js/gfx.js KNOBS): the switch, the line under it, the hint on
+        // the heaviest rows, one title per knob and the value words (resolution shows percentages, anti-aliasing 2× / 4×)
+        adv: {
+          title: 'Erweitert',
+          note: 'Änderst du eine, wird die Wahl zu „Eigene“; ein Tipp auf eine Voreinstellung stellt ihre Werte wieder her.',
+          hot: 'heizt am meisten',
+          knob: { scale: 'Auflösung', msaa: 'Kantenglättung', bloom: 'Leuchten', shadows: 'Schatten & Spiegelungen', effects: 'Wetter & Partikel' },
+          val: { off: 'Aus', low: 'Wenig', mid: 'Mittel', full: 'Voll', simple: 'Einfach' },
+        },
       },
     });
 

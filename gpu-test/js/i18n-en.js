@@ -987,14 +987,24 @@
     merge(EN.STR, {
       gfx: {
         title: 'Graphics',
-        levels: { auto: 'Auto', high: 'High', medium: 'Medium', low: 'Low' },
+        levels: { auto: 'Auto', high: 'High', medium: 'Medium', low: 'Low', custom: 'Custom' },
         note: {
           auto: 'Picks for your device and lowers itself if a fight stutters.',
           high: 'Every light and effect. For strong devices.',
           medium: 'Light glow, no shadows. For most phones.',
           low: 'Smoothest. For older phones.',
+          custom: 'Your own settings (Advanced).',
         },
         now: (lv) => `Now: ${lv}`,
+        // Settings → Graphics → Advanced (game.js gfxAdvBuild, js/gfx.js KNOBS): the switch, the line under it, the hint on
+        // the heaviest rows, one title per knob and the value words (resolution shows percentages, anti-aliasing 2× / 4×)
+        adv: {
+          title: 'Advanced',
+          note: 'Changing one makes the choice "Custom"; pressing a preset brings its values back.',
+          hot: 'heats the most',
+          knob: { scale: 'Resolution', msaa: 'Anti-aliasing', bloom: 'Glow', shadows: 'Shadows & reflections', effects: 'Weather & particles' },
+          val: { off: 'Off', low: 'Low', mid: 'Medium', full: 'Full', simple: 'Simple' },
+        },
       },
     });
 

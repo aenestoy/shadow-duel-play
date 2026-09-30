@@ -502,6 +502,9 @@ window.ND = window.ND || {};
     let AW = 0, AH = 0, wantAW = 512, wantAH = 512;
     let shelfX = 0, shelfY = 0, shelfH = 0, usedW = 0, usedH = 0;
     const layerCtxs = new Map();
+    // first vertex of every quad placing a layer this frame: their texture coordinates are rescaled when the atlas
+    // grows in the middle of a frame (R.layer)
+    const layerQuads = [];
     function layerAlloc(w, h) {
       const P = 2;
       if (w + P > AW || h + P > AH) return null;
@@ -1046,7 +1049,8 @@ window.ND = window.ND || {};
         QX[0] = a * dx + c * dy + e; QY[0] = b * dx + d * dy + f; QX[1] = a * x1 + c * dy + e; QY[1] = b * x1 + d * dy + f;
         QX[2] = a * x1 + c * y1 + e; QY[2] = b * x1 + d * y1 + f; QX[3] = a * dx + c * y1 + e; QY[3] = b * dx + d * y1 + f;
         QU[0] = u0; QV[0] = v0; QU[1] = u1; QV[1] = v0; QU[2] = u1; QV[2] = v1; QU[3] = u0; QV[3] = v1;
-        emitUV4();
+        const vb = emitUV4();
+        if (L) layerQuads.push(vb);
       }
       // a sprite of the atlas (R.spriteEnd) into the rectangle dx, dy, dw, dh of user space
       drawSprite(s, dx, dy, dw, dh) {
@@ -1346,7 +1350,21 @@ window.ND = window.ND || {};
     let main = null;
     R.layer = function (w, h, key) {
       w = Math.max(1, Math.ceil(w)); h = Math.max(1, Math.ceil(h));
-      const r = layerAlloc(w, h);
+      let r = layerAlloc(w, h);
+      // no room: grow the atlas now, in this frame (its picture is only made when the frame runs; layers placed so far
+      // keep their pixels, their texture coordinates are rescaled), so the frame is not handed to Canvas 2D. Until
+      // this, one frame per fight on High was redrawn with Canvas 2D (and its bloom): a 100+ ms frame on a phone.
+      for (let k = 0; !r && k < 4 && (AW < 4096 || AH < 4096); k++) {
+        const ow = AW, oh = AH;
+        const nw = Math.max(AW <= AH ? Math.min(4096, AW * 2) : AW, Math.min(4096, Math.ceil((w + 4) / 64) * 64));
+        const nh = Math.max(AW > AH ? Math.min(4096, AH * 2) : AH, Math.min(4096, Math.ceil((h + 4) / 64) * 64));
+        if (nw === AW && nh === AH) break;
+        AW = wantAW = nw; AH = wantAH = nh; R._layerResize = true;
+        const kx = ow / AW, ky = oh / AH;
+        for (const b of layerQuads) for (let i = 0, o = b * STRIDE; i < 4; i++, o += STRIDE) { VF[o + 3] *= kx; VF[o + 4] = 1 - (1 - VF[o + 4]) * ky; }
+        if (P) P.layerRegrow++;
+        r = layerAlloc(w, h);
+      }
       if (!r) {
         // grow for the next frame (this one is drawn with Canvas 2D): the shorter side doubles, and both fit this layer
         if (AW <= AH) wantAW = Math.min(4096, AW * 2); else wantAH = Math.min(4096, AH * 2);
@@ -1412,7 +1430,7 @@ window.ND = window.ND || {};
         wantAH = Math.max(wantAH, Math.min(2048, Math.max(512, Math.ceil(H / 64) * 64 + 64)));
       }
       if (AW !== wantAW || AH !== wantAH) { AW = wantAW; AH = wantAH; R._layerResize = true; }
-      shelfX = shelfY = shelfH = usedW = usedH = 0;
+      shelfX = shelfY = shelfH = usedW = usedH = 0; layerQuads.length = 0;
       if (!main) main = new Ctx(1, null, W, H);
       main.W = W; main.H = H; main._canvas = { width: W, height: H };
       main.clp = null; main.sp = 0; main.beginPath();
@@ -1457,8 +1475,9 @@ window.ND = window.ND || {};
     // tests: copy of the recorded frame (x, y per vertex, triangle indices, commands)
     R.dump = () => {
       const xy = new Float64Array(nv * 2);
-      for (let i = 0; i < nv; i++) { xy[i * 2] = VF[i * STRIDE]; xy[i * 2 + 1] = VF[i * STRIDE + 1]; }
-      return { xy, idx: Array.from(IX.subarray(0, ni)), cmds: cmds.map((c) => ({ k: c.k === K_DRAW ? 'draw' : c.k === K_SFILL ? 'stencil-fill' : 'clip', pass: c.pass, blend: c.blend, first: c.first, count: c.count, clip: !!c.clip })) };
+      const uv = new Float64Array(nv * 2);
+      for (let i = 0; i < nv; i++) { xy[i * 2] = VF[i * STRIDE]; xy[i * 2 + 1] = VF[i * STRIDE + 1]; uv[i * 2] = VF[i * STRIDE + 3]; uv[i * 2 + 1] = VF[i * STRIDE + 4]; }
+      return { xy, uv, idx: Array.from(IX.subarray(0, ni)), cmds: cmds.map((c) => ({ k: c.k === K_DRAW ? 'draw' : c.k === K_SFILL ? 'stencil-fill' : 'clip', pass: c.pass, blend: c.blend, first: c.first, count: c.count, clip: !!c.clip })) };
     };
 
     // ---------------------------------------------------------------- GL executor
@@ -1585,6 +1604,13 @@ window.ND = window.ND || {};
       ramps.clear(); rampFree = []; for (let i = RAMP_ROWS - 1; i >= 0; i--) rampFree.push(i); rampDirty = [];
       E.ready = true;
     };
+    // multisampling of the layer pass alone (the lit fighter layers, cast-shadow silhouettes): null = as the scene.
+    // (?renderer=gpu: the fighters there are ready-made anti-aliased pictures, see game.js)
+    E.layerSamples = null;
+    E.setLayerSamples = function (n) {
+      const v = n == null ? null : Math.max(0, Math.min(n | 0, E.maxSamples | 0));
+      E.layerSamples = v === 1 ? 0 : v;
+    };
     E.setSamples = function (n) { wantSamples = n | 0; if (E.ready) { const max = E.maxSamples | 0; E.samples = Math.max(0, Math.min(wantSamples, max)); if (E.samples === 1) E.samples = 0; freeTarget(0); freeTarget(1); } };
     function freeTarget(i) {
       const t = targets[i]; if (!t) return;
@@ -1705,7 +1731,7 @@ window.ND = window.ND || {};
       gl.activeTexture(gl.TEXTURE0);
       let hasLayers = false;
       for (const c of cmds) if (c.pass === 0) { hasLayers = true; break; }
-      if (hasLayers) runPass(0, AW, AH, usedW, usedH);
+      if (hasLayers) runPass(0, AW, AH, usedW, usedH, E.layerSamples == null ? E.samples : E.layerSamples);
       // kept offscreen pictures drawn this frame (after the layers: they may place a layer of this frame, never the
       // scene). 4× multisampled whatever the scene uses: a kept picture is small, drawn a few times a second and then
       // shown enlarged; its edges match Canvas 2D's anti-aliasing more closely.

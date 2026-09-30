@@ -1007,14 +1007,24 @@
     merge(EN.STR, {
       gfx: {
         title: 'Графика',
-        levels: { auto: 'Авто', high: 'Высокая', medium: 'Средняя', low: 'Низкая' },
+        levels: { auto: 'Авто', high: 'Высокая', medium: 'Средняя', low: 'Низкая', custom: 'Своя' },
         note: {
           auto: 'Подбирается под устройство и снижается сама, если бой подтормаживает.',
           high: 'Весь свет и все эффекты. Для мощных устройств.',
           medium: 'Лёгкое свечение, без теней. Для большинства телефонов.',
           low: 'Максимальная плавность. Для слабых телефонов.',
+          custom: 'Твои собственные настройки (Расширенные).',
         },
         now: (lv) => `Сейчас: ${lv}`,
+        // Settings → Graphics → Advanced (game.js gfxAdvBuild, js/gfx.js KNOBS): the switch, the line under it, the hint on
+        // the heaviest rows, one title per knob and the value words (resolution shows percentages, anti-aliasing 2× / 4×)
+        adv: {
+          title: 'Расширенные',
+          note: 'Если изменить одну, выбор станет «Своя»; нажатие на готовый вариант вернёт его значения.',
+          hot: 'греет сильнее всего',
+          knob: { scale: 'Разрешение', msaa: 'Сглаживание', bloom: 'Свечение', shadows: 'Тени и отражения', effects: 'Погода и частицы' },
+          val: { off: 'Выкл', low: 'Мало', mid: 'Средне', full: 'Полно', simple: 'Просто' },
+        },
       },
     });
 

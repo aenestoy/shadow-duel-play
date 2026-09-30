@@ -999,14 +999,24 @@
     merge(EN.STR, {
       gfx: {
         title: 'Graphismes',
-        levels: { auto: 'Auto', high: 'Élevé', medium: 'Moyen', low: 'Bas' },
+        levels: { auto: 'Auto', high: 'Élevé', medium: 'Moyen', low: 'Bas', custom: 'Perso' },
         note: {
           auto: 'Choisit selon ton appareil et baisse d’un cran si un combat saccade.',
           high: 'Toutes les lumières et tous les effets. Pour les appareils puissants.',
           medium: 'Halo léger, sans ombres. Pour la plupart des téléphones.',
           low: 'Le plus fluide. Pour les téléphones anciens.',
+          custom: 'Tes propres réglages (Avancé).',
         },
         now: (lv) => `Actuel\u00A0: ${lv}`,
+        // Settings → Graphics → Advanced (game.js gfxAdvBuild, js/gfx.js KNOBS): the switch, the line under it, the hint on
+        // the heaviest rows, one title per knob and the value words (resolution shows percentages, anti-aliasing 2× / 4×)
+        adv: {
+          title: 'Avancé',
+          note: 'En changer un fait passer le choix à « Perso » ; toucher un préréglage rétablit ses valeurs.',
+          hot: 'chauffe le plus',
+          knob: { scale: 'Résolution', msaa: 'Anticrénelage', bloom: 'Lueur', shadows: 'Ombres et reflets', effects: 'Météo et particules' },
+          val: { off: 'Non', low: 'Faible', mid: 'Moyen', full: 'Complet', simple: 'Simple' },
+        },
       },
     });
 

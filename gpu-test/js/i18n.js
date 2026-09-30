@@ -644,14 +644,24 @@
   // block "GRAPHICS QUALITY". note.* = one short line under the choice.
   if (ND.STR) ND.STR.gfx = merge(ND.STR.gfx || {}, {
     title: 'Grafik',
-    levels: { auto: 'Otomatik', high: 'Yüksek', medium: 'Orta', low: 'Düşük' },
+    levels: { auto: 'Otomatik', high: 'Yüksek', medium: 'Orta', low: 'Düşük', custom: 'Özel' },
     note: {
       auto: 'Cihaza göre seçer; dövüş takılırsa kendiliğinden düşürür.',
       high: 'Tüm ışık ve efektler. Güçlü cihazlar için.',
       medium: 'Hafif ışıma, gölgesiz. Çoğu telefon için.',
       low: 'En akıcı. Zayıf telefonlar için.',
+      custom: 'Kendi seçtiğin ayarlar (Gelişmiş).',
     },
     now: (lv) => `Şu an: ${lv}`,
+    // Settings → Graphics → Advanced (game.js gfxAdvBuild, js/gfx.js KNOBS): the switch, the line under it, the hint on
+    // the heaviest rows, one title per knob and the value words (resolution shows percentages, anti-aliasing 2× / 4×)
+    adv: {
+      title: 'Gelişmiş',
+      note: 'Birini değiştirince seçim "Özel" olur; bir hazır ayara basınca onun değerleri geri gelir.',
+      hot: 'en çok ısıtan',
+      knob: { scale: 'Çözünürlük', msaa: 'Kenar yumuşatma', bloom: 'Işık efektleri', shadows: 'Gölge ve yansıma', effects: 'Hava ve parçacıklar' },
+      val: { off: 'Kapalı', low: 'Az', mid: 'Orta', full: 'Tam', simple: 'Sade' },
+    },
   });
 
   // ---------------------------------------------------------------- Turkish source additions: frame rate

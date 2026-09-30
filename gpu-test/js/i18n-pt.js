@@ -1002,14 +1002,24 @@
     merge(EN.STR, {
       gfx: {
         title: 'Gráficos',
-        levels: { auto: 'Automático', high: 'Alto', medium: 'Médio', low: 'Baixo' },
+        levels: { auto: 'Automático', high: 'Alto', medium: 'Médio', low: 'Baixo', custom: 'Personalizado' },
         note: {
           auto: 'Escolhe conforme o aparelho e reduz sozinho se a luta engasgar.',
           high: 'Todas as luzes e efeitos. Para aparelhos potentes.',
           medium: 'Brilho leve, sem sombras. Para a maioria dos celulares.',
           low: 'O mais fluido. Para celulares mais antigos.',
+          custom: 'Suas próprias configurações (Avançado).',
         },
         now: (lv) => `Agora: ${lv}`,
+        // Settings → Graphics → Advanced (game.js gfxAdvBuild, js/gfx.js KNOBS): the switch, the line under it, the hint on
+        // the heaviest rows, one title per knob and the value words (resolution shows percentages, anti-aliasing 2× / 4×)
+        adv: {
+          title: 'Avançado',
+          note: 'Mudar uma deixa a escolha como "Personalizado"; tocar em uma predefinição traz os valores dela de volta.',
+          hot: 'esquenta mais',
+          knob: { scale: 'Resolução', msaa: 'Suavização', bloom: 'Brilho', shadows: 'Sombras e reflexos', effects: 'Clima e partículas' },
+          val: { off: 'Não', low: 'Baixo', mid: 'Médio', full: 'Completo', simple: 'Simples' },
+        },
       },
     });
 
