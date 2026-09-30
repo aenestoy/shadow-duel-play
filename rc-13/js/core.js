@@ -879,7 +879,7 @@ window.ND = window.ND || {};
     // volumes, BS.1770 momentary, against the voices and the music. Before it the hits sat 15 dB under the voices, the
     // footsteps and the menu click were inaudible (about -75 / -60 LUFS). MIX scales each family; every repeated
     // sound varies a little in pitch, length and level (vr) so a long exchange does not sound like a loop.
-    MIX: { swing: 1.5, clang: 1.5, cut: 4.6, thud: 3.3, step: 0.8, whistle: 4.5, tick: 7, whoosh: 1.8, ui: 5.9, grind: 1.8, amb: 0.8 },
+    MIX: { swing: 1.5, clang: 1.5, cut: 4.6, thud: 3.3, step: 0.8, whistle: 4.5, tick: 7, whoosh: 1.8, ui: 1, grind: 1.8, amb: 0.8 },
     swoosh(power = 1, pan = 0) {
       const k = this.vr(0.12), d = (0.16 + 0.12 * power) * this.vr(0.1), m = this.MIX.swing * this.vr(0.12);
       this.noise({ type: 'bandpass', f0: (500 + 300 * power) * k, f1: (2600 + 900 * power) * k, q: 1.4, dur: d, gain: (0.22 + 0.2 * power) * m, attack: d * 0.55, send: 0.12, pan });

@@ -48,7 +48,7 @@
       if (!A.uiOn()) return;
       A.menu(() => {
         A.ui();
-        A.tone({ freq: 150 * vr(0.05), freq1: 85, glide: 0.1, dur: 0.16, gain: 0.5, attack: 0.008, send: 0.15 });
+        A.tone({ freq: 150 * vr(0.05), freq1: 85, glide: 0.1, dur: 0.16, gain: 0.05, attack: 0.008, send: 0.15 });
       });
     },
     toast() { if (!A.uiOn()) return; A.menu(() => { S.bell(1568 * vr(0.01), 0.03, 0, 0.9); S.bell(2093, 0.02, 0.07, 0.8); }); },
@@ -163,8 +163,10 @@
   // (match found, rank up, win) under the KO (-15 … -19)
   // (2026-09-30, owner's feedback "the sounds felt disturbing": everything the sound pass added is calmer; the ranked
   // search, toasts and coins are also menu sounds: the Menu sounds switch turns them off)
-  const LV = { back: 4, guardUp: 3.5, dash: 5.4, jump: 2.4, kiReady: 0.6, timeUp: 1.4, win: 0.35, lose: 0.42,
-    queueStart: 0.38, queuePulse: 0.39, matchFound: 0.53, rankUp: 0.42, rankDown: 0.67, unlock: 0.65, coin: 1.6, vs: 0.42, toast: 0.95, joined: 0.5 };
+  // (levels relative to a sword cut, 2026-09-30 re-measure: clicks / back / confirm 20+ dB under it, coins / toast /
+  // search heartbeat 15-20 dB under, the big alerts no louder than a cut)
+  const LV = { back: 0.8, guardUp: 3.5, dash: 5.4, jump: 2.4, kiReady: 0.6, timeUp: 1.4, win: 0.35, lose: 0.42,
+    queueStart: 0.38, queuePulse: 0.39, matchFound: 0.33, rankUp: 0.32, rankDown: 0.67, unlock: 0.65, coin: 0.75, vs: 0.42, toast: 0.95, joined: 0.5 };
   for (const k of Object.keys(LV)) { const fn = S[k]; S[k] = function () { const a = arguments; return A.scaled(LV[k], () => fn.apply(S, a)); }; }
 
   // ---------------------------------------------------------------- menus: every press, back, hover
