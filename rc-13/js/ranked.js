@@ -153,6 +153,7 @@
       }
     } catch (e) { if (!me) me = null; }
     try { stats = await plain('nd_rank_stats', {}, 6000); } catch (e) { /* none */ }
+    decorateEntry();
     if (screen === 'home') render();
   }
 
@@ -676,12 +677,75 @@
   .rk-champs article { padding: 10px; border: 1px solid var(--line); background: rgba(0,0,0,.25); display: grid; gap: 4px; }
   .rk-champs b { color: var(--gold); }
   @media (max-height: 460px) { #rk .rk-card { gap: 8px; padding: 12px; } .rk-k { font-size: 30px; } .rk-count { font-size: 30px; } .rk-vs .v, .rk-vs .f b { font-size: 30px; } .rk-grid { grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); } .rk-ch { padding: 5px 3px; } }
+  /* home: one column; on short, wide screens (phones sideways, CrazyGames' small frames) two, so it fits without scrolling */
+  #rk .rk-card.home > .rk-main, #rk .rk-card.home > .rk-side { display: grid; gap: 12px; align-content: start; min-width: 0; }
+  @media (max-height: 540px) {
+    #rk.overlay { padding-block: 8px; }
+    #rk .rk-card { gap: 8px; padding: 12px 14px; }
+    .rk-k { font-size: 30px; } .rk-title { font-size: 22px; } .rk-sub { font-size: 12.5px; }
+    .rk-st, .rk-err { font-size: 13px; } .rk-how { font-size: 12.5px; gap: 1px; }
+    .rk-count { font-size: 30px; } .rk-name { font-size: 20px; } .rk-opp { padding: 8px; gap: 5px; }
+    .rk-big { padding: 8px 10px; } .rk-big .rk-badge { font-size: 16px; padding: 7px 10px; } .rk-big .rk-badge b { font-size: 26px; } .rk-num { font-size: 22px; }
+    #rk .rk-card.home > .rk-main, #rk .rk-card.home > .rk-side { gap: 8px; }
+  }
+  @media (max-height: 540px) and (min-width: 600px) {
+    #rk .rk-card.home { width: min(920px, 100%); grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); column-gap: 18px; align-items: start; }
+    #rk .rk-card.home > .rk-side { border-left: 1px solid var(--line); padding-left: 16px; }
+  }
+  @media (max-height: 400px) {
+    #rk .rk-card { gap: 6px; padding: 10px 12px; }
+    .rk-k { font-size: 26px; } .rk-title { font-size: 20px; } .rk-count { font-size: 26px; } .rk-name { font-size: 18px; }
+    .rk-how { font-size: 12px; line-height: 1.3; } .rk-vs .v, .rk-vs .f b { font-size: 26px; }
+  }
+  /* long titles in other languages wrap instead of sticking out (DUELO CLASIFICATORIO, РЕЙТИНГОВАЯ ДУЭЛЬ) */
+  .rk-head > div { min-width: 0; } .rk-title { overflow-wrap: anywhere; } .rk-big > * { min-width: 0; } .rk-badge { max-width: 100%; }
+  /* narrow screens (phones upright): tighter spacing, so the ranked home fits an iPhone's 763 px without scrolling */
+  @media (max-width: 560px) {
+    #rk.overlay { padding-block: 10px; padding-inline: 10px; }
+    #rk .rk-card { gap: 8px; padding: 12px; }
+    #rk .rk-card.home > .rk-main, #rk .rk-card.home > .rk-side { gap: 8px; }
+    .rk-title { font-size: 22px; } .rk-k { font-size: 32px; } .rk-how { font-size: 12.5px; gap: 1px; } .rk-st, .rk-err { font-size: 13px; }
+    .rk-big { padding: 8px 10px; column-gap: 12px; } .rk-big .rk-badge { font-size: 16px; padding: 7px 10px; } .rk-big .rk-badge b { font-size: 26px; } .rk-num { font-size: 22px; }
+  }
+  /* touch screens: every ranked button at least 44 px tall */
+  #app.touch #rk button:not(.rk-ch), #app.touch #rkBar button, #app.touch #rkHud .btn { min-height: 44px; }
+  /* the search bar over the warm-up fight: one compact row under the fight's HUD (#hud), never over it */
+  #rkBar { flex-wrap: nowrap; gap: 8px; padding: 4px 6px 4px 12px; font-size: 12px; top: calc(env(safe-area-inset-top, 0px) + 104px); }
+  @media (max-height: 540px) { #rkBar { top: calc(env(safe-area-inset-top, 0px) + 64px); } }
+  #rkBar .rk-bt { display: grid; gap: 2px; text-align: left; white-space: nowrap; }
+  #rkBar .rk-bt .tag { font-size: 10.5px; letter-spacing: .08em; }
+  #rkBar button { padding: 6px 10px; }
+
+  /* ---- the RANKED entry in the main menu: lacquer panel, gold edge, the player's tier seal, season tag */
+  #mranked { position: relative; overflow: hidden; isolation: isolate; border-color: rgba(217,179,108,.72);
+    background: radial-gradient(120% 140% at 100% 50%, rgba(196,44,34,.28), rgba(196,44,34,0) 55%), linear-gradient(100deg, #1b0e10 0%, #130b10 55%, #0d0b13 100%);
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,.55), inset 0 0 0 2px rgba(217,179,108,.16), 0 6px 18px rgba(0,0,0,.35); }
+  #mranked:hover, #mranked:focus-visible { border-color: var(--gold-hi, #f1d69c); background: radial-gradient(120% 140% at 100% 50%, rgba(214,52,40,.36), rgba(196,44,34,0) 58%), linear-gradient(100deg, #22110f 0%, #170c10 55%, #0f0c15 100%); }
+  #mranked strong { color: #f1d69c; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; }
+  #mranked strong .rk-mt { font: inherit; color: inherit; letter-spacing: inherit; white-space: nowrap; grid-column: auto; }
+  #mranked .rk-ms { font: 500 11px/1.2 var(--display); letter-spacing: .12em; text-transform: uppercase; color: var(--gold); white-space: nowrap; }
+  #mranked .rk-ms:empty { display: none; }
+  /* narrow screens: the season line takes the description's place (the entry keeps its height) */
+  @media (max-width: 560px) { #mranked.has-season > .rk-md { display: none; } }
+  #mranked .mk.rk-seal-m { width: 46px; height: 46px; display: grid; place-items: center; box-sizing: border-box; padding: 2px; color: #fbeedd; text-shadow: none;
+    font: 700 24px/1 var(--jp); background: linear-gradient(145deg, #c8392c, #8f1d16); border: 1px solid rgba(255,230,200,.55);
+    box-shadow: inset 0 0 0 2px #a8271d, inset 0 0 0 3px rgba(255,230,200,.35), 0 0 0 1px var(--tc, rgba(217,179,108,.6)), 0 0 16px rgba(214,60,40,.35);
+    transform: rotate(-4deg); animation: rkEmber 4.5s ease-in-out infinite; }
+  #mranked .mk.rk-seal-m.two { writing-mode: vertical-rl; font-size: 17px; letter-spacing: 0; line-height: 1.02; }
+  #mranked::after { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+    background: linear-gradient(105deg, rgba(255,236,190,0) 40%, rgba(255,236,190,.09) 50%, rgba(255,236,190,0) 60%) no-repeat; background-size: 300% 100%; background-position: 130% 0; animation: rkSheen 7s ease-in-out 1.5s infinite; }
+  @keyframes rkSheen { 0%, 70% { background-position: 130% 0; } 100% { background-position: -30% 0; } }
+  @keyframes rkEmber { 0%, 100% { box-shadow: inset 0 0 0 2px #a8271d, inset 0 0 0 3px rgba(255,230,200,.35), 0 0 0 1px var(--tc, rgba(217,179,108,.6)), 0 0 12px rgba(214,60,40,.25); } 50% { box-shadow: inset 0 0 0 2px #a8271d, inset 0 0 0 3px rgba(255,230,200,.35), 0 0 0 1px var(--tc, rgba(217,179,108,.6)), 0 0 20px rgba(230,80,45,.5); } }
+  @media (prefers-reduced-motion: reduce) { #mranked::after, #mranked .mk.rk-seal-m { animation: none; } }
+  @media (max-height: 540px) { #mranked .mk.rk-seal-m { width: 34px; height: 34px; font-size: 19px; } #mranked .mk.rk-seal-m.two { font-size: 13px; } #mranked .rk-ms { font-size: 10px; } }
   `;
+  // the styles go in with the menu entry (the entry is styled before any ranked screen opens)
+  function css() { if (!$('rkCss')) { const st = document.createElement('style'); st.id = 'rkCss'; st.textContent = CSS; document.head.appendChild(st); } }
   let built = false;
   function build() {
     if (built) return;
     built = true;
-    const st = document.createElement('style'); st.id = 'rkCss'; st.textContent = CSS; document.head.appendChild(st);
+    css();
     const app = $('app'), mk = (html) => { const d = document.createElement('div'); d.innerHTML = html.trim(); return d.firstChild; };
     app.appendChild(mk('<div id="rk" class="overlay" hidden role="dialog" aria-modal="true" aria-labelledby="rkTitle"></div>'));
     app.appendChild(mk('<div id="rkBar" hidden role="status" aria-live="polite"></div>'));
@@ -697,8 +761,7 @@
   function relabel() {
     const L = M(), set = (id, t) => { const e = $(id); if (e) e.textContent = t; };
     set('rkQuit', L.leave); set('rkCfT', L.leaveQ); set('rkCfS', L.leaveSub); set('rkStay', L.stay); set('rkLeaveNow', L.leave);
-    const b = $('mranked');
-    if (b) { b.querySelector('strong').textContent = L.title; b.querySelector('span').textContent = L.menuSub; }
+    decorateEntry();
   }
   function hideAll() { ['rk', 'rkConfirm'].forEach((id) => { const e = $(id); if (e) e.hidden = true; }); }
   function show(which) {
@@ -746,9 +809,13 @@
   }
 
   function renderHome() {
-    const L = M(), c = card(false), id = identity();
+    const L = M(), c0 = card(false), id = identity();
+    c0.classList.add('home');
+    // (two groups: what to do now, and how it works; side by side on short, wide screens)
+    const c = el('div', 'rk-main'), side = el('div', 'rk-side');
+    c0.append(c, side);
     c.append(head('戦', L.title, me && me.season ? L.season(me.season.id) + ' · ' + seasonLeft() : ''));
-    if (!serverHas()) { c.append(el('p', 'rk-err', L.offline)); c.append(backRow()); return; }
+    if (!serverHas()) { c.append(el('p', 'rk-err', L.offline)); c.append(backRow()); side.remove(); return; }
     const big = el('div', 'rk-big');
     if (me && !me.guest) {
       const b = badge(me.tier, me.placement);
@@ -780,7 +847,7 @@
     } else if (id === 'guest') {
       c.append(el('p', 'rk-st', ND.cgAccount && ND.cgAccount.available ? L.guestNote : L.nickNote));
     }
-    c.append(el('p', 'rk-st', L.reward));
+    side.append(el('p', 'rk-st', L.reward));
     const err = el('p', 'rk-err', flashMsg); flashMsg = ''; c.append(err);
     const row = el('div', 'rk-btns');
     const fb = btn(id === 'guest' ? L.findUnranked : L.find, 'primary', () => find());
@@ -794,10 +861,10 @@
       try { c.append(ND.lbUI.nickLine(() => { loadMe().then(() => render()); render(); })); } catch (e) { /* no nick form */ }
     }
     const how = el('ul', 'rk-how'); (L.howLines || TR.howLines).forEach((t) => how.appendChild(el('li', null, t)));
-    c.append(how);
+    side.append(how);
     const r2 = el('div', 'rk-btns');
     r2.append(btn(L.board, '', () => openHall()), btn(L.back, '', () => close()));
-    c.append(r2);
+    side.append(r2);
     setTimeout(() => { const b = $('rkFind'); if (b && screen === 'home') b.focus(); }, 0);
   }
   const placementTotal = () => (me && me.games === 0 && me.placement > 3 ? me.placement : me && me.placement > 3 ? 5 : me ? Math.max(3, me.placement + (me.games | 0)) : 5);
@@ -833,7 +900,10 @@
     if (!on) return;
     const L = M();
     b.textContent = '';
-    b.append(el('span', null, L.searching + ' ' + fmtClock(Date.now() - Q.since)), el('span', 'tag', L.warmTag));
+    const t = el('span', 'rk-bt'); t.append(el('span', null, L.searching + ' ' + fmtClock(Date.now() - Q.since)), el('span', 'tag', L.warmTag));
+    b.append(t);
+    // just under the fight's HUD (names, health, clock), whatever its size on this screen
+    try { const hud = $('hud'), app = $('app'), hr = hud && hud.getBoundingClientRect(); if (hr && app && hr.height > 8) b.style.top = Math.round(hr.bottom - app.getBoundingClientRect().top + 6) + 'px'; } catch (e) { /* default place */ }
     const back = el('button', 'mini', L.warmBack); back.type = 'button'; back.onclick = () => endWarm(true);
     const cancel = el('button', 'mini', L.cancel); cancel.type = 'button'; cancel.onclick = () => { stopQueue(true); G.goMenu(); };
     b.append(back, cancel);
@@ -1086,18 +1156,50 @@
     if ($('mranked')) return;
     const anchor = $('mfriend') || $('msingle') || $('mplay');
     if (!anchor) return;
+    css();
     const b = document.createElement('button');
     b.className = 'mode friend ranked'; b.id = 'mranked'; b.type = 'button';
-    const s = document.createElement('strong'); s.textContent = M().title;
-    const d = document.createElement('span'); d.textContent = M().menuSub;
-    const k = document.createElement('b'); k.className = 'mk'; k.setAttribute('aria-hidden', 'true'); k.textContent = '戦';
+    // title + season tag ("SEASON 1 · ENDS IN 28 DAYS"), the description, and the seal: the player's tier kanji
+    // (戦 until the server says, for guests and players still in placement)
+    const s = document.createElement('strong'), st = el('span', 'rk-mt'), ms = el('small', 'rk-ms');
+    s.append(st, ms);
+    const d = document.createElement('span'); d.className = 'rk-md';
+    const k = document.createElement('b'); k.className = 'mk rk-seal-m'; k.setAttribute('aria-hidden', 'true');
     b.append(s, d, k);
     b.onclick = () => { try { if (ND.audio) { ND.audio.init(); ND.audio.ui(); } } catch (e) { /* no sound yet */ } open(); };
     anchor.after(b);
+    decorateEntry();
     syncMenuEntry();
   }
-  // the entry shows only when the server has ranked (nd_ping features)
-  function syncMenuEntry() { const b = $('mranked'); if (b) b.hidden = !serverHas(); }
+  function decorateEntry() {
+    const b = $('mranked');
+    if (!b) return;
+    const L = M(), st = b.querySelector('.rk-mt'), ms = b.querySelector('.rk-ms'), d = b.querySelector('.rk-md'), k = b.querySelector('.rk-seal-m');
+    if (st) st.textContent = L.title;
+    if (d) d.textContent = L.menuSub;
+    if (ms) ms.textContent = me && me.season ? L.season(me.season.id) + ' · ' + seasonLeft() : '';
+    b.classList.toggle('has-season', !!(ms && ms.textContent));
+    if (k) {
+      const T = me && !me.guest && !(me.placement > 0) && me.tier != null ? tierInfo(me.tier) : null;
+      k.textContent = T ? T.k : '戦';
+      k.classList.toggle('two', k.textContent.length > 1);
+      if (T) { k.style.setProperty('--tc', T.col); b.title = T.n; } else { k.style.removeProperty('--tc'); b.removeAttribute('title'); }
+    }
+  }
+  // the entry shows only when the server has ranked (nd_ping features); once shown, the player's tier and the season
+  // are asked for once (one request, a few seconds later)
+  let menuAsked = false;
+  function syncMenuEntry() {
+    const b = $('mranked'); if (!b) return;
+    b.hidden = !serverHas();
+    if (b.hidden || menuAsked || me) { decorateEntry(); return; }
+    menuAsked = true;
+    setTimeout(async () => {
+      if (me || !serverHas()) { decorateEntry(); return; }
+      try { const r = await call('nd_rank_me', {}, 8000); if (r && typeof r === 'object' && !me) { me = r; if (ND.rewards && !r.guest) ND.rewards.setOwned(r.player_id, r.owned); } } catch (e) { /* the plain seal stays */ }
+      decorateEntry();
+    }, 2500);
+  }
 
   // ---------------------------------------------------------------- public / test API
   const R = ND.ranked = {
