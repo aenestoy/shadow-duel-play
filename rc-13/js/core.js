@@ -879,7 +879,7 @@ window.ND = window.ND || {};
     // volumes, BS.1770 momentary, against the voices and the music. Before it the hits sat 15 dB under the voices, the
     // footsteps and the menu click were inaudible (about -75 / -60 LUFS). MIX scales each family; every repeated
     // sound varies a little in pitch, length and level (vr) so a long exchange does not sound like a loop.
-    MIX: { swing: 1.5, clang: 1.5, cut: 4.6, thud: 3.3, step: 3.5, whistle: 4.5, tick: 7, whoosh: 1.8, ui: 5.9, grind: 1.8, amb: 0.8 },
+    MIX: { swing: 1.5, clang: 1.5, cut: 4.6, thud: 3.3, step: 0.8, whistle: 4.5, tick: 7, whoosh: 1.8, ui: 5.9, grind: 1.8, amb: 0.8 },
     swoosh(power = 1, pan = 0) {
       const k = this.vr(0.12), d = (0.16 + 0.12 * power) * this.vr(0.1), m = this.MIX.swing * this.vr(0.12);
       this.noise({ type: 'bandpass', f0: (500 + 300 * power) * k, f1: (2600 + 900 * power) * k, q: 1.4, dur: d, gain: (0.22 + 0.2 * power) * m, attack: d * 0.55, send: 0.12, pan });
@@ -913,10 +913,22 @@ window.ND = window.ND || {};
       this.noise({ type: 'lowpass', f0: 500 * this.vr(0.2), dur: 0.14, gain: 0.35 * power * m, send: 0.05, pan });
     },
     // a foot on the ground: a short scuff + a soft thump. g: 1 a step, ~2.5 a jump push-off, 3 a landing
+    // (2026-09-30, owner: "I didn't like the walking sound either") A walk step is a soft, low, muffled shuffle — cloth
+    // and a sandal on the ground, filtered noise with a rounded attack, no click and no tone — well under the fight
+    // (~30 dB under a cut), and only every other step, never twice within 0.26 s (quick back-and-forth never stacks).
+    // g > 1: a jump push-off (2.5) or a landing (3): the same shuffle a little fuller, with a soft low thump under it.
     step(pan = 0, g = 1) {
-      const m = this.MIX.step * this.vr(0.2), w = Math.pow(g, 0.7);
-      this.noise({ type: 'bandpass', f0: (700 + Math.random() * 500), q: 1.1, dur: 0.05 + 0.02 * w, gain: 0.35 * w * m, attack: 0.002, send: 0.03, pan });
-      this.tone({ freq: 95 * this.vr(0.12), freq1: 50, dur: 0.07 + 0.03 * w, gain: 0.22 * w * m, attack: 0.002, send: 0.02, pan });
+      const walk = g <= 1.2;
+      if (walk) {
+        const t = this.ctx ? this.ctx.currentTime : 0;
+        if (t - (this._stT ?? -9) < 0.26) return;
+        this._stN = (this._stN | 0) + 1;
+        if (this._stN % 2) return;
+        this._stT = t;
+      }
+      const m = this.MIX.step * this.vr(0.25), w = Math.pow(g, 0.7), k = this.vr(0.15);
+      this.noise({ type: 'lowpass', f0: (240 + Math.random() * 160) * k, q: 0.7, dur: 0.11 + 0.03 * w, gain: 0.3 * w * m, attack: 0.02, send: 0.02, pan });
+      if (!walk) this.noise({ type: 'lowpass', f0: 140 * k, q: 0.7, dur: 0.14, gain: 0.35 * w * m, attack: 0.01, send: 0.02, pan });
     },
     whistle(pan = 0) {
       const k = this.vr(0.06), m = this.MIX.whistle;

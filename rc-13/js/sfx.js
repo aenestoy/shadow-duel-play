@@ -163,7 +163,7 @@
   // (match found, rank up, win) under the KO (-15 … -19)
   // (2026-09-30, owner's feedback "the sounds felt disturbing": everything the sound pass added is calmer; the ranked
   // search, toasts and coins are also menu sounds: the Menu sounds switch turns them off)
-  const LV = { back: 4, guardUp: 7, dash: 8.6, jump: 2.4, kiReady: 0.6, timeUp: 1.4, win: 0.35, lose: 0.42,
+  const LV = { back: 4, guardUp: 3.5, dash: 5.4, jump: 2.4, kiReady: 0.6, timeUp: 1.4, win: 0.35, lose: 0.42,
     queueStart: 0.38, queuePulse: 0.39, matchFound: 0.53, rankUp: 0.42, rankDown: 0.67, unlock: 0.65, coin: 1.6, vs: 0.42, toast: 0.95, joined: 0.5 };
   for (const k of Object.keys(LV)) { const fn = S[k]; S[k] = function () { const a = arguments; return A.scaled(LV[k], () => fn.apply(S, a)); }; }
 
