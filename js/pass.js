@@ -396,12 +396,22 @@
   .ps-lab span small { font: 500 9.5px/1.2 var(--body); letter-spacing: 0; text-transform: none; color: var(--muted); }
   .ps-lab b { font: 700 18px/1 var(--jp); }
   .ps-track { overflow-x: auto; overflow-y: hidden; touch-action: pan-x pan-y; overscroll-behavior-x: contain; scroll-behavior: smooth; padding-bottom: 2px; }
+  .ps-track.drag { cursor: grabbing; scroll-behavior: auto; user-select: none; }
+  .ps-trk { position: relative; min-width: 0; }
+  .ps-arr { display: none; }
+  @media (hover: hover) and (pointer: fine) {
+    .ps-track { cursor: grab; }
+    .ps-arr { display: grid; place-items: center; position: absolute; top: 50%; transform: translateY(-50%); z-index: 3; width: 34px; height: 56px; padding: 0; border: 1px solid rgba(190,160,255,.45); background: rgba(16,12,28,.86); color: #e8dcff; font: 700 28px/1 var(--display); cursor: pointer; transition: opacity .15s, background .15s; }
+    .ps-arr:hover { background: rgba(70,50,120,.95); }
+    .ps-arr.l { left: 2px; } .ps-arr.r { right: 2px; }
+    .ps-trk.at-l .ps-arr.l, .ps-trk.at-r .ps-arr.r { opacity: 0; pointer-events: none; }
+  }
   .ps-grid { position: relative; display: grid; grid-auto-flow: column; grid-template-rows: 30px 28px auto; grid-auto-columns: 96px; gap: 6px; width: max-content; }
   .ps-prog { position: relative; align-self: center; height: 4px; background: rgba(255,255,255,.08); }
   .ps-tn.soon { opacity: .45; border-style: dashed; }
   .ps-rw.soon { opacity: .5; border-style: dashed; border-color: rgba(190,160,255,.25); background: rgba(120,90,200,.04); min-height: 0; }
   .ps-q { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; border: 1px dashed rgba(199,155,255,.5); color: #c79bff; font: 700 20px/1 var(--display); }
-  .ps-soon { position: sticky; left: 0; display: grid; align-content: center; gap: 1px; padding: 0 8px; border-left: 2px solid #c79bff; min-width: 0; overflow: hidden; white-space: nowrap; }
+  .ps-soon { position: sticky; left: 0; justify-self: start; max-width: min(100%, 320px); display: grid; align-content: center; gap: 1px; padding: 0 8px; border-left: 2px solid #c79bff; min-width: 0; overflow: hidden; white-space: nowrap; }
   .ps-soon b { font: 700 12px/1.1 var(--display); letter-spacing: .1em; text-transform: uppercase; color: #d9c2ff; overflow: hidden; text-overflow: ellipsis; }
   .ps-soon small { font: 500 10.5px/1.1 var(--body); color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
   .ps-prog i { position: absolute; inset: 0 auto 0 0; width: var(--p, 0%); background: linear-gradient(90deg, #8f6bff, #f1d69c); box-shadow: 0 0 8px rgba(199,155,255,.6); }
@@ -645,7 +655,7 @@
       }
       const prog = ((R.tier + (R.tier < N ? R.pct : 0)) / N) * 100;
       body = `<div class="ps-wrap"><div class="ps-lab"><span></span><span></span><span class="ps-lb"><b>影</b>${esc(t.bonus)}<small>${esc(ok ? t.bonusAds : t.bonusWait(se.C.waitTiers))}</small></span></div>` +
-        `<div class="ps-track" id="psTrack"><div class="ps-grid" style="grid-template-columns:repeat(${M},var(--cw,96px))"><span class="ps-prog" style="grid-column:1/${N + 1};grid-row:2"><i style="--p:${prog.toFixed(2)}%"></i></span>${cols.join('')}</div></div></div>`;
+        `<div class="ps-trk"><div class="ps-track" id="psTrack"><div class="ps-grid" style="grid-template-columns:repeat(${M},var(--cw,96px))"><span class="ps-prog" style="grid-column:1/${N + 1};grid-row:2"><i style="--p:${prog.toFixed(2)}%"></i></span>${cols.join('')}</div></div></div></div>`;
     } else body = profileHtml(st, t);
     $('passIn').innerHTML =
       `<div class="ps-head">${lvBadge(L.lv)}<div class="ps-who"><strong>${esc(t.level(L.lv))}${ti ? ` <em style="--tc:${ti.color}">${esc(itemName(st.eq.title))}</em>` : ''}</strong>` +
@@ -670,6 +680,7 @@
     }));
     ov.querySelectorAll('[data-eq]').forEach((b) => (b.onclick = () => { const [k, id] = b.dataset.eq.split(':'); equip(k, id || null); render(false); }));
     const tr = $('psTrack');
+    if (tr) dragScroll(tr);
     if (!scroll) {
       ov.scrollTop = keep.ov;
       const pf = ov.querySelector('.ps-prof'); if (pf) pf.scrollTop = keep.prof;
@@ -684,6 +695,43 @@
       tr.scrollLeft = Math.max(0, (k - 2) * (tr.scrollWidth / N));
       tr.style.scrollBehavior = '';
     }
+  }
+  // The track on a computer (owner, 2026-10-01: "I can't drag the pass on PC"; the game shows no scrollbars): drag it
+  // with the mouse, turn the wheel, or press the arrow buttons at its ends. Touch keeps the browser's own swipe. A drag
+  // longer than a few pixels does not count as a click on a reward.
+  function dragScroll(tr) {
+    const step = (d) => tr.scrollBy({ left: d * Math.max(120, tr.clientWidth * 0.7), behavior: 'smooth' });
+    let x0 = 0, s0 = 0, id = null, moved = false;
+    tr.addEventListener('pointerdown', (e) => {
+      if (e.pointerType !== 'mouse' || e.button !== 0) return;
+      id = e.pointerId; x0 = e.clientX; s0 = tr.scrollLeft; moved = false;
+    });
+    tr.addEventListener('pointermove', (e) => {
+      if (e.pointerId !== id) return;
+      const dx = e.clientX - x0;
+      if (!moved && Math.abs(dx) > 5) { moved = true; tr.classList.add('drag'); try { tr.setPointerCapture(id); } catch (err) { /* gone */ } }
+      if (moved) tr.scrollLeft = s0 - dx;
+    });
+    const end = (e) => { if (e.pointerId !== id) return; id = null; tr.classList.remove('drag'); };
+    tr.addEventListener('pointerup', end); tr.addEventListener('pointercancel', end);
+    tr.addEventListener('click', (e) => { if (moved) { e.preventDefault(); e.stopPropagation(); moved = false; } }, true);
+    tr.addEventListener('wheel', (e) => {
+      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX) || tr.scrollWidth <= tr.clientWidth) return;
+      const max = tr.scrollWidth - tr.clientWidth;
+      if ((e.deltaY < 0 && tr.scrollLeft <= 0) || (e.deltaY > 0 && tr.scrollLeft >= max - 1)) return; // let the page scroll on
+      e.preventDefault(); tr.scrollLeft += e.deltaY;
+    }, { passive: false });
+    const wrap = tr.parentElement;
+    if (!wrap || wrap.querySelector('.ps-arr')) return;
+    for (const d of [-1, 1]) {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'ps-arr ' + (d < 0 ? 'l' : 'r'); b.textContent = d < 0 ? '‹' : '›';
+      b.setAttribute('aria-label', d < 0 ? '←' : '→'); b.tabIndex = -1;
+      b.onclick = () => step(d);
+      wrap.appendChild(b);
+    }
+    const arr = () => { const max = tr.scrollWidth - tr.clientWidth; wrap.classList.toggle('at-l', tr.scrollLeft <= 2); wrap.classList.toggle('at-r', tr.scrollLeft >= max - 2); };
+    tr.addEventListener('scroll', arr, { passive: true }); arr();
   }
   function profileHtml(st, t) {
     const kinds = [['title', t.heads.titles], ['badge', t.heads.badges], ['frame', t.heads.frames], ['trail', t.heads.trails]];

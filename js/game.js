@@ -1955,40 +1955,47 @@
       this.start(m, { c1: S.c[0], c2: S.c[1], arena: S.arena });
     },
     updateSelect(rdt) {
-      for (const pv of this.pv) {
-        pv.st += rdt;
-        const tp = ND.pose.copy(ND.POSES[pv.pvPose] || (pv.P && pv.P.stance) || ND.POSES.stance, pv.tmp);
-        const t = scene.t + pv.id * 1.3;
-        tp.hy += Math.sin(t * 2.3) * 1.3; tp.ay += Math.sin(t * 2.3 + 0.6) * 1.6; tp.sw += Math.sin(t * 1.15) * 0.035;
-        ND.pose.approach(pv.pose, tp, pv.pvPose ? 4 : 10, rdt);
-        pv.solve(rdt);
-        ND.updateCloth(pv.j, rdt);
-      }
+      for (const pv of this.pv) this.stepPv(pv, rdt, scene.t + pv.id * 1.3);
+    },
+    // one preview fighter (select screen, ranked pick: js/ranked.js), one frame of its idle: breathing sway (t: its
+    // clock), cloth
+    stepPv(pv, rdt, t) {
+      pv.st += rdt;
+      const tp = ND.pose.copy(ND.POSES[pv.pvPose] || (pv.P && pv.P.stance) || ND.POSES.stance, pv.tmp);
+      tp.hy += Math.sin(t * 2.3) * 1.3; tp.ay += Math.sin(t * 2.3 + 0.6) * 1.6; tp.sw += Math.sin(t * 1.15) * 0.035;
+      ND.pose.approach(pv.pose, tp, pv.pvPose ? 4 : 10, rdt);
+      pv.solve(rdt);
+      ND.updateCloth(pv.j, rdt);
     },
     renderSelect() {
       for (let i = 0; i < 2; i++) {
-        const id = this.pvIds[i], c = id && $(id), pv = this.pv[i];
-        if (!c) continue;
-        const r = c.getBoundingClientRect(), dpr = Math.min(this.dprCap || 2, window.devicePixelRatio || 1);
-        if (r.width < 2 || r.height < 2) continue;
-        // (drawn by the processor, willReadFrequently: the first select screen used to wait ~1 s on phones — no game
-        // work, no long task — most likely the GPU compiling the canvas's path and gradient shaders for these
-        // full-detail previews; small pictures, cheap on the CPU)
-        const pc = c.__pv2d || (c.__pv2d = c.getContext('2d', { willReadFrequently: true }));
-        const W = Math.max(1, Math.round(r.width * dpr)), H = Math.max(1, Math.round(r.height * dpr));
-        if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
-        pc.setTransform(1, 0, 0, 1, 0, 0); pc.clearRect(0, 0, W, H);
-        const g = pc.createRadialGradient(W / 2, H * 0.62, 10, W / 2, H * 0.62, H * 0.6);
-        g.addColorStop(0, pv.col.ui + '55'); g.addColorStop(1, 'rgba(0,0,0,0)');
-        pc.fillStyle = g; pc.fillRect(0, 0, W, H);
-        // (the fighter fills more of the preview, owner 2026-10-01: "the champion should be bigger, the costume does not
-        // even show"; feet a little lower, a raised long blade still inside the top edge)
-        const k = H / 220;
-        pc.setTransform(k, 0, 0, k, W / 2 - (pv.ch.blade > 110 ? 20 : 0) * k * pv.dir, H * 0.92);
-        pc.fillStyle = 'rgba(0,0,0,.45)'; pc.beginPath(); pc.ellipse(0, 3, 50, 7, 0, 0, 6.283); pc.fill();
-        pv.draw(pc, false);
-        ND.eyeGlow?.(pc, pv.j, pv.col, pv.ch.acc);
+        const id = this.pvIds[i], c = id && $(id);
+        if (c) this.drawPv(c, this.pv[i]);
       }
+    },
+    // a preview fighter drawn into its canvas (c) at the canvas's size on the page: glow in its colour, ground shadow,
+    // the full model, eyes. false: the canvas is not on screen
+    drawPv(c, pv) {
+      const r = c.getBoundingClientRect(), dpr = Math.min(this.dprCap || 2, window.devicePixelRatio || 1);
+      if (r.width < 2 || r.height < 2) return false;
+      // (drawn by the processor, willReadFrequently: the first select screen used to wait ~1 s on phones — no game
+      // work, no long task — most likely the GPU compiling the canvas's path and gradient shaders for these
+      // full-detail previews; small pictures, cheap on the CPU)
+      const pc = c.__pv2d || (c.__pv2d = c.getContext('2d', { willReadFrequently: true }));
+      const W = Math.max(1, Math.round(r.width * dpr)), H = Math.max(1, Math.round(r.height * dpr));
+      if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
+      pc.setTransform(1, 0, 0, 1, 0, 0); pc.clearRect(0, 0, W, H);
+      const g = pc.createRadialGradient(W / 2, H * 0.62, 10, W / 2, H * 0.62, H * 0.6);
+      g.addColorStop(0, pv.col.ui + '55'); g.addColorStop(1, 'rgba(0,0,0,0)');
+      pc.fillStyle = g; pc.fillRect(0, 0, W, H);
+      // (the fighter fills more of the preview, owner 2026-10-01: "the champion should be bigger, the costume does not
+      // even show"; feet a little lower, a raised long blade still inside the top edge)
+      const k = H / 220;
+      pc.setTransform(k, 0, 0, k, W / 2 - (pv.ch.blade > 110 ? 20 : 0) * k * pv.dir, H * 0.92);
+      pc.fillStyle = 'rgba(0,0,0,.45)'; pc.beginPath(); pc.ellipse(0, 3, 50, 7, 0, 0, 6.283); pc.fill();
+      pv.draw(pc, false);
+      ND.eyeGlow?.(pc, pv.j, pv.col, pv.ch.acc);
+      return true;
     },
   };
   // HUD bar scale (3 decimals), written only when it changed

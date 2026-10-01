@@ -11,11 +11,13 @@
 // unranked; "Sign in to earn points" opens CrazyGames' own sign-in only when pressed.
 // While searching, after 20 s: a warm-up fight against the CPU, clearly labelled CPU and unranked; never a bot shown as
 // a person. No ads from the queue to the end of the match (ND.ads is held). Hall of Champions: a "Ranked" tab.
-// Shadow opponents (Gölge rakip, js/ghost.js, supabase/ranked-ghost.sql): searching a while with nobody found and few
-// people searching, the server may offer a SHADOW instead, the CPU fighting in the style of a real ranked player; always
-// labelled (影, "<nick>'s shadow"), never shown as a live player, rated with a reduced weight; the shadow's owner is never
-// touched. No profile yet / shadows off / the daily limit reached: the plain CPU warm-up above. After a human match that
-// both devices agreed on, this device's own style of that fight goes to the server (nd_rank_style) for the player's profile.
+// Shadow opponents (Gölge rakip, js/ghost.js, supabase/ranked-ghost.sql; 1.3.1, the owner's open version): searching a
+// while with nobody found and few people searching, a SHADOW match starts by itself, the CPU fighting in the style of a
+// real ranked player (or the dojo's own styles), through the usual found → pick → VS → fight → result. Always marked as
+// AI (影, "<nick>'s shadow", a small "AI" tag), never shown as a live player; counted like a real ranked match; the
+// shadow's owner is never touched. No profile yet / shadows off / enough players / an older server (no 'v' 2): the plain
+// CPU warm-up above. After a human match that both devices agreed on, this device's own style of that fight goes to the
+// server (nd_rank_style) for the player's profile.
 // Not in the offline portal builds (index.html data-online; vite.config.ts leaves this file out).
 // Test hooks: ND.ranked.state(), window.__ndRankReport (res → res, before a report is sent), ND.ranked.demo(screen).
 (function (ND) {
@@ -58,14 +60,24 @@
     findAgain: 'Tekrar ara', rematch: 'Rövanş', rematchWait: 'Rakip bekleniyor…', rematchAsk: 'Rövanş (rakip istiyor)', menu: 'Menü',
     youLeft: 'Maçtan çıktın: yenilgi.', oppLeft: 'Rakip maçtan çıktı: sen kazandın.', silent: 'Rakibin bağlantısı koptu.', rounds: (a, b) => `Raund ${a} – ${b}`,
     unrankedNote: 'Puansız maç',
-    ghostIn: (s) => `${s} sn sonra bir gölge gelir`, ghostSoon: 'Bir gölge geliyor…', ghostFound: 'Gerçek bir oyuncunun gölgesi geldi',
+    ghostFound: 'Gerçek bir oyuncunun gölgesi geldi',
     ghostHouseName: (n) => `Dojo gölgesi · ${n}`, ghostHouseFound: 'Bir dojo gölgesi geldi', ghostHouseNote: 'Dojodan tipik bir tarzda dövüşen bilgisayar; canlı bir oyuncu değil.', ghostName: (n) => { const g = trGen(n); return g ? `${g} gölgesi` : `Gölge · ${n}`; }, ghostTag: 'Gölge',
-    ghostNote: 'Bu, gerçek bir oyuncunun tarzında dövüşen bilgisayar; canlı bir oyuncu değil.', ghostPts: (p) => `Puanlı · normal maçın puanının %${p} kadarı`,
-    ghostFight: 'Gölgeyle dövüş', ghostSkip: 'Aramaya devam et', ghostReady: 'Gölge hazır', ghostResult: (p) => `Gölge maçı · puan değişimi normalin %${p} kadarı`,
-    ghostNoPts: 'Gölge maçı · bu sefer puan değişmedi', ghostLeft: 'Gölge maçından çıktın: yenilgi.',
+    ghostNote: 'Bu, gerçek bir oyuncunun tarzında dövüşen bilgisayar; canlı bir oyuncu değil.',
+    ghostReady: 'Gölge hazır',
+    ghostLeft: 'Gölge maçından çıktın: yenilgi.', aiTag: 'YZ',
     hallTab: 'Dereceli', hallDesc: (g) => `Bu sezonun en iyileri · sıralamaya girmek için ${g} puanlı maç`, champs: 'Şampiyonlar', champOf: (n) => `Sezon ${n} şampiyonu`,
     noChamps: 'Henüz sezon şampiyonu yok.', me: (p) => `Senin yerin: ${p}.`, meNone: 'Sıralamaya girmek için puanlı maç oyna.', empty: 'Bu sezon henüz kimse sıralamada değil.',
     tierDesc: ['Ayak askeri', 'Efendisiz samuray', 'Samuray', 'Sancak muhafızı', 'Derebeyi', 'Şogun'],
+    rulesBtn: 'Derece sistemi', rulesTitle: 'Derece sistemi', rulesSub: 'Kademeler, puan ve sezonlar', rTiers: 'Kademeler', rYou: 'Sen',
+    rNext: (n, name) => `${name} için ${n} puan`, rTop: 'En üst kademedesin', rPlacing: (a, b) => `Yerleştirme ${a}/${b}: bitince kademen görünür`,
+    rPlacement: 'Yerleştirme', rPlaceLine: (a, b) => `İlk ${a} dereceli maçın seni yerleştirir (sonraki sezonlarda ${b}); sonra kademen görünür.`,
+    rPoints: 'Puan', rPointsLines: ['Kazanınca puan alırsın, kaybedince düşer; beraberlik az oynatır.', 'Güçlü bir rakibi yenmek daha çok puan kazandırır; zayıf birine kaybetmek daha çok kaybettirir.', 'Maçtan çıkmak yenilgi sayılır.'],
+    rSeason: 'Sezon', rSeasonLine: (d, left) => `Bir sezon ${d} gün sürer · ${left}.`,
+    rSeasonEnd: (p) => `Sezon sonunda puanın 1500'e doğru yarı yarıya yaklaşır ve yeniden ${p} yerleştirme maçı oynarsın; en yüksek kademen rozet olarak kalır.`,
+    rReward: (list, n) => `Sezonun 1.'si kazanır: ${list} (sıralamada en az ${n} oyuncu varsa).`, rCostumeAll: (x) => `${x} (her dövüşçü için)`, rRewardAny: 'özel bir kostüm ve unvan',
+    rBoard: 'Sıralama', rBoardLine: (g) => `Girmek için: bu sezon ${g} puanlı maç ve yerleştirmenin bitmesi.`,
+    rFighters: 'Dövüşçüler', rFightersLine: 'Tek oyunculu modda açtığın dövüşçüleri seçebilirsin.',
+    aiNote: 'Az oyuncu çevrimiçiyken, gerçek oyuncuların tarzında oynayan yapay zekâ rakiplerle eşleşebilirsin.', gotIt: 'Anladım',
     err: { network: 'Sunucuya ulaşılamadı. İnternet bağlantını kontrol et.', bad_version: 'Oyunun yeni sürümü var: sayfayı yenile.', busy: 'Kuyruk çok dolu, birazdan tekrar dene.',
       rate_limited: 'Çok sık denedin, biraz bekle.', disabled: 'Dereceli şu an kapalı.', banned: 'Bu hesap dereceli oynayamaz.', other: 'Bir sorun oldu, tekrar dene.' },
   };
@@ -93,14 +105,25 @@
     return { t, d, k: TIERS[t][0], n: TIERS[t][1] + (d ? ' ' + DIV[d] : ''), col: TCOL[t], desc: (M().tierDesc || TR.tierDesc)[t] };
   }
   function tierFloor(i) { return i <= 0 ? -Infinity : i === 1 ? 1117 : i === 2 ? 1183 : i >= 15 ? 2050 : 1250 + 200 * Math.floor((i - 3) / 3) + [0, 67, 133][(i - 3) % 3]; }
-  // a tier badge element: 侍 Samurai II (or "Placement" while placements are left)
-  function badge(tier, placement, small) {
-    const b = document.createElement('span');
-    b.className = 'rk-badge' + (small ? ' sm' : '');
-    if (placement > 0 || tier == null) { b.classList.add('pl'); b.textContent = M().placementTag; return b; }
-    const T = tierInfo(tier), k = document.createElement('b'), n = document.createElement('span');
-    k.textContent = T.k; k.setAttribute('aria-hidden', 'true'); n.textContent = T.n; n.lang = 'en'; n.setAttribute('translate', 'no');
-    b.style.setProperty('--tc', T.col); b.title = T.desc; b.append(k, n);
+  // THE one place a tier is drawn (every ranked screen, the Hall, the explainer): the tier's emblem (js/rank-emblem.js
+  // ND.rankEmblem, loaded with this file) and its name, "Samurai II"; "Placement" with the placement crest while
+  // placements are left. Without the emblem file: the kanji and the name as before.
+  //   small: the list size (22 px); o.size: the emblem's size (default 30); o.big: the emblem over the name (the home);
+  //   o.placed / o.of: placement progress dots on a big placement crest; o.whole: the tier without its division (the
+  //   explainer's ladder)
+  const emblem = (tier, opts) => { try { const E = ND.rankEmblem; if (!E || !E.el) return null; const s2 = E.el(tier, opts); s2.setAttribute('aria-hidden', 'true'); return s2; } catch (e) { return null; } };
+  function badge(tier, placement, small, o) {
+    o = o || {};
+    const b = document.createElement('span'), pl = placement > 0 || tier == null;
+    const size = o.size || (small ? 22 : 30);
+    const em = emblem(pl ? 'placement' : Math.max(0, Math.min(15, tier | 0)), { size, glow: size >= 40, anim: size >= 40, placed: o.placed, of: o.of });
+    b.className = 'rk-badge' + (small ? ' sm' : '') + (em ? ' em' : '') + (o.big ? ' big' : '') + (pl ? ' pl' : '');
+    if (em) b.append(em);
+    if (pl) { b.append(el('span', null, M().placementTag)); return b; }
+    const T = tierInfo(tier), n = document.createElement('span');
+    if (!em) { const k = document.createElement('b'); k.textContent = T.k; k.setAttribute('aria-hidden', 'true'); b.append(k); }
+    n.textContent = o.whole ? TIERS[T.t][1] : T.n; n.lang = 'en'; n.setAttribute('translate', 'no');
+    b.style.setProperty('--tc', T.col); b.title = T.desc; b.append(n);
     return b;
   }
 
@@ -144,7 +167,7 @@
   const charIdx = (id) => ND.CHARS.findIndex((c) => c.id === id);
 
   // ---------------------------------------------------------------- state
-  let screen = null;          // 'home' | 'queue' | 'found' | 'pick' | 'vs' | 'match' | 'result' | null
+  let screen = null;          // 'home' | 'rules' | 'queue' | 'found' | 'pick' | 'vs' | 'match' | 'result' | null
   let me = null, stats = null, flashMsg = '', busyCall = false;
   let Q = null;               // the search: { ticket, since, polls, timer, warm, stopped }
   let X = null;               // the match: { view, id, side, timer, picked, look, conn, begun, report, result, ... }
@@ -340,18 +363,23 @@
   // time comes (p_take true) the server picks a real player's style near this rating and makes the shadow match (id +
   // a one-time token). Accept → this player leaves the queue, picks a fighter → nd_rank_ghost_start: the seed, the arena,
   // the shadow's fighter and style → the fight (game mode 'shadow', the CPU with js/ghost.js level()) → the result
-  // (nd_rank_ghost_report: the server changes this player's rating by the shadow weight, never the owner's).
+  // (nd_rank_ghost_report: the server counts it like a real ranked match for this player, never touches the owner).
+  // 1.3.1: no offer to take: "a shadow stepped in" shows GHOST_GO_MS, then the pick (the server says 'v' 2; an older
+  // server's half-weight offers are not used at all: the warm-up instead).
   const ghostOk = () => !!(ND.ghost && typeof ND.ghost.level === 'function');
   // the shadow's name as shown: a real player's ("Kenji's shadow") or a dojo shadow ("Dojo shadow · Tate": the game's
   // own style set, used while no real player's style is near; never a player's name)
   const ghostLabel = (o, L = M()) => (o && o.house ? L.ghostHouseName(o.name || '—') : L.ghostName((o && o.name) || '—'));
-  const pctOf = (w) => Math.round(Math.max(0, Math.min(1, +w || 0)) * 100);
+  const GHOST_GO_MS = 3000;
+  // the small "AI" tag next to a shadow's name (found, pick, VS, result; the HUD has it in text)
+  const aiTag = () => { const t = el('span', 'rk-ai-tag', M().aiTag || TR.aiTag); t.lang = M() === TR ? 'tr' : (ND.i18n && ND.i18n.lang) || 'en'; return t; };
   async function ghostInfo(q) {
     if (!ghostOk() || !q.ranked) return;
     let r = null;
     try { r = await call('nd_rank_ghost', { p_ticket: q.ticket, p_take: false }, 8000); } catch (e) { r = null; }
     if (Q !== q) return;
     q.ghost = r && typeof r === 'object' ? r : { on: false, why: 'network' };
+    if (!(+q.ghost.v >= 2)) q.ghost = { on: false, why: 'old_server' }; // (the server's older rules: no shadow, the warm-up)
     q.ghostAt = Date.now() + Math.max(0, (+q.ghost.wait_s || 0) * 1000);
     if (screen === 'queue') renderQueue();
   }
@@ -378,22 +406,24 @@
   }
   function dropOffer(o) { if (o && o.id && o.token) call('nd_rank_ghost_start', { p_match: o.id, p_token: o.token, p_ninja: null }, 6000).catch(() => {}); }
   function onGhostOffer(q, o) {
+    if (!(+o.v >= 2)) { dropOffer(o); q.ghost = { on: false, why: 'old_server' }; return; }
     const w = Math.max(0, Math.min(1, +o.weight || 0));
     const x = X = { ghost: true, id: o.id, token: o.token, side: 0, since: q.since, timer: 0, accepted: false, picked: false, pick: null, look: null, begun: false,
       report: null, result: null, done: false, tFound: Date.now(), viewAt: Date.now(), tLive: 0, log: '',
-      view: { id: o.id, status: 'found', side: 0, ranked: true, ghost: true, weight: w, accept_ms: (o.offer_ms | 0) || 15000, pick_ms: 15000,
+      view: { id: o.id, status: 'found', side: 0, ranked: true, ghost: true, weight: w, accept_ms: +window.__rkGhostGoMs || GHOST_GO_MS, pick_ms: 15000, // (test hook: scripts/ranked-check.mjs)
         opp: { name: String(o.nick || '—'), ghost: true, house: !!o.house, tier: o.tier == null ? null : o.tier | 0, placement: 0 },
         chars: Array.isArray(o.chars) ? o.chars.filter((c) => typeof c === 'string') : [], picked: [false, true], live: null, result: null } };
     alertFound();
     show('found');
     const tick = () => {
       if (X !== x || x.accepted) return;
-      if (Date.now() - x.viewAt >= x.view.accept_ms) { ghostAccept(false); return; }
+      if (Date.now() - x.viewAt >= x.view.accept_ms) { ghostAccept(true); return; } // (it starts by itself)
       x.timer = later(tick, 500);
     };
     x.timer = later(tick, 500);
   }
-  // Fight the shadow (out of the queue: busy) / keep searching (no penalty; no more shadows in this search)
+  // The shadow match goes on to the pick (out of the queue: busy); declined (Esc / back on its found screen): back to the
+  // search, no penalty, no more shadows in this search
   function ghostAccept(ok) {
     const x = X;
     if (!x || !x.ghost || x.accepted) return;
@@ -809,8 +839,15 @@
   .rk-badge b { font: 700 20px/1 var(--jp); }
   .rk-badge.pl { color: var(--muted); border-style: dashed; }
   .rk-badge.sm { padding: 2px 6px; font-size: 12px; } .rk-badge.sm b { font-size: 14px; }
+  /* with its emblem (js/rank-emblem.js): no frame, the crest and the name in the tier's colour */
+  .rk-badge.em { align-items: center; gap: 7px; padding: 0; border: 0; }
+  .rk-badge.em svg { flex: none; }
+  .rk-badge.em.sm { gap: 5px; padding: 0; }
+  .rk-badge.em.pl { color: var(--muted); }
+  .rk-badge.em.big { flex-direction: column; gap: 4px; }
   .rk-big { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; align-items: center; padding: 12px; border: 1px solid var(--line); background: rgba(0,0,0,.25); }
   .rk-big .rk-badge { grid-row: span 2; font-size: 20px; padding: 10px 14px; } .rk-big .rk-badge b { font-size: 34px; }
+  .rk-big .rk-badge.em { padding: 0 4px; font-size: 17px; }
   .rk-num { font: 700 28px/1 var(--display); letter-spacing: .04em; }
   .rk-bar { height: 6px; background: rgba(255,255,255,.08); position: relative; overflow: hidden; }
   .rk-bar i { position: absolute; inset: 0 auto 0 0; background: var(--tc, var(--gold)); }
@@ -828,11 +865,66 @@
   .rk-ch[aria-pressed="true"] { border-color: var(--gold-hi, var(--gold)); background: rgba(217,179,108,.2); box-shadow: inset 0 0 0 1px var(--gold-hi, var(--gold)); }
   .rk-ch[disabled] { opacity: .38; cursor: not-allowed; }
   .rk-ch[disabled]::after { content: '🔒'; position: absolute; top: 3px; right: 4px; font-size: 11px; }
+  /* pick: the chosen fighter, live (a box the canvas fills: the canvas follows the box, never the other way round) —
+     above the fighters when upright, beside them when sideways; big enough for the costume to read */
+  .rk-pk { display: grid; gap: 12px; min-width: 0; }
+  .rk-pkr { display: grid; gap: 12px; align-content: start; min-width: 0; }
+  .rk-pv { position: relative; height: clamp(150px, 30vh, 300px); border: 1px solid var(--line); background: rgba(0,0,0,.28); overflow: hidden; }
+  .rk-pv canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .rk-pv.dim canvas { opacity: .35; filter: grayscale(.7); }
+  /* (upright: four fighters a row, so the picture and the costume row fit a 360×740 phone without scrolling) */
+  @media (orientation: portrait) { .rk-pk.pv .rk-grid { grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); } }
+  @media (orientation: landscape) {
+    .rk-pk.pv { grid-template-columns: minmax(150px, 32%) minmax(0, 1fr); }
+    .rk-pv { height: auto; min-height: clamp(140px, 40vh, 300px); } /* (not taller than wide: a long blade held out stays inside) */
+  }
+  /* (short and wide, beside the picture: the costume choices keep to one line; their label is read out (the row's name), not shown; tighter gaps) */
+  @media (orientation: landscape) and (max-height: 460px) {
+    .rk-pk.pv .rk-pkr .rk-row .rk-lbl { display: none; }
+    .rk-pk, .rk-pkr { gap: 8px; }
+  }
+  /* "How ranked works": the card keeps to the screen, its middle scrolls (no bar) when it does not fit; the ladder on the
+     left, the rules on the right (one column on narrow screens) */
+  #rk .rk-card.rules { display: flex; flex-direction: column; max-height: 100%; min-height: 0; }
+  .rk-rules { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 12px 24px; align-items: start; }
+  .rk-rules::-webkit-scrollbar { display: none; }
+  .rk-rules h3 { margin: 0 0 6px; font: 500 11px/1 var(--display); letter-spacing: .2em; text-transform: uppercase; color: var(--gold); }
+  .rk-rs2 { display: grid; gap: 10px; min-width: 0; }
+  .rk-rs { min-width: 0; }
+  .rk-rs p, .rk-rs li { margin: 0; color: var(--muted); font-size: 13.5px; line-height: 1.35; }
+  .rk-rs ul { margin: 0; padding-left: 18px; display: grid; gap: 2px; }
+  .rk-tiers { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+  .rk-tiers > li { display: grid; grid-template-columns: 11em minmax(0, 1fr); gap: 4px 12px; align-items: center; padding: 6px 8px; border: 1px solid transparent; background: rgba(255,255,255,.03); }
+  .rk-tiers > li .rk-badge { justify-self: start; }
+  .rk-tiers .tx { display: grid; gap: 2px; min-width: 0; }
+  .rk-tiers .ds { color: var(--text); font-size: 13.5px; }
+  .rk-tiers .dv, .rk-tiers .nx { color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+  .rk-tiers .you { font: 600 13px/1.2 var(--display); letter-spacing: .05em; color: var(--tc); }
+  .rk-tiers .you b { margin-right: 6px; color: var(--gold-hi, var(--gold)); }
+  .rk-tiers .rk-bar { margin: 2px 0; }
+  .rk-tiers > li.me { border-color: var(--tc); background: rgba(217,179,108,.12); box-shadow: inset 3px 0 0 var(--tc); }
+  .rk-ai { margin: 2px 0 0; padding-top: 8px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12.5px; }
+  @media (max-width: 720px) { .rk-rules { grid-template-columns: minmax(0, 1fr); } }
+  @media (max-height: 460px) { .rk-tiers > li { padding: 4px 8px; } }
   .rk-vs { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: center; text-align: center; }
   .rk-vs .v { font: 700 44px/1 var(--jp); color: var(--gold); }
   .rk-vs .f b { display: block; font: 700 42px/1 var(--jp); }
   .rk-delta { font: 700 34px/1 var(--display); letter-spacing: .04em; }
   .rk-delta.up { color: #9be29b; } .rk-delta.down { color: #ffb4a8; }
+  /* result: the rank-up / rank-down moment (the old crest out, the new one in) */
+  .rk-rankup { position: relative; width: 180px; height: 180px; margin: 0 auto; }
+  .rk-rankup svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .rk-rankup .old { animation: rkOld .5s ease-in .35s both; }
+  .rk-rankup.up .new { animation: rkUp .7s cubic-bezier(.2,1.5,.4,1) .75s both; }
+  .rk-rankup.down .new { animation: rkDown .7s ease-out .75s both; }
+  @keyframes rkOld { from { opacity: 1; transform: none; } to { opacity: 0; transform: scale(.7); } }
+  @keyframes rkUp { from { opacity: 0; transform: scale(1.6) rotate(-10deg); } to { opacity: 1; transform: none; } }
+  @keyframes rkDown { from { opacity: 0; transform: translateY(-28px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .rk-rankup .old { display: none; } .rk-rankup .new { animation: none; } }
+  @media (max-height: 460px) { .rk-rankup { width: 112px; height: 112px; } }
+  .rk-vs .f { display: grid; justify-items: center; gap: 3px; min-width: 0; }
+  .rk-vs .f .rk-badge { margin-top: 2px; }
   .rk-seal { font: 700 64px/1 var(--jp); color: var(--tc, var(--gold)); animation: rkSeal .6s cubic-bezier(.2,1.6,.4,1) both; }
   @keyframes rkSeal { from { transform: scale(2.4) rotate(-12deg); opacity: 0; } to { transform: none; opacity: 1; } }
   @media (prefers-reduced-motion: reduce) { .rk-seal { animation: none; } }
@@ -862,6 +954,10 @@
   .rk-gh.sm { padding: 2px 6px; font-size: 11px; vertical-align: middle; } .rk-gh.sm b { font-size: 14px; }
   #rk .rk-opp.rk-ghost { border-style: dashed; border-color: rgba(190,175,240,.6); background: rgba(40,30,86,.3); }
   .rk-ghost-in { color: #d6cbff; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  /* the small "AI" tag next to a shadow's name */
+  .rk-ai-tag { display: inline-block; margin-left: 2px; padding: 1px 5px; border: 1px solid rgba(190,175,240,.75); border-radius: 3px; color: #d6cbff;
+    font: 700 11px/1.3 var(--display); letter-spacing: .1em; vertical-align: middle; white-space: nowrap; }
+  .rk-ghost-in .rk-ai-tag { margin-left: 0; }
   @media (max-height: 460px) { #rk .rk-card { gap: 8px; padding: 12px; } .rk-k { font-size: 30px; } .rk-count { font-size: 30px; } .rk-vs .v, .rk-vs .f b { font-size: 30px; } .rk-grid { grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); } .rk-ch { padding: 5px 3px; } }
   /* home: one column; on short, wide screens (phones sideways, CrazyGames' small frames) two, so it fits without scrolling */
   #rk .rk-card.home > .rk-main, #rk .rk-card.home > .rk-side { display: grid; gap: 12px; align-content: start; min-width: 0; }
@@ -929,6 +1025,9 @@
     box-shadow: inset 0 0 0 2px #a8271d, inset 0 0 0 3px rgba(255,230,200,.35), 0 0 0 1px var(--tc, rgba(217,179,108,.6)), 0 0 16px rgba(214,60,40,.35);
     transform: rotate(-4deg); animation: rkEmber 4.5s ease-in-out infinite; }
   #mranked .mk.rk-seal-m.two { writing-mode: vertical-rl; font-size: 17px; letter-spacing: 0; line-height: 1.02; }
+  /* the player's emblem in place of the red seal */
+  #mranked .mk.rk-seal-m.emb { padding: 0; background: none; border: 0; box-shadow: none; transform: none; animation: none; }
+  #mranked .mk.rk-seal-m.emb svg { width: 100%; height: 100%; }
   #mranked::after { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
     background: linear-gradient(105deg, rgba(255,236,190,0) 40%, rgba(255,236,190,.09) 50%, rgba(255,236,190,0) 60%) no-repeat; background-size: 300% 100%; background-position: 130% 0; animation: rkSheen 7s ease-in-out 1.5s infinite; }
   @keyframes rkSheen { 0%, 70% { background-position: 130% 0; } 100% { background-position: -30% 0; } }
@@ -960,7 +1059,7 @@
     set('rkQuit', L.leave); set('rkCfT', L.leaveQ); set('rkCfS', L.leaveSub); set('rkStay', L.stay); set('rkLeaveNow', L.leave);
     decorateEntry();
   }
-  function hideAll() { ['rk', 'rkConfirm'].forEach((id) => { const e = $(id); if (e) e.hidden = true; }); }
+  function hideAll() { stopPreview(); ['rk', 'rkConfirm'].forEach((id) => { const e = $(id); if (e) e.hidden = true; }); }
   function show(which) {
     build();
     screen = which;
@@ -973,6 +1072,7 @@
   function render() {
     if (!built || !screen) return;
     if (screen === 'home') renderHome();
+    else if (screen === 'rules') renderRules();
     else if (screen === 'queue') renderQueue();
     else if (screen === 'found') renderFound();
     else if (screen === 'pick') renderPick();
@@ -1016,7 +1116,9 @@
     if (!serverHas()) { c.append(el('p', 'rk-err', L.offline)); c.append(backRow()); side.remove(); return; }
     const big = el('div', 'rk-big');
     if (me && !me.guest) {
-      const b = badge(me.tier, me.placement);
+      const short = window.innerHeight <= 460, pt = placementTotal();
+      // (short screens: a smaller crest beside its name, so the home still fits without scrolling)
+      const b = badge(me.tier, me.placement, false, { size: short ? 50 : 88, big: !short, placed: Math.max(0, pt - (me.placement | 0)), of: pt });
       const need = me.placement > 0 ? L.placement(Math.max(0, placementTotal() - me.placement), placementTotal()) : L.rating + ' ' + me.rating;
       big.append(b, el('span', 'rk-num', need));
       const sub = el('span', 'rk-st', L.record(me.wins | 0, me.losses | 0, me.draws | 0) + (me.place ? ' · ' + L.place(me.place) : ''));
@@ -1061,7 +1163,8 @@
     const how = el('ul', 'rk-how'); (L.howLines || TR.howLines).forEach((t) => how.appendChild(el('li', null, t)));
     side.append(how);
     const r2 = el('div', 'rk-btns');
-    r2.append(btn(L.board, '', () => openHall()), btn(L.back, '', () => close()));
+    const rb = btn(L.rulesBtn || TR.rulesBtn, '', () => { rulesFirst = false; show('rules'); }); rb.id = 'rkRules';
+    r2.append(rb, btn(L.board, '', () => openHall()), btn(L.back, '', () => close()));
     side.append(r2);
     setTimeout(() => { const b = $('rkFind'); if (b && screen === 'home') b.focus(); }, 0);
   }
@@ -1072,6 +1175,84 @@
     return d > 0 ? M().endsIn(d) : M().endsToday;
   }
   function backRow() { const r = el('div', 'rk-btns'); r.append(btn(M().back, '', () => close())); return r; }
+
+  // ---------------------------------------------------------------- "How ranked works" (Derece sistemi)
+  // The ladder (tiers, divisions, the rating each starts at: tierFloor = ranked.sql nd_rank_floor) with the player's
+  // own tier marked and how far the next division is; placement, points, the season (its length and the days left from
+  // the server, what its end does: ranked.sql nd_rank_row / nd_rank_close_season), the season's #1 prize (the season's
+  // reward ids from the server), the leaderboard, the fighters, and the one line about AI opponents. Opened from the
+  // ranked home, and once by itself the first time Ranked opens ("Got it"; remembered in the save: rkRules).
+  // RULES: the server's settings as ranked.sql sets them (rank_placement_first / _next, rank_board_games,
+  // rank_min_players, rank_season_days); the game is not sent them, the season's own dates are used where they exist.
+  const RULES = { placeFirst: 5, placeNext: 3, boardGames: 10, minPlayers: 8, seasonDays: 28 };
+  let rulesFirst = false;
+  const rulesSeen = () => { try { return !!(ND.save && ND.save.p && ND.save.p.rkRules); } catch (e) { return true; } };
+  function rulesDone() {
+    try { if (ND.save && ND.save.p && !ND.save.p.rkRules) { ND.save.p.rkRules = 1; ND.save.commit(); } } catch (e) { /* not saved */ }
+    rulesFirst = false;
+    show('home');
+  }
+  function renderRules() {
+    const L = M(), c = card(true), T0 = (k) => (L[k] != null ? L[k] : TR[k]);
+    c.classList.add('rules');
+    c.append(head('階', T0('rulesTitle'), T0('rulesSub')));
+    const body = el('div', 'rk-rules'), left = el('section', 'rk-rs'), right = el('div', 'rk-rs2');
+    body.append(left, right);
+    c.append(body);
+    // the ladder, lowest first; the player's tier marked
+    const mine = me && !me.guest ? me : null, placing = !!(mine && mine.placement > 0);
+    const myTier = mine && !placing ? Math.max(0, Math.min(15, mine.tier | 0)) : -1;
+    left.append(el('h3', null, T0('rTiers')));
+    const ol = el('ol', 'rk-tiers');
+    for (let t = 0; t < 6; t++) {
+      const li = el('li'), T = tierInfo(t === 5 ? 15 : t * 3);
+      li.style.setProperty('--tc', T.col);
+      const own = myTier >= 0 && tierInfo(myTier).t === t;
+      li.append(badge(own ? myTier : t === 5 ? 15 : t * 3, 0, false, { whole: true, size: window.innerHeight <= 460 ? 34 : 42 }));
+      const txt = el('div', 'tx');
+      txt.append(el('span', 'ds', T.desc));
+      // divisions and the rating each starts at (Ashigaru III: from the start)
+      const divs = t === 5 ? [[15, '']] : [[t * 3, 'III'], [t * 3 + 1, 'II'], [t * 3 + 2, 'I']];
+      txt.append(el('span', 'dv', divs.map(([i, d]) => { const f = tierFloor(i); return (d ? d : '') + (isFinite(f) ? (d ? ' ' : '') + f + (t === 5 ? '+' : '') : ''); }).join(' · ')));
+      li.append(txt);
+      if (myTier >= 0 && tierInfo(myTier).t === t) {
+        li.classList.add('me');
+        const you = el('span', 'you'); you.append(el('b', null, T0('rYou')), nameEl(tierInfo(myTier).n), document.createTextNode(' · ' + mine.rating));
+        txt.append(you);
+        if (myTier < 15) {
+          const next = myTier + 1, lo = tierFloor(myTier), hi = tierFloor(next), f = isFinite(lo) ? Math.max(0, Math.min(1, (mine.rating - lo) / (hi - lo))) : 0.5;
+          const bar = el('div', 'rk-bar'), i = el('i'); i.style.width = Math.round(f * 100) + '%'; bar.style.setProperty('--tc', T.col); bar.appendChild(i);
+          txt.append(bar, el('span', 'nx', T0('rNext')(Math.max(1, Math.ceil(hi - mine.rating)), tierInfo(next).n)));
+        } else txt.append(el('span', 'nx', T0('rTop')));
+      }
+      ol.append(li);
+    }
+    left.append(ol);
+    if (placing) left.append(el('p', 'rk-st', T0('rPlacing')(Math.max(0, placementTotal() - mine.placement), placementTotal())));
+    const sec = (title, ...lines) => { const s2 = el('section', 'rk-rs'); s2.append(el('h3', null, title)); lines.forEach((t) => s2.append(el('p', null, t))); right.append(s2); return s2; };
+    sec(T0('rPlacement'), T0('rPlaceLine')(RULES.placeFirst, RULES.placeNext));
+    const pts = sec(T0('rPoints')), ul = el('ul');
+    (T0('rPointsLines') || []).forEach((t) => ul.append(el('li', null, t)));
+    pts.append(ul);
+    // the season: its length and the days left (the server's dates), its end, the #1's prize (the season's rewards)
+    const S = me && me.season, days = S && S.end > S.start ? Math.round((S.end - S.start) / 864e5) : RULES.seasonDays;
+    const names = (S && Array.isArray(S.rewards) ? S.rewards : []).map((id) => {
+      const e = ND.rewards && ND.rewards.get ? ND.rewards.get(id) : null;
+      if (!e) return null;
+      const n = ND.rewards.name(e);
+      return e.kind === 'costume' ? T0('rCostumeAll')(n) : n;
+    }).filter(Boolean);
+    sec(T0('rSeason'), T0('rSeasonLine')(days, S ? seasonLeft() : L.endsIn(days)), T0('rSeasonEnd')(RULES.placeNext),
+      T0('rReward')(names.length ? names.join(', ') : T0('rRewardAny'), RULES.minPlayers));
+    sec(T0('rBoard'), T0('rBoardLine')(RULES.boardGames));
+    sec(T0('rFighters'), T0('rFightersLine'));
+    right.append(el('p', 'rk-ai', T0('aiNote')));
+    const row = el('div', 'rk-btns');
+    const ok = btn(rulesFirst ? T0('gotIt') : L.back, 'primary', () => rulesDone()); ok.id = 'rkRulesOk';
+    row.append(ok);
+    c.append(row);
+    setTimeout(() => { const b = $('rkRulesOk'); if (b && screen === 'rules' && document.activeElement !== b) b.focus(); }, 0);
+  }
   function renderQueue() {
     if (screen !== 'queue' || !Q) return renderBar();
     const L = M(), c = card(false);
@@ -1079,12 +1260,7 @@
     c.append(el('p', 'rk-count', fmtClock(Date.now() - Q.since)));
     c.append(el('p', 'rk-st', Q.window >= 100000 ? L.windowAny : L.window(Q.window || 100)));
     if (flashMsg) { c.append(el('p', 'rk-err', flashMsg)); }
-    const gOn = !!(Q.ghost && Q.ghost.on);
-    if (gOn) {
-      const s = Math.max(0, Math.ceil(((Q.ghostAt || 0) - Date.now()) / 1000)), p = el('p', 'rk-st rk-ghost-in');
-      p.append(ghostMark(true), el('span', null, s > 0 ? L.ghostIn(s) : L.ghostSoon));
-      c.append(p);
-    }
+    const gOn = !!(Q.ghost && Q.ghost.on); // (a shadow is on its way: no warm-up offer meanwhile)
     const row = el('div', 'rk-btns');
     if (Date.now() - Q.since >= WARM_AFTER && !gOn) row.append(btn(L.warm, 'primary', () => warmUp()));
     const cb = btn(L.cancel, '', () => { stopQueue(true); flashMsg = ''; show('home'); }); cb.id = 'rkCancel';
@@ -1138,7 +1314,7 @@
     const L = M(), o = v.opp || {}, box = el('div', 'rk-opp');
     const nm = el('span', 'rk-name'); nm.appendChild(nameEl(o.name || '—'));
     box.append(nm);
-    if (o.guest) box.append(el('span', 'rk-badge pl', L.guestTag)); else box.append(badge(o.tier, o.placement));
+    if (o.guest) box.append(el('span', 'rk-badge pl', L.guestTag)); else box.append(badge(o.tier, o.placement, false, { size: 32 }));
     box.append(titlesOf(o));
     box.append(el('span', 'rk-st', (o.touch ? '📱 ' + L.touch : '⌨ ' + L.keys) + (K && K.rtt ? ' · ' + Math.round(K.rtt) + ' ms' : '')));
     return box;
@@ -1152,21 +1328,18 @@
   }
   function renderGhostFound() {
     const L = M(), v = X.view, c = card(false);
-    c.append(head('影', v.opp.house ? L.ghostHouseFound : L.ghostFound, L.ghostPts(pctOf(v.weight))));
-    const box = el('div', 'rk-opp rk-ghost');
-    box.append(el('span', 'rk-name', ghostLabel(v.opp, L)), ghostMark(false));
-    if (v.opp.tier != null) box.append(badge(v.opp.tier, 0));
+    c.append(head('影', v.opp.house ? L.ghostHouseFound : L.ghostFound, L.ranked));
+    const box = el('div', 'rk-opp rk-ghost'), nm = el('span', 'rk-name', ghostLabel(v.opp, L));
+    nm.append(' ', aiTag()); // (a space: read and copied as two words)
+    box.append(nm, ghostMark(false));
+    if (v.opp.tier != null) box.append(badge(v.opp.tier, 0, false, { size: 32 }));
     box.append(el('p', 'rk-st', v.opp.house ? L.ghostHouseNote : L.ghostNote));
     c.append(box);
+    // (no choice to make: it goes on to the pick by itself)
     const left = Math.max(0, (v.accept_ms | 0) - (Date.now() - (X.viewAt || Date.now())));
-    c.append(el('p', 'rk-count', String(Math.ceil(left / 1000))));
-    const row = el('div', 'rk-btns');
-    const a = btn(L.ghostFight, 'primary', () => ghostAccept(true)); a.id = 'rkAccept';
-    row.append(a, btn(L.ghostSkip, '', () => ghostAccept(false)));
-    c.append(row);
+    c.append(el('p', 'rk-count', String(Math.max(1, Math.ceil(left / 1000)))));
     clearTimeout(renderFound.t);
     renderFound.t = setTimeout(() => { if (screen === 'found') renderFound(); }, 500);
-    setTimeout(() => { const b = $('rkAccept'); if (b && screen === 'found' && document.activeElement !== b) b.focus(); }, 0);
   }
   function renderFound() {
     if (screen !== 'found' || !X) return;
@@ -1195,7 +1368,13 @@
     top.append(head('選', L.pickTitle, L.pickSub), el('span', 'rk-count', String(Math.ceil(left / 1000))));
     top.style.justifyContent = 'space-between';
     c.append(top);
-    c.append(el('p', 'rk-st', X.ghost ? L.ghostReady : v.picked && v.picked[1] ? L.oppLocked : L.oppPicking));
+    // the chosen fighter, live, beside (landscape) or above (portrait) the fighters and costumes
+    const body = el('div', 'rk-pk'), side = el('div', 'rk-pkr'), pvBox = pickPreview();
+    if (pvBox) { body.classList.add('pv'); body.append(pvBox); }
+    body.append(side);
+    c.append(body);
+    if (X.ghost) { const g = el('p', 'rk-st rk-ghost-in'); g.append(ghostMark(true), el('span', null, ghostLabel(v.opp, L) + ' · ' + L.ghostReady), aiTag()); side.append(g); }
+    else side.append(el('p', 'rk-st', v.picked && v.picked[1] ? L.oppLocked : L.oppPicking));
     const allowed = v.chars || [], grid = el('div', 'rk-grid');
     for (const ch of ND.CHARS) {
       if (ch.id === 'shura' || ch.hidden) continue;
@@ -1210,14 +1389,15 @@
       b.onclick = () => setPick(ch.id);
       grid.appendChild(b);
     }
-    c.append(grid);
+    side.append(grid);
     // costumes this player owns for the chosen fighter (the server checks ownership again)
     const cos = X.pick && ND.rewards && !X.ghost ? ND.rewards.costumesFor(X.pick) : []; // (a shadow fight wears the single-player looks)
     if (cos.length) {
       const row = el('div', 'rk-row'); row.append(el('span', 'rk-lbl', L.costume));
+      row.setAttribute('role', 'group'); row.setAttribute('aria-label', L.costume); // (the label hides on short, wide screens)
       const seg = (id, text) => { const s = el('button', 'seg', text); s.type = 'button'; s.setAttribute('aria-pressed', String((X.look || null) === id)); s.disabled = X.picked; s.onclick = () => setPick(X.pick, id); row.append(s); };
       seg(null, L.plain); cos.forEach((e) => seg(e.id, ND.rewards.name(e)));
-      c.append(row);
+      side.append(row);
     }
     if (flashMsg) { c.append(el('p', 'rk-err', flashMsg)); flashMsg = ''; }
     const row = el('div', 'rk-btns');
@@ -1227,19 +1407,73 @@
     // the time is nearly up with a fighter chosen: lock it in (against a shadow, the first one if none was chosen)
     if (X.ghost && !X.picked && !X.pick && left < 1200 && allowed.length) X.pick = allowed[0];
     if (!X.picked && X.pick && left < 1200) lockIn();
+    if (pvBox) drawPreview(false);
     clearTimeout(renderPick.t);
     renderPick.t = setTimeout(() => { if (screen === 'pick') renderPick(); }, 500);
+  }
+  // The pick screen's preview: one fighter drawn as the select screen draws its own (js/game.js stepPv / drawPv: idle
+  // sway, cloth, glow in its colour, the full model), in the look it will wear: the chosen costume or the plain colours;
+  // against a shadow the single-player look (as the shadow fight dresses it). Before a choice the first allowed fighter,
+  // dimmed. One canvas kept across the screen's redraws (twice a second), its own frame loop only while the pick screen
+  // is up; leaving the screen stops the loop and lets the canvas go (stopPreview).
+  let pv = null; // { f: fighter, box, cv, key, raf, last }
+  function pickPreview() {
+    if (!X || !ND.Fighter || !ND.Ctrl || !G || !G.drawPv || !G.stepPv) return null;
+    const allowed = X.view.chars || [], id = X.pick || allowed[0], ci = id ? charIdx(id) : -1;
+    if (ci < 0) return null;
+    if (!pv) {
+      const box = el('div', 'rk-pv'), cv = el('canvas');
+      box.setAttribute('aria-hidden', 'true'); box.append(cv);
+      pv = { f: null, box, cv, key: '', raf: 0, last: 0 };
+    }
+    const look = X.ghost ? (ND.save && ND.save.look ? ND.save.look(id) : false) : X.look ? 'rw:' + X.look : false;
+    const key = id + '|' + look;
+    pv.box.classList.toggle('dim', !X.pick);
+    if (pv.key !== key) {
+      if (!pv.f) { pv.f = new ND.Fighter(0, new ND.Ctrl()); pv.f.fullDetail = true; }
+      pv.f.setChar(ND.CHARS[ci], look); pv.f.reset(0); pv.f.dir = 1; pv.f.pvPose = null;
+      pv.key = key; pv.fresh = true;
+    }
+    if (!pv.raf) { pv.last = performance.now(); pv.raf = requestAnimationFrame(previewFrame); }
+    return pv.box;
+  }
+  // (a new fighter or look shows at once, not a frame later)
+  function drawPreview(always) { if (pv && pv.f && (always || pv.fresh)) { pv.fresh = false; G.drawPv(pv.cv, pv.f); } }
+  function previewFrame(now) {
+    const p = pv;
+    if (!p) return;
+    p.raf = 0;
+    const rk = $('rk');
+    if (screen !== 'pick' || !X || !p.box.isConnected || !rk || rk.hidden) { stopPreview(); return; }
+    const dt = Math.min(0.05, Math.max(0, (now - p.last) / 1000));
+    p.last = now;
+    G.stepPv(p.f, dt, now / 1000);
+    drawPreview(true);
+    p.raf = requestAnimationFrame(previewFrame);
+  }
+  function stopPreview() {
+    if (!pv) return;
+    if (pv.raf) cancelAnimationFrame(pv.raf);
+    pv.box.remove(); pv.cv.width = 0; pv.cv.height = 0;
+    pv = null;
   }
   function renderVs() {
     if (screen !== 'vs' || !X || !X.view.live) return;
     const L = M(), v = X.view, P = v.live.picks, c = card(false);
     const vs = el('div', 'rk-vs');
-    const f = (id, who) => { const ch = ND.CHARS[charIdx(id)] || ND.CHARS[0], d = el('div', 'f'); const k = el('b', null, ch.kanji); k.style.color = ch.col.ui; d.append(k, nameEl(ch.name), el('small', 'rk-st', who)); return d; };
-    const mine = X.side, on = v.opp && v.opp.name ? (X.ghost ? ghostLabel(v.opp, L) : v.opp.name) : '';
-    vs.append(f(P[0], mine === 0 ? L.you : on), el('span', 'v', '対'), f(P[1], mine === 1 ? L.you : on));
+    // (each side: the fighter, its name, the player and the player's tier; a guest has none)
+    const f = (id, who, p) => {
+      const ch = ND.CHARS[charIdx(id)] || ND.CHARS[0], d = el('div', 'f'); const k = el('b', null, ch.kanji); k.style.color = ch.col.ui;
+      const w2 = el('small', 'rk-st', who); if (p && p.ghost) w2.append(' ', aiTag());
+      d.append(k, nameEl(ch.name), w2);
+      if (p && !p.guest && (p.tier != null || p.placement > 0)) d.append(badge(p.tier, p.placement, true, { size: 26 }));
+      return d;
+    };
+    const mine = X.side, on = v.opp && v.opp.name ? (X.ghost ? ghostLabel(v.opp, L) : v.opp.name) : '', mp = me && !me.guest ? me : null;
+    vs.append(f(P[0], mine === 0 ? L.you : on, mine === 0 ? mp : v.opp), el('span', 'v', '対'), f(P[1], mine === 1 ? L.you : on, mine === 1 ? mp : v.opp));
     c.append(vs);
     const a = ND.ARENAS.find((x) => x.id === v.live.arena);
-    c.append(el('p', 'rk-st', (a ? a.name : '') + ' · ' + (X.ghost ? L.ghostPts(pctOf(v.weight)) : v.ranked ? L.ranked : L.unranked)));
+    c.append(el('p', 'rk-st', (a ? a.name : '') + ' · ' + (v.ranked ? L.ranked : L.unranked)));
     if (X.ghost) c.append(ghostMark(true));
     else if (!(K && K.connected)) c.append(el('p', 'rk-st', L.connecting));
   }
@@ -1254,7 +1488,7 @@
     if (!why) why = res.self ? (x.ghost ? L.ghostLeft : L.youLeft) : res.reason === 'left' ? L.oppLeft : (R && R.verdict === 'silent' && w === side) ? L.silent : '';
     const oppName = v.opp && v.opp.name ? (x.ghost ? ghostLabel(v.opp, L) : v.opp.name) : '';
     c.append(head(w === side && R ? '勝' : '試', title, (res.wins ? L.rounds(res.wins[side] | 0, res.wins[1 - side] | 0) + ' · ' : '') + oppName));
-    if (x.ghost) { const g = el('p', 'rk-st rk-ghost-in'); g.append(ghostMark(true), el('span', null, R && R.rated ? L.ghostResult(pctOf(R.weight != null ? R.weight : v.weight)) : R ? L.ghostNoPts : L.ghostPts(pctOf(v.weight)))); c.append(g); }
+    if (x.ghost) { const g = el('p', 'rk-st rk-ghost-in'); g.append(ghostMark(true), el('span', null, oppName), aiTag()); c.append(g); }
     if (why) c.append(el('p', 'rk-st', why));
     if (!R) {
       c.append(el('p', 'rk-st', Date.now() > (x.resultBy || Infinity) ? L.pending : L.confirming));
@@ -1263,14 +1497,20 @@
       const dl = el('p', 'rk-delta ' + (d >= 0 ? 'up' : 'down'), L.delta(d) + ' → ' + my.after); c.append(dl);
       if (my.placement === 0 && me && me.placement > 0) c.append(el('p', 'rk-st', L.placementDone));
       if (my.placement === 0 && my.tier !== my.tier_before) {
-        const T = tierInfo(my.tier), s = el('p', 'rk-seal', T.k); s.style.setProperty('--tc', T.col); c.append(s);
+        // the moment: the old crest gives way to the new one (big; up: it lands, down: it sinks in); reduced motion: the new
+        // one only. Without the emblem file: the tier's kanji seal.
+        const T = tierInfo(my.tier), up = my.tier > my.tier_before, a = emblem(Math.max(0, Math.min(15, my.tier_before | 0)), { size: 180 }), nw = emblem(my.tier, { size: 180 });
+        if (a && nw) {
+          const box = el('div', 'rk-rankup ' + (up ? 'up' : 'down')); box.style.setProperty('--tc', T.col);
+          a.classList.add('old'); nw.classList.add('new'); box.append(a, nw); c.append(box);
+        } else { const s = el('p', 'rk-seal', T.k); s.style.setProperty('--tc', T.col); c.append(s); }
         c.append(el('p', 'rk-st', (my.tier > my.tier_before ? L.promoted : L.demoted) + ' '));
         c.lastChild.appendChild(badge(my.tier, 0, true));
         try { if (!x.tierSnd && ND.audio) { x.tierSnd = true; const S = ND.audio.sfx; if (S) (my.tier > my.tier_before ? S.rankUp : S.rankDown)(); else if (my.tier > my.tier_before && ND.audio.gong) ND.audio.gong(); } } catch (e) { /* no sound */ }
       } else if (my.placement > 0) c.append(el('p', 'rk-st', L.placement(Math.max(0, placementTotal() - my.placement), placementTotal())));
       else c.append(badge(my.tier, 0));
       if (!x.meReloaded) { x.meReloaded = true; loadMe(); }
-    } else if (R && !R.rated && v.status === 'done' && !x.ghost) c.append(el('p', 'rk-st', L.unrankedNote));
+    } else if (R && !R.rated && (v.status === 'done' || (x.ghost && v.status === 'void'))) c.append(el('p', 'rk-st', L.unrankedNote));
     const row = el('div', 'rk-btns');
     const fa = btn(L.findAgain, 'primary', () => findAgain()); fa.id = 'rkAgain';
     row.append(fa);
@@ -1285,7 +1525,7 @@
     setTimeout(() => { const b = $('rkAgain'); if (b && screen === 'result' && !c.contains(document.activeElement)) b.focus(); }, 0);
   }
   function hudShow(on) { build(); $('rkHud').hidden = !on; if (on) hudPing(); if (!on) confirmLeave(false); }
-  function hudPing() { const e = $('rkPing'); if (e && X && X.ghost) { e.textContent = '影 ' + M().ghostTag; return; } if (!e || !K) return; const ms = Math.round(K.rtt); e.textContent = ms ? 'Ping ' + ms + ' ms' : ''; }
+  function hudPing() { const e = $('rkPing'); if (e && X && X.ghost) { e.textContent = '影 ' + M().ghostTag + ' · ' + (M().aiTag || TR.aiTag); return; } if (!e || !K) return; const ms = Math.round(K.rtt); e.textContent = ms ? 'Ping ' + ms + ' ms' : ''; }
   function waitUi(kind, info) {
     build();
     const w = $('rkWait');
@@ -1302,7 +1542,8 @@
     build();
     if (X && !X.done && screen !== 'match') { show(screen || 'found'); return; }
     if (Q) { show('queue'); return; }
-    show('home');
+    // the first time Ranked opens: "How ranked works" first ("Got it" → home; remembered in the save)
+    if (serverHas() && !rulesSeen()) { rulesFirst = true; show('rules'); } else show('home');
     loadMe();
     if (ND.rewards) ND.rewards.refresh();
   }
@@ -1347,7 +1588,7 @@
     if (screen && screen !== 'match') {
       if (I.isEditable(e.target)) return false;
       if (I.isBack(e) && !e.repeat) {
-        if (screen === 'home') close(); else if (screen === 'queue') { stopQueue(true); show('home'); } else if (screen === 'found') accept(false); else if (screen === 'result') toMenu();
+        if (screen === 'home') close(); else if (screen === 'rules') rulesDone(); else if (screen === 'queue') { stopQueue(true); show('home'); } else if (screen === 'found') accept(false); else if (screen === 'result') toMenu();
         return true;
       }
       return false;
@@ -1438,9 +1679,17 @@
     if (ms) ms.textContent = me && me.season ? L.season(me.season.id) + ' · ' + seasonLeft() : '';
     b.classList.toggle('has-season', !!(ms && ms.textContent));
     if (k) {
-      const T = me && !me.guest && !(me.placement > 0) && me.tier != null ? tierInfo(me.tier) : null;
-      k.textContent = T ? T.k : '戦';
-      k.classList.toggle('two', k.textContent.length > 1);
+      // a ranked player: their tier's emblem; in placement: the placement crest; a guest / not known yet: the red 戦 seal
+      const ranked = me && !me.guest && me.tier != null, T = ranked && !(me.placement > 0) ? tierInfo(me.tier) : null;
+      const key = ranked ? (T ? 't' + me.tier : 'pl') : '戦';
+      if (k.dataset.k !== key) {
+        k.dataset.k = key;
+        const em = ranked ? emblem(T ? me.tier : 'placement', { size: 46, glow: false, anim: false }) : null;
+        k.textContent = em ? '' : T ? T.k : '戦';
+        if (em) k.append(em);
+        k.classList.toggle('emb', !!em);
+        k.classList.toggle('two', !em && k.textContent.length > 1);
+      }
       if (T) { k.style.setProperty('--tc', T.col); b.title = T.n; } else { k.style.removeProperty('--tc'); b.removeAttribute('title'); }
     }
   }
@@ -1467,17 +1716,18 @@
     quit: () => quitMatch(), rematch: () => rematch(), findAgain: () => findAgain(), menu: () => toMenu(), reload: () => loadMe(),
     // shadow opponents: game.js ends a shadow fight here; its HUD tag ("影 Kenji's shadow")
     shadowEnded, ghostAccept: (ok) => ghostAccept(ok !== false), labels: () => M(),
-    get shadowTag() { return X && X.ghost && X.view.opp ? ('影 ' + ghostLabel(X.view.opp)).slice(0, 32) : null; },
+    get shadowTag() { return X && X.ghost && X.view.opp ? ('影 ' + ghostLabel(X.view.opp)).slice(0, 26) + ' · ' + (M().aiTag || TR.aiTag) : null; },
     state: () => ({ screen, identity: identity(), server: serverHas(), queue: Q ? { ticket: Q.ticket, warm: Q.warm, window: Q.window, since: Q.since, ghost: Q.ghost || null } : null,
       match: X ? { id: X.id, side: X.side, status: X.view.status, ranked: X.view.ranked, ghost: !!X.ghost, weight: X.ghost ? X.view.weight : null, opp: X.view.opp, live: X.view.live || null, begun: X.begun, res: X.res || null,
         report: X.report, result: X.view.result || null, accepted: X.accepted, picked: X.picked, chars: X.view.chars || [] } : null,
-      connected: !!(K && K.connected), rtt: K ? Math.round(K.rtt) : 0, me, flash: flashMsg }),
+      connected: !!(K && K.connected), rtt: K ? Math.round(K.rtt) : 0, me, flash: flashMsg, preview: pv ? { key: pv.key, on: !!pv.raf } : null }),
     // layout test (scripts/viewport-check.mjs): a screen with made-up data, no server
     demo(which) {
       build();
       demoOn = true;
       const opp = { name: 'Kenji', tier: 8, placement: 0, dan: 14, best_place: 2, wins: 0, podiums: 1, title_id: 'title_season_champion', touch: true };
       me = { season: { id: 3, end: Date.now() + 9 * 864e5 }, now: Date.now(), guest: false, rating: 1604, tier: 8, placement: 0, wins: 17, losses: 9, draws: 1, place: 12, games: 27, owned: [] };
+      decorateEntry(); // (the menu's RANKED entry wears this player's emblem)
       const view = { id: 'demo', side: 0, status: which === 'pick' ? 'picking' : 'found', ranked: true, opp, accept_ms: 12000, pick_ms: 15000, picked: [false, true],
         chars: ['akane', 'aoi', 'kuro', 'yuki', 'hana'], acc: [null, null], live: { seed: 1, arena: 'temple', picks: ['akane', 'hana'], looks: [null, null] },
         result: which === 'result' ? { rated: true, winner: 0, verdict: 'ok', r: [{ before: 1590, after: 1608, delta: 18, tier: 9, tier_before: 8, placement: 0 }, { delta: -18 }] } : null, rematch: [false, false] };
@@ -1485,22 +1735,25 @@
       X = which === 'home' || which === 'queue' ? null : { id: 'demo', side: 0, view, since: Date.now(), accepted: false, picked: false, pick: 'akane', look: null, begun: false,
         res: which === 'result' ? { reason: 'ko', winner: 0, wins: [2, 1] } : null, report: which === 'result' ? {} : null, done: which === 'result', tFound: Date.now(), demo: true };
       if (which === 'queue') { Q = { ticket: 'demo', since: Date.now() - 31000, warm: false, ranked: true, window: 565, demo: true, timer: 0 }; }
-      // the shadow's screens: the search with its countdown, "a shadow stepped in", the VS, the result with the reduced points
+      // the shadow's screens: the search with its countdown, "a shadow stepped in", the pick (nothing chosen yet), the VS,
+      // the result with the reduced points
       if (/^ghost-/.test(which)) {
         const house = which === 'ghost-house', g = house ? 'found' : which.slice(6), name = house ? 'Tate' : 'Kenji';
         if (g === 'queue') { Q = { ticket: 'demo', since: Date.now() - 12000, warm: false, ranked: true, window: 280, demo: true, timer: 0, ghost: { on: true, after_s: 8, weight: 0.5 }, ghostAt: Date.now() + 13000, ghostBusy: true }; X = null; }
         else {
-          const gv = { id: 'demo', status: g === 'found' ? 'found' : 'live', side: 0, ranked: true, ghost: true, weight: 0.5, accept_ms: 15000, pick_ms: 15000,
+          const gv = { id: 'demo', status: g === 'found' ? 'found' : g === 'pick' ? 'picking' : 'live', side: 0, ranked: true, ghost: true, weight: 1, accept_ms: 3000, pick_ms: 15000,
             opp: { name, ghost: true, house, tier: house ? null : 8, placement: 0 }, chars: view.chars, picked: [false, true], live: { seed: 1, arena: 'temple', picks: ['akane', 'hana'], style: {}, rating: 1600 },
-            result: g === 'result' ? { rated: true, weight: 0.5, winner: 0, verdict: 'ok', r: [{ before: 1590, after: 1599, delta: 9, tier: 8, tier_before: 8, placement: 0 }] } : null };
-          X = { id: 'demo', ghost: true, token: 'demo', side: 0, view: gv, viewAt: Date.now(), since: Date.now(), accepted: g !== 'found', picked: g !== 'found', pick: 'akane', look: null, begun: false,
+            result: g === 'result' ? { rated: true, weight: 1, winner: 0, verdict: 'ok', r: [{ before: 1590, after: 1608, delta: 18, tier: 8, tier_before: 8, placement: 0 }] } : null };
+          X = { id: 'demo', ghost: true, token: 'demo', side: 0, view: gv, viewAt: Date.now(), since: Date.now(), accepted: g !== 'found', picked: g !== 'found' && g !== 'pick', pick: g === 'pick' ? null : 'akane', look: null, begun: false,
             res: g === 'result' ? { reason: 'ko', winner: 0, wins: [2, 1] } : null, report: g === 'result' ? {} : null, done: g === 'result', tFound: Date.now(), demo: true, timer: 0 };
         }
         show(g);
         return;
       }
+      if (which === 'rules' || which === 'rules-first') { X = null; rulesFirst = which === 'rules-first'; show('rules'); return; }
       show(which === 'vs' ? 'vs' : which);
     },
+    rulesSeen: () => rulesSeen(), rulesDone: () => { if (screen === 'rules') rulesDone(); },
     endDemo() { if (Q && Q.demo) Q = null; if (X && X.demo) X = null; hideAll(); screen = null; },
   };
 
