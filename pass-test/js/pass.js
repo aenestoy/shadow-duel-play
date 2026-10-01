@@ -764,6 +764,9 @@
     // a match ends: XP, then the bar on the end screen (the runner may have filled the end screen already)
     wrap(G, 'matchEnd', function (args) {
       if (G.mode === 'online') return;
+      // a ranked shadow fight (js/ghost.js): XP like a ranked fight; its result screen is the ranked one, so no XP bar
+      // here, the level-up moment on its own
+      if (G.mode === 'shadow') { const r = fightDone(G, args[0]); if (r && r.r.ups.length) setTimeout(() => levelUp(r.r.to.lv), 1500); return; }
       const res = fightDone(G, args[0]);
       const after = $('endHonor') || $('endScore');
       if (res && G.phase === 'end') xpBlock('endXp', after, res); else xpBlock('endXp', after, null);

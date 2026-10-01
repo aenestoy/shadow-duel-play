@@ -214,7 +214,7 @@
     if (GK_Q) { GFX.setCustom(Object.assign(GFX.knobs(), GK_Q), 'init'); GK_CUSTOM = GFX.custom; }
   }
   // Dokunmatik kumandanın görüneceği modlar (2P: 1. oyuncu dokunmatik, 2. oyuncu gamepad olabilir)
-  const TOUCH_MODES = { cpu: 1, arcade: 1, train: 1, '2p': 1, tourney: 1, dan: 1, rival: 1, online: 1 };
+  const TOUCH_MODES = { cpu: 1, arcade: 1, train: 1, '2p': 1, tourney: 1, dan: 1, rival: 1, online: 1, shadow: 1 };
   const TOUCH_PHASES = { intro: 1, fight: 1, ko: 1, timeup: 1 };
   const ROT_PHASES = { intro: 1, fight: 1, ko: 1, timeup: 1, replay: 1 };
   const PORTRAIT = (() => { try { return window.matchMedia('(orientation: portrait)'); } catch (e) { return { matches: false }; } })();
@@ -231,7 +231,9 @@
     const pool = ND.CHARS.map((c, i) => i).filter((i) => !ND.CHARS[i].hidden), n = pool.length, a = (Math.random() * n) | 0;
     return [pool[a], pool[(a + 1 + ((Math.random() * (n - 1)) | 0)) % n]];
   };
-  const SOLO = { cpu: 1, arcade: 1, train: 1, tourney: 1, dan: 1, rival: 1 };
+  // 'shadow': a ranked shadow fight (js/ranked.js, js/ghost.js): the CPU in a real player's style, labelled as such; the
+  // fight's base rules (no level timing), no score / honour / funnel, the result screen is the ranked one
+  const SOLO = { cpu: 1, arcade: 1, train: 1, tourney: 1, dan: 1, rival: 1, shadow: 1 };
   // Koşu modları: bir "koşu denetleyicisi" (game.runner) yönetir — arcade ve meydan okuma (arcade.js), turnuva ve Dan (banzuke.js)
   const RUN_MODES = { arcade: 1, tourney: 1, dan: 1, rival: 1 };
   // Onur (誉, honor.js) kazandıran modlar: tek oyunculu her maç (antrenman hariç)
@@ -444,7 +446,7 @@
       // a new match (or leaving to the menu) ends any coach still running from the previous fight
       if (ND.coach && ND.coach.on) ND.coach.stop();
       if (ND.tutor && ND.tutor.on) ND.tutor.stop(); // and the rally tutorial (js/tutorial.js)
-      if (ND.coach && ND.coach.tips) ND.coach.tips.fightStarted(mode === 'attract' || mode === 'watch' || mode === 'online' || opts.drill ? 'off' : mode); // just-in-time tips (journey only)
+      if (ND.coach && ND.coach.tips) ND.coach.tips.fightStarted(mode === 'attract' || mode === 'watch' || mode === 'online' || mode === 'shadow' || opts.drill ? 'off' : mode); // just-in-time tips (journey only)
       this.mode = mode;
       // Online match (js/net.js): which fighter this device plays (0 = 1P host, 1 = 2P guest). Not fight state: the two
       // devices differ here and nothing the fight computes reads it (only prompts, touch HUD, haptics, name tags).
@@ -488,6 +490,7 @@
       } else if (mode === 'cpu') this.ais.push(new ND.AI(f2, this.level));
       else if (RUN_MODES[mode]) this.ais.push(new ND.AI(f2, opts.ai ?? opts.level ?? 1)); // opts.ai: a journey fight's own CPU profile (Apprentice+)
       else if (mode === 'train') this.ais.push(ND.training.makeDummy(f2));
+      else if (mode === 'shadow') this.ais.push(new ND.AI(f2, opts.ai && typeof opts.ai === 'object' ? opts.ai : 1)); // opts.ai: the shadow's profile (js/ghost.js level)
       if (arena === 'random' || !arena) arena = randArena(!RUN_MODES[mode]);
       scene.setTheme(arena);
       this.wins = [0, 0]; this.round = 1;
@@ -508,7 +511,7 @@
       if (mode === 'train') ND.training.onStart();
       // rally tutorial: Training → Parry drill (opts.drill), or ?tutorial=1 on this page load's first single-player fight
       if (!attract && ND.tutor) ND.tutor.autoStart(this, mode, opts);
-      if (!attract && mode !== 'watch' && mode !== 'online') ND.funnel?.fightStarted(); // new-player funnel (js/funnel.js)
+      if (!attract && mode !== 'watch' && mode !== 'online' && mode !== 'shadow') ND.funnel?.fightStarted(); // new-player funnel (js/funnel.js)
       if (attract && ND.arcade) ND.arcade.refreshMenu();
       if (!attract) this.prepareMatch();
     },
@@ -626,6 +629,7 @@
       else if (RUN_MODES[mode] && this.runner) [t1, t2] = this.runner.hudTags();
       else if (mode === 'train') { t1 = tx(H.you || 'SEN'); t2 = tx(H.dummy || 'KUKLA'); }
       else if (mode === 'online') { const you = tx(H.you || 'SEN'), fr = (ND.online && ND.online.friendTag) || 'FRIEND'; [t1, t2] = this.localSide ? [fr, you] : [you, fr]; }
+      else if (mode === 'shadow') { t1 = tx(H.you || 'SEN'); t2 = (ND.ranked && ND.ranked.shadowTag) || '影'; }
       $('tag1').textContent = t1; $('tag2').textContent = t2;
       $('rlabel').textContent = tx('RAUND ' + this.round);
       for (const f of F) $('nm' + (f.id + 1)).textContent = f.ch.name;
@@ -980,6 +984,13 @@
     },
 
     matchEnd(w) {
+      if (this.mode === 'shadow') {
+        // a ranked shadow fight: no score, honour, runner, funnel or save changes; js/ranked.js reports it and shows the result
+        this.phase = 'end'; this.replay = null; this.bars = 0;
+        this.stats[0].parries = f1.parries || 0; this.stats[1].parries = f2.parries || 0;
+        if (ND.ranked && ND.ranked.shadowEnded) ND.ranked.shadowEnded(w ? w.id : -1);
+        return;
+      }
       if (this.mode === 'online') {
         // Online: the fight state ends here on both devices; the result screen is the online one (js/online.js), shown
         // once this step is confirmed. No score, honour, runner, funnel or save changes.
@@ -2058,7 +2069,7 @@
     // (an online match never pauses: the other player's game runs on)
     if (game.mode === 'attract' || game.mode === 'online' || game.phase === 'end' || game.phase === 'select' || game.phase === 'replay' || game.phase === 'vs' || game.phase === 'ending') return;
     game.paused = v; $('pause').hidden = !v;
-    const br = $('bRestart'); if (br) br.hidden = !!(game.runner && game.runner.noRestart && game.mode === game.runner.mode);
+    const br = $('bRestart'); if (br) br.hidden = !!(game.runner && game.runner.noRestart && game.mode === game.runner.mode) || game.mode === 'shadow'; // (a shadow fight is never restarted: leaving it is a loss)
     // (pausing also cuts a voice line still sounding and drops announcer lines waiting in the queue)
     if (v) { input.p1.clear(); input.p2.clear(); input.touchReset(); ND.voice?.stopAll?.(); ND.haptics?.stop(); $('bResume').focus(); }
     else { input.p1.buf = {}; input.p2.buf = {}; game.closeMoves(); } // presses made in the pause menu must not fire on resume
@@ -2364,6 +2375,7 @@
   // pause menu → the player's move list (the select screen's panel); Close / Back / B returns to the pause menu
   if ($('bPMoves')) $('bPMoves').onclick = () => { if (game.paused) game.openMoves(); };
   $('bRestart').onclick = () => {
+    if (game.mode === 'shadow') return;
     setPause(false);
     if (ND.tutor && ND.tutor.on && ND.tutor.opts.drill) return game.startDrill();
     if (game.runner && game.mode === game.runner.mode && game.runner.run) return game.runner.retry();
@@ -2371,7 +2383,7 @@
     game.start(game.mode, { c1: game.sel.c[0], c2: game.sel.c[1], arena: scene.themeId });
   };
   // (online: the turn-your-phone hint's way out leaves the room, js/online.js; there is no pause menu online)
-  $('bMenu').onclick = () => { if (game.mode === 'online' && ND.online) { ND.online.leave(); return; } setPause(false); if (game.runner && game.runner.abandon) game.runner.abandon(); goMenu(); };
+  $('bMenu').onclick = () => { if ((game.mode === 'online' || game.mode === 'shadow') && ND.online) { ND.online.leave(); return; } setPause(false); if (game.runner && game.runner.abandon) game.runner.abandon(); goMenu(); };
   // Natural break between matches: maybe an interstitial first (ads.js decides), then act
   const afterBreak = (fn) => {
     if (ND.ads && ND.ads.busy) return;

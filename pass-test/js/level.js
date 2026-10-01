@@ -29,7 +29,8 @@
     parry: 2, counter: 2, rally: 4, perfect: 6, styleCap: 20,
     lvMul: [0.9, 1, 1.15, 1.3],                        // AI level (Apprentice, Master, Legend, Shura)
     // per kind of fight (on the win/loss base). journey = Arcade journey fights
-    mode: { cpu: 1, arcade: 1, tourney: 1.2, dan: 1.2, rival: 1.1, friend: 1, ranked: 1.3, ghost: 1 },
+    // (shadow: a ranked shadow fight, js/ghost.js, pays like a ranked one)
+    mode: { cpu: 1, arcade: 1, tourney: 1.2, dan: 1.2, rival: 1.1, friend: 1, ranked: 1.3, shadow: 1.3 },
     fightCap: 150,                                     // most XP one fight gives (before boosters and daily bonus)
     firstWin: 100, streak: 15, streakMax: 6,           // first won fight of the day; +15 per extra day in a row (≤ +90)
     shortSec: 25, minSec: 6, shortWin: 1800,           // < 25 s of fighting earns less; < 6 s nothing; window 30 min
