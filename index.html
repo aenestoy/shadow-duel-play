@@ -1077,8 +1077,9 @@
     .sel-grid.solo { grid-template-columns: minmax(0, 560px); }
     .vs { justify-self: auto; font-size: 26px; }
     .slot { grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 6px 10px; padding: 8px 10px; align-items: center; }
-    .slot .who { grid-column: 1 / -1; grid-row: 1; font-size: 10px; padding-right: 50px; }
-    .slot canvas { grid-column: 1; grid-row: 2 / span 2; height: clamp(88px, 26vh, 170px); }
+    .slot .who { grid-column: 2; grid-row: 1; font-size: 10px; padding-right: 50px; }
+    /* the preview takes the left column from the top (beside the who line, the name and the bars): a bigger fighter */
+    .slot canvas { grid-column: 1; grid-row: 1 / span 3; height: clamp(110px, 31vh, 190px); }
     .slot .nav { grid-column: 2; grid-row: 2; grid-template-columns: 38px 1fr 38px; gap: 4px; }
     .slot .nav button { height: 38px; }
     .slot .bars { grid-column: 2; grid-row: 3; gap: 3px 8px; font-size: 10px; }
@@ -1846,7 +1847,7 @@
     .sel-wrap { gap: 12px; }
     .sel-title { font-size: clamp(26px, 4vw, 38px); }
     .slot { padding: 10px 12px; gap: 6px; }
-    .slot canvas { height: clamp(140px, 21vh, 240px); }
+    .slot canvas { height: clamp(150px, 22.5vh, 250px); }
   }
   @media (max-height: 540px) and (min-width: 560px) {
     #select.journey .sel-wrap { grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr); column-gap: 10px; align-items: start; }
@@ -2327,6 +2328,7 @@
 <script  src="js/telegraph.js?v=wide-bg-1"></script>
 <script  src="js/ai.js"></script>
 <script  src="js/honor.js"></script>
+<script  src="js/level.js"></script>
 <script  src="js/journey.js"></script>
 <script  src="js/tune.js"></script>
 <script  src="js/journey-text.js"></script>
@@ -2339,6 +2341,7 @@
 <script  src="js/platform-boards.js"></script>
 <script  src="js/banzuke.js?v=boards-1"></script>
 <script  src="js/ads.js"></script>
+<script  src="js/pass.js"></script>
 <script  src="js/coach.js?v=comfort-1"></script>
 <script  src="js/tutorial.js"></script>
 <script  src="js/kaeshi-cine.js?v=hitch-1"></script>
@@ -2352,6 +2355,7 @@
 <script  src="js/i18n-ru.js?v=comfort-1"></script>
 <script  src="js/i18n-de.js?v=comfort-1"></script>
 <script  src="js/i18n-fr.js?v=comfort-1"></script>
+<script  src="js/i18n-pass.js"></script>
 <script  src="js/i18n.js?v=comfort-1"></script>
 <script  src="js/lang-ui.js"></script>
 <script  src="js/settings.js"></script>
@@ -2370,6 +2374,9 @@
 <script  data-online src="js/online.js"></script>
 <!-- ranked duel and the server's reward catalog (docs/SHADOW-DUEL-ONLINE.md phase 2): also online-only -->
 <script  data-online src="js/rewards.js"></script>
+<!-- shadow opponents in the ranked queue (js/ghost.js: the style math; docs/SHADOW-DUEL-ONLINE.md "Gölge rakip"): online-only -->
+<script  data-online src="js/ghost.js"></script>
 <script  data-online src="js/ranked.js"></script>
+<script  data-online src="js/pass-net.js"></script>
 </body>
 </html>

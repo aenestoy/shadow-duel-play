@@ -519,6 +519,7 @@
     hudShow(false);
     setTimeout(() => { if (R === r && r.result === res) { screen = 'end'; renderEnd(); } }, res.reason === 'ko' ? 400 : 0);
     if (typeof ND.online.onEnd === 'function') ND.online.onEnd(res);
+    if (ND.pass && ND.pass.onlineResult) ND.pass.onlineResult('friend', res); // level XP (js/pass.js)
   }
   // back to the fighter choice (both players)
   function toLobby(tell) {

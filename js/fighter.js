@@ -1592,9 +1592,12 @@
       const sp = this.state === 'atk' && this.atk.special, ct = !sp && this.state === 'atk' && this.atk.counter;
       // counter streak takes its technique's colour (ND.cine: gold suriage, cyan harai, violet nuki, red uchiotoshi)
       const tc = (sp && this.atk.trail) || (ct && ND.cine && ND.cine.rgb(this));
+      // your own fighter's everyday streak may wear the blade trail equipped from the pass (js/pass.js ND.passTrail;
+      // drawing only, set outside online / 2P / watch)
+      const own = this.id === 0 && ND.passTrail;
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
       // karşılık kesiği sıcak beyaz iz bırakır (normal saldırılar soğuk mavi)
-      const fill = (i) => (tc ? `rgba(${tc},${(i / T.length) * 0.55})` : sp ? `rgba(255,190,150,${(i / T.length) * 0.5})` : ct ? `rgba(255,228,176,${(i / T.length) * 0.42})` : `rgba(200,220,255,${(i / T.length) * 0.32})`);
+      const fill = (i) => (tc ? `rgba(${tc},${(i / T.length) * 0.55})` : sp ? `rgba(255,190,150,${(i / T.length) * 0.5})` : ct ? `rgba(255,228,176,${(i / T.length) * 0.42})` : own ? `rgba(${own},${(i / T.length) * 0.42})` : `rgba(200,220,255,${(i / T.length) * 0.32})`);
       if (ND.anim && ND.anim.on) {
         // one slice per ~7° of the blade's turn between two samples: the streak's edge follows the tip's arc
         let fi = -1;

@@ -12,6 +12,10 @@
   // level numbers, may be changed by remote tuning (js/tune.js), only between fights (ND.tune.commit in the constructor).
   const KNOBS = ND.AI_KNOBS = { kiWait: 6, apprenticePlusK: 0.4 };
 
+  // Optional knobs a profile may carry (a ranked shadow, js/ghost.js; absent = today's constant, so the levels below play
+  // exactly as before): ki (spend a full KI in range, per decision; default smart × 0.25), kick (kick a guarding
+  // opponent; 0.35 + smart × 0.3), kickNear (kick at very close range; 0.45), throwFar (shuriken from far; 0.22),
+  // jump (jump in from far; 0.1), heavy (a heavy opener; 0.2), range (preferred distance; from the blade).
   const LEVELS = ND.AI_LEVELS = {
     // combo layer: cmd = command normals as openers, str = string enders / launchers inside a chain,
     // jug = air follow-up after a landed launcher, kc = ki cancel from a landed string/launcher
@@ -51,7 +55,8 @@
       // the last match is put in place now, before the fight's first step, and stays fixed for the whole fight.
       // (Not while a fight's CPUs exist, e.g. a training dummy switching behaviour in the middle of a session.)
       if (ND.tune && !(ND.game && ND.game.ais && ND.game.ais.length)) ND.tune.commit();
-      this.me = me; this.c = me.ctrl; this.lv = LEVELS[level] || LEVELS[1];
+      // level: a key of LEVELS, or a whole profile object (a ranked shadow: js/ghost.js level(), already bounded)
+      this.me = me; this.c = me.ctrl; this.lv = level && typeof level === 'object' ? level : LEVELS[level] || LEVELS[1];
       this.held = {}; this.taps = []; this.t = 0; this.next = 0.4;
       this.seen = null; this.pending = null; this.guardUntil = 0; this.move = 0; this.moveUntil = 0;
       this.chainDone = null; this.seenProj = new Set(); this.ideal = this.idealFor(); this.kiFullT = 0;
@@ -235,7 +240,7 @@
       const spR = (ND.SPECIALS && ND.SPECIALS[me.ch.id] && ND.SPECIALS[me.ch.id].range) || [90, 520]; // karaktere özel tekniğin menzili
       if (me.ki >= 100 && dist > spR[0] && dist < spR[1]) {
         const opening = o.state === 'stagger' || o.state === 'gbreak' || (o.state === 'atk' && o.atk.kind !== 'throw' && dist > Math.min(260, spR[1] * 0.5));
-        if (opening || rnd() < lv.smart * 0.25 || this.kiFullT > KNOBS.kiWait) { this.tap('special'); return; }
+        if (opening || rnd() < (lv.ki ?? lv.smart * 0.25) || this.kiFullT > KNOBS.kiWait) { this.tap('special'); return; }
       }
       // cezalandır
       if ((o.state === 'stagger' || o.state === 'gbreak') && dist < 210) { this.dirTap(o.state === 'gbreak' || r < 0.5 ? 'heavy' : 'light', 0); return; }
@@ -260,8 +265,8 @@
       if (oZ && !zoner && dist > 240 && r < 0.55 - lv.smart * 0.2) { this.moveDir(fwd); this.tap('dodge'); return; }
       // (the zoner's throw button is the back-flip shot: it is used from zone() only)
       if (dist > 380) {
-        if (me.ammo > 0 && r < 0.22 && !zoner) { this.tap('throw'); return; }
-        if (r < 0.1) { this.go(fwd, 0.35); this.tap('up'); return; }
+        if (me.ammo > 0 && r < (lv.throwFar ?? 0.22) && !zoner) { this.tap('throw'); return; }
+        if (r < (lv.jump ?? 0.1)) { this.go(fwd, 0.35); this.tap('up'); return; }
         this.go(fwd, 0.35); return;
       }
       if (dist > this.ideal + 40) {
@@ -271,8 +276,9 @@
       }
       // yakın mesafe
       if (dist < 70) {
-        if (r < 0.45) { this.dirTap('kick', 0); return; }
-        if (r < 0.7) { this.moveDir(-fwd); this.tap('dodge'); return; }
+        const kn = lv.kickNear ?? 0.45;
+        if (r < kn) { this.dirTap('kick', 0); return; }
+        if (r < kn + 0.25) { this.moveDir(-fwd); this.tap('dodge'); return; }
       }
       // a draw stance (Akane) is waiting for a blow: wait it out, or throw from range (projectiles are not caught)
       if (o.state === 'atk' && o.atk.catch && o.st < o.atk.catch[1] && rnd() < lv.smart) {
@@ -285,7 +291,7 @@
       if (r < lv.aggr) {
         const oppGuard = o.state === 'guard' || o.state === 'block';
         const rr = rnd();
-        if (oppGuard && rr < 0.35 + lv.smart * 0.3) this.dirTap('kick', 0);
+        if (oppGuard && rr < (lv.kick ?? 0.35) + lv.smart * 0.3) this.dirTap('kick', 0);
         // ch.ai.cmd: a style built on command normals (Aoi's wind steps) uses them at every level
         else if (rnd() < Math.max(lv.cmd, (Z && Z.cmd) || 0)) this.cmdOpener(dist, fwd, oppGuard);
         else if (rr < (lv.heavy ?? 0.2)) this.dirTap('heavy', 0);
@@ -362,7 +368,8 @@
       return lv.read * Math.min(1, (rep - 1) * 0.35 + Math.max(0, this.heat() - 2) * 0.15);
     }
     oppReach(o) { return 150 + Math.max(0, o.ch.blade + (o.ch.handle || 0) - 60) * 0.9; }
-    idealFor() { const Z = this.me.ch.ai; return Z && Z.ideal ? rand(-25, 25) + Z.ideal : rand(-18, 18) + 88 + this.me.ch.blade * 0.72; }
+    // (lv.range: a shadow's preferred distance, js/ghost.js; a ranged fighter keeps its own)
+    idealFor() { const Z = this.me.ch.ai; return Z && Z.ideal ? rand(-25, 25) + Z.ideal : rand(-18, 18) + (this.lv && this.lv.range > 0 ? this.lv.range : 88 + this.me.ch.blade * 0.72); }
     go(d, dur) { this.move = d; this.moveUntil = this.t + dur; }
   }
   ND.AI = AI;
