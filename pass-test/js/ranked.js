@@ -820,6 +820,7 @@
     if (o.best_place && L && L.titleLabel) { const t = L.titleLabel({ place: o.best_place, wins: o.wins | 0, podiums: o.podiums | 0 }); if (t) box.appendChild(el('span', 'rk-tt', t)); }
     const rt = o.title_id && ND.rewards ? ND.rewards.title(o.title_id) : null;
     if (rt) { const s = el('span', 'rk-tt rw', (rt.icon ? rt.icon + ' ' : '') + rt.name); if (rt.color) s.style.setProperty('--rc', rt.color); box.appendChild(s); }
+    const pl = ND.pass && ND.pass.plate ? ND.pass.plate(o) : null; if (pl) box.appendChild(pl); // level + pass title (js/pass.js)
     return box;
   }
 

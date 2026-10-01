@@ -36,11 +36,11 @@
   function S() {
     const p = ND.save.p;
     if (cache.p !== p || p.lv !== cache.s) {
-      const fresh = !p.lv || typeof p.lv !== 'object';
+      // (not written back here: a save just adopted from the portal keeps its own time stamp; the level is saved with
+      // the next real change, and until then the migration gives the same result on every load)
       const st = LV.cleanState(p.lv, charIds());
       if (!st.mig) LV.migrate(st, p);
       p.lv = st; cache = { p, s: st };
-      if (fresh) ND.save.commit();
     }
     return cache.s;
   }
@@ -57,7 +57,13 @@
     const c = LV.seasonAt(t);
     return { key: c.key, n: c.n, start: c.start, end: c.end, C: DEF };
   }
-  function sp(st, se) { return st.ps[se.key] || (st.ps[se.key] = { x: 0, f: [], b: [], a: 0 }); }
+  function sp(st, se) { return st.ps[se.key] || (st.ps[se.key] = { x: 0, f: [], b: [], a: 0, w: 0 }); }
+  // something to tell the server (js/pass-net.js, the online build): a sync soon
+  const changed = () => { try { if (ND.passNet && ND.passNet.soon) ND.passNet.soon(); } catch (e) { /* the pass never breaks */ } };
+  const once = (name) => { try { if (ND.studioStats && ND.studioStats.event) ND.studioStats.event(name); } catch (e) { /* never breaks the game */ } };
+  // a reward from the server's catalog ('rw:<id>', js/rewards.js): claimable only with a server that grants it
+  const rwOk = () => !!(ND.passNet && ND.passNet.canGrant && ND.passNet.canGrant());
+  const rwEntry = (it) => (it && it.kind === 'rw' && ND.rewards ? ND.rewards.get(it.ref) : null);
   const daysLeft = (se) => Math.max(0, Math.ceil((se.end - P.now()) / 864e5));
   const adsOk = () => !!(ND.ads && ND.ads.rewardedAvailable && ND.ads.rewardedAvailable());
 
@@ -71,6 +77,7 @@
     }
     if (it.kind === 'boost') return t.boostName ? t.boostName(it.n) : id;
     if (it.kind === 'honor') return t.honorName ? t.honorName(it.n) : id;
+    if (it.kind === 'rw') return (ND.rewards && ND.rewards.name(it.ref)) || it.ref;
     return (t.items && t.items[id]) || id;
   }
   // colour helpers (#rrggbb ↔ h s l)
@@ -128,8 +135,16 @@
   }
   // the reward's picture (inline SVG / text, no image files)
   function icon(id) {
-    const it = LV.item(id);
+    let it = LV.item(id);
     if (!it) return '';
+    if (it.kind === 'rw') {
+      // a catalog reward: drawn like its kind (a costume with its own palette when it has one)
+      const e = rwEntry(it);
+      if (!e) return `<b class="ps-ttl" style="--tc:#c79bff">賞</b>`;
+      if (e.kind === 'costume') it = { kind: 'cos', pal: Object.assign({ cloth: '#3a3550', clothHi: '#5a547a', wrap: '#c79bff', accent: '#f1d69c', hakama: '#1b1826' }, e.pal || {}) };
+      else if (e.kind === 'badge') it = { kind: 'badge', icon: e.icon || '賞', color: e.color || '#c79bff' };
+      else it = { kind: 'title', color: e.color || '#c79bff' };
+    }
     if (it.kind === 'cos') {
       const p = iconPal(it) || {}, rim = p.rim || 'rgba(255,255,255,.3)';
       const ch = it.journey ? chOf(it.ninja) : null;
@@ -193,11 +208,14 @@
   let pend = null; // a journey clear paid just before its final fight's XP (the two go on one end screen)
   // Add XP (any source) to the level and the season: → { from, to, ups, n }; the level-up moment follows
   function gain(n) {
-    const st = S(), se = season();
-    const r = LV.add(st, n, se.key, se.C.mul);
+    const st = S(), se = season(), t0 = tierOf(se, sp(st, se)).tier;
+    const r = LV.add(st, n, se.key, se.C.mul, se.C.lvMul);
     commit();
-    try { if (ND.studioStats && r.ups.length) for (const L of r.ups) if ([2, 5, 10, 20].includes(L)) ND.studioStats.event('level_' + L); } catch (e) { /* never breaks the game */ }
-    refreshStrip();
+    // studio statistics (once per install): levels 2 / 5 / 10 / 20, pass tiers 5 / 10 / 30
+    for (const L of r.ups) if ([2, 5, 10, 20].includes(L)) once('level_' + L);
+    const t1 = tierOf(se, sp(st, se)).tier;
+    for (const k of [5, 10, 30]) if (t0 < k && t1 >= k) once('pass_tier_' + k);
+    refreshStrip(); changed();
     return r;
   }
   // one finished single-player fight (game.matchEnd, wrapped in hookGame)
@@ -216,6 +234,7 @@
     pend = null;
     const lvBefore = cl ? cl.before : LV.levelOf(st.xp);
     const x = LV.fight(st, c, P.now(), tz());
+    if (x.rows.some((q) => q[0] === 'daily')) { const p = sp(st, season()); p.w = Math.min(60, (p.w | 0) + 1); }
     const r = gain(x.total);
     if (cl) { x.rows.push(['clear', cl.xp, cl.n]); x.total += cl.xp; }
     last = { x, r, before: lvBefore, t: Date.now() };
@@ -270,19 +289,26 @@
     if (g.dup) { ND.toast(t.gotDup(g.n), t.k); return; }
     ND.toast(t.got + ': ' + itemName(g.id), it && it.icon ? it.icon : t.k, it && it.color);
   }
+  // a tier whose reward is a catalog reward can be claimed only where the server grants it
+  const rwBlocked = (se, t, row) => { const T0 = se.C.tiers[t - 1], it = T0 && LV.item(T0[row]); return !!it && it.kind === 'rw' && !rwOk(); };
   function claimFree(tier) {
-    const st = S(), se = season(), g = LV.claimFree(se.C, st, se.key, tier);
+    const st = S(), se = season();
+    if (rwBlocked(se, tier, 'f')) { if (ND.toast) ND.toast(T().online, T().k); return null; }
+    const g = LV.claimFree(se.C, st, se.key, tier);
     if (!g) return null;
-    payHonor(g); commit(); gotToast(g); fx('claim');
+    payHonor(g); commit(); gotToast(g); fx('claim'); changed();
+    if (g.kind === 'rw' && ND.passNet) ND.passNet.now(); // (the server grants it: tell it now)
     return g;
   }
   // bonus ("Shadow") track: way = 'free' (milestone) | 'wait' (no ads here, opened later) | 'ad' (one rewarded ad)
   function claimBonus(tier) {
     const st = S(), se = season(), p = sp(st, se), ok = adsOk(), way = LV.bonusWay(se.C, p, tier, ok);
     if (!way) return Promise.resolve(null);
+    if (rwBlocked(se, tier, 'b')) { if (ND.toast) ND.toast(T().online, T().k); return Promise.resolve(null); }
     const done = () => {
+      const first = !Object.values(S().ps).some((q) => q.b && q.b.length);
       const g = LV.claimBonus(se.C, S(), se.key, tier, way, ok);
-      if (g) { payHonor(g); commit(); gotToast(g); fx('claim'); }
+      if (g) { payHonor(g); commit(); gotToast(g); fx('claim'); changed(); if (first) once('first_bonus_claim'); if (g.kind === 'rw' && ND.passNet) ND.passNet.now(); }
       return g;
     };
     if (way !== 'ad') return Promise.resolve(done());
@@ -295,7 +321,7 @@
   function claimAllFree() {
     const se = season(), p = sp(S(), se), R = tierOf(se, p);
     let n = 0;
-    for (let t = 1; t <= R.tier; t++) if (LV.canFree(se.C, p, t)) { if (claimFree(t)) n++; }
+    for (let t = 1; t <= R.tier; t++) if (LV.canFree(se.C, p, t) && !rwBlocked(se, t, 'f')) { if (claimFree(t)) n++; }
     return n;
   }
   function readyCount() {
@@ -311,7 +337,7 @@
     const st = S();
     if (id == null) delete st.eq[kind];
     else { const it = LV.item(id); if (!it || it.kind !== kind || !st.own.includes(id)) return false; st.eq[kind] = id; }
-    commit(); refreshStrip();
+    commit(); refreshStrip(); changed();
     return true;
   }
 
@@ -328,6 +354,7 @@
   // ================================================================ UI
   const CSS = `
   .pass-strip { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; width: 100%; box-sizing: border-box; padding: 7px 12px 7px 8px; text-align: left; background: linear-gradient(90deg, rgba(120,90,200,.12), rgba(217,179,108,.06)); border: 1px solid rgba(190,160,255,.38); color: var(--text); cursor: pointer; transition: background .15s, border-color .15s; }
+  .pass-strip.aside { flex: 1 1 100%; margin-top: 6px; }
   .pass-strip:hover, .pass-strip:focus-visible { background: linear-gradient(90deg, rgba(120,90,200,.22), rgba(217,179,108,.1)); border-color: #c79bff; }
   .ps-lvb { position: relative; display: grid; place-items: center; width: 42px; height: 42px; box-sizing: border-box; border: 2px solid var(--fc, var(--gold)); background: radial-gradient(circle at 35% 30%, #3a2a14, #140f08 70%); color: var(--gold-hi); font: 700 19px/1 var(--display); font-variant-numeric: tabular-nums; box-shadow: 0 0 0 1px rgba(0,0,0,.6), 0 0 14px -4px var(--fc, var(--gold)); }
   .ps-lvb small { position: absolute; top: -7px; left: 50%; transform: translateX(-50%); padding: 0 4px; background: #17130a; color: var(--gold); font: 600 9px/1.3 var(--display); letter-spacing: .14em; }
@@ -432,6 +459,10 @@
   .vs-side .ps-seal, #vs .ps-seal { margin-left: 8px; width: 22px; height: 22px; font-size: 13px; }
   .ps-jl { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
+  .ps-plate { display: inline-flex; align-items: center; gap: 5px; }
+  .ps-plate b { padding: 0 4px; border: 1px solid var(--fc, var(--gold)); color: var(--gold-hi); font: 700 11px/1.4 var(--display); letter-spacing: .08em; }
+  .ps-plate i { font: 700 13px/1 var(--jp); font-style: normal; }
+  .ps-plate em { font-style: normal; }
   .xpb { margin: -6px 0 12px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 4px 10px; text-align: left; padding: 6px 10px; border: 1px solid rgba(190,160,255,.4); background: rgba(120,90,200,.09); }
   .xpb .ps-lvb { grid-row: span 2; width: 36px; height: 36px; font-size: 16px; }
   .xpb .ps-xbar { height: 8px; }
@@ -500,15 +531,29 @@
   const seal = (n) => `<i class="ps-seal s${Math.min(3, n | 0)}" aria-hidden="true">${['', '一', '二', '三'][Math.min(3, n | 0)] || ''}</i>`;
 
   // ---------------------------------------------------------------- menu strip (#mpass, after the honor strip)
+  // Where the strip goes: on a tall screen under the honor strip (with the game modes); on a short or narrow one
+  // (phones, CrazyGames' 821×462) under the options line instead, so PLAY, SINGLE MATCH, PLAY WITH A FRIEND and
+  // RANKED stay on screen without scrolling (scripts/ranked-layout-check.mjs, cg-sizes-check.mjs)
+  function placeStrip(el) {
+    const hon = $('mhonor'), opts = document.querySelector('#menu .opts');
+    // (the short-landscape menu of index.html: brand and options on the left, modes on the right; or a narrow screen)
+    let short = (window.innerWidth || 1280) <= 600;
+    try { short = short || window.matchMedia('(max-height: 540px) and (min-width: 560px)').matches; } catch (e) { /* no matchMedia */ }
+    if (short && opts) { if (el.parentNode !== opts) opts.appendChild(el); el.classList.add('aside'); return; } // (its own line in the options row)
+    const modes = hon ? hon.parentNode : document.querySelector('#menu .modes');
+    if (!modes) return;
+    el.classList.remove('aside');
+    if (hon) { if (hon.nextSibling !== el) modes.insertBefore(el, hon.nextSibling); } else if (el.parentNode !== modes) modes.appendChild(el);
+  }
   function ensureStrip() {
     let el = $('mpass');
-    if (el) return el;
-    const hon = $('mhonor'), modes = hon ? hon.parentNode : document.querySelector('#menu .modes');
-    if (!modes) return null;
+    if (el) { placeStrip(el); return el; }
+    if (!$('mhonor') && !document.querySelector('#menu .modes')) return null;
     el = document.createElement('button');
     el.type = 'button'; el.id = 'mpass'; el.className = 'pass-strip';
     el.onclick = () => { if (ND.audio && ND.audio.ui) ND.audio.ui(); open('pass'); };
-    if (hon && hon.nextSibling) modes.insertBefore(el, hon.nextSibling); else modes.appendChild(el);
+    placeStrip(el);
+    try { window.addEventListener('resize', () => placeStrip(el)); } catch (e) { /* no window */ }
     return el;
   }
   function refreshStrip() {
@@ -538,10 +583,11 @@
     });
     return ov;
   }
+  let offerCounted = false;
   function open(which) {
     safe(() => {
       injectCss(); ensureOv();
-      tab = which || tab;
+      tab = which || tab; offerCounted = false;
       backTo = $('menu') && !$('menu').hidden ? 'menu' : null;
       if (backTo) $('menu').hidden = true;
       ov.hidden = false;
@@ -573,7 +619,10 @@
       else { cls = 'lock'; act = `<span class="ps-st">🔒 ${esc(tx.opensAt(LV.bonusWaitTier(se.C, t)))}</span>`; }
       if (!got && se.C.freeEvery && t % se.C.freeEvery === 0 && !cls.includes('rdy')) act = `<span class="ps-st">${esc(tx.milestone)} · ${esc(tx.opensAt(t))}</span>`;
     }
-    return `<div class="ps-rw ${row} ${cls}" data-item="${esc(id)}" title="${esc((tx.kinds || {})[it.kind] || '')}: ${esc(itemName(id))}"><span class="ps-ic">${icon(id)}</span><em>${esc((tx.kinds || {})[it.kind] || '')}</em><small>${esc(itemName(id))}</small>${act}</div>`;
+    // a catalog reward where no server grants it (offline, no online identity): not claimable here
+    if (!got && it.kind === 'rw' && !rwOk() && cls === 'rdy') { cls = 'lock'; act = `<span class="ps-st">🔒 ${esc(tx.online)}</span>`; }
+    const kind = it.kind === 'rw' ? ((rwEntry(it) || {}).kind === 'costume' ? 'cos' : (rwEntry(it) || {}).kind || 'title') : it.kind;
+    return `<div class="ps-rw ${row} ${cls}" data-item="${esc(id)}" title="${esc((tx.kinds || {})[kind] || '')}: ${esc(itemName(id))}"><span class="ps-ic">${icon(id)}</span><em>${esc((tx.kinds || {})[kind] || '')}</em><small>${esc(itemName(id))}</small>${act}</div>`;
   }
   function render(scroll) {
     if (!ov || ov.hidden) return;
@@ -602,6 +651,12 @@
       `<span class="ps-sp"></span><span class="ps-note ${daily ? '' : 'on'}">${esc(daily ? t.dailyDone : t.daily)}</span>` +
       (tab === 'pass' && freeN > 1 ? `<button class="btn primary" type="button" id="passAll">${esc(t.claimAll(freeN))}</button>` : '') + '</div>' + body;
     $('passClose').onclick = () => close();
+    // a rewarded offer on screen (the Shadow row's "Watch ad"): counted once per opening, through the ads module's own
+    // counter when it has one (studio statistics: ad_rew_offer; the clicks and results are counted in ND.ads.rewarded)
+    if (!offerCounted && ov.querySelector('button.ad') && ND.ads && typeof ND.ads.showOffer === 'function') {
+      offerCounted = true;
+      safe(() => { const x = document.createElement('i'); x.hidden = true; ND.ads.showOffer(x); });
+    }
     ov.querySelectorAll('[role="tab"]').forEach((b) => (b.onclick = () => { tab = b.dataset.tab; render(true); }));
     const all = $('passAll'); if (all) all.onclick = () => { claimAllFree(); render(false); };
     ov.querySelectorAll('[data-claim]').forEach((b) => (b.onclick = () => {
@@ -812,8 +867,69 @@
     award, onlineEnd, onlineResult, bonus, journeyCleared, claimFree, claimBonus, claimAllFree, readyCount, equip,
     open, close, get isOpen() { return !!ov && !ov.hidden; }, refreshStrip, levelUp,
     level: () => LV.levelOf(S().xp),
-    // drop 2: a season from the server (js/pass-net.js)
-    setRemote(r) { remote = r; refreshStrip(); render(false); },
+    defaultSeason: DEF,
+    // A season from the server (js/pass-net.js): { key: 'S<id>', n, start, end, C } or null. The first time it comes,
+    // the XP this season already earned on the local calendar carries over (the claims do not: the server's tiers may
+    // hold other rewards).
+    setRemote(r) {
+      if (r && r.key) {
+        const st = S(), loc = LV.seasonAt(P.now()).key;
+        if (!st.ps[r.key] && st.ps[loc] && st.ps[loc].x > 0) { st.ps[r.key] = { x: st.ps[loc].x, f: [], b: [], a: 0, w: st.ps[loc].w | 0 }; commit(); }
+      }
+      remote = r; refreshStrip(); render(false);
+    },
+    // what the server is told (pass-net.js sync): this season's progress, the lifetime XP, journey clears, what is worn
+    syncState() {
+      const st = S(), se = season(), p = sp(st, se);
+      return { season: se.n, server: !!(remote && se === remote), xp: st.xp, x: p.x, f: p.f.slice(), b: p.b.slice(), a: p.a | 0, w: p.w | 0,
+        jc: Object.assign({}, st.jc), eq: { title: st.eq.title || null, badge: st.eq.badge || null, frame: st.eq.frame || null } };
+    },
+    // The server's answer (another device may be ahead): the larger of each number, claims joined; the items of tiers
+    // claimed elsewhere are owned here too (their boosters and honor were paid on that device)
+    mergeServer(me, key) {
+      if (!me || typeof me !== 'object') return;
+      const st = S(), num0 = (v, hi) => (typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.min(hi, Math.round(v))) : 0);
+      const from = LV.levelOf(st.xp);
+      st.xp = Math.max(st.xp, num0(me.xp, LV.BASE[LV.MAX] * 4));
+      if (me.jc && typeof me.jc === 'object') for (const k of Object.keys(me.jc)) if (chOf(k)) st.jc[k] = Math.max(st.jc[k] | 0, num0(me.jc[k], 9999));
+      const se = season();
+      if (key && key === se.key) {
+        const p = sp(st, se), C = se.C;
+        p.x = Math.max(p.x, num0(me.x, 1e7)); p.a = Math.max(p.a | 0, num0(me.a, 999)); p.w = Math.max(p.w | 0, num0(me.w, 60));
+        for (const [row, list] of [['f', me.f], ['b', me.b]]) {
+          if (!Array.isArray(list)) continue;
+          for (const t of list) {
+            if (!Number.isInteger(t) || t < 1 || t > C.tiers.length || p[row].includes(t)) continue;
+            p[row].push(t);
+            const id = C.tiers[t - 1][row], it = LV.item(id);
+            if (it && !['boost', 'honor', 'rw'].includes(it.kind) && !st.own.includes(id)) st.own.push(id);
+          }
+          p[row].sort((q, r) => q - r);
+        }
+      }
+      if (LV.levelOf(st.xp).lv > from.lv) st.seen = Math.max(st.seen, LV.levelOf(st.xp).lv); // (reached on another device)
+      commit(); refreshStrip(); render(false);
+    },
+    // A name plate for the ranked screens (js/ranked.js titlesOf): this player's own (no player_id), or another one's
+    // from the server (pass-net.js plates, filled in when it answers). → an element, or null
+    plate(o) {
+      return safe(() => {
+        if (!o || o.guest) return null;
+        const el = document.createElement('span');
+        el.className = 'rk-tt ps-plate';
+        // level, badge, title, and the best journey seal (一 二 三: the most clears of any one ninja)
+        const fill = (lv, eq, jc) => {
+          const ti = eq && eq.title && LV.item(eq.title), bd = eq && eq.badge && LV.item(eq.badge), fr = eq && eq.frame && LV.item(eq.frame);
+          const best = jc && typeof jc === 'object' ? Math.min(3, Math.max(0, ...Object.values(jc).map((v) => v | 0))) : 0;
+          el.innerHTML = `<b style="${fr ? '--fc:' + fr.color : ''}">${esc(T().lv)} ${lv | 0}</b>${best ? seal(best) : ''}${bd ? `<i style="color:${bd.color}">${esc(bd.icon)}</i>` : ''}${ti ? `<em style="color:${ti.color}">${esc(itemName(eq.title))}</em>` : ''}`;
+        };
+        if (o.player_id == null) { const st = S(); fill(LV.levelOf(st.xp).lv, st.eq, st.jc); return el; }
+        if (!ND.passNet || !ND.passNet.plate) return null;
+        el.hidden = true;
+        ND.passNet.plate(o.player_id).then((q) => { if (q) { fill(q.lv, q.eq, q.jc); el.hidden = false; } }, () => {});
+        return el;
+      }) || null;
+    },
     _hookGame: hookGame,
   };
   // arcade.init(G) is where the game hands itself over (game.js boot): install the hooks there

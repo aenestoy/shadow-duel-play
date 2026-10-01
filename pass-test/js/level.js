@@ -107,9 +107,14 @@
   // title each, made per ninja from its own colours (pass.js journeyPal). ids: jc2_<ninja> / jc3_<ninja> (costume),
   // jt2_<ninja> / jt3_<ninja> (title: "<NINJA> · Menkyo" / "<NINJA> · Kaiden").
   const isJourneyItem = (id) => /^j[ct][23]_[a-z]{2,12}$/.test(id);
+  // 'rw:<id>': a reward from the server's reward catalog (js/rewards.js, supabase/ranked.sql nd_rewards). Only a season
+  // from the server can hold one (the built-in season never does); the server grants it on a claim (supabase/pass.sql:
+  // nd_reward_owned), so it is never added to the local `own` list.
+  const RW = /^rw:[a-z0-9_]{3,40}$/;
   function item(id) {
     if (typeof id !== 'string') return null;
     if (ITEMS[id]) return Object.assign({ id }, ITEMS[id]);
+    if (RW.test(id)) return { id, kind: 'rw', ref: id.slice(3) };
     if (isJourneyItem(id)) return { id, kind: id[1] === 'c' ? 'cos' : 'title', journey: +id[2], ninja: id.slice(4), color: id[2] === '3' ? '#ff6a4a' : '#e6e9f0' };
     return null;
   }
@@ -149,7 +154,9 @@
       v: 1, id: typeof c.id === 'string' && ID.test(c.id) ? c.id : 's1',
       xp: { early: clampInt(x.early ?? 200, 50, 5000), earlyN: clampInt(x.earlyN ?? 5, 0, 60), per: clampInt(x.per ?? 400, 50, 5000) },
       freeEvery: clampInt(c.freeEvery ?? 5, 0, 60), waitTiers: clampInt(c.waitTiers ?? 3, 1, 60),
+      // season XP multiplier (the pass fills faster) and level XP multiplier (e.g. a double-XP weekend), from the panel
       mul: typeof c.mul === 'number' && Number.isFinite(c.mul) ? Math.max(0.5, Math.min(3, c.mul)) : 1,
+      lvMul: typeof c.lvMul === 'number' && Number.isFinite(c.lvMul) ? Math.max(0.5, Math.min(3, c.lvMul)) : 1,
       tiers,
     };
     if (isObj(c.names)) out.names = c.names;
@@ -172,7 +179,8 @@
   // { v, xp: lifetime XP, d: { k: last day played, s: streak days, w: day of the last first-win bonus },
   //   sh: { t: last short fight (ms), n: short fights in a row }, bo: booster fights left,
   //   (d.t: repeated combo trials paid today)
-  //   ps: { <season key>: { x: season XP, f: [claimed free tiers], b: [claimed bonus tiers], a: ads watched, id } },
+  //   ps: { <season key>: { x: season XP, f: [claimed free tiers], b: [claimed bonus tiers], a: ads watched, w: first wins
+  //         of the day, id } } (keys: L<n> the local calendar, S<n> a season from the server),
   //   own: [item ids], eq: { title, badge, frame, trail }, wear: { ninja: item id }, jc: { ninja: journey clears },
   //   seen: last level shown (the level-up moment), mig: 1 once migrated from honor }
   const V = 1;
@@ -193,11 +201,11 @@
       const keys = Object.keys(s.ps).filter((k) => /^[LS]\d{1,5}$/.test(k)).sort((p, q) => +p.slice(1) - +q.slice(1)).slice(-6);
       for (const k of keys) {
         const p = isObj(s.ps[k]) ? s.ps[k] : {};
-        out.ps[k] = { x: clampInt(p.x, 0, 1e7), f: intList(p.f, 60), b: intList(p.b, 60), a: clampInt(p.a, 0, 999) };
+        out.ps[k] = { x: clampInt(p.x, 0, 1e7), f: intList(p.f, 60), b: intList(p.b, 60), a: clampInt(p.a, 0, 999), w: clampInt(p.w, 0, 60) };
         if (typeof p.id === 'string' && ID.test(p.id)) out.ps[k].id = p.id;
       }
     }
-    if (Array.isArray(s.own)) out.own = [...new Set(s.own.filter((id) => item(id)))].slice(0, 400);
+    if (Array.isArray(s.own)) out.own = [...new Set(s.own.filter((id) => { const it = item(id); return it && it.kind !== 'rw'; }))].slice(0, 400);
     if (isObj(s.eq)) for (const k of ['title', 'badge', 'frame', 'trail']) {
       const it = item(s.eq[k]);
       if (it && it.kind === k && out.own.includes(it.id)) out.eq[k] = it.id;
@@ -289,13 +297,14 @@
     return { total: Math.max(0, total), rows, short, boosted };
   }
 
-  // Add XP to the lifetime total and to the current season (key). → { from: levelOf, to: levelOf, ups: [levels] }
-  function add(st, n, key, seasonMul) {
+  // Add XP to the lifetime total and to the current season (key); the season's multipliers (a server season: mul for
+  // the pass, lvMul for the level) apply here. → { from: levelOf, to: levelOf, ups: [levels], n }
+  function add(st, n, key, seasonMul, levelMul) {
     n = Math.max(0, Math.round(n || 0));
     const from = levelOf(st.xp);
-    st.xp = Math.min(XP_MAX, st.xp + n);
+    st.xp = Math.min(XP_MAX, st.xp + Math.round(n * (levelMul || 1)));
     if (key) {
-      const p = st.ps[key] || (st.ps[key] = { x: 0, f: [], b: [], a: 0 });
+      const p = st.ps[key] || (st.ps[key] = { x: 0, f: [], b: [], a: 0, w: 0 });
       p.x = Math.min(1e7, p.x + Math.round(n * (seasonMul || 1)));
     }
     const to = levelOf(st.xp), ups = [];
@@ -324,6 +333,7 @@
     if (!it) return null;
     if (it.kind === 'boost') { st.bo = Math.min(99, st.bo + it.n); return { id, kind: 'boost', n: it.n }; }
     if (it.kind === 'honor') return { id, kind: 'honor', n: it.n };
+    if (it.kind === 'rw') return { id, kind: 'rw', ref: it.ref }; // (the server grants it: pass-net.js)
     if (st.own.includes(id)) {
       // already owned (a repeated offline season): an XP booster instead, so the tier still pays
       st.bo = Math.min(99, st.bo + 2);
