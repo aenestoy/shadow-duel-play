@@ -111,7 +111,41 @@
     boost5: { kind: 'boost', n: 5 },
     honor100: { kind: 'honor', n: 100 },
     honor200: { kind: 'honor', n: 200 },
+    // 1.3.2 progress rewards: bigger honor packs; a rival key (the next locked ninja's Rival Challenge opens now, else
+    // KEY_HONOR honor); an arena key (the next honor-locked arena opens now, else KEY_HONOR honor); a trial ticket (any
+    // locked ninja for n CPU fights, the ad trial's lending in js/game.js); a ranked shield (one ranked loss costs no
+    // rating: held and used on the server, supabase/pass.sql + ranked.sql; at most SHIELD_MAX held, one used a day)
+    honor300: { kind: 'honor', n: 300 },
+    honor500: { kind: 'honor', n: 500 },
+    key_rival: { kind: 'rkey' },
+    key_arena: { kind: 'akey' },
+    ticket_trial: { kind: 'ticket', n: 3 },
+    shield: { kind: 'shield' },
+    // the Season 1 final reward: Akane's drawn costume (js/costumes-pass.js, ND.COSTUMES.pass1_akane)
+    pass1_akane: { kind: 'cos', ninja: 'akane', drawn: 'pass1_akane' },
   });
+  // Fight flair (js/flair.js ND.FLAIR: drawing and sound only). The ids are fixed here too (saves, the server's list,
+  // Node tests run without flair.js); scripts/flair-check.mjs checks them against ND.flair.ids(kind).
+  const FLAIR_IDS = {
+    pose: ['pose_tenchi', 'pose_rei', 'pose_hiza', 'pose_katsugi', 'pose_kissaki'],
+    hitfx: ['hitfx_kinpaku', 'hitfx_aizome', 'hitfx_sakura', 'hitfx_kitsunebi', 'hitfx_raijin'],
+    slash: ['slash_kin', 'slash_sumi', 'slash_hana', 'slash_rai'],
+    aura: ['aura_kitsunebi', 'aura_raiun', 'aura_hana', 'aura_gekko'],
+    ko: ['ko_enso', 'ko_hanafubuki', 'ko_raiko', 'ko_mikazuki'],
+    card: ['card_seigaiha', 'card_yozakura', 'card_ryu', 'card_tsukiyo', 'card_asanoha'],
+    arena: ['arena_temple_snow', 'arena_rain_moon', 'arena_snow_night', 'arena_market_rain'],
+    music: ['music_haru', 'music_yuki', 'music_matsuri'],
+  };
+  // (the base arena of each variant: the variant is offered only where its base arena is open)
+  const ARENA_BASE = { arena_temple_snow: 'temple', arena_rain_moon: 'rain', arena_snow_night: 'snow', arena_market_rain: 'market' };
+  const FLAIR_KINDS = Object.keys(FLAIR_IDS);
+  for (const k of FLAIR_KINDS) for (const id of FLAIR_IDS[k]) ITEMS[id] = k === 'arena' ? { kind: k, flair: true, base: ARENA_BASE[id] } : { kind: k, flair: true };
+  // the kinds worn one at a time (eq): name plate, blade trail, the fight flair slots and the menu music (an arena
+  // variant is chosen per base arena instead: av)
+  const EQ_KINDS = ['title', 'badge', 'frame', 'trail', 'pose', 'hitfx', 'slash', 'aura', 'ko', 'card', 'music'];
+  // kinds used up when claimed (never in `own`): XP booster, honor, the keys, the trial ticket, the shield
+  const USED = { boost: 1, honor: 1, rkey: 1, akey: 1, ticket: 1, shield: 1, rw: 1 };
+  const SHIELD_MAX = 3, TICKET_MAX = 9, KEY_HONOR = 300;
   // Journey clears of one ninja (the 2nd and the 3rd time the same ninja's journey is finished): a costume and a
   // title each, made per ninja from its own colours (pass.js journeyPal). ids: jc2_<ninja> / jc3_<ninja> (costume),
   // jt2_<ninja> / jt3_<ninja> (title: "<NINJA> · Menkyo" / "<NINJA> · Kaiden").
@@ -137,11 +171,21 @@
   // Pace: about 100 fights for the 10 tiers (a 60 % win mix at ~10 fights a day with the first-win bonus: ~5,400 XP).
   // soon: the announced length (tiers soon+…: "coming soon" slots after the real ones; the season XP keeps counting
   // past the last real tier, so it already counts when they come). 0 / missing: none.
-  const SEASON_1 = ['title_novice', 'boost3', 'trail_frost', 'cos_sakura_akane', 'badge_moon', 'honor200', 'cos_frost_yuki', 'frame_jade', 'title_ronin', 'cos_yami_kage'];
+  // 1.3.2 (owner, 2026-10-01): 30 real tiers. Tiers 1-7 as in 1.3.1 (rewards already claimed stay right); progress
+  // rewards early (honor, rival key, trial ticket, arena key), ranked shields at 8 / 18 / 26, the new fight flair mixed
+  // in, Akane's drawn costume last; no two neighbours of the same kind.
+  // Pace: 3 tiers of 200 XP, then 27 of 500: 14,100 XP. A player at ~10 fights a day (60 % wins, the first win of the
+  // day; ~54 XP a fight) reaches tier 30 on about day 26 of 28 (~260 fights; 40 % wins ~day 28, 15 fights a day ~day 19):
+  // ~4 fights a tier at first, then ~9 (about a day each). Cheaper per tier than 1.3.1 (680): every season XP already
+  // earned in 1.3.1 counts for at least the same tier, and the server's tier check accepts both.
+  const SEASON_1 = ['title_novice', 'boost3', 'trail_frost', 'cos_sakura_akane', 'badge_moon', 'honor200', 'cos_frost_yuki',
+    'shield', 'key_rival', 'hitfx_sakura', 'ticket_trial', 'pose_rei', 'key_arena', 'frame_jade', 'aura_kitsunebi',
+    'honor300', 'card_yozakura', 'shield', 'title_ronin', 'slash_kin', 'arena_temple_snow', 'honor500', 'ko_hanafubuki',
+    'music_haru', 'cos_yami_kage', 'shield', 'pose_tenchi', 'trail_gold', 'title_s1', 'pass1_akane'];
   const DEFAULT_SEASON = {
     v: 1, id: 's1',
-    xp: { early: 200, earlyN: 3, per: 680 },
-    waitTiers: 3, soon: 30,
+    xp: { early: 200, earlyN: 3, per: 500 },
+    waitTiers: 3, soon: 0,
     tiers: SEASON_1.map((r) => ({ r })),
   };
 
@@ -189,8 +233,10 @@
   //   (d.t: repeated combo trials paid today)
   //   ps: { <season key>: { x: season XP, f: [claimed free tiers], b: [claimed bonus tiers], a: ads watched, w: first wins
   //         of the day, id } } (keys: L<n> the local calendar, S<n> a season from the server),
-  //   own: [item ids], eq: { title, badge, frame, trail }, wear: { ninja: item id }, jc: { ninja: journey clears },
-  //   seen: last level shown (the level-up moment), mig: 1 once migrated from honor }
+  //   own: [item ids], eq: { title, badge, frame, trail, pose, hitfx, slash, aura, ko, card, music }, av: { base arena:
+  //   arena variant }, wear: { ninja: item id }, jc: { ninja: journey clears }, tk: trial tickets held, sd: ranked
+  //   shields held (the server's count where there is one), seen: last level shown (the level-up moment),
+  //   mig: 1 once migrated from honor }
   const V = 1;
   const intList = (a, hi) => (Array.isArray(a) ? [...new Set(a.filter((n) => Number.isInteger(n) && n >= 1 && n <= hi))].sort((p, q) => p - q) : []);
   function cleanState(o, chars) {
@@ -202,7 +248,8 @@
       v: V, xp: clampInt(s.xp, 0, XP_MAX),
       d: { k: clampInt(d.k, 0, 1e6), s: clampInt(d.s, 0, 9999), w: clampInt(d.w, 0, 1e6), t: clampInt(d.t, 0, 999) },
       sh: isObj(s.sh) ? { t: clampInt(s.sh.t, 0, 1e14), n: clampInt(s.sh.n, 0, 99) } : { t: 0, n: 0 },
-      bo: clampInt(s.bo, 0, 99), ps: {}, own: [], eq: {}, wear: {}, jc: {}, seen: clampInt(s.seen, 0, MAX),
+      bo: clampInt(s.bo, 0, 99), ps: {}, own: [], eq: {}, av: {}, wear: {}, jc: {}, seen: clampInt(s.seen, 0, MAX),
+      tk: clampInt(s.tk, 0, TICKET_MAX), sd: clampInt(s.sd, 0, SHIELD_MAX),
     };
     if (s.mig) out.mig = 1;
     if (isObj(s.ps)) {
@@ -214,10 +261,14 @@
         if (typeof p.id === 'string' && ID.test(p.id)) out.ps[k].id = p.id;
       }
     }
-    if (Array.isArray(s.own)) out.own = [...new Set(s.own.filter((id) => { const it = item(id); return it && it.kind !== 'rw'; }))].slice(0, 400);
-    if (isObj(s.eq)) for (const k of ['title', 'badge', 'frame', 'trail']) {
+    if (Array.isArray(s.own)) out.own = [...new Set(s.own.filter((id) => { const it = item(id); return it && !USED[it.kind]; }))].slice(0, 400);
+    if (isObj(s.eq)) for (const k of EQ_KINDS) {
       const it = item(s.eq[k]);
       if (it && it.kind === k && out.own.includes(it.id)) out.eq[k] = it.id;
+    }
+    if (isObj(s.av)) for (const b of Object.keys(s.av)) {
+      const it = item(s.av[b]);
+      if (it && it.kind === 'arena' && it.base === b && out.own.includes(it.id)) out.av[b] = it.id;
     }
     if (isObj(s.wear)) for (const k of Object.keys(s.wear)) {
       const it = item(s.wear[k]);
@@ -333,12 +384,21 @@
   }
   // without rewarded ads: the tier the player must reach for tier t's reward
   function waitTier(S, t) { return Math.min(S.tiers.length, t + S.waitTiers); }
-  // Grant one item into the state. → { id, kind, n?, dup } (honor is paid by the caller: it lives in the honor save)
-  function grant(st, id) {
+  // Grant one item into the state. → { id, kind, n?, dup } (honor, the keys' unlocks are paid by the caller: they live
+  // in the honor save, js/arcade.js). o.ranked: this build has ranked (a shield is useful): without it, or with
+  // SHIELD_MAX already held, a shield pays KEY_HONOR honor instead ({ kind: 'honor', n, from: 'shield' })
+  function grant(st, id, o) {
     const it = item(id);
     if (!it) return null;
     if (it.kind === 'boost') { st.bo = Math.min(99, st.bo + it.n); return { id, kind: 'boost', n: it.n }; }
     if (it.kind === 'honor') return { id, kind: 'honor', n: it.n };
+    if (it.kind === 'rkey' || it.kind === 'akey') return { id, kind: it.kind }; // (the caller opens, or pays honor)
+    if (it.kind === 'ticket') { st.tk = Math.min(TICKET_MAX, (st.tk | 0) + 1); return { id, kind: 'ticket', n: it.n }; }
+    if (it.kind === 'shield') {
+      if (!(o && o.ranked) || (st.sd | 0) >= SHIELD_MAX) return { id, kind: 'honor', n: KEY_HONOR, from: 'shield' };
+      st.sd = Math.min(SHIELD_MAX, (st.sd | 0) + 1);
+      return { id, kind: 'shield' };
+    }
     if (it.kind === 'rw') return { id, kind: 'rw', ref: it.ref }; // (the server grants it: pass-net.js)
     if (st.own.includes(id)) {
       // already owned (a repeated offline season): an XP booster instead, so the tier still pays
@@ -346,19 +406,40 @@
       return { id, kind: it.kind, dup: true, n: 2 };
     }
     st.own.push(id);
-    // the first of a kind is put on at once (titles, badges, frames, trails)
-    if (['title', 'badge', 'frame', 'trail'].includes(it.kind) && !st.eq[it.kind]) st.eq[it.kind] = id;
+    // the first of a kind is put on at once (titles, badges, frames, trails, fight flair, menu music; an arena variant
+    // for its own arena)
+    if (EQ_KINDS.includes(it.kind) && !st.eq[it.kind]) st.eq[it.kind] = id;
+    if (it.kind === 'arena' && it.base && !st.av[it.base]) st.av[it.base] = id;
     return { id, kind: it.kind };
   }
   // Claim tier t's reward the way given ('ad' only after a finished rewarded ad: the caller checks). → the grant, or null
-  function claim(S, st, key, t, way, adsOk) {
+  function claim(S, st, key, t, way, adsOk, o) {
     const p = st.ps[key];
     if (!p) return null;
     const w = claimWay(S, p, t, adsOk);
     if (!w || w !== way) return null;
     p.f.push(t); p.f.sort((a, b) => a - b);
     if (way === 'ad') p.a = Math.min(999, p.a + 1);
-    return grant(st, S.tiers[t - 1].r);
+    return grant(st, S.tiers[t - 1].r, o);
+  }
+  // Wear one item of a kind (EQ_KINDS) or none (id null); an arena variant per base arena. → true when done
+  function equip(st, kind, id) {
+    if (kind === 'arena') {
+      const it = item(id);
+      if (!it || it.kind !== 'arena' || !st.own.includes(id)) return false;
+      st.av[it.base] = id; return true;
+    }
+    if (!EQ_KINDS.includes(kind)) return false;
+    if (id == null) { delete st.eq[kind]; return true; }
+    const it = item(id);
+    if (!it || it.kind !== kind || !st.own.includes(id)) return false;
+    st.eq[kind] = id; return true;
+  }
+  // what a fighter wears in a fight (js/flair.js set): the six fight slots of an eq object (own or another player's)
+  function fightFlair(eq) {
+    const o = {};
+    for (const k of ['pose', 'hitfx', 'slash', 'aura', 'ko', 'card']) { const it = eq && item(eq[k]); o[k] = it && it.kind === k ? it.id : null; }
+    return o;
   }
 
   // Journey clear n of one ninja: the XP and the items (2nd: Menkyo costume + title, 3rd: Kaiden costume + title)
@@ -371,8 +452,9 @@
   }
 
   ND.LEVEL = {
-    MAX, XP, SEASON, ITEMS, THEMES, COSTUMES, DEFAULT_SEASON, BASE,
+    MAX, XP, SEASON, ITEMS, THEMES, COSTUMES, DEFAULT_SEASON, BASE, FLAIR_IDS, FLAIR_KINDS, ARENA_BASE, EQ_KINDS, USED,
+    SHIELD_MAX, TICKET_MAX, KEY_HONOR,
     need, levelOf, dayOf, seasonAt, item, cleanSeason, tierXp, tierOf,
-    cleanState, migrate, touchDay, fight, add, grant, claimWay, waitTier, claim, journeyClear,
+    cleanState, migrate, touchDay, fight, add, grant, claimWay, waitTier, claim, journeyClear, equip, fightFlair,
   };
 })(typeof window !== 'undefined' ? (window.ND = window.ND || {}) : (globalThis.ND = globalThis.ND || {}));

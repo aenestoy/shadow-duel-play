@@ -30,6 +30,14 @@ window.ND = window.ND || {};
         preserveDrawingBuffer: false, powerPreference: 'high-performance', desynchronized: false, failIfMajorPerformanceCaveat: !!opts.auto });
     } catch (e) { gl = null; }
     if (!gl) return null;
+    // (1.3.2) a software WebGL that failIfMajorPerformanceCaveat let through (SwiftShader, llvmpipe, Microsoft Basic
+    // Render: browsers without a usable GPU, portal checkers): every frame read back on the main thread, which kept it
+    // busy all the time behind the menu (Playgama measured the first load at 4.4 s). Auto mode refuses it: Canvas 2D.
+    if (opts.auto) {
+      let name = '';
+      try { const x = gl.getExtension('WEBGL_debug_renderer_info'); name = String(gl.getParameter(x ? x.UNMASKED_RENDERER_WEBGL : gl.RENDERER) || ''); } catch (e) { name = ''; }
+      if (/SwiftShader|llvmpipe|softpipe|Software|Basic Render/i.test(name)) { try { const l = gl.getExtension('WEBGL_lose_context'); if (l) l.loseContext(); } catch (e) { /* gone */ } return null; }
+    }
     const R = ND.createGL2D(gl, { samples: opts.samples, textAtlas: opts.textAtlas });
     const E = R.exec;
     let lost = false, error = '', checked = false, lastReason = '', frames = 0, fallbacks = 0, streak = 0;

@@ -15,11 +15,18 @@
 //   3. a portal that requires its own language: Yandex Games (SDK environment.i18n.lang) or Playgama (bridge.platform.language),
 //      via ND.portal.requiredLanguage()
 //      once the SDK answers; until then the device language below is the best guess there)
-//   4. the device language: the first entry of navigator.languages (then navigator.language) that is one of the seven
+//   4. the device language: the first entry of navigator.languages (then navigator.language) that is one of the
 //      supported languages, e.g. ['nl-NL', 'fr-FR', 'en'] → fr. CrazyGames and Poki start here too (their SDK locale is
 //      not used: the browser already gives the same answer at once, without a late switch).
 //   5. English, when none of the device languages is supported.
-// Codes map to a supported language with langOf(): ru/be/kk/uk/uz → ru, pt-BR/pt-PT → pt, tr, es, de, fr, en; others: none.
+// Codes map to a supported language with langOf(): ru/be/kk/uk/uz → ru, pt-BR/pt-PT → pt, ms (Malay) → id,
+// zh-CN/zh-SG/zh-Hans → zh (Simplified), zh-TW/zh-HK/zh-MO/zh-Hant/yue → zh-TW (Traditional), the rest by their first
+// two letters (tr, es, de, fr, en, vi, ja, ko, th, hi, it, pl, ar, id); others: none (→ English). Filipino stays English.
+// The seven first languages ship in the page (index.html). The later ones (LAZY) are loaded only when needed:
+// js/i18n-<code>.js (zh-TW: i18n-zh-tw.js) plus their font file fonts/lang/<code>.css (fonts cut to the characters
+// that language uses; scripts/font-subset.mjs). At startup the file is written into the page right after this
+// script (document.write while the page is still loading), so the first frame is already in that language; a later
+// switch (the picker, a portal's language) loads it in the background and switches when it has arrived.
 // Catalogs register as ND.I18N_CATALOGS[lang] = (I, EN) => { ...fill EN... } (see i18n-en.js). A catalog other than
 // English falls back to English for any key it lacks (never to the Turkish source).
 // Load order: after every script that defines a table (arcade, roster2, banzuke…) and the catalogs, before game.js.
@@ -29,18 +36,44 @@
   const SOURCE = 'tr';
   const DEFAULT = 'en';
   // order of the language picker
-  const SUPPORTED = ['en', 'tr', 'es', 'pt', 'ru', 'de', 'fr'];
+  const SUPPORTED = ['en', 'tr', 'es', 'pt', 'ru', 'de', 'fr', 'it', 'pl', 'id', 'vi', 'th', 'hi', 'ar', 'zh', 'zh-TW', 'ja', 'ko'];
   // each language's name in its own language (picker, aria labels)
-  const NAMES = { en: 'English', tr: 'Türkçe', es: 'Español', pt: 'Português', ru: 'Русский', de: 'Deutsch', fr: 'Français' };
-  const LOCALES = { en: 'en-US', tr: 'tr-TR', es: 'es-ES', pt: 'pt-BR', ru: 'ru-RU', de: 'de-DE', fr: 'fr-FR' };
-  const ALIAS = { be: 'ru', kk: 'ru', uk: 'ru', uz: 'ru' };
+  const NAMES = {
+    en: 'English', tr: 'Türkçe', es: 'Español', pt: 'Português', ru: 'Русский', de: 'Deutsch', fr: 'Français',
+    it: 'Italiano', pl: 'Polski', id: 'Bahasa Indonesia', vi: 'Tiếng Việt', th: 'ไทย', hi: 'हिन्दी', ar: 'العربية',
+    zh: '简体中文', 'zh-TW': '繁體中文', ja: '日本語', ko: '한국어',
+  };
+  // Arabic: Western digits (the HUD, scores and timers are laid out for them)
+  const LOCALES = {
+    en: 'en-US', tr: 'tr-TR', es: 'es-ES', pt: 'pt-BR', ru: 'ru-RU', de: 'de-DE', fr: 'fr-FR',
+    it: 'it-IT', pl: 'pl-PL', id: 'id-ID', vi: 'vi-VN', th: 'th-TH', hi: 'hi-IN', ar: 'ar-u-nu-latn',
+    zh: 'zh-CN', 'zh-TW': 'zh-TW', ja: 'ja-JP', ko: 'ko-KR',
+  };
+  const ALIAS = { be: 'ru', kk: 'ru', uk: 'ru', uz: 'ru', ms: 'id', in: 'id' };
+  // languages whose catalog is not in the page: loaded on demand (see the top of this file)
+  const BUNDLED = ['en', 'tr', 'es', 'pt', 'ru', 'de', 'fr'];
+  const LAZY = SUPPORTED.filter((l) => !BUNDLED.includes(l));
+  // languages in a script of their own get their font file with the catalog (fonts/lang/<code>.css)
+  const FONT_CSS = { th: 1, hi: 1, ar: 1, zh: 1, 'zh-TW': 1, ja: 1, ko: 1 };
+  const LAZY_V = 'langs-1'; // cache version of the on-demand files
+  // the decimal comma is used everywhere except in these languages
+  const DEC_POINT = { en: 1, zh: 1, 'zh-TW': 1, ja: 1, ko: 1, th: 1, hi: 1, ar: 1 };
   const LS_KEY = 'nd.lang'; // older builds saved the choice here; read once and moved into ND.save settings
   const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v) && Object.getPrototypeOf(v) === Object.prototype;
   const norm = (s) => String(s).replace(/\s+/g, ' ').trim();
   // HTML keys ignore the data-code marks input.js puts on <kbd> for keyboard-layout labels
   const normHtml = (h) => norm(String(h).replace(/ data-code="[^"]*"/g, ''));
-  // 'pt-BR' / 'RU' / 'uk' → a supported language, or null
-  const langOf = (code) => { const c = String(code || '').trim().slice(0, 2).toLowerCase(); const l = ALIAS[c] || c; return SUPPORTED.includes(l) ? l : null; };
+  // 'pt-BR' / 'RU' / 'uk' / 'zh-Hant-HK' → a supported language, or null
+  const langOf = (code) => {
+    const raw = String(code || '').trim().replace(/_/g, '-').toLowerCase();
+    if (/^zh\b/.test(raw)) return /-hans\b/.test(raw) ? 'zh' : /-(hant|tw|hk|mo)\b/.test(raw) ? 'zh-TW' : 'zh';
+    if (/^yue\b/.test(raw)) return 'zh-TW';
+    const c = raw.slice(0, 2), l = ALIAS[c] || c;
+    return SUPPORTED.includes(l) ? l : null;
+  };
+  // the on-demand file of a language (relative to the page, like the other scripts)
+  const fileOf = (l) => 'js/i18n-' + l.toLowerCase() + '.js?v=' + LAZY_V;
+  const hasCatalog = (l) => l === SOURCE || !!(ND.I18N_CATALOGS && typeof ND.I18N_CATALOGS[l] === 'function');
   const pick = (code) => langOf(code) || DEFAULT;
 
   // ---------------------------------------------------------------- catalogs
@@ -56,6 +89,7 @@
   }
   function catalog(lang) {
     if (catalogs[lang]) return catalogs[lang];
+    if (lang !== 'en' && !hasCatalog(lang)) return catalog('en'); // an on-demand file still on its way
     const EN = catalogs[lang] = { STR: {}, TXT: {}, CHARS: {}, ARENAS: {}, SPECIALS: {}, AI_LEVELS: {}, NUMWORDS: [], PHRASES: {}, HTML: {}, PATTERNS: [] };
     const build = ND.I18N_CATALOGS && ND.I18N_CATALOGS[lang];
     if (typeof build === 'function') {
@@ -157,8 +191,8 @@
     const v = Math.round(Number(n) || 0), l = loc();
     try { return (nf[l] || (nf[l] = new Intl.NumberFormat(l))).format(v); } catch (e) { return String(v); }
   }
-  // decimal comma everywhere but English
-  const dec = (x) => (I.lang === 'en' ? String(x) : String(x).replace('.', ','));
+  // decimal comma everywhere but English, CJK, Thai, Hindi and Arabic
+  const dec = (x) => (DEC_POINT[I.lang] ? String(x) : String(x).replace('.', ','));
   const time = (s) => { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
   const upper = (s) => { try { return String(s).toLocaleUpperCase(loc()); } catch (e) { return String(s).toUpperCase(); } };
   const lower = (s) => { try { return String(s).toLocaleLowerCase(loc()); } catch (e) { return String(s).toLowerCase(); } };
@@ -342,22 +376,68 @@
     return DEFAULT;
   }
   // Canvas text does not make the browser fetch a font: ask for the glyph subsets a language needs up front
-  const FONT_PROBE = { ru: 'ДуэльЖЯ', tr: 'ğışİ', de: 'ßÄ', fr: 'œÉ', es: 'ñÁ', pt: 'ãõ' };
+  const FONT_PROBE = {
+    ru: 'ДуэльЖЯ', tr: 'ğışİ', de: 'ßÄ', fr: 'œÉ', es: 'ñÁ', pt: 'ãõ', pl: 'ąęłśżŁ', it: 'àèìò', vi: 'ạếờĐữ',
+    th: 'ไทย', hi: 'हिन्दी', ar: 'العربية', zh: '中文', 'zh-TW': '中文', ja: 'あア日本', ko: '한국어',
+  };
   function loadFonts(lang) {
     const p = FONT_PROBE[lang];
     if (!p || !document.fonts || !document.fonts.load) return;
     ['700 20px Oswald', '600 20px Oswald', '500 14px "Source Sans 3"', '600 14px "Source Sans 3"'].forEach((f) => { try { document.fonts.load(f, p).catch(() => {}); } catch (e) { /* old browser */ } });
   }
+  // A language in a script of its own (Thai, Devanagari, Arabic, Chinese, Japanese, Korean) brings its font file:
+  // fonts/lang/<code>.css adds a face to the families 'Oswald' and 'Source Sans 3' for exactly the characters that
+  // language uses, so CSS and canvas text (which name those families) find the glyphs. Only the active language's file
+  // is on: Chinese and Japanese share code points with different glyph shapes.
+  const fontLinks = {};
+  function langFonts(lang) {
+    for (const l of Object.keys(fontLinks)) fontLinks[l].disabled = l !== lang;
+    if (!FONT_CSS[lang] || fontLinks[lang] || !document.createElement) return;
+    try {
+      const k = document.createElement('link');
+      k.rel = 'stylesheet';
+      k.href = 'fonts/lang/' + lang.toLowerCase() + '.css?v=' + LAZY_V;
+      k.onload = () => { if (I.lang === lang) loadFonts(lang); };
+      (document.head || document.documentElement).appendChild(k);
+      fontLinks[lang] = k;
+    } catch (e) { /* no DOM: system fonts */ }
+  }
+  // The file of an on-demand language: a promise of "the catalog is there"
+  const loading = {};
+  function loadLang(l) {
+    if (hasCatalog(l)) return Promise.resolve(true);
+    if (loading[l]) return loading[l];
+    return (loading[l] = new Promise((done) => {
+      try {
+        const s = document.createElement('script');
+        s.src = fileOf(l);
+        s.async = true;
+        s.onload = () => done(hasCatalog(l));
+        s.onerror = () => { delete loading[l]; done(false); };
+        (document.head || document.documentElement).appendChild(s);
+      } catch (e) { delete loading[l]; done(false); }
+    }));
+  }
+  let want = null; // an on-demand language whose file is on its way
   // setLang(lang, { save: true }) = the player's choice (kept across visits). Returns the language in use.
   function setLang(lang, opts = {}) {
     lang = langOf(lang) || DEFAULT;
     if (opts.save) { explicit = true; from = 'saved'; storeLang(lang); }
+    if (!hasCatalog(lang)) {
+      // not loaded yet: keep the current language (English if nothing is on screen yet) and switch once it arrives
+      if (I.lang === SOURCE && !I.ready) setLang(DEFAULT);
+      want = lang;
+      loadLang(lang).then((ok) => { if (want !== lang) return; want = null; if (ok) setLang(lang); });
+      return I.lang;
+    }
+    want = null;
     if (lang === I.lang && I.ready) return lang;
     restoreTables();
     I.lang = lang;
     cache.clear();
     if (lang !== SOURCE) applyTables(catalog(lang));
     document.documentElement.lang = lang;
+    langFonts(lang);
     loadFonts(lang);
     if (I.ready) refreshDom();
     return lang;
@@ -398,15 +478,20 @@
 
   const I = ND.i18n = {
     lang: SOURCE, source: SOURCE, default: DEFAULT, supported: SUPPORTED, names: NAMES, ready: false,
-    catalog, merge, t, num, dec, time, upper, lower, src, apply, watch, setLang, audit, langOf, locale: loc,
+    catalog, merge, t, num, dec, time, upper, lower, src, apply, watch, setLang, audit, langOf, locale: loc, load: loadLang,
+    // an on-demand file calls this when it has run (js/i18n-<code>.js, last line): a catalog built from English
+    // before the file was there is dropped
+    loaded(l) { if (catalogs[l] && l !== 'en') delete catalogs[l]; },
+    // the language being loaded (picked, its file not there yet), or null
+    get pending() { return want; },
     get explicit() { return explicit; },
     // where the language came from: 'url' | 'saved' | 'portal' | 'portal-guess' | 'device' | 'default'
     get from() { return from; },
     onChange(fn) { fns.push(fn); },
     // Start: pick the language, translate tables + DOM, keep watching the DOM; follow a portal that requires its language
-    init() {
+    init(first) {
       if (I.ready) return;
-      setLang(initialLang());
+      setLang(first || initialLang());
       I.ready = true;
       refreshDom();
       watch();
@@ -747,6 +832,24 @@
     ok: 'Tamam', label: 'Gizlilik bildirimi',
   });
 
-  // Scripts sit at the end of <body>, so the DOM is there: start now unless a page wants to call init() itself
-  if (!ND.I18N_MANUAL) I.init();
+  // Scripts sit at the end of <body>, so the DOM is there: start now unless a page wants to call init() itself.
+  // An on-demand language at startup: while the page is still being read, its file is written in right after this
+  // script, then init runs (the next scripts, lang-ui.js and game.js, see the language already set). If the file does
+  // not arrive, init still runs (English first, the language follows when it can).
+  if (!ND.I18N_MANUAL) {
+    const first = initialLang();
+    let wrote = false;
+    if (!hasCatalog(first) && LAZY.includes(first)) {
+      try {
+        const cur = document.currentScript;
+        if (document.readyState === 'loading' && cur && !cur.async && !cur.defer && typeof document.write === 'function') {
+          I.boot = () => { I.boot = null; I.init(first); };
+          langFonts(first);
+          document.write('<script src="' + fileOf(first) + '"></scr' + 'ipt><script>window.ND.i18n.boot&&window.ND.i18n.boot()</scr' + 'ipt>');
+          wrote = true;
+        }
+      } catch (e) { wrote = false; }
+    }
+    if (!wrote) I.init(first);
+  }
 })(window.ND);

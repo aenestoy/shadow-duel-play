@@ -258,13 +258,119 @@
       'Cadre de bronze', 'Cadre d’argent', 'Cadre écarlate', 'Cadre de jade', 'Cadre doré']),
   });
 
+  // ---------------------------------------------------------------- 1.3.2: the 30-tier pass, fight flair, progress
+  // rewards, the ranked shield, the Profile screen, honor from ranked (merged into the same ND.STR.pass in every
+  // language; kinds2: the wardrobe slots and reward kinds; flair: the fight flair's names (the same as js/flair.js's own
+  // table, here so every language, the on-demand ones too, has them in its catalog)
+  const X = {};
+  X.tr = {
+    kinds2: { pose: 'Zafer pozu', hitfx: 'Vuruş efekti', slash: 'Karşılık kesiği', aura: 'Ki halesi', ko: 'K.O. bitirişi', card: 'İsim kartı', arena: 'Arena çeşidi', music: 'Menü müziği', rkey: 'Anahtar', akey: 'Anahtar', ticket: 'Bilet', shield: 'Kalkan' },
+    items2: { key_rival: 'Meydan okuma anahtarı', key_arena: 'Arena anahtarı', ticket_trial: 'Deneme bileti', shield: 'Dereceli kalkanı' },
+    profile: 'Profil', profileSub: 'Unvan · kostüm · süsler', passTab: 'Gölge Pass', tapEquip: 'Takmak için dokun',
+    heads2: { title: 'Unvan', flair: 'Dövüş süsleri', arenas: 'Arena çeşitleri', music: 'Menü müziği', items: 'Eşyalar' },
+    plain: 'Normal', usual: 'Her zamanki', noneYet: 'Gölge Pass’ten gelir',
+    shields: (n, m) => `Dereceli kalkanı ${n}/${m}`, shieldHelp: 'Dereceli bir yenilgide puan düşmez; günde bir tane, kendiliğinden kullanılır.',
+    tickets: (n) => `Deneme bileti: ${n}`, ticketHelp: 'Kilitli bir ninjayı 3 CPU maçında dene: dövüşçü seçiminde ona dokun.',
+    useTicket: (n) => `Deneme bileti · ${n} maç`, useTicketSub: (n) => `Elinde ${n} bilet`, ticketLeft: (n) => `Deneme: ${n} maç kaldı`,
+    keyRival: (name) => `Meydan okuma açıldı: ${name}`, keyArena: (name) => `Arena açıldı: ${name}`, keyHonor: (n) => `Açılacak bir şey kalmadı: +${n} onur`,
+    shieldGot: (n, m) => `Dereceli kalkanı: ${n}/${m}`, shieldFull: (n) => `Kalkanlar dolu: yerine +${n} onur`, shieldOff: (n) => `Burada dereceli yok: yerine +${n} onur`,
+    flair: { pose_tenchi: 'Göğe Kaldırış', pose_rei: 'Rei Selamı', pose_hiza: 'Diz Çöküş', pose_katsugi: 'Omuzda Dinlenme', pose_kissaki: 'Sıradaki Sensin', hitfx_kinpaku: 'Altın Varak Darbesi', hitfx_aizome: 'Çivit Mürekkep', hitfx_sakura: 'Sakura Patlaması', hitfx_kitsunebi: 'Tilki Ateşi', hitfx_raijin: 'Raijin Kıvılcımı', slash_kin: 'Altın Kesik', slash_sumi: 'Sumi Fırçası', slash_hana: 'Yaprak Rüzgârı', slash_rai: 'Yıldırım Kesik', aura_kitsunebi: 'Tilki Ateşi Halesi', aura_raiun: 'Fırtına Halesi', aura_hana: 'Çiçek Halesi', aura_gekko: 'Ay Işığı Halesi', ko_enso: 'Ensō Bitiriş', ko_hanafubuki: 'Yaprak Fırtınası', ko_raiko: 'Yıldırım Düşüşü', ko_mikazuki: 'Hilal', card_seigaiha: 'Seigaiha Dalgaları', card_yozakura: 'Gece Sakurası', card_ryu: 'Ejder Laka', card_tsukiyo: 'Ay Işığında Çamlar', card_asanoha: 'Asanoha Altını', arena_temple_snow: 'Karlı Tapınak', arena_rain_moon: 'Ay Işığında Bambu', arena_snow_night: 'Gece Karlı Zirve', arena_market_rain: 'Yağmurlu Gece Çarşısı', music_haru: 'Bahar Bahçesi', music_yuki: 'Karlı Ay', music_matsuri: 'Festival Gecesi', pass1_akane: 'Ay Gölgesi Kimonosu' },
+    shieldUsed: 'Kalkan kullanıldı: puan düşmedi', rankedHonor: (n) => `+${n} onur`, variant: 'Çeşit',
+  };
+  X.en = {
+    kinds2: { pose: 'Victory pose', hitfx: 'Hit effect', slash: 'Counter slash', aura: 'Ki aura', ko: 'KO finish', card: 'Name card', arena: 'Arena variant', music: 'Menu music', rkey: 'Key', akey: 'Key', ticket: 'Ticket', shield: 'Shield' },
+    items2: { key_rival: 'Rival key', key_arena: 'Arena key', ticket_trial: 'Trial ticket', shield: 'Ranked shield' },
+    profile: 'Profile', profileSub: 'Title · costumes · flair', passTab: 'Shadow Pass', tapEquip: 'Tap to equip',
+    heads2: { title: 'Title', flair: 'Fight flair', arenas: 'Arena variants', music: 'Menu music', items: 'Items' },
+    plain: 'Plain', usual: 'Usual', noneYet: 'Comes from the Shadow Pass',
+    shields: (n, m) => `Ranked shield ${n}/${m}`, shieldHelp: 'A ranked loss costs no rating; one a day, used by itself.',
+    tickets: (n) => `Trial tickets: ${n}`, ticketHelp: 'Try a locked ninja for 3 CPU fights: tap it on the fighter select.',
+    useTicket: (n) => `Trial ticket · ${n} fights`, useTicketSub: (n) => `${n} held`, ticketLeft: (n) => `Trial: ${n} fights left`,
+    keyRival: (name) => `Rival Challenge open: ${name}`, keyArena: (name) => `Arena open: ${name}`, keyHonor: (n) => `Nothing left to open: +${n} honor`,
+    shieldGot: (n, m) => `Ranked shield: ${n}/${m}`, shieldFull: (n) => `Shields full: +${n} honor instead`, shieldOff: (n) => `No ranked here: +${n} honor instead`,
+    flair: { pose_tenchi: 'Heaven Raise', pose_rei: 'Rei Bow', pose_hiza: 'Kneeling Zanshin', pose_katsugi: 'Shoulder Rest', pose_kissaki: 'You’re Next', hitfx_kinpaku: 'Gold Leaf Hits', hitfx_aizome: 'Indigo Ink', hitfx_sakura: 'Sakura Burst', hitfx_kitsunebi: 'Foxfire', hitfx_raijin: 'Raijin Sparks', slash_kin: 'Golden Edge', slash_sumi: 'Sumi Brush', slash_hana: 'Petal Wind', slash_rai: 'Thunder Cut', aura_kitsunebi: 'Foxfire Aura', aura_raiun: 'Storm Aura', aura_hana: 'Blossom Aura', aura_gekko: 'Moonlight Aura', ko_enso: 'Ensō Finish', ko_hanafubuki: 'Petal Storm', ko_raiko: 'Lightning Strike', ko_mikazuki: 'Crescent Moon', card_seigaiha: 'Seigaiha Waves', card_yozakura: 'Night Sakura', card_ryu: 'Dragon Lacquer', card_tsukiyo: 'Moonlit Pines', card_asanoha: 'Asanoha Gold', arena_temple_snow: 'Snowfall Temple', arena_rain_moon: 'Moonlit Bamboo', arena_snow_night: 'Snow Peak by Night', arena_market_rain: 'Rainy Night Market', music_haru: 'Spring Garden', music_yuki: 'Snow Moon', music_matsuri: 'Festival Night', pass1_akane: 'Moonshadow Regalia' },
+    shieldUsed: 'Shield used: no rating lost', rankedHonor: (n) => `+${n} honor`, variant: 'Variant',
+  };
+  X.es = {
+    kinds2: { pose: 'Pose de victoria', hitfx: 'Efecto de golpe', slash: 'Corte de contraataque', aura: 'Aura de ki', ko: 'Remate K.O.', card: 'Tarjeta de nombre', arena: 'Variante de arena', music: 'Música del menú', rkey: 'Llave', akey: 'Llave', ticket: 'Pase', shield: 'Escudo' },
+    items2: { key_rival: 'Llave de desafío', key_arena: 'Llave de arena', ticket_trial: 'Pase de prueba', shield: 'Escudo de clasificatoria' },
+    profile: 'Perfil', profileSub: 'Título · trajes · adornos', passTab: 'Pase de Sombra', tapEquip: 'Toca para equipar',
+    heads2: { title: 'Título', flair: 'Adornos de combate', arenas: 'Variantes de arena', music: 'Música del menú', items: 'Objetos' },
+    plain: 'Normal', usual: 'La de siempre', noneYet: 'Llega con el Pase de Sombra',
+    shields: (n, m) => `Escudo de clasificatoria ${n}/${m}`, shieldHelp: 'Una derrota clasificatoria no te quita puntos; uno al día, se usa solo.',
+    tickets: (n) => `Pases de prueba: ${n}`, ticketHelp: 'Prueba un ninja bloqueado en 3 combates contra la CPU: tócalo en la selección de luchador.',
+    useTicket: (n) => `Pase de prueba · ${n} combates`, useTicketSub: (n) => `Tienes ${n}`, ticketLeft: (n) => `Prueba: quedan ${n} combates`,
+    keyRival: (name) => `Desafío abierto: ${name}`, keyArena: (name) => `Arena abierta: ${name}`, keyHonor: (n) => `No queda nada por abrir: +${n} de honor`,
+    shieldGot: (n, m) => `Escudo de clasificatoria: ${n}/${m}`, shieldFull: (n) => `Escudos al máximo: +${n} de honor en su lugar`, shieldOff: (n) => `Aquí no hay clasificatoria: +${n} de honor en su lugar`,
+    flair: { pose_tenchi: 'Alzada al cielo', pose_rei: 'Reverencia rei', pose_hiza: 'Zanshin de rodillas', pose_katsugi: 'Arma al hombro', pose_kissaki: 'Eres el siguiente', hitfx_kinpaku: 'Golpes de pan de oro', hitfx_aizome: 'Tinta índigo', hitfx_sakura: 'Estallido sakura', hitfx_kitsunebi: 'Fuego de zorro', hitfx_raijin: 'Chispas de Raijin', slash_kin: 'Filo dorado', slash_sumi: 'Pincel sumi', slash_hana: 'Viento de pétalos', slash_rai: 'Corte del trueno', aura_kitsunebi: 'Aura de fuego de zorro', aura_raiun: 'Aura de tormenta', aura_hana: 'Aura de flores', aura_gekko: 'Aura de luz de luna', ko_enso: 'Final ensō', ko_hanafubuki: 'Tormenta de pétalos', ko_raiko: 'Rayo final', ko_mikazuki: 'Luna creciente', card_seigaiha: 'Olas seigaiha', card_yozakura: 'Sakura nocturno', card_ryu: 'Laca del dragón', card_tsukiyo: 'Pinos bajo la luna', card_asanoha: 'Oro asanoha', arena_temple_snow: 'Templo nevado', arena_rain_moon: 'Bambú bajo la luna', arena_snow_night: 'Cumbre nevada de noche', arena_market_rain: 'Mercado nocturno con lluvia', music_haru: 'Jardín de primavera', music_yuki: 'Luna de nieve', music_matsuri: 'Noche de festival', pass1_akane: 'Atuendo Sombra Lunar' },
+    shieldUsed: 'Escudo usado: no pierdes puntos', rankedHonor: (n) => `+${n} de honor`, variant: 'Variante',
+  };
+  X.pt = {
+    kinds2: { pose: 'Pose de vitória', hitfx: 'Efeito de golpe', slash: 'Corte de contra-ataque', aura: 'Aura de ki', ko: 'Final K.O.', card: 'Cartão de nome', arena: 'Variante de arena', music: 'Música do menu', rkey: 'Chave', akey: 'Chave', ticket: 'Bilhete', shield: 'Escudo' },
+    items2: { key_rival: 'Chave de desafio', key_arena: 'Chave de arena', ticket_trial: 'Bilhete de teste', shield: 'Escudo ranqueado' },
+    profile: 'Perfil', profileSub: 'Título · trajes · enfeites', passTab: 'Passe das Sombras', tapEquip: 'Toque para equipar',
+    heads2: { title: 'Título', flair: 'Enfeites de luta', arenas: 'Variantes de arena', music: 'Música do menu', items: 'Itens' },
+    plain: 'Normal', usual: 'A de sempre', noneYet: 'Vem do Passe das Sombras',
+    shields: (n, m) => `Escudo ranqueado ${n}/${m}`, shieldHelp: 'Uma derrota ranqueada não tira pontos; um por dia, usado sozinho.',
+    tickets: (n) => `Bilhetes de teste: ${n}`, ticketHelp: 'Teste um ninja bloqueado em 3 lutas contra a CPU: toque nele na seleção de lutador.',
+    useTicket: (n) => `Bilhete de teste · ${n} lutas`, useTicketSub: (n) => `Você tem ${n}`, ticketLeft: (n) => `Teste: faltam ${n} lutas`,
+    keyRival: (name) => `Desafio aberto: ${name}`, keyArena: (name) => `Arena aberta: ${name}`, keyHonor: (n) => `Nada mais para abrir: +${n} de honra`,
+    shieldGot: (n, m) => `Escudo ranqueado: ${n}/${m}`, shieldFull: (n) => `Escudos no máximo: +${n} de honra no lugar`, shieldOff: (n) => `Sem ranqueada aqui: +${n} de honra no lugar`,
+    flair: { pose_tenchi: 'Erguida ao céu', pose_rei: 'Reverência rei', pose_hiza: 'Zanshin ajoelhado', pose_katsugi: 'Arma no ombro', pose_kissaki: 'Você é o próximo', hitfx_kinpaku: 'Golpes de folha de ouro', hitfx_aizome: 'Tinta índigo', hitfx_sakura: 'Explosão sakura', hitfx_kitsunebi: 'Fogo-de-raposa', hitfx_raijin: 'Faíscas de Raijin', slash_kin: 'Fio dourado', slash_sumi: 'Pincel sumi', slash_hana: 'Vento de pétalas', slash_rai: 'Corte do trovão', aura_kitsunebi: 'Aura de fogo-de-raposa', aura_raiun: 'Aura de tempestade', aura_hana: 'Aura de flores', aura_gekko: 'Aura de luar', ko_enso: 'Final ensō', ko_hanafubuki: 'Tempestade de pétalas', ko_raiko: 'Raio final', ko_mikazuki: 'Lua crescente', card_seigaiha: 'Ondas seigaiha', card_yozakura: 'Sakura noturna', card_ryu: 'Laca do dragão', card_tsukiyo: 'Pinheiros ao luar', card_asanoha: 'Ouro asanoha', arena_temple_snow: 'Templo nevado', arena_rain_moon: 'Bambu ao luar', arena_snow_night: 'Pico nevado à noite', arena_market_rain: 'Mercado noturno com chuva', music_haru: 'Jardim de primavera', music_yuki: 'Lua de neve', music_matsuri: 'Noite de festival', pass1_akane: 'Traje Sombra da Lua' },
+    shieldUsed: 'Escudo usado: nenhum ponto perdido', rankedHonor: (n) => `+${n} de honra`, variant: 'Variante',
+  };
+  X.ru = {
+    kinds2: { pose: 'Победная поза', hitfx: 'Эффект удара', slash: 'Разрез контратаки', aura: 'Аура ки', ko: 'Финальный нокаут', card: 'Именная карта', arena: 'Вариант арены', music: 'Музыка меню', rkey: 'Ключ', akey: 'Ключ', ticket: 'Билет', shield: 'Щит' },
+    items2: { key_rival: 'Ключ вызова', key_arena: 'Ключ арены', ticket_trial: 'Пробный билет', shield: 'Рейтинговый щит' },
+    profile: 'Профиль', profileSub: 'Титул · костюмы · украшения', passTab: 'Теневой пропуск', tapEquip: 'Нажми, чтобы надеть',
+    heads2: { title: 'Титул', flair: 'Украшения боя', arenas: 'Варианты арен', music: 'Музыка меню', items: 'Предметы' },
+    plain: 'Обычная', usual: 'Обычная', noneYet: 'Даётся в Теневом пропуске',
+    shields: (n, m) => `Рейтинговый щит ${n}/${m}`, shieldHelp: 'Поражение в рейтинговом бою не отнимает очков; один в день, срабатывает сам.',
+    tickets: (n) => `Пробные билеты: ${n}`, ticketHelp: 'Попробуй закрытого ниндзя в 3 боях с ИИ: нажми на него при выборе бойца.',
+    useTicket: (n) => `Пробный билет · боёв: ${n}`, useTicketSub: (n) => `Есть: ${n}`, ticketLeft: (n) => `Проба: осталось боёв: ${n}`,
+    keyRival: (name) => `Вызов открыт: ${name}`, keyArena: (name) => `Арена открыта: ${name}`, keyHonor: (n) => `Открывать больше нечего: +${n} чести`,
+    shieldGot: (n, m) => `Рейтинговый щит: ${n}/${m}`, shieldFull: (n) => `Щитов максимум: вместо этого +${n} чести`, shieldOff: (n) => `Здесь нет рейтинга: вместо этого +${n} чести`,
+    flair: { pose_tenchi: 'Клинок к небу', pose_rei: 'Поклон рэй', pose_hiza: 'Дзансин на колене', pose_katsugi: 'Оружие на плече', pose_kissaki: 'Ты следующий', hitfx_kinpaku: 'Удары сусального золота', hitfx_aizome: 'Индиговая тушь', hitfx_sakura: 'Вспышка сакуры', hitfx_kitsunebi: 'Лисий огонь', hitfx_raijin: 'Искры Райдзина', slash_kin: 'Золотой разрез', slash_sumi: 'Кисть суми', slash_hana: 'Ветер лепестков', slash_rai: 'Громовой разрез', aura_kitsunebi: 'Аура лисьего огня', aura_raiun: 'Аура бури', aura_hana: 'Аура цветения', aura_gekko: 'Аура лунного света', ko_enso: 'Финал энсо', ko_hanafubuki: 'Буря лепестков', ko_raiko: 'Удар молнии', ko_mikazuki: 'Полумесяц', card_seigaiha: 'Волны сэйгайха', card_yozakura: 'Ночная сакура', card_ryu: 'Лак дракона', card_tsukiyo: 'Сосны под луной', card_asanoha: 'Золото асаноха', arena_temple_snow: 'Заснеженный храм', arena_rain_moon: 'Бамбук под луной', arena_snow_night: 'Снежная вершина ночью', arena_market_rain: 'Ночной рынок под дождём', music_haru: 'Весенний сад', music_yuki: 'Снежная луна', music_matsuri: 'Ночь фестиваля', pass1_akane: 'Наряд лунной тени' },
+    shieldUsed: 'Щит сработал: очки не потеряны', rankedHonor: (n) => `+${n} чести`, variant: 'Вариант',
+  };
+  X.de = {
+    kinds2: { pose: 'Siegerpose', hitfx: 'Treffereffekt', slash: 'Konterschnitt', aura: 'Ki-Aura', ko: 'K.-o.-Finale', card: 'Namenskarte', arena: 'Arenavariante', music: 'Menümusik', rkey: 'Schlüssel', akey: 'Schlüssel', ticket: 'Ticket', shield: 'Schild' },
+    items2: { key_rival: 'Herausforderungsschlüssel', key_arena: 'Arenaschlüssel', ticket_trial: 'Probeticket', shield: 'Ranglisten-Schild' },
+    profile: 'Profil', profileSub: 'Titel · Kostüme · Zierde', passTab: 'Schattenpass', tapEquip: 'Zum Anlegen tippen',
+    heads2: { title: 'Titel', flair: 'Kampfzierde', arenas: 'Arenavarianten', music: 'Menümusik', items: 'Gegenstände' },
+    plain: 'Normal', usual: 'Wie immer', noneYet: 'Kommt aus dem Schattenpass',
+    shields: (n, m) => `Ranglisten-Schild ${n}/${m}`, shieldHelp: 'Eine Ranglisten-Niederlage kostet keine Punkte; einer pro Tag, wirkt von selbst.',
+    tickets: (n) => `Probetickets: ${n}`, ticketHelp: 'Teste einen gesperrten Ninja in 3 CPU-Kämpfen: tippe ihn in der Kämpferauswahl an.',
+    useTicket: (n) => `Probeticket · ${n} Kämpfe`, useTicketSub: (n) => `${n} vorhanden`, ticketLeft: (n) => `Probe: noch ${n} Kämpfe`,
+    keyRival: (name) => `Herausforderung offen: ${name}`, keyArena: (name) => `Arena offen: ${name}`, keyHonor: (n) => `Nichts mehr zu öffnen: +${n} Ehre`,
+    shieldGot: (n, m) => `Ranglisten-Schild: ${n}/${m}`, shieldFull: (n) => `Schilde voll: stattdessen +${n} Ehre`, shieldOff: (n) => `Hier gibt es keine Rangliste: stattdessen +${n} Ehre`,
+    flair: { pose_tenchi: 'Himmelsgruß', pose_rei: 'Rei-Verbeugung', pose_hiza: 'Kniender Zanshin', pose_katsugi: 'Auf der Schulter', pose_kissaki: 'Du bist der Nächste', hitfx_kinpaku: 'Blattgold-Treffer', hitfx_aizome: 'Indigo-Tinte', hitfx_sakura: 'Kirschblütenstoß', hitfx_kitsunebi: 'Fuchsfeuer', hitfx_raijin: 'Raijin-Funken', slash_kin: 'Goldene Schneide', slash_sumi: 'Sumi-Pinsel', slash_hana: 'Blütenwind', slash_rai: 'Donnerschnitt', aura_kitsunebi: 'Fuchsfeuer-Aura', aura_raiun: 'Sturmaura', aura_hana: 'Blütenaura', aura_gekko: 'Mondlicht-Aura', ko_enso: 'Ensō-Finale', ko_hanafubuki: 'Blütensturm', ko_raiko: 'Blitzschlag', ko_mikazuki: 'Mondsichel', card_seigaiha: 'Seigaiha-Wellen', card_yozakura: 'Nachtkirschblüte', card_ryu: 'Drachenlack', card_tsukiyo: 'Kiefern im Mondlicht', card_asanoha: 'Asanoha-Gold', arena_temple_snow: 'Verschneiter Tempel', arena_rain_moon: 'Bambus im Mondlicht', arena_snow_night: 'Schneegipfel bei Nacht', arena_market_rain: 'Nachtmarkt im Regen', music_haru: 'Frühlingsgarten', music_yuki: 'Schneemond', music_matsuri: 'Festnacht', pass1_akane: 'Mondschatten-Ornat' },
+    shieldUsed: 'Schild eingesetzt: keine Punkte verloren', rankedHonor: (n) => `+${n} Ehre`, variant: 'Variante',
+  };
+  X.fr = {
+    kinds2: { pose: 'Pose de victoire', hitfx: 'Effet d’impact', slash: 'Coupe de riposte', aura: 'Aura de ki', ko: 'Final K.-O.', card: 'Carte de nom', arena: 'Variante d’arène', music: 'Musique du menu', rkey: 'Clé', akey: 'Clé', ticket: 'Ticket', shield: 'Bouclier' },
+    items2: { key_rival: 'Clé de défi', key_arena: 'Clé d’arène', ticket_trial: 'Ticket d’essai', shield: 'Bouclier classé' },
+    profile: 'Profil', profileSub: 'Titre · costumes · parures', passTab: 'Passe de l’Ombre', tapEquip: 'Touche pour équiper',
+    heads2: { title: 'Titre', flair: 'Parures de combat', arenas: 'Variantes d’arène', music: 'Musique du menu', items: 'Objets' },
+    plain: 'Normale', usual: 'Habituelle', noneYet: 'Vient du Passe de l’Ombre',
+    shields: (n, m) => `Bouclier classé ${n}/${m}`, shieldHelp: 'Une défaite classée ne coûte aucun point ; un par jour, utilisé tout seul.',
+    tickets: (n) => `Tickets d’essai : ${n}`, ticketHelp: 'Essaie un ninja verrouillé pendant 3 combats contre l’IA : touche-le au choix du combattant.',
+    useTicket: (n) => `Ticket d’essai · ${n} combats`, useTicketSub: (n) => `Tu en as ${n}`, ticketLeft: (n) => `Essai : encore ${n} combats`,
+    keyRival: (name) => `Défi ouvert : ${name}`, keyArena: (name) => `Arène ouverte : ${name}`, keyHonor: (n) => `Plus rien à ouvrir : +${n} d’honneur`,
+    shieldGot: (n, m) => `Bouclier classé : ${n}/${m}`, shieldFull: (n) => `Boucliers au maximum : +${n} d’honneur à la place`, shieldOff: (n) => `Pas de classé ici : +${n} d’honneur à la place`,
+    flair: { pose_tenchi: 'Lame vers le ciel', pose_rei: 'Salut rei', pose_hiza: 'Zanshin à genou', pose_katsugi: 'Arme sur l’épaule', pose_kissaki: 'À ton tour', hitfx_kinpaku: 'Coups à la feuille d’or', hitfx_aizome: 'Encre indigo', hitfx_sakura: 'Éclat de sakura', hitfx_kitsunebi: 'Feu de renard', hitfx_raijin: 'Étincelles de Raijin', slash_kin: 'Tranchant doré', slash_sumi: 'Pinceau sumi', slash_hana: 'Vent de pétales', slash_rai: 'Coupe du tonnerre', aura_kitsunebi: 'Aura de feu de renard', aura_raiun: 'Aura d’orage', aura_hana: 'Aura de fleurs', aura_gekko: 'Aura de clair de lune', ko_enso: 'Final ensō', ko_hanafubuki: 'Tempête de pétales', ko_raiko: 'Coup de foudre', ko_mikazuki: 'Croissant de lune', card_seigaiha: 'Vagues seigaiha', card_yozakura: 'Sakura de nuit', card_ryu: 'Laque du dragon', card_tsukiyo: 'Pins au clair de lune', card_asanoha: 'Or asanoha', arena_temple_snow: 'Temple sous la neige', arena_rain_moon: 'Bambous au clair de lune', arena_snow_night: 'Sommet enneigé la nuit', arena_market_rain: 'Marché de nuit sous la pluie', music_haru: 'Jardin de printemps', music_yuki: 'Lune de neige', music_matsuri: 'Nuit de festival', pass1_akane: 'Parure Ombre de lune' },
+    shieldUsed: 'Bouclier utilisé : aucun point perdu', rankedHonor: (n) => `+${n} d’honneur`, variant: 'Variante',
+  };
+  Object.assign(TR, X.tr);
+
   const CATS = ND.I18N_CATALOGS || (ND.I18N_CATALOGS = {});
   for (const lang of Object.keys(L)) {
     const base = CATS[lang];
     CATS[lang] = function (I, EN) {
       if (typeof base === 'function') base(I, EN);
-      I.merge(EN.STR, { pass: L[lang](I) });
+      I.merge(EN.STR, { pass: Object.assign(L[lang](I), X[lang] || {}) });
     };
   }
   ND.PASS_ITEM_IDS = ITEM_IDS;
+  ND.PASS_TEXT_132 = X; // (the 1.3.2 additions per language: a new language adds its own entry to X)
 })(window.ND = window.ND || {});

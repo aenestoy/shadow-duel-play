@@ -231,6 +231,7 @@
       pose.copy(T, S.prevT);
     }
     pose.copy(T, D);
+    if (f.state === 'win' && ND.flair) ND.flair.winPose(f, D); // a worn victory pose (js/flair.js): drawing only
     // 1 + 2: shape the in-between frames of a keyed move (attacks, parry deflections)
     const at = f.state === 'atk' ? f.atk : null;
     const act = !!at && !!(at.hits ? at.hits.some((h) => f.st >= h[0] - 0.02 && f.st <= h[1] + 0.02) : at.active && f.st >= at.active[0] - 0.02 && f.st <= at.active[1] + 0.02);

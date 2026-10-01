@@ -16,7 +16,8 @@
     win: [20, 35, 50, 80],          // won match by AI level: Apprentice, Master, Legend, Shura (boss)
     loss: 6, roundWon: 4,            // lost match: showing up + each round taken
     parry: 1, counter: 1, rally: 3, perfect: 5, styleCap: 15, // good play, win or lose (capped per match)
-    modeMul: { cpu: 1, arcade: 1, tourney: 1.2, dan: 1.2, rival: 1 }, // on the win/loss base only
+    // (1.3.2: ranked and ranked shadow fights pay too, a win as a Master-level one: ranked-only players unlock ninjas)
+    modeMul: { cpu: 1, arcade: 1, tourney: 1.2, dan: 1.2, rival: 1, ranked: 1, shadow: 1 }, // on the win/loss base only
     // run bonuses
     arcadeClear: 150, tourneyClear: 150, rivalWin: 40, lesson: 5, tutorial: 25,
     danPass: (rank) => 30 + 5 * rank, // rank = the rank just earned (1 = 10th Kyu … 20 = 10th Dan)

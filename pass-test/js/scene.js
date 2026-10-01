@@ -219,11 +219,12 @@
         if (p.k === 'i') {
           p.vy += 1500 * dt; p.x += p.vx * dt; p.y += p.vy * dt;
           if (p.y > 0 && p.vy > 0) { // lands: faint stain that fades out
-            this.decals.push({ x: p.x, y: rand(0, 24), rx: p.r * rand(1.8, 3.4) + Math.abs(p.vx) * 0.004, ry: p.r * rand(0.35, 0.65), a: rand(0.28, 0.45), c: INK, fade: rand(5, 8), age: 0 });
+            this.decals.push({ x: p.x, y: rand(0, 24), rx: p.r * rand(1.8, 3.4) + Math.abs(p.vx) * 0.004, ry: p.r * rand(0.35, 0.65), a: rand(0.28, 0.45), c: p.ic || INK, fade: rand(5, 8), age: 0 });
             while (this.decals.length > decalCap()) this.decals.shift();
             p.life = 0;
           }
-        } else if (p.k === 'c') { // cloth: drag, flutter, settle on the floor
+        } else if (p.k === 'F') { if (ND.flair) ND.flair.upd(p, dt); } // a worn flair's particle (js/flair.js)
+        else if (p.k === 'c') { // cloth: drag, flutter, settle on the floor
           p.vx *= 1 - 2.2 * dt; p.vy += 520 * dt; p.vy *= 1 - 1.6 * dt; p.ph += dt * 9;
           p.x += (p.vx + Math.sin(p.ph) * 40) * dt; p.y += p.vy * dt; p.rot += p.vr * dt;
           if (p.y > -2) { p.y = -2; p.vy = 0; p.vx *= 0.8; p.vr *= 0.85; }
@@ -278,15 +279,17 @@
           ctx.globalCompositeOperation = 'source-over'; ctx.lineCap = 'round';
           const tx = p.x - p.vx * 0.016, ty = p.y - p.vy * 0.016;
           if (!low) { // Low: no pale rim around the droplet
-            ctx.globalAlpha = 0.2; ctx.strokeStyle = INK_RIM_C; ctx.lineWidth = p.r * 1.9 + 1;
+            ctx.globalAlpha = 0.2; ctx.strokeStyle = p.ir || INK_RIM_C; ctx.lineWidth = p.r * 1.9 + 1;
             ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(tx, ty); ctx.stroke();
           }
-          ctx.globalAlpha = 1; ctx.strokeStyle = INK; ctx.lineWidth = p.r * 1.9;
+          ctx.globalAlpha = 1; ctx.strokeStyle = p.ic || INK; ctx.lineWidth = p.r * 1.9;
           ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(tx, ty); ctx.stroke();
         } else if (p.k === 'k') { // calligraphy stroke
           this.drawStroke(ctx, p, low);
         } else if (p.k === 'x') { // sumi splash
           this.drawSplash(ctx, p, low);
+        } else if (p.k === 'F') { // a worn flair's particle (js/flair.js)
+          if (ND.flair) { ctx.save(); ND.flair.drw(ctx, p, t, low); ctx.restore(); }
         } else if (p.k === 'c') { // cloth scrap
           ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = Math.min(1, t * 3);
           ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.scale(1, 0.35 + 0.65 * Math.abs(Math.cos(p.ph)));
@@ -347,11 +350,11 @@
         ctx.closePath();
       };
       ctx.globalCompositeOperation = 'source-over';
-      if (!low) { ctx.globalAlpha = 0.5 * fade; ctx.strokeStyle = INK_RIM_C; ctx.lineWidth = 2.2; ctx.lineJoin = 'round'; path(); ctx.stroke(); }
-      ctx.globalAlpha = 0.95 * fade; ctx.fillStyle = INK; path(); ctx.fill();
+      if (!low) { ctx.globalAlpha = 0.5 * fade; ctx.strokeStyle = p.ir || INK_RIM_C; ctx.lineWidth = 2.2; ctx.lineJoin = 'round'; path(); ctx.stroke(); }
+      ctx.globalAlpha = 0.95 * fade; ctx.fillStyle = p.ic || INK; path(); ctx.fill();
       if (low) return;
       // a hair-thin cold highlight along the stroke's spine, like wet ink catching moonlight
-      ctx.globalAlpha = 0.35 * fade; ctx.strokeStyle = INK_RIM_C; ctx.lineWidth = 1;
+      ctx.globalAlpha = 0.35 * fade; ctx.strokeStyle = p.ir || INK_RIM_C; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(p.x - c * L * 0.32, p.y - s * L * 0.32); ctx.lineTo(p.x + c * L * 0.2, p.y + s * L * 0.2); ctx.stroke();
     },
     // Sumi splash: a round core with spikes, bursting out fast and fading
@@ -368,8 +371,8 @@
         }
       };
       ctx.globalCompositeOperation = 'source-over';
-      if (!low) { ctx.globalAlpha = 0.32 * a; ctx.fillStyle = INK_RIM_C; path(1.1); ctx.fill(); }
-      ctx.globalAlpha = 0.92 * a; ctx.fillStyle = INK; path(1); ctx.fill();
+      if (!low) { ctx.globalAlpha = 0.32 * a; ctx.fillStyle = p.ir || INK_RIM_C; path(1.1); ctx.fill(); }
+      ctx.globalAlpha = 0.92 * a; ctx.fillStyle = p.ic || INK; path(1); ctx.fill();
     },
     drawTexts(ctx) {
       for (const t of this.texts) {
@@ -576,7 +579,8 @@
 
     setTheme(id) {
       this.themeId = THEMES[id] ? id : 'temple';
-      this.theme = THEMES[this.themeId];
+      // an arena variant worn as flair (js/flair.js: the same arena in other weather / light; wind stays the arena's)
+      this.theme = (ND.flair && ND.flair.theme(this.themeId)) || THEMES[this.themeId];
       // yalnız etkin temanın önbellek tuvalleri bellekte kalır
       for (const k in THEMES) {
         const C = THEMES[k]._c;

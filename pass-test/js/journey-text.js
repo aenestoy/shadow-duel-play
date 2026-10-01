@@ -1,4 +1,6 @@
 // Journey copy is independent of the legacy endings, which remain available to existing saves.
+// The seven first languages are here; the languages loaded on demand (js/i18n-<code>.js) bring their own copy in the
+// same shape as ND.JOURNEY_COPY[code] (ui, goals, titles, endings), read when that language is on.
 (function (ND) {
   'use strict';
   const keys = ['route', 'rival', 'optional', 'win', 'earned', 'missed', 'mastery', 'reward', 'classic', 'legacy', 'colors', 'locked', 'old', 'shura', 'duel', 'clear', 'stage'];
@@ -49,12 +51,20 @@
     },
   };
   const catalogs = {};
-  for (const [lang, c] of Object.entries(copy)) {
-    const out = catalogs[lang] = Object.fromEntries(keys.map((k, i) => [k, c.ui[i]]));
+  const build = (c) => {
+    const out = Object.fromEntries(keys.map((k, i) => [k, c.ui[i]]));
     out.goals = Object.fromEntries(goalKeys.map((k, i) => [k, c.goals[i]]));
     out.titles = Object.fromEntries(ids.map((k, i) => [k, c.titles[i]]));
     out.endings = Object.fromEntries(ids.map((k, i) => [k, c.endings[i]]));
-  }
+    return out;
+  };
+  for (const [lang, c] of Object.entries(copy)) catalogs[lang] = build(c);
+  // an on-demand language's copy (ND.JOURNEY_COPY), built the first time it is asked for
+  const late = (lang) => {
+    const c = ND.JOURNEY_COPY && ND.JOURNEY_COPY[lang];
+    if (!c || !Array.isArray(c.ui)) return null;
+    try { return (catalogs[lang] = build(c)); } catch (e) { return null; }
+  };
   ND.JOURNEY.catalogs = catalogs;
-  ND.JOURNEY.text = () => catalogs[ND.i18n ? ND.i18n.lang : 'en'] || catalogs.en;
+  ND.JOURNEY.text = () => { const l = ND.i18n ? ND.i18n.lang : 'en'; return catalogs[l] || late(l) || catalogs.en; };
 })(window.ND);

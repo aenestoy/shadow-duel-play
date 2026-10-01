@@ -1332,6 +1332,7 @@
       // the staff (Jin's bō, kind 'blade' + blunt): wood crack + body thump (ND.audio.bo); chain weights, gusts, stones: thud
       if (blunt && a.kind === 'blade' && au.bo?.hit) au.bo.hit(raw, pan, !!(a.knock || a.special || a.launch));
       else if (blunt) { au.thud(0.8 + raw / 22, pan); au.tone({ freq: 150 + raw * 2, freq1: 60, dur: 0.18, gain: 0.12 + raw * 0.006, send: 0.2, pan }); }
+      const fm = ND.flair ? ND.flair.hitBegin(from) : -1; // the attacker's worn hit effect recolours what follows (js/flair.js)
       if (blunt) { fx.dust(x, y, 4 + (raw / 4 | 0), 0.7); fx.spark(x, y, Math.atan2(-0.4, kdir), 8, 0.6, '235,225,205'); }
       else if (a.kind === 'kick') { au.thud(1, pan); fx.dust(x, y, 4, 0.4); }
       else if (a.kind === 'shuriken') { au.cut(0.45, pan); }
@@ -1342,6 +1343,7 @@
         const ang = Math.atan2(from.j.tip.y - from.j.haF.y, from.j.tip.x - from.j.haF.x) + (a.thrust ? 0 : 0.5 * kdir);
         fx.flash(x, y, a.special ? 0 : ang, (40 + raw * 2.4) * (a.special ? 1.2 : 1));
       } else fx.flash(x, y, 0, 26, '255,240,220');
+      if (fm >= 0) ND.flair.hitEnd(from, fm, x, y, kdir, raw);
       cam.punch(2 + raw * 0.4);
       ND.game.hitstop(0.05 + raw * 0.0045);
       ND.game.onHit && ND.game.onHit(from, this, dmg);
@@ -1470,7 +1472,10 @@
       const dual = W.dual && j.pom, lw = dual ? Object.assign({}, W, { blade: W.blade + W.handle, handle: 0 }) : W;
       this.looseSword = new ND.LooseSword(dual ? j.pom.x : j.haF.x, dual ? j.pom.y : j.haF.y, j.tip.x, j.tip.y, kdir * srand(120, 260), srand(-750, -520), srand(-420, 420), lw);
       const blunt = a.blunt || a.kind === 'whip' || (a.kind === 'blade' && from && from.ch && from.ch.blunt);
+      const fm = ND.flair ? ND.flair.hitBegin(from) : -1;
       if (blunt) { fx.dust(x, y, 14, 1.2); fx.ring(x, y, '240,230,210', 90); } else fx.blood(x, y, kdir, -0.4, 50, 1.6);
+      if (fm >= 0) ND.flair.hitEnd(from, fm, x, y, kdir, 30);
+      if (ND.flair) ND.flair.onKO(from, this, x, y, kdir); // the winner's worn KO finish (js/flair.js): pictures only
       ND.game.onKO(this, from);
     }
 

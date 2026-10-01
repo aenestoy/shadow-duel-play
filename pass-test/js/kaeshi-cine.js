@@ -35,6 +35,8 @@
   const shown = () => { const g = G(); return !!g && g.mode !== 'attract'; };
   // counter window left for a new press (fighter.js counterLeft: the window's last step is already too late for it)
   const left = (f, g) => (f.counterLeft ? f.counterLeft() : f.counterUntil - g.clock);
+  // the technique's colour for fighter f: a worn counter slash theme (js/flair.js) recolours it, the shape stays
+  const tcol = (f, t) => (ND.flair ? ND.flair.slashCol(f, t) : t.col);
 
   // ---------------------------------------------------------------- sounds (effects bus: tone/noise → dry/reverb)
   if (au && !au.kShing) {
@@ -72,8 +74,8 @@
     seen: { nums: new Map(), combos: new Map() },
     clear() { this.slashes.length = 0; this.nums.length = 0; this.rings.length = 0; this.banner = null; this.combos[0] = this.combos[1] = null; this.pops[0] = this.pops[1] = null; },
     type(f) { return f && f.state === 'atk' && f.atk && f.atk.counter ? TY[f.atkName] || TY.riposte : null; },
-    rgb(f) { const t = this.type(f); return t ? t.col : null; },
-    ghostCol(f) { const t = this.type(f); return t ? `rgb(${t.col})` : null; },
+    rgb(f) { const t = this.type(f); return t ? tcol(f, t) : null; },
+    ghostCol(f) { const t = this.type(f); return t ? `rgb(${tcol(f, t)})` : null; },
     human(f) { const g = G(); return !!(g && g.isHuman && g.isHuman(f)); },
 
     // ---- beat 1: a successful parry
@@ -103,7 +105,7 @@
       for (let i = fx.texts.length - 1; i >= 0; i--) if (fx.texts[i].str === tt('SAVUŞTURMA!')) fx.texts.splice(i, 1);
       f.ghosts.length = 0; if (f.opp) f.opp.ghosts.length = 0;
       if (au.kDraw) au.kDraw(t.id, f.pan);
-      fx.flash(f.j.haF ? f.j.haF.x : f.x, f.j.haF ? f.j.haF.y : f.y - 100, 0, 40, t.col);
+      fx.flash(f.j.haF ? f.j.haF.x : f.x, f.j.haF ? f.j.haF.y : f.y - 100, 0, 40, tcol(f, t));
       if (!shown()) return;
       g.slowT = Math.min(g.slowT || 0, 0.06); // the parry's slow motion snaps back: the counter itself is fast
       g.dim = Math.max(g.dim || 0, [0, 0.35, 0.5, 0.65][beat]);
@@ -111,21 +113,21 @@
       // Keep both bodies in the shot, even on a phone or with a long weapon. No extra rendering passes.
       g.cineZ = Math.min([0, 1.22, 1.36, 1.5][beat], cam.W / (cam.s * (Math.abs(f.x - f.opp.x) + 360 + cam.padX)));
       const L = S();
-      this.banner = { f, t, stage, age: 0, life: 1.05, name: (L.names && L.names[t.id]) || t.id.toUpperCase(), label: (L.labels && L.labels[t.id]) || '' };
+      this.banner = { f, t, col: tcol(f, t), stage, age: 0, life: 1.05, name: (L.names && L.names[t.id]) || t.id.toUpperCase(), label: (L.labels && L.labels[t.id]) || '' };
     },
 
     // ---- beat 3: the counter lands (x, y world; dmg = health actually taken)
     counterHit(f, o, a, x, y, dmg, last) {
-      const t = this.type(f) || TY.riposte, g = G(), dir = f.dir;
+      const t = this.type(f) || TY.riposte, g = G(), dir = f.dir, col = tcol(f, t), sty = ND.flair ? ND.flair.slashSty(f) : null;
       const cuts = t.id === 'sandan' ? [t.cuts[Math.min(t.cuts.length - 1, Math.max(0, f.hitIdx))]] : t.cuts;
-      cuts.forEach((ang, i) => this.slashes.push({ x, y: t.low ? Math.max(y, -60) : y, a: ang * dir, col: t.col, age: -i * 0.06, life: 0.55 }));
+      cuts.forEach((ang, i) => this.slashes.push({ x, y: t.low ? Math.max(y, -60) : y, a: ang * dir, col, sty, seed: sty ? Math.random() : 0, age: -i * 0.06, life: 0.55 }));
       if (dmg > 0) {
-        this.nums.push({ x: x + dir * 60, y: y - 85, v: dmg, col: t.col, age: 0, life: 1.1 }); // clear of the technique's name pop-up
-        if (this.seen.nums.size < 200) this.seen.nums.set(dmg + '|' + t.col, [dmg, t.col]); // (warmTexts)
+        this.nums.push({ x: x + dir * 60, y: y - 85, v: dmg, col, age: 0, life: 1.1 }); // clear of the technique's name pop-up
+        if (this.seen.nums.size < 200) this.seen.nums.set(dmg + '|' + col, [dmg, col]); // (warmTexts)
       }
       fx.blood(x, y, dir, -0.3, 30, 1.4);
-      if (t.ground) { fx.ring(o.x, -4, `${t.col}`, 150); fx.dust(o.x, 0, 14, 1.6); }
-      fx.spark(x, y, Math.atan2(-0.4, dir), 18, 1.2, t.col);
+      if (t.ground) { fx.ring(o.x, -4, `${col}`, 150); fx.dust(o.x, 0, 14, 1.6); }
+      fx.spark(x, y, Math.atan2(-0.4, dir), 18, 1.2, col);
       if (au.kHit) au.kHit(t.id, f.pan);
       if (shown() && last && g.phase === 'fight') {
         g.cineT = Math.max(g.cineT || 0, 0.6); g.cineX = x;
@@ -198,11 +200,12 @@
         ctx.globalCompositeOperation = comp; ctx.globalAlpha = alpha; ctx.fillStyle = style;
         ctx.beginPath(); ctx.moveTo(x - c * L, y - sn * L); ctx.lineTo(x + nx, y + ny); ctx.lineTo(x + c * L, y + sn * L); ctx.lineTo(x - nx, y - ny); ctx.closePath(); ctx.fill();
       };
-      const w = (10 + 8 * (1 - u)) * s;
-      band(w * 1.7, 'rgb(6,7,12)', 0.55 * fade, 'source-over'); // ink edge
+      const w = (10 + 8 * (1 - u)) * s, St = sl.sty && ND.flair ? ND.flair.slashEdge(sl.sty) : null; // (a worn slash theme)
+      band(w * (St && St.edgeW || 1.7), St ? St.edge : 'rgb(6,7,12)', 0.55 * fade, 'source-over'); // ink edge
       if (hq()) band(w * 1.25, `rgb(${sl.col})`, 0.45 * fade, 'lighter');
       band(w * 0.75, `rgb(${sl.col})`, 0.9 * fade, 'lighter');
-      band(w * 0.28, 'rgb(255,255,255)', fade, 'lighter');
+      band(w * 0.28, St ? St.core : 'rgb(255,255,255)', fade, 'lighter');
+      if (St) ND.flair.slashExtra(ctx, sl, x, y, L, c, sn, w, fade, s);
       ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
     },
     drawNum(ctx, n, s) {
@@ -275,13 +278,14 @@
       const bw = Math.min(W * (tch ? 0.46 : 0.92), 560 * k), bh = 86 * k;
       ctx.fillStyle = 'rgba(6,7,12,.72)';
       ctx.beginPath(); ctx.moveTo(cx - bw / 2, cy - bh / 2 + 6 * k); ctx.lineTo(cx + bw / 2, cy - bh / 2); ctx.lineTo(cx + bw / 2 - 18 * k, cy + bh / 2); ctx.lineTo(cx - bw / 2 + 14 * k, cy + bh / 2 - 4 * k); ctx.closePath(); ctx.fill();
-      ctx.fillStyle = `rgb(${b.t.col})`; ctx.fillRect(cx - bw / 2 + 10 * k, cy + bh / 2 - 7 * k, (bw - 30 * k) * inT, 3 * k);
+      const bc = b.col || b.t.col;
+      ctx.fillStyle = `rgb(${bc})`; ctx.fillRect(cx - bw / 2 + 10 * k, cy + bh / 2 - 7 * k, (bw - 30 * k) * inT, 3 * k);
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.font = `600 ${Math.round(13 * k)}px Oswald, "Noto Serif JP", sans-serif`; ctx.fillStyle = 'rgba(236,230,214,.9)';
       ctx.fillText(b.f.ch.name + ' · ' + b.stage + '× · ' + tt(S().head || 'KAESHI-WAZA'), cx, cy - 28 * k, bw - 30 * k);
       ctx.font = `700 ${Math.round(38 * k * (1 + Math.max(0, 0.12 - b.age) * 2))}px Oswald, sans-serif`;
       ctx.lineWidth = 6 * k; ctx.strokeStyle = 'rgba(5,6,12,.95)'; ctx.strokeText(b.name, cx, cy + 3 * k, bw - 30 * k);
-      ctx.fillStyle = `rgb(${b.t.col})`; ctx.fillText(b.name, cx, cy + 3 * k, bw - 30 * k);
+      ctx.fillStyle = `rgb(${bc})`; ctx.fillText(b.name, cx, cy + 3 * k, bw - 30 * k);
       if (b.label) { ctx.font = `500 ${Math.round(14 * k)}px "Source Sans 3", sans-serif`; ctx.fillStyle = 'rgba(236,230,214,.95)'; ctx.fillText(tt(b.label), cx, cy + 31 * k, bw - 30 * k); }
       ctx.globalAlpha = 1; ctx.textBaseline = 'alphabetic';
     },
@@ -329,7 +333,7 @@
       for (const id in TY) {
         const t = TY[id], name = (Ls.names && Ls.names[t.id]) || t.id.toUpperCase(), label = (Ls.labels && Ls.labels[t.id]) || '';
         for (const f of g.F) job(() => {
-          const b = { f, t, stage: 1, age: 0, life: 1.05, name, label };
+          const b = { f, t, col: tcol(f, t), stage: 1, age: 0, life: 1.05, name, label };
           for (let st = 3; st >= 1; st--) { b.stage = st; b.age = 0.5; W(2); this.drawBanner(ctx, b, u); }
           for (b.age = 0; b.age < 0.122; b.age += 0.004) { W(1); this.drawBanner(ctx, b, u); }
           b.age = 0.5; W(2); this.drawBanner(ctx, b, u);

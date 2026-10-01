@@ -421,6 +421,7 @@
 
   ND.pose = {
     KEYS,
+    mk, // the pose maker above (the defaults + the given keys): js/flair.js builds its victory poses with it
     copy(src, dst = {}) { for (const k of KEYS) dst[k] = src[k]; return dst; },
     lerp(a, b, t, out = {}) { for (const k of KEYS) out[k] = a[k] + (b[k] - a[k]) * t; return out; },
     approach(cur, target, rate, dt) { const t = 1 - Math.exp(-rate * dt); for (const k of KEYS) cur[k] += (target[k] - cur[k]) * t; return cur; },

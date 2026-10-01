@@ -142,6 +142,7 @@
 
     play(t, s) {
       const m = this.mode, bar = Math.floor(s / 16), b16 = s % 16;
+      if (m === 'menu' && ND.flair && ND.flair.menuPlay(this, t, s)) return; // a worn menu music variant (js/flair.js)
       if (m === 'menu') {
         this.tempo = 64;
         if (b16 % 4 === 0 && Math.random() < 0.55) this.koto(t, this.stepWalk(3, 11), 0.6 + Math.random() * 0.3, Math.random() * 0.6 - 0.3);

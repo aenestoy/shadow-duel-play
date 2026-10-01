@@ -2,7 +2,7 @@
 // (docs/SHADOW-DUEL-ONLINE.md "Ödül kataloğu"; supabase/ranked.sql nd_rewards, nd_reward_catalog, nd_reward_owned).
 //
 // What the server sends (RPC nd_reward_catalog, every active entry):
-//   { id, kind: 'costume' | 'title' | 'badge', names: { en, tr, es, pt, ru, de, fr }, data }
+//   { id, kind: 'costume' | 'title' | 'badge', names: { en, tr, es, … any of ND.i18n.supported }, data }
 //   costume data: { v: 1, base?: 'col' | 'alt' | 'champ', pal?: { cloth: '#rrggbb', … }, ninjas?: ['akane', …],
 //                   atlas?: { url, w?, h?, parts: { head: { x, y, w, h, bone: ['neck', 'head'], ox, oy, s, rot }, … } },
 //                   builtin?: 'champion', placeholder?: true }
@@ -24,7 +24,7 @@
 (function (ND) {
   'use strict';
   const LS = 'golge-duellosu-rewards', LS_OWN = 'golge-duellosu-rewards-own';
-  const LANGS = ['en', 'tr', 'es', 'pt', 'ru', 'de', 'fr'];
+  const LANGS = ['en', 'tr', 'es', 'pt', 'ru', 'de', 'fr', 'it', 'pl', 'id', 'vi', 'th', 'hi', 'ar', 'zh', 'zh-TW', 'ja', 'ko'];
   const KINDS = ['costume', 'title', 'badge'];
   const HEX = /^#[0-9a-f]{6}$/i, RGBA = /^rgba\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*(0|1|0?\.\d{1,3})\s*\)$/i;
   // palette keys a costume may set (js/characters.js pal / champPal) → colour kind

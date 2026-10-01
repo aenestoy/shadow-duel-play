@@ -68,7 +68,7 @@
   const adsOk = () => !!(ND.ads && ND.ads.rewardedAvailable && ND.ads.rewardedAvailable());
 
   // ---------------------------------------------------------------- items: names, palettes, icons
-  function itemName(id) {
+  function itemName(id, short) {
     const it = LV.item(id), t = T();
     if (!it) return '';
     if (it.journey) {
@@ -76,6 +76,11 @@
       return it.kind === 'cos' ? (it.journey === 2 ? t.cos2(n) : t.cos3(n)) : n + ' · ' + ((t.rank || {})[it.journey] || '');
     }
     if (it.kind === 'cos' && it.theme) { const ch = chOf(it.ninja); return ((t.themes || {})[it.theme] || it.theme) + ' · ' + (ch ? nice(ch.name) : it.ninja); }
+    // (the drawn costume and the fight flair: js/flair.js's own name table, all seven languages)
+    // (short: the pass track's card, where the picture shows the ninja)
+    if (it.kind === 'cos' && it.drawn) { const ch = chOf(it.ninja), n = (t.flair || {})[it.drawn] || (ND.flair ? ND.flair.name(it.drawn) : id); return short ? n : n + ' · ' + (ch ? nice(ch.name) : it.ninja); }
+    if (it.flair) return (t.flair || {})[id] || (ND.flair ? ND.flair.name(id) : ((t.kinds2 || {})[it.kind] || id));
+    if (t.items2 && t.items2[id]) return t.items2[id];
     if (it.kind === 'boost') return t.boostName ? t.boostName(it.n) : id;
     if (it.kind === 'honor') return t.honorName ? t.honorName(it.n) : id;
     if (it.kind === 'rw') return (ND.rewards && ND.rewards.name(it.ref)) || it.ref;
@@ -126,7 +131,9 @@
     if (!ch || !it || it.kind !== 'cos' || (it.ninja && it.ninja !== ch.id)) return null;
     const k = ch.id + '|' + id;
     let p = palCache.get(k);
-    if (!p) { p = themePal(ch.col, it.journey ? journeyX(ch.col, it.journey) : it.pal); palCache.set(k, p); }
+    if (!p && it.drawn) { p = ND.passCostume ? ND.passCostume(ch) : null; if (!p) return null; } // (js/costumes-pass.js)
+    if (!p) p = themePal(ch.col, it.journey ? journeyX(ch.col, it.journey) : it.pal);
+    palCache.set(k, p);
     return p;
   }
   // the colours an icon of this item uses (a costume: the theme, or the ninja's journey colours)
@@ -134,6 +141,44 @@
     if (it.journey) { const ch = chOf(it.ninja); return ch ? themePal(ch.col, journeyX(ch.col, it.journey)) : null; }
     return it.pal || null;
   }
+  // Pictures of the fight flair and the drawn costume (js/flair.js preview, the game's own drawing), made once per item
+  // and kept as small images; null while js/flair.js is not there yet (a kanji mark stands in, the screens redraw when it
+  // comes: flairReady)
+  const FLAIR_K = { pose: '勝', hitfx: '撃', slash: '斬', aura: '気', ko: '終', card: '名', arena: '景', music: '楽' };
+  const FLAIR_UI = { pose: '#f1d69c', hitfx: '#ff8fbd', slash: '#ffd36a', aura: '#5fd2ff', ko: '#c3a6ff', card: '#e0b04a', arena: '#dfe6f5', music: '#ffb7d2' };
+  const pics = new Map();
+  function costumeCanvas(ch, key, W, H) {
+    if (!ND.Fighter || !ND.Ctrl || !ND.pose || !ND.costumePal || !ND.COSTUMES || !ND.COSTUMES[key]) return null;
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+    const g = cv.getContext('2d'), f = new ND.Fighter(0, new ND.Ctrl());
+    f.fullDetail = true; f.setChar(ch, false); f.col = ND.costumePal(f.col, key);
+    f.reset(0); f.dir = 1; f.state = 'move'; f.dead = false; ND.pose.copy(f.P.stance, f.pose); f._anim = null;
+    for (let i = 0; i < 50; i++) { f.solve(1 / 60); if (ND.updateCloth) ND.updateCloth(f.j, 1 / 60); }
+    // (a bust: head to hips fill the small square, a soft moonlit disc behind so the night-coloured costume reads)
+    const gr = g.createRadialGradient(W / 2, H * 0.42, 2, W / 2, H * 0.42, W * 0.55);
+    gr.addColorStop(0, 'rgba(217,222,240,.38)'); gr.addColorStop(1, 'rgba(217,222,240,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, W, H);
+    const k = H / 140; g.setTransform(k, 0, 0, k, W / 2 - 4 * k, H * 1.42);
+    f.draw(g, false);
+    return cv;
+  }
+  function pic(kind, id, big) {
+    const key = kind + '|' + id + (big ? '|b' : '');
+    if (pics.has(key)) return pics.get(key);
+    let u = null;
+    try {
+      const S = big ? 2 : 1;
+      if (kind === 'cos') { const ch = chOf(LV.item(id).ninja), cv = ch && costumeCanvas(ch, LV.item(id).drawn, 96 * S, 96 * S); if (cv) u = cv.toDataURL(); }
+      else if (ND.flair && ND.flair.preview) {
+        const cv = document.createElement('canvas');
+        ND.flair.preview(kind, id, cv, { w: 64 * S, h: 64 * S, dpr: 1.5 });
+        u = cv.toDataURL();
+      }
+    } catch (e) { u = null; }
+    if (u || ND.flair) pics.set(key, u);
+    return u;
+  }
+
   // the reward's picture (inline SVG / text, no image files)
   function icon(id) {
     let it = LV.item(id);
@@ -146,6 +191,14 @@
       else if (e.kind === 'badge') it = { kind: 'badge', icon: e.icon || '賞', color: e.color || '#c79bff' };
       else it = { kind: 'title', color: e.color || '#c79bff' };
     }
+    if (it.kind === 'cos' && it.drawn) { const u = pic('cos', id); if (u) return `<img class="ps-pic" src="${u}" alt="">`; it = { kind: 'cos', ninja: it.ninja, pal: { cloth: '#2a2148', clothHi: '#4a3c80', wrap: '#d9def0', accent: '#d6263a', hakama: '#1b1530', rim: 'rgba(217,222,240,.8)' } }; }
+    if (it.flair) {
+      const u = pic(it.kind, id);
+      return u ? `<img class="ps-pic" src="${u}" alt="">` : `<b class="ps-fk" style="--tc:${FLAIR_UI[it.kind] || '#c79bff'}">${FLAIR_K[it.kind] || '飾'}</b>`;
+    }
+    if (it.kind === 'rkey' || it.kind === 'akey') return `<b class="ps-key${it.kind === 'akey' ? ' a' : ''}">${it.kind === 'akey' ? '門' : '挑'}<i>鍵</i></b>`;
+    if (it.kind === 'ticket') return `<b class="ps-tkt">札<small>×${it.n}</small></b>`;
+    if (it.kind === 'shield') return `<b class="ps-shd">盾</b>`;
     if (it.kind === 'cos') {
       const p = iconPal(it) || {}, rim = p.rim || 'rgba(255,255,255,.3)';
       const ch = it.ninja ? chOf(it.ninja) : null;
@@ -207,6 +260,8 @@
   const NO_XP = { online: 1, '2p': 1, watch: 1, attract: 1, train: 1, tutorial: 1 };
   let matchNo = 0, awardedNo = -1, playSec0 = 0, last = null; // last: the latest fight's XP (end screen)
   let pend = null; // a journey clear paid just before its final fight's XP (the two go on one end screen)
+  const plateEq = new Map(); // player id → what they wear (from their name plate: js/pass-net.js plate)
+  let lastHonor = null;      // the latest ranked / shadow fight's honor (js/ranked.js result screen)
   // Add XP (any source) to the level and the season: → { from, to, ups, n }; the level-up moment follows
   function gain(n) {
     const st = S(), se = season(), t0 = tierOf(se, sp(st, se)).tier;
@@ -253,6 +308,7 @@
   // an online match's result as js/net.js reports it ({ reason, winner, side, wins, frame }): a finished fight
   // (KO), or one the other side left / lost the connection to after a real fight; a broken one (desync) pays nothing
   function onlineResult(kind, res) {
+    oppWorn = null; // (the opponent's flair was for this match only)
     return safe(() => {
       if (!res || res.reason === 'desync' || typeof res.side !== 'number') return null;
       const sec = (res.frame | 0) * ((ND.game && ND.game.STEP) || 1 / 120);
@@ -284,6 +340,28 @@
   function payHonor(g) {
     if (g && g.kind === 'honor' && ND.save.addHonor) { const ev = ND.save.addHonor(g.n); if (ND.toastEvents) ND.toastEvents(ev); }
   }
+  // this build has ranked duels (a shield is of use; the offline portal packages have none: honor instead)
+  const hasRanked = () => !!(ND.ranked && ND.ranked.available && safe(() => ND.ranked.available()));
+  // What a claimed reward does beyond the save (js/level.js grant): honor into the honor save; a rival / arena key opens
+  // the next locked one (js/arcade.js keyRival / keyArena), or pays honor when nothing is left; and its own toast.
+  // → true when it showed its own toast
+  function payOut(g) {
+    if (!g) return false;
+    const t = T(), toast = (msg, k, c) => { if (ND.toast) ND.toast(msg, k, c); };
+    if (g.kind === 'rkey' || g.kind === 'akey') {
+      const ev = safe(() => (g.kind === 'rkey' ? ND.save.keyRival() : ND.save.keyArena()));
+      if (ev) {
+        const ch = g.kind === 'rkey' ? chOf(ev.id) : null, ar = g.kind === 'akey' ? (ND.ARENAS || []).find((a) => a.id === ev.id) : null;
+        if (ch) toast(t.keyRival(nice(ch.name)), '鍵', ch.col.ui); else if (ar) toast(t.keyArena(ar.name), '鍵');
+        safe(() => { if (ND.arcade && ND.arcade.refreshMenu) ND.arcade.refreshMenu(); });
+      } else { payHonor({ kind: 'honor', n: LV.KEY_HONOR }); toast(t.keyHonor(num(LV.KEY_HONOR)), '誉'); }
+      return true;
+    }
+    if (g.kind === 'honor') { payHonor(g); if (g.from === 'shield') { toast(hasRanked() ? t.shieldFull(num(g.n)) : t.shieldOff(num(g.n)), '盾'); return true; } return false; }
+    if (g.kind === 'shield') { toast(t.shieldGot(S().sd, LV.SHIELD_MAX), '盾', '#9fd0ff'); return true; }
+    if (g.kind === 'ticket') { toast(t.got + ': ' + itemName(g.id) + ' · ' + t.tickets(S().tk), '札', '#c79bff'); return true; }
+    return false;
+  }
   function gotToast(g) {
     if (!g || !ND.toast) return;
     const t = T(), it = LV.item(g.id);
@@ -300,8 +378,14 @@
     if (rwBlocked(se, tier)) { if (ND.toast) ND.toast(T().online, T().k); return Promise.resolve(null); }
     const done = () => {
       const first = !Object.values(S().ps).some((q) => q.f && q.f.length);
-      const g = LV.claim(se.C, S(), se.key, tier, way, ok);
-      if (g) { payHonor(g); commit(); gotToast(g); fx('claim'); changed(); if (first) once('first_bonus_claim'); if (g.kind === 'rw' && ND.passNet) ND.passNet.now(); }
+      const g = LV.claim(se.C, S(), se.key, tier, way, ok, { ranked: hasRanked() });
+      if (g) {
+        commit();
+        if (!payOut(g)) gotToast(g);
+        fx('claim'); changed(); applyWorn(); if (first) once('first_bonus_claim');
+        // (a catalog reward and a ranked shield are granted by the server: tell it now)
+        if ((g.kind === 'rw' || g.kind === 'shield') && ND.passNet) ND.passNet.now();
+      }
       return g;
     };
     if (way !== 'ad') return Promise.resolve(done());
@@ -330,10 +414,32 @@
   // ---------------------------------------------------------------- equip (titles, badges, frames, trails)
   function equip(kind, id) {
     const st = S();
-    if (id == null) delete st.eq[kind];
-    else { const it = LV.item(id); if (!it || it.kind !== kind || !st.own.includes(id)) return false; st.eq[kind] = id; }
-    commit(); refreshStrip(); changed();
+    if (kind === 'arena' && typeof id === 'string' && id.startsWith('plain:')) delete st.av[id.slice(6)]; // (an arena back to plain)
+    else if (!LV.equip(st, kind, id || null)) return false;
+    commit(); refreshStrip(); changed(); applyWorn();
     return true;
+  }
+  // What this player wears, put on where it shows at once: the menu music, the arena variants (js/flair.js)
+  function applyWorn() {
+    safe(() => {
+      const F = ND.flair; if (!F) return;
+      const st = S();
+      F.music(st.eq.music || null);
+      for (const b of Object.values(LV.ARENA_BASE)) F.arena(b, st.av[b] || null);
+    });
+  }
+  // The flair both fighters wear in a match (js/flair.js set), from G.start: your own on your side in the modes where your
+  // save's look is used; the other side: an online opponent's synced flair (ranked / shadow: setOpp), else nothing
+  const FLAIR_OFF = { attract: 1, watch: 1, '2p': 1 };
+  let oppWorn = null; // { side, worn } for the next match (js/ranked.js)
+  function setFlair(G, mode) {
+    safe(() => {
+      const F = ND.flair; if (!F) return;
+      const me = FLAIR_OFF[mode] ? null : LV.fightFlair(S().eq);
+      const side = mode === 'online' ? (G.localSide | 0) : 0;
+      F.set(side, me); F.set(1 - side, oppWorn && (mode === 'online' || mode === 'shadow') ? oppWorn.worn : null);
+      if (mode !== 'online' && mode !== 'shadow') oppWorn = null;
+    });
   }
 
   // ---------------------------------------------------------------- sounds
@@ -348,9 +454,13 @@
 
   // ================================================================ UI
   const CSS = `
-  .pass-strip { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; width: 100%; box-sizing: border-box; padding: 7px 12px 7px 8px; text-align: left; background: linear-gradient(90deg, rgba(120,90,200,.12), rgba(217,179,108,.06)); border: 1px solid rgba(190,160,255,.38); color: var(--text); cursor: pointer; transition: background .15s, border-color .15s; }
+  .pass-strip { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; width: 100%; box-sizing: border-box; padding: 0; background: linear-gradient(90deg, rgba(120,90,200,.12), rgba(217,179,108,.06)); border: 1px solid rgba(190,160,255,.38); }
   .pass-strip.aside { flex: 1 1 100%; margin-top: 6px; }
-  .pass-strip:hover, .pass-strip:focus-visible { background: linear-gradient(90deg, rgba(120,90,200,.22), rgba(217,179,108,.1)); border-color: #c79bff; }
+  .ps-half { position: relative; display: grid; align-items: center; gap: 12px; min-width: 0; box-sizing: border-box; padding: 7px 12px 7px 8px; text-align: left; background: none; border: 0; color: var(--text); font: inherit; cursor: pointer; transition: background .15s, box-shadow .15s; }
+  .ps-half.pf { grid-template-columns: auto minmax(0, 1fr); }
+  .ps-half.ps { border-left: 1px solid rgba(190,160,255,.25); padding-left: 12px; }
+  .ps-half:hover, .ps-half:focus-visible { background: rgba(120,90,200,.2); box-shadow: inset 0 0 0 1px #c79bff; outline: none; }
+  .ps-mid small b { font-weight: 700; color: #f1d69c; }
   .ps-lvb { position: relative; display: grid; place-items: center; width: 42px; height: 42px; box-sizing: border-box; border: 2px solid var(--fc, var(--gold)); background: radial-gradient(circle at 35% 30%, #3a2a14, #140f08 70%); color: var(--gold-hi); font: 700 19px/1 var(--display); font-variant-numeric: tabular-nums; box-shadow: 0 0 0 1px rgba(0,0,0,.6), 0 0 14px -4px var(--fc, var(--gold)); }
   .ps-lvb small { position: absolute; top: -7px; left: 50%; transform: translateX(-50%); padding: 0 4px; background: #17130a; color: var(--gold); font: 600 9px/1.3 var(--display); letter-spacing: .14em; }
   .ps-lvb .ps-bdg { position: absolute; right: -9px; bottom: -8px; width: 19px; height: 19px; font-size: 11px; }
@@ -360,7 +470,7 @@
   .pass-strip .ps-mid span { font: 600 13px/1.1 var(--display); letter-spacing: .05em; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .ps-xbar { position: relative; display: block; height: 6px; background: rgba(255,255,255,.1); overflow: hidden; }
   .ps-xbar::after { content: ''; position: absolute; inset: 0 auto 0 0; width: var(--p, 0%); background: linear-gradient(90deg, #8f6bff, #c79bff 60%, #f1d69c); transition: width var(--d, 0s) cubic-bezier(.3,.7,.3,1); }
-  .pass-strip .ps-pss { display: grid; justify-items: end; gap: 3px; padding-left: 12px; border-left: 1px solid rgba(190,160,255,.25); }
+  .pass-strip .ps-pss { display: grid; justify-items: end; gap: 3px; }
   .pass-strip .ps-pss b { font: 700 13px/1 var(--display); letter-spacing: .12em; text-transform: uppercase; color: #d9c2ff; white-space: nowrap; }
   .pass-strip .ps-pss b::before { content: '影'; font-family: var(--jp); margin-right: 6px; color: #c79bff; }
   .pass-strip .ps-pss small { font: 500 10.5px/1 var(--display); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
@@ -369,8 +479,8 @@
   @keyframes psPulse { from { transform: scale(1); } to { transform: scale(1.15); } }
   @media (max-width: 560px) { .pass-strip .ps-pss small { display: none; } }
 
-  #passOv { z-index: 24; display: flex; flex-direction: column; align-items: center; }
-  #passOv .ps-card { box-sizing: border-box; width: min(1000px, 100%); margin: auto 0; padding: 14px 16px; display: grid; gap: 10px; background: rgba(10,12,22,.94); backdrop-filter: none; -webkit-backdrop-filter: none; }
+  #passOv, #profOv { z-index: 24; display: flex; flex-direction: column; align-items: center; }
+  #passOv .ps-card, #profOv .ps-card { box-sizing: border-box; width: min(1000px, 100%); margin: auto 0; padding: 14px 16px; display: grid; gap: 10px; background: rgba(10,12,22,.94); backdrop-filter: none; -webkit-backdrop-filter: none; }
   .ps-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 14px; }
   .ps-head .ps-lvb { width: 50px; height: 50px; font-size: 22px; }
   .ps-who { display: grid; gap: 5px; min-width: 0; }
@@ -396,12 +506,22 @@
   .ps-lab span small { font: 500 9.5px/1.2 var(--body); letter-spacing: 0; text-transform: none; color: var(--muted); }
   .ps-lab b { font: 700 18px/1 var(--jp); }
   .ps-track { overflow-x: auto; overflow-y: hidden; touch-action: pan-x pan-y; overscroll-behavior-x: contain; scroll-behavior: smooth; padding-bottom: 2px; }
+  .ps-track.drag { cursor: grabbing; scroll-behavior: auto; user-select: none; }
+  .ps-trk { position: relative; min-width: 0; }
+  .ps-arr { display: none; }
+  @media (hover: hover) and (pointer: fine) {
+    .ps-track { cursor: grab; }
+    .ps-arr { display: grid; place-items: center; position: absolute; top: 50%; transform: translateY(-50%); z-index: 3; width: 34px; height: 56px; padding: 0; border: 1px solid rgba(190,160,255,.45); background: rgba(16,12,28,.86); color: #e8dcff; font: 700 28px/1 var(--display); cursor: pointer; transition: opacity .15s, background .15s; }
+    .ps-arr:hover { background: rgba(70,50,120,.95); }
+    .ps-arr.l { left: 2px; } .ps-arr.r { right: 2px; }
+    .ps-trk.at-l .ps-arr.l, .ps-trk.at-r .ps-arr.r { opacity: 0; pointer-events: none; }
+  }
   .ps-grid { position: relative; display: grid; grid-auto-flow: column; grid-template-rows: 30px 28px auto; grid-auto-columns: 96px; gap: 6px; width: max-content; }
   .ps-prog { position: relative; align-self: center; height: 4px; background: rgba(255,255,255,.08); }
   .ps-tn.soon { opacity: .45; border-style: dashed; }
   .ps-rw.soon { opacity: .5; border-style: dashed; border-color: rgba(190,160,255,.25); background: rgba(120,90,200,.04); min-height: 0; }
   .ps-q { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; border: 1px dashed rgba(199,155,255,.5); color: #c79bff; font: 700 20px/1 var(--display); }
-  .ps-soon { position: sticky; left: 0; display: grid; align-content: center; gap: 1px; padding: 0 8px; border-left: 2px solid #c79bff; min-width: 0; overflow: hidden; white-space: nowrap; }
+  .ps-soon { position: sticky; left: 0; justify-self: start; max-width: min(100%, 320px); display: grid; align-content: center; gap: 1px; padding: 0 8px; border-left: 2px solid #c79bff; min-width: 0; overflow: hidden; white-space: nowrap; }
   .ps-soon b { font: 700 12px/1.1 var(--display); letter-spacing: .1em; text-transform: uppercase; color: #d9c2ff; overflow: hidden; text-overflow: ellipsis; }
   .ps-soon small { font: 500 10.5px/1.1 var(--body); color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
   .ps-prog i { position: absolute; inset: 0 auto 0 0; width: var(--p, 0%); background: linear-gradient(90deg, #8f6bff, #f1d69c); box-shadow: 0 0 8px rgba(199,155,255,.6); }
@@ -439,7 +559,7 @@
   .ps-chips { display: flex; flex-wrap: wrap; gap: 5px; }
   .ps-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px 4px 5px; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.035); color: var(--text); font: 500 12px/1.2 var(--body); cursor: pointer; }
   .ps-chip[aria-pressed="true"] { border-color: var(--gold); background: rgba(217,179,108,.16); }
-  .ps-chip .ps-ic, .ps-chip .ps-svg { width: 24px; height: 24px; }
+  .ps-chip .ps-ic, .ps-chip .ps-svg, .ps-chip .ps-pic { width: 24px; height: 24px; }
   .ps-chip .ps-bdg { width: 22px; height: 22px; font-size: 12px; border-width: 1px; }
   .ps-chip .ps-frm { width: 24px; height: 20px; font-size: 10px; border-width: 2px; }
   .ps-chip .ps-ttl { min-width: 24px; height: 20px; padding: 0 2px; font-size: 9.5px; }
@@ -501,8 +621,8 @@
     #passOv .ps-tn { width: 22px; height: 22px; }
   }
   @media (max-height: 520px) {
-    #passOv.overlay { padding-block: 6px; }
-    #passOv .ps-card { padding: 8px 12px; gap: 6px; }
+    #passOv.overlay, #profOv.overlay { padding-block: 6px; }
+    #passOv .ps-card, #profOv .ps-card { padding: 8px 12px; gap: 6px; }
     .ps-head .ps-lvb { width: 40px; height: 40px; font-size: 18px; }
     .ps-who strong { font-size: 15px; }
     .ps-tabs [role="tab"], .ps-tabs .btn { padding: 6px 10px; font-size: 12px; }
@@ -513,7 +633,58 @@
     .xpb { margin: -4px 0 8px; padding: 4px 8px; }
     .xpb .ps-lvb { width: 30px; height: 30px; font-size: 14px; }
   }
-  `;
+  
+  .ps-lvb.tap { cursor: pointer; }
+  .ps-lvtop { display: grid; place-items: center; padding: 0; margin-right: 2px; background: none; border: 0; cursor: pointer; }
+  .ps-lvtop[hidden] { display: none; }
+  .ps-lvtop .ps-lvb { width: 36px; height: 36px; font-size: 16px; }
+  #app.touch .ps-lvtop .ps-lvb { width: 40px; height: 40px; }
+  .btn.ps-go { display: inline-flex; align-items: center; gap: 7px; padding: 7px 12px; font-size: 13px; border-color: rgba(190,160,255,.55); }
+  .btn.ps-go b { font: 700 15px/1 var(--jp); color: #c79bff; }
+  .ps-rw.top { border-color: #f1d69c; background: linear-gradient(180deg, rgba(241,214,156,.14), rgba(120,90,200,.08)); }
+  .ps-pic { width: 46px; height: 46px; object-fit: contain; border-radius: 4px; }
+  .ps-fk { display: grid; place-items: center; width: 38px; height: 38px; box-sizing: border-box; border-radius: 50%; border: 2px solid var(--tc); color: var(--tc); font: 700 19px/1 var(--jp); background: rgba(0,0,0,.3); }
+  .ps-key { position: relative; display: grid; place-items: center; width: 36px; height: 36px; box-sizing: border-box; border: 2px solid #f1d69c; border-radius: 8px; background: radial-gradient(circle at 35% 30%, rgba(241,214,156,.28), rgba(0,0,0,.4)); color: #f1d69c; font: 700 18px/1 var(--jp); }
+  .ps-key.a { border-color: #9fe0c0; color: #9fe0c0; background: radial-gradient(circle at 35% 30%, rgba(159,224,192,.25), rgba(0,0,0,.4)); }
+  .ps-key i { position: absolute; right: -7px; bottom: -7px; padding: 1px 2px; background: #17130a; font: 700 11px/1 var(--jp); font-style: normal; color: inherit; }
+  .ps-tkt { position: relative; display: grid; place-items: center; width: 40px; height: 30px; box-sizing: border-box; border: 2px dashed #c79bff; background: rgba(120,90,200,.18); color: #e2d2ff; font: 700 17px/1 var(--jp); }
+  .ps-tkt small { position: absolute; right: -8px; bottom: -8px; padding: 2px 3px; border-radius: 6px; background: #c79bff; color: #17130a; font: 700 10px/1 var(--display); }
+  .ps-shd { display: grid; place-items: center; width: 34px; height: 40px; clip-path: polygon(50% 0, 100% 14%, 93% 68%, 50% 100%, 7% 68%, 0 14%); background: linear-gradient(180deg, #cfe8ff, #4d84c2 70%, #2c5a8f); color: #0b1828; font: 700 18px/1 var(--jp); }
+  .chip.av b { font-family: var(--jp); color: #c79bff; margin-right: 4px; }
+  .chip.av[aria-pressed="true"] { border-color: #c79bff; background: rgba(199,155,255,.2); }
+  /* the Profile: the wardrobe */
+  .pf-body { grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); }
+  .pf-body .pf-wide { grid-column: 1 / -1; }
+  .pf-title h3 small, .ps-prof h3 small { margin-left: 8px; font: 500 11px/1 var(--body); letter-spacing: 0; text-transform: none; color: var(--muted); }
+  .ps-chip.big { padding: 6px 12px 6px 6px; font: 600 13.5px/1.2 var(--display); letter-spacing: .04em; color: var(--tc, var(--text)); }
+  .ps-chip.big .ps-ic { width: 30px; height: 30px; }
+  .ps-chip[aria-pressed="true"]::after { content: '✓'; margin-left: 2px; color: #7be08f; font: 700 13px/1 var(--display); }
+  .ps-chip.none[aria-pressed="true"]::after { content: none; }
+  .pf-flair { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 8px 16px; }
+  .pf-flair > h3 { grid-column: 1 / -1; }
+  .pf-slot { display: grid; gap: 4px; align-content: start; }
+  .pf-slot h4 { margin: 0; font: 600 11.5px/1.1 var(--display); letter-spacing: .12em; text-transform: uppercase; color: #d9c2ff; }
+  .pf-tiles { display: flex; flex-wrap: wrap; gap: 6px; }
+  .pf-tile { display: grid; justify-items: center; align-content: start; gap: 3px; width: 80px; box-sizing: border-box; padding: 4px 3px 5px; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.035); color: var(--text); cursor: pointer; }
+  .pf-tile[aria-pressed="true"] { border-color: var(--gold); background: rgba(217,179,108,.16); box-shadow: 0 0 10px -4px var(--gold); }
+  .pf-tile .pf-pic { display: grid; place-items: center; width: 64px; height: 64px; }
+  .pf-tile .ps-pic { width: 64px; height: 64px; }
+  .pf-tile small { max-width: 74px; font: 500 10.5px/1.15 var(--body); text-align: center; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
+  .pf-none { font: 700 22px/1 var(--jp); color: var(--muted); }
+  .pf-items { display: grid; gap: 8px; }
+  .pf-items > span { display: flex; align-items: center; gap: 12px; }
+  .pf-items strong { display: block; font: 600 13px/1.2 var(--display); letter-spacing: .06em; }
+  .pf-items small { font: 500 11.5px/1.3 var(--body); color: var(--muted); }
+  @media (max-width: 640px) {
+    .pf-body { grid-template-columns: minmax(0, 1fr); }
+    .pass-strip .ps-half.ps { padding-inline: 8px; }
+    #profOv .ps-head { grid-template-columns: auto minmax(0, 1fr) auto; }
+    #profOv .ps-head #profPass { grid-column: 1 / 3; grid-row: 2; justify-self: start; }
+  }
+  @media (max-height: 520px) {
+    .pf-tile { width: 70px; } .pf-tile .pf-pic, .pf-tile .ps-pic { width: 52px; height: 52px; }
+  }
+`;
   function injectCss() {
     if ($('passCss')) return;
     const st = document.createElement('style'); st.id = 'passCss'; st.textContent = CSS; document.head.appendChild(st);
@@ -530,7 +701,9 @@
   }
   const seal = (n) => `<i class="ps-seal s${Math.min(3, n | 0)}" aria-hidden="true">${['', '一', '二', '三'][Math.min(3, n | 0)] || ''}</i>`;
 
-  // ---------------------------------------------------------------- menu strip (#mpass, after the honor strip)
+  // ---------------------------------------------------------------- menu strip (#mstrip, after the honor strip)
+  // Two buttons side by side (owner, 2026-10-01: "the profile is very hard to find"): PROFILE (the level square, the
+  // title, the XP bar: opens the Profile) and the SHADOW PASS (tier, days left, the ready count: opens the Pass).
   // Where the strip goes: on a tall screen under the honor strip (with the game modes); on a short or narrow one
   // (phones, CrazyGames' 821×462) under the options line instead, so PLAY, SINGLE MATCH, PLAY WITH A FRIEND and
   // RANKED stay on screen without scrolling (scripts/ranked-layout-check.mjs, cg-sizes-check.mjs)
@@ -539,6 +712,8 @@
     // (the short-landscape menu of index.html: brand and options on the left, modes on the right; or a narrow screen)
     let short = (window.innerWidth || 1280) <= 600;
     try { short = short || window.matchMedia('(max-height: 540px) and (min-width: 560px)').matches; } catch (e) { /* no matchMedia */ }
+    // (on those screens the strip sits low: the level square in the top row opens the Profile as well)
+    const top = $('mlvTop'); if (top) top.hidden = !(short && opts);
     if (short && opts) { if (el.parentNode !== opts) opts.appendChild(el); el.classList.add('aside'); return; } // (its own line in the options row)
     const modes = hon ? hon.parentNode : document.querySelector('#menu .modes');
     if (!modes) return;
@@ -546,12 +721,21 @@
     if (hon) { if (hon.nextSibling !== el) modes.insertBefore(el, hon.nextSibling); } else if (el.parentNode !== modes) modes.appendChild(el);
   }
   function ensureStrip() {
-    let el = $('mpass');
+    let el = $('mstrip');
     if (el) { placeStrip(el); return el; }
     if (!$('mhonor') && !document.querySelector('#menu .modes')) return null;
-    el = document.createElement('button');
-    el.type = 'button'; el.id = 'mpass'; el.className = 'pass-strip';
-    el.onclick = () => { if (ND.audio && ND.audio.ui) ND.audio.ui(); open('pass'); };
+    el = document.createElement('div');
+    el.id = 'mstrip'; el.className = 'pass-strip';
+    el.innerHTML = '<button type="button" id="mprof" class="ps-half pf"></button><button type="button" id="mpass" class="ps-half ps"></button>';
+    el.querySelector('#mprof').onclick = () => { if (ND.audio && ND.audio.ui) ND.audio.ui(); open('profile'); };
+    el.querySelector('#mpass').onclick = () => { if (ND.audio && ND.audio.ui) ND.audio.ui(); open('pass'); };
+    const mt = $('menuTop');
+    if (mt && !$('mlvTop')) {
+      const b = document.createElement('button');
+      b.type = 'button'; b.id = 'mlvTop'; b.className = 'ps-lvtop'; b.hidden = true;
+      b.onclick = () => { if (ND.audio && ND.audio.ui) ND.audio.ui(); open('profile'); };
+      mt.insertBefore(b, mt.firstChild);
+    }
     placeStrip(el);
     try { window.addEventListener('resize', () => placeStrip(el)); } catch (e) { /* no window */ }
     return el;
@@ -561,44 +745,58 @@
       const el = ensureStrip(); if (!el) return;
       const st = S(), L = LV.levelOf(st.xp), t = T(), se = season(), p = sp(st, se), R = tierOf(se, p), rd = readyCount();
       const ti = st.eq.title && LV.item(st.eq.title);
-      el.innerHTML = lvBadge(L.lv) +
-        `<span class="ps-mid"><small>${esc(t.level(L.lv))}${ti ? ` · <em style="--tc:${ti.color}">${esc(itemName(st.eq.title))}</em>` : ''}</small>` +
-        `<i class="ps-xbar" style="--p:${(L.pct * 100).toFixed(1)}%"></i><span>${esc(L.lv >= LV.MAX ? t.xpMax(num(st.xp)) : t.xp(num(L.into), num(L.need)))}${st.bo ? ' · ' + esc(t.boostLeft(st.bo)) : ''}</span></span>` +
-        `<span class="ps-pss"><b>${esc(t.name)}</b><small>${esc(t.tier(R.tier, R.max))} · ${esc(daysLeft(se) <= 1 ? t.lastDay : t.left(daysLeft(se)))}</small>${rd ? `<i class="ps-dot">${rd}</i>` : ''}</span>`;
-      el.setAttribute('aria-label', t.level(L.lv) + ' · ' + t.name + ' · ' + t.tier(R.tier, R.max) + (rd ? ' · ' + t.ready(rd) : ''));
+      const pf = $('mprof'), ps = $('mpass');
+      pf.innerHTML = lvBadge(L.lv) +
+        `<span class="ps-mid"><small><b>${esc(t.profile)}</b>${ti ? ` · <em style="--tc:${ti.color}">${esc(itemName(st.eq.title))}</em>` : ''}</small>` +
+        `<i class="ps-xbar" style="--p:${(L.pct * 100).toFixed(1)}%"></i><span>${esc(L.lv >= LV.MAX ? t.xpMax(num(st.xp)) : t.xp(num(L.into), num(L.need)))}${st.bo ? ' · ' + esc(t.boostLeft(st.bo)) : ''}</span></span>`;
+      pf.setAttribute('aria-label', t.profile + ' · ' + t.level(L.lv) + (ti ? ' · ' + itemName(st.eq.title) : ''));
+      ps.innerHTML = `<span class="ps-pss"><b>${esc(t.name)}</b><small>${esc(t.tier(R.tier, R.max))} · ${esc(daysLeft(se) <= 1 ? t.lastDay : t.left(daysLeft(se)))}</small>${rd ? `<i class="ps-dot">${rd}</i>` : ''}</span>`;
+      ps.setAttribute('aria-label', t.name + ' · ' + t.tier(R.tier, R.max) + (rd ? ' · ' + t.ready(rd) : ''));
+      const top = $('mlvTop');
+      if (top) { top.innerHTML = lvBadge(L.lv, true); top.setAttribute('aria-label', t.profile + ' · ' + t.level(L.lv)); top.title = t.profile; }
     });
   }
 
-  // ---------------------------------------------------------------- the pass screen (#passOv)
-  let tab = 'pass', ov = null, backTo = null;
-  function ensureOv() {
-    if (ov) return ov;
-    ov = document.createElement('div');
-    ov.id = 'passOv'; ov.className = 'overlay'; ov.hidden = true;
-    ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-modal', 'true');
-    ov.innerHTML = '<div class="card ps-card" id="passIn"></div>';
-    ($('app') || document.body).appendChild(ov);
-    ov.addEventListener('keydown', (e) => {
+  // ---------------------------------------------------------------- the pass screen (#passOv) and the profile (#profOv)
+  // Two screens of their own (1.3.2): the Pass shows only the pass track; the Profile is the wardrobe (title, badge,
+  // frame, blade trail, the fight flair, arena variants, menu music, costumes, items, journey seals).
+  let tab = 'pass', ov = null, pov = null, backTo = null;
+  function makeOv(id, inner) {
+    const o = document.createElement('div');
+    o.id = id; o.className = 'overlay'; o.hidden = true;
+    o.setAttribute('role', 'dialog'); o.setAttribute('aria-modal', 'true');
+    o.innerHTML = `<div class="card ps-card" id="${inner}"></div>`;
+    ($('app') || document.body).appendChild(o);
+    o.addEventListener('keydown', (e) => {
       if (e.code === 'Escape' || e.code === 'Backspace' || (ND.input && ND.input.isBack && ND.input.isBack(e))) { e.preventDefault(); e.stopPropagation(); close(); }
     });
-    return ov;
+    return o;
   }
+  function ensureOv() { if (!ov) ov = makeOv('passOv', 'passIn'); if (!pov) { pov = makeOv('profOv', 'profIn'); pov.classList.add('pf-ov'); } return ov; }
+  const cur = () => (tab === 'profile' ? pov : ov);
   let offerCounted = false;
   function open(which) {
     safe(() => {
       injectCss(); ensureOv();
-      tab = which || tab; offerCounted = false;
-      backTo = $('menu') && !$('menu').hidden ? 'menu' : null;
+      const was = P.isOpen;
+      if (was) { ov.hidden = true; pov.hidden = true; } // (switching between the Pass and the Profile)
+      tab = which === 'profile' ? 'profile' : 'pass'; offerCounted = false;
+      if (!was) backTo = $('menu') && !$('menu').hidden ? 'menu' : null;
       if (backTo) $('menu').hidden = true;
-      ov.hidden = false;
+      cur().hidden = false;
       render(true);
-      setTimeout(() => { const f = ov.querySelector('.ps-rw button') || ov.querySelector('[role="tab"][aria-selected="true"]'); if (f) f.focus({ preventScroll: true }); }, 0);
+      setTimeout(() => {
+        const o = cur();
+        const f = tab === 'pass' ? o.querySelector('.ps-rw button') || $('passClose') : o.querySelector('.pf-title [aria-pressed="true"]') || o.querySelector('.pf-title [aria-pressed]') || $('profClose');
+        if (f) f.focus({ preventScroll: true });
+      }, 0);
     });
   }
   function close() {
-    if (!ov || ov.hidden) return;
-    ov.hidden = true;
-    if (backTo === 'menu' && ND.game && ND.game.mode === 'attract') { $('menu').hidden = false; setTimeout(() => { const m = $('mpass'); if (m) m.focus(); }, 0); }
+    if (!P.isOpen) return;
+    const was = tab;
+    ov.hidden = true; pov.hidden = true;
+    if (backTo === 'menu' && ND.game && ND.game.mode === 'attract') { $('menu').hidden = false; setTimeout(() => { const m = $(was === 'profile' ? 'mprof' : 'mpass'); if (m) m.focus(); }, 0); }
     refreshStrip();
   }
   // One tier's reward card: claimed / "Watch ad" (ads work here) / "Claim" (no ads here, waited long enough) / locked
@@ -615,64 +813,68 @@
       // (locked: with ads it opens at its own tier, without ads waitTiers tiers later)
       else { cls = 'lock'; act = `<span class="ps-st">🔒 ${esc(tx.opensAt(ok ? t : LV.waitTier(se.C, t)))}</span>`; }
     }
+    void reached;
     // a catalog reward where no server grants it (offline, no online identity): not claimable here
     if (!got && it.kind === 'rw' && !rwOk() && cls === 'rdy') { cls = 'lock'; act = `<span class="ps-st">🔒 ${esc(tx.online)}</span>`; }
     const kind = it.kind === 'rw' ? ((rwEntry(it) || {}).kind === 'costume' ? 'cos' : (rwEntry(it) || {}).kind || 'title') : it.kind;
-    return `<div class="ps-rw b ${cls}" data-item="${esc(id)}" title="${esc((tx.kinds || {})[kind] || '')}: ${esc(itemName(id))}"><span class="ps-ic">${icon(id)}</span><em>${esc((tx.kinds || {})[kind] || '')}</em><small>${esc(itemName(id))}</small>${act}</div>`;
+    const kn = kindName(kind);
+    return `<div class="ps-rw b ${cls}${it.drawn ? ' top' : ''}" data-item="${esc(id)}" title="${esc(kn)}: ${esc(itemName(id))}"><span class="ps-ic">${icon(id)}</span><em>${esc(kn)}</em><small>${esc(itemName(id, true))}</small>${act}</div>`;
+  }
+  // a kind's name (reward cards, wardrobe slots)
+  function kindName(kind) { const t = T(); return (t.kinds || {})[kind] || (t.kinds2 || {})[kind] || ''; }
+  function head(L, st, t, extra) {
+    const ti = st.eq.title && LV.item(st.eq.title);
+    return `<div class="ps-head">${lvBadge(L.lv)}<div class="ps-who"><strong>${esc(t.level(L.lv))}${ti ? ` <em style="--tc:${ti.color}">${esc(itemName(st.eq.title))}</em>` : ''}</strong>` +
+      `<i class="ps-xbar" style="--p:${(L.pct * 100).toFixed(1)}%"></i><small>${esc(L.lv >= LV.MAX ? t.xpMax(num(st.xp)) : t.xp(num(L.into), num(L.need)))}${st.bo ? ' · ' + esc(t.boostLeft(st.bo)) : ''}</small></div>` + extra + '</div>';
   }
   function render(scroll) {
-    if (!ov || ov.hidden) return;
+    if (!ov || !P.isOpen) return;
+    if (tab === 'profile') { renderProfile(scroll); return; }
     const st = S(), t = T(), se = season(), p = sp(st, se), R = tierOf(se, p), L = LV.levelOf(st.xp), ok = adsOk(), N = se.C.tiers.length;
     const left = daysLeft(se), waitN = ok ? 0 : (() => { let n = 0; for (let k = 1; k <= N; k++) if (LV.claimWay(se.C, p, k, false) === 'wait') n++; return n; })();
-    // (the scroll positions stay when the screen is drawn again: equipping in the profile, claiming on the track)
-    const keep = { ov: ov.scrollTop, prof: ((ov.querySelector('.ps-prof') || {}).scrollTop) || 0, track: (($('psTrack') || {}).scrollLeft) || 0 };
-    const ti = st.eq.title && LV.item(st.eq.title);
+    // (the scroll positions stay when the screen is drawn again: claiming on the track)
+    const keep = { ov: ov.scrollTop, track: (($('psTrack') || {}).scrollLeft) || 0 };
     const daily = st.d.w === LV.dayOf(P.now(), tz());
-    let body;
-    if (tab === 'pass') {
-      const cols = [], M = Math.max(N, se.C.soon | 0);
-      for (let k = 1; k <= N; k++) {
-        cols.push(`<span class="ps-tn ${R.tier >= k ? 'on' : ''} ${R.tier + 1 === k ? 'cur' : ''}" style="grid-column:${k};grid-row:2">${k}</span>`);
-        cols.push(rewardCard(se, p, k, ok).replace('<div ', `<div style="grid-column:${k};grid-row:3" `));
+    const cols = [], M = Math.max(N, se.C.soon | 0);
+    for (let k = 1; k <= N; k++) {
+      cols.push(`<span class="ps-tn ${R.tier >= k ? 'on' : ''} ${R.tier + 1 === k ? 'cur' : ''}" style="grid-column:${k};grid-row:2">${k}</span>`);
+      cols.push(rewardCard(se, p, k, ok).replace('<div ', `<div style="grid-column:${k};grid-row:3" `));
+    }
+    // the announced tiers after the real ones (season data `soon`): locked mystery slots; the season XP keeps counting
+    if (M > N) {
+      cols.push(`<span class="ps-soon" style="grid-column:${N + 1}/${M + 1};grid-row:1"><b>${esc(t.soon)}</b><small>${esc(t.soonXp)}</small></span>`);
+      for (let k = N + 1; k <= M; k++) {
+        cols.push(`<span class="ps-tn soon" style="grid-column:${k};grid-row:2">${k}</span>`);
+        cols.push(`<div class="ps-rw soon" style="grid-column:${k};grid-row:3" aria-hidden="true"><span class="ps-ic"><b class="ps-q">?</b></span><span class="ps-st">🔒</span></div>`);
       }
-      // the announced tiers after the real ones (season data `soon`): locked mystery slots; the season XP keeps counting
-      if (M > N) {
-        cols.push(`<span class="ps-soon" style="grid-column:${N + 1}/${M + 1};grid-row:1"><b>${esc(t.soon)}</b><small>${esc(t.soonXp)}</small></span>`);
-        for (let k = N + 1; k <= M; k++) {
-          cols.push(`<span class="ps-tn soon" style="grid-column:${k};grid-row:2">${k}</span>`);
-          cols.push(`<div class="ps-rw soon" style="grid-column:${k};grid-row:3" aria-hidden="true"><span class="ps-ic"><b class="ps-q">?</b></span><span class="ps-st">🔒</span></div>`);
-        }
-      }
-      const prog = ((R.tier + (R.tier < N ? R.pct : 0)) / N) * 100;
-      body = `<div class="ps-wrap"><div class="ps-lab"><span></span><span></span><span class="ps-lb"><b>影</b>${esc(t.bonus)}<small>${esc(ok ? t.bonusAds : t.bonusWait(se.C.waitTiers))}</small></span></div>` +
-        `<div class="ps-track" id="psTrack"><div class="ps-grid" style="grid-template-columns:repeat(${M},var(--cw,96px))"><span class="ps-prog" style="grid-column:1/${N + 1};grid-row:2"><i style="--p:${prog.toFixed(2)}%"></i></span>${cols.join('')}</div></div></div>`;
-    } else body = profileHtml(st, t);
-    $('passIn').innerHTML =
-      `<div class="ps-head">${lvBadge(L.lv)}<div class="ps-who"><strong>${esc(t.level(L.lv))}${ti ? ` <em style="--tc:${ti.color}">${esc(itemName(st.eq.title))}</em>` : ''}</strong>` +
-      `<i class="ps-xbar" style="--p:${(L.pct * 100).toFixed(1)}%"></i><small>${esc(L.lv >= LV.MAX ? t.xpMax(num(st.xp)) : t.xp(num(L.into), num(L.need)))}${st.bo ? ' · ' + esc(t.boostLeft(st.bo)) : ''}</small></div>` +
+    }
+    const prog = ((R.tier + (R.tier < N ? R.pct : 0)) / N) * 100;
+    const body = `<div class="ps-wrap"><div class="ps-lab"><span></span><span></span><span class="ps-lb"><b>影</b>${esc(t.bonus)}<small>${esc(ok ? t.bonusAds : t.bonusWait(se.C.waitTiers))}</small></span></div>` +
+      `<div class="ps-trk"><div class="ps-track" id="psTrack"><div class="ps-grid" style="grid-template-columns:repeat(${M},var(--cw,96px))"><span class="ps-prog" style="grid-column:1/${N + 1};grid-row:2"><i style="--p:${prog.toFixed(2)}%"></i></span>${cols.join('')}</div></div></div></div>`;
+    $('passIn').innerHTML = head(L, st, t,
       `<div class="ps-sea"><b>${esc(t.name)}</b><small>${esc(t.season(se.n))} · ${esc(left <= 1 ? t.lastDay : t.left(left))}</small><small>${esc(t.tier(R.tier, N))}${R.tier < N ? ' · ' + esc(t.xp(num(R.into), num(R.need))) : ''}</small></div>` +
-      `<button class="btn" type="button" id="passClose">${esc(t.close)}</button></div>` +
-      `<div class="ps-tabs" role="tablist"><button type="button" role="tab" data-tab="pass" aria-selected="${tab === 'pass'}">${esc(t.tabs.pass)}</button><button type="button" role="tab" data-tab="profile" aria-selected="${tab === 'profile'}">${esc(t.tabs.profile)}</button>` +
+      `<button class="btn" type="button" id="passClose">${esc(t.close)}</button>`) +
+      `<div class="ps-tabs"><button class="btn ps-go" type="button" id="passProf"><b>人</b>${esc(t.profile)}</button>` +
       `<span class="ps-sp"></span><span class="ps-note ${daily ? '' : 'on'}">${esc(daily ? t.dailyDone : t.daily)}</span>` +
-      (tab === 'pass' && waitN > 1 ? `<button class="btn primary" type="button" id="passAll">${esc(t.claimAll(waitN))}</button>` : '') + '</div>' + body;
+      (waitN > 1 ? `<button class="btn primary" type="button" id="passAll">${esc(t.claimAll(waitN))}</button>` : '') + '</div>' + body;
     $('passClose').onclick = () => close();
-    // a rewarded offer on screen (the Shadow row's "Watch ad"): counted once per opening, through the ads module's own
-    // counter when it has one (studio statistics: ad_rew_offer; the clicks and results are counted in ND.ads.rewarded)
+    $('passProf').onclick = () => { if (ND.audio && ND.audio.ui) ND.audio.ui(); open('profile'); };
+    const hb = ov.querySelector('.ps-head .ps-lvb'); if (hb) { hb.classList.add('tap'); hb.onclick = () => open('profile'); }
+    // a rewarded offer on screen (a "Watch ad"): counted once per opening, through the ads module's own counter when it
+    // has one (studio statistics: ad_rew_offer; the clicks and results are counted in ND.ads.rewarded)
     if (!offerCounted && ov.querySelector('button.ad') && ND.ads && typeof ND.ads.showOffer === 'function') {
       offerCounted = true;
       safe(() => { const x = document.createElement('i'); x.hidden = true; ND.ads.showOffer(x); });
     }
-    ov.querySelectorAll('[role="tab"]').forEach((b) => (b.onclick = () => { tab = b.dataset.tab; render(true); }));
     const all = $('passAll'); if (all) all.onclick = () => { claimAllWaiting(); render(false); };
     ov.querySelectorAll('[data-claim]').forEach((b) => (b.onclick = () => {
       b.disabled = true;
       claim(+b.dataset.claim).then(() => render(false), () => render(false));
     }));
-    ov.querySelectorAll('[data-eq]').forEach((b) => (b.onclick = () => { const [k, id] = b.dataset.eq.split(':'); equip(k, id || null); render(false); }));
     const tr = $('psTrack');
+    if (tr) dragScroll(tr);
     if (!scroll) {
       ov.scrollTop = keep.ov;
-      const pf = ov.querySelector('.ps-prof'); if (pf) pf.scrollTop = keep.prof;
       if (tr) { tr.style.scrollBehavior = 'auto'; tr.scrollLeft = keep.track; tr.style.scrollBehavior = ''; }
     }
     if (tr && scroll) {
@@ -681,24 +883,105 @@
       while (k <= N && !LV.claimWay(se.C, p, k, ok)) k++;
       if (k > N) k = Math.min(N, R.tier + 1);
       tr.style.scrollBehavior = 'auto';
-      tr.scrollLeft = Math.max(0, (k - 2) * (tr.scrollWidth / N));
+      tr.scrollLeft = Math.max(0, (k - 2) * (tr.scrollWidth / M));
       tr.style.scrollBehavior = '';
     }
   }
-  function profileHtml(st, t) {
-    const kinds = [['title', t.heads.titles], ['badge', t.heads.badges], ['frame', t.heads.frames], ['trail', t.heads.trails]];
-    const sec = kinds.map(([k, head]) => {
-      const own = st.own.filter((id) => { const it = LV.item(id); return it && it.kind === k; });
-      const chips = own.length ? `<button type="button" class="ps-chip none" data-eq="${k}:" aria-pressed="${!st.eq[k]}">—</button>` + own.map((id) =>
-        `<button type="button" class="ps-chip" data-eq="${k}:${esc(id)}" aria-pressed="${st.eq[k] === id}"><span class="ps-ic">${icon(id)}</span>${esc(itemName(id))}</button>`).join('') : `<p>${esc(t.none)}</p>`;
-      return `<section><h3>${esc(head)}</h3><div class="ps-chips">${chips}</div></section>`;
+  // The track on a computer (owner, 2026-10-01: "I can't drag the pass on PC"; the game shows no scrollbars): drag it
+  // with the mouse, turn the wheel, or press the arrow buttons at its ends. Touch keeps the browser's own swipe. A drag
+  // longer than a few pixels does not count as a click on a reward.
+  function dragScroll(tr) {
+    const step = (d) => tr.scrollBy({ left: d * Math.max(120, tr.clientWidth * 0.7), behavior: 'smooth' });
+    let x0 = 0, s0 = 0, id = null, moved = false;
+    tr.addEventListener('pointerdown', (e) => {
+      if (e.pointerType !== 'mouse' || e.button !== 0) return;
+      id = e.pointerId; x0 = e.clientX; s0 = tr.scrollLeft; moved = false;
     });
-    const cos = st.own.filter((id) => { const it = LV.item(id); return it && it.kind === 'cos'; });
+    tr.addEventListener('pointermove', (e) => {
+      if (e.pointerId !== id) return;
+      const dx = e.clientX - x0;
+      if (!moved && Math.abs(dx) > 5) { moved = true; tr.classList.add('drag'); try { tr.setPointerCapture(id); } catch (err) { /* gone */ } }
+      if (moved) tr.scrollLeft = s0 - dx;
+    });
+    const end = (e) => { if (e.pointerId !== id) return; id = null; tr.classList.remove('drag'); };
+    tr.addEventListener('pointerup', end); tr.addEventListener('pointercancel', end);
+    tr.addEventListener('click', (e) => { if (moved) { e.preventDefault(); e.stopPropagation(); moved = false; } }, true);
+    tr.addEventListener('wheel', (e) => {
+      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX) || tr.scrollWidth <= tr.clientWidth) return;
+      const max = tr.scrollWidth - tr.clientWidth;
+      if ((e.deltaY < 0 && tr.scrollLeft <= 0) || (e.deltaY > 0 && tr.scrollLeft >= max - 1)) return; // let the page scroll on
+      e.preventDefault(); tr.scrollLeft += e.deltaY;
+    }, { passive: false });
+    const wrap = tr.parentElement;
+    if (!wrap || wrap.querySelector('.ps-arr')) return;
+    for (const d of [-1, 1]) {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'ps-arr ' + (d < 0 ? 'l' : 'r'); b.textContent = d < 0 ? '‹' : '›';
+      b.setAttribute('aria-label', d < 0 ? '←' : '→'); b.tabIndex = -1;
+      b.onclick = () => step(d);
+      wrap.appendChild(b);
+    }
+    const arr = () => { const max = tr.scrollWidth - tr.clientWidth; wrap.classList.toggle('at-l', tr.scrollLeft <= 2); wrap.classList.toggle('at-r', tr.scrollLeft >= max - 2); };
+    tr.addEventListener('scroll', arr, { passive: true }); arr();
+  }
+
+  // ---------------------------------------------------------------- the Profile (#profOv): the wardrobe
+  const owned = (st, kind) => st.own.filter((id) => { const it = LV.item(id); return it && it.kind === kind; });
+  // a wardrobe tile: the picture and the name; pressed = worn (one tap wears it)
+  function tile(kind, id, on, label, picHtml) {
+    return `<button type="button" class="pf-tile${on ? ' on' : ''}" data-eq="${kind}:${esc(id || '')}" aria-pressed="${on}">` +
+      `<span class="pf-pic">${picHtml}</span><small>${esc(label)}</small></button>`;
+  }
+  function renderProfile(scroll) {
+    const st = S(), t = T(), L = LV.levelOf(st.xp), H2 = t.heads2 || {}, K2 = t.kinds2 || {};
+    const keep = { pf: ((pov.querySelector('.pf-body') || {}).scrollTop) || 0, ov: pov.scrollTop };
+    const sec = [];
+    // the title first: one tap puts it on (the strip and the ranked name plate show it)
+    const titles = owned(st, 'title');
+    sec.push(`<section class="pf-title pf-wide"><h3>${esc(H2.title || t.heads.titles)} <small>${esc(t.tapEquip)}</small></h3><div class="ps-chips">` +
+      (titles.length ? `<button type="button" class="ps-chip none" data-eq="title:" aria-pressed="${!st.eq.title}">—</button>` + titles.map((id) =>
+        `<button type="button" class="ps-chip big" data-eq="title:${esc(id)}" aria-pressed="${st.eq.title === id}" style="--tc:${LV.item(id).color}"><span class="ps-ic">${icon(id)}</span>${esc(itemName(id))}</button>`).join('') : `<p>${esc(t.none)}</p>`) +
+      '</div></section>');
+    for (const [k, head] of [['badge', t.heads.badges], ['frame', t.heads.frames], ['trail', t.heads.trails]]) {
+      const own = owned(st, k);
+      const chips = own.length ? `<button type="button" class="ps-chip none" data-eq="${k}:" aria-pressed="${!st.eq[k]}">—</button>` + own.map((id) =>
+        `<button type="button" class="ps-chip" data-eq="${k}:${esc(id)}" aria-pressed="${st.eq[k] === id}"><span class="ps-ic">${icon(id)}</span>${esc(itemName(id))}</button>`).join('') : `<p>${esc(t.noneYet)}</p>`;
+      sec.push(`<section><h3>${esc(head)}</h3><div class="ps-chips">${chips}</div></section>`);
+    }
+    // the fight flair: one slot per kind (the picture: the game's own drawing of it)
+    const slots = ['pose', 'hitfx', 'slash', 'aura', 'ko', 'card'].map((k) => {
+      const own = owned(st, k);
+      const tiles = own.length ? tile(k, null, !st.eq[k], t.usual, '<b class="pf-none">—</b>') + own.map((id) => tile(k, id, st.eq[k] === id, itemName(id), icon(id))).join('') : `<p>${esc(t.noneYet)}</p>`;
+      return `<div class="pf-slot"><h4>${esc(K2[k] || k)}</h4><div class="pf-tiles">${tiles}</div></div>`;
+    }).join('');
+    sec.push(`<section class="pf-wide pf-flair"><h3>${esc(H2.flair)}</h3>${slots}</section>`);
+    // arena variants (per base arena, offered where the base arena is open) and the menu music
+    const av = owned(st, 'arena');
+    const arenas = av.length ? av.map((id) => {
+      const it = LV.item(id), A = (ND.ARENAS || []).find((a) => a.id === it.base), name = A ? A.name : it.base, open = !ND.save.isArenaUnlocked || ND.save.isArenaUnlocked(it.base);
+      return `<div class="pf-slot"><h4>${esc(name)}${open ? '' : ' 🔒'}</h4><div class="pf-tiles">${tile('arena', 'plain:' + it.base, st.av[it.base] !== id, t.plain, '<b class="pf-none">' + esc(A ? A.kanji : '景') + '</b>')}${tile('arena', id, st.av[it.base] === id, itemName(id), icon(id))}</div></div>`;
+    }).join('') : `<p>${esc(t.noneYet)}</p>`;
+    sec.push(`<section><h3>${esc(H2.arenas)}</h3>${arenas}</section>`);
+    const mus = owned(st, 'music');
+    sec.push(`<section><h3>${esc(H2.music)}</h3><div class="pf-tiles">${mus.length ? tile('music', null, !st.eq.music, t.usual, '<b class="pf-none">楽</b>') + mus.map((id) => tile('music', id, st.eq.music === id, itemName(id), icon(id))).join('') : `<p>${esc(t.noneYet)}</p>`}</div></section>`);
+    // costumes (worn on the fighter select screen) and the items held
+    const cos = owned(st, 'cos');
     sec.push(`<section><h3>${esc(t.heads.costumes)}</h3><div class="ps-chips">${cos.length ? cos.map((id) => `<span class="ps-chip"><span class="ps-ic">${icon(id)}</span>${esc(itemName(id))}</span>`).join('') : `<p>${esc(t.none)}</p>`}</div><p>${esc(t.wearHint)}</p></section>`);
+    sec.push(`<section><h3>${esc(H2.items)}</h3><div class="pf-items"><span><b class="ps-shd">盾</b><span><strong>${esc(t.shields(st.sd | 0, LV.SHIELD_MAX))}</strong><small>${esc(t.shieldHelp)}</small></span></span>` +
+      `<span><b class="ps-tkt">札</b><span><strong>${esc(t.tickets(st.tk | 0))}</strong><small>${esc(t.ticketHelp)}</small></span></span></div></section>`);
     const seals = (ND.CHARS || []).filter((c) => !c.hidden || st.jc[c.id]).map((c) => { const n = st.jc[c.id] | 0;
       return `<span class="${n ? 'on' : ''}" title="${esc(n ? t.clears(n) : '')}"><b class="k" style="color:${n ? c.col.ui : 'inherit'}">${esc(c.kanji)}</b>${esc(nice(c.name))}${n ? seal(n) : seal(0)}</span>`; }).join('');
-    sec.push(`<section><h3>${esc(t.heads.seals)}</h3><div class="ps-seals">${seals}</div><p>${esc(t.total(num(st.xp)))}${st.d.s > 1 ? ' · ' + esc(t.streak(st.d.s)) : ''}</p></section>`);
-    return `<div class="ps-prof">${sec.join('')}</div>`;
+    sec.push(`<section class="pf-wide"><h3>${esc(t.heads.seals)}</h3><div class="ps-seals">${seals}</div><p>${esc(t.total(num(st.xp)))}${st.d.s > 1 ? ' · ' + esc(t.streak(st.d.s)) : ''}</p></section>`);
+    $('profIn').innerHTML = head(L, st, t,
+      `<button class="btn ps-go" type="button" id="profPass"><b>影</b>${esc(t.passTab || t.name)}</button><button class="btn" type="button" id="profClose">${esc(t.close)}</button>`) +
+      `<div class="ps-prof pf-body">${sec.join('')}</div>`;
+    $('profClose').onclick = () => close();
+    $('profPass').onclick = () => { if (ND.audio && ND.audio.ui) ND.audio.ui(); open('pass'); };
+    pov.querySelectorAll('[data-eq]').forEach((b) => (b.onclick = () => {
+      const i = b.dataset.eq.indexOf(':'), k = b.dataset.eq.slice(0, i), id = b.dataset.eq.slice(i + 1);
+      equip(k, id || null); fx('tick'); render(false);
+    }));
+    if (!scroll) { const pf = pov.querySelector('.pf-body'); if (pf) pf.scrollTop = keep.pf; pov.scrollTop = keep.ov; }
   }
 
   // ---------------------------------------------------------------- end screen XP bar (#endXp) and level-up
@@ -763,18 +1046,24 @@
       obj[name] = function (...args) {
         if (before) safe(() => before.call(this, args));
         const r = f.apply(this, args);
-        safe(() => after.call(this, args, r));
+        if (after) safe(() => after.call(this, args, r));
         return r;
       };
     };
     // a match starts: its number (one award per match), the fight-time mark, the blade trail of this mode
-    wrap(G, 'start', function () { matchNo++; playSec0 = ND.ads ? ND.ads.playSec : 0; setTrail(G.mode); });
+    wrap(G, 'start', function () { matchNo++; playSec0 = ND.ads ? ND.ads.playSec : 0; setTrail(G.mode); setFlair(G, G.mode); });
     // a match ends: XP, then the bar on the end screen (the runner may have filled the end screen already)
     wrap(G, 'matchEnd', function (args) {
       if (G.mode === 'online') return;
       // a ranked shadow fight (js/ghost.js): XP like a ranked fight; its result screen is the ranked one, so no XP bar
       // here, the level-up moment on its own
-      if (G.mode === 'shadow') { const r = fightDone(G, args[0]); if (r && r.r.ups.length) setTimeout(() => levelUp(r.r.to.lv), 1500); return; }
+      if (G.mode === 'shadow') {
+        const r = fightDone(G, args[0]);
+        if (r && r.r.ups.length) setTimeout(() => levelUp(r.r.to.lv), 1500);
+        // and honor by the single-player rule (1.3.2), shown on the ranked result screen
+        if (r) { const s0 = (G.stats && G.stats[0]) || {}; P.rankedHonor({ mode: 'shadow', won: !!args[0] && args[0] === G.F[0], rounds: G.wins ? G.wins[0] : 0, parries: s0.parries, counters: s0.counters, rallies: s0.rallies, perfects: s0.perfect }); }
+        return;
+      }
       const res = fightDone(G, args[0]);
       const after = $('endHonor') || $('endScore');
       if (res && G.phase === 'end') xpBlock('endXp', after, res); else xpBlock('endXp', after, null);
@@ -802,6 +1091,14 @@
       }
     });
     wrap(A, 'refreshSelect', function () { selectSeals(); });
+    // the select screen's arena row: the worn variant of the chosen arena (js/flair.js), one tap on / off
+    wrap(G, 'refreshSelect', function () { arenaVariants(G); });
+    // a VS screen of a single-player match (the journey, CPU): this player's name card on the left, the CPU's none
+    wrap(G, 'showStage', null, function (args) {
+      if (args[0] !== 'vs' || !ND.flair) return;
+      ND.flair.set(0, LV.fightFlair(S().eq)); ND.flair.set(1, null);
+    });
+    applyWorn();
     wrap(A, 'openVs', function () {
       const R = this.run; if (!R) return;
       const n = S().jc[ND.CHARS[R.me].id] | 0, el = $('vsn1');
@@ -829,11 +1126,38 @@
       I.onPad = function (st, prev) {
         if (!P.isOpen) return oPad.apply(this, arguments);
         if (st.kick && !prev.kick) close();
-        else if ((st.light && !prev.light) || (st.up && !prev.up)) { const b = ov.querySelector('.ps-rw button'); if (b) b.click(); }
+        else if ((st.light && !prev.light) || (st.up && !prev.up)) { const b = cur().querySelector('.ps-rw button'); if (b) b.click(); }
       };
     }
     if (ND.i18n && ND.i18n.onChange) ND.i18n.onChange(() => { refreshStrip(); render(false); });
     refreshStrip();
+  }
+  // The arena row of the select screen: when the chosen arena has a variant this player owns, a chip for it (pressed
+  // while worn); the backdrop changes at once (js/flair.js arena). The fight reads the base arena only.
+  function arenaVariants(G) {
+    safe(() => {
+      const box = $('arenaChips'); if (!box) return;
+      box.querySelectorAll('.av').forEach((e) => e.remove());
+      const base = G.sel && G.sel.arena, st = S();
+      if (!base || base === 'random') return;
+      const t = T();
+      for (const id of st.own) {
+        const it = LV.item(id);
+        if (!it || it.kind !== 'arena' || it.base !== base) continue;
+        const b = document.createElement('button'), on = st.av[base] === id;
+        b.type = 'button'; b.className = 'chip av'; b.dataset.variant = id; b.setAttribute('aria-pressed', String(on));
+        b.title = (t.variant || '') + ': ' + itemName(id);
+        b.innerHTML = `<b>影</b>${esc(itemName(id))}`;
+        b.onclick = () => {
+          equip('arena', on ? 'plain:' + base : id);
+          if (ND.scene && ND.scene.setTheme) ND.scene.setTheme(base);
+          if (ND.audio && ND.audio.ui) ND.audio.ui();
+          arenaVariants(G);
+        };
+        const after = box.querySelector(`[data-arena="${base}"]`);
+        if (after && after.nextSibling) box.insertBefore(b, after.nextSibling); else box.appendChild(b);
+      }
+    });
   }
   // the select screen: each roster card's journey seal shows the clear count; the journey panel says the next reward
   function selectSeals() {
@@ -876,7 +1200,37 @@
     state: S, season, itemName, itemPal, icon, owns, costumesFor, wearing,
     get last() { return last; },
     award, onlineEnd, onlineResult, bonus, journeyCleared, claim, claimAllWaiting, readyCount, equip,
-    open, close, get isOpen() { return !!ov && !ov.hidden; }, refreshStrip, levelUp,
+    open, close, get isOpen() { return (!!ov && !ov.hidden) || (!!pov && !pov.hidden); }, get screen() { return P.isOpen ? tab : null; }, refreshStrip, levelUp,
+    // trial tickets (js/game.js ticketOffer): how many, and use one (→ true)
+    tickets: () => S().tk | 0,
+    useTicket() { const st = S(); if (!(st.tk > 0)) return false; st.tk--; commit(); return true; },
+    shields: () => S().sd | 0,
+    // An online opponent's fight flair (js/ranked.js: the ranked VS card and the match; a shadow's owner): o = the
+    // opponent's snapshot ({ player_id } or { flair: eq }), side = this player's side. Puts both sides on at once (the VS
+    // card shows them) and keeps them for the match (G.start). null o: nothing for the other side.
+    matchFlair(side, o) {
+      safe(() => {
+        let eq = o && o.flair && typeof o.flair === 'object' ? o.flair : null;
+        if (!eq && o && o.player_id != null) { const c = plateEq.get(Math.round(+o.player_id)); eq = c || null; if (!c) P.plate(o); }
+        oppWorn = { side: side | 0, worn: eq ? LV.fightFlair(eq) : null };
+        const F = ND.flair; if (!F) return;
+        F.set(side | 0, LV.fightFlair(S().eq)); F.set(1 - (side | 0), oppWorn.worn);
+      });
+    },
+    // Honor for a ranked or shadow fight (js/honor.js, the single-player rule; 1.3.2): r = { mode, won, rounds, parries,
+    // counters, rallies, perfects } → the honor result ({ total, rows }) or null; ranked.js shows "+n honor" on its result
+    rankedHonor(r) {
+      return safe(() => {
+        if (!r || !ND.HONOR || !ND.save.addHonor) return null;
+        const h = ND.HONOR.match({ mode: r.mode === 'shadow' ? 'shadow' : 'ranked', won: !!r.won, level: 1, roundsWon: r.rounds | 0, parries: r.parries | 0, counters: r.counters | 0, rallies: r.rallies | 0, perfects: r.perfects | 0 });
+        const ev = ND.save.addHonor(h.total);
+        if (ND.toastEvents) ND.toastEvents(ev);
+        lastHonor = { total: h.total, t: Date.now() };
+        return h;
+      }) || null;
+    },
+    get lastHonor() { return lastHonor && Date.now() - lastHonor.t < 120000 ? lastHonor.total : 0; },
+    applyWorn,
     level: () => LV.levelOf(S().xp),
     defaultSeason: DEF,
     // A season from the server (js/pass-net.js): { key: 'S<id>', n, start, end, C } or null. The first time it comes,
@@ -894,7 +1248,9 @@
       const st = S(), se = season(), p = sp(st, se);
       // (r: the claimed tiers; f carries the same list for a server from before the one-track pass)
       return { season: se.n, server: !!(remote && se === remote), xp: st.xp, x: p.x, r: p.f.slice(), f: p.f.slice(), b: [], a: p.a | 0, w: p.w | 0,
-        jc: Object.assign({}, st.jc), eq: { title: st.eq.title || null, badge: st.eq.badge || null, frame: st.eq.frame || null } };
+        jc: Object.assign({}, st.jc), cv: 2,
+        // (what the name plate and the opponent's screen show: the plate items and the fight flair)
+        eq: { title: st.eq.title || null, badge: st.eq.badge || null, frame: st.eq.frame || null, ...LV.fightFlair(st.eq) } };
     },
     // The server's answer (another device may be ahead): the larger of each number, claims joined; the items of tiers
     // claimed elsewhere are owned here too (their boosters and honor were paid on that device)
@@ -914,10 +1270,12 @@
           if (!Number.isInteger(t) || t < 1 || t > C.tiers.length || p.f.includes(t)) continue;
           p.f.push(t);
           const id = C.tiers[t - 1].r, it = LV.item(id);
-          if (it && !['boost', 'honor', 'rw'].includes(it.kind) && !st.own.includes(id)) st.own.push(id);
+          if (it && !LV.USED[it.kind] && !st.own.includes(id)) st.own.push(id);
         }
         p.f.sort((q, r) => q - r);
       }
+      // ranked shields: the server holds them (used there in a ranked loss): its count is the one shown
+      if (typeof me.shields === 'number' && Number.isFinite(me.shields)) st.sd = Math.max(0, Math.min(LV.SHIELD_MAX, Math.round(me.shields)));
       if (LV.levelOf(st.xp).lv > from.lv) st.seen = Math.max(st.seen, LV.levelOf(st.xp).lv); // (reached on another device)
       commit(); refreshStrip(); render(false);
     },
@@ -930,6 +1288,7 @@
         el.className = 'rk-tt ps-plate';
         // level, badge, title, and the best journey seal (一 二 三: the most clears of any one ninja)
         const fill = (lv, eq, jc) => {
+          if (o.player_id != null && eq && typeof eq === 'object') plateEq.set(Math.round(+o.player_id), eq);
           const ti = eq && eq.title && LV.item(eq.title), bd = eq && eq.badge && LV.item(eq.badge), fr = eq && eq.frame && LV.item(eq.frame);
           const best = jc && typeof jc === 'object' ? Math.min(3, Math.max(0, ...Object.values(jc).map((v) => v | 0))) : 0;
           el.innerHTML = `<b style="${fr ? '--fc:' + fr.color : ''}">${esc(T().lv)} ${lv | 0}</b>${best ? seal(best) : ''}${bd ? `<i style="color:${bd.color}">${esc(bd.icon)}</i>` : ''}${ti ? `<em style="color:${ti.color}">${esc(itemName(eq.title))}</em>` : ''}`;

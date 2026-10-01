@@ -669,6 +669,8 @@
     h.t = typeof h.t === 'number' && isFinite(h.t) ? Math.max(0, Math.min(1e7, Math.round(h.t))) : 0;
     if (!h.f || typeof h.f !== 'object') h.f = {};
     for (const k of Object.keys(h.f)) { const v = h.f[k]; if (!HONOR || (!HONOR.rival(k) && k !== BOSS) || typeof v !== 'number' || v <= 0) delete h.f[k]; else h.f[k] = Math.min(99, Math.round(v)); }
+    // rival challenges opened early by a Shadow Pass rival key (js/pass.js): ninja ids
+    h.k = Array.isArray(h.k) ? [...new Set(h.k.filter((k) => HONOR && HONOR.rival(k)))] : [];
     // eşiği geçilmiş arenalar her zaman açık (kendini onaran kural)
     if (HONOR) for (const a of HONOR.ARENAS) if (h.t >= a.need && !o.arenas.includes(a.id) && ND.ARENAS.some((x) => x.id === a.id)) o.arenas.push(a.id);
     return o;
@@ -771,7 +773,22 @@
       const r = HONOR && HONOR.rival(id);
       if (!r || !ND.CHARS.some((c) => c.id === id)) return null;
       const t = this.p.hon.t, fails = this.p.hon.f[id] | 0;
-      return { id, r, need: r.need, have: t, ready: t >= r.need, unlocked: this.isCharUnlocked(id), fails, hp: HONOR.rivalHp(r, fails) };
+      return { id, r, need: r.need, have: t, ready: t >= r.need || (this.p.hon.k || []).includes(id), unlocked: this.isCharUnlocked(id), fails, hp: HONOR.rivalHp(r, fails), key: (this.p.hon.k || []).includes(id) };
+    },
+    // Shadow Pass keys (js/pass.js): a rival key opens the next locked ninja's Rival Challenge now (one not open by honor
+    // yet); an arena key opens the next arena still locked behind honor. → the event ({ kind: 'ready' | 'arena', id }) or
+    // null when there is nothing left to open (the pass pays honor instead)
+    keyRival() {
+      if (!HONOR) return null;
+      const r = HONOR.RIVALS.find((x) => ND.CHARS.some((c) => c.id === x.id) && !this.isCharUnlocked(x.id) && !this.rivalInfo(x.id).ready);
+      if (!r) return null;
+      this.p.hon.k = [...(this.p.hon.k || []), r.id]; this.commit();
+      return { kind: 'ready', id: r.id };
+    },
+    keyArena() {
+      if (!HONOR) return null;
+      const a = HONOR.ARENAS.find((x) => ND.ARENAS.some((y) => y.id === x.id) && !this.isArenaUnlocked(x.id));
+      return a ? this.unlock('arena', a.id) : null;
     },
     // Sıradaki kilitli rakip (sırayla); hepsi açıksa null
     nextRival() { if (!HONOR) return null; const r = HONOR.RIVALS.find((x) => !this.isCharUnlocked(x.id) && ND.CHARS.some((c) => c.id === x.id)); return r ? this.rivalInfo(r.id) : null; },
@@ -1357,7 +1374,7 @@
       const me = ND.CHARS[R.me], final = arcadeTotal(R), res = { newBest: !!R.newBest };
       $('end').hidden = true;
       G.showStage('ending', ['edPv', null], R.me, null);
-      G.pv[0].pvPose = 'victory';
+      G.pv[0].pvPose = (ND.flair && ND.flair.pvPose(0)) || 'victory'; // (a worn victory pose, js/flair.js)
       ND.music.setMode('menu');
       const S = STR.ending, lines = R.version === J.version ? [J.text().endings[me.id]] : STR.endings[me.id] || STR.endings.def;
       $('edK').textContent = me.kanji; $('edK').style.color = me.col.ui;

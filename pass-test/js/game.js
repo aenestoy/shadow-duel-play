@@ -680,6 +680,7 @@
       const legacy = ND.save?.look ? ND.save.look(ND.CHARS[c1].id) : false; // false | true (Legacy) | 'champ'
       set(this.pv[0], c1, legacy, 1);
       if (c2 != null) set(this.pv[1], c2, c1 === c2 && !legacy, -1);
+      if (ND.flair) ND.flair.stage(phase); // the worn VS name cards (js/flair.js)
     },
 
     // Online room (js/online.js): the select screen's preview fighters, drawn into the room's own canvases (ids), in
@@ -761,6 +762,7 @@
       fx.text(f.x, -215, ND.SPECIALS?.[f.ch.id]?.kanji || '影斬り', f.col.ui);
       if (this.stats) this.stats[f.id].specials++;
       if (f === f1) score.special();
+      if (ND.flair) ND.flair.onSpecial(f); // a worn ki aura (js/flair.js): pictures only
     },
 
     // ---------------------------------------------------- karşılık serisi (kaeshi-waza)
@@ -930,7 +932,7 @@
           if (this.mode !== 'attract') music(last ? 'final' : 'fight');
         }
         if (pt > 0.9) this.focus = null;
-        if (pt > 1.5 && !fl.f) { fl.f = true; this.banner('Dövüş!', '始め', '', 0.75); au.taiko(1.1); }
+        if (pt > 1.5 && !fl.f) { fl.f = true; this.banner('Dövüş!', '始め', '', 0.75); au.taiko(1.1); if (ND.flair) ND.flair.onRoundStart(F); }
         if (pt > (this.mode === 'attract' ? 0.8 : 1.75)) { this.phase = 'fight'; F.forEach((f) => (f.locked = false)); }
       } else if (this.phase === 'fight') {
         if (this.mode === 'train') return;
@@ -1012,8 +1014,10 @@
       $('bRematch').textContent = tx(E.rematch || 'Rövanş'); $('bChange').textContent = tx(E.change || 'Karakter değiştir'); $('bEndMenu').textContent = tx(E.menu || 'Ana menü');
       $('bChange').hidden = false;
       const bc = $('bContinue'); if (bc) bc.hidden = true;
-      // a locked ninja tried for one fight (rewarded ad) goes back to the lock afterwards
-      this.endTrial();
+      // a locked ninja tried for one fight (rewarded ad) goes back to the lock afterwards; a Shadow Pass trial ticket lends
+      // it for a few fights (ND._trialN: fights left, counting this one)
+      if (ND._trial && ND._trialN > 1) { ND._trialN--; const PT = STR.pass || {}; if (ND.toast && PT.ticketLeft) ND.toast(PT.ticketLeft(ND._trialN), '札'); }
+      else this.endTrial();
       if (ND.coach) ND.coach.stop();
       const s = this.stats, rows = [
         [nice(f1.ch.name), '', nice(f2.ch.name)],
@@ -1421,6 +1425,7 @@
       ORD[0] = swap ? f2 : f1; ORD[1] = swap ? f1 : f2;
       cam.world(ctx);
       for (const f of ORD) f.drawGhosts(ctx);
+      if (ND.flair) ND.flair.drawBehind(ctx); // worn ki auras glow behind the fighters (js/flair.js)
       PM('weather+ghosts');
       for (const f of ORD) this.drawLit(f, f._litFn || (f._litFn = (c) => f.draw(c, false, true)));
       PM('fighters');
@@ -1707,12 +1712,13 @@
     // ends a rewarded one-fight loan of a locked ninja (see trialOffer): the lock is back, the previous pick restored
     endTrial() {
       if (!ND._trial) return;
-      ND._trial = null;
+      ND._trial = null; ND._trialN = 0;
       if (this.trialPrev != null) this.sel.c[0] = this.trialPrev;
       this.trialPrev = null;
     },
     // Rewarded ad: try a locked ninja for one CPU fight. k = roster index, or null to hide the offer.
     trialOffer(k) {
+      this.ticketOffer(k);
       const b = $('bTrial'); if (!b) return;
       const ok = k != null && this.selMode === 'cpu' && ND.ads && ND.ads.rewardedAvailable() && !!ND.CHARS[k];
       b.hidden = !ok;
@@ -1732,6 +1738,26 @@
           this.sel.c[0] = k; b.hidden = true;
           this.start('cpu', { c1: k, c2: this.sel.c[1], arena: this.sel.arena });
         });
+      };
+    },
+    // A Shadow Pass trial ticket (js/pass.js tickets / useTicket): a locked ninja for a few CPU fights, the same lending
+    // as the rewarded trial above. k = roster index, or null to hide the offer.
+    ticketOffer(k) {
+      const b = $('bTicket'); if (!b) return;
+      const P = ND.pass, n = P && P.tickets ? P.tickets() : 0, ch = k != null ? ND.CHARS[k] : null;
+      const ok = !!ch && n > 0 && this.selMode === 'cpu' && !(ND.save && ND.save.isCharUnlocked(ch.id));
+      b.hidden = !ok;
+      if (!ok) return;
+      const PT = STR.pass || {}, fights = (ND.LEVEL && ND.LEVEL.ITEMS.ticket_trial.n) || 3;
+      b.innerHTML = '';
+      const sp = document.createElement('span'); sp.textContent = PT.useTicket ? PT.useTicket(fights) : String(fights);
+      const sm = document.createElement('small'); sm.textContent = PT.useTicketSub ? PT.useTicketSub(n) : '';
+      b.append(sp, sm);
+      b.onclick = () => {
+        if (this.phase !== 'select' || !P.useTicket()) return;
+        this.trialPrev = this.sel.c[0]; ND._trial = ch.id; ND._trialN = fights;
+        this.sel.c[0] = k; b.hidden = true; const ad = $('bTrial'); if (ad) ad.hidden = true;
+        this.start('cpu', { c1: k, c2: this.sel.c[1], arena: this.sel.arena });
       };
     },
     // Kilitli ninja kartı: o ninja önizlenir (figür, ad, unvan/silah, değerler, Hareketler listesi) ama "Kilitli" işaretli;
@@ -1955,40 +1981,47 @@
       this.start(m, { c1: S.c[0], c2: S.c[1], arena: S.arena });
     },
     updateSelect(rdt) {
-      for (const pv of this.pv) {
-        pv.st += rdt;
-        const tp = ND.pose.copy(ND.POSES[pv.pvPose] || (pv.P && pv.P.stance) || ND.POSES.stance, pv.tmp);
-        const t = scene.t + pv.id * 1.3;
-        tp.hy += Math.sin(t * 2.3) * 1.3; tp.ay += Math.sin(t * 2.3 + 0.6) * 1.6; tp.sw += Math.sin(t * 1.15) * 0.035;
-        ND.pose.approach(pv.pose, tp, pv.pvPose ? 4 : 10, rdt);
-        pv.solve(rdt);
-        ND.updateCloth(pv.j, rdt);
-      }
+      for (const pv of this.pv) this.stepPv(pv, rdt, scene.t + pv.id * 1.3);
+    },
+    // one preview fighter (select screen, ranked pick: js/ranked.js), one frame of its idle: breathing sway (t: its
+    // clock), cloth
+    stepPv(pv, rdt, t) {
+      pv.st += rdt;
+      const tp = ND.pose.copy(ND.POSES[pv.pvPose] || (pv.P && pv.P.stance) || ND.POSES.stance, pv.tmp);
+      tp.hy += Math.sin(t * 2.3) * 1.3; tp.ay += Math.sin(t * 2.3 + 0.6) * 1.6; tp.sw += Math.sin(t * 1.15) * 0.035;
+      ND.pose.approach(pv.pose, tp, pv.pvPose ? 4 : 10, rdt);
+      pv.solve(rdt);
+      ND.updateCloth(pv.j, rdt);
     },
     renderSelect() {
       for (let i = 0; i < 2; i++) {
-        const id = this.pvIds[i], c = id && $(id), pv = this.pv[i];
-        if (!c) continue;
-        const r = c.getBoundingClientRect(), dpr = Math.min(this.dprCap || 2, window.devicePixelRatio || 1);
-        if (r.width < 2 || r.height < 2) continue;
-        // (drawn by the processor, willReadFrequently: the first select screen used to wait ~1 s on phones — no game
-        // work, no long task — most likely the GPU compiling the canvas's path and gradient shaders for these
-        // full-detail previews; small pictures, cheap on the CPU)
-        const pc = c.__pv2d || (c.__pv2d = c.getContext('2d', { willReadFrequently: true }));
-        const W = Math.max(1, Math.round(r.width * dpr)), H = Math.max(1, Math.round(r.height * dpr));
-        if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
-        pc.setTransform(1, 0, 0, 1, 0, 0); pc.clearRect(0, 0, W, H);
-        const g = pc.createRadialGradient(W / 2, H * 0.62, 10, W / 2, H * 0.62, H * 0.6);
-        g.addColorStop(0, pv.col.ui + '55'); g.addColorStop(1, 'rgba(0,0,0,0)');
-        pc.fillStyle = g; pc.fillRect(0, 0, W, H);
-        // (the fighter fills more of the preview, owner 2026-10-01: "the champion should be bigger, the costume does not
-        // even show"; feet a little lower, a raised long blade still inside the top edge)
-        const k = H / 220;
-        pc.setTransform(k, 0, 0, k, W / 2 - (pv.ch.blade > 110 ? 20 : 0) * k * pv.dir, H * 0.92);
-        pc.fillStyle = 'rgba(0,0,0,.45)'; pc.beginPath(); pc.ellipse(0, 3, 50, 7, 0, 0, 6.283); pc.fill();
-        pv.draw(pc, false);
-        ND.eyeGlow?.(pc, pv.j, pv.col, pv.ch.acc);
+        const id = this.pvIds[i], c = id && $(id);
+        if (c) this.drawPv(c, this.pv[i]);
       }
+    },
+    // a preview fighter drawn into its canvas (c) at the canvas's size on the page: glow in its colour, ground shadow,
+    // the full model, eyes. false: the canvas is not on screen
+    drawPv(c, pv) {
+      const r = c.getBoundingClientRect(), dpr = Math.min(this.dprCap || 2, window.devicePixelRatio || 1);
+      if (r.width < 2 || r.height < 2) return false;
+      // (drawn by the processor, willReadFrequently: the first select screen used to wait ~1 s on phones — no game
+      // work, no long task — most likely the GPU compiling the canvas's path and gradient shaders for these
+      // full-detail previews; small pictures, cheap on the CPU)
+      const pc = c.__pv2d || (c.__pv2d = c.getContext('2d', { willReadFrequently: true }));
+      const W = Math.max(1, Math.round(r.width * dpr)), H = Math.max(1, Math.round(r.height * dpr));
+      if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
+      pc.setTransform(1, 0, 0, 1, 0, 0); pc.clearRect(0, 0, W, H);
+      const g = pc.createRadialGradient(W / 2, H * 0.62, 10, W / 2, H * 0.62, H * 0.6);
+      g.addColorStop(0, pv.col.ui + '55'); g.addColorStop(1, 'rgba(0,0,0,0)');
+      pc.fillStyle = g; pc.fillRect(0, 0, W, H);
+      // (the fighter fills more of the preview, owner 2026-10-01: "the champion should be bigger, the costume does not
+      // even show"; feet a little lower, a raised long blade still inside the top edge)
+      const k = H / 220;
+      pc.setTransform(k, 0, 0, k, W / 2 - (pv.ch.blade > 110 ? 20 : 0) * k * pv.dir, H * 0.92);
+      pc.fillStyle = 'rgba(0,0,0,.45)'; pc.beginPath(); pc.ellipse(0, 3, 50, 7, 0, 0, 6.283); pc.fill();
+      pv.draw(pc, false);
+      ND.eyeGlow?.(pc, pv.j, pv.col, pv.ch.acc);
+      return true;
     },
   };
   // HUD bar scale (3 decimals), written only when it changed
@@ -2788,7 +2821,7 @@
     // a vibration of this frame's hit / parry goes to the browser once the frame is handed over (js/haptics.js defer)
     if (ND.haptics && ND.haptics.pending) setTimeout(hFlush, 0);
     bgWarm();
-    if (!loaded) { loaded = true; ND.portal?.loadingFinished(); ND.funnel?.step('menu'); if (glLater) setTimeout(startGl, 0); }
+    if (!loaded) { loaded = true; document.documentElement.classList.add('nd-ready'); ND.portal?.loadingFinished(); ND.funnel?.step('menu'); if (glLater) setTimeout(startGl, 0); }
     aqWatch(gap, performance.now() - w0);
   }
   game._frame = frameBody;
