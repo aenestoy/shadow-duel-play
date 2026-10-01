@@ -470,6 +470,7 @@
       this.kvLast = null; this.kvN = 0; this.pdLast = null; this.pdDir = null;
       if (this.chain) this.chain.init = false;
       pose.copy(this.P.stance, this.pose);
+      this._anim = null; // display pose (js/anim.js) starts again from this pose
       this.setState('move');
       ND.solve(this.pose, this.x, this.y, this.dir, this.j, this.wpn);
       ND.updateCloth(this.j, 0);
@@ -1158,7 +1159,7 @@
     addGhost(life, col) {
       const last = this.ghosts[this.ghosts.length - 1];
       if (last && (col ? last.max - last.life < 0.03 && Math.abs(last.x - this.x) < 8 : Math.abs(last.x - this.x) < 26)) return;
-      this.ghosts.push({ j: ND.cloneJ(this.j), life, max: life, x: this.x, c: col || null });
+      this.ghosts.push({ j: ND.cloneJ(this.viewJ()), life, max: life, x: this.x, c: col || null });
       if (this.ghosts.length > (col && !ND.settings.hq ? 2 : 8)) this.ghosts.shift();
     }
 
@@ -1500,12 +1501,17 @@
         if (ws) ws(this, j, dt);
         j.wSheath = this.wpn.iai ? this.sheathed() : 0;
       }
+      // the drawn body (js/anim.js: display joints, never read by the fight) moves the cloth and the blade streak
+      if (ND.anim) ND.anim.present(this, dt, false, j); else this.cloth(j, dt);
+    }
+    // Blade streak and cloth (hair, scarf, sash): pictures only, anchored on the joints that are drawn
+    cloth(j, dt) {
       const A = this.state === 'atk' ? this.atk : null;
       const trailOn = this.bladeActive() || (A && A.kind === 'blade' && ((this.st > A.active[0] - 0.04 && this.st < A.active[1] + 0.06) || (A.slide && this.st >= A.slide[0] && this.st <= A.slide[1]))) || (this.state === 'win' && this.st < 0.3);
       if (trailOn && !this.dead) {
         // a counter technique leaves a twice-as-long, wider streak (the ink stroke of the kaeshi-waza)
         const ctr = A && A.counter, k = ctr ? 0.12 : 0.28;
-        this.trail.push([j.haF.x + (j.tip.x - j.haF.x) * k, j.haF.y + (j.tip.y - j.haF.y) * k, j.tip.x, j.tip.y]);
+        this.trail.push([j.haF.x + (j.tip.x - j.haF.x) * k, j.haF.y + (j.tip.y - j.haF.y) * k, j.tip.x, j.tip.y, j.haF.x, j.haF.y]);
         if (this.trail.length > (ctr ? 16 : 8)) this.trail.shift();
       } else if (this.trail.length) this.trail.shift();
       const R = ND.LEN.headR, th = j.hang + Math.PI / 2, cs = Math.cos(th), sn = Math.sin(th);
@@ -1587,11 +1593,21 @@
       // counter streak takes its technique's colour (ND.cine: gold suriage, cyan harai, violet nuki, red uchiotoshi)
       const tc = (sp && this.atk.trail) || (ct && ND.cine && ND.cine.rgb(this));
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
-      for (let i = 1; i < T.length; i++) {
-        const a = T[i - 1], b = T[i];
-        // karşılık kesiği sıcak beyaz iz bırakır (normal saldırılar soğuk mavi)
-        ctx.fillStyle = tc ? `rgba(${tc},${(i / T.length) * 0.55})` : sp ? `rgba(255,190,150,${(i / T.length) * 0.5})` : ct ? `rgba(255,228,176,${(i / T.length) * 0.42})` : `rgba(200,220,255,${(i / T.length) * 0.32})`;
-        ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(a[2], a[3]); ctx.lineTo(b[2], b[3]); ctx.lineTo(b[0], b[1]); ctx.closePath(); ctx.fill();
+      // karşılık kesiği sıcak beyaz iz bırakır (normal saldırılar soğuk mavi)
+      const fill = (i) => (tc ? `rgba(${tc},${(i / T.length) * 0.55})` : sp ? `rgba(255,190,150,${(i / T.length) * 0.5})` : ct ? `rgba(255,228,176,${(i / T.length) * 0.42})` : `rgba(200,220,255,${(i / T.length) * 0.32})`);
+      if (ND.anim && ND.anim.on) {
+        // one slice per ~7° of the blade's turn between two samples: the streak's edge follows the tip's arc
+        let fi = -1;
+        ND.anim.trailSlices(T, (i, u0, u1, q) => {
+          if (i !== fi) { fi = i; ctx.fillStyle = fill(i); }
+          ctx.beginPath(); ctx.moveTo(q[0], q[1]); ctx.lineTo(q[2], q[3]); ctx.lineTo(q[6], q[7]); ctx.lineTo(q[4], q[5]); ctx.closePath(); ctx.fill();
+        });
+      } else {
+        for (let i = 1; i < T.length; i++) {
+          const a = T[i - 1], b = T[i];
+          ctx.fillStyle = fill(i);
+          ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(a[2], a[3]); ctx.lineTo(b[2], b[3]); ctx.lineTo(b[0], b[1]); ctx.closePath(); ctx.fill();
+        }
       }
       ctx.restore();
     }
@@ -1629,6 +1645,10 @@
     }
     makeRopeList() {
       const c = this.col;
+      // a drawn costume with its own helmet (js/costumes.js): no headband tails, hair or hood ends under it (only the
+      // sash; Aoi's are her coat's tails)
+      const K = c.costume && ND.COSTUMES && ND.COSTUMES[c.costume];
+      if (K && K.head && !K.ownHead && this.ch.acc !== 'aoi') return [{ rope: this.sash, col: c.accent, w: 4 }];
       if (this.ch.acc === 'scarf') return [{ rope: this.tails[0], col: c.accent, w: 6 }, { rope: this.tails[1], col: c.accentDark, w: 5 }, { rope: this.sash, col: c.accentDark, w: 4 }];
       if (this.ch.acc === 'kasa') return [{ rope: this.tails[0], col: '#6b5a3a', w: 1.4 }, { rope: this.sash, col: c.accent, w: 4 }];
       if (this.ch.acc === 'ponytail') return [{ rope: this.tails[0], col: '#0c0a0b', w: 6 }, { rope: this.sash, col: c.accent, w: 4 }];
@@ -1651,8 +1671,10 @@
       return 0;
     }
     // layer: ctx is an empty layer of its own (game.drawLit), which lets the part cache draw back to front faster
+    // the joints to draw: the display joints (js/anim.js) when there are some, else the fight's own
+    viewJ() { const S = this._anim; return this.dead ? this.rag.j : S && S.ok ? S.j : this.j; }
     draw(ctx, reflect, layer) {
-      const j = this.dead ? this.rag.j : this.j;
+      const j = this.viewJ();
       if (!j.hip || this.hidden) return;
       ctx.save();
       if (this.jit > 0) ctx.translate((Math.random() - 0.5) * 5, 0);
@@ -1661,8 +1683,12 @@
       // reflections: the flat two-tone model (skeleton.js drawLow). Low graphics: the same detailed fighter, drawn
       // from its cached part pictures (bake.js) instead of paths (select-screen previews set fullDetail: paths)
       o.lod = reflect ? 'low' : 'high';
-      o.bake = !reflect && !this.fullDetail && ND.gfx ? (ND.gfx.tier === 'low' ? this.bakeCache() : null) : null; o.layer = !!layer;
+      // (a drawn costume, js/costumes.js, is drawn with paths: its parts are not in the cache)
+      // (GPU path: High and Medium too, on WebGL2 frames only: a Canvas 2D fallback frame keeps the paths)
+      o.bake = !reflect && !this.fullDetail && !this.col.costume && ND.gfx ? (ND.gfx.tier === 'low' || (ND.gpuPath && ctx.isGL === true) ? this.bakeCache() : null) : null; o.layer = !!layer;
       ND.drawNinja(ctx, j, this.col, o);
+      // a catalog costume's own part art over the figure (js/rewards.js; only when the palette carries an atlas)
+      if (!reflect && this.col.atlas && ND.skinOverlay) ND.skinOverlay(ctx, j, this.col);
       ctx.restore();
       if (this.looseSword) this.looseSword.draw(ctx, this.col);
     }
@@ -1671,7 +1697,7 @@
     // Ekran uzayında kaba sınır kutusu (ışık katmanı için)
     // Returns the fighter's own reused array [x0, y0, x1, y1]: read it right away (it changes on the next call).
     bounds() {
-      const j = this.dead ? this.rag.j : this.j;
+      const j = this.viewJ();
       BB[0] = 1e9; BB[1] = 1e9; BB[2] = -1e9; BB[3] = -1e9;
       for (let i = 0; i < JKEYS.length; i++) bbAdd(j[JKEYS[i]]);
       for (let r = 0; r < this.tails.length; r++) { const P = this.tails[r].p; for (let i = 0; i < P.length; i++) bbAdd(P[i]); }

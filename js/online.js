@@ -111,7 +111,11 @@
   const hasTurn = (r) => !!(r.turn && r.turn.some((e) => e.urls.some((u) => /^turns?:/i.test(u))));
   const pcConfig = (r) => ({ iceServers: iceServers().concat(r.turn || []), iceTransportPolicy: window.__ndIcePolicy === 'relay' ? 'relay' : 'all' });
   // (waits for the relay's answer, at most TURN_MS after the room opened)
-  function withIce(r, fn) { (r.icePromise || Promise.resolve([])).then((l) => { r.turn = l || []; if (R === r) fn(); }); }
+  // (fn making the connection must not end as an unhandled rejection: a browser that refuses one gets "no connection")
+  function withIce(r, fn) {
+    (r.icePromise || Promise.resolve([])).then((l) => { r.turn = l || []; if (R === r) fn(); })
+      .catch((e) => { console.warn('[online] connection', e); if (R === r) fail(noConnect(r), true); });
+  }
   // no connection: without a relay the networks allow no direct route (another network may); with one, something else
   const noConnect = (r) => (hasTurn(r) ? M().noConnect : M().noDirect);
 
@@ -131,7 +135,13 @@
       h.onPresence(list, initial);
     };
     function open() {
-      ws = new WebSocket(wsUrl);
+      // a browser or page setting that refuses the websocket throws here (SecurityError): no signalling, said at once
+      try { ws = new WebSocket(wsUrl); } catch (e) {
+        ws = null; clearInterval(hb);
+        console.warn('[online] websocket', e);
+        setTimeout(() => { if (!closed) h.onError('closed'); }, 0);
+        return;
+      }
       ws.onopen = () => {
         joinRef = String(++ref);
         raw({ topic, event: 'phx_join', payload: { config: { broadcast: { self: false, ack: false }, presence: { key: me.id }, private: false } }, ref: joinRef, join_ref: joinRef });
@@ -963,6 +973,8 @@
     pick: setPick, arena: setArena, ready: toggleReady, rematch: () => { const b = $('onlRematch'); if (b) b.click(); }, toLobby: () => toLobby(true), syncAway: () => syncAway(),
     state: () => ({ screen, role: R && R.role, code: R && R.code, connected: !!(R && R.connected), rtt: R ? Math.round(R.rtt) : 0, err: R ? R.err : '', peerPick: R && R.peerPick, ready: !!(R && R.ready), peerReady: !!(R && R.peerReady), result: R && R.result, ice: R && R.ice }),
     endShown: () => screen === 'end' && !!$('onlEnd') && !$('onlEnd').hidden,
+    // the connection settings for another online mode (js/ranked.js): free STUN + the TURN relay's one-hour credentials
+    iceConfig: () => fetchTurn().then((t) => ({ iceServers: iceServers().concat(t || []), iceTransportPolicy: window.__ndIcePolicy === 'relay' ? 'relay' : 'all' })),
     onBegin: null, onEnd: null,
   };
 

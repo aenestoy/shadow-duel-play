@@ -469,6 +469,31 @@
       const fs = box.querySelector('[data-fs]');
       if (fs) { fs.hidden = !fsAllowed(); fs.textContent = fsElement() ? O.exitFullscreen || '' : O.fullscreen || ''; }
     });
+    menuFs(O);
+  }
+  // The main menu's fullscreen button: a small round icon in the top row (next to Settings and the language globe),
+  // four corner brackets pointing out (enter) or in (exit). Only where fsAllowed(): our own pages with a working
+  // Fullscreen API — never on a portal (CrazyGames forbids custom fullscreen buttons and provides its own; Yandex and
+  // Playgama run the game full screen in their own frames), never on iPhone Safari (no element fullscreen).
+  const FS_IN = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg>';
+  const FS_OUT = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5"/></svg>';
+  function menuFs(O) {
+    const row = $('menuTop');
+    if (!row) return;
+    let b = $('menuFs');
+    // (iPhone: Safari there has no element fullscreen; said outright, whatever a browser there reports)
+    const iphone = /iPhone|iPod/.test(navigator.userAgent || '');
+    if (!fsAllowed() || iphone) { if (b) b.hidden = true; return; }
+    if (!b) {
+      b = document.createElement('button');
+      b.type = 'button'; b.id = 'menuFs'; b.className = 'fs-btn';
+      b.onclick = (e) => { e.stopPropagation(); toggleFullscreen(); };
+    }
+    if (row.lastElementChild !== b) row.appendChild(b); // (the corner: after Settings and the language globe)
+    const on = !!fsElement(), t = on ? O.exitFullscreen || 'Exit fullscreen' : O.fullscreen || 'Fullscreen';
+    b.hidden = false;
+    if (b._on !== on) { b.innerHTML = on ? FS_OUT : FS_IN; b._on = on; }
+    b.setAttribute('aria-label', t); b.title = t; b.setAttribute('aria-pressed', String(on));
   }
   function buildAll() { build($('setTset'), true); refresh(); }
 

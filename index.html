@@ -3,10 +3,40 @@
 <head>
 <meta charset="utf-8">
     <meta name="robots" content="noindex, nofollow" />
-<script type="module" crossorigin src="./assets/index-BlVM8X7s.js"></script>
+<script type="module" crossorigin src="./assets/index-D_-EcQHr.js"></script>
 <link rel="stylesheet" crossorigin href="./assets/index-CFtILYoN.css">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Shadow Duel</title>
+<!-- Error capture for the studio panel's error reports (src/studio-stats.ts sends them where statistics are on; never in
+     the Yandex / Playgama packages): the page's first errors and unhandled rejections wait here until that module is
+     ready. It only listens: every error still reaches the browser and a portal's own listeners as before. -->
+<script>
+(function () {
+  var q = [], sink = null, t0 = Date.now();
+  function state() { try { return window.__ndErrState ? window.__ndErrState() : 'boot'; } catch (e) { return 'boot'; } }
+  function put(r) { try { r.t = (Date.now() - t0) / 1000; r.state = state(); if (sink) sink(r); else if (q.length < 10) q.push(r); } catch (e) { /* never */ } }
+  function text(v) { try { return String(v); } catch (e) { return typeof v; } }
+  function named(x) { return x && typeof x === 'object' && typeof x.message === 'string' ? (x.name || 'Error') + ': ' + x.message : null; }
+  window.addEventListener('error', function (e) {
+    if (!e || (e.target && e.target !== window)) return; // a file that did not load is not an error of the code
+    var x = e.error;
+    if (x && x.__ndReported) return; // game.js already reported it (frameFault)
+    if (!x && /^ResizeObserver loop/.test(e.message || '')) return; // a browser notice, not an error of the code
+    put({ kind: 'error', msg: named(x) || text(e.message || 'Script error.'), src: (e.filename || '') + ':' + (e.lineno || 0) + ':' + (e.colno || 0), stack: x && typeof x.stack === 'string' ? x.stack : '' });
+  });
+  window.addEventListener('unhandledrejection', function (e) {
+    var r = e && e.reason, m = named(r);
+    if (!m) m = typeof r === 'string' ? r : 'non-Error rejection: ' + (r === null ? 'null' : typeof r);
+    if (r && typeof r === 'object' && typeof r.code === 'string' && m.indexOf(r.code) < 0) m += ' (code ' + r.code + ')';
+    put({ kind: 'rejection', msg: m, src: '', stack: r && typeof r.stack === 'string' ? r.stack : '' });
+  });
+  window.__ndErr = {
+    // an error the game caught itself and goes on after (game.js frameFault: the frame loop)
+    report: function (kind, x) { put({ kind: kind, msg: named(x) || text(x), src: '', stack: x && typeof x.stack === 'string' ? x.stack : '' }); },
+    take: function (fn) { sink = fn; var l = q; q = []; for (var i = 0; i < l.length; i++) { try { fn(l[i]); } catch (e) { /* never */ } } },
+  };
+})();
+</script>
 <!-- Fonts ship with the game (no external requests): fonts/fonts.css is written by scripts/font-subset.mjs -->
 <!-- Portal SDK bridge (module, bundled by Vite): publishes window.NDPortal; js/core.js wraps it as ND.portal -->
 <style>
@@ -551,6 +581,13 @@
   .topbtns .lang-globe { position: static; height: 36px; }
   #app.touch .topbtns .lang-globe { height: 40px; }
   #first .topbtns { top: calc(env(safe-area-inset-top, 0px) + 12px); right: calc(env(safe-area-inset-right, 0px) + 14px); }
+  /* fullscreen (main menu, our own pages only: js/touch.js menuFs) — the globe's look, round, icon only */
+  .fs-btn { display: inline-grid; place-items: center; width: 36px; height: 36px; padding: 0; background: rgba(8,9,16,.55); border: 1px solid var(--line); border-radius: 18px; color: var(--muted); cursor: pointer; transition: color .15s, border-color .15s, background-color .15s; }
+  .fs-btn svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  .fs-btn:hover, .fs-btn:focus-visible { color: var(--gold-hi, #f1d69c); border-color: var(--gold); background: rgba(8,9,16,.8); }
+  .fs-btn:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  .fs-btn[hidden] { display: none; }
+  #app.touch .fs-btn { width: 40px; height: 40px; border-radius: 20px; }
   #menu .brand { position: relative; }
   #menu .brand > div:last-child { padding-right: 250px; }
   /* the options line has its own Settings button for layouts where the brand is narrow (below) */
@@ -558,7 +595,7 @@
   .opts { align-items: center; }
   /* low landscape phone: brand + options on the left are narrow; Settings leads the options line (under the title),
      the globe stays beside the title */
-  @media (max-height: 500px) and (min-width: 560px) {
+  @media (max-height: 540px) and (min-width: 560px) {
     #menuSet { display: none; }
     .opts .set-wide { display: inline-flex; }
     #menu .brand > div:last-child { padding-right: 64px; }
@@ -569,13 +606,15 @@
 
   #setOv { z-index: 60; display: flex; align-items: center; justify-content: center; padding-block: 16px; background: rgba(5,6,12,.86); }
   #setOv[hidden] { display: none; }
-  .set-card { box-sizing: border-box; width: min(760px, 100%); max-height: 100%; margin: auto; padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
+  /* one size for every tab (the tallest, or the screen): switching tabs never moves the panel or the tab bar, the
+     content scrolls inside it (owner, 2026-09-30: go to the next tab without lifting the finger) */
+  .set-card { box-sizing: border-box; width: min(760px, 100%); height: min(620px, 100%); max-height: 100%; margin: auto; padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
   .set-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   .set-head h2 { display: flex; align-items: center; gap: 10px; margin: 0; font: 600 20px/1 var(--display); letter-spacing: .14em; text-transform: uppercase; color: var(--gold-hi); }
   .set-head h2 .set-ic { width: 22px; height: 22px; color: var(--gold); }
   .set-close { padding: 9px 16px; font-size: 14px; }
   .set-body { display: grid; grid-template-columns: minmax(130px, auto) minmax(0, 1fr); gap: 16px; min-height: 0; flex: 1 1 auto; }
-  .set-tabs { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .set-tabs { display: flex; flex-direction: column; gap: 6px; min-width: 0; align-self: start; touch-action: none; }
   .set-tabs [role="tab"] { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 8px 12px; background: rgba(255,255,255,.035); border: 1px solid var(--line); cursor: pointer;
     color: var(--muted); font: 600 15px/1.1 var(--display); letter-spacing: .08em; text-transform: uppercase; text-align: left; }
   .set-tabs [role="tab"] b { font: 700 16px/1 var(--jp); color: var(--gold); opacity: .75; }
@@ -592,6 +631,13 @@
   .set-pane .gq-t { font-weight: 600; letter-spacing: .24em; color: var(--gold); }
   .set-pane .gq .seg { min-height: 36px; }
   .set-pane .gq + .gq { margin-top: 12px; }
+  .gq-adv { display: grid; gap: 10px; }
+  .gq-adv-rows { display: grid; gap: 10px; padding-left: 10px; border-left: 2px solid rgba(217,179,108,.25); }
+  .gq-adv-rows[hidden] { display: none; }
+  .gq-adv-rows .gq-t { font-size: 12px; letter-spacing: .16em; }
+  .gq-hot { font-size: 12px; color: #f0a36b; }
+  .gq-hot::before { content: "▲ "; font-size: 9px; vertical-align: 1px; }
+  .gq-custom { cursor: default; }
   #app.touch .set-pane .tset .seg, #app.touch .set-pane .tset .tog { min-height: 40px; }
   .set-note { margin: 0; font-size: 12.5px; line-height: 1.35; color: var(--muted); }
   #app.touch .set-note { display: none; }
@@ -629,7 +675,7 @@
   /* phones held upright: the corner card may take most of the width */
   @media (max-width: 560px) { .priv-note { max-width: calc(100% - 16px); } }
   /* low landscape phones: smaller still */
-  @media (max-height: 500px) { .priv-note { max-width: min(300px, calc(50% - 16px)); padding: 5px 8px; font-size: 11px; line-height: 1.3; } .priv-note p { margin: 0 0 3px; } .pn-row { font-size: 11px; } .pn-ok { min-width: 44px; } }
+  @media (max-height: 540px) { .priv-note { max-width: min(300px, calc(50% - 16px)); padding: 5px 8px; font-size: 11px; line-height: 1.3; } .priv-note p { margin: 0 0 3px; } .pn-row { font-size: 11px; } .pn-ok { min-width: 44px; } }
   .set-rc { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
   .set-code { font: 700 20px/1.2 ui-monospace, Consolas, monospace; letter-spacing: .12em; color: var(--gold-hi); user-select: all; -webkit-user-select: all; }
   .set-rcform { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
@@ -642,7 +688,7 @@
   .btn.set-btn { display: flex; align-items: center; justify-content: center; gap: 10px; }
   .btn.set-btn .set-ic { color: var(--gold); }
   /* low landscape phone (667×375, 812×375, 740×360): a tighter panel, the tabs stay a column on the left */
-  @media (max-height: 500px) {
+  @media (max-height: 540px) {
     #setOv { padding-block: 8px; }
     .set-card { padding: 10px 14px; gap: 8px; }
     .set-head h2 { font-size: 17px; }
@@ -657,9 +703,12 @@
   /* upright phone: tabs become a row over the pane */
   @media (max-width: 559px) {
     .set-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
-    .set-tabs { flex-direction: row; overflow-x: auto; scrollbar-width: none; }
-    .set-tabs [role="tab"] { flex: 1 0 auto; justify-content: center; }
-    .set-tabs [role="tab"] b { display: none; }
+    /* (five equal tabs across the width, kanji over a small label, never scrolling: a finger slides from one to the next) */
+    .set-tabs { flex-direction: row; gap: 4px; overflow: visible; align-self: stretch; }
+    .set-tabs [role="tab"] { flex: 1 1 0; min-width: 0; flex-direction: column; justify-content: center; gap: 3px; min-height: 52px; padding: 6px 1px; font-size: 10px; letter-spacing: 0; }
+    .set-tabs [role="tab"] b { display: block; font-size: 17px; }
+    .set-tabs [role="tab"] span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .set-tabs [role="tab"][aria-selected="true"] { box-shadow: inset 0 -3px 0 var(--gold); }
     .set-keys .keys { grid-template-columns: 1fr; }
   }
 
@@ -720,7 +769,7 @@
   .slot.peek .rdy { display: none; }
   .roster button.locked[aria-pressed="true"] { opacity: 1; border-color: var(--gold-hi); box-shadow: inset 0 -2px 0 var(--gold-hi); }
   #bFight:disabled { opacity: .4; cursor: not-allowed; filter: grayscale(.6); }
-  @media (max-height: 500px) and (min-width: 560px) {
+  @media (max-height: 540px) and (min-width: 560px) {
     .slot .lkb { top: 6px; right: 8px; padding: 2px 6px 2px 5px; font-size: 9.5px; }
     /* a previewed locked ninja: how to unlock it takes the place of the stat bars next to the (dimmed) figure, so the
        whole figure stays visible and the screen keeps the height it has with an open ninja */
@@ -928,7 +977,7 @@
   @media (hover: none) { .mode:hover { transform: none; } }
 
   /* ---------------- Alçak yatay ekranlar (telefon yatay: 360–430 px yükseklik) */
-  @media (max-height: 500px) {
+  @media (max-height: 540px) {
     /* HUD: sıkı */
     #hud { padding-top: 6px; gap: 10px; }
     .side { gap: 3px; }
@@ -996,7 +1045,7 @@
     .ed-stats b { font-size: 14px; }
     .ed-stats .sc b { font-size: 19px; }
   }
-  @media (max-height: 500px) and (min-width: 560px) {
+  @media (max-height: 540px) and (min-width: 560px) {
     /* Ana menü: marka + seçenekler solda, modlar sağda */
     #menu { background: linear-gradient(90deg, rgba(5,6,12,.92), rgba(5,6,12,.72)); }
     #menu.overlay { padding-block: 12px; }
@@ -1053,7 +1102,7 @@
     .vs-grid { gap: 8px; }
   }
   /* dokunmatik tablet (768–900 px yükseklik): seçim ekranı kaydırmadan sığsın, kadro düğmeleri parmak boyu */
-  @media (min-height: 501px) and (max-height: 900px) {
+  @media (min-height: 541px) and (max-height: 900px) {
     #app.touch .slot canvas { height: clamp(150px, 25vh, 280px); }
     #app.touch .roster button { min-height: 40px; }
   }
@@ -1069,7 +1118,7 @@
   }
   @supports (height: 100dvh) {
     @media (min-width: 861px) and (min-height: 821px) { .menu-wrap > aside.card { max-height: calc(100dvh - 56px); } }
-    @media (max-height: 820px) and (min-height: 501px) and (min-width: 861px) { .menu-wrap > aside.card { max-height: calc(100dvh - 36px); } }
+    @media (max-height: 820px) and (min-height: 541px) and (min-width: 861px) { .menu-wrap > aside.card { max-height: calc(100dvh - 36px); } }
   }
 
   /* ---------------- Puan: HUD sayacı (1P adının sağında), maç sonu dökümü */
@@ -1172,7 +1221,7 @@
     .lb-row .tm, .lb-row .dt { display: none; }
     .dialog.scored .sbd-rows { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
-  @media (max-height: 500px) {
+  @media (max-height: 540px) {
     .nm .scr { font-size: 13px; }
     #lb.overlay { padding-block: 6px; }
     .lb-wrap { padding: 8px 12px; gap: 5px; }
@@ -1221,7 +1270,7 @@
   .plq li .n .ttl { margin-left: 5px; vertical-align: 1px; font-size: 8.5px; padding: 1px 4px; }
   .ttl-hud { justify-self: start; margin-top: 1px; }
   .ttl-hud .ttl { font-size: 10.5px; box-shadow: 0 2px 6px rgba(0,0,0,.6); }
-  @media (max-height: 500px) { .ttl-hud .ttl { font-size: 8.5px; padding: 1px 4px; } }
+  @media (max-height: 540px) { .ttl-hud .ttl { font-size: 8.5px; padding: 1px 4px; } }
 
   /* ---------------- HUD: 1P'nin Dan rütbesi */
   .nm .rk1 { flex: none; padding: 2px 5px; border: 1px solid rgba(217,179,108,.6); background: rgba(0,0,0,.45); font: 600 9.5px/1 var(--display); letter-spacing: .1em; color: var(--gold-hi); }
@@ -1264,7 +1313,7 @@
   .bz-reward, .hall-reward { margin: 0; flex: none; font: 600 12.5px/1.35 var(--body); color: #ffd35a; }
   .bz-reward::before, .hall-reward::before { content: '覇'; margin-right: 6px; font: 700 1em/1 var(--jp); color: #f1c65a; }
   .hall-reward { margin: -2px 0 8px; font-size: 12px; }
-  @media (max-height: 500px) { .bz-reward { font-size: 11px; line-height: 1.25; } .hall-reward { margin-bottom: 5px; font-size: 10.5px; } }
+  @media (max-height: 540px) { .bz-reward { font-size: 11px; line-height: 1.25; } .hall-reward { margin-bottom: 5px; font-size: 10.5px; } }
   .bz-card .sel-actions { flex: none; }
 
   /* turnuva merdiveni */
@@ -1433,13 +1482,17 @@
     .opts { margin-top: 10px; gap: 0 14px; }
     .tog { padding: 3px 0; }
   }
+  /* phones upright: the same two-line tagline, so the menu's main entries (up to RANKED DUEL) fit the first screen */
+  @media (max-width: 560px) and (max-height: 900px) {
+    .brand p { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  }
   @media (max-height: 760px) and (min-width: 861px) {
     .brand h1 { font-size: clamp(36px, 4.4vw, 56px); }
     .mode span { font-size: 12.5px; line-height: 1.3; }
     .modes { gap: 6px; }
     .mode { padding: 8px 14px; }
   }
-  @media (max-height: 500px) {
+  @media (max-height: 540px) {
     .bz.overlay { padding-block: 6px; }
     .bz-card { padding: 8px 12px; gap: 6px; }
     .bz-k { font-size: 28px; }
@@ -1585,7 +1638,7 @@
     .champ .ch-n { font-size: 22px; }
     .champ .ch-list li { line-height: 1.35; }
   }
-  @media (max-height: 500px) and (min-width: 560px) {
+  @media (max-height: 540px) and (min-width: 560px) {
     .sp-btn { padding: 6px 10px; }
     .sp-btn strong { font-size: 14px; }
     .sp-btn span { display: none; }
@@ -1725,7 +1778,7 @@
   .hr-earn dt { font: 600 12px/1.3 var(--display); letter-spacing: .06em; color: var(--text); white-space: nowrap; }
   .hr-earn dd { margin: 0; color: var(--muted); line-height: 1.3; }
   @media (max-width: 640px) { .hr-cols { grid-template-columns: 1fr; } }
-  @media (max-height: 500px) {
+  @media (max-height: 540px) {
     .honor-strip { padding: 5px 10px; gap: 8px; }
     .honor-strip .k { font-size: 20px; }
     .honor-strip .t { font-size: 12.5px; }
@@ -1775,12 +1828,12 @@
   .look-row .look-champ[aria-pressed="true"]::before { color: #6a0a13; }
   .look-row .look-slot.locked { opacity: .6; border-style: dashed; cursor: default; background: #11121c; color: #a99a78; }
   .look-row .look-how { font: 12px/1.3 var(--body); color: #c9b98f; }
-  @media (max-height: 500px) { .look-row .look-slot { padding: 5px 9px; font-size: 12px; } .look-row .look-how { font-size: 11px; } }
+  @media (max-height: 540px) { .look-row .look-slot { padding: 5px 9px; font-size: 12px; } .look-row .look-how { font-size: 11px; } }
   #journeyGoal { grid-column: 1 / -1; justify-self: start; margin-top: -12px; max-width: 65%; padding: 3px 7px; color: #dddce4; background: #10111ad9; font: 12px/1.3 var(--body); }
   @media (max-width: 600px) { .journey-chapters { grid-template-columns: repeat(4, minmax(0, 1fr)); } .journey-panel { padding: 10px; } }
   /* Journey (PLAY): the ninja and its journey side by side, so the roster, the chosen ninja and Start fit on the
      screen without scrolling (arcade.js sets #select.journey while the journey panel is shown) */
-  @media (min-width: 900px) and (min-height: 501px) {
+  @media (min-width: 900px) and (min-height: 541px) {
     #select.journey .sel-wrap { max-width: 1180px; grid-template-columns: minmax(0, 500px) minmax(0, 1fr); column-gap: 18px; align-items: start; }
     #select.journey .sel-wrap > * { grid-column: 1 / -1; }
     #select.journey .sel-grid { grid-column: 1; grid-row: 2 / span 2; grid-template-columns: minmax(0, 1fr); }
@@ -1788,14 +1841,14 @@
     #select.journey .look-row { grid-column: 2; grid-row: 3; align-self: start; }
   }
   /* shorter desktop / tablet screens (1280×720): smaller figures and gaps so two ninjas, the arena row and Start fit */
-  @media (min-height: 501px) and (max-height: 820px) {
+  @media (min-height: 541px) and (max-height: 820px) {
     #select.overlay { padding-block: 16px; }
     .sel-wrap { gap: 12px; }
     .sel-title { font-size: clamp(26px, 4vw, 38px); }
     .slot { padding: 10px 12px; gap: 6px; }
     .slot canvas { height: clamp(140px, 21vh, 240px); }
   }
-  @media (max-height: 500px) and (min-width: 560px) {
+  @media (max-height: 540px) and (min-width: 560px) {
     #select.journey .sel-wrap { grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr); column-gap: 10px; align-items: start; }
     #select.journey .sel-wrap > * { grid-column: 1 / -1; }
     #select.journey .sel-grid { grid-column: 1; grid-row: 2 / span 2; grid-template-columns: minmax(0, 1fr); }
@@ -1812,8 +1865,8 @@
     #select.journey .journey-chapters b { font-size: 15px; line-height: 1.1; }
     #select.journey .journey-chapters span { font-size: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   }
-  @media (max-height: 500px) { #journeyGoal { font-size: 10px; margin-top: -7px; } }
-  @media (max-height: 500px) and (min-width: 560px) {
+  @media (max-height: 540px) { #journeyGoal { font-size: 10px; margin-top: -7px; } }
+  @media (max-height: 540px) and (min-width: 560px) {
     #vs.journey { padding-block: 8px; }
     #vs.journey .vs-top .st { font-size: 16px; }
     #vs.journey .vs-side canvas { height: 25vh; }
@@ -2131,6 +2184,7 @@
               <button class="tog" type="button" data-tog="sound" aria-pressed="true"><i></i><span data-s="vol.sound">Ses</span></button>
               <button class="tog" type="button" data-tog="music" aria-pressed="true"><i></i><span data-s="vol.music">Müzik</span></button>
               <button class="tog" type="button" data-tog="voice" aria-pressed="true"><i></i><span data-s="vol.voice">Seslendirme</span></button>
+              <button class="tog" type="button" data-tog="uiSfx" aria-pressed="true"><i></i><span data-s="vol.uiSfx">Menü sesleri</span></button>
             </div>
             <div class="vol" id="setVol"></div>
             <p class="set-credit" data-s="vol.credit"></p>
@@ -2149,8 +2203,10 @@
             </div>
           </section>
           <section class="set-pane" role="tabpanel" id="setPane-gfx" aria-labelledby="setTab-gfx" tabindex="-1" hidden>
-            <div class="gq" role="group" id="setGfx" data-gq><span class="gq-t" data-gq-t></span><span class="gq-segs"><button type="button" class="seg" data-gfx="auto" aria-pressed="false"></button><button type="button" class="seg" data-gfx="high" aria-pressed="false"></button><button type="button" class="seg" data-gfx="medium" aria-pressed="false"></button><button type="button" class="seg" data-gfx="low" aria-pressed="false"></button></span><small class="gq-n"><b data-gq-now hidden></b> <span data-gq-d></span></small></div>
+            <div class="gq" role="group" id="setGfx" data-gq><span class="gq-t" data-gq-t></span><span class="gq-segs"><button type="button" class="seg" data-gfx="auto" aria-pressed="false"></button><button type="button" class="seg" data-gfx="high" aria-pressed="false"></button><button type="button" class="seg" data-gfx="medium" aria-pressed="false"></button><button type="button" class="seg" data-gfx="low" aria-pressed="false"></button><button type="button" class="seg gq-custom" data-gfx-custom aria-pressed="true" aria-disabled="true" hidden></button></span><small class="gq-n"><b data-gq-now hidden></b> <span data-gq-d></span></small></div>
             <div class="gq" role="group" id="setFps" data-fq><span class="gq-t" data-fq-t></span><span class="gq-segs"><button type="button" class="seg" data-fps="60" aria-pressed="false">60</button><button type="button" class="seg" data-fps="90" aria-pressed="false">90</button><button type="button" class="seg" data-fps="120" aria-pressed="false">120</button><button type="button" class="seg" data-fps="max" aria-pressed="false"></button></span><small class="gq-n"><span data-fq-d></span></small></div>
+            <!-- Advanced graphics (game.js gfxAdv): a switch that shows five rows of knobs (js/gfx.js KNOBS), built by script -->
+            <div class="gq-adv" id="setAdv"></div>
             <div class="set-togs">
               <button class="tog" id="tFps" aria-pressed="false"><i></i><span data-s="fps.show">FPS göster</span></button>
               <button class="tog" id="tBlood" aria-pressed="true"><i></i>Kan efekti</button>
@@ -2251,19 +2307,23 @@
   </div>
 </div>
 
-<script  src="js/core.js?v=boards-1"></script>
+<script  src="js/core.js?v=sfx-1"></script>
 <script  src="js/perf.js?v=sd-fps-2"></script>
 <script  src="js/music.js?v=sd-fps-2"></script>
 <script  src="js/input.js?v=comfort-1"></script>
 <script  src="js/gfx.js?v=wide-bg-1"></script>
-<script  src="js/scene.js?v=wide-bg-1"></script>
+<script  src="js/scene.js?v=hitch-1"></script>
 <script  src="js/skeleton.js?v=render-fix-v1"></script>
+<script  src="js/anim.js?v=anim-1"></script>
 <script  src="js/bake.js?v=sd-fps-2"></script>
 <script  src="js/prepare.js"></script>
 <script  src="js/characters.js?v=champ-1"></script>
+<!-- drawn costumes (ranked season rewards; js/rewards.js names them from the server catalog) -->
+<script  src="js/costumes.js"></script>
+<script  src="js/costumes-champion.js"></script>
 <script  src="js/fighter.js?v=bo-sound-1"></script>
 <script  src="js/specials.js?v=bo-sound-1"></script>
-<script  src="js/haptics.js?v=comfort-1"></script>
+<script  src="js/haptics.js?v=hitch-1"></script>
 <script  src="js/telegraph.js?v=wide-bg-1"></script>
 <script  src="js/ai.js"></script>
 <script  src="js/honor.js"></script>
@@ -2281,7 +2341,7 @@
 <script  src="js/ads.js"></script>
 <script  src="js/coach.js?v=comfort-1"></script>
 <script  src="js/tutorial.js"></script>
-<script  src="js/kaeshi-cine.js?v=comfort-1"></script>
+<script  src="js/kaeshi-cine.js?v=hitch-1"></script>
 <script  src="js/combo-trial.js"></script>
 <script  src="js/touch.js?v=comfort-1"></script>
 <script  src="js/touch-editor.js"></script>
@@ -2296,15 +2356,20 @@
 <script  src="js/lang-ui.js"></script>
 <script  src="js/settings.js"></script>
 <script  src="js/privacy.js"></script>
-<script  src="js/gl2d.js?v=wide-bg-1"></script>
-<script  src="js/gl-render.js?v=gl-2"></script>
-<script  src="js/game.js?v=wide-bg-1"></script>
+<script  src="js/gl2d.js?v=hitch-1"></script>
+<script  src="js/gl-render.js?v=hitch-1"></script>
+<script  src="js/game.js?v=hitch-1"></script>
 <script  src="js/sim-state.js"></script>
 <!-- voices: fighters and announcer, files in voice/ (docs/SES-PLANI.md); ?voice=off silences, ?voice=log logs -->
-<script  src="js/voice.js?v=bo-sound-1"></script>
+<script  src="js/voice.js?v=sfx-1"></script>
+<!-- the sound pass of 2026-09-30: menu clicks / hover / back, guard, jump, ki ready, result stings, ranked cues (js/sfx.js) -->
+<script  src="js/sfx.js?v=sfx-1"></script>
 <!-- online "play with a friend" (docs/SHADOW-DUEL-ONLINE.md): the match loop and the rooms. data-online: left out of the
      offline portal builds (Yandex, Playgama; vite.config.ts), so they carry no online code or address -->
 <script  data-online src="js/net.js"></script>
 <script  data-online src="js/online.js"></script>
+<!-- ranked duel and the server's reward catalog (docs/SHADOW-DUEL-ONLINE.md phase 2): also online-only -->
+<script  data-online src="js/rewards.js"></script>
+<script  data-online src="js/ranked.js"></script>
 </body>
 </html>

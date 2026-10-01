@@ -45,7 +45,8 @@ window.ND = window.ND || {};
     try { draw(); return pending === 0; } finally { preparing = false; }
   };
   const release = (e) => { if (typeof e.cv.close === 'function') e.cv.close(); };
-  function clear(Fc) { Fc.evictions += Fc.m.size + Fc.g.size; for (const e of Fc.m.values()) release(e); Fc.m.clear(); Fc.bytes = 0; Fc.g.clear(); Fc.gbytes = 0; }
+  // (a WebGL2 cache gives its atlas pages back: gl2d.js R.spriteRelease)
+  function clear(Fc) { Fc.warmSigs = null; if (Fc.gRel && Fc.g.size) Fc.gRel(Fc); Fc.evictions += Fc.m.size + Fc.g.size; for (const e of Fc.m.values()) release(e); Fc.m.clear(); Fc.bytes = 0; Fc.g.clear(); Fc.gbytes = 0; }
   ND.clearBakeCache = clear;
   function sameWeapon(a, b) {
     return a === b || !!a && !!b && a.type === b.type && a.blade === b.blade && a.handle === b.handle &&
@@ -64,7 +65,10 @@ window.ND = window.ND || {};
   // shade() in skeleton.js puts the highlight on the side whose normal faces the light: 1 when it flips
   const sflip = (dx, dy) => (-dy * LT.x + dx * LT.y < 0 ? 1 : 0);
   // Numeric keys avoid per-part string allocation.
-  const key = (pid, a, b, c) => pid + 64 * (LV + 32 * (a + 64 * (b + 256 * c)));
+  // (LTB: the side the scene's key light comes from; part of the key, so a fighter keeps its pictures for both sides
+  // and an arena lit from the other side does not make it draw everything again)
+  let LTB = 0;
+  const key = (pid, a, b, c) => pid + 64 * (LV + 32 * (LTB + 2 * (a + 64 * (b + 256 * c))));
 
   // local bounding box (world units) of the part being baked, and its frame
   const BB = [0, 0, 0, 0];
@@ -441,14 +445,17 @@ window.ND = window.ND || {};
       Fc.lv = lv;
     }
     K.updLight();
+    if (FORCE_LX) LT.x = FORCE_LX; // (warm-up of the other light side, ND.warmBaked side)
     // another look, weapon or light side: start over
-    if (Fc.col !== c || Fc.acc !== acc || !sameWeapon(Fc.wpn, wpn) || Fc.ltx !== (LT.x > 0)) {
+    LTB = LT.x > 0 ? 1 : 0;
+    if (Fc.col !== c || Fc.acc !== acc || !sameWeapon(Fc.wpn, wpn)) {
       if (Fc.readOnly) throw Error('Prepared character cache invalidated');
       clear(Fc);
       Fc.col = c; Fc.acc = acc; Fc.wpn = wpn; Fc.ltx = LT.x > 0;
     }
     Fc.wpn = wpn;
     if (Fc.frame !== frameId) { Fc.frame = frameId; Fc.fb = 0; }
+    if (gl && typeof ctx.spriteOwner === 'function') { ctx.spriteOwner(Fc); Fc.gRel = (o) => ctx.spriteRelease(o); }
     F = Fc; J = j; C = c; WPN = wpn; ACC = acc; SD = j.dir < 0 ? -1 : 1; LV = lv; S = lvScale(lv); BM = M; GLX = gl;
     D = K.pal(c);
     glint = X.glint || 0;
@@ -462,11 +469,14 @@ window.ND = window.ND || {};
       arm(ctx, false);
       K.torsoFrame(j);
       torso(ctx);
+      // (Ren's / Kage's blade pointing back past the head: behind the head, skeleton.js bladeBehindHead)
+      const swBack = !!(K.bladeBehindHead && K.bladeBehindHead(j, wpn, acc));
+      if (swBack) weapon(ctx, j.haF.x, j.haF.y, Math.atan2(j.tip.y - j.haF.y, j.tip.x - j.haF.x), 0);
       neckAndHead(ctx);
       leg(ctx, true);
       if (acc === 'kabuto') { K.torsoFrame(j); part(ctx, P.KUSA, 0, sdBit(), 0, TF.hx, TF.hy, torsoAng(), 1, 0, bbKusa, drKusa); restore(ctx); }
       if (X.trail) X.trail(ctx);
-      if (j.hasSword && j.tip) weapon(ctx, j.haF.x, j.haF.y, Math.atan2(j.tip.y - j.haF.y, j.tip.x - j.haF.x), 0);
+      if (j.hasSword && j.tip && !swBack) weapon(ctx, j.haF.x, j.haF.y, Math.atan2(j.tip.y - j.haF.y, j.tip.x - j.haF.x), 0);
       if (j.chain && j.hasSword) ND.Chain.prototype.draw.call(j.chain, ctx, c.accent);
       arm(ctx, true);
     } finally {
@@ -520,23 +530,32 @@ window.ND = window.ND || {};
       getTransform: () => M, createLinearGradient: () => GRAD, createRadialGradient: () => GRAD, createPattern: () => null,
       measureText: () => ({ width: 0 }), getLineDash: () => [],
       spriteBegin: (w, h) => R.spriteBegin(w, h), spriteEnd: () => R.spriteEnd(), spriteOk: (sp) => R.spriteOk(sp),
+      spriteOwner: (o) => R.spriteOwner && R.spriteOwner(o), spriteRelease: (o) => R.spriteRelease && R.spriteRelease(o),
     };
     const noop = () => {};
     return new Proxy(base, { get: (o, k) => (k in o ? o[k] : noop), set: () => true });
   }
-  ND.warmBaked = function (R, f) {
+  let FORCE_LX = 0;
+  // side: 1 / -1 warms the pictures for a key light from that side instead of the current arena's (game.js: the
+  // result screen warms the side the next arena may need, while the GPU is idle)
+  ND.warmBaked = function (R, f, side) {
     const X = { bake: f.bakeCache(), ropes: null, trail: null, glint: 0 }, wpn = f.wpn, acc = f.ch && f.ch.acc, col = f.col;
     const stance = ND.POSES && ND.POSES.stance, poses = posesOf(f.ch && f.ch.id), jj = {}, half = {};
     const ctx = nullCtx(R, (ND.cam && ND.cam.k) || 1);
     const n = poses.length * 2 * 2 * 16;
     let i = 0;
+    // already warmed for this look, picture scale and light side (the same fighter in the next fight): nothing to do
+    const sig = () => { K.updLight(); const lx = side ? side * Math.abs(LT.x) : LT.x; return levelOf(((ND.cam && ND.cam.s > 0 ? ND.cam.s : 1)) * ZMAX) + '|' + (lx > 0 ? 1 : 0); };
+    if (X.bake.warmSigs && X.bake.warmSigs.has(sig()) && X.bake.col === col && X.bake.acc === acc && sameWeapon(X.bake.wpn, wpn) && X.bake.g.size) i = n;
     return {
       total: n,
       get done() { return i >= n; },
       step(ms) {
         if (!R || !R.spriteEnd || !stance) return true;
+        if (i >= n) return true;
         const t0 = performance.now(), sc = ND.scene, st = sc ? sc.t : 0;
         warming = true;
+        if (side) { K.updLight(); FORCE_LX = side * Math.abs(LT.x); }
         try {
           while (i < n && performance.now() - t0 < ms) {
             // (index → rotation fastest, then facing, then the halfway variant, then the pose)
@@ -556,7 +575,8 @@ window.ND = window.ND || {};
             ND.drawNinjaBaked(ctx, jj, col, X, wpn, acc);
             i++;
           }
-        } finally { warming = false; if (sc) sc.t = st; }
+        } finally { warming = false; if (FORCE_LX) { FORCE_LX = 0; K.updLight(); } if (sc) sc.t = st; }
+        if (i >= n) (X.bake.warmSigs || (X.bake.warmSigs = new Set())).add(sig());
         return i >= n;
       },
     };

@@ -745,6 +745,7 @@
         muted: 'Le son est coupé. Bouge un curseur pour le rallumer.',
         // Settings > Audio: character / announcer voices switch (js/voice.js) and the courtesy credit under it
         voice: 'Voix',
+        uiSfx: 'Sons du menu',
         credit: 'Voix: ユーフルカ (youfulca.com) · 効果音ラボ · すぱらんど',
       },
     });
@@ -999,14 +1000,24 @@
     merge(EN.STR, {
       gfx: {
         title: 'Graphismes',
-        levels: { auto: 'Auto', high: 'Élevé', medium: 'Moyen', low: 'Bas' },
+        levels: { auto: 'Auto', high: 'Élevé', medium: 'Moyen', low: 'Bas', custom: 'Perso' },
         note: {
           auto: 'Choisit selon ton appareil et baisse d’un cran si un combat saccade.',
           high: 'Toutes les lumières et tous les effets. Pour les appareils puissants.',
           medium: 'Halo léger, sans ombres. Pour la plupart des téléphones.',
           low: 'Le plus fluide. Pour les téléphones anciens.',
+          custom: 'Tes propres réglages (Avancé).',
         },
         now: (lv) => `Actuel\u00A0: ${lv}`,
+        // Settings → Graphics → Advanced (game.js gfxAdvBuild, js/gfx.js KNOBS): the switch, the line under it, the hint on
+        // the heaviest rows, one title per knob and the value words (resolution shows percentages, anti-aliasing 2× / 4×)
+        adv: {
+          title: 'Avancé',
+          note: 'En changer un fait passer le choix à « Perso » ; toucher un préréglage rétablit ses valeurs.',
+          hot: 'chauffe le plus',
+          knob: { scale: 'Résolution', msaa: 'Anticrénelage', bloom: 'Lueur', shadows: 'Ombres et reflets', effects: 'Météo et particules' },
+          val: { off: 'Non', low: 'Faible', mid: 'Moyen', full: 'Complet', simple: 'Simple' },
+        },
       },
     });
 
@@ -1223,6 +1234,46 @@
         whyPauseWin: "Ton ami n'est pas revenu à temps. Tu gagnes (non comptabilisé).",
         whyPauseLose: "Tu n'es pas revenu à temps, le match est donc terminé.",
         whyPauseBoth: "Aucun de vous n'est revenu à temps, le match est donc terminé.",
+      },
+    });
+
+    // ================================================================ ranked duel (js/ranked.js: ND.STR.ranked)
+    merge(EN.STR, {
+      ranked: {
+        title: 'Duel classé', menuSub: 'Adversaire au hasard · points, rangs et saisons', offline: 'Le mode classé est indisponible pour le moment',
+        season: (n) => `Saison ${n}`, endsIn: (d) => `Fin dans ${d} jours`, endsToday: "Se termine aujourd'hui",
+        rating: 'Cote', record: (w, l, d) => `${w} V · ${l} D` + (d ? ` · ${d} N` : ''), placement: (a, b) => `Placement ${a}/${b}`,
+        place: (n) => `Classement : ${n}`, find: 'Chercher un adversaire', findUnranked: 'Chercher un adversaire (non classé)', board: 'Classement', how: 'Comment ça marche',
+        howLines: ["Le serveur trouve un adversaire de cote proche ; l'écart accepté grandit pendant l'attente.", "Quand vous acceptez tous les deux, chacun choisit son combattant sans voir celui de l'autre (seulement ceux que tu as débloqués).",
+          'Le premier à 2 manches sur 3 gagne. Quitter un match, c’est le perdre.', 'Les points ne changent que si les deux appareils annoncent le même résultat. Une saison dure 4 semaines ; le n° 1 reçoit un costume spécial.'],
+        reward: 'N° 1 de la saison : un costume spécial et son nom au Panthéon des champions',
+        signIn: 'Connecte-toi pour gagner des points', guestNote: 'En invité, tu joues sans classement.', nickNote: 'Choisis un pseudo pour jouer en classé.',
+        back: 'Retour', you: 'Toi', titleLbl: 'Titre', noTitle: 'Aucun',
+        searching: "Recherche d'un adversaire…", window: (n) => `Écart de cote ±${n}`, windowAny: 'Toutes les cotes', people: (n, m) => `${n} en recherche · ${m} matchs dans la dernière heure`,
+        warm: "Échauffe-toi contre l'ordinateur en attendant", warmTag: 'Échauffement · CPU · non classé', searchShort: 'Recherche', warmBack: 'Retour à la recherche', cancel: 'Annuler',
+        none: "Aucun adversaire pour l'instant.", foundTitle: 'Adversaire trouvé !', accept: 'Accepter', decline: 'Refuser',
+        ranked: 'Classé', unranked: 'Non classé · pas de points',
+        why: { guest: 'un joueur est invité', same_network: 'vous êtes sur le même réseau', pair_limit: "vous avez déjà joué 3 matchs classés ensemble aujourd'hui", daily_limit: 'limite quotidienne de matchs classés' },
+        waitOpp: "En attente de l'adversaire…", touch: 'Tactile', keys: 'Clavier / manette', placementTag: 'Placement', guestTag: 'Invité',
+        declined: "L'adversaire n'a pas accepté · nouvelle recherche", youDeclined: 'Tu as refusé le match.', penalty: (s) => `Tu as refusé des matchs récemment : nouvelle recherche possible dans ${s} s.`,
+        suspended: 'Ton compte classé est en cours de vérification (trop de litiges). Les autres modes restent ouverts.',
+        pickTitle: 'Choisis ton combattant', pickSub: 'Ton adversaire ne voit pas ton choix', lock: 'Valider', lockedIn: 'Validé', oppPicking: "L'adversaire choisit…", oppLocked: "L'adversaire a choisi",
+        lockedFighter: 'Pas encore débloqué en solo', costume: 'Costume', plain: "Couleurs d'origine",
+        connecting: "Connexion à l'adversaire…", noConnect: "Impossible de joindre l'adversaire ; le match ne compte pas. Nouvelle recherche…",
+        leaveQ: 'Quitter le match ?', leaveSub: 'Tu perdras ce match classé.', stay: 'Continuer', leave: 'Quitter',
+        waitIn: (s) => `En attente de ton adversaire… ${s}`, away: (s) => `Ton adversaire a quitté le jeu… ${s}`, turning: (s) => `Ton adversaire tourne son téléphone… ${s}`, paused: 'En pause',
+        confirming: 'Confirmation du résultat…', win: 'Victoire', lose: 'Défaite', draw: 'Égalité', over: 'Match terminé',
+        delta: (d) => (d >= 0 ? '+' : '−') + Math.abs(d) + ' points', nc: 'Ce match ne compte pas', disputed: 'Les deux appareils ont annoncé des résultats différents : le match est en vérification, aucun point n’a changé.',
+        ncWhy: { desync: 'les deux appareils ont calculé le combat différemment (un problème de connexion)', connection: 'la connexion des deux joueurs a été coupée', input_mismatch: 'les commandes enregistrées par les deux appareils ne concordent pas', abandoned: 'les deux joueurs sont partis', no_second_report: "le résultat de l'adversaire n'est jamais arrivé", mixed: 'les résultats ne concordaient pas' },
+        promoted: 'Promotion !', demoted: 'Rang perdu', placementDone: 'Placement terminé !', pending: 'Le résultat apparaîtra bientôt au classement.',
+        findAgain: 'Rechercher encore', rematch: 'Revanche', rematchWait: 'En attente de ton adversaire…', rematchAsk: 'Revanche (ton adversaire en veut une)', menu: 'Menu',
+        youLeft: 'Tu as quitté le match : défaite.', oppLeft: "L'adversaire a quitté le match : tu gagnes.", silent: "La connexion de l'adversaire a été perdue.", rounds: (a, b) => `Manches ${a} – ${b}`,
+        unrankedNote: 'Match non classé',
+        hallTab: 'Classé', hallDesc: (g) => `Les meilleurs de la saison · ${g} matchs classés pour y figurer`, champs: 'Champions', champOf: (n) => `Champion de la saison ${n}`,
+        noChamps: 'Pas encore de champion de saison.', me: (p) => `Ta place : ${p}.`, meNone: 'Joue des matchs classés pour entrer au classement.', empty: "Personne n'est encore classé cette saison.",
+        tierDesc: ['Fantassin', 'Samouraï sans maître', 'Samouraï', 'Garde de la bannière', 'Seigneur féodal', 'Shogun'],
+        err: { network: 'Serveur injoignable. Vérifie ta connexion internet.', bad_version: 'Une nouvelle version du jeu est sortie : recharge la page.', busy: "La file d'attente est pleine, réessaie bientôt.",
+          rate_limited: 'Trop de tentatives, attends un peu.', disabled: 'Le mode classé est indisponible pour le moment.', banned: 'Ce compte ne peut pas jouer en classé.', other: 'Un problème est survenu, réessaie.' },
       },
     });
 

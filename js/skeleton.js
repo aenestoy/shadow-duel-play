@@ -1409,7 +1409,7 @@
     const horiz = 1 - Math.abs(uy);
     const t = ND.scene.t, amp = 0.7 + Math.min(1.6, Math.abs(j._vs || 0) * 0.25);
     const fl = Math.sin(t * 9 + (front ? 0 : 1.7) + sh.x * 0.03) * amp;
-    AG.sag = horiz * (4.8 + fl) + 0.6 * fl + 1;
+    AG.sag = horiz * (4.8 + fl) + 0.6 * fl + 1 + ((front ? j._slF : j._slB) || 0); // _sl*: sleeve billow (js/anim.js)
     AG.ux = ux; AG.uy = uy; AG.nx = nx; AG.ny = ny;
     AG.mx = (sh.x + el.x) * 0.5; AG.my = (sh.y + el.y) * 0.5;
     const hdx = ha.x - el.x, hdy = ha.y - el.y, hd = Math.hypot(hdx, hdy) || 1;
@@ -1878,7 +1878,7 @@
     else if (acc === 'mai') headMai(ctx, c, D, R, lx);
     else if (acc === 'tsubame') headTsubame(ctx, c, D, R, lx);
     else if (acc === 'aoi') headAoi(ctx, c, D, R, lx);
-    else headBand(ctx, c, D, R, acc !== 'scarf');
+    else if (acc !== 'none') headBand(ctx, c, D, R, acc !== 'scarf');
     ctx.restore();
   }
 
@@ -2387,6 +2387,19 @@
 
   // ---------------------------------------------------------------- TAM NİNJA
   // extra: { ropes, trail, glint, wpn, acc, lod: 'high' | 'low' }
+  // Ren's shoulder-rest sword and Kage's reverse-grip ninjatō point back over the shoulder / along the forearm: when
+  // such a blade (tip behind the hand) passes the head, it is drawn before the head, so it goes behind the face / mask
+  // instead of across it. Display only (drawNinja and the part cache, bake.js); the fight never reads it.
+  function bladeBehindHead(j, wpn, acc) {
+    if (!j.hasSword || !j.tip || !j.head || !j.haF) return false;
+    if (acc !== 'oni' && !(acc === 'hood' && wpn && wpn.type === 'ninjato')) return false;
+    const ax = j.haF.x, ay = j.haF.y, dx = j.tip.x - ax, dy = j.tip.y - ay;
+    if (dx * (j.dir < 0 ? -1 : 1) >= 0) return false; // points forward: stays in front
+    const l2 = dx * dx + dy * dy;
+    if (!(l2 > 0)) return false;
+    const u = Math.max(0, Math.min(1, ((j.head.x - ax) * dx + (j.head.y - ay) * dy) / l2));
+    return Math.hypot(ax + dx * u - j.head.x, ay + dy * u - j.head.y) < L.headR + 6;
+  }
   ND.drawNinja = function (ctx, j, c, extra) {
     const X = extra || {}, wpn = X.wpn || L, acc = X.acc || 'hachimaki';
     if (X.lod === 'low') { drawLow(ctx, j, c, X, wpn, acc); return; }
@@ -2400,26 +2413,37 @@
     if (wt === 'yumi') quiverBack(ctx, j, c, D);
     else if (wpn.iai) sayaHip(ctx, j, c, D, wpn);
     else if (wt !== 'naginata' && wt !== 'bo' && wt !== 'tessen' && wt !== 'kusarigama') saya(ctx, j, c, D, wpn);
+    // a drawn costume (js/costumes.js; the palette names it): its layers go between the fighter's own parts
+    const K = c.costume && ND.costumeLayer && ND.COSTUMES && ND.COSTUMES[c.costume] ? c.costume : null;
+    if (K) ND.costumeLayer(K, 'back', ctx, j);
     // arka bacak + kumaş uçları + arka kol
     drawLeg(ctx, j, false, c, D);
     if (X.ropes) for (const r of X.ropes) r.rope.draw(ctx, r.col, r.w, 'rgba(255,255,255,.07)');
     drawArm(ctx, j, false, c, D, X, wpn, acc);
+    if (K) ND.costumeLayer(K, 'backArm', ctx, j);
     // gövde, atkı, boyun, baş
     torsoFrame(j);
     drawTorso(ctx, j, c, D, acc);
     neckPart(ctx, j, c, D, acc);
     if (acc === 'monk') juzu(ctx, j, c, D);
     if (wt === 'yumi' && j.wBow > 0.5 && j.hasSword) tantoSheath(ctx, c, D);
-    drawHead(ctx, j, c, D, acc);
+    if (K) ND.costumeLayer(K, 'body', ctx, j);
+    const swBack = bladeBehindHead(j, wpn, acc);
+    if (swBack) drawSword(ctx, j.haF.x, j.haF.y, Math.atan2(j.tip.y - j.haF.y, j.tip.x - j.haF.x), c, X.glint || 0, wpn, 'high', j);
+    // (a costume with its own helmet: the bare head under it, without the fighter's hat, hood tails or hair)
+    drawHead(ctx, j, c, D, K && ND.COSTUMES[K].head && !ND.COSTUMES[K].ownHead ? 'none' : acc);
+    if (K) ND.costumeLayer(K, 'head', ctx, j);
     // ön bacak
     drawLeg(ctx, j, true, c, D);
     if (acc === 'kabuto') { torsoFrame(j); kusazuri(ctx, c, D); }
+    if (K) ND.costumeLayer(K, 'hem', ctx, j);
     // kılıç + iz
     if (X.trail) X.trail(ctx);
-    if (j.hasSword && j.tip) drawSword(ctx, j.haF.x, j.haF.y, Math.atan2(j.tip.y - j.haF.y, j.tip.x - j.haF.x), c, X.glint || 0, wpn, 'high', j);
+    if (j.hasSword && j.tip && !swBack) drawSword(ctx, j.haF.x, j.haF.y, Math.atan2(j.tip.y - j.haF.y, j.tip.x - j.haF.x), c, X.glint || 0, wpn, 'high', j);
     if (j.chain && j.hasSword) ND.Chain.prototype.draw.call(j.chain, ctx, c.accent);
     // ön kol
     drawArm(ctx, j, true, c, D, X, wpn, acc);
+    if (K) ND.costumeLayer(K, 'front', ctx, j);
   };
   // boyun (ya da atkı): torsoFrame(j) set by the caller
   function neckPart(ctx, j, c, D, acc) {
@@ -2446,6 +2470,7 @@
     L, LT, TF, FF, HD, AG, LG, SW, TB: { BODY: TB_BODY, AO: TB_AO, RIM: TB_RIM, KNOT: TB_KNOT }, pal, updLight, torsoFrame, torsoPath, footFrame,
     legGeom, legShin, legFoot, legUpper, legShade, legLines, armGeom, armOutline, armSleeve, armFore, armMouth, handInfo, armHand,
     drawTorso, torsoAO, neckPart, juzu, tantoSheath, drawHead, kusazuri, drawSword, drawTessen, saya, sayaHip, quiverBack,
+    bladeBehindHead,
   };
 
   // ---------------------------------------------------------------- RAGDOLL

@@ -30,7 +30,7 @@ window.ND = window.ND || {};
         preserveDrawingBuffer: false, powerPreference: 'high-performance', desynchronized: false, failIfMajorPerformanceCaveat: !!opts.auto });
     } catch (e) { gl = null; }
     if (!gl) return null;
-    const R = ND.createGL2D(gl, { samples: opts.samples });
+    const R = ND.createGL2D(gl, { samples: opts.samples, textAtlas: opts.textAtlas });
     const E = R.exec;
     let lost = false, error = '', checked = false, lastReason = '', frames = 0, fallbacks = 0, streak = 0;
     // auto mode: this many refused frames in a row (~3 s at 60 fps) switch the renderer off for the session
@@ -82,10 +82,13 @@ window.ND = window.ND || {};
         o = vec4(s, 1.0);
       }`;
     };
-    const finalFS = () => {
+    // small: the vertical taps were already applied at the glow picture's own size (vblurFS, opts.smallBlur): one
+    // bilinear read here instead of one per tap for every screen pixel
+    const finalFS = (small) => {
       let sum = '';
       // a tap o rows further down the picture is o texels lower in GL orientation
-      for (const [o, w] of W8) sum += `g+=${w.toFixed(9)}*texture(u_glow, vec2(gx, gy - (${o.toFixed(9)})) / u_gs).rgb;`;
+      if (small) sum = 'g=texture(u_glow, vec2(gx, gy) / u_gs).rgb;';
+      else for (const [o, w] of W8) sum += `g+=${w.toFixed(9)}*texture(u_glow, vec2(gx, gy - (${o.toFixed(9)})) / u_gs).rgb;`;
       return `#version 300 es
       precision highp float; precision highp int;
       uniform sampler2D u_scene; uniform sampler2D u_glow; uniform sampler2D u_grain;
@@ -108,6 +111,20 @@ window.ND = window.ND || {};
         float n = texelFetch(u_grain, ivec2(d.x, d.y), 0).r;
         vec3 ov = mix(2.0 * c * n, 1.0 - 2.0 * (1.0 - c) * (1.0 - n), step(vec3(0.5), c));
         o = vec4(mix(c, ov, u_grainA), 1.0);
+      }`;
+    };
+    // High, small blur: the vertical taps of finalFS applied to the glow picture itself (same size, texel centres)
+    const vblurFS = () => {
+      let sum = '';
+      for (const [o, w] of W8) sum += `g+=${w.toFixed(9)}*texture(u_glow, vec2(p.x, p.y - (${o.toFixed(9)})) / u_gs).rgb;`;
+      return `#version 300 es
+      precision highp float; precision highp int;
+      uniform sampler2D u_glow; uniform vec2 u_gs;
+      out vec4 o;
+      void main(){
+        vec2 p = gl_FragCoord.xy; vec3 g = vec3(0.0);
+        ${sum}
+        o = vec4(g, 1.0);
       }`;
     };
     // Medium (game.postLite): the same 1/4 bright pass, halved twice by bilinear copies (1/8, 1/16, each stored as
@@ -149,12 +166,18 @@ window.ND = window.ND || {};
         c = min(vec3(1.0), c + texture(u_glow, gl_FragCoord.xy / u_size).rgb * u_bloom);
         o = vec4(${q}, 1.0);
       }`;
+    let smallProg = null, vblurProg = null, SU = {}, VU = {}, glow2Tex = null, glow2Fb = null;
     let liteProg = null, liteFinalProg = null, LU = {}, LFU = {}, liteTex = null, liteFb = null, liteW = 0, liteH = 0;
     function initPost() {
       const QVS = `#version 300 es
         layout(location=0) in vec2 a_pos; void main(){ gl_Position=vec4(a_pos,0.0,1.0); }`;
       glowProg = E.compile(QVS, glowFS());
-      finalProg = E.compile(QVS, finalFS());
+      finalProg = E.compile(QVS, finalFS(false));
+      smallProg = E.compile(QVS, finalFS(true));
+      vblurProg = E.compile(QVS, vblurFS());
+      SU = {}; for (const k of ['u_scene', 'u_glow', 'u_grain', 'u_size', 'u_gs', 'u_e', 'u_bloom', 'u_off', 'u_grainA']) SU[k] = gl.getUniformLocation(smallProg, k);
+      VU = { u_glow: gl.getUniformLocation(vblurProg, 'u_glow'), u_gs: gl.getUniformLocation(vblurProg, 'u_gs') };
+      glow2Tex = null; glow2Fb = null;
       GU = {}; for (const k of ['u_scene', 'u_size', 'u_q', 'u_e', 'u_H']) GU[k] = gl.getUniformLocation(glowProg, k);
       FU = {}; for (const k of ['u_scene', 'u_glow', 'u_grain', 'u_size', 'u_gs', 'u_e', 'u_bloom', 'u_off', 'u_grainA']) FU[k] = gl.getUniformLocation(finalProg, k);
       // grain: the same 128×128 picture as the Canvas pattern, rows top to bottom
@@ -170,14 +193,21 @@ window.ND = window.ND || {};
     }
     function init() { E.init(); initPost(); }
     try { init(); } catch (e) { error = String(e && e.message || e); return null; }
-    canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); lost = true; E.lose(); queries.length = fences.length = 0; tq = null; tqx = undefined; glowProg = finalProg = liteProg = liteFinalProg = null; glowTex = glowFb = liteTex = liteFb = null; });
+    canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); lost = true; E.lose(); inflight.length = 0; queries.length = fences.length = 0; tq = tq2 = null; tqx = undefined; glowProg = finalProg = liteProg = liteFinalProg = smallProg = vblurProg = null; glowTex = glowFb = liteTex = liteFb = glow2Tex = glow2Fb = null; });
     canvas.addEventListener('webglcontextrestored', () => {
       try { init(); lost = false; checked = false; streak = 0; } catch (e) { error = String(e && e.message || e); return; }
       if (!api.selfCheck()) console.info('[ND.gl] WebGL2 self-check failed after a context restore; drawing with Canvas 2D', error);
     });
-    function glowTarget(w, h) {
+    function glowTarget(w, h, small) {
+      if (small && !glow2Tex && glowTex && glowW === w && glowH === h) glowW = 0; // (the second picture is still missing)
       if (glowTex && glowW === w && glowH === h) return;
       if (glowTex) { gl.deleteTexture(glowTex); gl.deleteFramebuffer(glowFb); }
+      if (glow2Tex) { gl.deleteTexture(glow2Tex); gl.deleteFramebuffer(glow2Fb); glow2Tex = glow2Fb = null; }
+      if (small) {
+        glow2Tex = E.tex2d(w, h, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, gl.LINEAR, null);
+        glow2Fb = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, glow2Fb);
+        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, glow2Tex, 0);
+      }
       glowTex = E.tex2d(w, h, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, gl.LINEAR, null);
       glowFb = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, glowFb);
       gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, glowTex, 0);
@@ -222,37 +252,50 @@ window.ND = window.ND || {};
       }
       const bw = Math.max(1, W >> 2), bh = Math.max(1, H >> 2), ew = Math.max(1, Math.round(bw / 2)), eh = Math.max(1, Math.round(bh / 2));
       const gw = ew + 2 * M, gh = eh + 2 * M;
-      glowTarget(gw, gh);
+      const small = !!p.smallBlur;
+      glowTarget(gw, gh, small);
       // pass 3: glow
       gl.bindFramebuffer(gl.FRAMEBUFFER, glowFb); gl.viewport(0, 0, gw, gh);
       gl.useProgram(glowProg);
       gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, scene);
       gl.uniform1i(GU.u_scene, 0); gl.uniform2f(GU.u_size, W, H); gl.uniform2i(GU.u_q, bw, bh); gl.uniform2i(GU.u_e, ew, eh); gl.uniform1i(GU.u_H, gh);
       E.quad();
+      // pass 3b (small blur): the vertical taps on the glow picture itself
+      if (small) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, glow2Fb);
+        gl.useProgram(vblurProg);
+        gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, glowTex);
+        gl.uniform1i(VU.u_glow, 0); gl.uniform2f(VU.u_gs, gw, gh);
+        E.quad();
+      }
       // pass 4: present
+      const FP = small ? SU : FU;
       gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, W, H);
-      gl.useProgram(finalProg);
+      gl.useProgram(small ? smallProg : finalProg);
       gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, scene);
-      gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, glowTex);
+      gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, small ? glow2Tex : glowTex);
       gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, grainTex);
       gl.activeTexture(gl.TEXTURE0);
-      gl.uniform1i(FU.u_scene, 0); gl.uniform1i(FU.u_glow, 1); gl.uniform1i(FU.u_grain, 2);
-      gl.uniform2f(FU.u_size, W, H); gl.uniform2f(FU.u_gs, gw, gh); gl.uniform2f(FU.u_e, ew, eh);
-      gl.uniform1f(FU.u_bloom, p.bloom); gl.uniform2i(FU.u_off, p.grainX | 0, p.grainY | 0); gl.uniform1f(FU.u_grainA, p.grain === false ? 0 : 0.07);
+      gl.uniform1i(FP.u_scene, 0); gl.uniform1i(FP.u_glow, 1); gl.uniform1i(FP.u_grain, 2);
+      gl.uniform2f(FP.u_size, W, H); gl.uniform2f(FP.u_gs, gw, gh); gl.uniform2f(FP.u_e, ew, eh);
+      gl.uniform1f(FP.u_bloom, p.bloom); gl.uniform2i(FP.u_off, p.grainX | 0, p.grainY | 0); gl.uniform1f(FP.u_grainA, p.grain === false ? 0 : 0.07);
       E.quad();
     }
     // GPU timing (only while profiling): a timer query around each frame's GL work when the browser offers
     // EXT_disjoint_timer_query_webgl2, and a fence per frame (how many frames later the GPU had finished it; a GPU
     // that falls behind shows up here even without timer queries). Results arrive a few frames late: gpuDrain().
-    let frameId = 0, tqx, tq = null;
+    // Two queries per frame (they cannot nest): the recorded passes (layers, kept pictures, scene: E.run) and the post
+    // passes (glow, present).
+    let frameId = 0, tqx, tq = null, tq2 = null;
     const queries = [], fences = [], gpuDone = [];
     function gpuPoll() {
       while (queries.length) {
         const q = queries[0];
-        if (!gl.getQueryParameter(q.q, gl.QUERY_RESULT_AVAILABLE)) break;
+        if (!gl.getQueryParameter(q.q2 || q.q, gl.QUERY_RESULT_AVAILABLE)) break;
         const disjoint = gl.getParameter(tqx.GPU_DISJOINT_EXT);
-        gpuDone.push({ id: q.id, gpuMs: disjoint ? -1 : gl.getQueryParameter(q.q, gl.QUERY_RESULT) / 1e6 });
-        gl.deleteQuery(q.q); queries.shift();
+        const a = disjoint ? -1 : gl.getQueryParameter(q.q, gl.QUERY_RESULT) / 1e6, b = disjoint || !q.q2 ? 0 : gl.getQueryParameter(q.q2, gl.QUERY_RESULT) / 1e6;
+        gpuDone.push({ id: q.id, gpuMs: disjoint ? -1 : a + b, sceneMs: a, postMs: disjoint ? -1 : b });
+        gl.deleteQuery(q.q); if (q.q2) gl.deleteQuery(q.q2); queries.shift();
       }
       while (fences.length) {
         const f = fences[0];
@@ -265,19 +308,33 @@ window.ND = window.ND || {};
     function gpuBegin() {
       if (tqx === undefined) tqx = gl.getExtension('EXT_disjoint_timer_query_webgl2') || null;
       gpuPoll();
+      // (a frame that threw between gpuBegin and gpuEnd left its query running: dropped)
+      if (tq) { gl.endQuery(tqx.TIME_ELAPSED_EXT); gl.deleteQuery(tq); if (tq2) gl.deleteQuery(tq2); tq = tq2 = null; }
       if (tqx && queries.length < 8) { tq = gl.createQuery(); gl.beginQuery(tqx.TIME_ELAPSED_EXT, tq); }
     }
+    function gpuMid() {
+      if (!tq) return;
+      gl.endQuery(tqx.TIME_ELAPSED_EXT);
+      tq2 = gl.createQuery(); gl.beginQuery(tqx.TIME_ELAPSED_EXT, tq2);
+    }
     function gpuEnd() {
-      if (tq) { gl.endQuery(tqx.TIME_ELAPSED_EXT); queries.push({ q: tq, id: frameId }); tq = null; }
+      if (tq) { gl.endQuery(tqx.TIME_ELAPSED_EXT); queries.push({ q: tq, q2: tq2, id: frameId }); tq = tq2 = null; }
       if (fences.length < 8) { const f = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0); if (f) fences.push({ s: f, id: frameId, t: performance.now() }); }
     }
     function gpuReset() {
-      for (const q of queries) gl.deleteQuery(q.q);
+      if (tq) { try { gl.endQuery(tqx.TIME_ELAPSED_EXT); } catch (e) { /* not active */ } gl.deleteQuery(tq); if (tq2) gl.deleteQuery(tq2); }
+      for (const q of queries) { gl.deleteQuery(q.q); if (q.q2) gl.deleteQuery(q.q2); }
       for (const f of fences) gl.deleteSync(f.s);
-      queries.length = fences.length = gpuDone.length = 0; tq = null;
+      queries.length = fences.length = gpuDone.length = 0; tq = tq2 = null;
     }
     // (the extension object must be taken while the context is alive: a lost context hands out no extensions)
-    let loseX = null;
+    let loseX = null, settleFence = null;
+    // frames submitted whose GPU work has not finished (api.queueLimit > 0 only): api.queued()
+    const inflight = [];
+    function queued() {
+      while (inflight.length && gl.getSyncParameter(inflight[0], gl.SYNC_STATUS) === gl.SIGNALED) gl.deleteSync(inflight.shift());
+      return inflight.length;
+    }
     const loseExt = () => loseX || (loseX = gl.isContextLost() ? null : gl.getExtension('WEBGL_lose_context'));
     const api = {
       canvas, gl, R,
@@ -299,12 +356,18 @@ window.ND = window.ND || {};
           frameId++;
           if (P) gpuBegin();
           const scene = E.run();
+          if (P) gpuMid();
           const t1 = P ? performance.now() : 0;
           post(scene, R.W, R.H, p);
           if (P) { gpuEnd(); P.postMs = performance.now() - t1; P.endMs = performance.now() - t0; P.frameId = frameId; }
+          if (api.queueLimit > 0 && inflight.length < 16) { const f = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0); if (f) inflight.push(f); }
           if (!checked) { const code = gl.getError(); if (code !== gl.NO_ERROR) throw Error('GL error ' + code); checked = true; }
           frames++; streak = 0;
           api.last = Object.assign({}, rec, R.stats);
+          // what the GPU drew this frame (perf.js report): multisampled passes (size × samples) and the post passes
+          const T = E.targets, pm = p.mode == null ? 2 : p.mode;
+          api.last.targets = [T[0] && R.stats.passes > 1 ? [T[0].w, T[0].h, T[0].samples] : null, T[1] ? [T[1].w, T[1].h, T[1].samples] : null];
+          api.last.postPasses = pm === 2 ? (p.smallBlur ? 3 : 2) : pm === 1 ? 2 : 1;
           return true;
         } catch (e) {
           error = String(e && e.message || e); lastReason = error; fallbacks++;
@@ -362,9 +425,25 @@ window.ND = window.ND || {};
       },
       status() { return { ready: api.ready, error, lastReason, frames, fallbacks, streak, samples: E.samples, auto: !!opts.auto }; },
       setSamples(n) { E.setSamples(n); },
+      // true once the GPU has finished everything submitted so far (a fence polled once per call; match preparation
+      // waits for it behind the loading screen, so the first fight frames do not queue behind the part pictures'
+      // uploads and the first draws with every shader)
+      // GPU path (game.js ?gpuq): at most this many frames may wait for the GPU; the caller skips drawing while more do
+      queueLimit: 0,
+      queued() { if (lost || gl.isContextLost()) { inflight.length = 0; return 0; } return queued(); },
+      settle() {
+        if (lost || gl.isContextLost()) { settleFence = null; return true; }
+        if (!settleFence) { settleFence = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0); gl.flush(); return !settleFence; }
+        if (gl.getSyncParameter(settleFence, gl.SYNC_STATUS) !== gl.SIGNALED) return false;
+        gl.deleteSync(settleFence); settleFence = null;
+        return true;
+      },
+      // multisampling of the layer pass alone (null: as the scene)
+      setLayerSamples(n) { E.setLayerSamples(n); },
       // per-frame timings and upload causes (render-check page, ?perf=1): api.prof after each end()
       profile(on, o) { R.profile(on, o); if (!on) gpuReset(); },
-      // finished GPU measurements since the last call: [{ id, gpuMs } | { id, lag, lagMs }] (id = prof.frameId)
+      // finished GPU measurements since the last call: [{ id, gpuMs, sceneMs, postMs } | { id, lag, lagMs }] (id =
+      // prof.frameId; gpuMs -1: disturbed measurement; sceneMs: layers + kept pictures + scene, postMs: glow + present)
       gpuDrain() { if (!gl.isContextLost()) gpuPoll(); return gpuDone.splice(0, gpuDone.length); },
       get gpuTimer() { return !!tqx; },
       get prof() { return R.prof; },

@@ -600,17 +600,21 @@
 
     // ---------------------------------------------------- ŞAMPİYONLAR SALONU
     TABS: ['week', 'alltime', 'archive', 'chars', 'dan'],
+    // tabs other modules add (js/ranked.js 'ranked'): { label() → { k, n }, render(body, meBox, alive), available() }
+    ext: {},
+    tabs() { return this.TABS.filter((t) => !this.ext[t] || !this.ext[t].available || this.ext[t].available()); },
     showHall(tab, back) {
       const S = T();
       if (ND.game && ND.game.phase === 'ending') { $('bzRes').hidden = true; ND.game.start('attract'); } // sonuçtan geliyorsa arka planı menüye çevir
       this.showLayer('hall', 'hall', back);
       if (tab) this.tab = tab;
+      if (!this.tabs().includes(this.tab)) this.tab = 'week';
       this.charSel = null;
       this._wk = weekNow().key;
       const box = $('hallIn'); box.textContent = '';
       const tabs = h('div', { class: 'hall-tabs', role: 'tablist', id: 'hallTabs' });
-      for (const t of this.TABS) {
-        const d = S.hall.tabs[t];
+      for (const t of this.tabs()) {
+        const d = (this.ext[t] && this.ext[t].label()) || S.hall.tabs[t];
         tabs.appendChild(h('button', { type: 'button', class: 'hall-tab', role: 'tab', 'data-t': t, on: { click: () => { au().ui(); this.selectTab(t); } } },
           h('b', { 'aria-hidden': 'true' }, d.k), h('span', null, d.n)));
       }
@@ -668,6 +672,13 @@
       this.plat = !!(LB().plat && LB().plat.hallKey(this.tab)); // a platform board stands behind this tab (until it fails)
       body.textContent = ''; meBox.hidden = true; meBox.textContent = '';
       body.setAttribute('aria-busy', 'true');
+      const X = this.ext[this.tab];
+      if (X) {
+        this.renderFoot();
+        const alive = () => tok === this.tok && this.open === 'hall';
+        Promise.resolve(X.render(body, meBox, alive)).catch(() => null).then(() => { if (alive()) body.removeAttribute('aria-busy'); });
+        return;
+      }
       const loading = h('p', { class: 'lb-empty' }, S.hall.loading);
       // sekme başlığı
       if (this.tab === 'week') body.appendChild(h('div', { class: 'hall-sub' }, h('b', null, this.weekLabel(W.key)), h('span', null, S.resetIn, ' ', h('b', { 'data-bz-clock': '' }, this.countdown(W.end - LB().now())))));
@@ -781,7 +792,7 @@
         h('button', { type: 'button', class: 'mini', on: { click: () => { au().ui(); this.charSel = null; this.renderHall(); } } }, '◀ ', S.hall.allNinjas),
         ch ? h('b', { style: 'color:' + ch.col.ui }, ch.kanji, ' ', ch.name) : null);
     },
-    cycleTab(d) { const i = this.TABS.indexOf(this.tab); this.selectTab(this.TABS[(i + d + this.TABS.length) % this.TABS.length]); au().ui(); const t = document.querySelector('#hallTabs [aria-selected="true"]'); if (t) t.focus(); },
+    cycleTab(d) { const T = this.tabs(), i = T.indexOf(this.tab); this.selectTab(T[(i + d + T.length) % T.length]); au().ui(); const t = document.querySelector('#hallTabs [aria-selected="true"]'); if (t) t.focus(); },
 
     // ---------------------------------------------------- klavye / gamepad (game.js input.onKey'den önce)
     onKey(e) {

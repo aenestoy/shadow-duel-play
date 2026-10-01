@@ -27,10 +27,20 @@
   const blc = document.createElement('canvas'), blx = blc.getContext('2d'), blc2 = document.createElement('canvas'), bl2 = blc2.getContext('2d');
   const blc3 = document.createElement('canvas'), bl3 = blc3.getContext('2d');
   const grain = document.createElement('canvas'); grain.width = grain.height = 128;
-  { const gx = grain.getContext('2d'), im = gx.createImageData(128, 128);
-    for (let i = 0; i < im.data.length; i += 4) { const v = (Math.random() * 255) | 0; im.data[i] = im.data[i + 1] = im.data[i + 2] = v; im.data[i + 3] = 255; }
-    gx.putImageData(im, 0, 0); }
-  const grainPat = ctx.createPattern(grain, 'repeat');
+  // (a browser short of canvas memory, e.g. iPhone Safari over its canvas limit, returns no context or throws
+  // InvalidStateError here: then there is simply no film grain, instead of the whole game failing to start)
+  let grainPat = null, grainAt = -1e9;
+  function makeGrain() {
+    try {
+      const gx = grain.getContext('2d'), im = gx.createImageData(128, 128);
+      for (let i = 0; i < im.data.length; i += 4) { const v = (Math.random() * 255) | 0; im.data[i] = im.data[i + 1] = im.data[i + 2] = v; im.data[i + 3] = 255; }
+      gx.putImageData(im, 0, 0);
+      grainPat = ctx.createPattern(grain, 'repeat');
+    } catch (e) { grainPat = null; console.warn('[ND] film grain unavailable', e); }
+  }
+  makeGrain();
+  // the grain pattern, made again (at most every 5 s) if it could not be made before
+  const grainFill = () => { if (!grainPat && performance.now() - grainAt > 5000) { grainAt = performance.now(); makeGrain(); } return grainPat; };
   const QS = new URLSearchParams(location.search);
   // Renderer. The fight (intro, fight, KO, replay; High, Medium and Low, each with its own glow: High glow + grain,
   // Medium light glow, Low none) is drawn with WebGL2 (js/gl2d.js + js/gl-render.js) into a canvas lying over #cv,
@@ -42,9 +52,42 @@
   // never switched off for refused frames: tests and diagnosis). ?msaa=0|2|4 sets its multisampling (default 4).
   const REN_Q = QS.get('renderer');
   const GL_FORCE = REN_Q === 'gl', GL_WANT = REN_Q !== 'canvas';
+  // GPU path (docs/SHADOW-DUEL-GPU.md): the WebGL2 renderer with its native GPU paths - High and Medium fighters placed
+  // from part pictures in the sprite atlas (bake.js, as Low does) instead of paths turned into triangles every frame,
+  // text pictures placed by the GPU, menus on WebGL2, the GPU queue limit. Presentation only. Since 1.3 the default
+  // wherever the WebGL2 renderer runs (it passed its self-check); where it does not (no WebGL2, software WebGL, a
+  // failed self-check, a lost context, a renderer switched off for refused frames) every frame is drawn by Canvas 2D
+  // with paths, exactly as before. ?renderer=gl or ?gpu=0 shows the previous WebGL2 renderer (comparison, tests);
+  // ?renderer=gpu or ?gpu=1 (with ?renderer=gl: software WebGL allowed, headless tests) forces it on.
+  // window.__ndGpuDefault = false (set before this script) turns the default off for a build.
+  const GPU_PATH = REN_Q === 'gpu' || QS.get('gpu') === '1' || (window.__ndGpuDefault !== false && REN_Q !== 'gl' && REN_Q !== 'canvas' && QS.get('gpu') !== '0');
+  ND.gpuPath = GPU_PATH;
+  const SPRITE_BIAS = QS.get('bias') != null ? +QS.get('bias') || 0 : -0.5;
+  // GPU load of the GPU path (High / Medium; measured on phones, docs/SHADOW-DUEL-GPU.md), each overridable to compare:
+  //   ?blur=small|full  High bloom: the vertical blur taps on the small glow picture (one read per screen pixel instead
+  //                     of nine) — default small on the GPU path
+  //   ?lmsaa=n          multisampling of the fighter layer pass alone (the fighters are ready-made anti-aliased
+  //                     pictures there); default: as the scene
+  //   ?dprmax=x         cap on the canvas pixel ratio (any renderer), to compare render scales
+  const BLUR_SMALL = GPU_PATH ? QS.get('blur') !== 'full' : QS.get('blur') === 'small';
+  const LMSAA = QS.get('lmsaa') != null ? +QS.get('lmsaa') | 0 : null;
+  const GPU_Q = QS.get('gpuq') != null ? Math.max(0, +QS.get('gpuq') | 0) : GPU_PATH ? 3 : 0;
+  const DPR_Q = +QS.get('dprmax') > 0 ? +QS.get('dprmax') : Infinity;
   // ?cap=0 / ?cap=1: frame pacing forced to Max / 60 for tests (see the pacer at the end); '' = the Frame rate setting
   const CAP_Q = QS.get('cap') === '0' ? '0' : QS.get('cap') === '1' ? '1' : '';
   let glr = null, glShown = false, glSamples = null;
+  // the renderer's text modes for this tier (every WebGL2 frame, and the text warm-up before a fight: game.warmTexts)
+  function glTextFlags() {
+    glr.R.textSnap = !!GFX.f.snap;
+    // GPU path: three copies of the text atlas in turn (gl2d.js R.textRing; ?textring=0 / 1 to compare)
+    glr.R.textRing = QS.get('textring') != null ? QS.get('textring') === '1' : GPU_PATH;
+    // GPU path: texts placed at their exact position and growing texts on the size ladder (gl2d.js R.textFree;
+    // ?textfree=0 / 1 to compare): almost no new text pictures (uploads) during a fight
+    glr.R.textFree = QS.get('textfree') != null ? QS.get('textfree') === '1' : GPU_PATH;
+  }
+  // pop-up texts shown in this session's fights (GPU path), drawn again at each match preparation (game.warmTexts):
+  // fx: [text, colour] of fx.text; pops: [value, big] of the score pop-ups; nums / combos: kaeshi-cine.js warmTexts
+  const popSeen = { fx: new Map(), pops: new Map(), nums: new Map(), combos: new Map() };
   // (the Canvas 2D canvas under the opaque WebGL canvas is made fully transparent meanwhile: the page compositor then
   // skips it instead of blending a second full-screen layer on every frame; it still takes the taps)
   const showGl = (on) => { if (glr && on !== glShown) { glShown = on; glr.canvas.style.visibility = on ? 'visible' : 'hidden'; cv.style.opacity = on ? '0' : ''; } };
@@ -87,7 +130,12 @@
   }
   function initGl() {
     const m = QS.get('msaa');
-    try { glr = ND.createGlRenderer({ grain, samples: m == null ? 4 : +m, glowTaps: GLOW_TAPS, auto: !GL_FORCE }); } catch (e) { glr = null; glWhy = String(e && e.message || e); }
+    // GPU path: a 2048 x 2048 text atlas (three copies: 48 MB; 2048 x 1024 on devices reporting under 4 GB), so every
+    // size a fight's pop-up texts animate through stays in it (warmTexts) instead of being drawn again whenever the
+    // 1024 x 1024 atlas filled up mid-fight (?tatlas=WxH to compare)
+    const ta = /^(\d+)x(\d+)$/.exec(QS.get('tatlas') || ''), lowMem = +navigator.deviceMemory > 0 && +navigator.deviceMemory < 4;
+    const textAtlas = ta ? [+ta[1], +ta[2]] : GPU_PATH ? [2048, lowMem ? 1024 : 2048] : null;
+    try { glr = ND.createGlRenderer({ grain, samples: m == null ? 4 : +m, glowTaps: GLOW_TAPS, auto: !GL_FORCE, textAtlas }); } catch (e) { glr = null; glWhy = String(e && e.message || e); }
     if (!glr) glWhy = glWhy || 'no WebGL2';
     if (glr) {
       glr.canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;visibility:hidden';
@@ -101,6 +149,15 @@
     }
   }
   const input = ND.input, au = ND.audio, cam = ND.cam, fx = ND.fx, scene = ND.scene, mu = ND.music;
+  // GPU path: every pop-up text a fight shows is noted for the next match preparation's text warm-up (popSeen)
+  if (GPU_PATH && fx && fx.text) {
+    const fxText = fx.text;
+    fx.text = function () {
+      fxText.apply(this, arguments);
+      const t = this.texts[this.texts.length - 1];
+      if (t && popSeen.fx.size < 300) { const k = t.str + '|' + t.color; if (!popSeen.fx.has(k)) popSeen.fx.set(k, [t.str, t.color]); }
+    };
+  }
   ND.simClock = 0; // simulation clock (seconds of fixed steps); input buffers read it, see game.advance
   // Text that is not in ND.STR (fallbacks, composed banners) goes through the i18n phrase table
   const tx = (s) => (ND.i18n ? ND.i18n.t(s) : s);
@@ -129,6 +186,9 @@
   ND.settings.music = saved.music !== false;
   // Voices (Settings > Audio): fighters' shouts and the announcer (js/voice.js); on unless the player turned them off
   ND.settings.voice = saved.voice !== false;
+  // Menu sounds (Settings > Audio): button clicks, back, confirm, toasts and coins; off leaves the fight, voices, music
+  // and the big alerts (match found, rank up / down, results) as they are (js/core.js ui, js/sfx.js)
+  ND.settings.uiSfx = saved.uiSfx !== false;
   ND.settings.hints = saved.hints !== false;
   // Show FPS (Settings → Graphics): the small frame-rate readout, off unless the player turned it on (fpsMeter below)
   ND.settings.showFps = saved.showFps === true;
@@ -136,10 +196,22 @@
   // player set by hand (hqUser) becomes High / Low, everything else starts on Auto (device guess + auto ladder).
   const TCH = ND.touch || {}, MOBILE = !!TCH.mobile;
   const GFX = ND.gfx;
+  const GFX_Q = GFX.levels.includes(QS.get('gfx')) ? QS.get('gfx') : null, GFX_SAVED = saved.gfx;
+  // ?gk=msaa:2,bloom:1 (tests, the GPU preview's comparison links): advanced knobs on top of ?gfx (or the saved tier),
+  // for this visit only
+  let GK_CUSTOM = null;
+  const GK_Q = (() => { const q = QS.get('gk'); if (!q) return null; const o = {}; for (const p of q.split(',')) { const [k, v] = p.split(':'); if (k && v != null) o[k] = +v; } return o; })();
   {
-    const lv = GFX.levels.includes(saved.gfx) ? saved.gfx : saved.hqUser ? (saved.hq !== false ? 'high' : 'low') : 'auto';
-    GFX.pref = lv;
-    GFX._setTier(lv === 'auto' ? GFX.guess() : lv, 'init');
+    let lv = GFX.levels.includes(saved.gfx) ? saved.gfx : saved.hqUser ? (saved.hq !== false ? 'high' : 'low') : 'auto';
+    // ?gfx=high|medium|low|auto (test pages: the GPU preview's A/B links) overrides it for this visit without saving it
+    if (GFX_Q) lv = GFX_Q;
+    // Advanced settings: a custom set of the five knobs (js/gfx.js), key gfxK
+    if (!GFX_Q && saved.gfx === 'custom' && saved.gfxK) GFX.setCustom(saved.gfxK, 'init');
+    else {
+      GFX.pref = lv;
+      GFX._setTier(lv === 'auto' ? GFX.guess() : lv, 'init');
+    }
+    if (GK_Q) { GFX.setCustom(Object.assign(GFX.knobs(), GK_Q), 'init'); GK_CUSTOM = GFX.custom; }
   }
   // Dokunmatik kumandanın görüneceği modlar (2P: 1. oyuncu dokunmatik, 2. oyuncu gamepad olabilir)
   const TOUCH_MODES = { cpu: 1, arcade: 1, train: 1, '2p': 1, tourney: 1, dan: 1, rival: 1, online: 1 };
@@ -293,8 +365,19 @@
         c.lineWidth = Math.max(3, fs * 0.22); c.strokeStyle = 'rgba(5,6,12,.88)';
         c.strokeText(s, X, Y);
         c.fillStyle = p.big ? '#f1d69c' : '#ffe08a'; c.fillText(s, X, Y);
+        if (p.rec !== p.v && GPU_PATH) { p.rec = p.v; if (popSeen.pops.size < 300) popSeen.pops.set(p.v + (p.big ? 'b' : ''), [p.v, p.big]); } // (warmTexts)
       }
       c.restore();
+    },
+    // match preparation (game.warmTexts): the pictures of pop-up value v through its pop-in (W(1)) and at rest (W(2))
+    warmPop(c, v, big, W) {
+      const keep = this.pops, p = { x: 0, y: -200, v, age: 0, life: big ? 1.6 : 1.1, big, rec: v };
+      this.pops = [p];
+      try {
+        p.age = 0.5; W(2); this.drawPops(c);
+        for (let a = 0; a < 0.122; a += 0.002) { p.age = a; W(1); this.drawPops(c); }
+        p.age = 0.5; W(2); this.drawPops(c);
+      } finally { this.pops = keep; W(0); }
     },
   };
 
@@ -393,8 +476,11 @@
       if ((mode === 'watch' || mode === 'attract') && c1 == null) { // (tests and tools may name the pair and the arena)
         [c1, c2] = pickPair();
         arena = randArena(false);
+        // GPU path: the menu demo stands in the arena the select screen will show (the player's last choice), so
+        // opening the select screen does not make and upload a new arena's pictures (~9 MB) at that moment
+        if (GPU_PATH && mode === 'attract' && this.sel && this.sel.arena && this.sel.arena !== 'random' && ND.ARENAS && ND.ARENAS.some((a) => a.id === this.sel.arena)) arena = this.sel.arena;
       }
-      this.applyChars(c1 ?? 0, c2 ?? 1);
+      this.applyChars(c1 ?? 0, c2 ?? 1, mode === 'online' ? opts.looks : null);
       if (opts.oppHp > 0 && RUN_MODES[mode]) f2.maxHp = Math.round(f2.ch.hp * opts.oppHp); // Dan sınavı: güçlendirilmiş rakip
       if (mode === 'watch' || mode === 'attract') {
         const lv = mode === 'attract' ? 1 : 2;
@@ -448,6 +534,50 @@
     cancelPreparation() {
       if (this.preparing) { this.preparing.cancel(); this.preparing = null; }
     },
+    // Pop-up texts of the fight (GPU path): PARRY!, CLASH!, COUNTER HIT!, the counter's name banner and damage number,
+    // the combo counter, STRIKE!, the score pop-ups... Each size such a text animates through is a picture in the
+    // renderer's text atlas; one drawn for the first time costs 1-4 ms of processor time on a phone (Canvas 2D text
+    // outline, copy, three uploads: gl2d.js), and several came together exactly on the frames of a block, parry,
+    // clash or counter (the owner's stutter). Here, behind the loading screen, each one this fight can show is drawn
+    // once through the real drawing code with made-up pop-ups (the renderer only makes the pictures: gl2d.js
+    // R.textWarm): a fixed list, the two fighters' own texts, and what earlier fights of this session showed (popSeen).
+    // The look is unchanged: they are the same pictures the fight would have made on those frames.
+    warmTexts() {
+      const R = glr.R, L = [];
+      const W = (lv) => { R.textWarm = lv; };
+      R.textWarmFull = false;
+      const c = glr.begin(cv.width, cv.height); // (a frame that is never shown: the next frame starts over)
+      const items = new Map();
+      const add = (str, color) => { if (str) items.set(str + '|' + color, [str, color]); };
+      // what a block, parry, clash, lock, guard break or hit can say (fighter.js / game.js, their colours; fx.text
+      // translates the same way)
+      for (const k of ['SAVUŞTURMA!', 'ÇARPIŞMA!', 'KİLİTLENDİ!', 'İTTİ!', 'YANSITMA!']) add(tx(k), '#ffe3a1');
+      add(tx('DENGE KIRILDI!'), '#ff9b7a');
+      for (const k of ['KARŞI!', 'KRİTİK!', 'KARŞILIK!', 'SÜPÜRME!', 'ARKADAN!']) add(tx(k), '#ffd27a');
+      if (ND.TXT) for (const k of ['kSuriage', 'kHarai', 'kNuki', 'kUchiotoshi']) if (ND.TXT[k]) add(tx(ND.TXT[k]), '#ffd27a');
+      add(tx('KAFA!'), '#f2d0c8');
+      add(tx((ND.TXT && ND.TXT.launch) || 'HAVAYA!'), '#d9dbe6'); add(tx('YERE SERİLDİ'), '#d9dbe6');
+      for (const f of F) { const kj = ND.SPECIALS?.[f.ch.id]?.kanji || '影斬り'; add(tx(kj), '#ffd27a'); add(tx(kj), f.col.ui); }
+      for (const v of popSeen.fx.values()) items.set(v[0] + '|' + v[1], v);
+      for (const it of items.values()) L.push(() => fx.warmTexts(c, it[0], it[1], W));
+      for (const [v, big] of popSeen.pops.values()) L.push(() => score.warmPop(c, v, big, W));
+      if (ND.cine && ND.cine.warmTexts) L.push(...ND.cine.warmTexts(c, W));
+      // the parry hint before a counter comes (drawPrompts, hints on; on a phone its size follows the screen)
+      if (ND.settings.hints && tOn()) {
+        const TB = (STR.touch && STR.touch.btn) || {};
+        L.push(() => { try { W(2); this.promptText(c, 0, 0, Math.max(cam.s * 0.9, (this.pxr || 1) * 1.05), tx(TB.guard || 'GARD'), tx('SAVUŞTUR'), '150,210,255'); } finally { W(0); } });
+      }
+      let i = 0;
+      return {
+        // about `ms` of drawing per loading frame; true when every pop-up is done
+        step(ms) {
+          const t0 = performance.now();
+          if (!glr || !glr.ready) return true;
+          try { while (i < L.length && !R.textWarmFull && performance.now() - t0 < ms) L[i++](); } finally { W(0); game.textWarmMs = (game.textWarmMs || 0) + performance.now() - t0; }
+          return i >= L.length || R.textWarmFull;
+        },
+      };
+    },
     prepareMatch() {
       startGl(); // the fight renderer is ready before the first fight frame (normally it already is: see startGl)
       if (!ND.prepare) return;
@@ -461,7 +591,7 @@
       // WebGL2 on Low: each fighter's part pictures go into the renderer's sprite atlas now (bake.js ND.warmBaked:
       // every pose of its moves, turned and mirrored), about 12 ms of work per loading frame, so the fight itself
       // makes almost no new pictures (each one used to be a new texture, and a stall on phones)
-      const warmGl = glr && this.rendererMode === 'gl' && glr.ready && GFX.tier === 'low' && ND.warmBaked;
+      const warmGl = glr && this.rendererMode === 'gl' && glr.ready && (GFX.tier === 'low' || GPU_PATH) && ND.warmBaked;
       for (const f of F) {
         if (warmGl) { let w = null; jobs.push(() => (w || (w = ND.warmBaked(glr.R, f))).step(12)); continue; }
         jobs.push(() => {
@@ -469,8 +599,13 @@
           return ND.prepareBaked ? ND.prepareBaked(draw) : (draw(), true);
         });
       }
+      // GPU path: the fight's pop-up texts at every size they animate through (warmTexts; ?textwarm=0 to compare)
+      if (warmGl && GPU_PATH && QS.get('textwarm') !== '0') { let w = null; jobs.push(() => { glTextFlags(); return (w || (w = this.warmTexts())).step(12); }); }
       // Reveal one complete scene, never the intermediate partial part layers used by the warm-up jobs.
       jobs.push(() => this.render());
+      // WebGL2: wait (behind the loading screen, at most ~2.5 s) until the GPU has digested the uploads and that first
+      // full frame (every pass and shader used once), so the fight does not start with frames queued behind them
+      if (glr) { let n = 0; jobs.push(() => !glr.ready || this.rendererMode !== 'gl' || ++n > 150 || glr.settle()); }
       this.preparing = ND.prepare.start(jobs, () => {
         this.preparing = null; this.acc = 0;
         [aiC1, aiC2, input.p1, input.p2].forEach((c) => c.clear());
@@ -563,11 +698,15 @@
       };
       set(this.pv[0], c1, false, 1); set(this.pv[1], c2, c1 != null && c1 === c2, -1);
     },
-    applyChars(i1, i2) {
+    // looks (online only): [1P, 2P] catalog costume ids the server confirmed (js/ranked.js), null = the plain colours
+    applyChars(i1, i2, looks) {
       const c1 = ND.CHARS[i1], c2 = ND.CHARS[i2];
       // (online: the same look on both devices, whatever each player's own save holds)
       const legacy = !['attract', 'watch', '2p', 'online'].includes(this.mode) && ND.save?.look ? ND.save.look(c1.id) : false;
-      f1.setChar(c1, legacy); f2.setChar(c2, i1 === i2 && !legacy);
+      if (this.mode === 'online' && Array.isArray(looks) && (looks[0] || looks[1])) {
+        const l1 = looks[0] ? 'rw:' + looks[0] : false;
+        f1.setChar(c1, l1); f2.setChar(c2, looks[1] ? 'rw:' + looks[1] : i1 === i2 && !l1);
+      } else { f1.setChar(c1, legacy); f2.setChar(c2, i1 === i2 && !legacy); }
       for (const n of [1, 2]) {
         const f = F[n - 1];
         $('nm' + n).textContent = f.ch.name; $('kj' + n).textContent = f.ch.kanji; $('kj' + n).style.color = f.col.ui;
@@ -586,7 +725,7 @@
       if (ND.mods) ND.mods.roundStart(F); // değiştiriciler: dolu ki, üç kat shuriken, yarım can…
       score.roundStart();
       $('rlabel').textContent = tx('RAUND ' + this.round);
-      if (this.mode === 'attract' && this.round > 1) scene.setTheme(randArena(false));
+      if (this.mode === 'attract' && this.round > 1 && !GPU_PATH) scene.setTheme(randArena(false)); // (GPU path: the demo keeps its arena)
       if (this.mode === 'train') { this.focus = null; $('rlabel').textContent = upper(tx(STR.train && STR.train.title || 'Antrenman')); }
     },
 
@@ -699,14 +838,17 @@
         ctx.beginPath(); ctx.arc(x, y, (15 + 38 * frac) * s, 0, 6.283); ctx.stroke();
         ctx.fillStyle = 'rgba(8,9,16,.85)'; ctx.beginPath(); ctx.arc(x, y, 15 * s, 0, 6.283); ctx.fill();
         ctx.strokeStyle = `rgb(${col})`; ctx.lineWidth = 2 * s; ctx.stroke();
-        ctx.fillStyle = `rgb(${col})`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        let fs = Math.round(15 * s);
-        ctx.font = `700 ${fs}px Oswald, sans-serif`;
-        if (key.length > 1) { const w = ctx.measureText(key).width, mw = 25 * s; if (w > mw) { fs = Math.max(6, Math.floor(fs * mw / w)); ctx.font = `700 ${fs}px Oswald, sans-serif`; } }
-        ctx.fillText(key, x, y + s);
-        ctx.font = `600 ${Math.round(10 * s)}px Oswald, sans-serif`; ctx.fillText(label, x, y + 27 * s);
-        ctx.textBaseline = 'alphabetic';
+        this.promptText(ctx, x, y, s, key, label, col);
       }
+    },
+    promptText(c, x, y, s, key, label, col) {
+      c.fillStyle = `rgb(${col})`; c.textAlign = 'center'; c.textBaseline = 'middle';
+      let fs = Math.round(15 * s);
+      c.font = `700 ${fs}px Oswald, sans-serif`;
+      if (key.length > 1) { const w = c.measureText(key).width, mw = 25 * s; if (w > mw) { fs = Math.max(6, Math.floor(fs * mw / w)); c.font = `700 ${fs}px Oswald, sans-serif`; } }
+      c.fillText(key, x, y + s);
+      c.font = `600 ${Math.round(10 * s)}px Oswald, sans-serif`; c.fillText(label, x, y + 27 * s);
+      c.textBaseline = 'alphabetic';
     },
 
     // ---------------------------------------------------- kılıç kilitlenmesi (tsubazeriai)
@@ -739,7 +881,7 @@
       if (L.sp <= 0) {
         L.sp = 0.08;
         if (!this.simOnly) fx._spark(c, -132, -Math.PI / 2, 3, 0.45);
-        au.noise({ type: 'bandpass', f0: 3200 + Math.random() * 800, q: 8, dur: 0.09, gain: 0.08, send: 0.3, pan: cam.pan(c) });
+        au.grind(cam.pan(c));
         cam.punch(1.2);
       }
       if (Math.abs(diff) >= 7 || L.t > 2.8) this.endLock(diff > 0 ? L.a : diff < 0 ? L.b : null);
@@ -939,7 +1081,7 @@
       return {
         cam: { x: cam.x, y: cam.y, z: cam.z },
         fs: F.map((f) => ({
-          j: ND.cloneJ(f.dead ? f.rag.j : f.j),
+          j: ND.cloneJ(f.viewJ()),
           ropes: f.ropeList().map((r) => ({ p: r.rope.p.map((q) => ({ x: q.x, y: q.y })), col: r.col, w: r.w })),
           trail: f.trail.map((t) => t.slice()), glint: f.glint(), flash: f.flash, x: f.dead ? f.rag.p.hip.x : f.x, y: f.y,
           dead: f.dead, hidden: !!f.hidden && !f.dead, // 影分身 / 阿修羅 ışınlanması: görünmezken tekrarda da görünmesin
@@ -1062,6 +1204,7 @@
       }
       // Update once per fixed simulation step, including momentum decay during hit-stop.
       for (const f of F) ND.updateCloth(f.dead ? f.rag.j : f.j, gdt);
+      if (ND.anim) for (const f of F) ND.anim.hold(f, gdt); // drawn body only: a quick move into a pose held by the hit-stop
       // The replay reads 60 snapshots per second of game time (updateReplay), so with the 120 Hz step only every
       // other step is recorded; fx events of the skipped step wait in fxEvents for the next snapshot. The counters
       // (recN, koIndex) decide whether and how long the KO replay plays, so they are fight state and run in both
@@ -1185,7 +1328,13 @@
         glWhy = glr.error; console.info('[ND.gl] WebGL2 renderer switched off; drawing with Canvas 2D', glWhy);
         glr.dispose(); glr = null; glShown = false; cv.style.opacity = ''; this.rendererMode = 'canvas';
       }
-      if (glr && this.rendererMode === 'gl' && !behindUi && !this.behind && glr.ready && this.renderGl()) return;
+      // (GPU path: the menus' demo fight and the select / VS / ending backdrops too, so the browser's own Canvas 2D
+      // drawing on the GPU — new shaders and pictures the first time a screen opens — never runs next to WebGL2; the
+      // first select screen used to wait ~1 s on a phone with the page's main thread idle)
+      if (glr && this.rendererMode === 'gl' && (GPU_PATH || (!behindUi && !this.behind)) && glr.ready && this.renderGl(behindUi)) {
+        if (behindUi) this.renderSelect();
+        return;
+      }
       showGl(false);
       // scene layer (see sceneCv): with bloom on, the Canvas post-processing reads the finished scene from it
       const layer = GFX.f.bloom > 0;
@@ -1203,19 +1352,24 @@
     },
 
     // WebGL2 frame (see glr above). false: nothing was shown, the caller draws the frame with Canvas 2D.
-    renderGl() {
+    renderGl(behindUi) {
       // the tier's processor savings in the renderer (js/gfx.js TIERS: curve tolerance, texts on whole pixels)
-      glr.R.setTolerance(GFX.f.tol); glr.R.textSnap = !!GFX.f.snap;
+      glr.R.setTolerance(GFX.f.tol);
+      // ?renderer=gpu, High / Medium: part pictures sampled sharper (mip bias; they are made for the closest zoom)
+      glr.R.spriteBias = GPU_PATH && GFX.tier !== 'low' ? SPRITE_BIAS : 0;
+      glTextFlags();
       // Low: 2× multisampling instead of 4× (?msaa=n overrides). The fighters there are ready-made anti-aliased
       // pictures and the backdrop is one picture; the samples mostly cost memory traffic: every pass writes and resolves
       // them on every frame, which on a phone is power and heat.
-      const ms = QS.get('msaa') != null ? +QS.get('msaa') : GFX.tier === 'low' ? 2 : 4;
+      const ms = QS.get('msaa') != null ? +QS.get('msaa') : GFX.f.msaa != null ? GFX.f.msaa : GFX.tier === 'low' ? 2 : 4;
       if (ms !== glSamples) { glr.setSamples(ms); glSamples = ms; }
+      glr.setLayerSamples(GPU_PATH && GFX.tier !== 'low' ? LMSAA : null);
       const g = glr.begin(cv.width, cv.height);
       let ok = false;
       ctx = g;
       try {
-        if (this.phase === 'replay') this.renderReplay();
+        if (behindUi) this.renderScene(false);
+        else if (this.phase === 'replay') this.renderReplay();
         else this.renderScene(true);
         ok = true;
       } catch (e) { glr.fail(e); console.warn('[ND.gl] frame failed; drawing it with Canvas 2D', e); }
@@ -1225,7 +1379,7 @@
       // draw none there either)
       const mode = GFX.f.bloom === 2 ? 2 : GFX.f.bloom ? 1 : 0;
       const gx = mode === 2 ? (Math.random() * 128) | 0 : 0, gy = mode === 2 ? (Math.random() * 128) | 0 : 0;
-      if (!glr.end({ mode, bloom: scene.theme.bloom ?? 0.5, grainX: gx, grainY: gy, grain: mode === 2 })) return false;
+      if (!glr.end({ mode, bloom: scene.theme.bloom ?? 0.5, grainX: gx, grainY: gy, grain: mode === 2, smallBlur: BLUR_SMALL })) return false;
       showGl(true);
       this.renderVersion = 'gl-v1';
       PM('post');
@@ -1260,7 +1414,7 @@
       for (const f of ORD) this.drawLit(f, f._litFn || (f._litFn = (c) => f.draw(c, false, true)));
       PM('fighters');
       cam.world(ctx);
-      for (const f of ORD) if (!f.dead && !f.hidden) ND.eyeGlow?.(ctx, f.j, f.col, f.ch.acc);
+      for (const f of ORD) if (!f.dead && !f.hidden) ND.eyeGlow?.(ctx, f.viewJ(), f.col, f.ch.acc);
       fx.draw(ctx);
       if (ND.specialFx) { ctx.save(); cam.world(ctx); ND.specialFx.draw(ctx); ctx.restore(); }
       PM('fx');
@@ -1343,7 +1497,8 @@
       const gx = (Math.random() * 128) | 0, gy = (Math.random() * 128) | 0;
       ctx.globalCompositeOperation = 'overlay'; ctx.globalAlpha = 0.07;
       ctx.translate(gx, gy);
-      ctx.fillStyle = grainPat; ctx.fillRect(-128, -128, cam.W + 128, cam.H + 128);
+      const gp = grainFill();
+      if (gp) { ctx.fillStyle = gp; ctx.fillRect(-128, -128, cam.W + 128, cam.H + 128); }
       ctx.restore();
       PM('post');
     },
@@ -1559,7 +1714,8 @@
       b.onclick = () => {
         if (ND.ads.busy) return;
         ND.ads.rewarded().then((got) => {
-          if (!got) { if (ND.toast) ND.toast(A.fail || '', '忍'); return; }
+          // (no reward: a notice; and when this session gets no rewarded ads at all, the offer goes away)
+          if (!got) { if (ND.toast) ND.toast(A.fail || '', '忍'); if (!ND.ads.rewardedAvailable()) b.hidden = true; return; }
           if (this.phase !== 'select') return;
           this.trialPrev = this.sel.c[0]; ND._trial = ch.id;
           this.sel.c[0] = k; b.hidden = true;
@@ -1804,7 +1960,10 @@
         if (!c) continue;
         const r = c.getBoundingClientRect(), dpr = Math.min(this.dprCap || 2, window.devicePixelRatio || 1);
         if (r.width < 2 || r.height < 2) continue;
-        const pc = c.getContext('2d');
+        // (drawn by the processor, willReadFrequently: the first select screen used to wait ~1 s on phones — no game
+        // work, no long task — most likely the GPU compiling the canvas's path and gradient shaders for these
+        // full-detail previews; small pictures, cheap on the CPU)
+        const pc = c.__pv2d || (c.__pv2d = c.getContext('2d', { willReadFrequently: true }));
         const W = Math.max(1, Math.round(r.width * dpr)), H = Math.max(1, Math.round(r.height * dpr));
         if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
         pc.setTransform(1, 0, 0, 1, 0, 0); pc.clearRect(0, 0, W, H);
@@ -1830,9 +1989,12 @@
   function persist() {
     const id = (i) => (ND.CHARS[i] ? ND.CHARS[i].id : i);
     // graphics: the player's choice (Auto's own steps are not saved); hq / hqUser keep older builds reading it right
-    const gfx = GFX.pref, hq = gfx !== 'low', hqUser = gfx !== 'auto';
+    // (a quality forced by ?gfx= is not saved while it is still the one in use)
+    const forced = (GFX_Q && GFX.pref === GFX_Q) || (GK_Q && GFX.pref === 'custom' && GFX.custom === GK_CUSTOM);
+    const gfx = forced ? GFX_SAVED : GFX.pref, hq = gfx !== 'low', hqUser = !!gfx && gfx !== 'auto';
+    const gfxK = gfx === 'custom' ? (!forced && GFX.pref === 'custom' ? GFX.custom : saved.gfxK) : undefined;
     // merged into what is stored, so settings kept by other files (touch controls: key "touch", js/touch.js) survive
-    store.set(Object.assign(store.get(), { sound: ND.settings.sound, bloodOptIn: ND.settings.blood, music: ND.settings.music, voice: ND.settings.voice, hints: ND.settings.hints, showFps: ND.settings.showFps || undefined, gfx, hq, hqUser, fps: game.fpsPref || undefined, level: game.level, c1: id(game.sel.c[0]), c2: id(game.sel.c[1]), arena: game.sel.arena }));
+    store.set(Object.assign(store.get(), { sound: ND.settings.sound, bloodOptIn: ND.settings.blood, music: ND.settings.music, voice: ND.settings.voice, uiSfx: ND.settings.uiSfx, hints: ND.settings.hints, showFps: ND.settings.showFps || undefined, gfx, gfxK, hq, hqUser, fps: game.fpsPref || undefined, level: game.level, c1: id(game.sel.c[0]), c2: id(game.sel.c[1]), arena: game.sel.arena }));
   }
   function unlockAudio() { au.init(); au.setEnabled(ND.settings.sound); mu.init(); mu.setEnabled(ND.settings.music); if (mu.mode === 'off') mu.setMode(game.phase === 'fight' ? 'fight' : 'menu'); }
   function choose(mode) { unlockAudio(); au.ui(); if (mode === 'watch') { au.quiet = false; game.start('watch'); } else game.openSelect(mode); }
@@ -1964,7 +2126,7 @@
       document.querySelectorAll('.seg[data-lv]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
     };
   });
-  const toggles = { tSound: 'sound', tBlood: 'blood', tMusic: 'music', tHints: 'hints', tFps: 'showFps', tVoice: 'voice' };
+  const toggles = { tSound: 'sound', tBlood: 'blood', tMusic: 'music', tHints: 'hints', tFps: 'showFps', tVoice: 'voice', tUiSfx: 'uiSfx' };
   // Graphics choice: the [data-gq] rows in the menu's options and the pause dialog (index.html), four .seg buttons
   // data-gfx="auto|high|medium|low". A press applies and saves (ND.gfx.setQuality → the GFX.onChange listener below
   // persists). Texts from ND.STR.gfx: title, levels, and one line under the row — on Auto it says which tier is drawn
@@ -1977,7 +2139,10 @@
       if (t) t.textContent = G.title || '';
       row.setAttribute('aria-label', G.title || '');
       row.querySelectorAll('[data-gfx]').forEach((b) => { b.textContent = L[b.dataset.gfx] || b.dataset.gfx; });
+      const cu = row.querySelector('[data-gfx-custom]');
+      if (cu) cu.textContent = L.custom || 'Custom';
     });
+    advTexts();
     syncGfx();
   }
   function syncGfx() {
@@ -1986,12 +2151,67 @@
     if (pref === 'auto' && typeof G.now === 'function') { try { now = G.now(L[GFX.active()] || GFX.active()); } catch (e) { now = ''; } }
     gfxRows().forEach((row) => {
       row.querySelectorAll('[data-gfx]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.gfx === pref)));
+      const cu = row.querySelector('[data-gfx-custom]');
+      if (cu) cu.hidden = pref !== 'custom';
       const n = row.querySelector('[data-gq-now]'), d = row.querySelector('[data-gq-d]');
       if (n && n.textContent !== now) n.textContent = now;
       if (n) n.hidden = !now;
       const desc = N[pref] || '';
       if (d && d.textContent !== desc) d.textContent = desc;
     });
+    syncAdv();
+  }
+  // Advanced graphics (Settings → Graphics, #setAdv): a switch that opens one row per knob of js/gfx.js (KNOBS:
+  // resolution, anti-aliasing, glow, shadows & reflections, weather & particles). A press sets that knob alone
+  // (GFX.setKnob: the choice becomes Custom, the quality row shows it) and is saved (settings key gfxK); pressing a
+  // preset restores its values. The three heaviest rows (resolution, anti-aliasing, glow) carry a "heats the phone the
+  // most" hint. Texts ND.STR.gfx.adv.
+  const ADV_WORD = { msaa: { 0: 'off' }, bloom: { 0: 'off', 1: 'low', 2: 'full' }, shadows: { 0: 'off', 1: 'simple', 2: 'full' }, effects: { 0: 'low', 1: 'mid', 2: 'full' } };
+  const ADV_HOT = { scale: 1, msaa: 1, bloom: 1 };
+  let advOpen = false;
+  function gfxAdvBuild() {
+    const adv = $('setAdv');
+    if (!adv || adv.dataset.built) return;
+    adv.dataset.built = '1';
+    let h = '<button type="button" class="tog" id="tGfxAdv" aria-pressed="false" aria-expanded="false" aria-controls="setAdvRows"><i></i><span data-gk-adv></span></button><div class="gq-adv-rows" id="setAdvRows" hidden><small class="gq-n" data-gk-note></small>';
+    for (const k in GFX.knobList) {
+      h += `<div class="gq" role="group" data-gk="${k}"><span class="gq-t" data-gk-t></span><span class="gq-segs">` +
+        GFX.knobList[k].map((v) => `<button type="button" class="seg" data-v="${v}" aria-pressed="false"></button>`).join('') + '</span>' +
+        (ADV_HOT[k] ? '<small class="gq-hot" data-gk-hot></small>' : '') + '</div>';
+    }
+    adv.innerHTML = h + '</div>';
+    $('tGfxAdv').onclick = (e) => { e.stopPropagation(); advOpen = !advOpen; syncAdv(); unlockAudio(); au.ui(); };
+    adv.querySelectorAll('[data-gk]').forEach((row) => row.querySelectorAll('[data-v]').forEach((b) => {
+      b.onclick = (e) => { e.stopPropagation(); GFX.setKnob(row.dataset.gk, +b.dataset.v); unlockAudio(); au.ui(); };
+    }));
+  }
+  function advTexts() {
+    gfxAdvBuild();
+    const adv = $('setAdv');
+    if (!adv) return;
+    const A = (STR.gfx && STR.gfx.adv) || {}, K = A.knob || {}, V = A.val || {};
+    const set = (el, t) => { if (el && el.textContent !== t) el.textContent = t; };
+    set(adv.querySelector('[data-gk-adv]'), A.title || 'Advanced');
+    set(adv.querySelector('[data-gk-note]'), A.note || '');
+    adv.querySelectorAll('[data-gk]').forEach((row) => {
+      const k = row.dataset.gk;
+      set(row.querySelector('[data-gk-t]'), K[k] || k);
+      row.setAttribute('aria-label', K[k] || k);
+      set(row.querySelector('[data-gk-hot]'), A.hot || '');
+      row.querySelectorAll('[data-v]').forEach((b) => {
+        const v = +b.dataset.v, w = ADV_WORD[k] && ADV_WORD[k][v];
+        set(b, k === 'scale' ? Math.round(v * 100) + '%' : w ? V[w] || w : v + '×');
+      });
+    });
+  }
+  function syncAdv() {
+    const adv = $('setAdv');
+    if (!adv || !adv.dataset.built) return;
+    const b = $('tGfxAdv'), rows = $('setAdvRows');
+    b.setAttribute('aria-pressed', String(advOpen)); b.setAttribute('aria-expanded', String(advOpen));
+    rows.hidden = !advOpen;
+    const K = GFX.knobs();
+    adv.querySelectorAll('[data-gk]').forEach((row) => row.querySelectorAll('[data-v]').forEach((x) => x.setAttribute('aria-pressed', String(+x.dataset.v === K[row.dataset.gk]))));
   }
   gfxRows().forEach((row) => row.querySelectorAll('[data-gfx]').forEach((b) => {
     b.onclick = (e) => { e.stopPropagation(); GFX.setQuality(b.dataset.gfx); unlockAudio(); au.ui(); };
@@ -2305,10 +2525,14 @@
   function resize() {
     const r = cv.getBoundingClientRect();
     if (r.width < 1 || r.height < 1) return;
-    let dpr = Math.min(window.devicePixelRatio || 1, GFX.f.dpr);
+    let dpr = Math.min(window.devicePixelRatio || 1, GFX.f.dpr, DPR_Q);
     const px = r.width * r.height * dpr * dpr;
     if (px > MAX_PX) dpr *= Math.sqrt(MAX_PX / px);
-    const k = dpr * aq.R[aq.i].s * (game.behind ? BEHIND_SCALE : 1);
+    // (GPU path: menus at the fight's own size — the backdrop is drawn at most ~30 times a second either way, and a
+    // size change between menu and fight rebuilt every background picture and render target: ~9 MB of uploads at
+    // each menu / VS / fight switch)
+    // (Canvas 2D fallback, no WebGL2 renderer: the menus stay at 3/4 as before)
+    const k = dpr * aq.R[aq.i].s * (GFX.f.scale || 1) * (game.behind && !(GPU_PATH && (glr || glLater)) ? BEHIND_SCALE : 1);
     const w = Math.max(1, Math.round(r.width * k)), h = Math.max(1, Math.round(r.height * k));
     if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
     game.pxr = cv.width / r.width; // tuval pikseli / CSS pikseli (tuş istemi boyutu için)
@@ -2331,6 +2555,7 @@
   const SCALES = MOBILE ? [1, 0.85, 0.7, 0.6] : [1, 0.85, 0.7];
   function ladder(pref) {
     const R = [];
+    if (pref === 'custom') return [{ tier: GFX.tier, s: 1 }]; // the player's own knobs: no automatic steps
     if (pref === 'auto') {
       const T = GFX.tiers.slice(Math.max(0, GFX.tiers.indexOf(GFX.guess())));
       T.forEach((tier, i) => (i === T.length - 1 ? SCALES : SCALES.slice(0, 2)).forEach((s) => R.push({ tier, s })));
@@ -2432,9 +2657,25 @@
     // The same for a result screen over the finished fight and an online match waiting for the other player (nothing
     // moves there either): phones spent full frames redrawing a still picture under a dialog.
     if (!behind && (game.paused || (ND.portal && ND.portal.inAd) || stillUnder()) && w0 - lastDraw < 100) return;
+    // GPU path: while 3 or more drawn frames still wait for the GPU, this refresh draws nothing (the simulation has
+    // already advanced): a slow GPU frame no longer piles later frames up behind it (the owner's phone showed 3–6
+    // frames queued and 40–100 ms freezes); ?gpuq=n sets the limit, 0 off
+    if (GPU_Q && glr && game.rendererMode === 'gl' && glr.ready) {
+      glr.queueLimit = GPU_Q;
+      if (glr.queued() >= GPU_Q) { game.gpuSkips = (game.gpuSkips || 0) + 1; return; }
+    }
     lastDraw = w0;
     game.render();
     skipDraw = behind && performance.now() - w0 > 12;
+  }
+  // GPU path, result screen (the GPU draws a still picture there): the two fighters' part pictures for a key light from
+  // the other side are made a few milliseconds per frame, so a rematch or the next fight in an arena lit from that side
+  // does not make them all on its loading screen (it did: 1,282 pictures, ~44 MB, ~1 s on the owner's phone)
+  let bgW = null;
+  function bgWarm() {
+    if (!(GPU_PATH && glr && glr.ready && game.rendererMode === 'gl' && game.phase === 'end' && !game.preparing && ND.warmBaked && ND._draw)) { bgW = null; return; }
+    if (!bgW) { ND._draw.updLight(); const side = ND._draw.LT.x > 0 ? -1 : 1; bgW = F.map((f) => ND.warmBaked(glr.R, f, side)); }
+    for (const w of bgW) if (!w.done) { w.step(4); break; }
   }
   const endEl = $('end');
   const stillUnder = () => (game.phase === 'end' && ((endEl && !endEl.hidden) || !!(ND.online && ND.online.endShown && ND.online.endShown()))) || !!(ND.net && ND.net.isWaiting && ND.net.isWaiting());
@@ -2487,13 +2728,32 @@
   const pacer = GFX.makePacer ? GFX.makePacer(CAP_Q ? (CAP_Q === '1' ? 60 : 0) : GFX.fpsOf(fpsChoice())) : null;
   game.pace = { on: !!pacer, stat: () => pacer?.stat() || null };
   game.applyFps = () => { if (pacer && !CAP_Q) pacer.setTarget(GFX.fpsOf(fpsChoice())); };
+  // A throw inside one frame must not become an error on every frame after it (the next frame is already asked for, so
+  // the loop runs on and the same throw would repeat 60 times a second). Each different error is caught here and still
+  // reported once, as it is: to the studio panel (index.html __ndErr, kind 'frame') and to the browser as an uncaught
+  // error (a portal's own error listener sees it too); its repeats are only counted (game.frameFaults(), console tests).
+  // Nothing about the fight changes: the step that threw is not retried or skipped differently than before.
+  const faults = new Map();
+  function frameFault(e) {
+    let k = 'unknown';
+    try { k = String(e && e.message) + '|' + String((e && e.stack) || '').split('\n').slice(0, 3).join('|'); } catch (x) { /* odd object */ }
+    const n = faults.get(k) || 0;
+    if (n || faults.size >= 20) { if (n) faults.set(k, n + 1); return; }
+    faults.set(k, 1);
+    try { console.error('[ND] frame failed', e); } catch (x) { /* no console */ }
+    try { if (e && typeof e === 'object') e.__ndReported = true; if (window.__ndErr) window.__ndErr.report('frame', e); } catch (x) { /* never */ }
+    setTimeout(() => { throw e; }, 0);
+  }
+  game.frameFaults = () => [...faults].map(([k, n]) => ({ k, n }));
   function frame(now) {
     requestAnimationFrame(frame);
-    if (game.pace.on && pacer && !game.preparing && !pacer.due(now)) return; // skipped: its time goes to the next frame
-    if (game.preparing) pacer?.reset();
-    const gap = now - last; last = now;
-    if (!game.preparing) fpsMeter.frame(gap);
-    frameBody(gap);
+    try {
+      if (game.pace.on && pacer && !game.preparing && !pacer.due(now)) return; // skipped: its time goes to the next frame
+      if (game.preparing) pacer?.reset();
+      const gap = now - last; last = now;
+      if (!game.preparing) fpsMeter.frame(gap);
+      frameBody(gap);
+    } catch (e) { frameFault(e); }
   }
   // One display frame (gap = ms since the previous one). Exposed as game._frame for console tests (hidden tab: no rAF).
   function frameBody(gap) {
@@ -2511,9 +2771,14 @@
     portalTick(rdt, inAd);
     game.syncTouch();
     drawFrame(performance.now());
+    // a vibration of this frame's hit / parry goes to the browser once the frame is handed over (js/haptics.js defer)
+    if (ND.haptics && ND.haptics.pending) setTimeout(hFlush, 0);
+    bgWarm();
     if (!loaded) { loaded = true; ND.portal?.loadingFinished(); ND.funnel?.step('menu'); if (glLater) setTimeout(startGl, 0); }
     aqWatch(gap, performance.now() - w0);
   }
   game._frame = frameBody;
+  const hFlush = () => ND.haptics.flush();
+  if (ND.haptics) { ND.haptics.defer = true; ND.haptics.off = QS.get('vib') === '0'; }
   requestAnimationFrame(frame);
 })(window.ND);

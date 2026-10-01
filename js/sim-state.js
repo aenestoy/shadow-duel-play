@@ -24,10 +24,10 @@
     'hitstopT', 'slow', 'slowT', 'slowV', 'cineT', 'cineX', 'cineZ', 'dim', 'focus', 'flags', 'doubleKO', 'winner', 'loser',
     'stats', 'recording', 'recOdd', 'recN', 'recShift', 'koIndex', 'replay', 'tz'];
   // Fighter fields never saved, restored or fingerprinted: drawing caches and presentation links, and the purely visual
-  // state the fight never reads (hair / scarf / sash cloth, blade streak, afterimages). After a rollback those simply
+  // state the fight never reads (hair / scarf / sash cloth, blade streak, afterimages, the drawn body js/anim.js). After a rollback those simply
   // carry on from the picture the player saw.
   const SKIP = { _bake: 1, _dopt: 1, _litFn: 1, _trailFn: 1, _bb: 1, _ropes: 1, _ropesCol: 1, _ropesTails: 1, _ropesSash: 1, _pd: 1, comboTxt: 1,
-    tails: 1, sash: 1, trail: 1, ghosts: 1 };
+    tails: 1, sash: 1, trail: 1, ghosts: 1, _anim: 1 };
   // Saved (so a restore looks right) but left out of the fingerprint: they may differ between two devices without the
   // fight differing (afterimage count follows the graphics setting; decal count; the last input device).
   const NOHASH = { decals: 1, lastSrc: 1, srcs: 1, edges: 1, onPress: 1 };

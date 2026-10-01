@@ -11,6 +11,10 @@
 // Rate limit: an event pulse needs GAP ms since the one before and at most BURST of them in WINDOW ms, so a long rally
 // of parries and counters does not buzz without a break (guard break and KO always come through, they are rare). While
 // an event pattern plays, the short press buzz of the buttons waits (it would cut the pattern off).
+// defer (set by game.js): the pattern is handed to the browser after the frame is drawn (flush, called by the frame
+// loop), not in the middle of the simulation step of the hit that the same frame has to draw: on Android a vibration
+// is a call into the system, and the owner's hitch reports kept showing it on the frames of parries and hits.
+// off (game.js, ?vib=0 for comparison runs): no vibration at all, the saved setting is untouched.
 (function (ND) {
   'use strict';
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -26,7 +30,7 @@
     return [d, 35, Math.round(d * 0.55)];
   };
   const H = ND.haptics = {
-    last: 0, busyUntil: 0, recent: [], log: null,
+    last: 0, busyUntil: 0, recent: [], log: null, defer: false, pending: null, off: false,
     // the local touch player (input.p1 drives F[0] when a human plays it)
     player() {
       const G = ND.game;
@@ -43,7 +47,7 @@
     },
     allowed() {
       const P = ND.touchPrefs;
-      if (P && P.haptic === false) return false;
+      if (this.off || (P && P.haptic === false)) return false;
       try {
         if (typeof navigator === 'undefined' || typeof navigator.vibrate !== 'function') return false;
         const ua = navigator.userActivation;
@@ -62,15 +66,24 @@
       }
       const p = pattern(kind, dmg);
       let ok = false;
-      try { ok = navigator.vibrate(p) !== false; } catch (e) { ok = false; }
+      if (this.defer) { this.pending = p; ok = true; } // (a second pattern in the same frame replaces the first, as a second call would)
+      else { try { ok = navigator.vibrate(p) !== false; } catch (e) { ok = false; } }
       if (!ok) return false;
       this.last = t; this.recent.push(t);
       this.busyUntil = t + p.reduce((a, b) => a + b, 0);
       if (this.log) this.log.push({ kind, p, t });
       return true;
     },
+    // after the frame is drawn (game.js frame loop): the pattern of this frame's event, if any
+    flush() {
+      const p = this.pending;
+      if (!p) return;
+      this.pending = null;
+      try { navigator.vibrate(p); } catch (e) { /* vibration must never break the fight */ }
+    },
     // pause, ad, menu: stop whatever is playing
     stop() {
+      this.pending = null;
       if (this.busyUntil <= performance.now()) return;
       this.busyUntil = 0;
       try { if (typeof navigator.vibrate === 'function') navigator.vibrate(0); } catch (e) { /* yok */ }

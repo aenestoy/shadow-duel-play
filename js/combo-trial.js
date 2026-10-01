@@ -246,8 +246,8 @@
           '#ctrial kbd{font-size:11px;padding:2px 6px;min-width:14px;border-bottom-width:2px}#ctrial .tb{font-size:11px;padding:2px 7px}',
           '#ctrial.win{animation:ctWin .6s ease-out}@keyframes ctWin{0%{box-shadow:0 0 0 0 rgba(255,210,122,.9)}100%{box-shadow:0 0 0 18px rgba(255,210,122,0)}}',
           '#trCombo[aria-pressed="true"]{border-color:var(--gold-hi);color:var(--gold-hi)}',
-          '@media (max-height:500px){#ctrial{top:calc(env(safe-area-inset-top,0px) + 92px);padding:5px 10px 6px;gap:3px;width:min(440px,calc(100% - 330px))}#ctrial .ct-desc{display:none}#ctrial .ct-head b{font-size:14px}}',
-          '@media (max-height:500px) and (max-width:700px){#ctrial{width:calc(100% - 24px)}}',
+          '@media (max-height:540px){#ctrial{top:calc(env(safe-area-inset-top,0px) + 92px);padding:5px 10px 6px;gap:3px;width:min(440px,calc(100% - 330px))}#ctrial .ct-desc{display:none}#ctrial .ct-head b{font-size:14px}}',
+          '@media (max-height:540px) and (max-width:700px){#ctrial{width:calc(100% - 24px)}}',
           // phones: over the floor between the stick and the buttons (like the lesson tip), clear of the pause button and the fighters
           '#app.touch #touch:not([hidden]) ~ #ctrial{top:auto;bottom:max(6px,env(safe-area-inset-bottom,0px));left:calc(var(--sl,0px) + var(--tb,56px) * 2.7);right:calc(var(--sr,0px) + var(--tb,56px) * 4.4);width:auto;max-width:520px;margin:0 auto;transform:none}',
           '#app.touch #ctrial .ct-head span{display:none}',

@@ -75,6 +75,8 @@
       rec.first[id] = rec.play;
       dirty = true; write();
       if (loud) console.info('[funnel]', id, 'at', rec.play + 's', F.report());
+      // studio play statistics (src/studio-stats.ts; absent in the Yandex / Playgama builds): a few steps are funnel events there
+      try { if (ND.studioStats) ND.studioStats.funnel(id); } catch (e) { /* statistics never break the game */ }
       try { if (ND.portal && ND.portal.track) ND.portal.track('funnel_' + id); } catch (e) { /* the portal ignored it */ }
       return true;
     },

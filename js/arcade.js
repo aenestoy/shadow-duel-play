@@ -643,6 +643,9 @@
     o.lb.champ = cids(o.lb.champ); o.lb.champSeen = cids(o.lb.champSeen);
     if (!o.lb.champUse || typeof o.lb.champUse !== 'object' || Array.isArray(o.lb.champUse)) o.lb.champUse = {};
     for (const k of Object.keys(o.lb.champUse)) if (o.lb.champUse[k] !== true || !ND.CHARS.some((c) => c.id === k)) delete o.lb.champUse[k];
+    // catalog costumes worn (js/rewards.js): ninja → reward id
+    if (!o.lb.rwUse || typeof o.lb.rwUse !== 'object' || Array.isArray(o.lb.rwUse)) o.lb.rwUse = {};
+    for (const k of Object.keys(o.lb.rwUse)) if (typeof o.lb.rwUse[k] !== 'string' || !/^[a-z0-9_]{3,40}$/.test(o.lb.rwUse[k]) || !ND.CHARS.some((c) => c.id === k)) delete o.lb.rwUse[k];
     if (o.lb.title != null && (typeof o.lb.title !== 'object' || ![1, 2, 3].includes(o.lb.title.place))) o.lb.title = null;
     // rekabet katmanı (banzuke.js): { t: { '2026-W39': { best, char, att, won, date } }, dan: { r, best, strikes, tries, passes } }
     if (!o.bz || typeof o.bz !== 'object') o.bz = {};
@@ -715,12 +718,25 @@
     toggleLegacy(id) { if (!this.p.journey.mastered[id]) return; this.p.journey.looks[id] = !this.useLegacy(id); this.commit(); },
     // Şampiyon renkleri: bu ninjayla bir Aylık Turnuva kazanılmış mı (sunucunun cevabı, yerelde önbellek)
     champOk(id) { const c = this.p.lb.champ; return Array.isArray(c) && c.includes(id); },
-    // Görünüş: false = asıl renkler, true = Miras renkleri (yolculuk ustalığı), 'champ' = Şampiyon renkleri
-    look(id) { const u = this.p.lb.champUse; return this.champOk(id) && !!u && u[id] === true ? 'champ' : this.useLegacy(id); },
-    lookOptions(id) { const a = [false]; if (this.p.journey.mastered[id]) a.push(true); if (this.champOk(id)) a.push('champ'); return a; },
+    // Görünüş: false = asıl renkler, true = Miras renkleri (yolculuk ustalığı), 'champ' = Şampiyon renkleri,
+    // 'rw:<id>' = sunucudaki ödül kataloğundan sahip olunan bir kostüm (js/rewards.js; yalnız çevrimiçi derlemede)
+    rwOk(id, rid) { const R = ND.rewards; return !!R && R.owns(rid) && R.costumesFor(id).some((e) => e.id === rid); },
+    look(id) {
+      const w = this.p.lb.rwUse && this.p.lb.rwUse[id];
+      if (w && this.rwOk(id, w)) return 'rw:' + w;
+      const u = this.p.lb.champUse; return this.champOk(id) && !!u && u[id] === true ? 'champ' : this.useLegacy(id);
+    },
+    lookOptions(id) {
+      const a = [false]; if (this.p.journey.mastered[id]) a.push(true); if (this.champOk(id)) a.push('champ');
+      if (ND.rewards) for (const e of ND.rewards.costumesFor(id)) a.push('rw:' + e.id);
+      return a;
+    },
     setLook(id, v) {
       const L = this.p.lb;
       if (!L.champUse || typeof L.champUse !== 'object') L.champUse = {};
+      if (!L.rwUse || typeof L.rwUse !== 'object') L.rwUse = {};
+      if (typeof v === 'string' && v.startsWith('rw:')) { if (!this.rwOk(id, v.slice(3))) return; L.rwUse[id] = v.slice(3); this.commit(); return; }
+      delete L.rwUse[id];
       if (v === 'champ') { if (!this.champOk(id)) return; L.champUse[id] = true; }
       else { delete L.champUse[id]; if (this.p.journey.mastered[id]) this.p.journey.looks[id] = v === true; }
       this.commit();
@@ -1033,7 +1049,7 @@
         const lab = document.createElement('span'); lab.className = 'look-l'; lab.textContent = T.colors; look.appendChild(lab);
         const slot = (v, text, locked) => {
           const b = document.createElement('button');
-          b.type = 'button'; b.className = 'look-slot' + (v === 'champ' ? ' look-champ' : '') + (locked ? ' locked' : ''); b.textContent = text;
+          b.type = 'button'; b.className = 'look-slot' + (v === 'champ' || String(v).startsWith('rw:') ? ' look-champ' : '') + (locked ? ' locked' : ''); b.textContent = text;
           b.setAttribute('aria-pressed', String(!locked && now === v));
           if (locked) { b.disabled = true; b.title = TT.how || ''; } else b.onclick = () => { save.setLook(id, v); G.refreshSelect(); };
           look.appendChild(b);
@@ -1046,6 +1062,8 @@
           slot('champ', TT.colors || 'Champion', true);
           const how = document.createElement('small'); how.className = 'look-how'; how.textContent = TT.how || ''; look.appendChild(how);
         }
+        // costumes from the server's reward catalog this player owns (js/rewards.js; the name in the chosen language)
+        for (const v of opts) if (typeof v === 'string' && v.startsWith('rw:')) slot(v, ND.rewards.name(v.slice(3)));
       }
       if (panel) panel.hidden = G.selMode !== 'arcade';
       // journey layout (index.html #select.journey): the ninja and its journey side by side where the screen is short
@@ -1259,6 +1277,8 @@
       if (won) {
         const pts = res ? res.total : 0;
         R.score += pts; R.won++; R.perfect += cur.perfect;
+        // studio play statistics: how far players get in the journey (src/studio-stats.ts; once per install)
+        try { if (ND.studioStats) ND.studioStats.event('journey_win_' + (R.i + 1)); } catch (e) { /* never breaks the game */ }
         R.fightPts = R.fightPts || []; R.fightPts[R.i] = pts;
         R.honor = (R.honor || 0) + (honor.last ? honor.last.total : 0);
         R.needsRetry = false;
@@ -1291,7 +1311,7 @@
           bc.onclick = () => {
             if (ND.ads.busy) return;
             ND.ads.rewarded().then((ok) => {
-              if (!ok) { if (ND.toast) ND.toast(A.fail || '', '忍'); return; }
+              if (!ok) { if (ND.toast) ND.toast(A.fail || '', '忍'); if (!ND.ads.rewardedAvailable()) bc.hidden = true; return; }
               if (!this.run || this.run !== R) return;
               R.contUsed = true; R.needsRetry = false; bc.hidden = true; this.fight();
             });

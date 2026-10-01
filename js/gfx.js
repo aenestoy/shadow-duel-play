@@ -14,6 +14,16 @@
 //           (the fighters look as on the other tiers: detailed and lit, placed from cached part pictures, bake.js)
 // ND.settings.hq stays true only on High (older code and effects read it for their extra glows).
 // UI: ND.gfx.levels lists the choices, ND.gfx.setQuality(level) / ND.gfx.getQuality(), ND.gfx.onChange(fn).
+// Advanced settings (Settings → Graphics → Advanced; game.js): five knobs, each chosen on its own —
+//   scale    render resolution: share of the tier's pixel ratio cap (1, 0.85, 0.7, 0.5)
+//   msaa     anti-aliasing samples of the WebGL2 renderer (4, 2, 0)
+//   bloom    glow: 2 full (bloom + film grain), 1 light (Medium's), 0 off
+//   shadows  2 lantern shadows + every reflection, 1 reflections where they show (Medium), 0 none
+//   effects  weather and particles: 2 full (rays, all dust motes), 1 half the motes, 0 every other weather particle,
+//            no rays or motes (Low)
+// A preset (High / Medium / Low) sets all five (PRESET); changing one makes the choice 'custom': the knobs on top of
+// the tier the player was on (its other, processor-side settings stay: curve tolerance, text snapping, still layers).
+// Pressing a preset again restores its values. Auto keeps choosing tiers (and their resolution rungs) as before.
 // Texts: ND.STR.gfx (i18n.js / i18n-en.js, block "GRAPHICS QUALITY").
 window.ND = window.ND || {};
 (function (ND) {
@@ -24,6 +34,26 @@ window.ND = window.ND || {};
   // clearly weak phone/tablet: little memory or few cores
   const WEAK = MOBILE && (mem <= 2 || cores <= 4);
   const LEVELS = ['auto', 'high', 'medium', 'low'];
+  const KNOBS = { scale: [1, 0.85, 0.7, 0.5], msaa: [4, 2, 0], bloom: [2, 1, 0], shadows: [2, 1, 0], effects: [2, 1, 0] };
+  const PRESET = {
+    high: { scale: 1, msaa: 4, bloom: 2, shadows: 2, effects: 2 },
+    medium: { scale: 1, msaa: 4, bloom: 1, shadows: 1, effects: 1 },
+    low: { scale: 1, msaa: 2, bloom: 0, shadows: 0, effects: 0 },
+  };
+  // a knob set → the flags it decides (merged over the base tier's flags)
+  function knobFlags(k) {
+    return {
+      scale: k.scale, msaa: k.msaa, bloom: k.bloom, grain: k.bloom === 2, hq: k.bloom === 2,
+      shadows: k.shadows === 2, reflect: k.shadows >= 1, reflectMin: k.shadows === 1 ? 0.08 : 0,
+      rays: k.effects >= 1, motes: [0, 0.5, 1][k.effects], weather: k.effects ? 1 : 2,
+    };
+  }
+  // a valid knob set from saved data (anything unknown: the base tier's value)
+  function cleanKnobs(o, base) {
+    const d = PRESET[base] || PRESET.high, out = { base: PRESET[base] ? base : 'high' };
+    for (const k in KNOBS) out[k] = o && KNOBS[k].includes(o[k]) ? o[k] : d[k];
+    return out;
+  }
   // Processor work per tier (on phones it limits the frame rate more than the pixel count does):
   //   tol    curve flattening tolerance of the WebGL2 renderer, device px (gl2d.js): Medium / Low ~30% fewer points
   //   snap   texts on whole pixels (gl2d.js): a text moving with the camera is drawn once, not once per quarter pixel
@@ -34,9 +64,9 @@ window.ND = window.ND || {};
   //          farthest zoom (the picture, drawn at the closest, is shrunk by up to this much); fewer bands, less memory
   //   reflectMin  floor reflections are drawn only on floors at least this reflective (Medium skips the faint 4–5% ones)
   const TIERS = {
-    high: { hq: true, rays: true, motes: 1, bloom: 2, grain: true, shadows: true, reflect: true, weather: 1, tol: 0.2, snap: false, still: false, ltol: 0.015, lband: 1.2, dpr: MOBILE ? (LOW_END ? 1.25 : 1.5) : 2 },
-    medium: { hq: false, rays: true, motes: 0.5, bloom: 1, grain: false, shadows: false, reflect: true, reflectMin: 0.08, weather: 1, tol: 0.4, snap: true, still: true, ltol: 0.06, lband: 1.35, dpr: MOBILE ? 1.25 : 1.5 },
-    low: { hq: false, rays: false, motes: 0, bloom: 0, grain: false, shadows: false, reflect: false, weather: 2, tol: 0.5, snap: true, still: true, ltol: 0.06, lband: 1.35, dpr: 1 },
+    high: { scale: 1, msaa: 4, hq: true, rays: true, motes: 1, bloom: 2, grain: true, shadows: true, reflect: true, weather: 1, tol: 0.2, snap: false, still: false, ltol: 0.015, lband: 1.2, dpr: MOBILE ? (LOW_END ? 1.25 : 1.5) : 2 },
+    medium: { scale: 1, msaa: 4, hq: false, rays: true, motes: 0.5, bloom: 1, grain: false, shadows: false, reflect: true, reflectMin: 0.08, weather: 1, tol: 0.4, snap: true, still: true, ltol: 0.06, lband: 1.35, dpr: MOBILE ? 1.25 : 1.5 },
+    low: { scale: 1, msaa: 2, hq: false, rays: false, motes: 0, bloom: 0, grain: false, shadows: false, reflect: false, weather: 2, tol: 0.5, snap: true, still: true, ltol: 0.06, lband: 1.35, dpr: 1 },
   };
   const fns = [];
   const G = ND.gfx = {
@@ -50,18 +80,38 @@ window.ND = window.ND || {};
     // Auto's starting tier: computers High, phones and tablets Medium, clearly weak phones Low
     guess() { return !MOBILE ? 'high' : WEAK ? 'low' : 'medium'; },
     getQuality() { return G.pref; },
+    knobList: KNOBS,
+    preset: (tier) => Object.assign({}, PRESET[tier] || PRESET.high),
+    custom: null, // { base, scale, msaa, bloom, shadows, effects } while pref is 'custom'
+    // the five knobs as they are now (a preset's values, or the custom set)
+    knobs() { return G.pref === 'custom' && G.custom ? Object.assign({}, G.custom) : Object.assign({ base: G.tier }, PRESET[G.tier] || PRESET.high); },
+    // one knob changed by the player: the choice becomes 'custom' (on top of the tier drawn now), applied and saved
+    setKnob(name, value) {
+      if (!KNOBS[name] || !KNOBS[name].includes(value)) return false;
+      const k = G.knobs();
+      k[name] = value;
+      return G.setCustom(k, 'user');
+    },
+    // a whole custom set (saved settings at start: why 'init')
+    setCustom(k, why) {
+      const c = cleanKnobs(k, k && k.base);
+      G.pref = 'custom'; G.custom = c;
+      G._setTier(c.base, why || 'user');
+      return true;
+    },
     active() { return G.tier; },
     // Player's choice: 'auto' | 'high' | 'medium' | 'low'. Applies at once and is saved (game.js listens).
     setQuality(level) {
       if (!LEVELS.includes(level)) return false;
-      G.pref = level;
+      G.pref = level; G.custom = null;
       G._setTier(level === 'auto' ? G.guess() : level, 'user');
       return true;
     },
     // Active tier only (Auto's ladder calls this; `why` = 'user' | 'auto' | 'init')
     _setTier(tier, why) {
       if (!TIERS[tier]) tier = 'high';
-      G.tier = tier; G.f = TIERS[tier];
+      G.tier = tier;
+      G.f = G.pref === 'custom' && G.custom ? Object.assign({}, TIERS[tier], knobFlags(G.custom)) : TIERS[tier];
       if (ND.settings) ND.settings.hq = G.f.hq;
       for (const fn of fns) { try { fn(G.pref, tier, why || 'user'); } catch (e) { console.warn('[ND.gfx] listener failed', e); } }
     },

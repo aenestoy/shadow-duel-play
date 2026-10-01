@@ -748,6 +748,7 @@
         muted: 'Der Ton ist aus. Beweg einen Regler, um ihn wieder einzuschalten.',
         // Settings > Audio: character / announcer voices switch (js/voice.js) and the courtesy credit under it
         voice: 'Stimmen',
+        uiSfx: 'Menütöne',
         credit: 'Stimmen: ユーフルカ (youfulca.com) · 効果音ラボ · すぱらんど',
       },
     });
@@ -1002,14 +1003,24 @@
     merge(EN.STR, {
       gfx: {
         title: 'Grafik',
-        levels: { auto: 'Auto', high: 'Hoch', medium: 'Mittel', low: 'Niedrig' },
+        levels: { auto: 'Auto', high: 'Hoch', medium: 'Mittel', low: 'Niedrig', custom: 'Eigene' },
         note: {
           auto: 'Wählt passend zum Gerät und senkt sich selbst, wenn ein Kampf ruckelt.',
           high: 'Alle Lichter und Effekte. Für starke Geräte.',
           medium: 'Leichtes Leuchten, keine Schatten. Für die meisten Handys.',
           low: 'Am flüssigsten. Für ältere Handys.',
+          custom: 'Deine eigenen Einstellungen (Erweitert).',
         },
         now: (lv) => `Jetzt: ${lv}`,
+        // Settings → Graphics → Advanced (game.js gfxAdvBuild, js/gfx.js KNOBS): the switch, the line under it, the hint on
+        // the heaviest rows, one title per knob and the value words (resolution shows percentages, anti-aliasing 2× / 4×)
+        adv: {
+          title: 'Erweitert',
+          note: 'Änderst du eine, wird die Wahl zu „Eigene“; ein Tipp auf eine Voreinstellung stellt ihre Werte wieder her.',
+          hot: 'heizt am meisten',
+          knob: { scale: 'Auflösung', msaa: 'Kantenglättung', bloom: 'Leuchten', shadows: 'Schatten & Spiegelungen', effects: 'Wetter & Partikel' },
+          val: { off: 'Aus', low: 'Wenig', mid: 'Mittel', full: 'Voll', simple: 'Einfach' },
+        },
       },
     });
 
@@ -1226,6 +1237,46 @@
         whyPauseWin: 'Dein Freund ist nicht rechtzeitig zurückgekommen. Du gewinnst (wird nicht gewertet).',
         whyPauseLose: 'Du bist nicht rechtzeitig zurückgekommen, deshalb ist das Match vorbei.',
         whyPauseBoth: 'Keiner von euch ist rechtzeitig zurückgekommen, deshalb ist das Match vorbei.',
+      },
+    });
+
+    // ================================================================ ranked duel (js/ranked.js: ND.STR.ranked)
+    merge(EN.STR, {
+      ranked: {
+        title: 'Ranglisten-Duell', menuSub: 'Zufälliger Gegner · Punkte, Ränge und Saisons', offline: 'Ranglistenspiele sind gerade nicht verfügbar',
+        season: (n) => `Saison ${n}`, endsIn: (d) => `Endet in ${d} Tagen`, endsToday: 'Endet heute',
+        rating: 'Wertung', record: (w, l, d) => `${w} S · ${l} N` + (d ? ` · ${d} U` : ''), placement: (a, b) => `Platzierung ${a}/${b}`,
+        place: (n) => `Platz ${n}`, find: 'Gegner suchen', findUnranked: 'Gegner suchen (ohne Wertung)', board: 'Rangliste', how: "So funktioniert's",
+        howLines: ['Der Server sucht einen Gegner mit ähnlicher Wertung; während du wartest, wird der Bereich größer.', 'Wenn beide annehmen, wählt ihr eure Kämpfer, ohne die Wahl des anderen zu sehen (nur freigeschaltete Kämpfer).',
+          'Wer 2 von 3 Runden gewinnt, siegt. Wer das Match verlässt, verliert.', 'Punkte ändern sich nur, wenn beide Geräte dasselbe Ergebnis melden. Eine Saison dauert 4 Wochen; Platz 1 bekommt ein besonderes Kostüm.'],
+        reward: 'Platz 1 der Saison: ein besonderes Kostüm und der Name in der Ruhmeshalle',
+        signIn: 'Anmelden, um Punkte zu sammeln', guestNote: 'Als Gast spielst du ohne Wertung.', nickNote: 'Wähle einen Spitznamen, um mit Wertung zu spielen.',
+        back: 'Zurück', you: 'Du', titleLbl: 'Titel', noTitle: 'Keiner',
+        searching: 'Gegner wird gesucht…', window: (n) => `Wertungsbereich ±${n}`, windowAny: 'Jede Wertung', people: (n, m) => `${n} suchen gerade · ${m} Matches in der letzten Stunde`,
+        warm: 'Beim Warten gegen die CPU aufwärmen', warmTag: 'Aufwärmen · CPU · ohne Wertung', searchShort: 'Suche', warmBack: 'Zurück zur Suche', cancel: 'Abbrechen',
+        none: 'Gerade keine Gegner.', foundTitle: 'Gegner gefunden!', accept: 'Annehmen', decline: 'Ablehnen',
+        ranked: 'Mit Wertung', unranked: 'Ohne Wertung · keine Punkte',
+        why: { guest: 'ein Spieler ist Gast', same_network: 'ihr seid im selben Netzwerk', pair_limit: 'du hast heute schon 3 gewertete Matches gegen ihn gespielt', daily_limit: 'tägliches Limit für gewertete Matches' },
+        waitOpp: 'Warte, bis der Gegner annimmt…', touch: 'Touch', keys: 'Tastatur / Controller', placementTag: 'Platzierung', guestTag: 'Gast',
+        declined: 'Dein Gegner hat nicht angenommen · neue Suche', youDeclined: 'Du hast das Match abgelehnt.', penalty: (s) => `Du hast zuletzt Matches abgelehnt: in ${s} s kannst du wieder suchen.`,
+        suspended: 'Dein Ranglisten-Konto wird geprüft (zu viele Unstimmigkeiten). Die anderen Modi bleiben offen.',
+        pickTitle: 'Wähle deinen Kämpfer', pickSub: 'Dein Gegner sieht deine Wahl nicht', lock: 'Festlegen', lockedIn: 'Festgelegt', oppPicking: 'Gegner wählt…', oppLocked: 'Gegner hat gewählt',
+        lockedFighter: 'Im Einzelspieler noch nicht freigeschaltet', costume: 'Kostüm', plain: 'Originalfarben',
+        connecting: 'Verbindung zum Gegner…', noConnect: 'Keine Verbindung zum Gegner; das Match zählt nicht. Neue Suche…',
+        leaveQ: 'Match verlassen?', leaveSub: 'Du verlierst dieses Ranglisten-Match.', stay: 'Weiterspielen', leave: 'Verlassen',
+        waitIn: (s) => `Warte auf deinen Gegner… ${s}`, away: (s) => `Dein Gegner hat das Spiel verlassen… ${s}`, turning: (s) => `Dein Gegner dreht sein Handy… ${s}`, paused: 'Pausiert',
+        confirming: 'Ergebnis wird bestätigt…', win: 'Gewonnen', lose: 'Verloren', draw: 'Unentschieden', over: 'Match vorbei',
+        delta: (d) => (d >= 0 ? '+' : '−') + Math.abs(d) + ' Punkte', nc: 'Dieses Match zählt nicht', disputed: 'Die Geräte haben verschiedene Ergebnisse gemeldet: Das Match wird geprüft, keine Punkte wurden geändert.',
+        ncWhy: { desync: 'die Geräte haben den Kampf unterschiedlich berechnet (ein Verbindungsproblem)', connection: 'die Verbindung beider Spieler ist abgerissen', input_mismatch: 'die Eingaben der beiden Geräte stimmen nicht überein', abandoned: 'beide Spieler sind gegangen', no_second_report: 'das Ergebnis deines Gegners kam nie an', mixed: 'die Ergebnisse passten nicht zusammen' },
+        promoted: 'Aufgestiegen!', demoted: 'Rang verloren', placementDone: 'Platzierung abgeschlossen!', pending: 'Das Ergebnis erscheint bald in der Rangliste.',
+        findAgain: 'Erneut suchen', rematch: 'Revanche', rematchWait: 'Warte auf deinen Gegner…', rematchAsk: 'Revanche (dein Gegner will eine)', menu: 'Menü',
+        youLeft: 'Du hast das Match verlassen: Niederlage.', oppLeft: 'Dein Gegner hat das Match verlassen: Du gewinnst.', silent: 'Die Verbindung deines Gegners ist abgebrochen.', rounds: (a, b) => `Runden ${a} – ${b}`,
+        unrankedNote: 'Match ohne Wertung',
+        hallTab: 'Rangliste', hallDesc: (g) => `Die Besten dieser Saison · ${g} gewertete Matches für die Liste`, champs: 'Champions', champOf: (n) => `Champion der Saison ${n}`,
+        noChamps: 'Noch kein Saisonchampion.', me: (p) => `Dein Platz: ${p}.`, meNone: 'Spiele gewertete Matches, um in die Liste zu kommen.', empty: 'Diese Saison steht noch niemand in der Liste.',
+        tierDesc: ['Fußsoldat', 'Herrenloser Samurai', 'Samurai', 'Bannerwache', 'Feudalherr', 'Shogun'],
+        err: { network: 'Server nicht erreichbar. Prüfe deine Internetverbindung.', bad_version: 'Eine neue Spielversion ist da: Lade die Seite neu.', busy: 'Die Warteschlange ist voll, versuch es gleich noch mal.',
+          rate_limited: 'Zu viele Versuche, warte kurz.', disabled: 'Ranglistenspiele sind gerade nicht verfügbar.', banned: 'Dieses Konto darf keine Ranglistenspiele spielen.', other: 'Etwas ist schiefgelaufen, versuch es noch mal.' },
       },
     });
 

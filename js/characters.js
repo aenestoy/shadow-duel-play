@@ -142,8 +142,11 @@
     if (c.tabi) o.tabi = '#15100d';
     return o;
   }
-  // Palette for an appearance choice: false = original, true = Legacy colors, 'champ' = Champion colors
-  ND.palOf = (ch, look) => (look === 'champ' ? ch.champ || (ch.champ = champPal(ch.col)) : look ? ch.alt : ch.col);
+  // Palette for an appearance choice: false = original, true = Legacy colors, 'champ' = Champion colors,
+  // 'rw:<id>' = a costume from the server's reward catalog (js/rewards.js; the original colours when it is not there)
+  ND.palOf = (ch, look) => (look === 'champ' ? ch.champ || (ch.champ = champPal(ch.col))
+    : typeof look === 'string' && look.startsWith('rw:') ? (ND.rewards && ND.rewards.palette(ch, look.slice(3))) || ch.col
+    : look ? ch.alt : ch.col);
 
   ND.ARENAS = [
     { id: 'temple', name: 'Ay Işığı Tapınağı', kanji: '月' },

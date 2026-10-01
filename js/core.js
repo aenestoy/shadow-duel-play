@@ -602,6 +602,10 @@ window.ND = window.ND || {};
     interstitial() { const a = api(); return a ? a.interstitial() : Promise.resolve(); },
     // Rewarded ad; true only when the reward must be granted. Without a bridge (plain file serve) it grants.
     rewarded() { const a = api(); return a ? a.rewarded() : Promise.resolve(true); },
+    // false when this session will get no rewarded ad (CrazyGames Basic Launch, an ad blocker, no fill again and
+    // again; or the bridge is not ready): the game hides its rewarded offers then. Without a bridge: available.
+    rewardedAvailable() { const a = api(); try { return a ? (a.rewardedAvailable ? a.rewardedAvailable() !== false : true) : true; } catch (e) { return false; } },
+    lastAdError() { const a = api(); try { return a && a.lastAdError ? a.lastAdError() : null; } catch (e) { return null; } },
     save(k, v) { const a = api(); return a ? a.save(k, v) : Promise.resolve(); },
     load(k) { const a = api(); return a ? a.load(k) : Promise.resolve(undefined); },
     language() { const a = api(); try { return a ? a.language() : (navigator.language || 'en').slice(0, 2).toLowerCase(); } catch (e) { return 'en'; } },
@@ -744,19 +748,9 @@ window.ND = window.ND || {};
       const AC = window.AudioContext || window.webkitAudioContext, mob = !!(ND.touch && ND.touch.mobile);
       try { c = mob ? new AC({ latencyHint: 'balanced' }) : new AC(); } catch (e) { try { c = new AC(); } catch (e2) { return; } }
       this.ctx = c;
-      this.master = c.createGain();
       this.updateAway();
-      this.master.gain.value = this.masterLevel();
-      const comp = c.createDynamicsCompressor();
-      comp.threshold.value = -16; comp.ratio.value = 5; comp.attack.value = 0.003; comp.release.value = 0.2;
-      this.master.connect(comp); comp.connect(c.destination);
-      // effects level: dry path and reverb send share it (the reverb itself is shared with the music bus, whose
-      // send is taken after the music level, so each slider scales its own reverb tail too)
-      const fx = this.curve(this.vol.sfx);
-      this.dry = c.createGain(); this.dry.gain.value = fx; this.dry.connect(this.master);
-      this.rev = c.createConvolver(); this.revMode(this.lite);
-      this.revIn = c.createGain(); this.revIn.gain.value = fx; this.revIn.connect(this.rev); this.revOn = true;
-      const rg = c.createGain(); rg.gain.value = 0.32; this.rev.connect(rg); rg.connect(this.master);
+      Object.assign(this, this.buildBus(c));
+      this.revOn = true;
       const len = c.sampleRate * 2;
       this.noiseBuf = c.createBuffer(1, len, c.sampleRate);
       const d = this.noiseBuf.getChannelData(0);
@@ -764,6 +758,44 @@ window.ND = window.ND || {};
       this.ready = true;
       this.syncRev();
       this.ambience();
+    },
+
+    // The output chain (made once per audio context; the sound check renders single sounds through a copy of it):
+    //   effects (dry + reverb) and music → master (mute gate × master level) → glue compressor → limiter → speakers.
+    // The glue compressor is gentle and slow to grab (a sword hit keeps its crack: the old one, 5:1 at -16 dB with a
+    // 3 ms attack, flattened every hit against the music); the limiter only catches the rare pile-up (a KO on a clash
+    // under the announcer) so nothing clips on a phone speaker.
+    buildBus(c) {
+      const master = c.createGain(); master.gain.value = this.masterLevel();
+      const glue = c.createDynamicsCompressor();
+      glue.threshold.value = -18; glue.knee.value = 12; glue.ratio.value = 2; glue.attack.value = 0.01; glue.release.value = 0.25;
+      const make = c.createGain(); make.gain.value = 1;
+      const lim = c.createDynamicsCompressor();
+      lim.threshold.value = -2.5; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.001; lim.release.value = 0.12;
+      master.connect(glue); glue.connect(make); make.connect(lim); lim.connect(c.destination);
+      // effects level: dry path and reverb send share it (the reverb itself is shared with the music bus, whose
+      // send is taken after the music level, so each slider scales its own reverb tail too)
+      const fx = this.curve(this.vol.sfx);
+      const dry = c.createGain(); dry.gain.value = fx; dry.connect(master);
+      const rev = c.createConvolver();
+      const revIn = c.createGain(); revIn.gain.value = fx; revIn.connect(rev);
+      const rg = c.createGain(); rg.gain.value = 0.32; rev.connect(rg); rg.connect(master);
+      const was = this.rev; this.rev = rev; this.revMode(this.lite); this.rev = was || rev;
+      return { master, dry, rev, revIn };
+    },
+    // Dip the music for a big moment (a KO, a clash, a ki technique): js/music.js duck, like the announcer's
+    duck(db, sec) { const M = ND.music; if (M && M.duck && !this.quiet) M.duck(db, sec); },
+    // A little different every time: vr(0.06) → a factor in 0.94…1.06 (pitch, level, length of repeated sounds)
+    vr(a) { return 1 + (Math.random() * 2 - 1) * a; },
+    // Level of everything scheduled inside fn × k (js/sfx.js sets each new sound's level this way)
+    gs: 1,
+    scaled(k, fn) { const g0 = this.gs; this.gs = g0 * k; try { return fn(); } finally { this.gs = g0; } },
+    // Menu sounds (clicks, the ranked cues, unlocks) also play over the menu's silent demo fight: `quiet` is there to
+    // mute that fight, not the buttons in front of it. Never lifted in a re-simulated step or an online match.
+    menu(fn) {
+      const q = this.quiet, G = ND.game;
+      if (q && G && G.mode === 'attract' && !G.simOnly) this.quiet = false;
+      try { return fn.call(this); } finally { this.quiet = q; }
     },
 
     setEnabled(v) {
@@ -806,6 +838,7 @@ window.ND = window.ND || {};
       const cap = this.lite || (ND.touch && ND.touch.mobile) ? 22 : 40;
       if (n >= cap * 1.5 || (n >= cap && gain < 0.25)) return false;
       L.push(t + dur);
+      this.nPlayed = (this.nPlayed | 0) + 1;
       return true;
     },
     noise(o) {
@@ -818,7 +851,7 @@ window.ND = window.ND || {};
       f.frequency.setValueAtTime(o.f0 || 1000, t);
       if (o.f1) f.frequency.exponentialRampToValueAtTime(o.f1, t + o.dur);
       const g = this.out(o.send ?? 0.2, o.pan);
-      const gain = o.gain ?? 0.5, at = o.attack ?? 0.004;
+      const gain = (o.gain ?? 0.5) * this.gs, at = o.attack ?? 0.004;
       g.gain.setValueAtTime(0.0001, t);
       g.gain.exponentialRampToValueAtTime(gain, t + at);
       g.gain.exponentialRampToValueAtTime(0.0001, t + o.dur);
@@ -834,7 +867,7 @@ window.ND = window.ND || {};
       osc.frequency.setValueAtTime(o.freq, t);
       if (o.freq1) osc.frequency.exponentialRampToValueAtTime(o.freq1, t + (o.glide || o.dur));
       const g = this.out(o.send ?? 0.25, o.pan);
-      const gain = o.gain ?? 0.3, at = o.attack ?? 0.003;
+      const gain = (o.gain ?? 0.3) * this.gs, at = o.attack ?? 0.003;
       g.gain.setValueAtTime(0.0001, t);
       g.gain.exponentialRampToValueAtTime(gain, t + at);
       g.gain.exponentialRampToValueAtTime(0.0001, t + o.dur);
@@ -842,63 +875,120 @@ window.ND = window.ND || {};
     },
 
     // --- oyun sesleri
+    // Levels were set by measurement (2026-09-30 sound pass, docs/ASSET-LOG.md): loudness of each sound at the default
+    // volumes, BS.1770 momentary, against the voices and the music. Before it the hits sat 15 dB under the voices, the
+    // footsteps and the menu click were inaudible (about -75 / -60 LUFS). MIX scales each family; every repeated
+    // sound varies a little in pitch, length and level (vr) so a long exchange does not sound like a loop.
+    MIX: { swing: 1.5, clang: 1.5, cut: 4.6, thud: 3.3, step: 0.8, whistle: 4.5, tick: 7, whoosh: 1.8, ui: 1, grind: 1.8, amb: 0.8 },
     swoosh(power = 1, pan = 0) {
-      const d = 0.16 + 0.12 * power;
-      this.noise({ type: 'bandpass', f0: 500 + 300 * power, f1: 2600 + 900 * power, q: 1.4, dur: d, gain: 0.22 + 0.2 * power, attack: d * 0.55, send: 0.12, pan });
-      this.noise({ type: 'highpass', f0: 3000, dur: d * 0.8, gain: 0.05 * power, attack: d * 0.5, send: 0.05, pan });
+      const k = this.vr(0.12), d = (0.16 + 0.12 * power) * this.vr(0.1), m = this.MIX.swing * this.vr(0.12);
+      this.noise({ type: 'bandpass', f0: (500 + 300 * power) * k, f1: (2600 + 900 * power) * k, q: 1.4, dur: d, gain: (0.22 + 0.2 * power) * m, attack: d * 0.55, send: 0.12, pan });
+      this.noise({ type: 'highpass', f0: 3000 * k, dur: d * 0.8, gain: 0.05 * power * m, attack: d * 0.5, send: 0.05, pan });
     },
     clang(power = 1, pan = 0, pitch = 1) {
-      const base = (560 + Math.random() * 90) * pitch;
+      const base = (560 + Math.random() * 90) * pitch, m = this.MIX.clang * this.vr(0.1), pw = Math.pow(power, 0.75);
       [1, 2.76, 5.4, 8.93, 13.3].forEach((r, i) => {
         if (this.lite && i > 2) return; // (Low: the two faintest partials, a fifth and a quarter of the first, left out)
-        this.tone({ freq: base * r, type: i ? 'sine' : 'triangle', dur: (1.3 - i * 0.18) * (0.6 + power * 0.5), gain: (0.2 / (i + 1)) * power, send: 0.5, pan });
+        this.tone({ freq: base * r * this.vr(0.004), type: i ? 'sine' : 'triangle', dur: (1.3 - i * 0.18) * (0.6 + power * 0.5), gain: (0.2 / (i + 1)) * pw * m, send: 0.5, pan });
       });
-      this.noise({ type: 'highpass', f0: 2500, dur: 0.06, gain: 0.5 * power, send: 0.3, pan });
+      this.noise({ type: 'highpass', f0: 2500 * this.vr(0.15), dur: 0.06, gain: 0.5 * pw * m, send: 0.3, pan });
+      if (power >= 1.25) this.duck(4, 0.35);
     },
     parry(pan = 0) {
-      this.clang(1.3, pan, 1.45);
-      this.tone({ freq: 2400, freq1: 1800, dur: 1.6, gain: 0.08, send: 0.7, pan });
+      this.clang(1.3, pan, 1.45 * this.vr(0.03));
+      this.tone({ freq: 2400 * this.vr(0.03), freq1: 1800, dur: 1.6, gain: 0.08, send: 0.7, pan });
     },
+    // a blade through cloth: a crisp slice on top, the old body of the cut under it
     cut(power = 1, pan = 0) {
-      this.noise({ type: 'highpass', f0: 1800, f1: 700, dur: 0.12, gain: 0.35 * power, send: 0.1, pan });
-      this.tone({ freq: 140, freq1: 45, dur: 0.22, gain: 0.55 * power, send: 0.08, pan });
-      this.noise({ type: 'lowpass', f0: 900, dur: 0.18, gain: 0.3 * power, send: 0.05, pan, delay: 0.01 });
+      const k = this.vr(0.12), m = this.MIX.cut * this.vr(0.1);
+      this.noise({ type: 'bandpass', f0: 5200 * k, f1: 2200 * k, q: 1.2, dur: 0.05, gain: 0.3 * power * m, attack: 0.002, send: 0.12, pan });
+      this.noise({ type: 'highpass', f0: 1800 * k, f1: 700, dur: 0.12 * this.vr(0.15), gain: 0.35 * power * m, send: 0.1, pan });
+      this.tone({ freq: 140 * this.vr(0.1), freq1: 45, dur: 0.22, gain: 0.55 * power * m, send: 0.08, pan });
+      this.noise({ type: 'lowpass', f0: 900 * k, dur: 0.18, gain: 0.3 * power * m, send: 0.05, pan, delay: 0.01 });
+      if (power >= 1.3) this.duck(3, 0.3);
     },
     thud(power = 1, pan = 0) {
-      this.tone({ freq: 110, freq1: 38, dur: 0.28, gain: 0.6 * power, send: 0.1, pan });
-      this.noise({ type: 'lowpass', f0: 500, dur: 0.14, gain: 0.35 * power, send: 0.05, pan });
+      const m = this.MIX.thud * this.vr(0.1);
+      this.tone({ freq: 110 * this.vr(0.1), freq1: 38, dur: 0.28, gain: 0.6 * power * m, send: 0.1, pan });
+      this.noise({ type: 'lowpass', f0: 500 * this.vr(0.2), dur: 0.14, gain: 0.35 * power * m, send: 0.05, pan });
     },
+    // a foot on the ground: a short scuff + a soft thump. g: 1 a step, ~2.5 a jump push-off, 3 a landing
+    // (2026-09-30, owner: "I didn't like the walking sound either") A walk step is a soft, low, muffled shuffle — cloth
+    // and a sandal on the ground, filtered noise with a rounded attack, no click and no tone — well under the fight
+    // (~30 dB under a cut), and only every other step, never twice within 0.26 s (quick back-and-forth never stacks).
+    // g > 1: a jump push-off (2.5) or a landing (3): the same shuffle a little fuller, with a soft low thump under it.
     step(pan = 0, g = 1) {
-      this.noise({ type: 'lowpass', f0: 380 + Math.random() * 200, dur: 0.07, gain: 0.07 * g, send: 0.02, pan });
+      const walk = g <= 1.2;
+      if (walk) {
+        const t = this.ctx ? this.ctx.currentTime : 0;
+        if (t - (this._stT ?? -9) < 0.26) return;
+        this._stN = (this._stN | 0) + 1;
+        if (this._stN % 2) return;
+        this._stT = t;
+      }
+      const m = this.MIX.step * this.vr(0.25), w = Math.pow(g, 0.7), k = this.vr(0.15);
+      this.noise({ type: 'lowpass', f0: (240 + Math.random() * 160) * k, q: 0.7, dur: 0.11 + 0.03 * w, gain: 0.3 * w * m, attack: 0.02, send: 0.02, pan });
+      if (!walk) this.noise({ type: 'lowpass', f0: 140 * k, q: 0.7, dur: 0.14, gain: 0.35 * w * m, attack: 0.01, send: 0.02, pan });
     },
     whistle(pan = 0) {
-      this.tone({ freq: 2600, freq1: 1500, dur: 0.35, gain: 0.05, send: 0.2, pan, type: 'sine' });
-      this.noise({ type: 'bandpass', f0: 3500, f1: 2000, q: 6, dur: 0.3, gain: 0.12, send: 0.15, pan });
+      const k = this.vr(0.06), m = this.MIX.whistle;
+      this.tone({ freq: 2600 * k, freq1: 1500 * k, dur: 0.35, gain: 0.05 * m, send: 0.2, pan, type: 'sine' });
+      this.noise({ type: 'bandpass', f0: 3500 * k, f1: 2000 * k, q: 6, dur: 0.3, gain: 0.12 * m, send: 0.15, pan });
     },
     tick(pan = 0) {
-      this.tone({ freq: 3200, freq1: 2400, dur: 0.12, gain: 0.08, send: 0.3, pan, type: 'triangle' });
-      this.noise({ type: 'highpass', f0: 4000, dur: 0.04, gain: 0.2, send: 0.2, pan });
+      const k = this.vr(0.05), m = this.MIX.tick;
+      this.tone({ freq: 3200 * k, freq1: 2400 * k, dur: 0.12, gain: 0.08 * m, send: 0.3, pan, type: 'triangle' });
+      this.noise({ type: 'highpass', f0: 4000, dur: 0.04, gain: 0.2 * m, send: 0.2, pan });
     },
     gong() {
-      [1, 1.49, 2.03, 2.74, 3.4].forEach((r, i) => this.tone({ freq: 92 * r, dur: 3.5 - i * 0.4, gain: 0.26 / (i + 1), attack: 0.01, send: 0.6 }));
+      const k = this.vr(0.015);
+      [1, 1.49, 2.03, 2.74, 3.4].forEach((r, i) => this.tone({ freq: 92 * r * k, dur: 3.5 - i * 0.4, gain: 0.26 / (i + 1), attack: 0.01, send: 0.6 }));
       this.noise({ type: 'lowpass', f0: 300, dur: 0.3, gain: 0.25, send: 0.4 });
     },
     taiko(power = 1, delay = 0) {
-      this.tone({ freq: 150, freq1: 52, glide: 0.25, dur: 0.6, gain: 0.8 * power, send: 0.35, delay });
-      this.noise({ type: 'lowpass', f0: 700, dur: 0.12, gain: 0.35 * power, send: 0.3, delay });
+      const k = this.vr(0.06);
+      this.tone({ freq: 150 * k, freq1: 52 * k, glide: 0.25, dur: 0.6, gain: 0.8 * power * this.vr(0.06), send: 0.35, delay });
+      this.noise({ type: 'lowpass', f0: 700 * k, dur: 0.12, gain: 0.35 * power, send: 0.3, delay });
     },
     ko() {
       this.taiko(1.2); this.taiko(1, 0.32);
       this.tone({ freq: 55, dur: 2.5, gain: 0.4, send: 0.7, delay: 0.05 });
       this.tone({ freq: 880, freq1: 660, dur: 2.8, gain: 0.05, send: 0.9, delay: 0.1 });
+      this.duck(8, 1.4);
     },
-    ui() { this.tone({ freq: 1200, freq1: 900, dur: 0.09, gain: 0.07, send: 0.2, type: 'triangle' }); },
+    // Menu sounds switch (Settings > Audio, ND.settings.uiSfx): off → no clicks, back, confirm, toasts or coins
+    uiOn() { return !(ND.settings && ND.settings.uiSfx === false); },
+    // a menu press: a soft, low wooden "tok" (rounded attack, short, well under the fight; owner's feedback 2026-09-30:
+    // the sound-pass click was ~9 dB louder, brighter and sharper)
+    // Only a real confirm or a back press clicks (js/sfx.js notes each press's kind before its handler runs, _press):
+    // the many handlers that call ui() for minor buttons, tabs, chips and arrow-key cycling stay silent.
+    ui() {
+      if (!this.uiOn()) return;
+      if (this._pressGate && this._press !== 'confirm' && this._press !== 'back') return;
+      this.menu(() => {
+        const k = this.vr(0.04), m = this.MIX.ui;
+        this.tone({ freq: 520 * k, freq1: 430 * k, dur: 0.055, gain: 0.16 * m, attack: 0.006, send: 0.1, type: 'triangle' });
+        this.noise({ type: 'lowpass', f0: 1300 * k, dur: 0.02, gain: 0.35 * m, attack: 0.004, send: 0.08 });
+      });
+    },
+    // the swords locked (tsubazeriai), every 80 ms while the lock holds (game.js): a quiet, low metallic tension (a soft
+    // resonant hum, two inharmonic partials, and now and then a faint irregular scrape) that fades in over the first half
+    // second, far under the hits and clashes (owner's feedback: the sound-pass grind was harsh and loud)
+    grind(pan = 0) {
+      const m = this.MIX.grind, t = this.ctx ? this.ctx.currentTime : 0;
+      if (!(t - (this._grT || -9) < 0.25)) this._grN = 0;
+      this._grT = t; this._grN = (this._grN || 0) + 1;
+      const fade = Math.min(1, this._grN / 7), f = 185 * (1 + 0.006 * Math.sin(this._grN * 0.9)), g = 0.1 * fade * m;
+      this.tone({ freq: f, dur: 0.2, gain: g, attack: 0.07, send: 0.35, pan });
+      this.tone({ freq: f * 2.76, dur: 0.16, gain: g * 0.3, attack: 0.07, send: 0.4, pan });
+      if (Math.random() < 0.35) this.noise({ type: 'bandpass', f0: 1700 + Math.random() * 900, q: 7, dur: 0.07, gain: 0.05 * fade * m, attack: 0.02, send: 0.3, pan });
+    },
 
     // One decoded sample (AudioBuffer) through the effects bus, like tone/noise: counted by the one-shot cap.
     // o: gain, rate (playback speed = pitch), pan, send, delay. false when it did not play.
     sample(buf, o) {
       if (!this.ready || this.quiet || !buf) return false;
-      const c = this.ctx, t = c.currentTime + (o.delay || 0), rate = o.rate || 1, gain = o.gain ?? 0.5;
+      const c = this.ctx, t = c.currentTime + (o.delay || 0), rate = o.rate || 1, gain = (o.gain ?? 0.5) * this.gs;
       if (!this.oneShot(t, buf.duration / rate, gain)) return false;
       const src = c.createBufferSource(); src.buffer = buf; src.playbackRate.value = rate;
       const g = this.out(o.send ?? 0.15, o.pan);
@@ -922,7 +1012,7 @@ window.ND = window.ND || {};
         if (fRate) { const l = c.createOscillator(); l.frequency.value = fRate; const lg = c.createGain(); lg.gain.value = fDepth; l.connect(lg); lg.connect(f.frequency); l.start(); run.push(l); }
         src.connect(f); f.connect(bus); bus.connect(g); g.connect(this.dry); // ambience counts as an effect
         src.start(0, Math.random() * 1.5);
-        g._level = level; g._run = run;
+        g._level = level * this.MIX.amb; g._run = run;
         return g;
       };
       // çıtırtı tamponu: seyrek, hızla sönen kıvılcım patlamaları (ateş / ızgara)
@@ -935,14 +1025,33 @@ window.ND = window.ND || {};
         }
         return (this.crackBuf = b);
       };
+      // crickets on a temple night: short chirp trains (a few pulses at ~4.4 kHz), two insects, sparse; a 6 s loop
+      const crickets = () => {
+        if (this.cricketBuf) return this.cricketBuf;
+        const sr = c.sampleRate, len = sr * 6, b = c.createBuffer(1, len, sr), d = b.getChannelData(0);
+        [[4400, 0.9], [3900, 1.7]].forEach(([f, gap]) => {
+          for (let at = Math.random() * gap; at < 5.6; at += gap * (0.7 + Math.random() * 0.6)) {
+            const n = 3 + ((Math.random() * 3) | 0), a = 0.4 + Math.random() * 0.5;
+            for (let p = 0; p < n; p++) {
+              const s0 = ((at + p * 0.045) * sr) | 0, l = (0.028 * sr) | 0;
+              for (let i = 0; i < l && s0 + i < len; i++) d[s0 + i] += Math.sin((2 * Math.PI * f * i) / sr) * a * Math.sin((Math.PI * i) / l);
+            }
+          }
+        });
+        return (this.cricketBuf = b);
+      };
+      // Levels (the 2026-09-30 sound pass): every arena bed about -44 LUFS at the default volumes, well under the
+      // music (-37 in a fight) and the hits. Before: rain -30 and the waterfall -33 (louder than a sword cut), the
+      // temple's wind -52 (nothing).
       this.ambDefs = {
-        wind: () => [layer('lowpass', 380, 0.7, 0.05, 0.09, 0.6, 0.05, 180)],
-        rain: () => [layer('bandpass', 2600, 0.5, 0.11, 0.3, 0.15, 0, 0), layer('lowpass', 240, 0.6, 0.08, 0.07, 0.4, 0, 0), layer('highpass', 6000, 0.4, 0.03, 0, 0, 0, 0)],
+        // temple night: a soft wind + crickets
+        wind: () => [layer('lowpass', 380, 0.7, 0.06, 0.09, 0.6, 0.05, 180), layer('bandpass', 4200, 2, 0.032, 0.05, 0.5, 0, 0, crickets())],
+        rain: () => [layer('bandpass', 2600, 0.5, 0.022, 0.3, 0.15, 0, 0), layer('lowpass', 240, 0.6, 0.02, 0.07, 0.4, 0, 0), layer('highpass', 6000, 0.4, 0.007, 0, 0, 0, 0)],
         blizzard: () => [layer('lowpass', 650, 0.8, 0.08, 0.13, 0.7, 0.07, 300), layer('bandpass', 1300, 4, 0.025, 0.21, 0.8, 0.11, 500)],
         // yangın: çıtırtı + alçak uğultu + nefes alan alev hışırtısı
-        fire: () => [layer('highpass', 900, 0.7, 0.2, 0, 0, 0, 0, crackle()), layer('lowpass', 150, 0.8, 0.14, 0.19, 0.5, 0, 0), layer('bandpass', 420, 0.8, 0.035, 0.37, 0.7, 0.13, 160)],
+        fire: () => [layer('highpass', 900, 0.7, 0.13, 0, 0, 0, 0, crackle()), layer('lowpass', 150, 0.8, 0.09, 0.19, 0.5, 0, 0), layer('bandpass', 420, 0.8, 0.022, 0.37, 0.7, 0.13, 160)],
         // şelale: sürekli gürleyen akış
-        water: () => [layer('lowpass', 1200, 0.5, 0.12, 0.05, 0.1, 0, 0), layer('bandpass', 420, 0.7, 0.09, 0.11, 0.2, 0.07, 90), layer('highpass', 3800, 0.5, 0.035, 0.23, 0.25, 0, 0)],
+        water: () => [layer('lowpass', 1200, 0.5, 0.036, 0.05, 0.1, 0, 0), layer('bandpass', 420, 0.7, 0.028, 0.11, 0.2, 0.07, 90), layer('highpass', 3800, 0.5, 0.011, 0.23, 0.25, 0, 0)],
         // çarşı: uzak kalabalık mırıltısı + ızgara cızırtısı
         market: () => [layer('bandpass', 480, 1.6, 0.045, 3.1, 0.55, 0.7, 140), layer('bandpass', 950, 2.4, 0.022, 4.3, 0.6, 1.1, 250), layer('lowpass', 200, 0.6, 0.035, 0.09, 0.3, 0, 0),
           layer('highpass', 1800, 0.7, 0.05, 0, 0, 0, 0, crackle()), layer('highpass', 6000, 0.5, 0.01, 0.3, 0.8, 0, 0)],
@@ -970,11 +1079,12 @@ window.ND = window.ND || {};
       }, 5000);
     },
     thunder(delay = 0.5) {
-      this.noise({ type: 'lowpass', f0: 220, f1: 60, dur: 3.4, gain: 0.8, attack: 0.08, send: 0.6, delay });
-      this.noise({ type: 'lowpass', f0: 1200, f1: 300, dur: 0.5, gain: 0.35, attack: 0.01, send: 0.4, delay });
-      this.tone({ freq: 48, freq1: 30, dur: 2.6, gain: 0.45, attack: 0.1, send: 0.4, delay: delay + 0.05 });
+      // (-3.5 dB in the 2026-09-30 sound pass: it was the loudest thing in the game after the KO)
+      this.noise({ type: 'lowpass', f0: 220 * this.vr(0.1), f1: 60, dur: 3.4 * this.vr(0.15), gain: 0.54, attack: 0.08, send: 0.6, delay });
+      this.noise({ type: 'lowpass', f0: 1200 * this.vr(0.15), f1: 300, dur: 0.5, gain: 0.24, attack: 0.01, send: 0.4, delay });
+      this.tone({ freq: 48 * this.vr(0.08), freq1: 30, dur: 2.6, gain: 0.3, attack: 0.1, send: 0.4, delay: delay + 0.05 });
     },
-    whoosh(power = 1) { this.noise({ type: 'bandpass', f0: 300, f1: 3000, q: 0.8, dur: 0.5, gain: 0.3 * power, attack: 0.35, send: 0.4 }); },
+    whoosh(power = 1) { const k = this.vr(0.1); this.noise({ type: 'bandpass', f0: 300 * k, f1: 3000 * k, q: 0.8, dur: 0.5, gain: 0.3 * power * this.MIX.whoosh, attack: 0.35, send: 0.4 }); if (power >= 1.2) this.duck(4, 0.6); },
   };
 
   // ---------------------------------------------------------------- JIN'S STAFF (bō): hit, block, swing
@@ -989,7 +1099,8 @@ window.ND = window.ND || {};
   const BO_FILES = { 'bo-b': { crack: ['crack1', 'crack2', 'crack3'], body: ['body1', 'body2'] } };
   // mix of the recordings (files are peak-normalized): crack and body level per version, matched by measurement to the
   // other hits (a blade cut, the old staff hit: about -28 dB RMS over the first 50 ms at the default volumes)
-  const BO_MIX = { 'bo-b': { crack: 1.1, body: 0.55 } };
+  // (+4 dB in the 2026-09-30 sound pass, with the other hits)
+  const BO_MIX = { 'bo-b': { crack: 1.75, body: 0.87 } };
   const rnd = (a, b) => a + Math.random() * (b - a);
   const BO = A.bo = {
     FILES: BO_FILES,
@@ -1058,6 +1169,7 @@ window.ND = window.ND || {};
     swing(pan, p = 1) {
       if (this.mode === 'old') return false;
       const k = rnd(0.88, 1.12), d = (0.2 + 0.07 * p) * rnd(0.92, 1.08);
+      p *= 2.7; // (the 2026-09-30 sound pass: the swing sat 8 dB under the blade's)
       A.noise({ type: 'bandpass', f0: 230 * k, f1: 1050 * k, q: 1.1, dur: d, gain: 0.3 * p * rnd(0.85, 1.1), attack: d * 0.5, send: 0.18, pan });
       A.noise({ type: 'lowpass', f0: 480 * k, f1: 260, dur: d * 0.9, gain: 0.16 * p, attack: d * 0.55, send: 0.12, pan });
       if (!A.lite) A.noise({ type: 'highpass', f0: 2800 * k, dur: d * 0.7, gain: 0.03 * p, attack: d * 0.45, send: 0.1, pan });

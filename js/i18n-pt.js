@@ -748,6 +748,7 @@
         muted: 'O som está desligado. Mexa num controle para religar.',
         // Settings > Audio: character / announcer voices switch (js/voice.js) and the courtesy credit under it
         voice: 'Vozes',
+        uiSfx: 'Sons do menu',
         credit: 'Vozes: ユーフルカ (youfulca.com) · 効果音ラボ · すぱらんど',
       },
     });
@@ -1002,14 +1003,24 @@
     merge(EN.STR, {
       gfx: {
         title: 'Gráficos',
-        levels: { auto: 'Automático', high: 'Alto', medium: 'Médio', low: 'Baixo' },
+        levels: { auto: 'Automático', high: 'Alto', medium: 'Médio', low: 'Baixo', custom: 'Personalizado' },
         note: {
           auto: 'Escolhe conforme o aparelho e reduz sozinho se a luta engasgar.',
           high: 'Todas as luzes e efeitos. Para aparelhos potentes.',
           medium: 'Brilho leve, sem sombras. Para a maioria dos celulares.',
           low: 'O mais fluido. Para celulares mais antigos.',
+          custom: 'Suas próprias configurações (Avançado).',
         },
         now: (lv) => `Agora: ${lv}`,
+        // Settings → Graphics → Advanced (game.js gfxAdvBuild, js/gfx.js KNOBS): the switch, the line under it, the hint on
+        // the heaviest rows, one title per knob and the value words (resolution shows percentages, anti-aliasing 2× / 4×)
+        adv: {
+          title: 'Avançado',
+          note: 'Mudar uma deixa a escolha como "Personalizado"; tocar em uma predefinição traz os valores dela de volta.',
+          hot: 'esquenta mais',
+          knob: { scale: 'Resolução', msaa: 'Suavização', bloom: 'Brilho', shadows: 'Sombras e reflexos', effects: 'Clima e partículas' },
+          val: { off: 'Não', low: 'Baixo', mid: 'Médio', full: 'Completo', simple: 'Simples' },
+        },
       },
     });
 
@@ -1226,6 +1237,46 @@
         whyPauseWin: 'Seu amigo não voltou a tempo. Você vence (não conta).',
         whyPauseLose: 'Você não voltou a tempo, então a partida terminou.',
         whyPauseBoth: 'Nenhum de vocês voltou a tempo, então a partida terminou.',
+      },
+    });
+
+    // ================================================================ ranked duel (js/ranked.js: ND.STR.ranked)
+    merge(EN.STR, {
+      ranked: {
+        title: 'Duelo ranqueado', menuSub: 'Adversário aleatório · pontos, patentes e temporadas', offline: 'O modo ranqueado está indisponível agora',
+        season: (n) => `Temporada ${n}`, endsIn: (d) => `Termina em ${d} dias`, endsToday: 'Termina hoje',
+        rating: 'Pontuação', record: (w, l, d) => `${w} V · ${l} D` + (d ? ` · ${d} E` : ''), placement: (a, b) => `Colocação ${a}/${b}`,
+        place: (n) => `${n}º lugar`, find: 'Procurar adversário', findUnranked: 'Procurar adversário (sem pontos)', board: 'Classificação', how: 'Como funciona',
+        howLines: ['O servidor encontra um adversário com pontuação parecida; a margem aumenta enquanto você espera.', 'Quando os dois aceitam, cada um escolhe o lutador sem ver o do outro (só os que você já desbloqueou).',
+          'Vence quem ganhar 2 de 3 rounds. Sair da partida é perder.', 'Os pontos só mudam se os dois aparelhos informarem o mesmo resultado. Temporadas duram 4 semanas; o 1º ganha um traje especial.'],
+        reward: '1º da temporada: um traje especial e o nome no Salão dos Campeões',
+        signIn: 'Entre para ganhar pontos', guestNote: 'Como convidado, você joga sem pontos.', nickNote: 'Escolha um apelido para jogar com pontos.',
+        back: 'Voltar', you: 'Você', titleLbl: 'Título', noTitle: 'Nenhum',
+        searching: 'Procurando adversário…', window: (n) => `Margem de pontuação ±${n}`, windowAny: 'Qualquer pontuação', people: (n, m) => `${n} procurando agora · ${m} partidas na última hora`,
+        warm: 'Aqueça contra a CPU enquanto espera', warmTag: 'Aquecimento · CPU · sem pontos', searchShort: 'Procurando', warmBack: 'Voltar à busca', cancel: 'Cancelar',
+        none: 'Nenhum adversário agora.', foundTitle: 'Adversário encontrado!', accept: 'Aceitar', decline: 'Recusar',
+        ranked: 'Com pontos', unranked: 'Sem pontos · não mudam',
+        why: { guest: 'um jogador é convidado', same_network: 'vocês estão na mesma rede', pair_limit: 'você já jogou 3 partidas com pontos contra ele hoje', daily_limit: 'limite diário de partidas com pontos' },
+        waitOpp: 'Esperando o adversário aceitar…', touch: 'Toque', keys: 'Teclado / controle', placementTag: 'Colocação', guestTag: 'Convidado',
+        declined: 'O adversário não aceitou · procurando de novo', youDeclined: 'Você recusou a partida.', penalty: (s) => `Você recusou partidas recentes: poderá procurar de novo em ${s} s.`,
+        suspended: 'Sua conta ranqueada está em análise (divergências demais). Os outros modos continuam abertos.',
+        pickTitle: 'Escolha seu lutador', pickSub: 'O adversário não vê sua escolha', lock: 'Confirmar', lockedIn: 'Confirmado', oppPicking: 'O adversário está escolhendo…', oppLocked: 'O adversário escolheu',
+        lockedFighter: 'Ainda não desbloqueado no modo solo', costume: 'Traje', plain: 'Cores originais',
+        connecting: 'Conectando ao adversário…', noConnect: 'Não foi possível conectar ao adversário; a partida não conta. Procurando de novo…',
+        leaveQ: 'Sair da partida?', leaveSub: 'Você vai perder esta partida ranqueada.', stay: 'Continuar jogando', leave: 'Sair',
+        waitIn: (s) => `Esperando o adversário… ${s}`, away: (s) => `O adversário saiu do jogo… ${s}`, turning: (s) => `O adversário está girando o celular… ${s}`, paused: 'Pausado',
+        confirming: 'Confirmando o resultado…', win: 'Você venceu', lose: 'Você perdeu', draw: 'Empate', over: 'Fim da partida',
+        delta: (d) => (d >= 0 ? '+' : '−') + Math.abs(d) + ' pontos', nc: 'Esta partida não conta', disputed: 'Os dois aparelhos informaram resultados diferentes: a partida está em análise e os pontos não mudaram.',
+        ncWhy: { desync: 'os dois aparelhos calcularam a luta de forma diferente (um problema de conexão)', connection: 'a conexão dos dois jogadores caiu', input_mismatch: 'os registros de comandos dos dois aparelhos não batem', abandoned: 'os dois jogadores saíram', no_second_report: 'o resultado do adversário nunca chegou', mixed: 'os resultados não batem' },
+        promoted: 'Promovido!', demoted: 'Você caiu de patente', placementDone: 'Colocação concluída!', pending: 'O resultado aparecerá na classificação em breve.',
+        findAgain: 'Procurar de novo', rematch: 'Revanche', rematchWait: 'Esperando o adversário…', rematchAsk: 'Revanche (o adversário quer)', menu: 'Menu',
+        youLeft: 'Você saiu da partida: derrota.', oppLeft: 'O adversário saiu da partida: você venceu.', silent: 'A conexão do adversário caiu.', rounds: (a, b) => `Rounds ${a} – ${b}`,
+        unrankedNote: 'Partida sem pontos',
+        hallTab: 'Ranqueado', hallDesc: (g) => `Os melhores da temporada · ${g} partidas com pontos para entrar`, champs: 'Campeões', champOf: (n) => `Campeão da temporada ${n}`,
+        noChamps: 'Ainda não há campeão de temporada.', me: (p) => `Sua posição: ${p}.`, meNone: 'Jogue partidas com pontos para entrar na tabela.', empty: 'Ninguém entrou na tabela nesta temporada ainda.',
+        tierDesc: ['Soldado de infantaria', 'Samurai sem mestre', 'Samurai', 'Guarda do estandarte', 'Senhor feudal', 'Xogum'],
+        err: { network: 'Não foi possível falar com o servidor. Verifique sua conexão.', bad_version: 'Há uma nova versão do jogo: recarregue a página.', busy: 'A fila está cheia, tente daqui a pouco.',
+          rate_limited: 'Tentativas demais, espere um pouco.', disabled: 'O modo ranqueado está indisponível agora.', banned: 'Esta conta não pode jogar ranqueado.', other: 'Algo deu errado, tente de novo.' },
       },
     });
 

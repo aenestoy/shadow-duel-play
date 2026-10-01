@@ -114,6 +114,7 @@ window.ND = window.ND || {};
         this.heapPrev = h;
       }
       this.frames++;
+      GP.frame();
       if (now() - this.t0 >= 1000) this.flush();
     },
     flush() {
@@ -153,9 +154,21 @@ window.ND = window.ND || {};
         work,
         gl: g?.glStatus ? g.glStatus() : null,
         pace: g?.pace ? { on: g.pace.on, ...g.pace.stat() } : null,
+        gpu: GP.window(),
+        // what the GPU drew in the last frame (gl-render.js api.last): multisampled passes (size × samples), post passes
+        passes: (() => { const L = g?.glRenderer?.()?.last; if (!L || !L.targets) return null; const t = (x) => (x ? x[0] + 'x' + x[1] + (x[2] ? '×' + x[2] : '') : '-'); return `layers ${t(L.targets[0])}, scene ${t(L.targets[1])}, +${L.postPasses} post, ${L.draws} draws`; })(),
+        // refreshes not drawn because the GPU queue was full (game.js gpuq)
+        skips: (g?.gpuSkips || 0) - (this.skips0 || 0),
         parts,
       };
+      this.skips0 = g?.gpuSkips || 0;
       this.history.push(this.snap); if (this.history.length > 120) this.history.shift();
+      // per-minute fight numbers for the whole session (a phone that heats up slows down minute by minute)
+      if (this.isFight(this.snap)) {
+        const m = Math.floor((now() - HR.t0) / 60000), M = HR.mins[m] || (HR.mins[m] = { s: 0, f: 0, cpu: 0, lag: 0, lagN: 0, hitches: 0 });
+        M.s += secs; M.f += this.frames; M.sk = (M.sk || 0) + (this.snap.skips || 0); M.cpu += (this.snap.parts.TOTAL ? this.snap.parts.TOTAL.avg : 0) * this.frames;
+        if (this.snap.gpu && this.snap.gpu.lag != null) { M.lag += this.snap.gpu.lag; M.lagN++; }
+      }
       this.reset(true);
       this.draw();
     },
@@ -171,6 +184,7 @@ window.ND = window.ND || {};
       this.frames = 0; this.sum = Object.create(null); this.max = Object.create(null);
       this.steps = 0; this.stepsMax = 0; this.stepHist = [0, 0, 0, 0, 0, 0];
       this.gapSum = 0; this.gapMax = 0; this.gapCount = 0; this.slow = 0; this.alloc = 0; this.gcs = 0; this.t0 = now(); this.nGaps = 0;
+      GP.clear();
       if (!keepHist) { this.history.length = 0; this.lastBegin = 0; this.frameOpen = false; }
     },
     stats() { return this.snap; },
@@ -184,6 +198,10 @@ window.ND = window.ND || {};
         for (const k in s.parts) { const o = out.parts[k] || (out.parts[k] = { avg: 0, max: 0 }); o.avg += s.parts[k].avg / H.length; o.max = Math.max(o.max, s.parts[k].max); }
       }
       for (const k in out.parts) { out.parts[k].avg = +out.parts[k].avg.toFixed(3); out.parts[k].max = +out.parts[k].max.toFixed(2); }
+      // GPU: mean of the windows that measured it; p95 = the worst window's p95
+      const GW = H.map((s) => s.gpu).filter((x) => x && x.avg != null), LW = H.map((s) => s.gpu).filter((x) => x && x.lag != null);
+      if (GW.length) out.gpu = { avg: +(GW.reduce((a, x) => a + x.avg, 0) / GW.length).toFixed(3), scene: +(GW.reduce((a, x) => a + x.scene, 0) / GW.length).toFixed(3), post: +(GW.reduce((a, x) => a + x.post, 0) / GW.length).toFixed(3), p95: Math.max(...GW.map((x) => x.p95)) };
+      if (LW.length) (out.gpu || (out.gpu = {})).lag = +(LW.reduce((a, x) => a + x.lag, 0) / LW.length).toFixed(2);
       ['fps', 'gapAvg', 'stepsAvg', 'allocKBps'].forEach((k) => (out[k] = +out[k].toFixed(2)));
       Object.assign(out, { canvas: H[H.length - 1].canvas, tier: H[H.length - 1].tier, arena: H[H.length - 1].arena });
       return out;
@@ -194,7 +212,7 @@ window.ND = window.ND || {};
       return {
         report: 'shadow-duel-phone-v3',
         renderer: ND.game?.renderVersion || 'shared-surfaces',
-        note: 'Frame callback rate and synchronous CPU/Canvas submission only; GPU/display time is not measured. hudDom is included in sim and TOTAL. work = per-window counts of WebGL texture uploads (texUp, texKB), new textures, shader compiles, render targets, fighter part pictures drawn (bakes), dropped (evictions) and drawn as paths (paths).',
+        note: 'Frame callback rate and synchronous CPU/Canvas submission only; gpu = GPU time per frame of the WebGL2 renderer (timer queries where the browser offers them; lag = frames until the GPU finished a frame). hudDom is included in sim and TOTAL. work = per-window counts of WebGL texture uploads (texUp, texKB), new textures, shader compiles, render targets, fighter part pictures drawn (bakes), dropped (evictions) and drawn as paths (paths).',
         device: { userAgent: navigator.userAgent, dpr: window.devicePixelRatio, cores: navigator.hardwareConcurrency, memoryGB: navigator.deviceMemory },
         probeCopies: FLUSH_ALL ? 'per-mark' : FLUSH ? 'per-frame' : 'off',
         emulated: ['phone', 'lowend', 'dpr'].some((k) => qs.has(k)),
@@ -248,6 +266,8 @@ window.ND = window.ND || {};
       let t = `${s.fps} fps · screen ${scr} Hz · cap ${cap}\n` +
         `frame p50 ${s.gapP50} · p95 ${s.gapP95} ms · slow ${s.slowFrames}\n` +
         `CPU ${f2(s.parts.TOTAL?.avg)} ms = sim ${f2(gr.sim)} + draw ${f2(gr.draw)} + GL ${f2(gr.gl)} + other ${f2(gr.other)}\n` +
+        `${GP.line(s.gpu, g?.rendererMode === 'gl')}\n` +
+        (s.passes ? `GPU passes: ${s.passes}${s.skips ? ` · ${s.skips} refreshes not drawn (GPU queue full)` : ''}\n` : '') +
         `${String(ND.gfx?.active ? ND.gfx.active() : s.tier).toUpperCase()} (${ND.gfx?.getQuality ? ND.gfx.getQuality() : ''}) ${s.canvas} · css ${s.css} @${s.dpr}` +
         ` (max ${ND.gfx?.f?.dpr ?? '?'}${s.drs != null && s.drs !== 1 ? ' ×' + s.drs : ''}) · ${g?.rendererMode === 'gl' ? 'WebGL2' : 'Canvas'}\n`;
       if (Math.max(hz, this.hzBest || 0) > 70 && pc && pc.target && pc.target < Math.max(hz, this.hzBest) - 5) t += `(cap ${pc.target}: Settings > Graphics > Frame rate 120 / Max for more)\n`;
@@ -258,10 +278,58 @@ window.ND = window.ND || {};
       if (qs.get('compact') === '1') t += `Fight samples: ${this.history.filter((v) => this.isFight(v)).length} · report v3`;
       else {
         t += `steps ${s.stepsAvg} max ${s.stepsMax} [${s.stepHist.join(' ')}] · alloc ${s.allocKBps} KB/s gc ${s.gcs}\n`;
-        t += 'CPU avg / max ms (GPU not measured)\n';
+        t += 'CPU avg / max ms\n';
         for (const k in s.parts) t += `${k.padEnd(15)}${s.parts[k].avg.toFixed(2).padStart(6)} ${s.parts[k].max.toFixed(1).padStart(5)}\n`;
       }
       this.el.textContent = t;
+    },
+  };
+
+  // ---------------------------------------------------------------- GPU time (WebGL2 renderer only)
+  // The renderer's profiling is switched on (gl-render.js: a timer query around the recorded passes and one around the
+  // post passes when the browser offers EXT_disjoint_timer_query_webgl2, and a fence per frame everywhere). Results come
+  // a few frames late; each one is matched to its frame by id. gpuMs: GPU time of a frame (scene = layers + scene
+  // pass, post = glow + present); lag: frames between submitting a frame and the GPU finishing it (a GPU that cannot
+  // keep up shows here even where timer queries are missing, e.g. many Mali phones).
+  const GP = P.gpu = {
+    N: 1024, n: 0, nl: 0, ms: new Float64Array(1024), sc: new Float64Array(1024), po: new Float64Array(1024), lag: new Float64Array(1024), lagMs: new Float64Array(1024),
+    timer: null, lastId: 0, byId: new Map(),
+    frame() {
+      const glr = ND.game?.glRenderer?.();
+      if (!glr) return;
+      if (!glr.prof && glr.ready) glr.profile(true, { tess: false });
+      const pf = glr.prof;
+      if (pf && pf.frameId) this.lastId = pf.frameId;
+      const D = glr.gpuDrain();
+      for (let i = 0; i < D.length; i++) {
+        const d = D[i];
+        if (d.gpuMs !== undefined) {
+          if (d.gpuMs >= 0 && this.n < this.N) { this.ms[this.n] = d.gpuMs; this.sc[this.n] = d.sceneMs; this.po[this.n] = d.postMs; this.n++; }
+        } else if (d.lag !== undefined && this.nl < this.N) { this.lag[this.nl] = d.lag; this.lagMs[this.nl] = d.lagMs; this.nl++; }
+        HR.gpuResult(d);
+        if (this.sink) this.sink(d); // (scripts/bench-gfx.mjs --gpu: every measurement)
+      }
+      if (glr.prof && this.lastId) this.timer = glr.gpuTimer; // (known once a WebGL frame asked for the extension)
+    },
+    clear() { this.n = 0; this.nl = 0; },
+    // this window's GPU numbers (null: no WebGL frame measured)
+    window() {
+      if (!this.n && !this.nl) return this.timer === false ? { timer: false } : null;
+      const pct = (a, n, p) => { const s = Array.from(a.subarray(0, n)).sort((x, y) => x - y); return s[Math.min(n - 1, Math.floor(p * n))]; };
+      const avg = (a, n) => { let s = 0; for (let i = 0; i < n; i++) s += a[i]; return s / n; };
+      const o = { timer: !!this.n };
+      if (this.n) { o.avg = +avg(this.ms, this.n).toFixed(3); o.p95 = +pct(this.ms, this.n, 0.95).toFixed(2); o.max = +pct(this.ms, this.n, 1).toFixed(2); o.scene = +avg(this.sc, this.n).toFixed(3); o.post = +avg(this.po, this.n).toFixed(3); }
+      if (this.nl) { o.lag = +avg(this.lag, this.nl).toFixed(2); o.lagMax = pct(this.lag, this.nl, 1); o.lagMs = +avg(this.lagMs, this.nl).toFixed(1); }
+      if (!this.n && this.timer === false) o.timer = false;
+      return o;
+    },
+    // overlay line
+    line(w, gl) {
+      if (!gl) return 'GPU - (Canvas 2D frame)';
+      if (!w) return 'GPU (measuring...)';
+      const lag = w.lag != null ? ` · lag ${w.lag} (max ${w.lagMax}) frames, ${w.lagMs} ms` : '';
+      if (w.avg == null) return `GPU time n/a (no timer on this browser)${lag}`;
+      return `GPU ${w.avg.toFixed(2)} ms = scene ${w.scene.toFixed(2)} + post ${w.post.toFixed(2)} · p95 ${w.p95} max ${w.max}${lag}`;
     },
   };
 
@@ -269,7 +337,7 @@ window.ND = window.ND || {};
   const HR = P.hr = {
     list: [], count: 0, worst: 0, frames: 0, t0: now(), last: 0, recent: new Float64Array(60), nRecent: 0, iRecent: 0,
     w0: null, w1: {}, ev: { decodes: 0, buffers: 0, sounds: 0, vibrates: 0, resizes: 0, vis: 0, dom: 0, keys: 0 }, ev0: null,
-    long: [], heap: 0, rb: 0, rbSteps: 0, loadAt: -1, byCtx: Object.create(null),
+    long: [], mins: [], heap: 0, rb: 0, rbSteps: 0, loadAt: -1, byCtx: Object.create(null),
     // the usual frame time: the median of the last 60 gaps
     usual() {
       const n = this.nRecent; if (!n) return 16.7;
@@ -309,22 +377,35 @@ window.ND = window.ND || {};
         at: +((t - this.t0) / 1000).toFixed(1), gap: Math.round(gap), where: this.screen(),
         cpu: Math.round(cpu), parts: parts.map((x) => x[0] + ' ' + x[1].toFixed(0)).join(', '), steps: P.curSteps, hud: +(P.cur.hudDom || 0).toFixed(1),
         rollbacks: rb - this.rb, rolled: rbs - this.rbSteps,
-        bakes: d('bakes'), texUp: d('texUp'), texKB: d('texKB'), texNew: d('texNew'), shaders: d('shaders'), sprites: d('sprites'), evictions: d('evictions'),
+        bakes: d('bakes'), texts: d('texts'), texUp: d('texUp'), texKB: d('texKB'), texNew: d('texNew'), shaders: d('shaders'), sprites: d('sprites'), evictions: d('evictions'),
         gc: this.heap && heap && heap < this.heap - 256 * 1024 ? Math.round((this.heap - heap) / 1048576 * 10) / 10 : 0,
         decodes: e('decodes'), buffers: e('buffers'), sounds: e('sounds'), vibrates: e('vibrates'), resizes: e('resizes'), vis: e('vis'), dom: e('dom'), keys: e('keys'),
-        longtasks: longs, loading: this.loadAt > prev, hidden: document.hidden || e('vis') > 0, from: prev, to: t,
+        longtasks: longs, loaf: [], loading: this.loadAt > prev, ld: this.loadAt > prev && this.ld ? { n: this.ld.n, ms: Math.round(this.ld.ms), max: Math.round(this.ld.max) } : null, hidden: document.hidden || e('vis') > 0, from: prev, to: t,
+        // GPU time / lag of the last WebGL frames before the hitch (filled in when the results arrive: gpuResult)
+        glId: GP.lastId, gpu: -1, lag: -1,
       };
       h.causes = this.causes(h);
       this.list.push(h); if (this.list.length > 200) this.list.shift();
-      if (!h.loading && !h.hidden) { this.count++; if (gap > this.worst) this.worst = gap; const k = h.where.split(' ')[0]; this.byCtx[k] = (this.byCtx[k] || 0) + 1; }
+      if (!h.loading && !h.hidden) { const Mn = this.mins[Math.floor((t - this.t0) / 60000)]; if (Mn) Mn.hitches++; this.count++; if (gap > this.worst) this.worst = gap; const k = h.where.split(' ')[0]; this.byCtx[k] = (this.byCtx[k] || 0) + 1; }
+    },
+    // a GPU measurement (GP.frame) for one of the three WebGL frames before a recent hitch
+    gpuResult(d) {
+      for (let i = this.list.length - 1; i >= 0 && i >= this.list.length - 6; i--) {
+        const h = this.list[i];
+        if (!h.glId || d.id > h.glId || d.id < h.glId - 2) continue;
+        let ch = false;
+        if (d.gpuMs !== undefined && d.gpuMs > h.gpu) { h.gpu = +d.gpuMs.toFixed(1); ch = true; }
+        if (d.lag !== undefined && d.lag > h.lag) { h.lag = d.lag; ch = true; }
+        if (ch) h.causes = this.causes(h);
+      }
     },
     causes(h) {
       const c = [];
-      if (h.loading) c.push('after loading');
+      if (h.loading) c.push(h.ld ? `loading screen ${h.ld.n} frames, ${h.ld.ms} ms work, longest frame ${h.ld.max} ms (not a fight hitch)` : 'after loading');
       if (h.hidden) c.push('tab hidden / shown');
       if (h.resizes) c.push('resize ×' + h.resizes);
       if (h.shaders) c.push('shader compile ×' + h.shaders);
-      if (h.texNew || h.texUp) c.push(`texture upload ×${h.texUp} (${h.texKB} KB, new ${h.texNew})`);
+      if (h.texNew || h.texUp) c.push(`texture upload ×${h.texUp} (${h.texKB} KB, new ${h.texNew}${h.texts ? ', text pictures ' + h.texts : ''})`);
       if (h.bakes) c.push('part pictures drawn ×' + h.bakes);
       if (h.sprites) c.push('atlas draws ×' + h.sprites);
       if (h.gc) c.push('garbage collection? (heap -' + h.gc + ' MB)');
@@ -335,8 +416,11 @@ window.ND = window.ND || {};
       if (h.dom > 60 || h.hud > 3) c.push(`DOM changes ×${h.dom} (HUD ${h.hud} ms)`);
       if (h.vibrates) c.push('vibrate ×' + h.vibrates);
       if (h.longtasks.length) c.push('long task ' + h.longtasks.join('+') + ' ms');
-      if (h.cpu > h.gap * 0.6) c.push('slow frame work (' + h.cpu + ' ms: ' + h.parts + ')');
-      if (!c.length) c.push(h.cpu < 8 ? 'outside the game (browser / GPU / system)' : 'frame work ' + h.cpu + ' ms (' + h.parts + ')');
+      for (const F of h.loaf || []) c.push(`long frame ${F.d} ms (script ${F.script}${F.top.length ? ': ' + F.top.join(', ') : ''}, style+layout+paint ${F.style})`);
+      if (h.cpu > h.gap * 0.6 && !h.loading) c.push('slow frame work (' + h.cpu + ' ms: ' + h.parts + ')');
+      if (h.gpu > Math.max(16, h.gap * 0.4)) c.push('GPU busy (' + h.gpu + ' ms)');
+      if (h.lag >= 3) c.push('GPU behind (' + h.lag + ' frames)');
+      if (!c.length) c.push(h.cpu < 8 ? (h.gpu >= 0 ? `outside the game (browser / system; GPU ${h.gpu} ms)` : 'outside the game (browser / GPU / system)') : 'frame work ' + h.cpu + ' ms (' + h.parts + ')');
       return c;
     },
     brief(h) { return `${h.at}s ${h.gap}ms ${h.causes[0]}`; },
@@ -346,16 +430,21 @@ window.ND = window.ND || {};
       L.push('Shadow Duel hitch report · ' + new Date().toISOString().slice(0, 19).replace('T', ' ') + (ND.game?.renderVersion ? ' · ' + ND.game.renderVersion : ''));
       L.push('Device: ' + navigator.userAgent);
       L.push(`cores ${navigator.hardwareConcurrency || '?'} · memory ${navigator.deviceMemory || '?'} GB · dpr ${window.devicePixelRatio} · screen ${screen.width}x${screen.height} · canvas ${cv ? cv.width + 'x' + cv.height : '?'} (css ${cv ? Math.round(cv.clientWidth) + 'x' + Math.round(cv.clientHeight) : '?'})`);
-      L.push(`quality ${ND.gfx?.getQuality ? ND.gfx.getQuality() : '?'} → ${ND.gfx?.active ? ND.gfx.active() : '?'} · renderer ${g?.rendererMode === 'gl' ? 'WebGL2' : 'Canvas'} · fps cap ${pc.target || 'max'} · refresh ${pc.periodMs ? Math.round(1000 / pc.periodMs) : '?'} Hz (best ${P.hzBest || '?'}) · ${qs.has('phone') || qs.has('lowend') || qs.has('dpr') ? 'EMULATED' : 'real device'}`);
+      const K = ND.gfx?.knobs ? ND.gfx.knobs() : null;
+      L.push(`quality ${ND.gfx?.getQuality ? ND.gfx.getQuality() : '?'} → ${ND.gfx?.active ? ND.gfx.active() : '?'}${K ? ` (scale ${K.scale} msaa ${K.msaa} glow ${K.bloom} shadows ${K.shadows} effects ${K.effects})` : ''} · renderer ${g?.rendererMode === 'gl' ? 'WebGL2' + (ND.gpuPath ? ' gpu-path' : '') : 'Canvas'} · fps cap ${pc.target || 'max'} · refresh ${pc.periodMs ? Math.round(1000 / pc.periodMs) : '?'} Hz (best ${P.hzBest || '?'}) · ${qs.has('phone') || qs.has('lowend') || qs.has('dpr') ? 'EMULATED' : 'real device'}`);
       const S = P.snap;
       L.push(`Session: ${(mins).toFixed(1)} min, ${this.frames} frames, ${this.count} hitches (${(this.count / mins).toFixed(1)}/min), worst ${Math.round(this.worst)} ms, usual frame ${this.usual().toFixed(1)} ms${S ? ` · last second: ${S.fps} fps, p95 ${S.gapP95} ms, CPU ${S.parts.TOTAL ? S.parts.TOTAL.avg : '?'} ms/frame, alloc ${S.allocKBps} KB/s` : ''}`);
       L.push('Hitches by state: ' + (Object.keys(this.byCtx).map((k) => k + ' ' + this.byCtx[k]).join(', ') || 'none'));
       const a = P.avg(10);
       if (a) L.push(`Fight average (last ${a.windows} s): ${a.fps} fps, frame ${a.gapAvg} ms, steps ${a.stepsAvg}, alloc ${a.allocKBps} KB/s; heaviest: ` + Object.keys(a.parts).filter((k) => k !== 'TOTAL').sort((x, y) => a.parts[y].avg - a.parts[x].avg).slice(0, 5).map((k) => `${k} ${a.parts[k].avg}/${a.parts[k].max}`).join(', '));
+      if (P.snap && P.snap.passes) L.push('GPU passes (last frame): ' + P.snap.passes + (P.snap.skips ? ` · refreshes not drawn in the last second (GPU queue full): ${P.snap.skips}` : ''));
+      if (a) L.push('Fight GPU: ' + (a.gpu ? (a.gpu.avg != null ? `${a.gpu.avg} ms/frame (scene ${a.gpu.scene} + post ${a.gpu.post}), worst p95 ${a.gpu.p95} ms` : 'no timer on this browser') + (a.gpu.lag != null ? `, lag ${a.gpu.lag} frames` : '') : (g?.rendererMode === 'gl' ? 'not measured yet' : 'Canvas 2D (not measured)')) + ` · CPU ${a.parts.TOTAL ? a.parts.TOTAL.avg : '?'} ms/frame`);
+      const MS = this.mins.map((M, i) => (M && M.s >= 5 ? `m${i + 1} ${Math.round(M.s)}s ${(M.f / M.s).toFixed(0)}fps cpu ${(M.cpu / Math.max(1, M.f)).toFixed(1)} lag ${M.lagN ? (M.lag / M.lagN).toFixed(1) : '-'} hitch ${M.hitches}${M.sk ? ' skip ' + M.sk : ''}` : null)).filter(Boolean);
+      if (MS.length) L.push('Per minute (fight time): ' + MS.join(' · '));
       L.push('');
       L.push('Last hitches (seconds since start · frame gap · state · causes):');
       for (const h of this.list.slice(-50)) {
-        L.push(`${h.at}s ${h.gap}ms ${h.where} · cpu ${h.cpu} (${h.parts || '-'}) steps ${h.steps}${h.rolled ? ' rb ' + h.rolled : ''} · ${h.causes.join('; ')}`);
+        L.push(`${h.at}s ${h.gap}ms ${h.where} · cpu ${h.cpu} (${h.parts || '-'})${h.gpu >= 0 ? ' gpu ' + h.gpu : ''}${h.lag >= 0 ? ' lag ' + h.lag : ''} steps ${h.steps}${h.rolled ? ' rb ' + h.rolled : ''} · ${h.causes.join('; ')}`);
       }
       if (!this.list.length) L.push('(none recorded yet: play a while, then copy again)');
       return L.join('\n');
@@ -389,6 +478,23 @@ window.ND = window.ND || {};
       }
     }).observe({ type: 'longtask', buffered: true });
   } catch (e) { /* no longtask API (Safari, Firefox) */ }
+  // Long animation frames (Chrome 123+): where a slow frame's main-thread time went — scripts, style + layout, the
+  // rendering update. A hitch with none of these was waiting outside the page's main thread (GPU / compositor).
+  try {
+    new PerformanceObserver((l) => {
+      for (const e of l.getEntries()) {
+        const end = e.startTime + e.duration;
+        const style = e.styleAndLayoutStart ? end - e.styleAndLayoutStart : 0;
+        let script = 0; const top = [];
+        for (const sc of e.scripts || []) { script += sc.duration; if (top.length < 2 && sc.duration >= 5) top.push(`${sc.sourceFunctionName || sc.invoker || '?'} ${Math.round(sc.duration)}`); }
+        const F = { start: e.startTime, end, d: Math.round(e.duration), script: Math.round(script), style: Math.round(style), top };
+        for (let i = HR.list.length - 1; i >= 0 && i >= HR.list.length - 5; i--) {
+          const h = HR.list[i];
+          if (F.end > h.from - 5 && F.start < h.to && !h.loaf.some((x) => x.start === F.start)) { h.loaf.push(F); h.causes = HR.causes(h); }
+        }
+      }
+    }).observe({ type: 'long-animation-frame', buffered: false });
+  } catch (e) { /* no long-animation-frame API */ }
 
   // Hooks: wrap the game's own methods once every script has run (method calls are looked up at call time)
   function hook() {
@@ -402,7 +508,17 @@ window.ND = window.ND || {};
     wrap(g, 'update', function (orig, a) { P.curSteps++; return orig.apply(this, a); });
     wrap(g, 'hud', function (orig, a) { const t = now(); const r = orig.apply(this, a); P.cur.hudDom = (P.cur.hudDom || 0) + now() - t; if (!P.order.includes('hudDom')) P.order.push('hudDom'); return r; });
     wrap(g, 'syncTouch', function (orig, a) { P.m('portal'); const r = orig.apply(this, a); P.m('syncTouch'); return r; });
-    wrap(g, 'prepareMatch', function (orig, a) { HR.loadAt = now(); return orig.apply(this, a); });
+    wrap(g, 'prepareMatch', function (orig, a) { HR.loadAt = now(); HR.ld = { n: 0, ms: 0, max: 0, t0: now() }; return orig.apply(this, a); });
+    // the loading screen's frames (one preparation job each, js/prepare.js): how many, their total and the longest —
+    // the longest is how long the loading screen itself stood still
+    if (ND.prepare && ND.prepare.start && !ND.prepare._hr) {
+      const st = ND.prepare.start; ND.prepare._hr = true;
+      ND.prepare.start = function () {
+        const o = st.apply(this, arguments), step = o.step;
+        o.step = function () { const t = now(); try { return step.apply(this, arguments); } finally { const d = now() - t, L = HR.ld; if (L) { L.n++; L.ms += d; if (d > L.max) L.max = d; } } };
+        return o;
+      };
+    }
     wrap(g, 'render', function (orig, a) { const r = orig.apply(this, a); if (this.preparing) return r; if (FLUSH) { P.m('render-tail'); flush(); P.m('flush'); } P.end(); return r; });
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setTimeout(hook, 0)); else setTimeout(hook, 0);

@@ -337,9 +337,19 @@ window.ND = window.ND || {};
     const SP_W = 1024, SP_H = 1024, SP_MAX = 16;
     const spPages = [];
     let spCanvas = null, spCtx = null, spM1 = null, spX1 = null, spM2 = null, spX2 = null, spW = 0, spH = 0, spGen = 0;
+    // Pages belong to one owner (a fighter's part cache, bake.js: R.spriteOwner before its pictures are made); when a
+    // fighter changes look its cache releases its pages (R.spriteRelease), which then serve the next owner. Before
+    // this, pages of fighters from earlier fights filled the atlas, and in the fourth fight or so the warm-up kept
+    // dropping pages it had just filled (the least recently used page was always one written in the same warm-up):
+    // seconds of re-drawing on the loading screen.
+    let spOwner = null;
+    R.spriteOwner = (o) => { spOwner = o || null; };
+    R.spriteRelease = (o) => {
+      for (const q of spPages) if (q.owner === o) { q.owner = null; q.gen = ++spGen; q.shelves.length = 0; q.top = 0; q.n = 0; }
+    };
     const cpuCanvas = (c) => c.getContext('2d', { willReadFrequently: true });
     function spPage() {
-      const p = { tex: null, gen: ++spGen, shelves: [], top: 0, used: frameNo, n: 0 };
+      const p = { tex: null, gen: ++spGen, shelves: [], top: 0, used: frameNo, n: 0, owner: spOwner };
       if (E.ready) {
         p.tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, p.tex);
         gl.texStorage2D(gl.TEXTURE_2D, 3, gl.RGBA8, SP_W, SP_H);
@@ -379,14 +389,16 @@ window.ND = window.ND || {};
       const w = spW, h = spH, cw = Math.ceil((w + 4) / 4) * 4, ch = Math.ceil((h + 4) / 4) * 4;
       if (cw > SP_W || ch > SP_H) return null;
       let p = null, r = null;
-      for (let i = spPages.length - 1; i >= 0 && !r; i--) { r = spAlloc(spPages[i], cw, ch); if (r) p = spPages[i]; }
+      for (let i = spPages.length - 1; i >= 0 && !r; i--) if (spPages[i].owner === spOwner) { r = spAlloc(spPages[i], cw, ch); if (r) p = spPages[i]; }
+      // a released (empty) page, then a new one
+      if (!r) for (const q of spPages) if (!q.owner && !q.n && q !== p) { q.owner = spOwner; q.shelves.length = 0; q.top = 0; r = spAlloc(q, cw, ch); if (r) { p = q; break; } }
       if (!r && spPages.length < SP_MAX) { p = spPage(); r = spAlloc(p, cw, ch); }
       if (!r) {
         // full: the least recently used page not drawn from in this frame starts again empty
         let old = null;
         for (const q of spPages) if (q.used < frameNo && (!old || q.used < old.used)) old = q;
         if (!old) return null;
-        old.gen = ++spGen; old.shelves.length = 0; old.top = 0; old.n = 0; CNT.spriteDrops++;
+        old.gen = ++spGen; old.shelves.length = 0; old.top = 0; old.n = 0; old.owner = spOwner; CNT.spriteDrops++;
         p = old; r = spAlloc(p, cw, ch);
         if (!r) return null;
       }
@@ -408,7 +420,7 @@ window.ND = window.ND || {};
       gl.texSubImage2D(gl.TEXTURE_2D, 2, r.x >> 2, r.y >> 2, w2, h2, gl.RGBA, gl.UNSIGNED_BYTE, spM2);
       gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
       CNT.texUp += 3; CNT.texKB += (cw * ch * 4 * 1.3125) / 1024; CNT.sprites++;
-      p.n++;
+      p.n++; p.used = frameNo; // (a page written in this frame, or in this warm-up, is never the one dropped)
       return { page: p, gen: p.gen, u0: (r.x + 2) / SP_W, v0: (r.y + 2) / SP_H, u1: (r.x + 2 + w) / SP_W, v1: (r.y + 2 + h) / SP_H };
     };
     R.spriteOk = (s) => !!s && s.gen === s.page.gen && !!s.page.tex;
@@ -421,14 +433,26 @@ window.ND = window.ND || {};
     // frame is on is emptied (texts still on screen are never drawn again). Each new text is drawn by Canvas 2D on a
     // CPU canvas (willReadFrequently): its copy into the atlas is a plain pixel upload that never waits for the GPU
     // (a GPU canvas has to be finished by the GPU first; on phones that stalled whole frames).
-    const TA_W = 1024, TA_H = 1024;
+    // (opts.textAtlas [w, h]: the GPU path uses a larger atlas, so a fight's pop-up texts at every size they animate
+    // through stay in it and are not drawn again; game.js initGl)
+    const TA_W = (opts.textAtlas && opts.textAtlas[0]) || 1024, TA_H = (opts.textAtlas && opts.textAtlas[1]) || 1024;
     const texts = new Map(); // key → { x, y, w, h, ox, oy, used, shelf }
     const textSizes = new Map(); // text without its size → { px (last size), until (frame: still animating) }
     const FONT_PX = /(\d+(?:\.\d+)?)px/;
     const shelves = []; // { y, h, x, used, keys }
     let shelfTop = 0, textUploads = 0;
     let textCanvas = null, textCtx = null, measureCtx = null;
-    function textClear() { texts.clear(); shelves.length = 0; shelfTop = 0; }
+    function textClear() { texts.clear(); shelves.length = 0; shelfTop = 0; for (const q of textQ) q.length = 0; }
+    // R.textRing (the GPU path, game.js): three copies of the atlas used in turn, one per frame, laid out alike. A new
+    // text picture goes into this frame's copy (last read three frames ago) and is queued for the other two, written
+    // when their turn comes. Writing into the one atlas while queued frames still read it makes some mobile drivers
+    // copy the whole 4 MB texture or wait; that coincided with most "GPU behind" hitches (the pop-up texts of hits).
+    let textRing = [], textCur = 0;
+    const textQ = [[], [], []];
+    R.textRing = false;
+    R.textWarm = 0; R.textWarmFull = false; // (see _text)
+    // what the text atlas holds (tests, scripts/parry-hitch-check.mjs): pictures, rows used, pictures made so far
+    R.textUse = (detail) => ({ texts: texts.size, rows: shelfTop, height: TA_H, width: TA_W, made: textUploads, keys: detail ? [...texts].map(([k, e]) => [k, e.w * e.h]) : undefined });
     function textScratch(w, h) {
       if (!textCanvas) { textCanvas = document.createElement('canvas'); textCtx = null; }
       if (textCanvas.width < w || textCanvas.height < h) {
@@ -502,6 +526,9 @@ window.ND = window.ND || {};
     let AW = 0, AH = 0, wantAW = 512, wantAH = 512;
     let shelfX = 0, shelfY = 0, shelfH = 0, usedW = 0, usedH = 0;
     const layerCtxs = new Map();
+    // first vertex of every quad placing a layer this frame: their texture coordinates are rescaled when the atlas
+    // grows in the middle of a frame (R.layer)
+    const layerQuads = [];
     function layerAlloc(w, h) {
       const P = 2;
       if (w + P > AW || h + P > AH) return null;
@@ -1046,7 +1073,8 @@ window.ND = window.ND || {};
         QX[0] = a * dx + c * dy + e; QY[0] = b * dx + d * dy + f; QX[1] = a * x1 + c * dy + e; QY[1] = b * x1 + d * dy + f;
         QX[2] = a * x1 + c * y1 + e; QY[2] = b * x1 + d * y1 + f; QX[3] = a * dx + c * y1 + e; QY[3] = b * dx + d * y1 + f;
         QU[0] = u0; QV[0] = v0; QU[1] = u1; QV[1] = v0; QU[2] = u1; QV[2] = v1; QU[3] = u0; QV[3] = v1;
-        emitUV4();
+        const vb = emitUV4();
+        if (L) layerQuads.push(vb);
       }
       // a sprite of the atlas (R.spriteEnd) into the rectangle dx, dy, dw, dh of user space
       drawSprite(s, dx, dy, dw, dh) {
@@ -1066,6 +1094,8 @@ window.ND = window.ND || {};
       spriteBegin(w, h) { return R.spriteBegin(w, h); }
       spriteEnd() { return R.spriteEnd(); }
       spriteOk(s) { return R.spriteOk(s); }
+      spriteOwner(o) { R.spriteOwner(o); }
+      spriteRelease(o) { R.spriteRelease(o); }
       createLinearGradient(x0, y0, x1, y1) { return gradCtx().createLinearGradient(x0, y0, x1, y1); }
       createRadialGradient(x0, y0, r0, x1, y1, r1) { return gradCtx().createRadialGradient(x0, y0, r0, x1, y1, r1); }
       createPattern(img, rep) { return gradCtx().createPattern(img, rep); }
@@ -1080,17 +1110,40 @@ window.ND = window.ND || {};
         if (st.t !== 0) { fail('gradient text'); return; }
         const a = this.a, b = this.b, c = this.c, d = this.d;
         const X = a * x + c * y + this.e, Y = b * x + d * y + this.f;
-        const snap = R.textSnap;
-        let ix = snap ? Math.round(X) : Math.floor(X), fx = snap ? 0 : Math.round((X - ix) * 4) / 4;
+        // R.textFree (the GPU path): a text's picture is made once at a whole-pixel offset and placed at its exact
+        // (fractional) position by the GPU, and a text whose size keeps changing uses the size ladder below as on
+        // Medium: a pop-up text makes a few pictures once instead of one or more per frame (each one an upload)
+        const snap = R.textSnap, free = !snap && !!R.textFree;
+        let ix = snap ? Math.round(X) : free ? X : Math.floor(X), fx = snap || free ? 0 : Math.round((X - ix) * 4) / 4;
         if (fx === 1) { ix++; fx = 0; } // (a whole pixel further: the same picture as offset 0, not a fifth variant)
-        const iy = Math.round(Y);
+        const iy = free ? Y : Math.round(Y);
         const col = st.c;
         // Texts whose font size keeps changing (pop-in and pulse animations: damage numbers, combo counts, STRIKE!,
         // banners) would need a new picture every frame. On Medium / Low (snap) such a text is drawn at the next size of
         // a 2^(1/4) ladder and its picture placed a little smaller (at most 16%): a few pictures per animation instead of
         // one per frame. Once the size stays put (30 frames), the text is drawn at its exact size again.
+        // R.textWarm (match preparation, game.js warmTexts; nothing is drawn): a made-up pop-up is drawn through its
+        // animation. 1: a size it animates through - its ladder picture is made (when the size differs from the previous
+        // call's, or its outline: a text of fixed size drawn along needs none); 2: the size it comes to rest at - the
+        // exact picture and the ladder one.
+        // The last size is noted as the text's current one, so its first real pop-in takes the ladder pictures as every
+        // later one does. The fight's pop-ups are then in the atlas before the first hit, parry or counter shows them:
+        // no text picture is drawn or uploaded on those frames. A full atlas ends the warm-up (R.textWarmFull).
+        if (R.textWarm) {
+          if (!(snap || free) || R.textWarmFull) return;
+          const m = FONT_PX.exec(this.font), px = m ? +m[1] : 0;
+          const ak = m ? (stroke ? 'S' : 'F') + this.font.replace(m[0], '') + '|' + t + '|' + col.join(',') : '';
+          const z = m ? textSizes.get(ak) : null;
+          const q = px > 1 ? Math.round(Math.pow(2, Math.ceil(Math.log2(px) * 4 - 1e-6) / 4) * 4) / 4 : px;
+          if (R.textWarm === 2 || !(q > px)) this._textPic(t, stroke, col, this.font, this.lw, mw, 0);
+          // (at rest too: the same text at another size elsewhere - STRIKE!'s key after a parry and after a block -
+          // makes its next appearance take the ladder picture)
+          if (q > px && (R.textWarm === 2 || !(z && z.px === px && (!stroke || z.lw === this.lw)))) { const k = px / q; this._textPic(t, stroke, col, this.font.replace(m[0], q + 'px'), this.lw / k, mw === undefined ? undefined : mw / k, 0); }
+          if (m) { if (z) { z.px = px; z.until = 0; z.lw = this.lw; } else { if (textSizes.size > 512) textSizes.clear(); textSizes.set(ak, { px, until: 0, lw: this.lw }); } }
+          return;
+        }
         let font = this.font, lw = this.lw, mwq = mw, k = 1;
-        if (snap) {
+        if (snap || free) {
           const m = FONT_PX.exec(font);
           if (m) {
             const px = +m[1], ak = (stroke ? 'S' : 'F') + font.replace(m[0], '') + '|' + t + '|' + col.join(',');
@@ -1103,6 +1156,31 @@ window.ND = window.ND || {};
             }
           }
         }
+        const e = this._textPic(t, stroke, col, font, lw, mwq, fx);
+        if (!e) return;
+        const blend = this._blend(), al = this.ga;
+        EU[0] = pack(al * 255, al * 255, al * 255, al * 255); EU[1] = PT_TEX; UVM = 0;
+        nextZ();
+        useState(this.pass, blend, TEXT_TEX, this.clp, this.sc);
+        // (free: placed at a fractional position, the picture is sampled between texels: its outer texel, always part of the
+        // transparent margin, is left out, so nothing next to it in the atlas bleeds in)
+        const ins = free ? 1 : 0;
+        const x0 = ix - (e.ox - ins) * k, y0 = iy - (e.oy - ins) * k, qw = (e.w - 2 * ins) * k, qh = (e.h - 2 * ins) * k, u0 = (e.x + ins) / TA_W, v0 = (e.y + ins) / TA_H, u1 = (e.x + e.w - ins) / TA_W, v1 = (e.y + e.h - ins) / TA_H;
+        QX[0] = x0; QY[0] = y0; QX[1] = x0 + qw; QY[1] = y0; QX[2] = x0 + qw; QY[2] = y0 + qh; QX[3] = x0; QY[3] = y0 + qh;
+        QU[0] = u0; QV[0] = v0; QU[1] = u1; QV[1] = v0; QU[2] = u1; QV[2] = v1; QU[3] = u0; QV[3] = v1;
+        emitUV4();
+      }
+      // The atlas picture of text t (this context's alignment, baseline, join and transform) in `font`, colour col,
+      // outline lw (stroke), max width mwq and sub-pixel offset fx: found, or drawn and uploaded now. null: the atlas
+      // is full (the frame is refused and drawn with Canvas 2D).
+      _textPic(t, stroke, col, font, lw, mwq, fx) {
+        const a = this.a, b = this.b, c = this.c, d = this.d;
+        // (free: an outline width that follows the camera zoom is kept to half pixels, or every zoom step of the
+        // camera would make a new picture of each outlined text)
+        if (!R.textSnap && R.textFree && stroke) lw = Math.max(0.5, Math.round(lw * 2) / 2);
+        // a max width the text fits in changes nothing in its picture: left out of the key (on the size ladder the max
+        // width is scaled per size, so a banner name that fits made a new picture at every size of its pop-in)
+        if (mwq !== undefined && !(metrics(t, font, this.align, this.baseline).width > mwq)) mwq = undefined;
         const key = (stroke ? 'S' : 'F') + font + '|' + this.align + '|' + this.baseline + '|' + (mwq === undefined ? '' : mwq) + '|' +
           col.join(',') + '|' + (stroke ? lw + this.join + '/' + this.miter : '') + '|' + a.toFixed(4) + ',' + b.toFixed(4) + ',' + c.toFixed(4) + ',' + d.toFixed(4) + '|' + fx + '|' + t;
         let e = texts.get(key);
@@ -1120,15 +1198,16 @@ window.ND = window.ND || {};
           }
           const ox = Math.ceil(-minx) + 1, oy = Math.ceil(-miny) + 1;
           const w = Math.min(TA_W, Math.ceil(maxx + fx) + ox + 2), h = Math.min(TA_H, Math.ceil(maxy) + oy + 2);
-          if (w <= 0 || h <= 0) return;
+          if (w <= 0 || h <= 0) return null;
           let r0 = textAlloc(w, h);
           if (!r0) {
+            if (R.textWarm) { R.textWarmFull = true; return null; } // (the warm-up stops; what it made stays)
             // full: start the atlas again; texts placed earlier in this frame may be overwritten, so this frame is
             // drawn with Canvas 2D (rare: the atlas holds a few hundred distinct texts)
             textClear();
             if (P) P.textAtlasFull++;
             fail('text atlas full');
-            return;
+            return null;
           }
           const tc = textScratch(w, h);
           tc.setTransform(1, 0, 0, 1, 0, 0); tc.globalAlpha = 1; tc.globalCompositeOperation = 'copy';
@@ -1142,9 +1221,19 @@ window.ND = window.ND || {};
           r0.shelf.keys.push(key);
           // straight into the atlas (a GPU copy; the scratch canvas is reused by the next text)
           if (E.ready) {
-            gl.bindTexture(gl.TEXTURE_2D, textTex);
             gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
-            gl.texSubImage2D(gl.TEXTURE_2D, 0, e.x, e.y, w, h, gl.RGBA, gl.UNSIGNED_BYTE, textCanvas);
+            if (R.textWarm && textRing.length === 3) {
+              // warm-up (no frame on screen): into every copy of the atlas at once, nothing is left queued for the fight
+              for (const T of textRing) { gl.bindTexture(gl.TEXTURE_2D, T); gl.texSubImage2D(gl.TEXTURE_2D, 0, e.x, e.y, w, h, gl.RGBA, gl.UNSIGNED_BYTE, textCanvas); }
+              CNT.texUp += 2; CNT.texKB += (w * h) / 128;
+            } else {
+              gl.bindTexture(gl.TEXTURE_2D, textTex);
+              gl.texSubImage2D(gl.TEXTURE_2D, 0, e.x, e.y, w, h, gl.RGBA, gl.UNSIGNED_BYTE, textCanvas);
+              if (textRing.length === 3) {
+                const px = tc.getImageData(0, 0, w, h).data, u = { x: e.x, y: e.y, w, h, px };
+                for (let i = 1; i < 3; i++) textQ[(textCur + i) % 3].push(u);
+              }
+            }
             gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
             textUploads++; CNT.texUp++; CNT.texts++; CNT.texKB += (w * h) / 256;
           }
@@ -1152,14 +1241,7 @@ window.ND = window.ND || {};
           if (P) { P.texts++; P.textPx += w * h; P.textMs += now() - tt; if (P.textWhy.length < 6) P.textWhy.push(P.stacks ? key : t.slice(0, 24) + ' ' + w + 'x' + h); }
         }
         e.used = frameNo; e.shelf.used = frameNo;
-        const blend = this._blend(), al = this.ga;
-        EU[0] = pack(al * 255, al * 255, al * 255, al * 255); EU[1] = PT_TEX; UVM = 0;
-        nextZ();
-        useState(this.pass, blend, TEXT_TEX, this.clp, this.sc);
-        const x0 = ix - e.ox * k, y0 = iy - e.oy * k, qw = e.w * k, qh = e.h * k, u0 = e.x / TA_W, v0 = e.y / TA_H, u1 = (e.x + e.w) / TA_W, v1 = (e.y + e.h) / TA_H;
-        QX[0] = x0; QY[0] = y0; QX[1] = x0 + qw; QY[1] = y0; QX[2] = x0 + qw; QY[2] = y0 + qh; QX[3] = x0; QY[3] = y0 + qh;
-        QU[0] = u0; QV[0] = v0; QU[1] = u1; QV[1] = v0; QU[2] = u1; QV[2] = v1; QU[3] = u0; QV[3] = v1;
-        emitUV4();
+        return e;
       }
       // -------------------------------------------------- layers
       // A transparent picture of w×h device pixels (like a new canvas), drawn in the first pass; place it with
@@ -1346,7 +1428,21 @@ window.ND = window.ND || {};
     let main = null;
     R.layer = function (w, h, key) {
       w = Math.max(1, Math.ceil(w)); h = Math.max(1, Math.ceil(h));
-      const r = layerAlloc(w, h);
+      let r = layerAlloc(w, h);
+      // no room: grow the atlas now, in this frame (its picture is only made when the frame runs; layers placed so far
+      // keep their pixels, their texture coordinates are rescaled), so the frame is not handed to Canvas 2D. Until
+      // this, one frame per fight on High was redrawn with Canvas 2D (and its bloom): a 100+ ms frame on a phone.
+      for (let k = 0; !r && k < 4 && (AW < 4096 || AH < 4096); k++) {
+        const ow = AW, oh = AH;
+        const nw = Math.max(AW <= AH ? Math.min(4096, AW * 2) : AW, Math.min(4096, Math.ceil((w + 4) / 64) * 64));
+        const nh = Math.max(AW > AH ? Math.min(4096, AH * 2) : AH, Math.min(4096, Math.ceil((h + 4) / 64) * 64));
+        if (nw === AW && nh === AH) break;
+        AW = wantAW = nw; AH = wantAH = nh; R._layerResize = true;
+        const kx = ow / AW, ky = oh / AH;
+        for (const b of layerQuads) for (let i = 0, o = b * STRIDE; i < 4; i++, o += STRIDE) { VF[o + 3] *= kx; VF[o + 4] = 1 - (1 - VF[o + 4]) * ky; }
+        if (P) P.layerRegrow++;
+        r = layerAlloc(w, h);
+      }
       if (!r) {
         // grow for the next frame (this one is drawn with Canvas 2D): the shorter side doubles, and both fit this layer
         if (AW <= AH) wantAW = Math.min(4096, AW * 2); else wantAH = Math.min(4096, AH * 2);
@@ -1398,6 +1494,25 @@ window.ND = window.ND || {};
         return o.apply(this, arguments);
       };
     }
+    // (R.begin) this frame's copy of the text atlas; the texts queued for it written first
+    function textTurn() {
+      const want = !!R.textRing && E.ready;
+      if (want !== (textRing.length === 3)) {
+        // switched on / off: the copies start empty (every text is drawn again)
+        if (textRing.length) { textTex = textRing[0]; for (let i = 1; i < textRing.length; i++) gl.deleteTexture(textRing[i]); }
+        textRing = want ? [textTex, tex2d(TA_W, TA_H, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, gl.LINEAR, null), tex2d(TA_W, TA_H, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, gl.LINEAR, null)] : [];
+        textCur = 0; textClear();
+      }
+      if (textRing.length !== 3) return;
+      textCur = (textCur + 1) % 3; textTex = textRing[textCur];
+      const q = textQ[textCur];
+      if (!q.length) return;
+      gl.bindTexture(gl.TEXTURE_2D, textTex);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+      for (const u of q) { gl.texSubImage2D(gl.TEXTURE_2D, 0, u.x, u.y, u.w, u.h, gl.RGBA, gl.UNSIGNED_BYTE, u.px); CNT.texUp++; CNT.texKB += (u.w * u.h) / 256; }
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+      q.length = 0;
+    }
     R.begin = function (W, H) {
       frameNo++;
       nv = 0; ni = 0; np = 0; zc = 0; cmds = []; bPass = -1; bStart = 0; bBlend = -1; bTex = null; bClip = null; bSc = null;
@@ -1412,7 +1527,8 @@ window.ND = window.ND || {};
         wantAH = Math.max(wantAH, Math.min(2048, Math.max(512, Math.ceil(H / 64) * 64 + 64)));
       }
       if (AW !== wantAW || AH !== wantAH) { AW = wantAW; AH = wantAH; R._layerResize = true; }
-      shelfX = shelfY = shelfH = usedW = usedH = 0;
+      shelfX = shelfY = shelfH = usedW = usedH = 0; layerQuads.length = 0;
+      textTurn();
       if (!main) main = new Ctx(1, null, W, H);
       main.W = W; main.H = H; main._canvas = { width: W, height: H };
       main.clp = null; main.sp = 0; main.beginPath();
@@ -1433,6 +1549,10 @@ window.ND = window.ND || {};
     // Texts snapped to whole pixels (Medium, Low): one picture per text instead of one per quarter-pixel position,
     // so a text moving with the camera is not drawn again every frame (High keeps the exact quarter-pixel placement)
     R.textSnap = false;
+    R.textFree = false;
+    // mip level bias of textured draws (only the sprite atlas has mip levels): negative = sharper part pictures when
+    // the camera is farther out than the zoom they were made for (game.js sets it for ?renderer=gpu)
+    R.spriteBias = 0;
     // timed wrappers of the tessellating calls (installed only while profiling)
     const TIMED = ['_fillPath', '_stroke', 'clip'], untimed = {};
     // opts.tess: false = no tessellation timing (its wrappers cost a little on every path); opts.stacks: upload causes
@@ -1452,14 +1572,17 @@ window.ND = window.ND || {};
       if (P) P.stacks = !!opts.stacks;
     };
     // tests: copy of the recorded frame (x, y per vertex, triangle indices, commands)
+    R.indexCount = () => ni; // (bench: which part of the frame recorded which triangles)
     R.dump = () => {
       const xy = new Float64Array(nv * 2);
-      for (let i = 0; i < nv; i++) { xy[i * 2] = VF[i * STRIDE]; xy[i * 2 + 1] = VF[i * STRIDE + 1]; }
-      return { xy, idx: Array.from(IX.subarray(0, ni)), cmds: cmds.map((c) => ({ k: c.k === K_DRAW ? 'draw' : c.k === K_SFILL ? 'stencil-fill' : 'clip', pass: c.pass, blend: c.blend, first: c.first, count: c.count, clip: !!c.clip })) };
+      const uv = new Float64Array(nv * 2);
+      for (let i = 0; i < nv; i++) { xy[i * 2] = VF[i * STRIDE]; xy[i * 2 + 1] = VF[i * STRIDE + 1]; uv[i * 2] = VF[i * STRIDE + 3]; uv[i * 2 + 1] = VF[i * STRIDE + 4]; }
+      return { xy, uv, idx: Array.from(IX.subarray(0, ni)), cmds: cmds.map((c) => ({ k: c.k === K_DRAW ? 'draw' : c.k === K_SFILL ? 'stencil-fill' : 'clip', pass: c.pass, blend: c.blend, first: c.first, count: c.count, clip: !!c.clip })) };
     };
 
     // ---------------------------------------------------------------- GL executor
     const E = R.exec = {};
+    let paintRing = [], paintI = 0;
     let emptyTex = null, prog = null, vao = null, rampTex = null, paintTex = null, textTex = null, quadProg = null, quadVao = null, quadBuf = null;
     let U = {};
     const targets = { 0: null, 1: null };
@@ -1473,12 +1596,12 @@ window.ND = window.ND || {};
     const FS = `#version 300 es
       precision highp float; precision highp int;
       in vec2 v_uv; in vec4 v_col; flat in uint v_paint;
-      uniform sampler2D u_tex; uniform sampler2D u_ramp; uniform highp sampler2D u_paint; uniform float u_rampH;
+      uniform sampler2D u_tex; uniform sampler2D u_ramp; uniform highp sampler2D u_paint; uniform float u_rampH; uniform float u_bias;
       out vec4 o;
       void main(){
         uint t = v_paint & 7u;
         if (t == 0u) { o = v_col; return; }
-        if (t == 3u) { o = texture(u_tex, v_uv) * v_col; return; }
+        if (t == 3u) { o = texture(u_tex, v_uv, u_bias) * v_col; return; }
         if (t == 4u) { o = vec4(0.0); return; }
         int idx = int(v_paint >> 3u);
         vec4 A = texelFetch(u_paint, ivec2(0, idx), 0), B = texelFetch(u_paint, ivec2(1, idx), 0);
@@ -1539,7 +1662,7 @@ window.ND = window.ND || {};
     E.init = function () {
       prog = compile(VS, FS);
       U = { view: gl.getUniformLocation(prog, 'u_view'), tex: gl.getUniformLocation(prog, 'u_tex'), ramp: gl.getUniformLocation(prog, 'u_ramp'),
-        paint: gl.getUniformLocation(prog, 'u_paint'), rampH: gl.getUniformLocation(prog, 'u_rampH') };
+        paint: gl.getUniformLocation(prog, 'u_paint'), rampH: gl.getUniformLocation(prog, 'u_rampH'), bias: gl.getUniformLocation(prog, 'u_bias') };
       quadProg = compile(QVS, QFS);
       // three vertex/index buffer pairs used in turn, each sized once (grown only when a frame needs more): a
       // frame's data goes into a pair the GPU finished two frames ago (no reallocation, no wait)
@@ -1566,8 +1689,11 @@ window.ND = window.ND || {};
       gl.bindVertexArray(null);
       gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
       rampTex = tex2d(RAMP_W, RAMP_ROWS, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, gl.LINEAR, rampData);
-      paintTex = tex2d(2, PAINT_ROWS, gl.RGBA32F, gl.RGBA, gl.FLOAT, gl.NEAREST, null);
-      textTex = tex2d(TA_W, TA_H, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, gl.LINEAR, null);
+      // three paint textures used in turn, like the vertex buffers: a frame's gradient records go into one the GPU has
+      // finished with (writing into a texture that queued frames still read makes some mobile drivers copy it or wait)
+      paintRing = [0, 1, 2].map(() => tex2d(2, PAINT_ROWS, gl.RGBA32F, gl.RGBA, gl.FLOAT, gl.NEAREST, null)); paintI = 0;
+      paintTex = paintRing[0];
+      textTex = tex2d(TA_W, TA_H, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, gl.LINEAR, null); textRing = []; textCur = 0; for (const q of textQ) q.length = 0;
       emptyTex = tex2d(1, 1, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, gl.NEAREST, new Uint8Array(4));
       const max = gl.getParameter(gl.MAX_SAMPLES) | 0;
       E.samples = Math.max(0, Math.min(wantSamples, max));
@@ -1581,6 +1707,13 @@ window.ND = window.ND || {};
       for (const p of spPages) { p.gen = -1; p.tex = null; } spPages.length = 0;
       ramps.clear(); rampFree = []; for (let i = RAMP_ROWS - 1; i >= 0; i--) rampFree.push(i); rampDirty = [];
       E.ready = true;
+    };
+    // multisampling of the layer pass alone (the lit fighter layers, cast-shadow silhouettes): null = as the scene.
+    // (?renderer=gpu: the fighters there are ready-made anti-aliased pictures, see game.js)
+    E.layerSamples = null;
+    E.setLayerSamples = function (n) {
+      const v = n == null ? null : Math.max(0, Math.min(n | 0, E.maxSamples | 0));
+      E.layerSamples = v === 1 ? 0 : v;
     };
     E.setSamples = function (n) { wantSamples = n | 0; if (E.ready) { const max = E.maxSamples | 0; E.samples = Math.max(0, Math.min(wantSamples, max)); if (E.samples === 1) E.samples = 0; freeTarget(0); freeTarget(1); } };
     function freeTarget(i) {
@@ -1684,7 +1817,7 @@ window.ND = window.ND || {};
         if (P) P.rampRows += rampDirty.length;
         rampDirty = [];
       }
-      if (np) { gl.bindTexture(gl.TEXTURE_2D, paintTex); gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 2, np, gl.RGBA, gl.FLOAT, paintData, 0); }
+      if (np) { paintI = (paintI + 1) % paintRing.length; paintTex = paintRing[paintI]; gl.bindTexture(gl.TEXTURE_2D, paintTex); gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 2, np, gl.RGBA, gl.FLOAT, paintData, 0); }
       const tb = P ? now() : 0;
       ringI = (ringI + 1) % ring.length;
       const rb = ring[ringI];
@@ -1696,13 +1829,13 @@ window.ND = window.ND || {};
       if (ni) gl.bufferSubData(gl.ELEMENT_ARRAY_BUFFER, 0, IX, 0, ni);
       if (P) { P.bufMs += now() - tb; P.bufBytes += nv * STRIDE * 4 + ni * 4; }
       gl.useProgram(prog);
-      gl.uniform1i(U.tex, 0); gl.uniform1i(U.ramp, 1); gl.uniform1i(U.paint, 2); gl.uniform1f(U.rampH, RAMP_ROWS);
+      gl.uniform1i(U.tex, 0); gl.uniform1i(U.ramp, 1); gl.uniform1i(U.paint, 2); gl.uniform1f(U.rampH, RAMP_ROWS); gl.uniform1f(U.bias, R.spriteBias || 0);
       gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, rampTex);
       gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, paintTex);
       gl.activeTexture(gl.TEXTURE0);
       let hasLayers = false;
       for (const c of cmds) if (c.pass === 0) { hasLayers = true; break; }
-      if (hasLayers) runPass(0, AW, AH, usedW, usedH);
+      if (hasLayers) runPass(0, AW, AH, usedW, usedH, E.layerSamples == null ? E.samples : E.layerSamples);
       // kept offscreen pictures drawn this frame (after the layers: they may place a layer of this frame, never the
       // scene). 4× multisampled whatever the scene uses: a kept picture is small, drawn a few times a second and then
       // shown enlarged; its edges match Canvas 2D's anti-aliasing more closely.

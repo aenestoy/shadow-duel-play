@@ -733,6 +733,7 @@
         muted: 'Sound is off. Move a slider to turn it back on.',
         // Settings > Audio: character / announcer voices switch (js/voice.js) and the courtesy credit under it
         voice: 'Voices',
+        uiSfx: 'Menu sounds',
         credit: 'Voices: ユーフルカ (youfulca.com) · 効果音ラボ · すぱらんど',
       },
     });
@@ -987,14 +988,24 @@
     merge(EN.STR, {
       gfx: {
         title: 'Graphics',
-        levels: { auto: 'Auto', high: 'High', medium: 'Medium', low: 'Low' },
+        levels: { auto: 'Auto', high: 'High', medium: 'Medium', low: 'Low', custom: 'Custom' },
         note: {
           auto: 'Picks for your device and lowers itself if a fight stutters.',
           high: 'Every light and effect. For strong devices.',
           medium: 'Light glow, no shadows. For most phones.',
           low: 'Smoothest. For older phones.',
+          custom: 'Your own settings (Advanced).',
         },
         now: (lv) => `Now: ${lv}`,
+        // Settings → Graphics → Advanced (game.js gfxAdvBuild, js/gfx.js KNOBS): the switch, the line under it, the hint on
+        // the heaviest rows, one title per knob and the value words (resolution shows percentages, anti-aliasing 2× / 4×)
+        adv: {
+          title: 'Advanced',
+          note: 'Changing one makes the choice "Custom"; pressing a preset brings its values back.',
+          hot: 'heats the most',
+          knob: { scale: 'Resolution', msaa: 'Anti-aliasing', bloom: 'Glow', shadows: 'Shadows & reflections', effects: 'Weather & particles' },
+          val: { off: 'Off', low: 'Low', mid: 'Medium', full: 'Full', simple: 'Simple' },
+        },
       },
     });
 
@@ -1212,6 +1223,46 @@
         whyPauseWin: "Your friend didn't come back in time. You win (not recorded).",
         whyPauseLose: "You didn't come back in time, so the match ended.",
         whyPauseBoth: "Neither of you came back in time, so the match ended.",
+      },
+    });
+
+    // ================================================================ ranked duel (js/ranked.js: ND.STR.ranked)
+    merge(EN.STR, {
+      ranked: {
+        title: 'Ranked duel', menuSub: 'Random opponent · points, tiers and seasons', offline: 'Ranked is offline right now',
+        season: (n) => `Season ${n}`, endsIn: (d) => `Ends in ${d} days`, endsToday: 'Ends today',
+        rating: 'Rating', record: (w, l, d) => `${w} W · ${l} L` + (d ? ` · ${d} D` : ''), placement: (a, b) => `Placement ${a}/${b}`,
+        place: (n) => `Ranked #${n}`, find: 'Find opponent', findUnranked: 'Find opponent (unranked)', board: 'Leaderboard', how: 'How it works',
+        howLines: ['The server finds an opponent near your rating; the range widens while you wait.', 'Once you both accept, you pick a fighter without seeing theirs (only fighters you have unlocked).',
+          'Best of 3 rounds wins. Leaving a match loses it.', 'Points change only when both devices report the same result. Seasons last 4 weeks; #1 gets a special costume.'],
+        reward: 'Season #1: a special costume and their name in the Hall of Champions',
+        signIn: 'Sign in to earn points', guestNote: 'As a guest you play unranked.', nickNote: 'Pick a nickname to play ranked.',
+        back: 'Back', you: 'You', titleLbl: 'Title', noTitle: 'None',
+        searching: 'Searching for an opponent…', window: (n) => `Rating range ±${n}`, windowAny: 'Any rating', people: (n, m) => `${n} searching now · ${m} matches in the last hour`,
+        warm: 'Warm up vs CPU while waiting', warmTag: 'Warm-up · CPU · unranked', searchShort: 'Searching', warmBack: 'Back to search', cancel: 'Cancel',
+        none: 'No opponents right now.', foundTitle: 'Opponent found!', accept: 'Accept', decline: 'Decline',
+        ranked: 'Ranked', unranked: 'Unranked · no points',
+        why: { guest: 'a player is a guest', same_network: 'you are on the same network', pair_limit: 'you played 3 ranked matches with them today', daily_limit: 'daily ranked match limit' },
+        waitOpp: 'Waiting for your opponent to accept…', touch: 'Touch', keys: 'Keyboard / pad', placementTag: 'Placement', guestTag: 'Guest',
+        declined: "Your opponent didn't accept · searching again", youDeclined: 'You declined the match.', penalty: (s) => `You declined recent matches: you can search again in ${s} s.`,
+        suspended: 'Your ranked account is under review (too many disputes). The other modes are open.',
+        pickTitle: 'Pick your fighter', pickSub: "Your opponent can't see your pick", lock: 'Lock in', lockedIn: 'Locked in', oppPicking: 'Opponent is picking…', oppLocked: 'Opponent locked in',
+        lockedFighter: 'Not unlocked in single player yet', costume: 'Costume', plain: 'Original colors',
+        connecting: 'Connecting to your opponent…', noConnect: "Couldn't connect to your opponent; the match doesn't count. Searching again…",
+        leaveQ: 'Leave the match?', leaveSub: 'You will lose this ranked match.', stay: 'Keep playing', leave: 'Leave',
+        waitIn: (s) => `Waiting for your opponent… ${s}`, away: (s) => `Your opponent switched away from the game… ${s}`, turning: (s) => `Your opponent is turning their phone… ${s}`, paused: 'Paused',
+        confirming: 'Confirming the result…', win: 'You win', lose: 'You lose', draw: 'Draw', over: 'Match over',
+        delta: (d) => (d >= 0 ? '+' : '−') + Math.abs(d) + ' points', nc: "This match doesn't count", disputed: 'The two devices reported different results: the match is under review and no points changed.',
+        ncWhy: { desync: 'the two devices computed the fight differently (a connection problem)', connection: "both players' connections dropped", input_mismatch: "the two devices' input records did not match", abandoned: 'both players left', no_second_report: "your opponent's result never arrived", mixed: "the results didn't match" },
+        promoted: 'Promoted!', demoted: 'Tier lost', placementDone: 'Placement complete!', pending: 'The result will show on the leaderboard shortly.',
+        findAgain: 'Find again', rematch: 'Rematch', rematchWait: 'Waiting for your opponent…', rematchAsk: 'Rematch (your opponent wants one)', menu: 'Menu',
+        youLeft: 'You left the match: a loss.', oppLeft: 'Your opponent left the match: you win.', silent: "Your opponent's connection was lost.", rounds: (a, b) => `Rounds ${a} – ${b}`,
+        unrankedNote: 'Unranked match',
+        hallTab: 'Ranked', hallDesc: (g) => `This season's best · ${g} ranked matches to get on the board`, champs: 'Champions', champOf: (n) => `Season ${n} champion`,
+        noChamps: 'No season champion yet.', me: (p) => `Your place: #${p}.`, meNone: 'Play ranked matches to get on the board.', empty: 'Nobody is on the board this season yet.',
+        tierDesc: ['Foot soldier', 'Masterless samurai', 'Samurai', 'Banner guard', 'Feudal lord', 'Shogun'],
+        err: { network: "Couldn't reach the server. Check your internet connection.", bad_version: 'A new version of the game is out: reload the page.', busy: 'The queue is very full, try again soon.',
+          rate_limited: 'Too many tries, wait a moment.', disabled: 'Ranked is offline right now.', banned: "This account can't play ranked.", other: 'Something went wrong, try again.' },
       },
     });
 
