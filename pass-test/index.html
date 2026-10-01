@@ -2,10 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-    <meta name="robots" content="noindex, nofollow" />
 <script type="module" crossorigin src="./assets/index-DIUqgKgH.js"></script>
 <link rel="stylesheet" crossorigin href="./assets/index-CFtILYoN.css">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Shadow Duel</title>
 <!-- Error capture for the studio panel's error reports (src/studio-stats.ts sends them where statistics are on; never in
      the Yandex / Playgama packages): the page's first errors and unhandled rejections wait here until that module is
@@ -1079,8 +1079,9 @@
     .sel-grid.solo { grid-template-columns: minmax(0, 560px); }
     .vs { justify-self: auto; font-size: 26px; }
     .slot { grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 6px 10px; padding: 8px 10px; align-items: center; }
-    .slot .who { grid-column: 1 / -1; grid-row: 1; font-size: 10px; padding-right: 50px; }
-    .slot canvas { grid-column: 1; grid-row: 2 / span 2; height: clamp(88px, 26vh, 170px); }
+    .slot .who { grid-column: 2; grid-row: 1; font-size: 10px; padding-right: 50px; }
+    /* the preview takes the left column from the top (beside the who line, the name and the bars): a bigger fighter */
+    .slot canvas { grid-column: 1; grid-row: 1 / span 3; height: clamp(110px, 31vh, 190px); }
     .slot .nav { grid-column: 2; grid-row: 2; grid-template-columns: 38px 1fr 38px; gap: 4px; }
     .slot .nav button { height: 38px; }
     .slot .bars { grid-column: 2; grid-row: 3; gap: 3px 8px; font-size: 10px; }
@@ -1848,7 +1849,7 @@
     .sel-wrap { gap: 12px; }
     .sel-title { font-size: clamp(26px, 4vw, 38px); }
     .slot { padding: 10px 12px; gap: 6px; }
-    .slot canvas { height: clamp(140px, 21vh, 240px); }
+    .slot canvas { height: clamp(150px, 22.5vh, 250px); }
   }
   @media (max-height: 540px) and (min-width: 560px) {
     #select.journey .sel-wrap { grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr); column-gap: 10px; align-items: start; }

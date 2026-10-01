@@ -75,6 +75,7 @@
       const ch = chOf(it.ninja), n = ch ? nice(ch.name) : it.ninja;
       return it.kind === 'cos' ? (it.journey === 2 ? t.cos2(n) : t.cos3(n)) : n + ' · ' + ((t.rank || {})[it.journey] || '');
     }
+    if (it.kind === 'cos' && it.theme) { const ch = chOf(it.ninja); return ((t.themes || {})[it.theme] || it.theme) + ' · ' + (ch ? nice(ch.name) : it.ninja); }
     if (it.kind === 'boost') return t.boostName ? t.boostName(it.n) : id;
     if (it.kind === 'honor') return t.honorName ? t.honorName(it.n) : id;
     if (it.kind === 'rw') return (ND.rewards && ND.rewards.name(it.ref)) || it.ref;
@@ -147,7 +148,7 @@
     }
     if (it.kind === 'cos') {
       const p = iconPal(it) || {}, rim = p.rim || 'rgba(255,255,255,.3)';
-      const ch = it.journey ? chOf(it.ninja) : null;
+      const ch = it.ninja ? chOf(it.ninja) : null;
       // (a soft disc behind it and a light outline: the dark robes read on the dark card too)
       return `<svg class="ps-svg" viewBox="0 0 48 48" aria-hidden="true" style="filter:drop-shadow(0 0 3px ${rim})">` +
         `<circle cx="24" cy="26" r="21" fill="rgba(255,255,255,.07)"/>` +
@@ -290,24 +291,16 @@
     ND.toast(t.got + ': ' + itemName(g.id), it && it.icon ? it.icon : t.k, it && it.color);
   }
   // a tier whose reward is a catalog reward can be claimed only where the server grants it
-  const rwBlocked = (se, t, row) => { const T0 = se.C.tiers[t - 1], it = T0 && LV.item(T0[row]); return !!it && it.kind === 'rw' && !rwOk(); };
-  function claimFree(tier) {
-    const st = S(), se = season();
-    if (rwBlocked(se, tier, 'f')) { if (ND.toast) ND.toast(T().online, T().k); return null; }
-    const g = LV.claimFree(se.C, st, se.key, tier);
-    if (!g) return null;
-    payHonor(g); commit(); gotToast(g); fx('claim'); changed();
-    if (g.kind === 'rw' && ND.passNet) ND.passNet.now(); // (the server grants it: tell it now)
-    return g;
-  }
-  // bonus ("Shadow") track: way = 'free' (milestone) | 'wait' (no ads here, opened later) | 'ad' (one rewarded ad)
-  function claimBonus(tier) {
-    const st = S(), se = season(), p = sp(st, se), ok = adsOk(), way = LV.bonusWay(se.C, p, tier, ok);
+  const rwBlocked = (se, t) => { const T0 = se.C.tiers[t - 1], it = T0 && LV.item(T0.r); return !!it && it.kind === 'rw' && !rwOk(); };
+  // Claim tier t's reward: with one rewarded ad where ads work ('ad': granted only after a finished ad, never on an
+  // error), else for free once the player is waitTiers tiers further ('wait'). → Promise of the grant, or null
+  function claim(tier) {
+    const st = S(), se = season(), p = sp(st, se), ok = adsOk(), way = LV.claimWay(se.C, p, tier, ok);
     if (!way) return Promise.resolve(null);
-    if (rwBlocked(se, tier, 'b')) { if (ND.toast) ND.toast(T().online, T().k); return Promise.resolve(null); }
+    if (rwBlocked(se, tier)) { if (ND.toast) ND.toast(T().online, T().k); return Promise.resolve(null); }
     const done = () => {
-      const first = !Object.values(S().ps).some((q) => q.b && q.b.length);
-      const g = LV.claimBonus(se.C, S(), se.key, tier, way, ok);
+      const first = !Object.values(S().ps).some((q) => q.f && q.f.length);
+      const g = LV.claim(se.C, S(), se.key, tier, way, ok);
       if (g) { payHonor(g); commit(); gotToast(g); fx('claim'); changed(); if (first) once('first_bonus_claim'); if (g.kind === 'rw' && ND.passNet) ND.passNet.now(); }
       return g;
     };
@@ -318,16 +311,18 @@
       return done();
     });
   }
-  function claimAllFree() {
-    const se = season(), p = sp(S(), se), R = tierOf(se, p);
+  // every reward that is open without an ad (no ads here, waited long enough): at once
+  function claimAllWaiting() {
+    const se = season(), p = sp(S(), se);
     let n = 0;
-    for (let t = 1; t <= R.tier; t++) if (LV.canFree(se.C, p, t) && !rwBlocked(se, t, 'f')) { if (claimFree(t)) n++; }
+    for (let t = 1; t <= se.C.tiers.length; t++) if (LV.claimWay(se.C, p, t, false) === 'wait' && !adsOk() && !rwBlocked(se, t)) { claim(t); n++; }
     return n;
   }
+  // rewards waiting for the player (reached, not claimed, claimable now)
   function readyCount() {
     const se = season(), p = sp(S(), se), ok = adsOk();
     let n = 0;
-    for (let t = 1; t <= se.C.tiers.length; t++) { if (LV.canFree(se.C, p, t)) n++; const w = LV.bonusWay(se.C, p, t, ok); if (w === 'free' || w === 'wait') n++; }
+    for (let t = 1; t <= se.C.tiers.length; t++) if (LV.claimWay(se.C, p, t, ok)) n++;
     return n;
   }
   const tierOf = (se, p) => LV.tierOf(se.C, p.x);
@@ -394,15 +389,21 @@
   .ps-tabs .ps-note.on { color: var(--gold-hi); }
   .ps-tabs .btn { padding: 7px 12px; font-size: 13px; }
   .ps-wrap { display: grid; grid-template-columns: 74px minmax(0, 1fr); gap: 6px; }
-  .ps-lab { display: grid; grid-template-rows: 28px 1fr 1fr; gap: 6px; }
+  .ps-lab { display: grid; grid-template-rows: 30px 28px 1fr; gap: 6px; }
   .ps-lab span { display: grid; align-content: center; justify-items: center; gap: 3px; padding: 4px; text-align: center; border: 1px solid rgba(217,179,108,.3); background: rgba(217,179,108,.06); font: 700 12px/1.1 var(--display); letter-spacing: .1em; text-transform: uppercase; color: var(--gold); }
-  .ps-lab span:first-child { border: 0; background: none; }
+  .ps-lab span:first-child, .ps-lab span:empty { border: 0; background: none; }
   .ps-lab .ps-lb { border-color: rgba(190,160,255,.45); background: rgba(120,90,200,.12); color: #d9c2ff; }
   .ps-lab span small { font: 500 9.5px/1.2 var(--body); letter-spacing: 0; text-transform: none; color: var(--muted); }
   .ps-lab b { font: 700 18px/1 var(--jp); }
   .ps-track { overflow-x: auto; overflow-y: hidden; touch-action: pan-x pan-y; overscroll-behavior-x: contain; scroll-behavior: smooth; padding-bottom: 2px; }
-  .ps-grid { position: relative; display: grid; grid-auto-flow: column; grid-template-rows: 28px auto auto; grid-auto-columns: 96px; gap: 6px; width: max-content; }
-  .ps-prog { position: absolute; left: 0; top: 12px; height: 4px; width: 100%; background: rgba(255,255,255,.08); }
+  .ps-grid { position: relative; display: grid; grid-auto-flow: column; grid-template-rows: 30px 28px auto; grid-auto-columns: 96px; gap: 6px; width: max-content; }
+  .ps-prog { position: relative; align-self: center; height: 4px; background: rgba(255,255,255,.08); }
+  .ps-tn.soon { opacity: .45; border-style: dashed; }
+  .ps-rw.soon { opacity: .5; border-style: dashed; border-color: rgba(190,160,255,.25); background: rgba(120,90,200,.04); min-height: 0; }
+  .ps-q { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; border: 1px dashed rgba(199,155,255,.5); color: #c79bff; font: 700 20px/1 var(--display); }
+  .ps-soon { position: sticky; left: 0; display: grid; align-content: center; gap: 1px; padding: 0 8px; border-left: 2px solid #c79bff; min-width: 0; overflow: hidden; white-space: nowrap; }
+  .ps-soon b { font: 700 12px/1.1 var(--display); letter-spacing: .1em; text-transform: uppercase; color: #d9c2ff; overflow: hidden; text-overflow: ellipsis; }
+  .ps-soon small { font: 500 10.5px/1.1 var(--body); color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
   .ps-prog i { position: absolute; inset: 0 auto 0 0; width: var(--p, 0%); background: linear-gradient(90deg, #8f6bff, #f1d69c); box-shadow: 0 0 8px rgba(199,155,255,.6); }
   .ps-tn { position: relative; z-index: 1; justify-self: center; display: grid; place-items: center; width: 26px; height: 26px; box-sizing: border-box; border-radius: 50%; border: 1px solid rgba(255,255,255,.2); background: #121420; font: 700 12px/1 var(--display); color: var(--muted); font-variant-numeric: tabular-nums; }
   .ps-tn.on { background: var(--gold); border-color: var(--gold-hi); color: #17130a; }
@@ -495,10 +496,9 @@
     #passOv .ps-rw em { display: none; }
     #passOv .ps-rw { grid-template-rows: auto 1fr auto; min-height: 86px; }
     #passOv .ps-rw button { padding: 5px 2px; }
-    #passOv .ps-lab { grid-template-rows: 24px 1fr 1fr; }
-    #passOv .ps-grid { grid-template-rows: 24px auto auto; }
+    #passOv .ps-lab { grid-template-rows: 26px 24px 1fr; }
+    #passOv .ps-grid { grid-template-rows: 26px 24px auto; }
     #passOv .ps-tn { width: 22px; height: 22px; }
-    #passOv .ps-prog { top: 10px; }
   }
   @media (max-height: 520px) {
     #passOv.overlay { padding-block: 6px; }
@@ -601,46 +601,51 @@
     if (backTo === 'menu' && ND.game && ND.game.mode === 'attract') { $('menu').hidden = false; setTimeout(() => { const m = $('mpass'); if (m) m.focus(); }, 0); }
     refreshStrip();
   }
-  function rewardCard(se, p, t, row, ok) {
-    const Tt = se.C.tiers[t - 1], id = row === 'f' ? Tt.f : Tt.b, tx = T();
-    if (!id) return `<div class="ps-rw ${row} empty" aria-hidden="true"></div>`;
-    const it = LV.item(id), reached = tierOf(se, p).tier >= t;
-    const got = (row === 'f' ? p.f : p.b).includes(t);
+  // One tier's reward card: claimed / "Watch ad" (ads work here) / "Claim" (no ads here, waited long enough) / locked
+  function rewardCard(se, p, t, ok) {
+    const Tt = se.C.tiers[t - 1], id = Tt && Tt.r, tx = T();
+    if (!id) return `<div class="ps-rw b empty" aria-hidden="true"></div>`;
+    const it = LV.item(id), reached = tierOf(se, p).tier >= t, got = p.f.includes(t);
     let act = '', cls = '';
     if (got) { cls = 'got'; act = `<span class="ps-st">${esc(tx.owned)}</span>`; }
-    else if (row === 'f') {
-      if (reached) { cls = 'rdy'; act = `<button type="button" data-claim="f" data-t="${t}">${esc(tx.claim)}</button>`; }
-      else { cls = 'lock'; act = `<span class="ps-st">🔒 ${esc(tx.opensAt(t))}</span>`; }
-    } else {
-      const w = LV.bonusWay(se.C, p, t, ok);
-      if (w === 'free' || w === 'wait') { cls = 'rdy'; act = `<button type="button" data-claim="b" data-t="${t}">${esc(tx.claim)}</button>`; }
-      else if (w === 'ad') { cls = 'rdy'; act = `<button type="button" class="ad" data-claim="b" data-t="${t}">${esc(tx.watch)}</button>`; }
-      else if (!reached) { cls = 'lock'; act = `<span class="ps-st">🔒 ${esc(tx.opensAt(t))}</span>`; }
-      else { cls = 'lock'; act = `<span class="ps-st">🔒 ${esc(tx.opensAt(LV.bonusWaitTier(se.C, t)))}</span>`; }
-      if (!got && se.C.freeEvery && t % se.C.freeEvery === 0 && !cls.includes('rdy')) act = `<span class="ps-st">${esc(tx.milestone)} · ${esc(tx.opensAt(t))}</span>`;
+    else {
+      const w = LV.claimWay(se.C, p, t, ok);
+      if (w === 'ad') { cls = 'rdy'; act = `<button type="button" class="ad" data-claim="${t}">${esc(tx.watch)}</button>`; }
+      else if (w === 'wait') { cls = 'rdy'; act = `<button type="button" data-claim="${t}">${esc(tx.claim)}</button>`; }
+      // (locked: with ads it opens at its own tier, without ads waitTiers tiers later)
+      else { cls = 'lock'; act = `<span class="ps-st">🔒 ${esc(tx.opensAt(ok ? t : LV.waitTier(se.C, t)))}</span>`; }
     }
     // a catalog reward where no server grants it (offline, no online identity): not claimable here
     if (!got && it.kind === 'rw' && !rwOk() && cls === 'rdy') { cls = 'lock'; act = `<span class="ps-st">🔒 ${esc(tx.online)}</span>`; }
     const kind = it.kind === 'rw' ? ((rwEntry(it) || {}).kind === 'costume' ? 'cos' : (rwEntry(it) || {}).kind || 'title') : it.kind;
-    return `<div class="ps-rw ${row} ${cls}" data-item="${esc(id)}" title="${esc((tx.kinds || {})[kind] || '')}: ${esc(itemName(id))}"><span class="ps-ic">${icon(id)}</span><em>${esc((tx.kinds || {})[kind] || '')}</em><small>${esc(itemName(id))}</small>${act}</div>`;
+    return `<div class="ps-rw b ${cls}" data-item="${esc(id)}" title="${esc((tx.kinds || {})[kind] || '')}: ${esc(itemName(id))}"><span class="ps-ic">${icon(id)}</span><em>${esc((tx.kinds || {})[kind] || '')}</em><small>${esc(itemName(id))}</small>${act}</div>`;
   }
   function render(scroll) {
     if (!ov || ov.hidden) return;
     const st = S(), t = T(), se = season(), p = sp(st, se), R = tierOf(se, p), L = LV.levelOf(st.xp), ok = adsOk(), N = se.C.tiers.length;
-    const left = daysLeft(se), freeN = (() => { let n = 0; for (let k = 1; k <= R.tier; k++) if (LV.canFree(se.C, p, k)) n++; return n; })();
+    const left = daysLeft(se), waitN = ok ? 0 : (() => { let n = 0; for (let k = 1; k <= N; k++) if (LV.claimWay(se.C, p, k, false) === 'wait') n++; return n; })();
+    // (the scroll positions stay when the screen is drawn again: equipping in the profile, claiming on the track)
+    const keep = { ov: ov.scrollTop, prof: ((ov.querySelector('.ps-prof') || {}).scrollTop) || 0, track: (($('psTrack') || {}).scrollLeft) || 0 };
     const ti = st.eq.title && LV.item(st.eq.title);
     const daily = st.d.w === LV.dayOf(P.now(), tz());
     let body;
     if (tab === 'pass') {
-      const cols = [];
+      const cols = [], M = Math.max(N, se.C.soon | 0);
       for (let k = 1; k <= N; k++) {
-        cols.push(`<span class="ps-tn ${R.tier >= k ? 'on' : ''} ${R.tier + 1 === k ? 'cur' : ''}" style="grid-column:${k};grid-row:1">${k}</span>`);
-        cols.push(rewardCard(se, p, k, 'f', ok).replace('<div ', `<div style="grid-column:${k};grid-row:2" `));
-        cols.push(rewardCard(se, p, k, 'b', ok).replace('<div ', `<div style="grid-column:${k};grid-row:3" `));
+        cols.push(`<span class="ps-tn ${R.tier >= k ? 'on' : ''} ${R.tier + 1 === k ? 'cur' : ''}" style="grid-column:${k};grid-row:2">${k}</span>`);
+        cols.push(rewardCard(se, p, k, ok).replace('<div ', `<div style="grid-column:${k};grid-row:3" `));
+      }
+      // the announced tiers after the real ones (season data `soon`): locked mystery slots; the season XP keeps counting
+      if (M > N) {
+        cols.push(`<span class="ps-soon" style="grid-column:${N + 1}/${M + 1};grid-row:1"><b>${esc(t.soon)}</b><small>${esc(t.soonXp)}</small></span>`);
+        for (let k = N + 1; k <= M; k++) {
+          cols.push(`<span class="ps-tn soon" style="grid-column:${k};grid-row:2">${k}</span>`);
+          cols.push(`<div class="ps-rw soon" style="grid-column:${k};grid-row:3" aria-hidden="true"><span class="ps-ic"><b class="ps-q">?</b></span><span class="ps-st">🔒</span></div>`);
+        }
       }
       const prog = ((R.tier + (R.tier < N ? R.pct : 0)) / N) * 100;
-      body = `<div class="ps-wrap"><div class="ps-lab"><span></span><span>${esc(t.free)}</span><span class="ps-lb"><b>影</b>${esc(t.bonus)}<small>${esc(ok ? t.bonusAds : t.bonusWait(se.C.waitTiers))}</small></span></div>` +
-        `<div class="ps-track" id="psTrack"><div class="ps-grid" style="grid-template-columns:repeat(${N},var(--cw,96px))"><span class="ps-prog" style="grid-column:1/-1;grid-row:1"><i style="--p:${prog.toFixed(2)}%"></i></span>${cols.join('')}</div></div></div>`;
+      body = `<div class="ps-wrap"><div class="ps-lab"><span></span><span></span><span class="ps-lb"><b>影</b>${esc(t.bonus)}<small>${esc(ok ? t.bonusAds : t.bonusWait(se.C.waitTiers))}</small></span></div>` +
+        `<div class="ps-track" id="psTrack"><div class="ps-grid" style="grid-template-columns:repeat(${M},var(--cw,96px))"><span class="ps-prog" style="grid-column:1/${N + 1};grid-row:2"><i style="--p:${prog.toFixed(2)}%"></i></span>${cols.join('')}</div></div></div>`;
     } else body = profileHtml(st, t);
     $('passIn').innerHTML =
       `<div class="ps-head">${lvBadge(L.lv)}<div class="ps-who"><strong>${esc(t.level(L.lv))}${ti ? ` <em style="--tc:${ti.color}">${esc(itemName(st.eq.title))}</em>` : ''}</strong>` +
@@ -649,7 +654,7 @@
       `<button class="btn" type="button" id="passClose">${esc(t.close)}</button></div>` +
       `<div class="ps-tabs" role="tablist"><button type="button" role="tab" data-tab="pass" aria-selected="${tab === 'pass'}">${esc(t.tabs.pass)}</button><button type="button" role="tab" data-tab="profile" aria-selected="${tab === 'profile'}">${esc(t.tabs.profile)}</button>` +
       `<span class="ps-sp"></span><span class="ps-note ${daily ? '' : 'on'}">${esc(daily ? t.dailyDone : t.daily)}</span>` +
-      (tab === 'pass' && freeN > 1 ? `<button class="btn primary" type="button" id="passAll">${esc(t.claimAll(freeN))}</button>` : '') + '</div>' + body;
+      (tab === 'pass' && waitN > 1 ? `<button class="btn primary" type="button" id="passAll">${esc(t.claimAll(waitN))}</button>` : '') + '</div>' + body;
     $('passClose').onclick = () => close();
     // a rewarded offer on screen (the Shadow row's "Watch ad"): counted once per opening, through the ads module's own
     // counter when it has one (studio statistics: ad_rew_offer; the clicks and results are counted in ND.ads.rewarded)
@@ -658,19 +663,22 @@
       safe(() => { const x = document.createElement('i'); x.hidden = true; ND.ads.showOffer(x); });
     }
     ov.querySelectorAll('[role="tab"]').forEach((b) => (b.onclick = () => { tab = b.dataset.tab; render(true); }));
-    const all = $('passAll'); if (all) all.onclick = () => { claimAllFree(); render(false); };
+    const all = $('passAll'); if (all) all.onclick = () => { claimAllWaiting(); render(false); };
     ov.querySelectorAll('[data-claim]').forEach((b) => (b.onclick = () => {
-      const k = +b.dataset.t;
-      if (b.dataset.claim === 'f') { claimFree(k); render(false); return; }
       b.disabled = true;
-      claimBonus(k).then(() => render(false), () => render(false));
+      claim(+b.dataset.claim).then(() => render(false), () => render(false));
     }));
     ov.querySelectorAll('[data-eq]').forEach((b) => (b.onclick = () => { const [k, id] = b.dataset.eq.split(':'); equip(k, id || null); render(false); }));
     const tr = $('psTrack');
+    if (!scroll) {
+      ov.scrollTop = keep.ov;
+      const pf = ov.querySelector('.ps-prof'); if (pf) pf.scrollTop = keep.prof;
+      if (tr) { tr.style.scrollBehavior = 'auto'; tr.scrollLeft = keep.track; tr.style.scrollBehavior = ''; }
+    }
     if (tr && scroll) {
       // the first tier with something to claim, else the current one, a column in from the left edge
       let k = 1;
-      while (k <= N && !LV.canFree(se.C, p, k) && !['free', 'wait', 'ad'].includes(LV.bonusWay(se.C, p, k, ok))) k++;
+      while (k <= N && !LV.claimWay(se.C, p, k, ok)) k++;
       if (k > N) k = Math.min(N, R.tier + 1);
       tr.style.scrollBehavior = 'auto';
       tr.scrollLeft = Math.max(0, (k - 2) * (tr.scrollWidth / N));
@@ -843,7 +851,7 @@
     const panel = $('journeyPanel'), G = ND.game;
     if (panel && !panel.hidden && G && G.sel) {
       const ch = ND.CHARS[G.selShown ? G.selShown(0) : G.sel.c[0]], n = ch ? st.jc[ch.id] | 0 : 0;
-      if (ch) {
+      if (ch && n) {
         const nx = n <= 1 ? t.next2 : n === 2 ? t.next3 : '';
         panel.insertAdjacentHTML('beforeend', `<p class="ps-jl">${seal(n)} ${esc(n ? t.clears(n) : '')}${n && nx ? ' · ' : ''}${esc(n >= 1 ? nx : '')}</p>`);
       }
@@ -867,7 +875,7 @@
     now: () => Date.now(),
     state: S, season, itemName, itemPal, icon, owns, costumesFor, wearing,
     get last() { return last; },
-    award, onlineEnd, onlineResult, bonus, journeyCleared, claimFree, claimBonus, claimAllFree, readyCount, equip,
+    award, onlineEnd, onlineResult, bonus, journeyCleared, claim, claimAllWaiting, readyCount, equip,
     open, close, get isOpen() { return !!ov && !ov.hidden; }, refreshStrip, levelUp,
     level: () => LV.levelOf(S().xp),
     defaultSeason: DEF,
@@ -884,7 +892,8 @@
     // what the server is told (pass-net.js sync): this season's progress, the lifetime XP, journey clears, what is worn
     syncState() {
       const st = S(), se = season(), p = sp(st, se);
-      return { season: se.n, server: !!(remote && se === remote), xp: st.xp, x: p.x, f: p.f.slice(), b: p.b.slice(), a: p.a | 0, w: p.w | 0,
+      // (r: the claimed tiers; f carries the same list for a server from before the one-track pass)
+      return { season: se.n, server: !!(remote && se === remote), xp: st.xp, x: p.x, r: p.f.slice(), f: p.f.slice(), b: [], a: p.a | 0, w: p.w | 0,
         jc: Object.assign({}, st.jc), eq: { title: st.eq.title || null, badge: st.eq.badge || null, frame: st.eq.frame || null } };
     },
     // The server's answer (another device may be ahead): the larger of each number, claims joined; the items of tiers
@@ -899,16 +908,15 @@
       if (key && key === se.key) {
         const p = sp(st, se), C = se.C;
         p.x = Math.max(p.x, num0(me.x, 1e7)); p.a = Math.max(p.a | 0, num0(me.a, 999)); p.w = Math.max(p.w | 0, num0(me.w, 60));
-        for (const [row, list] of [['f', me.f], ['b', me.b]]) {
-          if (!Array.isArray(list)) continue;
-          for (const t of list) {
-            if (!Number.isInteger(t) || t < 1 || t > C.tiers.length || p[row].includes(t)) continue;
-            p[row].push(t);
-            const id = C.tiers[t - 1][row], it = LV.item(id);
-            if (it && !['boost', 'honor', 'rw'].includes(it.kind) && !st.own.includes(id)) st.own.push(id);
-          }
-          p[row].sort((q, r) => q - r);
+        // (the claimed tiers: r; a server from before the one-track pass answers f and b)
+        const list = [...(Array.isArray(me.r) ? me.r : []), ...(Array.isArray(me.f) ? me.f : []), ...(Array.isArray(me.b) ? me.b : [])];
+        for (const t of list) {
+          if (!Number.isInteger(t) || t < 1 || t > C.tiers.length || p.f.includes(t)) continue;
+          p.f.push(t);
+          const id = C.tiers[t - 1].r, it = LV.item(id);
+          if (it && !['boost', 'honor', 'rw'].includes(it.kind) && !st.own.includes(id)) st.own.push(id);
         }
+        p.f.sort((q, r) => q - r);
       }
       if (LV.levelOf(st.xp).lv > from.lv) st.seen = Math.max(st.seen, LV.levelOf(st.xp).lv); // (reached on another device)
       commit(); refreshStrip(); render(false);

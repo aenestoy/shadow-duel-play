@@ -55,20 +55,28 @@
   }
 
   // ---------------------------------------------------------------- items (rewards)
-  // kind: cos (costume: a palette for every fighter, worn per ninja on the select screen), title, badge (a kanji
+  // kind: cos (costume: a palette for one ninja, worn on the select screen's Colors row), title, badge (a kanji
   // seal next to the name), frame (name-plate colour), trail (blade-trail colour of your own fighter), boost (XP
   // booster: n fights × boostMul), honor (honor points: opens rival challenges sooner). Names: js/i18n-pass.js.
-  const ITEMS = {
-    // costumes for every fighter
-    cos_sakura: { kind: 'cos', pal: { cloth: '#e9c6d0', clothHi: '#f7e3e8', clothDark: '#b38593', wrap: '#5a2a3c', wrapDark: '#3a1a27', accent: '#ff7fa8', accentDark: '#9c3658', ui: '#ff8fb3', hakama: '#3d2230', hakamaDark: '#26141e' } },
-    cos_ember: { kind: 'cos', pal: { cloth: '#2c1b14', clothHi: '#46291c', clothDark: '#190e0a', wrap: '#6a2a14', wrapDark: '#41180b', accent: '#ff7a2a', accentDark: '#8a3510', ui: '#ff8c42', hakama: '#1a100c', hakamaDark: '#0e0806', rim: 'rgba(255,150,80,.6)', rimDim: 'rgba(200,90,40,.32)' } },
-    cos_frost: { kind: 'cos', pal: { cloth: '#cfe0ea', clothHi: '#eef6fb', clothDark: '#8ea7b8', wrap: '#2c3e52', wrapDark: '#1b2735', accent: '#58c8f0', accentDark: '#1f6f8f', ui: '#7fd6f5', hakama: '#26364a', hakamaDark: '#172231', rim: 'rgba(190,230,255,.62)', rimDim: 'rgba(130,170,210,.32)' } },
-    cos_jade: { kind: 'cos', pal: { cloth: '#1f4b3b', clothHi: '#2f6a54', clothDark: '#123024', wrap: '#c9a96a', wrapDark: '#8a7040', accent: '#e8d08a', accentDark: '#8a7442', ui: '#6fdcaa', hakama: '#0f241c', hakamaDark: '#08150f' } },
-    cos_ash: { kind: 'cos', pal: { cloth: '#5a5c62', clothHi: '#7d8088', clothDark: '#3a3c41', wrap: '#16171a', wrapDark: '#0c0d0f', accent: '#d6262e', accentDark: '#6e0e12', ui: '#e8434a', hakama: '#202125', hakamaDark: '#121316' } },
-    cos_moon: { kind: 'cos', pal: { cloth: '#1b2440', clothHi: '#2c3a63', clothDark: '#101629', wrap: '#c8ccd8', wrapDark: '#8a8fa0', accent: '#e6ecff', accentDark: '#8c96b8', ui: '#c9d6ff', hakama: '#121a30', hakamaDark: '#0a0f1c', rim: 'rgba(200,215,255,.7)', rimDim: 'rgba(140,155,200,.36)' } },
-    cos_lotus: { kind: 'cos', pal: { cloth: '#3a2458', clothHi: '#553780', clothDark: '#241638', wrap: '#f0a8c8', wrapDark: '#a8607e', accent: '#ff9ad0', accentDark: '#9a3f70', ui: '#d9a2ff', hakama: '#1e1230', hakamaDark: '#120a1d' } },
-    cos_storm: { kind: 'cos', pal: { cloth: '#2a3138', clothHi: '#414b56', clothDark: '#181d22', wrap: '#1a1f24', wrapDark: '#0f1215', accent: '#ffe14a', accentDark: '#8a7410', ui: '#ffe866', hakama: '#14181c', hakamaDark: '#0b0d10', rim: 'rgba(255,240,140,.55)', rimDim: 'rgba(200,180,80,.3)' } },
-    cos_yami: { kind: 'cos', pal: { cloth: '#0b0a10', clothHi: '#1c1828', clothDark: '#06050a', wrap: '#24182f', wrapDark: '#140d1b', accent: '#b77cff', accentDark: '#4d2c80', ui: '#c79bff', hakama: '#08070c', hakamaDark: '#040306', rim: 'rgba(190,140,255,.85)', rimDim: 'rgba(150,100,230,.45)' } },
+  // colour themes of the pass costumes (a palette over the fighter's own; js/pass.js themePal)
+  const THEMES = {
+    sakura: { cloth: '#e9c6d0', clothHi: '#f7e3e8', clothDark: '#b38593', wrap: '#5a2a3c', wrapDark: '#3a1a27', accent: '#ff7fa8', accentDark: '#9c3658', ui: '#ff8fb3', hakama: '#3d2230', hakamaDark: '#26141e' },
+    ember: { cloth: '#2c1b14', clothHi: '#46291c', clothDark: '#190e0a', wrap: '#6a2a14', wrapDark: '#41180b', accent: '#ff7a2a', accentDark: '#8a3510', ui: '#ff8c42', hakama: '#1a100c', hakamaDark: '#0e0806', rim: 'rgba(255,150,80,.6)', rimDim: 'rgba(200,90,40,.32)' },
+    frost: { cloth: '#cfe0ea', clothHi: '#eef6fb', clothDark: '#8ea7b8', wrap: '#2c3e52', wrapDark: '#1b2735', accent: '#58c8f0', accentDark: '#1f6f8f', ui: '#7fd6f5', hakama: '#26364a', hakamaDark: '#172231', rim: 'rgba(190,230,255,.62)', rimDim: 'rgba(130,170,210,.32)' },
+    jade: { cloth: '#1f4b3b', clothHi: '#2f6a54', clothDark: '#123024', wrap: '#c9a96a', wrapDark: '#8a7040', accent: '#e8d08a', accentDark: '#8a7442', ui: '#6fdcaa', hakama: '#0f241c', hakamaDark: '#08150f' },
+    ash: { cloth: '#5a5c62', clothHi: '#7d8088', clothDark: '#3a3c41', wrap: '#16171a', wrapDark: '#0c0d0f', accent: '#d6262e', accentDark: '#6e0e12', ui: '#e8434a', hakama: '#202125', hakamaDark: '#121316' },
+    moon: { cloth: '#1b2440', clothHi: '#2c3a63', clothDark: '#101629', wrap: '#c8ccd8', wrapDark: '#8a8fa0', accent: '#e6ecff', accentDark: '#8c96b8', ui: '#c9d6ff', hakama: '#121a30', hakamaDark: '#0a0f1c', rim: 'rgba(200,215,255,.7)', rimDim: 'rgba(140,155,200,.36)' },
+    lotus: { cloth: '#3a2458', clothHi: '#553780', clothDark: '#241638', wrap: '#f0a8c8', wrapDark: '#a8607e', accent: '#ff9ad0', accentDark: '#9a3f70', ui: '#d9a2ff', hakama: '#1e1230', hakamaDark: '#120a1d' },
+    storm: { cloth: '#2a3138', clothHi: '#414b56', clothDark: '#181d22', wrap: '#1a1f24', wrapDark: '#0f1215', accent: '#ffe14a', accentDark: '#8a7410', ui: '#ffe866', hakama: '#14181c', hakamaDark: '#0b0d10', rim: 'rgba(255,240,140,.55)', rimDim: 'rgba(200,180,80,.3)' },
+    yami: { cloth: '#0b0a10', clothHi: '#1c1828', clothDark: '#06050a', wrap: '#24182f', wrapDark: '#140d1b', accent: '#b77cff', accentDark: '#4d2c80', ui: '#c79bff', hakama: '#08070c', hakamaDark: '#040306', rim: 'rgba(190,140,255,.85)', rimDim: 'rgba(150,100,230,.45)' },
+  };
+  // pass costumes: one theme for ONE champion (owner, 2026-10-01: a colour belongs to its own ninja, not to all)
+  // id cos_<theme>_<ninja>; the name is the theme's and the ninja's (js/i18n-pass.js themes)
+  const COSTUMES = [['sakura', 'akane'], ['moon', 'aoi'], ['ash', 'kuro'], ['frost', 'yuki'], ['lotus', 'hana'], ['jade', 'tetsu'],
+    ['ember', 'ren'], ['yami', 'kage'], ['storm', 'tora'], ['jade', 'jin'], ['sakura', 'mai'], ['frost', 'tsubame']];
+  const ITEMS = {};
+  for (const [th, nj] of COSTUMES) ITEMS['cos_' + th + '_' + nj] = { kind: 'cos', theme: th, ninja: nj, pal: THEMES[th] };
+  Object.assign(ITEMS, {
     // blade trails (r,g,b of your own fighter's blade streak)
     trail_sakura: { kind: 'trail', rgb: '255,160,200' },
     trail_ember: { kind: 'trail', rgb: '255,150,70' },
@@ -103,7 +111,7 @@
     boost5: { kind: 'boost', n: 5 },
     honor100: { kind: 'honor', n: 100 },
     honor200: { kind: 'honor', n: 200 },
-  };
+  });
   // Journey clears of one ninja (the 2nd and the 3rd time the same ninja's journey is finished): a costume and a
   // title each, made per ninja from its own colours (pass.js journeyPal). ids: jc2_<ninja> / jc3_<ninja> (costume),
   // jt2_<ninja> / jt3_<ninja> (title: "<NINJA> · Menkyo" / "<NINJA> · Kaiden").
@@ -121,40 +129,39 @@
   }
 
   // ---------------------------------------------------------------- season content (the built-in default)
-  // 30 tiers; f = free track reward, b = bonus ("Gölge") track reward (null = none at that tier). XP per tier: the
-  // first `earlyN` tiers cost `early` each, every later one `per`. freeEvery: every n-th bonus reward is free for
-  // everyone (no ad); waitTiers: without rewarded ads, a bonus reward opens for free this many tiers later.
+  // One track, one reward per tier (r); the track's length comes from the season (1.3.1: 10 tiers; more later). Every
+  // reward is claimed with one rewarded ad (owner, 2026-10-01); where rewarded ads cannot be shown (no ad network, an ad
+  // blocker, offline), a reward opens for free once the player is waitTiers tiers further, and the last ones open when
+  // the last tier is reached (claimWay). XP per tier: the first `earlyN` tiers cost `early` each, every later one `per`.
+  // Season 1: only the pass's own rewards, no two neighbouring tiers of the same kind, a champion's costume last.
+  // Pace: about 100 fights for the 10 tiers (a 60 % win mix at ~10 fights a day with the first-win bonus: ~5,400 XP).
+  // soon: the announced length (tiers soon+…: "coming soon" slots after the real ones; the season XP keeps counting
+  // past the last real tier, so it already counts when they come). 0 / missing: none.
+  const SEASON_1 = ['title_novice', 'boost3', 'trail_frost', 'cos_sakura_akane', 'badge_moon', 'honor200', 'cos_frost_yuki', 'frame_jade', 'title_ronin', 'cos_yami_kage'];
   const DEFAULT_SEASON = {
     v: 1, id: 's1',
-    xp: { early: 200, earlyN: 5, per: 400 },
-    freeEvery: 5, waitTiers: 3,
-    tiers: [
-      { f: 'title_novice', b: 'badge_blade' }, { f: 'boost3', b: 'trail_sakura' }, { f: 'cos_sakura', b: 'boost3' },
-      { f: 'honor100', b: 'cos_ember' }, { f: 'badge_moon', b: 'title_parry' }, { f: 'trail_frost', b: 'frame_crimson' },
-      { f: null, b: 'badge_fire' }, { f: 'frame_bronze', b: 'boost3' }, { f: null, b: 'honor100' },
-      { f: 'cos_frost', b: 'trail_ember' }, { f: null, b: 'cos_ash' }, { f: 'boost3', b: 'title_ronin' },
-      { f: null, b: 'boost3' }, { f: 'title_wanderer', b: 'badge_sakura' }, { f: 'badge_snow', b: 'cos_lotus' },
-      { f: 'honor200', b: 'frame_jade' }, { f: null, b: 'honor200' }, { f: 'trail_jade', b: 'trail_violet' },
-      { f: null, b: 'boost5' }, { f: 'cos_jade', b: 'cos_storm' }, { f: null, b: 'badge_dragon' },
-      { f: 'boost5', b: 'title_nightblade' }, { f: null, b: 'honor200' }, { f: 'frame_silver', b: 'trail_gold' },
-      { f: 'title_duelist', b: 'frame_gold' }, { f: 'honor200', b: 'boost5' }, { f: null, b: 'badge_kage' },
-      { f: 'cos_moon', b: 'title_s1' }, { f: null, b: 'honor200' }, { f: 'boost5', b: 'cos_yami' },
-    ],
+    xp: { early: 200, earlyN: 3, per: 680 },
+    waitTiers: 3, soon: 30,
+    tiers: SEASON_1.map((r) => ({ r })),
   };
 
+  // Only the pass's own rewards may sit on its track (owner, 2026-10-01): no reward-catalog item ('rw:', ranked's) and
+  // no journey reward (Menkyo / Kaiden): those come from elsewhere; a server season holding one shows nothing there
+  const passItem = (id) => typeof id === 'string' && Object.prototype.hasOwnProperty.call(ITEMS, id);
   // A season's content from the server (or the built-in one): checked and clamped; anything broken → null (the
   // caller keeps the default). Unknown item ids are dropped from their slot (an older build shows nothing there).
+  // An older content ({ f, b } per tier, freeEvery) is still read: the tier's reward is r, else f, else b.
   function cleanSeason(c) {
     if (!isObj(c) || (c.v != null && c.v !== 1) || !Array.isArray(c.tiers) || !c.tiers.length) return null;
-    const tiers = c.tiers.slice(0, 60).map((t) => ({
-      f: isObj(t) && item(t.f) ? t.f : null,
-      b: isObj(t) && item(t.b) ? t.b : null,
-    }));
+    const tiers = c.tiers.slice(0, 60).map((t) => {
+      const r = !isObj(t) ? null : 'r' in t ? t.r : passItem(t.f) ? t.f : t.b;
+      return { r: passItem(r) ? r : null };
+    });
     const x = isObj(c.xp) ? c.xp : {};
     const out = {
       v: 1, id: typeof c.id === 'string' && ID.test(c.id) ? c.id : 's1',
       xp: { early: clampInt(x.early ?? 200, 50, 5000), earlyN: clampInt(x.earlyN ?? 5, 0, 60), per: clampInt(x.per ?? 400, 50, 5000) },
-      freeEvery: clampInt(c.freeEvery ?? 5, 0, 60), waitTiers: clampInt(c.waitTiers ?? 3, 1, 60),
+      waitTiers: clampInt(c.waitTiers ?? 3, 1, 60), soon: clampInt(c.soon ?? 0, 0, 60),
       // season XP multiplier (the pass fills faster) and level XP multiplier (e.g. a double-XP weekend), from the panel
       mul: typeof c.mul === 'number' && Number.isFinite(c.mul) ? Math.max(0.5, Math.min(3, c.mul)) : 1,
       lvMul: typeof c.lvMul === 'number' && Number.isFinite(c.lvMul) ? Math.max(0.5, Math.min(3, c.lvMul)) : 1,
@@ -202,7 +209,8 @@
       const keys = Object.keys(s.ps).filter((k) => /^[LS]\d{1,5}$/.test(k)).sort((p, q) => +p.slice(1) - +q.slice(1)).slice(-6);
       for (const k of keys) {
         const p = isObj(s.ps[k]) ? s.ps[k] : {};
-        out.ps[k] = { x: clampInt(p.x, 0, 1e7), f: intList(p.f, 60), b: intList(p.b, 60), a: clampInt(p.a, 0, 999), w: clampInt(p.w, 0, 60) };
+        // (f: the claimed tiers; an older save's second list b joins it)
+        out.ps[k] = { x: clampInt(p.x, 0, 1e7), f: intList([...(Array.isArray(p.f) ? p.f : []), ...(Array.isArray(p.b) ? p.b : [])], 60), b: [], a: clampInt(p.a, 0, 999), w: clampInt(p.w, 0, 60) };
         if (typeof p.id === 'string' && ID.test(p.id)) out.ps[k].id = p.id;
       }
     }
@@ -314,20 +322,17 @@
   }
 
   // ---------------------------------------------------------------- claiming
-  // Free reward of tier t: reached and not yet claimed. → the item id, or null
-  function canFree(S, p, t) { const T = S.tiers[t - 1]; return !!T && !!T.f && t <= tierOf(S, p.x).tier && !p.f.includes(t); }
-  // Bonus reward of tier t. How: 'ad' (the caller has a finished rewarded ad), 'free' (every freeEvery-th tier),
-  // 'wait' (no rewarded ads here: open once the player is waitTiers tiers further). → 'ad' | 'free' | 'wait' | null
-  function bonusWay(S, p, t, adsOk) {
+  // How the reward of tier t can be claimed now: 'ad' (rewarded ads work here: one finished ad), 'wait' (no rewarded
+  // ads here: it opens once the player is waitTiers tiers further, or at the last tier), or null (not reached, already
+  // claimed, nothing there, or still waiting). → 'ad' | 'wait' | null
+  function claimWay(S, p, t, adsOk) {
     const T = S.tiers[t - 1], reached = tierOf(S, p.x).tier;
-    if (!T || !T.b || t > reached || p.b.includes(t)) return null;
-    if (S.freeEvery && t % S.freeEvery === 0) return 'free';
-    if (!adsOk && reached >= Math.min(S.tiers.length, t + S.waitTiers)) return 'wait';
-    if (!adsOk && reached >= S.tiers.length) return 'wait';
-    return adsOk ? 'ad' : null;
+    if (!T || !T.r || t > reached || p.f.includes(t)) return null;
+    if (adsOk) return 'ad';
+    return reached >= Math.min(S.tiers.length, t + S.waitTiers) ? 'wait' : null;
   }
-  // when the bonus reward of tier t opens without an ad (no ads here): the tier the player must reach
-  function bonusWaitTier(S, t) { return Math.min(S.tiers.length, t + S.waitTiers); }
+  // without rewarded ads: the tier the player must reach for tier t's reward
+  function waitTier(S, t) { return Math.min(S.tiers.length, t + S.waitTiers); }
   // Grant one item into the state. → { id, kind, n?, dup } (honor is paid by the caller: it lives in the honor save)
   function grant(st, id) {
     const it = item(id);
@@ -345,20 +350,15 @@
     if (['title', 'badge', 'frame', 'trail'].includes(it.kind) && !st.eq[it.kind]) st.eq[it.kind] = id;
     return { id, kind: it.kind };
   }
-  function claimFree(S, st, key, t) {
-    const p = st.ps[key];
-    if (!p || !canFree(S, p, t)) return null;
-    p.f.push(t); p.f.sort((a, b) => a - b);
-    return grant(st, S.tiers[t - 1].f);
-  }
-  function claimBonus(S, st, key, t, way, adsOk) {
+  // Claim tier t's reward the way given ('ad' only after a finished rewarded ad: the caller checks). → the grant, or null
+  function claim(S, st, key, t, way, adsOk) {
     const p = st.ps[key];
     if (!p) return null;
-    const w = bonusWay(S, p, t, adsOk);
-    if (!w || (w !== way && !(way === 'ad' && w === 'free'))) return null;
-    p.b.push(t); p.b.sort((a, b) => a - b);
+    const w = claimWay(S, p, t, adsOk);
+    if (!w || w !== way) return null;
+    p.f.push(t); p.f.sort((a, b) => a - b);
     if (way === 'ad') p.a = Math.min(999, p.a + 1);
-    return grant(st, S.tiers[t - 1].b);
+    return grant(st, S.tiers[t - 1].r);
   }
 
   // Journey clear n of one ninja: the XP and the items (2nd: Menkyo costume + title, 3rd: Kaiden costume + title)
@@ -371,8 +371,8 @@
   }
 
   ND.LEVEL = {
-    MAX, XP, SEASON, ITEMS, DEFAULT_SEASON, BASE,
+    MAX, XP, SEASON, ITEMS, THEMES, COSTUMES, DEFAULT_SEASON, BASE,
     need, levelOf, dayOf, seasonAt, item, cleanSeason, tierXp, tierOf,
-    cleanState, migrate, touchDay, fight, add, grant, canFree, bonusWay, bonusWaitTier, claimFree, claimBonus, journeyClear,
+    cleanState, migrate, touchDay, fight, add, grant, claimWay, waitTier, claim, journeyClear,
   };
 })(typeof window !== 'undefined' ? (window.ND = window.ND || {}) : (globalThis.ND = globalThis.ND || {}));
