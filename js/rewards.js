@@ -122,6 +122,8 @@
   let list = [], byId = new Map(), src = 'none', loadedAt = 0, fetching = null;
   let owned = { pid: null, ids: [] };
   const fns = new Set();
+  // costume palettes per fighter + entry (cleared on every new list); declared before boot() below calls setList
+  const palCache = new Map();
   const emit = () => fns.forEach((f) => { try { f(); } catch (e) { /* a listener */ } });
   function setList(l, from) {
     list = l; byId = new Map(l.map((e) => [e.id, e])); src = from;
@@ -170,7 +172,6 @@
   }
 
   // ---------------------------------------------------------------- costumes: palette + atlas
-  const palCache = new Map();
   function palette(ch, id) {
     const e = byId.get(id);
     if (!ch || !e || e.kind !== 'costume' || (e.ninjas && !e.ninjas.includes(ch.id))) return null;
