@@ -71,7 +71,8 @@ function view(w, h) {
   // the camera follows Akane a little and keeps her target in view (a knocked-down opponent may fly out)
   const [a, b] = g.F, s = Math.min(w / VIEW_W, h / VIEW_H), mid = (AX + BX) / 2 - 12;
   const cx = Math.max(mid, Math.min(a.x + 120, (a.x + Math.min(b.x, a.x + 230)) / 2 - 12));
-  return { s, cx, fy: h * FLOOR, w, h };
+  // floor low in a wide picture, the fighters' middle near the centre in a tall one
+  return { s, cx, fy: Math.min(h * FLOOR, h / 2 + 105 * s), w, h };
 }
 function stage(ctx, v) {
   const { w, h, s, cx, fy } = v;
