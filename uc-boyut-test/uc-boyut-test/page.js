@@ -2,8 +2,9 @@
 // stopped); this page steps it at 120 steps a second and draws the same moment three ways:
 //   NOW: the fighter's own drawing (the game today, motion round 1)
 //   A:   js/depth25.js, the drawn art with a depth axis (2.5D), plus a small camera push / shake at the impact
-//   B:   uc-boyut-test/model3d.js, a low-poly toon model on the same 3D skeleton (three.js)
-// Query: ?move=light, ?slow=1, ?only=0|1|2 (one panel), ?capture=1 (for tools/uc-boyut-video.mjs).
+//   B:   uc-boyut-test/model3d-hd.js, detailed 3D models (tools/fighter3d) on the same 3D skeleton (three.js);
+//        'B (simple)' (uc-boyut-test/model3d.js, the first low-poly try) stays one tap away
+// Query: ?move=light, ?slow=1, ?only=0|1|2 (one panel), ?b=simple, ?capture=1 (for tools/uc-boyut-video.mjs).
 const Q = new URLSearchParams(location.search);
 const $ = (id) => document.getElementById(id);
 const GAME = /uc-boyut-test\.html$/.test(location.pathname) ? 'index.html' : 'game.html';
@@ -22,8 +23,13 @@ const until = (fn, ms = 60000) => new Promise((res, rej) => {
 });
 
 const st = { move: Q.get('move') === 'light' ? 'light' : 'heavy', speed: Q.get('slow') === '1' ? 0.25 : 1, i: 0, acc: 0, hold: 0, S0: null, ready: false, only: Q.has('only') ? +Q.get('only') : -1 };
-let W, ND, g, model = null;
+let W, ND, g, model = null, modelHD = null, modelLo = null, loLoading = false;
+let useHD = Q.get('b') !== 'simple';
 const cv = [$('c0'), $('c1'), $('c2')];
+const cvLo = $('c2s');
+const bCanvas = () => (useHD ? cv[2] : cvLo);
+// the canvases of each panel, bottom to top (B: the 3D picture and the 2D effects over it)
+const panels = () => [[cv[0]], [cv[1]], [bCanvas(), $('c2fx')]];
 const ctx2 = [cv[0].getContext('2d'), cv[1].getContext('2d')];
 
 // ------------------------------------------------------------ the game copy
@@ -52,11 +58,12 @@ function setup() {
   st.S0 = g.saveState();
   restart();
 }
-function restart() { if (!g || !st.S0) return; g.loadState(st.S0); g.timer = 999; st.i = 0; st.acc = 0; st.hold = 0; }
+function restart() { if (!g || !st.S0) return; g.loadState(st.S0); g.timer = 999; st.i = 0; st.acc = 0; st.hold = 0; if (modelHD) { modelHD.reset(); modelHD.tick(g.F); } }
 function step() {
   const C = CLIPS[st.move], [a] = g.F;
   if (st.i === C.start) a.startOpener(C.cmd);
   g.tick(true);
+  if (modelHD) modelHD.tick(g.F);
   st.i++;
 }
 
@@ -108,10 +115,16 @@ function draw2d(k) {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
 }
 function draw3d() {
-  if (!model) return;
-  const c = cv[2], [w, h] = fit(c), v = view(w, h);
+  const m = useHD ? modelHD : modelLo;
+  if (!m) return;
+  const c = bCanvas(), [w, h] = fit(c), v = view(w, h);
   const [a] = g.F;
-  model.render(g.F, v, ND.depth25.cameraKick(a));
+  const kick = ND.depth25.cameraKick(a);
+  m.render(g.F, v, kick, stage);
+  // the fight's 2D effects (hit flash, sparks) over the 3D picture, placed like panel A's
+  const fc = $('c2fx'), [fw, fh] = fit(fc), fctx = fc.getContext('2d');
+  fctx.setTransform(1, 0, 0, 1, 0, 0); fctx.clearRect(0, 0, fw, fh);
+  if (ND.fx && ND.fx.draw) { worldTf(fctx, view(fw, fh), kick); try { ND.fx.draw(fctx); } catch (e) { /* none */ } fctx.setTransform(1, 0, 0, 1, 0, 0); }
 }
 function render() {
   if (st.only < 0 || st.only === 0) draw2d(0);
@@ -150,7 +163,11 @@ if (st.only >= 0) { $('f' + st.only).classList.add('big'); $('grid').classList.a
 
 // ------------------------------------------------------------ test hooks (tools/uc-boyut-*.mjs)
 window.__uc = {
-  get ready() { return st.ready && (!!model || modelFailed); },
+  get ready() { return st.ready && (!!(useHD ? modelHD : modelLo) || modelFailed); },
+  get model() { return useHD ? modelHD : modelLo; },
+  panels() { return panels(); },
+  get bLabel() { return useHD ? 'real 3D, detailed' : 'real 3D, simple (first try)'; },
+  setB(hd) { return setB(hd); },
   setMove(m) { setMove(m); },
   restart() { restart(); },
   // step the clip to step n (from the start) and draw
@@ -163,7 +180,7 @@ window.__uc = {
     const out = document.createElement('canvas'); out.width = w; out.height = h; const o = out.getContext('2d');
     o.fillStyle = '#0b0c10'; o.fillRect(0, 0, w, h);
     const pw = Math.floor((w - 16) / 3);
-    cv.forEach((c, k) => { o.drawImage(c, 4 + k * (pw + 4), 0, pw, Math.round(pw * c.height / c.width)); });
+    panels().forEach((L, k) => L.forEach((c) => o.drawImage(c, 4 + k * (pw + 4), 0, pw, Math.round(pw * c.height / c.width))));
     return out.toDataURL('image/jpeg', 0.92);
   },
   // frame-time bench: n frames of the clip drawn into panel k only (ms per frame: mean, p95)
@@ -174,7 +191,7 @@ window.__uc = {
       if (st.i >= CLIPS[st.move].len) restart();
       step(); step();
       const t0 = performance.now();
-      if (k === 2) { draw3d(); if (sync) model.sync(); } else draw2d(k);
+      if (k === 2) { draw3d(); if (sync) (useHD ? modelHD : modelLo).sync(); } else draw2d(k);
       T.push(performance.now() - t0);
     }
     T.sort((x, y) => x - y);
@@ -184,12 +201,36 @@ window.__uc = {
 };
 
 let modelFailed = false;
+// B: detailed (default) or the first simple model; each has its own canvas (one WebGL context each)
+async function loadLo() {
+  if (modelLo || loLoading) return;
+  loLoading = true;
+  const M = await import('./model3d.js');
+  modelLo = new M.Model3D(cvLo, ND, { preserve: CAPTURE });
+}
+function bLabel() {
+  $('bName').textContent = useHD ? 'detailed 3D model' : 'simple 3D model (first try)';
+  $('bToggle').textContent = useHD ? 'B: detailed' : 'B: simple';
+  $('bToggle').classList.toggle('on', !useHD);
+  cv[2].style.display = useHD ? '' : 'none'; cvLo.style.display = useHD ? 'none' : '';
+}
+async function setB(hd) {
+  useHD = hd; bLabel();
+  if (!hd) { try { await loadLo(); } catch (e) { $('msg').textContent = '3D could not start here: ' + e.message; } }
+  if (st.ready) render();
+}
+$('bToggle').onclick = (ev) => { ev.stopPropagation(); setB(!useHD); };
+bLabel();
 requestAnimationFrame(frame);
 boot().then(async () => {
   try {
-    const M = await import('./model3d.js');
-    model = new M.Model3D(cv[2], ND, { preserve: CAPTURE });
-    $('msg').remove();
+    const t0 = performance.now();
+    const M = await import('./model3d-hd.js');
+    modelHD = await M.Model3DHD.create(cv[2], ND, { preserve: CAPTURE });
+    modelHD.tick(g.F);
+    modelHD.setupMs = performance.now() - t0;
+    if (!useHD) await loadLo();
+    const m = $('msg'); if (m) m.remove();
   } catch (e) {
     modelFailed = true;
     $('msg').textContent = '3D could not start here: ' + (e && e.message ? e.message : e);

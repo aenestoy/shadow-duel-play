@@ -8,7 +8,7 @@
 <meta name="robots" content="noindex, nofollow">
 <title>Shadow Duel 3D Strike Test</title>
 <!-- 3D strike test (branch claude/sd-3d, never shipped): the same Akane strike drawn three ways, stepped from one fight.
-     NOW = the game today (motion round 1), A = 2.5D on the drawn art (js/depth25.js), B = a real 3D model (three.js). -->
+     NOW = the game today (motion round 1), A = 2.5D on the drawn art (js/depth25.js), B = a real 3D model (three.js): detailed (tools/fighter3d), or the first simple one. -->
 <style>
   :root { --bg: #0d0f14; --panel: #171a22; --ink: #e9ecf3; --dim: #9aa3b5; --acc: #e04a3c; --line: #2a2f3b; }
   * { box-sizing: border-box; }
@@ -41,13 +41,14 @@
   <button id="mHeavy" class="on">Heavy</button>
   <button id="mLight">Light</button>
   <span class="sp"></span>
+  <button id="bToggle">B: detailed</button>
   <button id="replay">⟲ Replay</button>
   <button id="slow">Slow-mo</button>
 </div>
 <div id="grid">
   <figure id="f0"><canvas id="c0"></canvas><figcaption><b>NOW</b><span>the game today</span></figcaption></figure>
   <figure id="f1"><canvas id="c1"></canvas><figcaption><b>A</b><span>2.5D, same drawn art</span></figcaption></figure>
-  <figure id="f2"><canvas id="c2"></canvas><figcaption><b>B</b><span>real 3D model</span></figcaption><div id="msg">Loading 3D…</div></figure>
+  <figure id="f2"><canvas id="c2"></canvas><canvas id="c2s" style="display:none"></canvas><canvas id="c2fx"></canvas><figcaption><b>B</b><span id="bName">detailed 3D model</span></figcaption><div id="msg">Loading 3D…</div></figure>
 </div>
 <div id="hint">Tap a picture to see it big. Same fight, same timing in all three.</div>
 <iframe id="game" title="game" tabindex="-1" aria-hidden="true"></iframe>
