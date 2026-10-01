@@ -1,8 +1,8 @@
 // Shadow Duel — owner's showcase mode ("vitrin"), claude/sd-vitrin only: never merged, never shipped to a portal.
 // Opening the game with #vitrin (or from a /vitrin/ folder) on the local portal (our own preview site, localhost) makes
 // everything available on that device so every 1.3.1 feature can be tried at once:
-//   - every fighter and arena; level ~40; the Shadow Pass at tier 30 with every Free and Shadow reward claimed;
-//   - every costume, blade trail, title, badge and frame of the pass owned; every ninja's journey cleared 3 times
+//   - every fighter and arena; level ~40; the Shadow Pass at its last tier with every reward claimed (one track);
+//   - every costume (each ninja's own), blade trail, title, badge and frame of the pass owned; every ninja's journey cleared 3 times
 //     (Menkyo + Kaiden costumes and titles, the 一 二 三 seals); Legacy and Champion colours on every ninja;
 //   - the ranked Season Champion costume (reward catalog 'costume_champion_s1', builtin 'champion') seeded locally.
 // Safety: the showcase never talks to our servers about the player. Its saves live under their own storage keys
@@ -104,11 +104,11 @@
         const xp40 = LV.BASE[40] + Math.round(LV.need(40) / 3);
         if (st.xp < xp40) st.xp = xp40;
         st.seen = Math.max(st.seen | 0, LV.levelOf(st.xp).lv);
-        // this season: tier 30, every reward claimed
+        // this season: the last tier, every reward claimed (one track: one reward per tier)
         const se = P.season(), C = se.C, ps = st.ps[se.key] || (st.ps[se.key] = { x: 0, f: [], b: [], a: 0, w: 0 });
         ps.x = Math.max(ps.x, LV.tierXp(C, C.tiers.length));
-        ps.f = C.tiers.map((t, i) => (t.f ? i + 1 : 0)).filter(Boolean);
-        ps.b = C.tiers.map((t, i) => (t.b ? i + 1 : 0)).filter(Boolean);
+        ps.f = C.tiers.map((t, i) => (t.r ? i + 1 : 0)).filter(Boolean);
+        ps.b = [];
         // every costume, trail, title, badge and frame; each ninja's Menkyo and Kaiden costume and title
         const all = Object.keys(LV.ITEMS).filter((k) => ['cos', 'trail', 'title', 'badge', 'frame'].includes(LV.ITEMS[k].kind));
         for (const id of ids) all.push('jc2_' + id, 'jc3_' + id, 'jt2_' + id, 'jt3_' + id);

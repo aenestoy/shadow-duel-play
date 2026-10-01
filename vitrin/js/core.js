@@ -913,22 +913,14 @@ window.ND = window.ND || {};
       this.noise({ type: 'lowpass', f0: 500 * this.vr(0.2), dur: 0.14, gain: 0.35 * power * m, send: 0.05, pan });
     },
     // a foot on the ground: a short scuff + a soft thump. g: 1 a step, ~2.5 a jump push-off, 3 a landing
-    // (2026-09-30, owner: "I didn't like the walking sound either") A walk step is a soft, low, muffled shuffle — cloth
-    // and a sandal on the ground, filtered noise with a rounded attack, no click and no tone — well under the fight
-    // (~30 dB under a cut), and only every other step, never twice within 0.26 s (quick back-and-forth never stacks).
-    // g > 1: a jump push-off (2.5) or a landing (3): the same shuffle a little fuller, with a soft low thump under it.
+    // Steps: walking and running are silent (2026-09-30 the walk step was made a soft shuffle, 2026-10-01 the owner
+    // still heard it as typewriter keys, so it went). A jump push-off (g 2.5) or a landing (g 3) is a soft, low,
+    // muffled shuffle (filtered noise, rounded attack, no click, no tone) with a soft low thump under it.
     step(pan = 0, g = 1) {
-      const walk = g <= 1.2;
-      if (walk) {
-        const t = this.ctx ? this.ctx.currentTime : 0;
-        if (t - (this._stT ?? -9) < 0.26) return;
-        this._stN = (this._stN | 0) + 1;
-        if (this._stN % 2) return;
-        this._stT = t;
-      }
+      if (g <= 1.2) return;
       const m = this.MIX.step * this.vr(0.25), w = Math.pow(g, 0.7), k = this.vr(0.15);
       this.noise({ type: 'lowpass', f0: (240 + Math.random() * 160) * k, q: 0.7, dur: 0.11 + 0.03 * w, gain: 0.3 * w * m, attack: 0.02, send: 0.02, pan });
-      if (!walk) this.noise({ type: 'lowpass', f0: 140 * k, q: 0.7, dur: 0.14, gain: 0.35 * w * m, attack: 0.01, send: 0.02, pan });
+      this.noise({ type: 'lowpass', f0: 140 * k, q: 0.7, dur: 0.14, gain: 0.35 * w * m, attack: 0.01, send: 0.02, pan });
     },
     whistle(pan = 0) {
       const k = this.vr(0.06), m = this.MIX.whistle;

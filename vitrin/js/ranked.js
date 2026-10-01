@@ -38,7 +38,7 @@
     reward: 'Sezonun 1.’si: özel kostüm ve Şampiyonlar Salonu’nda adı',
     signIn: 'Puan kazanmak için giriş yap', guestNote: 'Misafir olarak puansız oynarsın.', nickNote: 'Puanlı oynamak için bir takma ad seç.',
     back: 'Geri', you: 'Sen', titleLbl: 'Unvan', noTitle: 'Yok',
-    searching: 'Rakip aranıyor…', window: (n) => `Puan aralığı ±${n}`, windowAny: 'Her puan aralığı', people: (n, m) => `Şu an ${n} kişi arıyor · son 1 saatte ${m} maç`,
+    searching: 'Rakip aranıyor…', window: (n) => `Puan aralığı ±${n}`, windowAny: 'Her puan aralığı',
     warm: 'Beklerken CPU ile ısın', warmTag: 'Isınma · CPU · puansız', searchShort: 'Aranıyor', warmBack: 'Aramaya dön', cancel: 'Vazgeç',
     none: 'Şu an rakip yok.', foundTitle: 'Rakip bulundu!', accept: 'Kabul et', decline: 'Reddet',
     ranked: 'Puanlı', unranked: 'Puansız · puan değişmez',
@@ -58,8 +58,8 @@
     findAgain: 'Tekrar ara', rematch: 'Rövanş', rematchWait: 'Rakip bekleniyor…', rematchAsk: 'Rövanş (rakip istiyor)', menu: 'Menü',
     youLeft: 'Maçtan çıktın: yenilgi.', oppLeft: 'Rakip maçtan çıktı: sen kazandın.', silent: 'Rakibin bağlantısı koptu.', rounds: (a, b) => `Raund ${a} – ${b}`,
     unrankedNote: 'Puansız maç',
-    ghostIn: (s) => `${s} sn sonra gerçek bir oyuncunun gölgesi gelir`, ghostSoon: 'Gerçek bir oyuncunun gölgesi geliyor…', ghostFound: 'Gerçek bir oyuncunun gölgesi geldi',
-    ghostName: (n) => { const g = trGen(n); return g ? `${g} gölgesi` : `Gölge · ${n}`; }, ghostTag: 'Gölge',
+    ghostIn: (s) => `${s} sn sonra bir gölge gelir`, ghostSoon: 'Bir gölge geliyor…', ghostFound: 'Gerçek bir oyuncunun gölgesi geldi',
+    ghostHouseName: (n) => `Dojo gölgesi · ${n}`, ghostHouseFound: 'Bir dojo gölgesi geldi', ghostHouseNote: 'Dojodan tipik bir tarzda dövüşen bilgisayar; canlı bir oyuncu değil.', ghostName: (n) => { const g = trGen(n); return g ? `${g} gölgesi` : `Gölge · ${n}`; }, ghostTag: 'Gölge',
     ghostNote: 'Bu, gerçek bir oyuncunun tarzında dövüşen bilgisayar; canlı bir oyuncu değil.', ghostPts: (p) => `Puanlı · normal maçın puanının %${p} kadarı`,
     ghostFight: 'Gölgeyle dövüş', ghostSkip: 'Aramaya devam et', ghostReady: 'Gölge hazır', ghostResult: (p) => `Gölge maçı · puan değişimi normalin %${p} kadarı`,
     ghostNoPts: 'Gölge maçı · bu sefer puan değişmedi', ghostLeft: 'Gölge maçından çıktın: yenilgi.',
@@ -202,7 +202,7 @@
     }
     const since = Q && keep ? Q.since : Date.now();
     stopQueue();
-    Q = { ticket: r.ticket, since, polls: 0, timer: 0, warm: false, ranked: !!r.ranked, window: 100, people: null, ghost: null };
+    Q = { ticket: r.ticket, since, polls: 0, timer: 0, warm: false, ranked: !!r.ranked, window: 100, ghost: null };
     show('queue');
     schedulePoll(POLL_FIRST);
     if (Q.ranked) ghostInfo(Q);
@@ -219,7 +219,7 @@
     if (r && r.state === 'match' && r.match) { onFound(r.match); return; }
     if (r && r.state === 'gone') { find(); return; } // the ticket ran out (a hidden tab): search again
     if (r && r.state === 'search') {
-      q.window = r.window; if (typeof r.searching === 'number') q.people = [r.searching, r.recent | 0];
+      q.window = r.window; // (how many people search is not shown: the owner's call, 2026-10-01)
       maybeGhost(q);
     }
     if (screen === 'queue') renderQueue(); else renderBar();
@@ -342,6 +342,9 @@
   // the shadow's fighter and style → the fight (game mode 'shadow', the CPU with js/ghost.js level()) → the result
   // (nd_rank_ghost_report: the server changes this player's rating by the shadow weight, never the owner's).
   const ghostOk = () => !!(ND.ghost && typeof ND.ghost.level === 'function');
+  // the shadow's name as shown: a real player's ("Kenji's shadow") or a dojo shadow ("Dojo shadow · Tate": the game's
+  // own style set, used while no real player's style is near; never a player's name)
+  const ghostLabel = (o, L = M()) => (o && o.house ? L.ghostHouseName(o.name || '—') : L.ghostName((o && o.name) || '—'));
   const pctOf = (w) => Math.round(Math.max(0, Math.min(1, +w || 0)) * 100);
   async function ghostInfo(q) {
     if (!ghostOk() || !q.ranked) return;
@@ -379,7 +382,7 @@
     const x = X = { ghost: true, id: o.id, token: o.token, side: 0, since: q.since, timer: 0, accepted: false, picked: false, pick: null, look: null, begun: false,
       report: null, result: null, done: false, tFound: Date.now(), viewAt: Date.now(), tLive: 0, log: '',
       view: { id: o.id, status: 'found', side: 0, ranked: true, ghost: true, weight: w, accept_ms: (o.offer_ms | 0) || 15000, pick_ms: 15000,
-        opp: { name: String(o.nick || '—'), ghost: true, tier: o.tier == null ? null : o.tier | 0, placement: 0 },
+        opp: { name: String(o.nick || '—'), ghost: true, house: !!o.house, tier: o.tier == null ? null : o.tier | 0, placement: 0 },
         chars: Array.isArray(o.chars) ? o.chars.filter((c) => typeof c === 'string') : [], picked: [false, true], live: null, result: null } };
     alertFound();
     show('found');
@@ -1075,7 +1078,6 @@
     c.append(head('戦', L.searching, Q.ranked ? L.ranked : L.unranked));
     c.append(el('p', 'rk-count', fmtClock(Date.now() - Q.since)));
     c.append(el('p', 'rk-st', Q.window >= 100000 ? L.windowAny : L.window(Q.window || 100)));
-    if (Q.people) c.append(el('p', 'rk-st', L.people(Q.people[0], Q.people[1])));
     if (flashMsg) { c.append(el('p', 'rk-err', flashMsg)); }
     const gOn = !!(Q.ghost && Q.ghost.on);
     if (gOn) {
@@ -1150,11 +1152,11 @@
   }
   function renderGhostFound() {
     const L = M(), v = X.view, c = card(false);
-    c.append(head('影', L.ghostFound, L.ghostPts(pctOf(v.weight))));
+    c.append(head('影', v.opp.house ? L.ghostHouseFound : L.ghostFound, L.ghostPts(pctOf(v.weight))));
     const box = el('div', 'rk-opp rk-ghost');
-    box.append(el('span', 'rk-name', L.ghostName(v.opp.name || '—')), ghostMark(false));
+    box.append(el('span', 'rk-name', ghostLabel(v.opp, L)), ghostMark(false));
     if (v.opp.tier != null) box.append(badge(v.opp.tier, 0));
-    box.append(el('p', 'rk-st', L.ghostNote));
+    box.append(el('p', 'rk-st', v.opp.house ? L.ghostHouseNote : L.ghostNote));
     c.append(box);
     const left = Math.max(0, (v.accept_ms | 0) - (Date.now() - (X.viewAt || Date.now())));
     c.append(el('p', 'rk-count', String(Math.ceil(left / 1000))));
@@ -1233,7 +1235,7 @@
     const L = M(), v = X.view, P = v.live.picks, c = card(false);
     const vs = el('div', 'rk-vs');
     const f = (id, who) => { const ch = ND.CHARS[charIdx(id)] || ND.CHARS[0], d = el('div', 'f'); const k = el('b', null, ch.kanji); k.style.color = ch.col.ui; d.append(k, nameEl(ch.name), el('small', 'rk-st', who)); return d; };
-    const mine = X.side, on = v.opp && v.opp.name ? (X.ghost ? L.ghostName(v.opp.name) : v.opp.name) : '';
+    const mine = X.side, on = v.opp && v.opp.name ? (X.ghost ? ghostLabel(v.opp, L) : v.opp.name) : '';
     vs.append(f(P[0], mine === 0 ? L.you : on), el('span', 'v', '対'), f(P[1], mine === 1 ? L.you : on));
     c.append(vs);
     const a = ND.ARENAS.find((x) => x.id === v.live.arena);
@@ -1250,7 +1252,7 @@
     else if (R && v.status === 'nc') { title = L.nc; why = (L.ncWhy && L.ncWhy[R.verdict]) || ''; }
     else if (w === -1) title = L.draw; else if (w === side) title = L.win; else if (w === 1 - side) title = L.lose;
     if (!why) why = res.self ? (x.ghost ? L.ghostLeft : L.youLeft) : res.reason === 'left' ? L.oppLeft : (R && R.verdict === 'silent' && w === side) ? L.silent : '';
-    const oppName = v.opp && v.opp.name ? (x.ghost ? L.ghostName(v.opp.name) : v.opp.name) : '';
+    const oppName = v.opp && v.opp.name ? (x.ghost ? ghostLabel(v.opp, L) : v.opp.name) : '';
     c.append(head(w === side && R ? '勝' : '試', title, (res.wins ? L.rounds(res.wins[side] | 0, res.wins[1 - side] | 0) + ' · ' : '') + oppName));
     if (x.ghost) { const g = el('p', 'rk-st rk-ghost-in'); g.append(ghostMark(true), el('span', null, R && R.rated ? L.ghostResult(pctOf(R.weight != null ? R.weight : v.weight)) : R ? L.ghostNoPts : L.ghostPts(pctOf(v.weight)))); c.append(g); }
     if (why) c.append(el('p', 'rk-st', why));
@@ -1465,7 +1467,7 @@
     quit: () => quitMatch(), rematch: () => rematch(), findAgain: () => findAgain(), menu: () => toMenu(), reload: () => loadMe(),
     // shadow opponents: game.js ends a shadow fight here; its HUD tag ("影 Kenji's shadow")
     shadowEnded, ghostAccept: (ok) => ghostAccept(ok !== false), labels: () => M(),
-    get shadowTag() { return X && X.ghost && X.view.opp ? ('影 ' + M().ghostName(X.view.opp.name || '')).slice(0, 32) : null; },
+    get shadowTag() { return X && X.ghost && X.view.opp ? ('影 ' + ghostLabel(X.view.opp)).slice(0, 32) : null; },
     state: () => ({ screen, identity: identity(), server: serverHas(), queue: Q ? { ticket: Q.ticket, warm: Q.warm, window: Q.window, since: Q.since, ghost: Q.ghost || null } : null,
       match: X ? { id: X.id, side: X.side, status: X.view.status, ranked: X.view.ranked, ghost: !!X.ghost, weight: X.ghost ? X.view.weight : null, opp: X.view.opp, live: X.view.live || null, begun: X.begun, res: X.res || null,
         report: X.report, result: X.view.result || null, accepted: X.accepted, picked: X.picked, chars: X.view.chars || [] } : null,
@@ -1482,14 +1484,14 @@
       Q = null;
       X = which === 'home' || which === 'queue' ? null : { id: 'demo', side: 0, view, since: Date.now(), accepted: false, picked: false, pick: 'akane', look: null, begun: false,
         res: which === 'result' ? { reason: 'ko', winner: 0, wins: [2, 1] } : null, report: which === 'result' ? {} : null, done: which === 'result', tFound: Date.now(), demo: true };
-      if (which === 'queue') { Q = { ticket: 'demo', since: Date.now() - 31000, warm: false, ranked: true, window: 565, people: [3, 12], demo: true, timer: 0 }; }
+      if (which === 'queue') { Q = { ticket: 'demo', since: Date.now() - 31000, warm: false, ranked: true, window: 565, demo: true, timer: 0 }; }
       // the shadow's screens: the search with its countdown, "a shadow stepped in", the VS, the result with the reduced points
       if (/^ghost-/.test(which)) {
-        const g = which.slice(6), name = 'Kenji';
-        if (g === 'queue') { Q = { ticket: 'demo', since: Date.now() - 12000, warm: false, ranked: true, window: 280, people: [1, 0], demo: true, timer: 0, ghost: { on: true, after_s: 8, weight: 0.5 }, ghostAt: Date.now() + 13000, ghostBusy: true }; X = null; }
+        const house = which === 'ghost-house', g = house ? 'found' : which.slice(6), name = house ? 'Tate' : 'Kenji';
+        if (g === 'queue') { Q = { ticket: 'demo', since: Date.now() - 12000, warm: false, ranked: true, window: 280, demo: true, timer: 0, ghost: { on: true, after_s: 8, weight: 0.5 }, ghostAt: Date.now() + 13000, ghostBusy: true }; X = null; }
         else {
           const gv = { id: 'demo', status: g === 'found' ? 'found' : 'live', side: 0, ranked: true, ghost: true, weight: 0.5, accept_ms: 15000, pick_ms: 15000,
-            opp: { name, ghost: true, tier: 8, placement: 0 }, chars: view.chars, picked: [false, true], live: { seed: 1, arena: 'temple', picks: ['akane', 'hana'], style: {}, rating: 1600 },
+            opp: { name, ghost: true, house, tier: house ? null : 8, placement: 0 }, chars: view.chars, picked: [false, true], live: { seed: 1, arena: 'temple', picks: ['akane', 'hana'], style: {}, rating: 1600 },
             result: g === 'result' ? { rated: true, weight: 0.5, winner: 0, verdict: 'ok', r: [{ before: 1590, after: 1599, delta: 9, tier: 8, tier_before: 8, placement: 0 }] } : null };
           X = { id: 'demo', ghost: true, token: 'demo', side: 0, view: gv, viewAt: Date.now(), since: Date.now(), accepted: g !== 'found', picked: g !== 'found', pick: 'akane', look: null, begun: false,
             res: g === 'result' ? { reason: 'ko', winner: 0, wins: [2, 1] } : null, report: g === 'result' ? {} : null, done: g === 'result', tFound: Date.now(), demo: true, timer: 0 };

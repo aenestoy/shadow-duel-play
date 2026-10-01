@@ -1981,8 +1981,10 @@
         const g = pc.createRadialGradient(W / 2, H * 0.62, 10, W / 2, H * 0.62, H * 0.6);
         g.addColorStop(0, pv.col.ui + '55'); g.addColorStop(1, 'rgba(0,0,0,0)');
         pc.fillStyle = g; pc.fillRect(0, 0, W, H);
-        const k = H / 245;
-        pc.setTransform(k, 0, 0, k, W / 2 - (pv.ch.blade > 110 ? 20 : 0) * k * pv.dir, H * 0.9);
+        // (the fighter fills more of the preview, owner 2026-10-01: "the champion should be bigger, the costume does not
+        // even show"; feet a little lower, a raised long blade still inside the top edge)
+        const k = H / 220;
+        pc.setTransform(k, 0, 0, k, W / 2 - (pv.ch.blade > 110 ? 20 : 0) * k * pv.dir, H * 0.92);
         pc.fillStyle = 'rgba(0,0,0,.45)'; pc.beginPath(); pc.ellipse(0, 3, 50, 7, 0, 0, 6.283); pc.fill();
         pv.draw(pc, false);
         ND.eyeGlow?.(pc, pv.j, pv.col, pv.ch.acc);
