@@ -878,8 +878,13 @@
   function drawSword(ctx, hx, hy, ang, col, glint, wpn = L, lod, j) {
     if (lod === 'low') { swordLow(ctx, hx, hy, ang, wpn, j); return; }
     const cs = Math.cos(ang), sn = Math.sin(ang), nx = -sn, ny = cs;
-    const BL = wpn.blade, HL = wpn.handle;
-    let type = wpn.type || (BL > 110 ? 'nodachi' : BL < 80 ? 'kodachi' : 'katana');
+    // js/anim.js (drawing only): wFs shortens the sword seen swinging out of the picture plane (the iai draw); wEdge is
+    // the side the edge is on in world terms (±1, or 0.62 / 0.3 while the blade rolls over and is seen edge-on): the
+    // blade then curves toward its edge as a katana does. wEdge 0 (or no j): the drawing as before.
+    const fs = j && j.wFs > 0 && j.wFs < 1 ? j.wFs : 1, E = j && j.wEdge ? j.wEdge : 0, ek = E ? Math.abs(E) : 1;
+    const enx = E < 0 ? -nx : nx, eny = E < 0 ? -ny : ny, esk = E ? -ek : 1, ewk = E ? 0.35 + 0.65 * ek : 1;
+    const BL = wpn.blade * fs, HL = wpn.handle * fs;
+    let type = wpn.type || (wpn.blade > 110 ? 'nodachi' : wpn.blade < 80 ? 'kodachi' : 'katana');
     const d = j ? j.dir : 1;
     if (type === 'bo') { drawBo(ctx, hx, hy, ang, col, glint, wpn); return; }
     if (type === 'kusarigama') { drawKama(ctx, hx, hy, ang, col, glint, wpn, d); return; }
@@ -899,7 +904,7 @@
       for (const d of [-HL + 2, se - 14, se - 8]) { ctx.beginPath(); ctx.moveTo(hx + cs * d, hy + sn * d); ctx.lineTo(hx + cs * (d + 2.5), hy + sn * (d + 2.5)); ctx.stroke(); }
       ctx.fillStyle = '#3b3530';
       ctx.beginPath(); ctx.ellipse(hx + cs * se, hy + sn * se, 2, 6, ang, 0, 6.283); ctx.fill();
-      blade(ctx, x0, y0, tx, ty, nx, ny, 7, 1.35, false);
+      blade(ctx, x0, y0, tx, ty, enx, eny, 7 * esk, 1.35 * ewk, false);
       }
       if (post) {
       spec(ctx, x0, y0, tx, ty, ang);
@@ -933,19 +938,30 @@
       ctx.beginPath(); ctx.ellipse(hx + cs * 1.5, hy + sn * 1.5, 1.4, 6.2, ang, -2.2, -0.6); ctx.stroke();
     }
     }
-    if (j && j.wSheath) return; // iai: the blade rests in the hip scabbard, only the hilt shows
-    const w = type === 'nodachi' ? 1.25 : type === 'kodachi' ? 0.85 : type === 'tanto' ? 0.8 : 1;
-    const sori = type === 'ninjato' ? 0.4 : type === 'tanto' ? 1 : 3.2 * BL / 96;
-    const bx0 = hx + cs * 3, by0 = hy + sn * 3, tx = hx + cs * BL, ty = hy + sn * BL;
+    // iai: the blade rests in the hip scabbard, only the hilt shows; while it slides in (nōtō; j.wNoto: the length
+    // still out of the scabbard's mouth) the part outside is drawn, up to the mouth
+    const noto = j && j.wSheath ? j.wNoto || 0 : -1;
+    if (noto === 0) return;
+    const w = (type === 'nodachi' ? 1.25 : type === 'kodachi' ? 0.85 : type === 'tanto' ? 0.8 : 1) * ewk;
+    const sori = (type === 'ninjato' ? 0.4 : type === 'tanto' ? 1 : 3.2 * wpn.blade / 96) * esk * (noto > 0 ? Math.min(1, noto / BL) : 1);
+    const bl = noto > 0 ? Math.min(BL, noto + 5) : BL;
+    const bx0 = hx + cs * 3, by0 = hy + sn * 3, tx = hx + cs * bl, ty = hy + sn * bl;
     if (body) {
-    blade(ctx, bx0, by0, tx, ty, nx, ny, sori, w, type === 'ninjato');
+    blade(ctx, bx0, by0, tx, ty, enx, eny, sori, w, type === 'ninjato');
+    if (noto > 0) { // the scabbard's mouth over the blade
+      const kx = hx + cs * noto, ky = hy + sn * noto;
+      ctx.strokeStyle = '#1a0f10'; ctx.lineWidth = 4.8;
+      ctx.beginPath(); ctx.moveTo(kx, ky); ctx.lineTo(kx + cs * 9, ky + sn * 9); ctx.stroke();
+      ctx.strokeStyle = '#3b3530'; ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.moveTo(kx, ky); ctx.lineTo(kx + cs * 2.5, ky + sn * 2.5); ctx.stroke();
+    }
     if (type !== 'tanto') {
       ctx.strokeStyle = 'rgba(255,255,255,.28)'; ctx.lineWidth = 0.6;
       ctx.beginPath();
       for (let i = 0; i <= 12; i++) {
         const u = 0.06 + i * 0.07, bx = bx0 + (tx - bx0) * u, by = by0 + (ty - by0) * u;
         const off = -sori * 4 * u * (1 - u) + 0.6 * w + Math.sin(i * 2.1) * 0.35;
-        const x = bx + nx * off, y = by + ny * off;
+        const x = bx + enx * off, y = by + eny * off;
         i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
       }
       ctx.stroke();
@@ -1772,7 +1788,8 @@
   function sayaHip(ctx, j, c, D, wpn) {
     let x0, y0, tx, ty;
     const L0 = wpn.blade + 6;
-    if (j.wSheath && j.tip) {
+    // (js/anim.js: while it is pulled back on the draw or forward on the sheathing, the mouth and direction it has)
+    if (j.wSaya) { x0 = j.wSaya[0]; y0 = j.wSaya[1]; tx = j.wSaya[2]; ty = j.wSaya[3]; } else if (j.wSheath && j.tip) {
       const dx = j.tip.x - j.haF.x, dy = j.tip.y - j.haF.y, dl = Math.hypot(dx, dy) || 1;
       tx = dx / dl; ty = dy / dl; x0 = j.haF.x + tx * 2; y0 = j.haF.y + ty * 2;
     } else {

@@ -1508,12 +1508,15 @@
     cloth(j, dt) {
       const A = this.state === 'atk' ? this.atk : null;
       const trailOn = this.bladeActive() || (A && A.kind === 'blade' && ((this.st > A.active[0] - 0.04 && this.st < A.active[1] + 0.06) || (A.slide && this.st >= A.slide[0] && this.st <= A.slide[1]))) || (this.state === 'win' && this.st < 0.3);
-      if (trailOn && !this.dead) {
+      // (js/anim.js 'trail': no streak from inside an iai scabbard, and an ended streak goes twice as fast)
+      const T4 = ND.anim && ND.anim.on && ND.anim.m.trail;
+      if (T4 && j.wSheath) this.trail.length = 0;
+      else if (trailOn && !this.dead) {
         // a counter technique leaves a twice-as-long, wider streak (the ink stroke of the kaeshi-waza)
         const ctr = A && A.counter, k = ctr ? 0.12 : 0.28;
         this.trail.push([j.haF.x + (j.tip.x - j.haF.x) * k, j.haF.y + (j.tip.y - j.haF.y) * k, j.tip.x, j.tip.y, j.haF.x, j.haF.y]);
         if (this.trail.length > (ctr ? 16 : 8)) this.trail.shift();
-      } else if (this.trail.length) this.trail.shift();
+      } else if (this.trail.length) { this.trail.shift(); if (T4) this.trail.shift(); }
       const R = ND.LEN.headR, th = j.hang + Math.PI / 2, cs = Math.cos(th), sn = Math.sin(th);
       const wind = -this.vx * 5 - 180 + Math.sin(ND.scene.t * 1.3) * 90 + ND.scene.wind;
       let ux = j.neck.x - j.hip.x, uy = j.neck.y - j.hip.y; const ln = Math.hypot(ux, uy) || 1; ux /= ln; uy /= ln;
@@ -1598,7 +1601,11 @@
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
       // karşılık kesiği sıcak beyaz iz bırakır (normal saldırılar soğuk mavi)
       const fill = (i) => (tc ? `rgba(${tc},${(i / T.length) * 0.55})` : sp ? `rgba(255,190,150,${(i / T.length) * 0.5})` : ct ? `rgba(255,228,176,${(i / T.length) * 0.42})` : own ? `rgba(${own},${(i / T.length) * 0.42})` : `rgba(200,220,255,${(i / T.length) * 0.32})`);
-      if (ND.anim && ND.anim.on) {
+      if (ND.anim && ND.anim.on && ND.anim.m.trail) {
+        // round 4: a bright band along the tip's arc and a faint one inside it, each sample pair as bright as the tip
+        // was fast there (a slow or stopped blade leaves nothing)
+        ND.anim.trailBands(ctx, T, (i, a) => (tc ? `rgba(${tc},${a * 0.62})` : sp ? `rgba(255,190,150,${a * 0.58})` : ct ? `rgba(255,228,176,${a * 0.52})` : own ? `rgba(${own},${a * 0.52})` : `rgba(210,226,255,${a * 0.44})`));
+      } else if (ND.anim && ND.anim.on) {
         // one slice per ~7° of the blade's turn between two samples: the streak's edge follows the tip's arc
         let fi = -1;
         ND.anim.trailSlices(T, (i, u0, u1, q) => {

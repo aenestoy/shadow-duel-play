@@ -14,6 +14,10 @@
 //   4. the blade streak (Fighter.drawTrail) follows the arc the tip really travelled, not straight chords.
 // Round 3 shapes the body the same way (10-13 below, each switchable with ?motion=): planted feet that step instead of
 // gliding, breathing and weight shift in the idle, overlap and settle of the upper body and head, weight in the walk.
+// Round 4 moves the sword the way a swordsman does (14-18, also switchable): the cut led by the hips with a short cock
+// and a whip of the tip, the edge leading, a controlled stop, a short bright streak, the rear hand at the end of the
+// hilt, the iai draw and sheathing with the scabbard, a rebound when blades meet. Within a hit window the drawn blade
+// stays within ACT_MAX of the fight's, as before.
 // Everything here is presentation: it runs on the ordinary Math (not ND.DM), is not saved, restored or fingerprinted
 // (sim-state.js SKIP: _anim), and a rollback simply carries on from the picture the player saw.
 (function (ND) {
@@ -39,7 +43,18 @@
   //   idle     the standing fighter breathes and shifts its weight from foot to foot
   //   overlap  the upper body and head carry on a little after a sudden move and settle (impacts, stops, hits)
   //   walk     the walk has weight: the hips drop on each step, the body leans into the walk, the head and hand ride the steps
-  A.m = { feet: true, idle: true, overlap: true, walk: true };
+  // Round 4, the sword moved like a swordsman's (14-20 below), switchable the same way:
+  //   chain    the cut is led by the hips: a short sharp cock of the blade before the cut while the hips start
+  //            forward, the tip lags and then whips through, a small wrist snap (tenouchi) at the end of the cut
+  //   edge     the katana's edge leads the cut (the blade rolls over for rising cuts) and curves the right way
+  //   settle   the cut stops with the hands: a small overshoot and settle instead of a rubbery bounce
+  //   trail    the blade streak hugs the tip's arc, is bright only where the blade is fast and fades quickly
+  //   grip     the rear hand holds the end of the hilt (hands spaced), not its middle
+  //   iai      the iai draw leaves the scabbard (saya-biki; the blade swings out of the picture plane instead of
+  //            through the legs) and the blade slides back into the scabbard (nōtō) instead of vanishing
+  //   clash    a blocked or knocked-aside blade rebounds along the blow, sharp and short
+  //   meet     a guard goes where the coming blade will be: overhead, at the side, point down or angled, the blades cross
+  A.m = { feet: true, idle: true, overlap: true, walk: true, chain: true, edge: true, settle: true, trail: true, grip: true, iai: true, clash: true, meet: true };
   {
     const q = typeof location !== 'undefined' && /[?&]motion=([^&#]*)/.exec(location.search || '');
     if (q) { const on = decodeURIComponent(q[1]).split(','); for (const k in A.m) A.m[k] = on.includes(k); }
@@ -48,7 +63,7 @@
   function mk(f) {
     return {
       p: pose.copy(f.pose), prevT: pose.copy(f.pose), from: pose.copy(f.pose), pa: {}, pb: {}, lj: {}, lt: {},
-      j: {}, iw: 0, ov: [0, 0, 0, 0], ovi: false, ovs: f.state, ovn: f.serial, ow: 0, wb: 0, ft: null, fpx: NaN, cu: 0, cuDur: 0, gw: 1, gp: NaN, gv: 0, gs: 1, gsb: 1, wc: null, wch: null, sy: [0, 0, 0], sv: [0, 0, 0], sx: [0, 0, 0], sinit: false, ws: 0, sl: [0, 0], slv: [0, 0], sla: [NaN, NaN], prevState: f.state, prevSerial: f.serial, ok: false, stamp: -1, chain: null,
+      j: {}, sk: null, sl4: null, ed: 1, cb: 0, cbv: 0, cbs: f.state, cbn: f.serial, pw: 0, psw: NaN, tx: NaN, ty: NaN, tvx: 0, tvy: 0, shw: 1, sht: 0, cok: false, mw: 0, mt: null, iw: 0, ov: [0, 0, 0, 0], ovi: false, ovs: f.state, ovn: f.serial, ow: 0, wb: 0, ft: null, fpx: NaN, cu: 0, cuDur: 0, gw: 1, gp: NaN, gv: 0, gs: 1, gsb: 1, wc: null, wch: null, sy: [0, 0, 0], sv: [0, 0, 0], sx: [0, 0, 0], sinit: false, ws: 0, sl: [0, 0], slv: [0, 0], sla: [NaN, NaN], prevState: f.state, prevSerial: f.serial, ok: false, stamp: -1, chain: null,
     };
   }
 
@@ -177,10 +192,12 @@
   //    and carries past a stop (the follow-through, the settle after a wind-up); heavy weapons (nodachi, naginata,
   //    bō) swing on a soft spring and settle late, light ones (tantō, kodachi, tessen, kusarigama) on a stiff one and
   //    snap back to guard early. It is held to the fight's pose while a blow can hit and in blade contact.
+  // (zs: the damping with 'settle' on (round 4): one small overshoot that settles, no second swing back; ck: how far
+  //  the blade cocks before a cut, 'chain')
   const WEIGHT = {
-    heavy: { f: 4.4, z: 0.32, rec: 1.55, sw: 0.6, px: 16 },
-    mid: { f: 8.5, z: 0.5, rec: 1, sw: 0.3, px: 9 },
-    light: { f: 15, z: 0.72, rec: 0.55, sw: 0.14, px: 5 },
+    heavy: { f: 4.4, z: 0.32, zs: 0.62, rec: 1.55, sw: 0.6, px: 16, ck: 1.2 },
+    mid: { f: 8.5, z: 0.5, zs: 0.7, rec: 1, sw: 0.3, px: 9, ck: 1 },
+    light: { f: 15, z: 0.72, zs: 0.8, rec: 0.55, sw: 0.14, px: 5, ck: 0.8 },
   };
   function weightOf(f) {
     const w = f.wpn, t = w.type;
@@ -194,11 +211,16 @@
   // 8. a two-handed grip holds: when the rear hand cannot reach its place on the hilt / shaft, it slides along the
   //    grip to the nearest place it can reach instead of floating off the weapon (Jin's bō most of all).
   const GRIP_OFF = { tessen: 1, kusarigama: 1, yumi: 1 };
-  function gripSlide(D, wpn, lj) {
+  // (end: round 4 'grip': the rear hand's place is at the end of the hilt, a fist's width from the front hand, as a
+  //  swordsman holds it, and it moves there even when the middle is in reach)
+  function gripSlide(D, wpn, lj, end) {
     ND.solve(D, 0, 0, 1, lj, wpn);
     const sx = lj.sh.x - 3, sy = lj.sh.y + 1, ux = Math.cos(D.sw), uy = Math.sin(D.sw), hx = lj.haF.x, hy = lj.haF.y;
-    const r = L.uArm + L.fArm - 1.5, t0 = wpn.handle * 0.55;
-    if (Math.hypot(hx - ux * t0 - sx, hy - uy * t0 - sy) <= r) return;
+    const r = L.uArm + L.fArm - 1.5, t0 = end ? Math.max(wpn.handle * 0.55, wpn.handle - 5.5) : wpn.handle * 0.55;
+    if (Math.hypot(hx - ux * t0 - sx, hy - uy * t0 - sy) <= r) {
+      if (end) { D.gx = hx - ux * t0 - lj.sh.x; D.gy = hy - uy * t0 - lj.sh.y; D.grip = 0; }
+      return;
+    }
     const wx = hx - sx, wy = hy - sy, wu = wx * ux + wy * uy, disc = wu * wu - (wx * wx + wy * wy) + r * r;
     if (disc < 0) return;
     const q = Math.sqrt(disc), lo = 8, hi = Math.max(lo, wpn.handle);
@@ -339,6 +361,259 @@
     }
   }
 
+  // ------------------------------------------------------------ round 4: the sword (chain, edge, settle, clash, iai)
+  const NONE = [];
+  const sstep = (u) => (u <= 0 ? 0 : u >= 1 ? 1 : u * u * (3 - 2 * u));
+  // the cuts of a keyed attack: for each hit window, the key segment it opens in (or the next one, when the window
+  // opens just before the swing), if the blade turns through it. Cached per key list (fighter.keys is new per attack).
+  function strikes(S, at, keys) {
+    if (S.sk === keys) return S.sl4;
+    S.sk = keys;
+    const out = (S.sl4 = []);
+    if (!at || at.kind !== 'blade' || !keys || keys.length < 2) return out;
+    const W = at.hits || (at.active ? [at.active] : []);
+    for (const h of W) {
+      let m = 1;
+      while (m < keys.length && keys[m][0] <= h[0] + 0.005) m++;
+      for (let k = m; k < Math.min(m + 2, keys.length); k++) {
+        const a = keys[k - 1], b = keys[k];
+        if (!a[1] || !b[1]) continue;
+        const d = b[1].sw - a[1].sw; // (the fight blends sw as it is, so this is the way the blade turns)
+        if (Math.abs(d) >= 0.6 && b[0] - a[0] <= 0.2) {
+          // (sh: drawn from the scabbard: the blade is inside until the cut, nothing to cock)
+          out.push({ t0: a[0], t1: b[0], d, s: d > 0 ? 1 : -1, A: a[1], B: b[1], e: b[2] || inOutSine, h0: h[0], sh: !!(at.sheath && at.sheath[1] >= a[0] - 0.01), sn: 0.08 });
+          break;
+        }
+      }
+    }
+    // the chiburi (the flick that clears the blade): no cock, a harder snap where it stops
+    const CB = ND.POSES && ND.POSES.chiburi;
+    for (let k = 1; CB && k < keys.length; k++) {
+      const a = keys[k - 1], b = keys[k];
+      if (b[1] !== CB || !a[1] || a[1] === CB) continue;
+      const d = b[1].sw - a[1].sw;
+      if (Math.abs(d) >= 0.3) out.push({ t0: a[0], t1: b[0], d, s: d > 0 ? 1 : -1, A: a[1], B: b[1], e: b[2] || inOutSine, h0: 1e9, sh: true, sn: 0.15 });
+    }
+    out.sort((p, q) => p.t0 - q.t0);
+    return out;
+  }
+  // 14. chain: a cut starts in the hips and ends in the tip. Just before the cut the blade cocks back a little
+  //     (short and sharp) while the hips already start toward the cut; through the cut the hips stay ahead and the
+  //     tip, lagging, catches up with an accelerating whip by the end of the swing; there the wrists snap the blade a
+  //     touch further and it comes back with the hands (tenouchi). The lag is held under ~24 px of the tip.
+  function chainCut(list, t, D, W, blade) {
+    for (const k of list) {
+      const c = Math.min(0.045 + 0.02 * W.ck, k.t0), ta = k.t0 - c;
+      if (t < ta || t > k.t1 + 0.08) continue;
+      if (t > k.t1) { // the wrist snap at the end of the cut
+        const v = (t - k.t1) / 0.08;
+        D.sw += k.s * k.sn * Math.sin(Math.PI * v) * (1 - v);
+        return;
+      }
+      if (k.sh) return;
+      const Lm = Math.min(0.26 * W.ck * Math.min(1, Math.abs(k.d) / 1.5), 24 / blade), p0 = 0.16;
+      let q, e = 0;
+      if (t < k.t0) q = sstep((t - ta) / c);
+      else { const u = (t - k.t0) / Math.max(1e-4, k.t1 - k.t0); q = 1 - sstep(u); e = k.e(u); }
+      D.sw -= k.s * Lm * q;
+      const g = p0 * q * (1 - e);
+      D.hx += (k.B.hx - k.A.hx) * g; D.hy += (k.B.hy - k.A.hy) * g; D.lean += (k.B.lean - k.A.lean) * g;
+      return;
+    }
+  }
+  // 15. edge: the side of the blade that leads. +1 is the side the pose's sword angle turns toward as it grows (a cut
+  //     from above), −1 the other (a rising cut). Through the wind-up the edge is set for the cut to come, after the
+  //     cut it goes back to the guard's (+1); the change is a roll of the wrists, the blade seen edge-on for an instant.
+  const NO_EDGE = { bo: 1, kusarigama: 1, tessen: 1 };
+  function edgeTarget(list, t) { for (const k of list) if (t < k.t1 + 0.06) return k.s; return 1; }
+  const edgeQ = (e) => { const m = Math.abs(e); return (e < 0 ? -1 : 1) * (m > 0.8 ? 1 : m > 0.45 ? 0.62 : 0.3); };
+  // 16. clash: a blade that is blocked, knocked aside or meets the other blade turns sharply along the blow and springs
+  //     back (~0.15 s). A cut knocked aside goes back the way it came; a blade that is hit turns the way the other
+  //     blade's tip pushes it.
+  const CLASH = { recoil: 1, block: 0.8, clash: 1, parry: 0.6, lock: 1 };
+  function clash(S, f, D, dt, hold) {
+    if (!hold) {
+      if (f.state !== S.cbs || f.serial !== S.cbn) {
+        const k = CLASH[f.state];
+        if (k) {
+          let sg = 0;
+          // (a blade that was swinging bounces back along its own swing; a still one is pushed by the other's)
+          if (f.state === 'recoil' || Math.abs(S.pw) > 3) sg = -Math.sign(S.pw);
+          else {
+            const F = ND.game && ND.game.F, o = F ? (F[0] === f ? F[1] : F[0]) : null, O = o && o._anim, j = S.j;
+            if (O && O.ok && j.tip && j.haF) { const rx = j.tip.x - j.haF.x, ry = j.tip.y - j.haF.y; sg = Math.sign(rx * O.tvy - ry * O.tvx) * (f.dir < 0 ? -1 : 1); }
+          }
+          if (sg) S.cbv += sg * k * 12;
+        }
+        S.cbs = f.state; S.cbn = f.serial;
+      }
+      const h = Math.min(dt, 1 / 60), om = TAU * 6;
+      S.cbv += (-om * om * S.cb - 2 * 0.5 * om * S.cbv) * h; S.cb = clamp(S.cb + S.cbv * h, -0.3, 0.3);
+    }
+  }
+  // 17. iai, the draw: between the end of the scabbard and the first instant the cut can hit, the blade swings out of
+  //     the picture plane round the body (a horizontal draw seen from the side: it shortens, then lengthens toward
+  //     the cut) instead of turning through the legs. Returns the length factor (1 = in the plane).
+  const IAI = { fs: 1 };
+  function iaiDraw(at, list, t, D) {
+    IAI.fs = 1;
+    if (!at || !at.sheath || !list.length) return IAI;
+    const k = list[0], ts = at.sheath[1], ta = k.h0;
+    if (!k.sh || k.h0 > 1e8 || !(ta - ts > 0.005) || t <= ts || t >= ta) return IAI;
+    const a = k.A.sw, b = k.A.sw + k.d * k.e(clamp((ta - k.t0) / Math.max(1e-4, k.t1 - k.t0), 0, 1));
+    const ph = Math.PI * clamp((t - ts) / (ta - ts), 0, 1), w0 = (1 + Math.cos(ph)) / 2, w1 = 1 - w0;
+    const xa = Math.cos(a), ya = Math.sin(a), xb = Math.cos(b), yb = Math.sin(b);
+    const x = xa * w0 + xb * w1, y = ya * w0 + yb * w1, z = Math.sin(ph) * (Math.abs(xa) + Math.abs(xb)) / 2;
+    const r = Math.hypot(x, y);
+    D.sw = Math.atan2(y, x) + TAU * Math.round((D.sw - Math.atan2(y, x)) / TAU);
+    IAI.fs = clamp(r / Math.hypot(r, z), 0.2, 1);
+    return IAI;
+  }
+  // 18. iai, the scabbard: on the draw the off hand pulls the scabbard back (saya-biki) and it settles at the belt; on
+  //     the sheathing (nōtō) it is pulled forward over the blade, which disappears into it, instead of the blade
+  //     vanishing at once. World placement of the scabbard's mouth and direction while it moves (j.wSaya), and the
+  //     blade's length still out of it (j.wNoto); both only for the drawing (skeleton.js sayaHip, drawSword).
+  const SAYA_DRAW = 0.07, SAYA_SET = 0.3, NOTO = 0.17, PULL = 12, PRE = 24;
+  function sayaRest(j, o) {
+    let ux = j.neck.x - j.hip.x, uy = j.neck.y - j.hip.y; const ln = Math.hypot(ux, uy) || 1; ux /= ln; uy /= ln;
+    const nx = j.dir * -uy, ny = j.dir * ux;
+    let tx = -0.955 * j.dir, ty = 0.296; const tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl;
+    o[0] = j.hip.x + ux * 5 + nx * 13; o[1] = j.hip.y + uy * 5 + ny * 13; o[2] = tx; o[3] = ty;
+    return o;
+  }
+  function sayaSheathed(j, o) {
+    const dx = j.tip.x - j.haF.x, dy = j.tip.y - j.haF.y, dl = Math.hypot(dx, dy) || 1;
+    o[0] = j.haF.x + (dx / dl) * 2; o[1] = j.haF.y + (dy / dl) * 2; o[2] = dx / dl; o[3] = dy / dl;
+    return o;
+  }
+  const SR = [0, 0, 0, 0], SH = [0, 0, 0, 0], JK = ['hip', 'neck', 'haF', 'tip'];
+  // pre: how far the scabbard is already pulled back as the blade comes home before the sheathing (it makes room
+  // for the blade and is where the nōtō starts from)
+  function saya(S, j, dt, hold, pre) {
+    const P = S.prevJ || (S.prevJ = { hip: { x: 0, y: 0 }, neck: { x: 0, y: 0 }, haF: { x: 0, y: 0 }, tip: { x: 0, y: 0 }, dir: 1, ok: false });
+    const sh = j.wSheath ? 1 : 0, cur = S.saya || (S.saya = [0, 0, 0, 0]), from = S.sayaF || (S.sayaF = [0, 0, 0, 0]);
+    j.wSaya = null; j.wNoto = 0;
+    if (!hold) {
+      if (sh !== S.shw) {
+        // (it starts from where it was drawn the step before)
+        if (S.cok) for (let i = 0; i < 4; i++) from[i] = cur[i];
+        else if (P.ok) (S.shw ? sayaSheathed : sayaRest)(P, from);
+        S.sht = S.cok || P.ok ? 1e-4 : 0; S.shw = sh;
+      } else if (S.sht > 0) S.sht += dt;
+      for (const k of JK) { P[k].x = j[k].x; P[k].y = j[k].y; }
+      P.dir = j.dir; P.ok = true;
+    }
+    const T = S.sht;
+    let placed = false;
+    if (T > 0 && T < (sh ? NOTO : SAYA_DRAW + SAYA_SET)) {
+      const to = sh ? sayaSheathed(j, SH) : sayaRest(j, SR);
+      let k, back = 0;
+      if (sh) k = outCubic(T / NOTO);
+      else { k = outCubic(Math.min(1, T / SAYA_DRAW)); back = PULL * (T < SAYA_DRAW ? k : 1 - sstep((T - SAYA_DRAW) / SAYA_SET)); }
+      let tx = from[2] + (to[2] - from[2]) * k, ty = from[3] + (to[3] - from[3]) * k; const tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl;
+      cur[0] = from[0] + (to[0] - from[0]) * k + tx * back; cur[1] = from[1] + (to[1] - from[1]) * k + ty * back; cur[2] = tx; cur[3] = ty;
+      placed = true;
+    } else {
+      if (T > 0 && !hold) S.sht = 0;
+      if (!sh && pre > 0.3) { sayaRest(j, cur); cur[0] += cur[2] * pre; cur[1] += cur[3] * pre; placed = true; }
+    }
+    S.cok = placed;
+    if (!placed) return;
+    j.wSaya = cur;
+    if (sh) { // the length of blade still out of the mouth, along the blade from the hand
+      const dx = j.tip.x - j.haF.x, dy = j.tip.y - j.haF.y, dl = Math.hypot(dx, dy) || 1;
+      const x = ((cur[0] - j.haF.x) * dx + (cur[1] - j.haF.y) * dy) / dl;
+      j.wNoto = x > 2.5 ? Math.min(x, dl) : 0;
+    }
+  }
+
+  // 19. meet: a guard meets the blade that comes. While a fighter holds the guard against a cut, the cut's path is
+  //     read ahead from the attacker's own key poses (where its blade will be in the hit window, the lunge included)
+  //     and the first place the fight will count the block (the guard's blade or the body behind it) is found; the
+  //     drawn guard then moves its blade through that place, across the incoming blade: raised and angled up toward
+  //     a cut from above (jōdan uke), upright at the side against a level cut, point down against a low one
+  //     (gedan), angled against a thrust. The sparks the fight puts at the contact land where the two drawn blades
+  //     cross. Held through the block, let go after it (a parry keeps the fight's own meeting pose).
+  const MP = {}, MJ = {}, MT = { ok: false, sw: 0, ax: 0, ay: 0, x: 0, y: 0 };
+  const segSeg = ND.M.segSeg;
+  function lungeAt(o, a, t0, t1) { // how far the attacker's lunge carries it between two times of its move
+    const L = a.lunge;
+    if (!L || !o.onGround) return 0;
+    const ov = Math.max(0, Math.min(t1, L[1]) - Math.max(t0, L[0]));
+    return (ov * L[2]) / Math.max(0.2, o.ch.spd * (o.aspd || 1));
+  }
+  function contactAhead(f, o) {
+    const a = o.atk, W = a.hits ? a.hits[Math.max(0, o.hitIdx)] || a.hits[0] : a.active;
+    if (!W || o.st > W[1]) return null;
+    const t0 = Math.max(o.st, W[0] - 0.01), keys = o.keys, j = f.j;
+    if (!keys || !j.haF || !j.tip) return null;
+    const hb = ND.hurtboxes(j);
+    for (let k = 0; k <= 8; k++) {
+      const t = t0 + ((W[1] - t0) * k) / 8;
+      pose.seq(keys, t, MP);
+      const gap = Math.abs(f.x - o.x) < 70 ? 0.2 : 1;
+      ND.solve(MP, o.x + o.dir * lungeAt(o, a, o.st, t) * gap, o.y, o.dir, MJ, o.wpn);
+      let r = segSeg(MJ.haF.x, MJ.haF.y, MJ.tip.x, MJ.tip.y, j.haF.x, j.haF.y, j.tip.x, j.tip.y);
+      if (r.d >= 12) { r = null; for (const h of hb) { const q = segSeg(MJ.haF.x, MJ.haF.y, MJ.tip.x, MJ.tip.y, h[0], h[1], h[2], h[3]); if (q.d < h[4] + 2) { r = q; break; } } }
+      if (r) return { x: r.x, y: r.y, ang: Math.atan2(MJ.tip.y - MJ.haF.y, MJ.tip.x - MJ.haF.x), thrust: !!a.thrust };
+    }
+    return null;
+  }
+  // the guard that puts the blade through C, across the incoming blade (local pose terms: x forward, y down)
+  function meetTarget(f, C, D, lj) {
+    const dir = f.dir < 0 ? -1 : 1, BL = f.wpn.blade || L.blade;
+    const cx = (C.x - f.x) * dir, cy = C.y - f.y;
+    ND.solve(D, 0, 0, 1, lj, f.wpn);
+    const h = cy - lj.sh.y; // (how far below the shoulder the blades meet)
+    const ta = Math.atan2(Math.sin(C.ang), Math.cos(C.ang) * dir); // the incoming blade in the pose's terms
+    const near = (want, lo, hi) => { // the crossing angle (incoming ± 90°) closest to the wanted one, kept in [lo, hi]
+      let best = 0, bd = 1e9;
+      for (const s of [ta + Math.PI / 2, ta - Math.PI / 2]) { const v = want + wrap(s - want), d = Math.abs(v - want); if (d < bd) { bd = d; best = v; } }
+      return clamp(best, lo, hi);
+    };
+    const level = Math.abs(Math.sin(ta)) < 0.4;
+    const sw = h < -25 ? near(-0.75, -0.95, -0.6)                     // above the head: raised, angled up toward the cut (jōdan uke)
+      : h < (C.thrust ? 15 : 35) ? (C.thrust || level ? -1.05 : near(-1.4, -1.9, -0.95)) // chest and head: upright at the side / angled against a thrust
+      : C.thrust ? 1.3 : near(1.55, 1.1, 2.0);                        // belt and below: point down (gedan); a low thrust is hung across
+    const ux = Math.cos(sw), uy = Math.sin(sw), wx = cx - lj.sh.x, wy = cy - lj.sh.y, R = L.uArm + L.fArm - 2;
+    // where along the blade it meets: the middle if the hand can be there, else the nearest place within reach
+    const wu = (wx * ux + wy * uy) / BL, disc = wu * wu - (wx * wx + wy * wy - R * R) / (BL * BL);
+    let kc = clamp(wu, 0.2, 0.85);
+    if (disc >= 0) { const q = Math.sqrt(disc); kc = clamp(0.5, Math.max(0.2, wu - q), Math.min(0.85, wu + q)); }
+    // (the hands stay in front of the chest: a blade held from behind the body would be hidden by it)
+    const fx0 = (wx - 10) / BL;
+    if (ux > 0.05) kc = Math.max(0.15, Math.min(kc, fx0 / ux)); else if (ux < -0.05) kc = Math.min(0.9, Math.max(kc, fx0 / ux));
+    MT.sw = sw; MT.ax = cx - ux * BL * kc - lj.sh.x; MT.ay = cy - uy * BL * kc - lj.sh.y; MT.x = C.x; MT.y = C.y; MT.ok = true;
+    return MT;
+  }
+  function meet(S, f, D, dt, hold) {
+    const F = ND.game && ND.game.F, o = F ? (F[0] === f ? F[1] : F[0]) : null;
+    const g = f.state === 'guard' || f.state === 'block';
+    const T = S.mt || (S.mt = { sw: 0, ax: 0, ay: 0, ok: false });
+    if (!hold) {
+      let tw = 0;
+      if (g && o && !o.dead && f.guardingFrom(o)) {
+        if (o.state === 'atk' && o.atk && o.atk.kind === 'blade' && f.state === 'guard') {
+          const W = o.atk.hits ? o.atk.hits[Math.max(0, o.hitIdx)] || o.atk.hits[0] : o.atk.active;
+          if (W && o.st > W[0] - 0.2 && o.st <= W[1]) {
+            const C = contactAhead(f, o);
+            if (C) { const M = meetTarget(f, C, D, S.lj); T.sw = M.sw; T.ax = M.ax; T.ay = M.ay; T.ok = true; tw = sstep((o.st - (W[0] - 0.16)) / 0.13); }
+          }
+        } else if (f.state === 'block' && T.ok) tw = 1; // (held through the block: the place the blades met)
+      }
+      if (!tw && S.mw < 0.01) T.ok = false;
+      // (comes in with the cut, lets go slower; at once into a parry, a bind or anything else)
+      const out = g ? 0.16 : 0.05;
+      S.mw = tw > S.mw ? Math.min(tw, S.mw + dt / 0.05) : Math.max(tw, S.mw - dt / out);
+    }
+    const w = S.mw;
+    if (!(w > 0) || !T.ok) return;
+    const k = w * w * (3 - 2 * w);
+    D.sw += (T.sw + TAU * Math.round((D.sw - T.sw) / TAU) - D.sw) * k;
+    D.ax += (T.ax - D.ax) * k; D.ay += (T.ay - D.ay) * k;
+    if (D.grip < 0.9 && !f.wpn.twin) D.grip += (1 - D.grip) * k; // (two hands on the hilt to take the blow)
+  }
+
   // the display chain (kusarigama): the fight's chain with its two held ends moved onto the display hands
   function dispChain(S, f, j, sj) {
     const C = f.chain;
@@ -375,6 +650,7 @@
       pose.copy(T, S.prevT);
     }
     pose.copy(T, D);
+    const M = A.m;
     // 1 + 2: shape the in-between frames of a keyed move (attacks, parry deflections)
     const at = f.state === 'atk' ? f.atk : null;
     const act = !!at && !!(at.hits ? at.hits.some((h) => f.st >= h[0] - 0.02 && f.st <= h[1] + 0.02) : at.active && f.st >= at.active[0] - 0.02 && f.st <= at.active[1] + 0.02);
@@ -417,6 +693,10 @@
         if (m > ACT_PX) { D.ax = bx + (dx * ACT_PX) / m; D.ay = by + (dy * ACT_PX) / m; }
       }
     }
+    // 14 + 16: the cut led by the hips, the rebound of a blade that meets another (round 4)
+    const list = at ? strikes(S, at, f.keys) : NONE;
+    if (M.chain && list.length) chainCut(list, f.st, D, W, f.wpn.blade || L.blade);
+    if (M.clash) clash(S, f, D, dt, hold); else S.cb = S.cbv = 0;
     // while a blow can hit, everything above together keeps the drawn blade within ACT_MAX px of the fight's
     if (act) {
       ND.solve(T, 0, 0, 1, S.lt, f.wpn); ND.solve(D, 0, 0, 1, S.lj, f.wpn);
@@ -433,11 +713,13 @@
         for (const q of KEYS) D[q] = F[q] + (D[q] - F[q]) * k;
       }
     }
+    // 17: the iai draw swings out of the picture plane (only before the cut can hit: then it is the fight's blade)
+    const fs = M.iai && f.wpn.iai ? iaiDraw(at, list, f.st, D).fs : 1;
     // 7: weight spring (not while a blow can hit, in blade contact, in a catch-up or a roll)
     const contact = act || !!CONTACT[f.state] || S.cuDur > 0 || !!f.roll;
     const soon = !!(at && at.active && f.st < at.active[0] - 0.02 && f.st > at.active[0] - 0.08); // fade out just before the blow
     if (!hold) {
-      const h = Math.max(dt, 1e-4), om = TAU * W.f, z = W.z, X = S.sx, Y = S.sy, V = S.sv;
+      const h = Math.max(dt, 1e-4), om = TAU * W.f, z = M.settle ? W.zs : W.z, X = S.sx, Y = S.sy, V = S.sv;
       for (let c = 0; c < 3; c++) {
         let x = D[SPK[c]];
         if (c === 0 && S.sinit) x += TAU * Math.round((X[0] - x) / TAU);
@@ -456,13 +738,17 @@
       D.sw += o0 * S.ws; D.ax += ox * S.ws; D.ay += oy * S.ws;
     }
     // 10-13: the body (round 3; each part switchable, A.m)
-    const M = A.m;
     if (M.idle) idleBody(S, f, D, dt, hold); else S.iw = 0;
     if (M.walk) walkBody(S, f, D, dt, hold); else S.wb = 0;
     if (M.overlap) overlap(S, f, D, dt, hold, act || !!CONTACT[f.state]); else S.ovi = false;
     if (M.feet) feet(S, f, D, dt, hold); else S.ft = null;
+    // 19 + 16: the guard meets the coming blade; the rebound of a blade that met another is laid on top
+    if (M.meet) meet(S, f, D, dt, hold); else S.mw = 0;
+    D.sw += S.cb;
     // 8: the rear hand stays on a two-handed grip
-    if (!f.wpn.twin && !GRIP_OFF[f.wpn.type] && D.grip >= 0.9) gripSlide(D, f.wpn, S.lj);
+    const g0 = D.grip, gx0 = D.gx, gy0 = D.gy, gEnd = M.grip && f.wpn.type !== 'bo' && f.wpn.type !== 'naginata';
+    const grip = !f.wpn.twin && !GRIP_OFF[f.wpn.type] && g0 >= 0.9;
+    if (grip) gripSlide(D, f.wpn, S.lj, gEnd);
     // joints
     const sj = f.j, j = S.j, dir = f.dir * (f.vdir ?? 1);
     ND.solve(D, f.x, f.y, dir, j, f.wpn);
@@ -476,7 +762,9 @@
       S.gp = D.sw; S.gv += (sv - S.gv) * Math.min(1, dt / 0.05);
       const c = Math.cos(D.sw);
       if (Math.abs(c) > 0.25) S.gs = c >= 0 ? 1 : -1; // the side it lies to, kept while it points straight down
-      S.gsb += clamp(S.gs - S.gsb, -dt / 0.12, dt / 0.12);
+      // (round 4 'settle': a blade swung through "straight down" lies on its new side at once; the slow change of side
+      // is for a held blade. Before, the floor pulled a blade being swung back forward for two frames, a flick)
+      if (M.settle && S.gv > 3) S.gsb = S.gs; else S.gsb += clamp(S.gs - S.gsb, -dt / 0.12, dt / 0.12);
     }
     if (!f.roll && j.tip.y > GROUND && S.gw > 0) {
       const len = f.wpn.blade || L.blade, s = (GROUND - j.haF.y) / len;
@@ -487,9 +775,13 @@
         let sw = a0 + (Math.PI - 2 * a0) * (1 - (S.gsb + 1) / 2);
         sw += TAU * Math.round((D.sw - sw) / TAU);
         D.sw += (sw - D.sw) * S.gw * wv * wv * (3 - 2 * wv);
+        if (grip && M.grip) { D.grip = g0; D.gx = gx0; D.gy = gy0; gripSlide(D, f.wpn, S.lj, gEnd); } // (the rear hand follows the hilt)
         ND.solve(D, f.x, f.y, dir, j, f.wpn);
       }
     }
+    // 17: the drawn blade (and hilt) shortened by the out-of-plane swing (skeleton.js drawSword reads j.wFs)
+    j.wFs = fs;
+    if (fs < 1) for (const k of ['tip', 'pom']) { j[k].x = j.haF.x + (j[k].x - j.haF.x) * fs; j[k].y = j.haF.y + (j[k].y - j.haF.y) * fs; }
     if (f.roll) {
       const cx = f.x, cy = f.y - 72, c = Math.cos(f.roll), s = Math.sin(f.roll);
       for (const k of RKEYS) { const p = j[k]; if (!p) continue; const dx = p.x - cx, dy = p.y - cy; p.x = cx + dx * c - dy * s; p.y = cy + dx * s + dy * c; }
@@ -498,6 +790,28 @@
     j.hasSword = sj.hasSword;
     for (const k of WKEYS) j[k] = sj[k];
     j.chain = sj.chain ? dispChain(S, f, j, sj) : null;
+    // 15: which side of the blade leads (skeleton.js drawSword reads j.wEdge: 0 = the old drawing)
+    if (!hold) S.ed += clamp((f.state === 'atk' ? edgeTarget(list, f.st) : 1) - S.ed, -dt / 0.045, dt / 0.045);
+    j.wEdge = M.edge && !NO_EDGE[f.wpn.type] ? edgeQ(S.ed) * (dir < 0 ? -1 : 1) : 0;
+    // 18: the iai scabbard moves on the draw and the sheathing
+    if (M.iai && f.wpn.iai) {
+      // (the blade coming home toward the sheathed stance: the closer, the further the scabbard is pulled back)
+      const st = f.P && f.P.stance;
+      let pre = 0;
+      if (st && !j.wSheath && !f.roll && (f.state === 'atk' || f.state === 'move' || f.state === 'land' || f.state === 'zanshin')) {
+        const da = Math.abs(wrap(T.sw - st.sw)), dh = Math.abs(T.ax - st.ax) + Math.abs(T.ay - st.ay);
+        pre = PRE * sstep((1.0 - da) / 0.68) * sstep((64 - dh) / 48);
+      }
+      saya(S, j, dt, hold, pre);
+    } else { j.wSaya = null; j.wNoto = 0; S.sht = 0; S.cok = false; }
+    // (how the drawn blade moves, for the clash: its turn in the pose's terms and its tip in the world)
+    if (!hold) {
+      const h = Math.max(dt, 1e-4);
+      if (S.psw === S.psw) S.pw += ((D.sw - S.psw) / h - S.pw) * Math.min(1, dt / 0.03);
+      S.psw = D.sw;
+      if (S.tx === S.tx) { S.tvx += ((j.tip.x - S.tx) / h - S.tvx) * Math.min(1, dt / 0.03); S.tvy += ((j.tip.y - S.ty) / h - S.tvy) * Math.min(1, dt / 0.03); }
+      S.tx = j.tip.x; S.ty = j.tip.y;
+    }
     // 9: sleeves billow with the arm's swing and settle with a little wobble (skeleton.js armGeom reads _slF / _slB)
     if (!hold) {
       const h = Math.max(dt, 1e-4), om = TAU * 6.5;
@@ -545,5 +859,24 @@
       }
     }
     return n;
+  };
+  // round 4 'trail': the streak in two bands along the arc, a bright one from 2/3 of the way out to the tip and a faint
+  // one inside it; each sample pair is as bright as the tip was fast between its two samples (a slow blade, a held
+  // one, leaves nothing) and as its age. col(i, alpha) gives the colour.
+  A.trailBands = function (ctx, T, col) {
+    const n = T.length;
+    let fi = -1, cO = '', cI = '', a = 0;
+    return A.trailSlices(T, (i, u0, u1, q) => {
+      if (i !== fi) {
+        fi = i;
+        const P = T[i - 1], R = T[i], v = clamp((Math.hypot(R[2] - P[2], R[3] - P[3]) - 4) / 22, 0, 1);
+        a = (i / n) * v * v * (3 - 2 * v);
+        if (a >= 0.02) { cO = col(i, a); cI = col(i, a * 0.3); }
+      }
+      if (a < 0.02) return;
+      const m = 0.66, ax = q[0] + (q[2] - q[0]) * m, ay = q[1] + (q[3] - q[1]) * m, bx = q[4] + (q[6] - q[4]) * m, by = q[5] + (q[7] - q[5]) * m;
+      ctx.fillStyle = cO; ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(q[2], q[3]); ctx.lineTo(q[6], q[7]); ctx.lineTo(bx, by); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = cI; ctx.beginPath(); ctx.moveTo(q[0], q[1]); ctx.lineTo(ax, ay); ctx.lineTo(bx, by); ctx.lineTo(q[4], q[5]); ctx.closePath(); ctx.fill();
+    });
   };
 })(window.ND);

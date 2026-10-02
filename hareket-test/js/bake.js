@@ -174,7 +174,11 @@ window.ND = window.ND || {};
       sx0 = x0; sy0 = y0; sx1 = x1; sy1 = y1;
       part(ctx, P.QUIVER, sdBit() + 2 * sflip(x0 - x1, y0 - y1), n + 8 * bow, 0, x1, y1, Math.atan2(y0 - y1, x0 - x1), 1, 0, bbQuiver, drQuiver);
     } else if (WPN.iai) {
-      if (J.wSheath && J.tip) {
+      if (J.wSaya) { // (js/anim.js: pulled back on the draw / forward on the sheathing; drawn like the resting one)
+        const tx = J.wSaya[2], ty = J.wSaya[3];
+        sx0 = J.wSaya[0]; sy0 = J.wSaya[1]; sx1 = sx0 + tx * (WPN.blade + 6); sy1 = sy0 + ty * (WPN.blade + 6);
+        part(ctx, P.SAYAHIP, 2 * sflip(tx, ty) + 4 * sdBit(), 0, 0, sx0, sy0, Math.atan2(ty, tx), 1, 0, bbSegCord, drSayaHip);
+      } else if (J.wSheath && J.tip) {
         const a = Math.atan2(J.tip.y - J.haF.y, J.tip.x - J.haF.x), L0 = WPN.blade + 6, tx = Math.cos(a), ty = Math.sin(a);
         sx0 = J.haF.x; sy0 = J.haF.y; sx1 = sx0 + tx * (L0 + 2); sy1 = sy0 + ty * (L0 + 2);
         part(ctx, P.SAYAHIP, 1 + 2 * sflip(tx, ty), 0, 0, J.haF.x, J.haF.y, a, 1, 0, bbSegCord, drSayaHip);
@@ -310,6 +314,11 @@ window.ND = window.ND || {};
       K.drawSword(ctx, hx, hy, ang, C, glint, WPN, 'high', J);
       return;
     }
+    // (js/anim.js: an iai draw seen shortened, a blade sliding into the scabbard: a few steps, drawn live)
+    if (which === 0 && ((J.wFs > 0 && J.wFs < 1) || (J.wSheath && J.wNoto > 0))) {
+      K.drawSword(ctx, hx, hy, ang, C, glint, WPN, 'high', J);
+      return;
+    }
     const tessen = t === 'tessen';
     if (tessen && !rev) tassel(ctx, hx, hy, ang, which);
     let a = 0, b = which;
@@ -317,6 +326,8 @@ window.ND = window.ND || {};
     else if (t === 'kusarigama') b += 4 * sdBit();
     else if (t === 'bo') { const cs = Math.cos(ang), sn = Math.sin(ang); b += 4 * (-sn * LT.x + cs * LT.y < 0 ? 1 : 0); }
     else if (which === 0 && J.wSheath) b += 8;
+    // (js/anim.js wEdge: the side of the edge and how far the blade has rolled, six pictures)
+    if (which === 0 && J.wEdge && t !== 'bo') b += 16 * (J.wEdge > 0 ? (J.wEdge > 0.8 ? 1 : J.wEdge > 0.45 ? 2 : 3) : (J.wEdge < -0.8 ? 4 : J.wEdge < -0.45 ? 5 : 6));
     part(ctx, which ? P.WPN2 : P.WPN, a, b, 0, hx, hy, ang, 1, 0, bbWpn, drWpn);
     restore(ctx);
     if (rev) { if (tessen) tassel(ctx, hx, hy, ang, which); return; }
