@@ -397,8 +397,8 @@
       const M = add(add(shM, mul(bk, 2)), mul(up, 16 * sl));
       // (the hand that holds it: behind the head at the mouth's line, so the handle stands up and BACK behind the
       // head, never straight up out of it; it comes back to the recorded hand as the blade leaves)
-      // (the handle up and back at 35°, over the shoulder; only a finger of steel out of the mouth)
-      const Hs = add(add(M, mul(bk, 9)), mul(up, 2)), uIn = norm(add(mul(up, -0.82), mul(bk, -0.57))), visIn = 3;
+      // (the handle up and back at 50°, over the shoulder; only a finger of steel out of the mouth)
+      const Hs = add(add(M, mul(bk, 9)), mul(up, 2)), uIn = norm(add(mul(up, -0.64), mul(bk, -0.77))), visIn = 3;
       if (B.rel < 0 && (P.haR[0] > P.neck[0] + 20 || (P.blade.u[1] < -0.3 && P.blade.u[0] > -0.2) || B.t > 0.9)) { B.rel = 0; if (!B.u) { B.u = uIn; B.vis = visIn; B.wH = 0; } } // (out when the recorded hand comes forward or its blade swings up)
       let u, vis, wH;
       if (B.rel < 0) { u = uIn; vis = visIn; wH = Math.min(1, B.t / 0.08); B.u = u; B.vis = vis; B.wH = wH; }
