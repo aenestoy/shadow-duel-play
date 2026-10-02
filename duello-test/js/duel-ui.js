@@ -51,8 +51,9 @@
     const s = ND.i18n && typeof str === 'string' ? ND.i18n.t(str) : String(str);
     const it = { s, p: p ?? rankOf(str), col: col || '#ffd27a', age: 0 };
     const h = HL.head;
-    if (!h || h.age > 0.85 || it.p >= h.p) { if (h && h.age < 0.85 && h.p >= 30 && h.s !== it.s) HL.sub = h; HL.head = it; }
-    else if (it.p >= 30 && (!HL.sub || HL.sub.age > 0.6 || it.p >= HL.sub.p)) HL.sub = it;
+    // (ONE headline at a time: a stronger one replaces it, a weaker one is dropped - "DISARMED!" with "COUNTER HIT!"
+    // under it and the tags round it was too much text at once, 2026-10-03)
+    if (!h || h.age > 0.85 || it.p >= h.p) HL.head = it;
   }
   D.headline = (s, p) => headline(s, p);
   // an environment moment's name (js/duel-env.js): the one label, big, over the fighter who does it
@@ -70,15 +71,31 @@
     ND.cine.drawBanner = function (ctx, b, s) { if (HL.head && HL.head.age < 1 && HL.head.p >= 60) return; return banner0.call(this, ctx, b, s); };
     ND.cine.drawNum = function (ctx, n, s) { if (HL.head && HL.head.age < 1 && HL.head.p >= 45) return; return num0.call(this, ctx, n, s); };
   }
+  const headUp = () => !!(HL.head && HL.head.age < 1.15);
+  const bindUp = () => !!(G.F && G.F.some((f) => f.dz && f.dz.cine && f.dz.cine.ph === 'bind' && f.dz.cine.def === f));
+  // a screen box under a live hit flash, ring or spark (ND.fx.parts, world space): the pick-up prompt waits for it,
+  // scripts/duel-labels.mjs counts every text under one
+  D.underFlash = (b) => {
+    const P = ND.fx && ND.fx.parts;
+    if (!P) return false;
+    for (const q of P) {
+      if (q.k !== 'f' && q.k !== 'r' && q.k !== 's') continue;
+      const r = (q.k === 's' ? 10 : (q.size || 60) * (q.k === 'r' ? 1 : 0.7)) * cam.k, x = cam.sx(q.x), y = cam.sy(q.y);
+      const dx = Math.max(b.x0 - x, 0, x - b.x1), dy = Math.max(b.y0 - y, 0, y - b.y1);
+      if (dx * dx + dy * dy < r * r) return true;
+    }
+    return false;
+  };
   function drawHeadline(ctx, u) {
     const y0 = cam.H * 0.25;
-    for (const [it, big] of [[HL.head, 1], [HL.sub, 0]]) {
+    HL.sub = null;
+    for (const [it, big] of [[HL.head, 1]]) {
       if (!it) continue;
       it.age += 1 / 60;
       const life = big ? 1.15 : 0.9;
       if (it.age > life) { if (big) HL.head = null; else HL.sub = null; continue; }
       const a = it.age < 0.8 * life ? 1 : 1 - (it.age - 0.8 * life) / (0.2 * life), pop = big ? 1 + Math.max(0, 0.12 - it.age) * 2.5 : 1;
-      txt(ctx, it.s, cam.W / 2, big ? y0 : y0 + 34 * u, (big ? 30 : 17) * u * pop, big ? it.col : '#ece6d6', 'center', a);
+      txt(ctx, it.s, cam.W / 2, big ? y0 : y0 + 34 * u, (big ? 30 : 17) * u * pop, big ? it.col : '#ece6d6', 'center', a, 'headline');
     }
   }
 
@@ -91,17 +108,25 @@
   };
   // every text the overlay draws this frame, as a box (scripts/duel-labels.mjs: no two may overlap)
   D.textBoxes = [];
-  function txt(ctx, s, x, y, px, col, align = 'center', a = 1) {
+  function txt(ctx, s, x, y, px, col, align = 'center', a = 1, kind) {
     ctx.globalAlpha = a; ctx.font = `700 ${Math.round(px)}px Oswald, sans-serif`; ctx.textAlign = align; ctx.textBaseline = 'middle';
     // (one text per place: a text that would land on one already drawn this frame is left out. The overlay draws the
     // most important first: the headline, the defence / technique label, then the prompts, names and markers)
     if (a > 0.05 && s) {
-      const w = ctx.measureText(s).width, x0 = align === 'center' ? x - w / 2 : align === 'right' ? x - w : x, bx = { s: String(s), x0, y0: y - px * 0.55, x1: x0 + w, y1: y + px * 0.55 };
+      const w = ctx.measureText(s).width, x0 = align === 'center' ? x - w / 2 : align === 'right' ? x - w : x, bx = { s: String(s), x0, y0: y - px * 0.55, x1: x0 + w, y1: y + px * 0.55, kind: kind || null };
       for (const o of D.textBoxes) if (Math.min(o.x1, bx.x1) - Math.max(o.x0, bx.x0) > 1 && Math.min(o.y1, bx.y1) - Math.max(o.y0, bx.y0) > 1) { ctx.globalAlpha = 1; return; }
       D.textBoxes.push(bx);
     }
     ctx.lineWidth = Math.max(2, px * 0.2); ctx.strokeStyle = 'rgba(5,6,12,.88)'; ctx.strokeText(s, x, y); ctx.fillStyle = col; ctx.fillText(s, x, y);
     ctx.globalAlpha = 1;
+  }
+  // a small text near the fighters that waits while a hit's flash, ring or sparks are on its place (the pick-up prompt,
+  // the UNARMED tag)
+  function clearTxt(ctx, s, x, y, px, col, kind) {
+    ctx.font = `700 ${Math.round(px)}px Oswald, sans-serif`;
+    const w = ctx.measureText(s).width;
+    if (D.underFlash({ x0: x - w / 2, y0: y - px * 0.55, x1: x + w / 2, y1: y + px * 0.55 })) return;
+    txt(ctx, s, x, y, px, col, 'center', 1, kind);
   }
   const human = (f) => !!(G.isHuman && G.isHuman(f));
   function drawDuel(ctx) {
@@ -128,7 +153,8 @@
         }
         if (z.chain >= N) txt(ctx, 'BIND READY', hx, hy - 16 * u, 12 * u, '#ffd27a');
       }
-      if (!z.armed) txt(ctx, 'UNARMED', hx, hy + 16 * u, 11 * u, '#ff9b7a');
+      // (UNARMED: quiet while a headline is up - DISARMED! already says it)
+      if (!z.armed && !headUp()) clearTxt(ctx, 'UNARMED', hx, hy + 16 * u, 11 * u, '#ff9b7a', 'tag');
       // move name label
       if (S.names && f.state === 'atk' && f.serial !== S.seen[f.id]) {
         S.seen[f.id] = f.serial;
@@ -140,11 +166,15 @@
         const pri = f.atk && f.atk.special ? 2 : ctr ? 1 : 0, cur = S.labels[0];
         if ((nm || ctr) && !(cur && cur.p > pri && cur.t < 0.7)) {
           const env = /^pr_/.test(f.atkName || '');
-          S.labels.length = 0; S.labels.push({ f, s: nm || (f.atkName || '').toUpperCase(), t: 0, col: env ? '#ffe3a1' : f.col.ui, p: env ? Math.max(pri, 1.5) : pri, big: env });
+          S.labels.length = 0; S.labels.push({ f, s: nm || (ctr ? 'Counter' : (f.atkName || '').toUpperCase()), t: 0, col: env ? '#ffe3a1' : f.col.ui, p: env ? Math.max(pri, 1.5) : pri, big: env });
           if (D.clearQuietLabel) D.clearQuietLabel();
         }
       }
     }
+    // the pick-up prompt over the player's own sword on the floor (recorded by D.drawSwordMark): never under a hit's
+    // flash, ring or sparks and not while a headline is up - it comes back as soon as they are gone
+    if (S.pick && S.pick.t === ND.scene.t && !headUp()) clearTxt(ctx, S.pick.s, cam.sx(S.pick.x), cam.sy(S.pick.y), 15 * u, '#ffd27a', 'prompt');
+    S.pick = null;
     // labels (fade over 0.9 s real time; quiet while a top headline is up)
     if (HL.head && HL.head.age < 1 && HL.head.p >= 60) S.labels.length = 0;
     for (let i = S.labels.length - 1; i >= 0; i--) {
@@ -154,7 +184,10 @@
       const sz = (L.big ? 24 : 11) * u, w = L.big ? sz * 0.3 * L.s.length : 0;
       // (an environment moment reads on a 6" phone: twice a move name's size, kept on the screen)
       const x = L.big ? Math.max(w + 8 * u, Math.min(cam.W - w - 8 * u, cam.sx(L.f.x))) : cam.sx(L.f.x), y = cam.sy(L.f.y - 200) - L.t * (L.big ? 12 : 18) * u;
-      txt(ctx, L.s, x, y, sz, L.col, 'center', L.t < life - 0.2 ? 1 : 1 - (L.t - (life - 0.2)) / 0.2);
+      // (an environment moment's big name is a headline of its own: never two at once - it waits under the fight's
+      // headline, and gives way to the bind prompt)
+      if (L.big && (headUp() || bindUp())) continue;
+      txt(ctx, L.s, x, y, sz, L.col, 'center', L.t < life - 0.2 ? 1 : 1 - (L.t - (life - 0.2)) / 0.2, L.big ? 'headline' : 'label');
     }
     // bind prompt: a ring closing on the crossed blades; gold while the window is open
     for (const f of G.F) {
@@ -237,10 +270,9 @@
     ctx.beginPath(); ctx.ellipse(gx, Math.max(gy, -6), 26, 10, 0, 0, 6.283); ctx.stroke();
     ctx.restore();
     if (human(owner) && D.canPick(owner) && owner.state !== 'dpick') {
+      // (drawn with the overlay's texts, drawDuel: there it keeps clear of flashes, headlines and other texts)
       const tch = !!(ND.touch && ND.touch.active);
-      ctx.save(); ctx.font = '700 15px Oswald, sans-serif'; ctx.textAlign = 'center'; ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(5,6,12,.9)';
-      const s = tch ? 'PICK UP: SHURIKEN' : 'PICK UP: ' + (owner.id === 0 ? 'T' : 'I');
-      ctx.strokeText(s, gx, gy - 46); ctx.fillStyle = '#ffd27a'; ctx.fillText(s, gx, gy - 46); ctx.restore();
+      S.pick = { x: gx, y: gy - 46, s: tch ? 'PICK UP: SHURIKEN' : 'PICK UP: ' + (owner.id === 0 ? 'T' : 'I'), t: ND.scene.t };
     }
   };
 
@@ -530,7 +562,7 @@
         L.age += dt;
         // by the contact, at waist height: between the two bodies, never over a face
         if (L.age > L.life) Q.label = null;
-        else txt(ctx, L.s, cam.sx(L.x), cam.sy(-92) + 10 * Math.min(1, L.age / 0.3) * u, 14 * u * L.k, L.col, 'center', L.age < L.life - 0.2 ? 1 : (L.life - L.age) / 0.2);
+        else if (!headUp()) txt(ctx, L.s, cam.sx(L.x), cam.sy(-92) + 10 * Math.min(1, L.age / 0.3) * u, 14 * u * L.k, L.col, 'center', L.age < L.life - 0.2 ? 1 : (L.life - L.age) / 0.2, 'word'); // (quiet under a headline)
       }
       const R = Q.corner;
       if (R) {

@@ -40,7 +40,7 @@
       chainNeed: 7, parryPts: 2, blockPts: 1, chainIdle: 4.5,
       bindSlow: 0.36, bindWin: [0.15, 0.43], bindEnd: 0.5, strikeDur: 0.62, strikeSlow: 0.5, escapeDur: 0.3,
       sideRate: 9, offLine: 0.75, offPost: 0.6, armChip: 2,
-      pickR: 60, pickDur: 0.44, pickGrab: 0.25, punish: 1.2, breakDisarm: 0.65, rollDur: 0.44, rollInv: [0.03, 0.3],
+      pickR: 60, pickDur: 0.44, pickGrab: 0.25, punish: 1.2, breakDisarm: 0.35, rollDur: 0.44, rollInv: [0.03, 0.3],
       disarmKi: 50, comboWin: 0.42, kickCool: 2.5, uaDmg: 1.5, uaWalk: 0.18, uaKi: 1.5,
     },
     stats: null, // simulation counters (scripts/duel-sim.mjs): not fight state
@@ -345,7 +345,22 @@
   const gainKi0 = FP.gainKi;
   FP.gainKi = function (v) { return gainKi0.call(this, this.dz && !this.dz.armed ? v * T.uaKi : v); };
   const sheathed0 = FP.sheathed;
-  FP.sheathed = function () { return this.wpn && this.wpn.fist ? 0 : sheathed0.call(this); };
+  // a cut never lands with the sword in the saya (2026-10-03: Akane's finisher hit while her drawn hand was still on the
+  // hilt at the hip - the stance-like first key read as noto): through a blade move up to its last hit window the sword
+  // is out, except a move's own draw window (a.sheath) before its first hit
+  const lastHit = (a) => { const W = a.hits || (a.active ? [a.active] : null); return W ? W[W.length - 1][1] : 0; };
+  const inHit = (a, t) => { const W = a.hits || (a.active ? [a.active] : []); for (const w of W) if (t >= w[0] - 0.04 && t <= w[1]) return true; return false; };
+  FP.sheathed = function () {
+    if (this.wpn && this.wpn.fist) return 0;
+    // (the duel: once the fight is on, the sword stays out until a calm moment - post(), z.drawn)
+    if (this.dz && this.dz.drawn) return 0;
+    const a = this.state === 'atk' && this.dz ? this.atk : null;
+    if (a && a.kind === 'blade' && this.st <= lastHit(a)) {
+      const S = a.sheath;
+      return S && this.st >= S[0] && this.st <= S[1] && !inHit(a, this.st) ? 1 : 0;
+    }
+    return sheathed0.call(this);
+  };
   // the unarmed roll passes through the opponent (game.separate leaves fighters alone while one is 'passing')
   const passing0 = FP.passing;
   FP.passing = function () { return (this.dz && this.state === 'droll' && this.st > 0.04 && this.st < 0.34) || passing0.call(this); };
@@ -390,8 +405,26 @@
     }
   }
   // after it: duel states, the directional guard, sword kicks
+  // An iai sword (Akane) in the duel: the normal game's noto after every cut read as the sword vanishing mid-fight and
+  // broke attack - defence - counter (2026-10-03, the owner). Once the fight is on - she cuts, guards, is hit, or he
+  // attacks - the sword stays DRAWN; it goes home only in a calm moment: both apart more than two body lengths, nothing
+  // swung at her, 1.5 s on end; then the pose's own noto plays (the hand takes the hilt to the hip). From that calm,
+  // sheathed stance her first cut is the iai draw again.
+  const CALM_D = 250, CALM_T = 1.5, ON = { atk: 1, guard: 1, block: 1, parry: 1, clash: 1, dbind: 1, dcut: 1, hurt: 1, recoil: 1, stagger: 1, gbreak: 1, launch: 1, down: 1, lock: 1, dodge: 1 };
+  function drawnStep(f, dt) {
+    const z = f.dz, o = f.opp, iai = !!(f.wpn && f.wpn.iai);
+    if (!iai || !o) { z.drawn = false; return; }
+    const hot = ON[f.state] || (o.state === 'atk' && Math.abs(o.x - f.x) < 420);
+    if (hot) { z.drawn = true; z.calmT = 0; return; }
+    if (!z.drawn) return;
+    if (Math.abs(o.x - f.x) > CALM_D && (f.state === 'move' || f.state === 'land' || f.state === 'zanshin')) {
+      z.calmT = (z.calmT || 0) + dt;
+      if (z.calmT >= CALM_T) { z.drawn = false; z.calmT = 0; }
+    } else z.calmT = 0;
+  }
   function post(f, dt) {
     const z = f.dz, s = f.state;
+    drawnStep(f, dt);
     // a spare sword taken from a weapon rack (js/props.js clears wpn.none): armed again, the one on the floor is gone
     if (!z.armed && f.wpn.fist && f.wpn.none === false) { f.wpn.none = true; rearm(f, false); stat('rackRearms'); }
     if (z.propT > 0) { z.propT -= dt; G.cineT = Math.max(G.cineT || 0, 0.2); G.cineX = z.propX; G.cineZ = Math.max(G.cineZ || 0, 1.35); }
@@ -777,9 +810,9 @@
   // counters while unarmed: the empty-handed replies (js/duel-moves.js D.uaCounter)
   const K = ND.KAESHI, kpick0 = K.pick;
   K.pick = function (f, name) {
-    if (f.dz && !f.dz.armed && D.uaCounter) { const nm = D.uaCounter(f, name); if (nm && ATK[nm]) { stat('move:' + f.ch.id + ':' + nm); return nm; } }
+    if (f.dz && !f.dz.armed && D.uaCounter) { const nm = D.uaCounter(f, name); if (nm && ATK[nm]) { stat('move:' + f.ch.id + ':' + nm); f.dz.lastMove = nm; return nm; } }
     const r = kpick0.call(this, f, name);
-    if (f.dz) stat('move:' + f.ch.id + ':' + r);
+    if (f.dz) { stat('move:' + f.ch.id + ':' + r); f.dz.lastMove = r; } // (the move's own name for its label)
     return r;
   };
   // input combos: back then forward (or forward then back) within T.comboWin, then the button

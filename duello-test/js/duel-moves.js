@@ -339,6 +339,7 @@
   uc('ua_cHeavy', 'kaeshiHeavy', { keys: [[0.05, 'ua_palmA', eo], [0.13, 'ua_palmB', eq], [0.26, 'ua_palmB'], [0.5, 'ua_stance', ei]], active: [0.09, 0.19], dmg: 15, post: 30, knock: true, limb: 'haF', limbR: 18, lunge: [0.07, 0.17, 560] });
   uc('ua_cFin', 'finisher', { keys: [[0.04, 'ua_jabA', eo], [0.08, 'ua_jabB', eq], [0.13, 'ua_crossA', es], [0.18, 'ua_crossB', eq], [0.26, 'ua_upperA', es], [0.34, 'ua_upperB', eq], [0.62, 'ua_stance', ei]],
     active: [0.06, 0.1], hits: [[0.06, 0.1], [0.16, 0.2], [0.3, 0.36]], dmg: 7, post: 14, crush: true, knockLast: true, limb: 'haF', limbR: 14, lunge: [0.04, 0.34, 220], lastHit: { limb: 'haF', dmg: 10, kb: 420 } });
+  for (const [n, nm] of [['ua_cRip', 'Palm counter'], ['ua_cSweep', 'Sweep counter'], ['ua_cSpin', 'Spinning elbow'], ['ua_cHeavy', 'Heavy palm'], ['ua_cFin', 'Three-punch finish']]) note(n, 'both', nm, 'UNARMED COUNTER', '');
   D.uaCounter = (f, name) => ({ riposte: 'ua_cRip', sweep: 'ua_cSweep', mawari: 'ua_cSpin', kaeshiHeavy: 'ua_cHeavy', finisher: 'ua_cFin' })[name] || null;
   for (const n of ['ua_jab', 'ua_cross', 'ua_elbow', 'ua_upper', 'ua_bf', 'ua_lunge', 'ua_palm', 'ua_spinKick', 'ua_front', 'ua_knee', 'ua_round', 'ua_sweep', 'ua_air', 'ua_stomp', 'ua_flyknee', 'ua_ram', 'ua_ki'])
     note(n, 'both', ({ ua_jab: 'Jab', ua_cross: 'Cross (far hand)', ua_elbow: 'Hiji-ate (elbow)', ua_upper: 'Uppercut (launcher)', ua_bf: 'Spinning backfist', ua_lunge: 'Oi-zuki (lunging punch)',

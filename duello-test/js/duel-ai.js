@@ -83,7 +83,9 @@
           if (dist > 170 || busy || (dist > 110 && o.state !== 'atk' && rnd() < 0.4) || rnd() < 0.25 * (1 - lv.smart)) { this.tap('throw'); return; }
           return decide0.call(this, dist, fwd);
         }
-        // the opponent in reach: trade blows (fists are fast) rather than turn away from it
+        // the opponent in reach: keep the guard up for his cut (an evade) or trade blows (fists are fast) rather than
+        // turn away from it
+        if (dist < 190 && o.dz && o.dz.armed && rnd() < 0.45) { this.setHeld('left', false); this.setHeld('right', false); this.move = 0; this.setHeld('guard', true); this.guardUntil = this.t + rand(0.35, 0.6); return; }
         if (dist < 150 && rnd() < 0.6) return decide0.call(this, dist, fwd);
         if (!oppBetween) { this.go(toward, rand(0.2, 0.35)); return; }
         // the opponent stands between: roll past it (the roll goes through), or fight to make room
@@ -103,7 +105,13 @@
       if (o.state === 'dpick' && dist < 230) { this.dirTap(rnd() < 0.5 ? 'light' : 'heavy', 0); return; }
       // kick it away when its owner comes for it (not as a pastime)
       if (Math.abs(dsw) < 75 && dist < 260 && ND.simClock - (os.kt || -9) > T.kickCool && rnd() < 0.35 * lv.smart + 0.1) { this.dirTap('kick', 0); return; }
-      if (!between && Math.abs(dsw) > 40 && rnd() < 0.6 * lv.smart) { this.go(Math.sign(dsw) || fwd, rand(0.2, 0.32)); return; }
+      if (!between && Math.abs(dsw) > 40 && rnd() < 0.25 * lv.smart) { this.go(Math.sign(dsw) || fwd, rand(0.2, 0.32)); return; }
+      // the sword has the reach: it presses the empty-handed one (cuts it must duck, sway or catch) rather than waiting
+      // over the blade (CPU against CPU, a disarm used to stall the fight: ~2 blade contacts a minute, 2026-10-03)
+      if (o.state !== 'atk' && rnd() < 0.55) {
+        if (dist < 175) { this.dirTap(rnd() < 0.7 ? 'light' : 'heavy', 0); return; }
+        if (dist < 320) { this.go(fwd, rand(0.15, 0.25)); return; }
+      }
     }
     // ---- input combos now and then (the disarming technique against a guard)
     const C = D.COMBO && D.COMBO[me.ch.id];

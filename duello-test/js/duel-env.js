@@ -332,8 +332,14 @@
       return r;
     };
   }
+  // (a special's jump or rush never lands the body in the other's: Kuro's Yama Kudaki came down 40 off, the two drawn
+  // half inside each other, 2026-10-03 - it stops a body's width and a half off; its shock wave still runs on)
+  const SP_MIN = 96;
   function reachIn(f, dt) {
     const o = f.opp, a = f.atk;
+    if (f.state === 'atk' && a && a.special && o && !o.dead && o.state !== 'down' && o.state !== 'getup' && Math.abs(o.x - f.x) < SP_MIN) {
+      const s1 = Math.sign(o.x - f.x) || f.dir; f.x = Math.max(-ND.ARENA, Math.min(ND.ARENA, o.x - s1 * SP_MIN));
+    }
     if (f.state !== 'atk' || !a || a.kind !== 'blade' || a.special || a.prop || !a.active || !o || o.dead || !f.onGround || !o.onGround || o.state === 'down' || o.state === 'getup' || o.state === 'launch') return;
     const d0 = Math.abs(o.x - f.x), s0 = Math.sign(o.x - f.x) || f.dir;
     // (and a cut's lunge never carries the body into the other's: it stops a body's width off - a riposte that ran in to

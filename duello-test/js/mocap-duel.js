@@ -358,7 +358,7 @@
     if (d < 1e-3) return null;
     // the hand where the blade's tip (0.97 of it) reaches T, within the arm with the elbow kept bent (53 of 59): out of
     // reach the blade stops short (the fight's distance)
-    const u0 = norm(toT), want = sub(T, mul(u0, BL * (defending ? 0.55 : 0.97))), sh = P.shR, v = sub(want, sh), lv = len(v), reach = 53;
+    const u0 = norm(toT), want = sub(T, mul(u0, BL * (defending ? 0.55 : 0.97))), sh = P.shR, v = sub(want, sh), lv = len(v), reach = !f.onGround || AIRS[f.state] ? 59 : 53; // (in the air the arm may reach its full length: a jumping cut at a low target)
     const h = lv > reach ? add(sh, mul(v, reach / lv)) : want;
     return { h, u: norm(sub(T, h)) };
   }
@@ -525,10 +525,14 @@
     // (the thighs are body too: one standing over a body on the floor, or a kicking hip, never inside the other)
     // (and the forearms and shins: an arm reaching into the other's chest, a shin through his hakama read as one pile;
     // limbs are checked against the other's torso and head only - arms and blades may cross in front)
-    // (an empty-handed blow landing (fistAim): its fist is ON the other's face / chest by design - that arm is left out)
+    // (an empty-handed blow landing (fistAim): its fist is ON the other's face / chest by design - only the fist is
+    // left out, the forearm up to it still keeps clear: a counter's arm lay across the chest, 2026-10-03)
     const FS = rg.fist && rg.fist.w > 0.3 ? rg.fist.S : null;
-    return [[pj(P.hip), pj(P.neck), TORSO_R], [pj(P.head), null, 14], [pj(P.hipR), pj(P.knR), 10], [pj(P.hipL), pj(P.knL), 10],
-      FS === 'R' ? null : [pj(P.elR), pj(P.haR), 6, 1], FS === 'L' ? null : [pj(P.elL), pj(P.haL), 6, 1], [pj(P.knR), pj(P.ftR), 7, 1], [pj(P.knL), pj(P.ftL), 7, 1]].filter(Boolean);
+    const arm = (S) => [pj(P['el' + S]), pj(FS === S ? lerp(P['el' + S], P['ha' + S], 0.7) : P['ha' + S]), 6, 1];
+    // (the head 14.5; a straw kasa's brim too: a band 54 wide over the head — two heads, a hat and a head, never pressed)
+    const hd = pj(P.head), kasa = rg.look && rg.look.ch && rg.look.ch.acc === 'kasa';
+    return [[pj(P.hip), pj(P.neck), TORSO_R], [hd, null, 14.5], kasa ? [{ x: hd.x - 27, y: hd.y - 8 }, { x: hd.x + 27, y: hd.y - 8 }, 6] : null, [pj(P.hipR), pj(P.knR), 10], [pj(P.hipL), pj(P.knL), 10],
+      arm('R'), arm('L'), [pj(P.knR), pj(P.ftR), 7, 1], [pj(P.knL), pj(P.ftL), 7, 1]].filter(Boolean);
   }
   function segDist(p, q, r, t) {
     const sd = (P, A, B) => { if (!B) return Math.hypot(P.x - A.x, P.y - A.y); const vx = B.x - A.x, vy = B.y - A.y, l2 = vx * vx + vy * vy || 1, u = clamp(((P.x - A.x) * vx + (P.y - A.y) * vy) / l2, 0, 1); return Math.hypot(P.x - A.x - vx * u, P.y - A.y - vy * u); };
@@ -579,7 +583,7 @@
   function kickStop(f, s, o, so) {
     const rg = s.rig, P = rg.P;
     if (!so || !so.rig.P || !P || f.dead || o.dead || o.hidden) return;
-    const B = shapesOf(so.rig, 0).slice(0, 2);
+    const B = shapesOf(so.rig, 0).slice(0, 2); // (the torso and the head)
     // how far a world point is inside the other body (> 0: inside; the foot's own 4 counted, 3 of give allowed)
     const inside = (w) => { let m = -1e9; for (const [p, q, r] of B) { let cx = p.x, cy = p.y; if (q) { const vx = q.x - p.x, vy = q.y - p.y, l2 = vx * vx + vy * vy || 1, u = clamp(((w.x - p.x) * vx + (w.y - p.y) * vy) / l2, 0, 1); cx = p.x + vx * u; cy = p.y + vy * u; } m = Math.max(m, r + 1 - Math.hypot(w.x - cx, w.y - cy)); } return m; };
     const KC = s.kc || (s.kc = {});
@@ -658,7 +662,7 @@
         const pn = pen(hb, uu);
         if (pn > 0) continue;
         // (in a cut's hit window the blade stays ON the body: a blade turned off it costs its distance from the surface)
-        if (hitW > 0.01) cost += Math.max(0, -pn - 3) * 3 * hitW;
+        if (hitW > 0.01) cost += Math.max(0, -pn - 3) * 8 * hitW;
         if (!best || cost < best.cost) best = { cost, h: hb, u: uu };
       }
     }

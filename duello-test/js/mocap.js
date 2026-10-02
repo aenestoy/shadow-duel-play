@@ -406,6 +406,22 @@
         if (this.legs.grounded) {
           const k = P.ftR[1] >= P.ftL[1] ? 'R' : 'L', ft = P['ft' + k], hp = P['hip' + k];
           if (Math.abs(ft[1]) > 0.3) { const r = ik3(hp, [ft[0], 0, ft[2]], L.thigh, L.shin, sub(P['kn' + k], lerp(hp, ft, 0.5))); P['kn' + k] = r.m; P['ft' + k] = r.e; }
+          // a kneel (the armed kneeling counters: the sweep, the finisher, the turning cut): a knee down at the floor rests
+          // ON it (7 over it: the drawn knee's round) — the thigh turns round the hip to put it there, and the shin lies
+          // from it along the floor to the foot, on the floor — instead of the whole body being lifted by the knee's round
+          // with both feet in the air in a grounded state
+          for (const s2 of ['R', 'L']) {
+            const kn = P['kn' + s2], hp2 = P['hip' + s2], f3 = P['ft' + s2];
+            if (kn[1] <= -12 || f3[1] < -8) continue;
+            const dy = -7 - hp2[1]; if (dy < 0 || dy > L.thigh) continue;
+            const hx = kn[0] - hp2[0], hz = kn[2] - hp2[2], hl = Math.hypot(hx, hz) || 1, h = Math.sqrt(L.thigh * L.thigh - dy * dy);
+            const nk = [hp2[0] + (hx / hl) * h, -7, hp2[2] + (hz / hl) * h];
+            const fx = f3[0] - nk[0], fz = f3[2] - nk[2], fl = Math.hypot(fx, fz), h2 = Math.sqrt(Math.max(0, L.shin * L.shin - 49));
+            const dx2 = fl > 1e-3 ? fx / fl : -1, dz2 = fl > 1e-3 ? fz / fl : 0;
+            // (eased in as the knee comes down from 12 to 7 over the floor: never a jump when a knee touches down)
+            let w = clamp((kn[1] + 12) / 5, 0, 1) * clamp((f3[1] + 8) / 6, 0, 1); w = w * w * (3 - 2 * w); // (and as the foot comes down to the floor)
+            P['kn' + s2] = lerp(kn, nk, w); P['ft' + s2] = lerp(f3, [nk[0] + dx2 * h2, 0, nk[2] + dz2 * h2], w);
+          }
         }
       }
       // (last of all) the drawn body is thicker than the recorded one: lying down, nothing may go through the floor
