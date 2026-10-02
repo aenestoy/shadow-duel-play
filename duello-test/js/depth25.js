@@ -450,6 +450,9 @@
     ctx.restore();
   }
 
+  // the 3D katana, the scabbard and the perspective-scaled arm, for the motion-capture player (js/mocap.js)
+  D.drawKatana3 = drawKatana3; D.drawSaya3 = drawSaya3; D.drawArmScaled = drawArmScaled;
+
   // Draw fighter f in 2.5D (falls back to the ordinary drawing outside the listed moves).
   // opt: { glintOff, skipArm: 'F' | 'B' (tools only) }
   D.draw = function (ctx, f, opt) {
