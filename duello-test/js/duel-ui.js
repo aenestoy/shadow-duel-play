@@ -106,7 +106,8 @@
         // (the move started through the duel's choice, else by its logical / own name: the props' moves have their own)
         const nm = (f.dz.lastMove && ND.ATK[f.dz.lastMove] === f.atk ? NAMES[f.dz.lastMove] : null) || NAMES[f.atkName];
         const ctr = f.atk && f.atk.counter;
-        if (nm || ctr) S.labels.push({ f, s: nm || (f.atkName || '').toUpperCase(), t: 0, col: f.col.ui });
+        // (one name at a time: a new one replaces the last, they never stack)
+        if (nm || ctr) { S.labels.length = 0; S.labels.push({ f, s: nm || (f.atkName || '').toUpperCase(), t: 0, col: f.col.ui }); }
       }
     }
     // labels (fade over 0.9 s real time; quiet while a top headline is up)
@@ -115,7 +116,7 @@
       const L = S.labels[i]; L.t += 1 / 60;
       if (L.t > 0.9) { S.labels.splice(i, 1); continue; }
       const x = cam.sx(L.f.x), y = cam.sy(L.f.y - 200) - L.t * 18 * u;
-      txt(ctx, L.s, x, y, 13 * u, L.col, 'center', L.t < 0.7 ? 1 : 1 - (L.t - 0.7) / 0.2);
+      txt(ctx, L.s, x, y, 11 * u, L.col, 'center', L.t < 0.7 ? 1 : 1 - (L.t - 0.7) / 0.2);
     }
     // bind prompt: a ring closing on the crossed blades; gold while the window is open
     for (const f of G.F) {
@@ -294,7 +295,7 @@
   // the player's only), rally (the exchange count: small, in a corner).
   // In an exchange (counter after counter) only ONE label shows at a time, by the contact, never over a face.
   const FXS = {
-    small: { ring: 0.5, flash: 0.5, spark: 0.5, sparkPow: 0.7, slashLen: 0.28, slashW: 0.55, slashLife: 0.5, slashSat: 0.5, ghosts: 1, ghostLife: 0.55,
+    small: { ring: 0.5, flash: 0.5, spark: 0.5, sparkPow: 0.7, slashLen: 0.12, slashW: 0.5, slashLife: 0.5, slashSat: 0.5, ghosts: 1, ghostLife: 0.55,
       banner: 0.5, bannerLife: 0.7, words: 1, nums: 0.6, dim: 0.2, trail: 0.3, trailC: 0.2, contact: 1, bindRing: 0.6, rally: 1, special: 0.5 },
     none: { ring: 0, flash: 0, spark: 0.5, sparkPow: 0.6, slashLen: 0, slashW: 0, slashLife: 0, slashSat: 0, ghosts: 0, ghostLife: 0,
       banner: 0, bannerLife: 0, words: 0, nums: 0, dim: 0, trail: 0.7, trailC: 0.3, contact: 0, bindRing: 0, rally: 1, special: 0 },
@@ -414,15 +415,58 @@
         try { slash0.call(this, ctx, sl, s2); } finally { ctx.restore(); }
       };
     }
-    // a technique's own arcs and glows (js/specials.js: the crescent swept round a counter …): smaller and shorter
+    // ---- the bodies always read (any moment, not only defence): no effect may hide a fighter
+    // (scripts/duel-visibility.mjs checks it). A special counts like a defence moment for its arcs and glows.
+    const special = () => !!(G.F && G.F.some((f) => f.dz && f.state === 'atk' && f.atk && f.atk.special));
+    // the hit tint: a brief light touch (the fight's flash at 0.12: a visible lift, details kept) for the first 3 DRAWN frames of a hit, never a flat pale body (the
+    // fight's own flash fades in fight time, so through a hit-stop or slow motion it would stay for many frames)
+    if (ND.scene && ND.scene.lightFighter) {
+      const lf0 = ND.scene.lightFighter, HF = new WeakMap();
+      ND.scene.lightFighter = function (c, f) {
+        if (!f || !f.dz) return lf0.apply(this, arguments);
+        let h = HF.get(f); if (!h) HF.set(f, (h = { last: 0, n: 9 }));
+        const fl = f.flash || 0;
+        if (fl > h.last + 0.05) h.n = 0; // (a new hit)
+        h.last = fl; h.n++;
+        f.flash = fl > 0 && h.n <= 3 ? 0.12 : 0;
+        try { return lf0.apply(this, arguments); } finally { f.flash = fl; }
+      };
+    }
+    // flashes and rings never bigger than ~1.5 heads / a body's width; ink and blood a small burst at the hit point
+    const fl1 = fx.flash, rg1 = fx.ring;
+    fx.flash = function (x, y, ang, size, col) { if (!duel()) return fl1.apply(this, arguments); return fl1.call(this, x, y, ang, Math.min(size == null ? 60 : size, 36), col); };
+    fx.ring = function (x, y, col, size) { if (!duel()) return rg1.apply(this, arguments); return rg1.call(this, x, y, col, Math.min(size == null ? 90 : size, 70)); };
+    if (fx.blood) { const bl0 = fx.blood; fx.blood = function (x, y, dx, dy, n, power) { if (!duel()) return bl0.apply(this, arguments); return bl0.call(this, x, y, dx, dy, Math.max(3, Math.round((n == null ? 18 : n) * 0.35)), (power == null ? 1 : power) * 0.55); }; }
+    // a technique's own arcs and glows (js/specials.js: the crescent swept round a counter, a special's white ball …):
+    // smaller and shorter, a glow under ~1.5 heads
     if (ND.specialFx) {
       const add0 = ND.specialFx.add;
       ND.specialFx.add = function (o) {
-        if (o && o.draw && duel() && quiet()) {
-          if (!X.special) { o.t = 0; return o; }
-          if (o.r) o.r *= X.special; if (o.w) o.w *= X.special; if (o.life) o.life *= 0.6 + 0.4 * X.special;
+        if (o && o.draw && duel() && (quiet() || special())) {
+          if (!X.special && quiet()) { o.t = 0; return o; }
+          const k = X.special || 0.5;
+          if (o.r) o.r = Math.min(o.r * k, o.span == null ? 22 : o.r * k); if (o.w) o.w *= k; if (o.life) o.life *= 0.6 + 0.4 * k;
         }
         return add0.call(this, o);
+      };
+    }
+    // afterimages: at most 2 a move whatever the moment, faint (≤ ~25 %), behind the real body (drawn before it)
+    {
+      const GN2 = new WeakMap(), gh1 = FPq.addGhost, dg0 = FPq.drawGhosts;
+      FPq.addGhost = function () {
+        if (!this.dz) return gh1.apply(this, arguments);
+        let g = GN2.get(this);
+        if (!g || g.serial !== this.serial) GN2.set(this, (g = { serial: this.serial, n: 0 }));
+        if (g.n >= 2) return;
+        const before = this.ghosts.length;
+        gh1.apply(this, arguments);
+        if (this.ghosts.length > before) g.n++;
+      };
+      FPq.drawGhosts = function (ctx) {
+        if (!this.dz || !this.ghosts.length) return dg0.apply(this, arguments);
+        const L = this.ghosts.map((g) => g.life);
+        for (const g of this.ghosts) g.life *= 0.8;
+        try { return dg0.apply(this, arguments); } finally { this.ghosts.forEach((g, i) => { g.life = L[i]; }); }
       };
     }
     // the finisher of an exchange: its tint stays light too

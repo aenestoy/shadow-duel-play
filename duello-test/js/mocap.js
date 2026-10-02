@@ -252,12 +252,6 @@
       P.elR = madd(P.shR, d.uaR, L.uArm); P.haR = madd(P.elR, d.faR, L.fArm);
       P.elL = madd(P.shL, d.uaL, L.uArm); P.haL = madd(P.elL, d.faL, L.fArm);
       P.cf = d.cf; P.hf = d.hf; P.pl = d.pl;
-      // the upper body leans by this.lean (rad, + back, − in) round the hip: the duel keeps the fronts of two bodies
-      // pressing in a bind apart this way (js/mocap-duel.js); arms and blade are solved again after it
-      if (this.lean) {
-        const th = this.lean, cs = Math.cos(th), sn = Math.sin(th), h0 = P.hip;
-        for (const k of UPPER) { const q = P[k]; if (!q) continue; const dx = q[0] - h0[0], dy = q[1] - h0[1]; P[k] = [h0[0] + dx * cs + dy * sn, h0[1] - dx * sn + dy * cs, q[2]]; }
-      }
       // katana: in the right hand (armed), else resting in the saya at the hip
       const A = add(hip, F.A);
       let s = d.ss;
@@ -290,8 +284,8 @@
         const T = lerp(P.haR, O.h, O.w), pole = sub(P.elR, lerp(P.shR, P.haR, 0.5));
         const r = ik3(P.shR, T, L.uArm, L.fArm, pole);
         P.elR = r.m; P.haR = r.e;
-        const u = O.u ? nlerp(P.blade.u, O.u, O.w) : P.blade.u, e0 = O.e ? nlerp(P.blade.e, O.e, O.w) : P.blade.e;
-        P.blade = { h: P.haR, u, e: norm(sub(e0, mul(u, dot(e0, u)))) };
+        const u = O.u ? nlerp(P.blade.u, O.u, O.w) : P.blade.u;
+        P.blade = { h: P.haR, u, e: norm(sub(P.blade.e, mul(u, dot(P.blade.e, u)))) };
       }
       // left hand: on the handle (katana grip) or holding the saya mouth
       if (this.gripFix) {
@@ -480,7 +474,6 @@
     }
   }
   const tw0 = (side) => 'w' + side;
-  const UPPER = ['chest', 'neck', 'head', 'shR', 'shL', 'elR', 'elL', 'wrR', 'wrL', 'haR', 'haL'];
   const LEGW = 1.43; // (tan 55°: a standing leg's foot is at most this far out per unit under the hip)
   // (what touches the floor when the body lies on it: feet, knees, the hip, the back, the head, hands)
   const FLOOR_R2 = [['ftR', 0], ['ftL', 0], ['knR', 6], ['knL', 6], ['hip', 12], ['neck', 10], ['head', 13], ['shR', 7], ['shL', 7], ['elR', 5], ['elL', 5], ['haR', 4], ['haL', 4]];

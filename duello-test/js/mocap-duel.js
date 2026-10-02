@@ -149,13 +149,6 @@
       return { key: 'keyed', src: keyed, fade: 0.08 };
     }
     switch (st) {
-      case 'dbind': {
-        // the bind: a two-handed guard body, the hands taken to the crossing (js/duel-bind.js); the strike and an
-        // unarmed bind keep their hand-keyed poses
-        const c = f.dz && f.dz.cine;
-        if (armed && c && c.ph === 'bind') return { key: 'bind', src: clip('blockIdle', () => s.idleT % C('blockIdle').dur), fade: 0.08 };
-        return { key: 'keyed', src: keyed, fade: 0.08 };
-      }
       case 'move': case 'zanshin': case 'win': case 'land': {
         if (!f.onGround) return { key: 'keyed', src: keyed, fade: 0.1 };
         const sp = f.vx * (f.dir < 0 ? -1 : 1);
@@ -229,10 +222,6 @@
   function override(f, s, dt) {
     const rg = s.rig, dir = f.dir < 0 ? -1 : 1;
     // (eased in over a few frames: the blade travels onto the contact line, it never jumps there)
-    // the bind (and its first moments after): the hands at the blades' crossing, js/duel-bind.js
-    const BG = D.bindGeom ? D.bindGeom(f) : null;
-    if (BG && BG.w > 0) { O3.h = BG.h; O3.u = BG.u; O3.e = BG.e; O3.w = BG.w; rg.ovr = O3; s.cw = BG.w; MD.stats.contact++; return; }
-    O3.e = null;
     const wcT = contactW(f);
     s.cw = s.cw == null || dt <= 0 ? wcT : s.cw + (wcT - s.cw) * Math.min(1, dt / 0.035);
     const wc = s.cw > 0.01 ? s.cw : 0, wf = wc > 0 ? 0 : drawFlatW(f, s);
@@ -250,36 +239,6 @@
       O3.h = [46, -112, 6]; O3.u = norm([0.96, -0.05, -0.28]); O3.w = wf * 0.85;
     }
     rg.ovr = O3;
-  }
-
-  // ------------------------------------------------------------------ two bodies in a bind keep a gap
-  // The fight puts the pair 110-150 apart; a pose that leans in would put a head into the other's shoulder. The front
-  // of the upper body (head, neck, shoulders) may come no closer than 6 to the contact point's line, so the two
-  // bodies never touch: the upper body leans back round the hip as much as needed (from the last drawn pose), and leans
-  // in a little (from the legs) when there is room. Outside a bind the lean eases back to none.
-  function bodyGap(f, s, dt) {
-    const rg = s.rig, P = rg.P, BG = D.gapPoint && D.gapPoint(f);
-    let target = 0;
-    if (BG && P) {
-      const dir = f.dir < 0 ? -1 : 1, room = (BG.x - f.x) * dir - 6; // (local forward distance to the contact line)
-      // the front of the body as drawn last frame, before its lean, at the current lean
-      const th0 = rg.lean || 0, cs = Math.cos(th0), sn = Math.sin(th0), h = P.hip;
-      let front = -1e9, ht = 60;
-      const hr = D.headR ? D.headR(f) : 14;
-      for (const [k, r] of [['head', hr], ['neck', 11], ['shR', 9], ['shL', 9], ['chest', 14]]) {
-        const q = P[k]; if (!q) continue;
-        // (undo the lean to get the pose's own point)
-        const dx = q[0] - h[0], dy = q[1] - h[1], x0 = dx * cs - dy * sn, y0 = dx * sn + dy * cs;
-        if (x0 + r > front) { front = x0 + r; ht = Math.max(30, -y0); }
-      }
-      front += h[0];
-      // lean so that the front sits at the room line: x' ≈ x0 cos θ − (−h) sin θ … small angles: front − ht·θ
-      const need = (front - room) / ht;
-      target = clamp(need, -0.12, 0.7); // (− leans in from the legs when there is room, at most ~7°)
-    }
-    const k = Math.min(1, Math.max(dt, 0) / 0.05);
-    rg.lean = BG ? (rg.lean == null ? target : Math.max(target, (rg.lean || 0) + (target - (rg.lean || 0)) * k)) : (rg.lean || 0) * (1 - k);
-    if (Math.abs(rg.lean) < 1e-3) rg.lean = 0;
   }
 
   // ------------------------------------------------------------------ per drawn frame
@@ -322,7 +281,6 @@
     if (d.src.clip) MD.stats.clip++; else MD.stats.keyed++;
     rg.drive(d.key, d.src, d.fade);
     override(f, s, dt);
-    bodyGap(f, s, dt);
     rg.update(dt);
     return s;
   }
