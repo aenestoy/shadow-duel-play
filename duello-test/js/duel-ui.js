@@ -149,10 +149,12 @@
     if (HL.head && HL.head.age < 1 && HL.head.p >= 60) S.labels.length = 0;
     for (let i = S.labels.length - 1; i >= 0; i--) {
       const L = S.labels[i]; L.t += 1 / 60;
-      if (L.t > 0.9) { S.labels.splice(i, 1); continue; }
-      const x = cam.sx(L.f.x), y = cam.sy(L.f.y - 200) - L.t * 18 * u;
-      // (an environment moment reads at phone size: bigger than a move name)
-      txt(ctx, L.s, x, y, (L.big ? 16 : 11) * u, L.col, 'center', L.t < 0.7 ? 1 : 1 - (L.t - 0.7) / 0.2);
+      const life = L.big ? 1.25 : 0.9;
+      if (L.t > life) { S.labels.splice(i, 1); continue; }
+      const sz = (L.big ? 24 : 11) * u, w = L.big ? sz * 0.3 * L.s.length : 0;
+      // (an environment moment reads on a 6" phone: twice a move name's size, kept on the screen)
+      const x = L.big ? Math.max(w + 8 * u, Math.min(cam.W - w - 8 * u, cam.sx(L.f.x))) : cam.sx(L.f.x), y = cam.sy(L.f.y - 200) - L.t * (L.big ? 12 : 18) * u;
+      txt(ctx, L.s, x, y, sz, L.col, 'center', L.t < life - 0.2 ? 1 : 1 - (L.t - (life - 0.2)) / 0.2);
     }
     // bind prompt: a ring closing on the crossed blades; gold while the window is open
     for (const f of G.F) {

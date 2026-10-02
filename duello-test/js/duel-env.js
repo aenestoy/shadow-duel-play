@@ -27,13 +27,18 @@
 
   // ------------------------------------------------------------------ the set (left to right)
   // [kind, x, floor depth, extra]; on: index of the prop it stands on
-  const TEMPLE = [['burner', -860, -18], ['veranda', -650, -12], ['barrel', -520, -10], ['post', -400, -6], ['stool', -290, -4],
+  const TEMPLE = [['burner', -860, -18], ['veranda', -650, -12], ['barrel', -470, -10], ['post', -400, -6], ['stool', -290, -4],
     ['crate', -175, -12], ['lantern', -60, -10], ['jar', 50, -6], ['stool', 140, -2], ['table', 250, -8], ['cup', 232, 0, { on: 9 }],
     ['cup', 256, 0, { on: 9 }], ['bottle', 282, 0, { on: 9 }], ['post', 400, -6], ['bale', 510, -6], ['lantern', 610, -12], ['bucket', 690, -4],
     ['rack', 790, -20]];
   P.ARENA_SETS.temple = TEMPLE;
+  // (the CPU's use of the set is this file's: the props module's own CPU timer walked it off to a prop every few
+  // seconds whatever the fight was doing, and a fighter on a walk cannot guard)
+  const enable0 = P.enable;
+  P.enable = function () { const r = enable0.apply(this, arguments); if (P.setCpu) P.setCpu(false); return r; };
+  if (P.live && P.setCpu) P.setCpu(false);
   // the table is a weapon when it flies (flipped into the opponent)
-  if (KINDS.table && !KINDS.table.weapon) KINDS.table.weapon = { dmg: 12, stun: 0.6, kb: 360, knock: 1, post: 40 };
+  if (KINDS.table && !KINDS.table.weapon) KINDS.table.weapon = { dmg: 16, stun: 0.6, kb: 360, knock: 1, post: 40 };
 
   // ------------------------------------------------------------------ the set refills (always something at hand)
   // a prop of the set that is broken (or gone) comes back at its place 5 s later, when nobody stands on the spot
@@ -89,6 +94,7 @@
       return 'block';
     }
     o.takeHit(A.dmg * (f.ch.dmg || 1), A, f, x, y, 'body', f.dir);
+    if (ENV.st && f.dz && f.dz.env) { const k = (isCpu(f) ? 'C:' : 'P:') + f.dz.env.a, e = ENV.st[k] || (ENV.st[k] = [0, 0]); e[1]++; }
     return true;
   }
   const label = (f, s) => { if (D.envLabel) D.envLabel(f, s); };
@@ -104,7 +110,7 @@
   }
   // vault over a prop (table, stool, barrel, bale …): a flying kick when the opponent is just beyond the landing
   ACT.vault = {
-    dur: 0.72, air: [0.2, 0.62],
+    dur: 0.72, air: [0.2, 0.62], kickWin: [0.44, 0.66],
     setup(f, c, p) {
       const K = KINDS[p.k], d = Math.sign(p.x - f.x) || f.dir, x1 = p.x + d * (K.w / 2 + 48), top = topOf(p), o = f.opp;
       f.dir = d;
@@ -113,7 +119,7 @@
       c.kick = !!o && (o.x - x1) * d > -20 && Math.abs(o.x - x1) < 150;
       c.keys = [[0, f.entry], [0.14, pk('dz_d_dashRW'), E.inOutSine], [0.27, pk('jump'), E.inOutSine], [0.42, mod('jump', { lean: 0.35 }), E.inOut],
         c.kick ? [0.52, mod('ua_airB', { f1x: 90, f1y: -30, lean: -0.3 }), E.outQuart] : [0.52, pk('ua_airA'), E.inOut], [0.64, pk('land'), E.outCubic], [0.72, f.P.stance, E.inOut]];
-      c.ev = [[0.52, (f, c) => { if (c.kick && Math.abs(f.opp.x - f.x) < 125) strike(f, f.opp, { dmg: 9, post: 20, kb: 300, stun: 0.5, kind: 'kick', knock: false }, (f.x + f.opp.x) / 2, f.y - 90); }]];
+      c.ev = [[0.52, (f, c) => { if (c.kick && Math.abs(f.opp.x - f.x) < 150) strike(f, f.opp, { dmg: 13, post: 24, kb: 320, stun: 0.55, kind: 'kick', knock: true }, (f.x + f.opp.x) / 2, f.y - 90); }]];
       label(f, c.kick ? 'Vault and kick' : 'Over the ' + p.k);
     },
   };
@@ -137,7 +143,7 @@
   };
   // swing round a post into a kick
   ACT.swing = {
-    dur: 0.78, air: [0.22, 0.5],
+    dur: 0.78, air: [0.22, 0.5], kickWin: [0.4, 0.64],
     setup(f, c, p) {
       const s = Math.sign(p.x - f.x) || f.dir;
       c.X = [[0, f.x], [0.2, p.x - s * 16], [0.42, p.x + s * 26], [0.78, p.x + s * 40]];
@@ -145,7 +151,7 @@
       c.keys = [[0, f.entry], [0.18, mod('ua_pickHigh', { lean: 0.2 }), E.outCubic], [0.34, mod('ua_airA', { lean: -0.45 }), E.inOut],
         [0.48, mod('ua_frontB', { f1x: 92, f1y: -44 }), E.outQuart], [0.62, pk('land'), E.outCubic], [0.78, f.P.stance, E.inOut]];
       c.face = 'opp';
-      c.ev = [[0.48, (f) => { if (Math.abs(f.opp.x - f.x) < 135) strike(f, f.opp, { dmg: 11, post: 24, kb: 380, stun: 0.55, kind: 'kick', knock: true }, (f.x + f.opp.x) / 2, f.y - 100); }]];
+      c.ev = [[0.48, (f) => { if (Math.abs(f.opp.x - f.x) < 155) strike(f, f.opp, { dmg: 14, post: 26, kb: 380, stun: 0.55, kind: 'kick', knock: true }, (f.x + f.opp.x) / 2, f.y - 100); }]];
       label(f, 'Round the post');
     },
   };
@@ -161,14 +167,14 @@
         const L = P.get(c.pid);
         if (!L || L.st === 3) return;
         P.breakProp(L, 'cut', { x: L.x, y: L.y - 40, dx: f.dir, dy: 0.6, by: f });
-        if (Math.abs(f.opp.x - L.x) < 140) strike(f, f.opp, { dmg: 7, post: 10, kb: 140, stun: 0.6, kind: 'blade', knock: false }, f.opp.x, f.opp.y - 150);
+        if (Math.abs(f.opp.x - L.x) < 150) strike(f, f.opp, { dmg: 12, post: 14, kb: 160, stun: 0.6, kind: 'blade', knock: true }, f.opp.x, f.opp.y - 150);
       }]];
       label(f, 'Lantern cut down');
     },
   };
   // off the wall: a flying kick back in
   ACT.wall = {
-    dur: 0.82, air: [0.12, 0.72],
+    dur: 0.82, air: [0.12, 0.72], kickWin: [0.42, 0.74],
     setup(f, c) {
       const w = Math.sign(f.x) || 1, o = f.opp, A = ND.ARENA;
       const x1 = clamp(o.x + w * 70, -A + 20, A - 20);
@@ -178,7 +184,7 @@
         [0.72, pk('land'), E.outCubic], [0.82, f.P.stance, E.inOut]];
       c.dirs = [[0, w], [0.3, -w]]; // (faces the wall on the way up, the opponent on the way back)
       c.ev = [[0.27, (f) => { fx.dust(f.x + Math.sign(f.x) * 10, f.y - 60, 6, 0.8); au.thud(0.7, f.pan); }],
-        [0.5, (f) => { if (Math.abs(f.opp.x - f.x) < 125) strike(f, f.opp, { dmg: 12, post: 24, kb: 420, stun: 0.6, kind: 'kick', knock: true }, (f.x + f.opp.x) / 2, f.y - 90); }]];
+        [0.5, (f) => { if (Math.abs(f.opp.x - f.x) < 150) strike(f, f.opp, { dmg: 16, post: 28, kb: 420, stun: 0.6, kind: 'kick', knock: true }, (f.x + f.opp.x) / 2, f.y - 90); }]];
       label(f, 'Off the wall');
     },
   };
@@ -194,20 +200,20 @@
       c.keys = [[0, f.entry], [0.18, pk('jump'), E.outCubic], [0.3, pk('land'), E.outCubic], [0.44, mod('land', { hy: -60 }), E.inOut],
         [0.62, cut ? pk('dz_d_menW') : pk('ua_airA'), E.outCubic], [0.8, cut ? pk('dz_d_menS') : mod('ua_airB', { f1x: 90 }), E.outQuart], [1.0, f.P.stance, E.inOut]];
       c.face = 'opp';
-      c.ev = [[0.8, (f) => { if (Math.abs(f.opp.x - f.x) < 130) strike(f, f.opp, { dmg: cut ? 14 : 10, post: 30, kb: 340, stun: 0.6, kind: cut ? 'blade' : 'kick', knock: true }, (f.x + f.opp.x) / 2, -120); }]];
+      c.ev = [[0.8, (f) => { if (Math.abs(f.opp.x - f.x) < 150) strike(f, f.opp, { dmg: cut ? 17 : 14, post: 30, kb: 340, stun: 0.6, kind: cut ? 'blade' : 'kick', knock: true }, (f.x + f.opp.x) / 2, -120); }]];
       label(f, 'From the steps');
     },
   };
   // the blade bites the post: the defender slips behind it (defender's action) …
   ACT.dodgePost = {
-    dur: 1.0,
+    dur: 1.0, kickWin: [0.6, 0.86],
     setup(f, c, p) {
       const s = Math.sign(p.x - f.opp.x) || -f.dir; // (the far side of the post from the attacker)
       c.X = [[0, f.x], [0.18, p.x + s * 30], [0.6, p.x + s * 30], [0.75, p.x + s * 24], [1.0, p.x + s * 30]];
       c.keys = [[0, f.entry], [0.16, mod('ua_sweepA', { hy: -44, lean: 0.55 }), E.outCubic], [0.5, mod('ua_sweepA', { hy: -44, lean: 0.55 })],
         [0.62, pk('ua_frontA'), E.inOutSine], [0.72, mod('ua_frontB', { f1x: 90, f1y: -40 }), E.outQuart], [1.0, f.P.stance, E.inOut]];
       c.face = 'opp';
-      c.ev = [[0.72, (f) => { if (Math.abs(f.opp.x - f.x) < 140) strike(f, f.opp, { dmg: 10, post: 20, kb: 320, stun: 0.6, kind: 'kick', knock: true }, (f.x + f.opp.x) / 2, f.y - 100); }]];
+      c.ev = [[0.72, (f) => { if (Math.abs(f.opp.x - f.x) < 155) strike(f, f.opp, { dmg: 14, post: 24, kb: 320, stun: 0.6, kind: 'kick', knock: true }, (f.x + f.opp.x) / 2, f.y - 100); }]];
       label(f, 'Blade stuck in the post!');
     },
   };
@@ -226,6 +232,18 @@
         [0.86, (f) => { au.swoosh(0.7, f.pan); }]];
     },
   };
+  // spilled sake / water underfoot: the feet go, down on the back (then the fight's own down and get-up)
+  ACT.slip = {
+    dur: 0.5, kickWin: [0, 0.5], // (the feet go up: not into him)
+    setup(f, c) {
+      const d = f.vx ? Math.sign(f.vx) : f.dir;
+      c.X = [[0, f.x], [0.3, f.x + d * 26], [0.5, f.x + d * 34]];
+      c.keys = [[0, f.entry], [0.16, mod('launch', { lean: -0.7 }), E.outCubic], [0.42, pk('down'), E.inCubic || E.inOut]];
+      c.ev = [[0.08, (f) => { au.thud(0.6, f.pan); }], [0.46, (f) => { fx.dust(f.x, 0, 8, 0.9); au.thud(1.0, f.pan); cam.punch(4); }],
+        [0.5, (f) => { f.dz.env = null; f.setState('down'); }]];
+      label(f, 'Slipped on the ' + (f.dz.envLiq || 'sake') + '!');
+    },
+  };
 
   function start(f, name, p) {
     const A = ACT[name];
@@ -235,6 +253,7 @@
     f.dz.env = c;
     A.setup(f, c, p);
     if (D.stats) D.stats.envActs = (D.stats.envActs || 0) + 1;
+    if (ENV.st) { const k = (isCpu(f) ? 'C:' : 'P:') + name, e = ENV.st[k] || (ENV.st[k] = [0, 0]); e[0]++; }
     remember(f, name);
     return true;
   }
@@ -262,17 +281,25 @@
     while (c.evi < c.ev.length && t >= c.ev[c.evi][0]) { const e = c.ev[c.evi++]; e[1](this, c); }
     if (this.state !== 'denv') return; // (an event ended it)
     if (c.keys) pose.seq(c.keys, Math.min(t, A.dur), this.pose);
+    const x0 = this.x;
     if (c.X) this.x = clamp(track(c.X, t), -ND.ARENA, ND.ARENA);
+    // (a kick lands from a leg's length off: the foot meets the body, it does not go into it)
+    if (A.kickWin && t > A.kickWin[0] && t < A.kickWin[1] && o && !o.dead && Math.abs(o.x - this.x) < KICK_SEP && (c.a !== 'vault' || c.kick)) {
+      const sd = Math.sign(this.x - o.x) || -this.dir || -1;
+      this.x = clamp(o.x + sd * KICK_SEP, -ND.ARENA, ND.ARENA);
+    }
     const y = c.Y ? track(c.Y, t) : 0;
-    this.y = y; this.vx = 0; this.vy = 0; this.onGround = y > -1 && !(A.air && t > A.air[0] && t < A.air[1]);
+    // (vx: the track's own speed - the spacing lets the one who moves give way; physics adds nothing: x is set here)
+    this.y = y; this.vx = dt > 0 ? (this.x - x0) / dt : 0; this.vy = 0; this.onGround = y > -1 && !(A.air && t > A.air[0] && t < A.air[1]);
     if (c.dirs) { for (const d of c.dirs) if (t >= d[0]) this.dir = d[1]; }
     else if (c.face === 'opp' && o) this.dir = o.x >= this.x ? 1 : -1;
     else if (c.face === 'post') { const q = P.get(c.pid); if (q) this.dir = q.x >= this.x ? 1 : -1; }
-    if (t >= A.dur) { this.dz.env = null; this.dz.envRep = 1.5; this.y = 0; this.onGround = true; this.setState('move'); }
+    if (t >= A.dur) { this.dz.env = null; this.dz.envRep = 1.5; this.y = 0; this.vx = 0; this.onGround = true; this.setState('move'); }
   };
   FP.isInv = function () {
     const c = this.dz && this.state === 'denv' ? this.dz.env : null;
-    if (c) { const A = ACT[c.a]; if (A.air && c.t > A.air[0] && c.t < A.air[1]) return true; }
+    // (untouchable only at the top of the air part: the take-off and the landing can be caught)
+    if (c) { const A = ACT[c.a]; if (A.air) { const m = (A.air[1] - A.air[0]) / 3; if (c.t > A.air[0] + m && c.t < A.air[1] - m) return true; } }
     return inv0.call(this);
   };
   FP.passing = function () { const c = this.dz && this.state === 'denv' ? this.dz.env : null; return !!(c && (c.a === 'vault' || c.a === 'wall' || c.a === 'steps')) || pass0.call(this); };
@@ -322,9 +349,9 @@
       if (best) out.push(['p:shove', best, best.k === 'table' ? 4 : 2.5]);
     }
     const kk = P.nearest(f, (p) => KINDS[p.k].kick && !KINDS[p.k].fixed && p.st === 0 && Math.abs(o.x - p.x) < 520 && Math.abs(o.x - p.x) > 90, 230);
-    if (kk) out.push(['p:kick', kk.p, 1.6]);
+    if (kk) out.push(['p:kick', kk.p, 3]); // (from range: a prop kicked at him costs no opening)
     const cc = P.nearest(f, (p) => KINDS[p.k].carry && p.st === 0, 260);
-    if (cc && !P.held(f)) out.push(['p:grab', cc.p, dist > 170 ? 1.4 : 1]);
+    if (cc && !P.held(f)) out.push(['p:grab', cc.p, dist > 170 ? 2.5 : 1]);
     return out;
   }
   function doOption(f, e) {
@@ -339,7 +366,7 @@
   }
 
   // ------------------------------------------------------------------ the CPU's eye for the set
-  const ENV = D.env2 = { gap: [1.0, 2.2] };
+  const ENV = D.env2 = { gap: [0.8, 1.8], st: {} }; // (st: station moves started / landed, by name, for the audits)
   function pairBite(d, a, p) {
     if (!start(d, 'dodgePost', p)) return false;
     start(a, 'stuck', p);
@@ -352,27 +379,39 @@
     // the post's trick is a reaction: his cut is coming and I stand by a post
     const o = f.opp;
     if (o && !o.dead && o.state === 'atk' && o.atk && o.atk.kind === 'blade' && o.atk.active && o.st < o.atk.active[0] - 0.05 && armed(o) && free(f) && !S.tasks[f.id]) {
-      const ps = near(f, (p) => p.k === 'post', 85);
-      if (ps && Math.abs(o.x - f.x) < 170 && rnd() < h * 6) { pairBite(f, o, ps); return; }
+      const ps = near(f, (p) => p.k === 'post', 100);
+      if (ps && Math.abs(o.x - f.x) < 180 && rnd() < h * 14) { pairBite(f, o, ps); return; }
+    }
+    // a prop in hand: use it (the props module's own CPU walks off to props on a timer - a time sink: off, see enable)
+    const held = P.held(f);
+    if (held && free(f) && !S.tasks[f.id]) {
+      const K = KINDS[held.k], dist = Math.abs(o.x - f.x);
+      z.envHeld = (z.envHeld || 0) + h;
+      if (dist < 130 && o.state !== 'atk' && rnd() < h * 4) { if (P.act(f, K.swing ? 'swing' : 'smash')) z.envHeld = 0; }
+      else if (K.throw && ((dist > 200 && dist < 560 && rnd() < h * 1.2) || z.envHeld > 4)) { if (P.act(f, 'throw')) z.envHeld = 0; }
+      return;
     }
     if (z.envCd > 0) return;
     const db = ENV.dbg; if (db) { db.look++; if (S.tasks[f.id]) db.task++; else if (!free(f)) { db.busy++; db.st[f.state] = (db.st[f.state] || 0) + 1; } else if (P.held(f)) db.held++; }
     // (an attack it has only just begun counts as free: the station's move takes its place)
-    const starting = (f.state === 'atk' && f.st < 0.1 && f.onGround && f.atk && !f.atk.special && !f.atk.prop) || ((f.state === 'block' || f.state === 'recoil' || f.state === 'dodge') && f.st > 0.12 && f.onGround);
+    // (from a free stance, or a plain blow only just begun: given up for a station move only when that pays - choose
+    // keeps what good() allows: an opening, or room)
+    const starting = f.state === 'atk' && f.st < 0.08 && f.onGround && f.atk && !f.atk.special && !f.atk.prop && !/^pr_/.test(f.atkName || '');
     if (S.tasks[f.id] || !(free(f) || starting) || P.held(f) || z.cine) return;
     if (choose(f)) return;
     z.envCd = 0.25; // (nothing at hand: look again soon)
     {
       // nothing in reach: now and then walk over to the nearest station (the set is there to be used)
-      if (rnd() < 0.35) {
+      if (Math.abs(o.x - f.x) > 300 && rnd() < 0.35) {
         const recent = (z.envR || '') + ',' + (z.envGoK || '');
         // (the table above all: him beyond it, I go to it and it comes over at him)
         const toward = Math.sign(o.x - f.x) || f.dir;
         const tb = recent.indexOf('flip') < 0 && near(f, (p) => p.k === 'table' && (p.x - f.x) * toward > 60 && (o.x - p.x) * toward > -30 && Math.abs(o.x - p.x) < 300, 460);
         if (tb && rnd() < 0.7 && P.go(f, tb, 'none')) { z.envGoK = 'table'; z.envCd = 0.2; return; }
         // (a station near him: when I get there, it is in play)
-        const st = Math.abs(o.x - f.x) > 420 ? null : near(f, (p) => STATION[p.k] && Math.abs(p.x - f.x) > 90 && Math.abs(p.x - o.x) < 260 && recent.indexOf(p.k) < 0, 480)
-          || near(f, (p) => STATION[p.k] && Math.abs(p.x - f.x) > 90 && Math.abs(p.x - o.x) < 300, 480);
+        // (only one on the way to him: walking off from him to a station is the time the set must not cost)
+        const way = (p) => STATION[p.k] && (p.x - f.x) * toward > 90 && Math.abs(p.x - o.x) < 260;
+        const st = Math.abs(o.x - f.x) > 420 ? null : near(f, (p) => way(p) && recent.indexOf(p.k) < 0, 480) || near(f, way, 480);
         if (st) z.envGoK = st.k;
         if (st && P.go(f, st, 'none')) z.envCd = 0.2;
       }
@@ -381,9 +420,33 @@
   }
   // the CPU's pick among what is at hand: never the same trick twice in a row, seldom the one before, what it has done
   // lately counts little (the set is used all over, not one trick again and again). true if it started one
+  // the CPU takes a station only when it pays: its blow will reach him from where the move ends (he stays where he is)
+  // and his own blow is not about to land on me while I set it up (a station move is a real attack, not a pause)
+  function good(f, e) {
+    const o = f.opp, name = e[0], p = e[1], dist = Math.abs(o.x - f.x);
+    if (o.state === 'atk' && o.atk && o.atk.active && o.st < o.atk.active[1] && dist < 190) return false;
+    if (name === 'p:grab' || name === 'p:rearm') return name === 'p:rearm' || (dist > 160 && dist < 420); // (picking up: while he is down is the time)
+    if (name === 'p:kick') return Math.abs(o.x - p.x) < 280 && (o.x - p.x) * (p.x - f.x) > 0 && dist > 90; // (a quick kick from behind the prop)
+    // (nothing to hit: him on the floor, getting up, rolling, dodging or untouchable - the blow would land on nothing)
+    if (o.dead || o.state === 'down' || o.state === 'getup' || o.state === 'launch' || o.state === 'droll' || o.state === 'dodge' || (o.isInv && o.isInv())) return false;
+    // (close in, never: a set piece started under his nose gets cut - in 60-match tests every close-range use cost the
+    // CPU more than it won; the set is used from room: kicked props, the wall, the steps, the post when he swings)
+    if (dist < 150 && name !== 'p:shove') return false;
+    switch (name) {
+      case 'vault': { const K = KINDS[p.k], d = Math.sign(p.x - f.x) || f.dir, x1 = p.x + d * (K.w / 2 + 48); return (o.x - x1) * d > -20 && Math.abs(o.x - x1) < 110; }
+      case 'swing': { const s = Math.sign(p.x - f.x) || f.dir; return Math.abs(o.x - (p.x + s * 34)) < 100 && (o.x - p.x) * s > 0; }
+      case 'lantern': return Math.abs(o.x - p.x) < 105;
+      case 'wall': return dist > 110 && dist < 300;
+      case 'steps': return dist > 130 && dist < 300;
+      case 'flip': return (o.x - p.x) * Math.sign(p.x - f.x) < 300;
+      case 'p:kick': return Math.abs(o.x - p.x) < 280 && (o.x - p.x) * (p.x - f.x) > 0;
+      case 'p:grab': return dist > 160 && dist < 420;
+      default: return true;
+    }
+  }
   function choose(f) {
     const z = f.dz, R0 = (z.envR || '').split(',');
-    const L = options(f).concat(propOptions(f)).filter((e) => e[0] !== R0[0] && !(e[0] === R0[1] && rnd() < 0.6));
+    const L = options(f).concat(propOptions(f)).filter((e) => e[0] !== R0[0] && !(e[0] === R0[1] && rnd() < 0.6) && good(f, e));
     if (ENV.dbg) { ENV.dbg.free++; if (!L.length) ENV.dbg.none++; }
     if (!L.length) return false;
     let tot = 0;
@@ -446,6 +509,142 @@
     }
   }
 
+  // ------------------------------------------------------------------ spilled sake / water: a slip
+  // A broken bottle, cup, jar, barrel or bucket leaves a puddle (G.flags.envSpill: [x, life,
+  // liquid]) for 6 s; the first player who runs across it slips (once per puddle, once a round; the CPU steps round).
+  // (found in the step itself, not through the props module's events: those only fire on drawn steps)
+  function newSpills() {
+    const Fl = G.flags;
+    if (!Fl) return;
+    const seen = Fl.envSeen || (Fl.envSeen = []);
+    for (const p of S.items) {
+      if (p.st !== 3 || seen.indexOf(p.id) >= 0) continue;
+      seen.push(p.id);
+      const K = KINDS[p.k];
+      if (!K || !K.liquid) continue;
+      const L = Fl.envSpill || (Fl.envSpill = []);
+      if (L.filter((q) => !q[3]).length < 4) L.push([p.x, 6, K.liquid, 0]);
+    }
+  }
+  function spills(h, F) {
+    newSpills();
+    const L = G.flags && G.flags.envSpill;
+    if (!L || !L.length) return;
+    for (let i = L.length - 1; i >= 0; i--) {
+      const sp = L[i];
+      sp[1] -= h;
+      if (sp[1] <= 0) { L.splice(i, 1); continue; }
+      if (sp[1] > 5.6 || sp[3] || G.phase !== 'fight') continue; // (it spreads first; one slip a pool - it stays to be seen)
+      for (const f of F) {
+        const z = f.dz;
+        if (!z || f.dead || f.state !== 'move' || !f.onGround || Math.abs(f.vx) < 170 || Math.abs(f.x - sp[0]) > 22 || z.envSlipT > 0 || z.envSlips || isCpu(f)) continue; // (the CPU sees the pool and steps round it)
+        z.envLiq = sp[2]; z.envSlipT = 4; z.envSlips = 1; // (once a round: a gag, not a trap)
+        if (start(f, 'slip', null)) { sp[3] = 1; break; }
+      }
+    }
+    for (const f of F) if (f.dz && f.dz.envSlipT > 0) f.dz.envSlipT -= h;
+  }
+
+  // ------------------------------------------------------------------ spacing: two bodies never in one place
+  // The duel's own push-box (game.separate in duel mode; the normal game keeps its own). Outside a bind, a clinch, the
+  // showpiece or a cinematic the fight never has the two closer than SEP: a dash, dodge, roll, riposte that would carry
+  // one through the other stops short on its own side. Sides change only by going over (one clear over the other's
+  // head) or by a special made to cut through (its cross; never within THRU). A body knocked down lies DOWN_SEP off the
+  // other (it slides on, the other stays); a launched body is kept LAUNCH_SEP off, a body in the air ABOVE_SEP off when
+  // it is above the other, AIR_SEP otherwise; a kick lands from KICK_SEP (the foot meets the body, it does not go in).
+  // Each fighter's side is fight state (f.dz.side).
+  const KICK_SEP = 78, FOOT_SEP = 56; // (a station kick / a roll: a leg's length; a fight kick: close enough to land)
+  const SEP = 40, DOWN_SEP = 50, LAUNCH_SEP = 60, AIR_SEP = 72, OVER = 175, ABOVE = 40, ABOVE_SEP = 100;
+  const held = (f) => f.state === 'lock' || f.state === 'dbind' || f.state === 'dseq' || !!(f.dz && f.dz.cine);
+  const lying = (f) => f.state === 'down' || f.state === 'getup' || (f.state === 'launch' && f.onGround);
+  const placeApart = (a, b, s, gap, wa) => {
+    const A = ND.ARENA, d = b.x - a.x, push = gap - d * s;
+    if (push <= 0) return;
+    a.x -= s * push * wa; b.x += s * push * (1 - wa);
+    if (Math.abs(a.x) > A) { const o = Math.abs(a.x) - A; a.x = Math.sign(a.x) * A; b.x += s * o; }
+    if (Math.abs(b.x) > A) { const o = Math.abs(b.x) - A; b.x = Math.sign(b.x) * A; a.x -= s * o; }
+  };
+  // (a special made to go through - its cross - goes through, but never stands in the other: |dx| >= THRU)
+  const THRU = 36;
+  const through = (f) => f.passing && f.passing() && f.state === 'atk' && f.atk && f.atk.cross;
+  function spacing(g, a, b) {
+    const za = a.dz, d = b.x - a.x;
+    const side = za.side || Math.sign(d) || a.dir || 1;
+    if (g.lock || held(a) || held(b) || (a.dead && b.dead)) { if (d) za.side = Math.sign(d); return; }
+    // (the one cut down falls where he stands: the other is not drawn inside him - it stops short, or a special that
+    // cuts through goes on past)
+    if (a.dead || b.dead) {
+      const live = a.dead ? b : a, dead = a.dead ? a : b;
+      if (through(live)) {
+        if (Math.abs(d) < THRU) { const h = Math.sign(live.vx) || live.dir || 1, A = ND.ARENA, past = dead.x + h * THRU; live.x = Math.abs(past) <= A ? past : Math.max(-A, Math.min(A, dead.x - h * THRU)); }
+      }
+      else placeApart(a, b, side, SEP, live === a ? 1 : 0);
+      if (b.x !== a.x) za.side = Math.sign(b.x - a.x);
+      return;
+    }
+    const over = Math.abs(a.y - b.y) > OVER, la = lying(a), lb = lying(b);
+    const after = () => { if (b.x !== a.x) za.side = Math.sign(b.x - a.x); };
+    // a body on the floor: never under the other's feet, whoever is in the air over it (the lying one slides on)
+    // (and a body coming down over it - thrown, jumping, off the steps - gives way itself: it does not land on him)
+    if (la !== lb) {
+      const up = la ? b : a, inAir = !up.onGround && up.y < -20;
+      const gap = inAir ? Math.max(DOWN_SEP, up.state === 'launch' ? LAUNCH_SEP : AIR_SEP) : DOWN_SEP;
+      placeApart(a, b, over ? Math.sign(d) || side : side, gap, inAir ? (up === a ? 1 : 0) : la ? 1 : 0);
+      return after();
+    }
+    if (over) {
+      // (round the other, over: the side may change; a launched body is still not stacked on the other's x)
+      const L = a.state === 'launch' && !a.onGround ? a : b.state === 'launch' && !b.onGround ? b : null;
+      if (L && Math.abs(d) < LAUNCH_SEP) placeApart(a, b, Math.sign(d) || side, LAUNCH_SEP, L === a ? 1 : 0);
+      return after();
+    }
+    const ta = through(a), tb = through(b), Lx = (a.state === 'launch' && !a.onGround) || (b.state === 'launch' && !b.onGround);
+    if ((ta || tb) && !Lx) {
+      if (Math.abs(d) < THRU) {
+        // (the one going through is past the other at once, on the side it is heading to)
+        // (no room past him - he is against the wall: it stops short instead)
+        const m = ta ? a : b, o = m === a ? b : a, h = Math.sign(m.vx) || m.dir || 1, A = ND.ARENA, past = o.x + h * THRU;
+        m.x = Math.abs(past) <= A ? past : Math.max(-A, Math.min(A, o.x - h * THRU));
+      }
+      return after();
+    }
+    // on the same ground: kept apart on the sides they had (a crossing is undone: it stops short)
+    // (a body in the air above the other - thrown up, or coming down - keeps its flailing legs off the head under it)
+    const hi = a.y < b.y - ABOVE && !a.onGround ? a : b.y < a.y - ABOVE && !b.onGround ? b : null;
+    if (hi) { placeApart(a, b, side, ABOVE_SEP, hi === a ? 1 : 0); za.side = side; return; }
+    // (a kick lands from a leg's length: the kicker stops there, the foot meets the body)
+    const kicking = (f) => f.state === 'atk' && f.atk && f.atk.kind === 'kick' && f.atk.active && f.st > f.atk.active[0] - 0.08 && f.st < f.atk.active[1] + 0.08;
+    // (and a roll tumbles a body's length: it stops a leg's length off him too)
+    const kk = kicking(a) || a.state === 'droll' ? a : kicking(b) || b.state === 'droll' ? b : null;
+    if (kk) { placeApart(a, b, side, kk.state === 'droll' ? KICK_SEP : FOOT_SEP, kk === a ? 1 : 0); za.side = side; return; }
+    const Lg = a.state === 'launch' ? a : b.state === 'launch' ? b : null;
+    // (a body in the air - a jump, an air attack, a station move over a prop or off the wall - keeps its legs off him)
+    const airEnv = (f) => !f.onGround && f.y < -20 && f.state !== 'launch';
+    const gap = la && lb ? DOWN_SEP : Lg ? LAUNCH_SEP : airEnv(a) || airEnv(b) ? AIR_SEP : SEP;
+    // (who gives way: a launched body flies on; else the one moving - the dash that ran in stops short, the one standing
+    // there is not shoved)
+    const va = Math.abs(a.vx || 0), vb = Math.abs(b.vx || 0);
+    placeApart(a, b, side, gap, Lg ? (Lg === a ? 1 : 0) : va + vb > 1 ? va / (va + vb) : 0.5);
+    za.side = side;
+  }
+  const sep0 = G.separate, SEP_OFF = /[?&]dsep=0(&|$)/.test(location.search || ''); // (?dsep=0: the old push-box, to compare)
+  if (sep0 && !SEP_OFF) {
+    G.separate = function () {
+      const F = this.F || G.F;
+      if (!F || !F[0] || !F[1] || !F[0].dz || !F[1].dz) return sep0.call(this);
+      spacing(this, F[0], F[1]);
+    };
+    // (and once more at the end of the whole step: what moves a body after the push - a special's own placing, the
+    // props, the hits - does not leave the two inside each other either)
+    const up0 = G.update;
+    G.update = function () {
+      const r = up0.apply(this, arguments);
+      const F = this.F || G.F;
+      if (F && F[0] && F[1] && F[0].dz && F[1].dz && (this.phase === 'fight' || this.phase === 'ko')) spacing(this, F[0], F[1]);
+      return r;
+    };
+  }
+
   // ------------------------------------------------------------------ every step (the props module's step)
   // kicked through the table: a body that comes down on it breaks it (and does not only bounce)
   function throughTable(F) {
@@ -466,10 +665,161 @@
     if (P.live && F) {
       for (const f of F) if (!human(f)) think(f, h);
       throughTable(F);
+      spills(h, F);
       refill(h, F);
     }
     return step0.apply(this, arguments);
   };
+
+  // ------------------------------------------------------------------ drawing: the shrine steps (temple)
+  // The temple's raised deck is the station "From the steps": the market's low veranda picture read as a dark bench, so
+  // here it is drawn as a shrine platform - the deck at its true height (48, where the fighter stands), stone steps up to
+  // it at both ends, posts, a red railing behind, lit edges. Drawing only: the prop and its hull are the veranda's.
+  function drawShrine(ctx, p) {
+    const K = KINDS[p.k], bx = p.x - K._com[0] * (p.fx || 1), by = p.y - K._com[1], hw = K.w / 2, top = K.top;
+    const box = (x, y, w, h, fill, line) => { ctx.beginPath(); ctx.rect(x, y, w, h); ctx.fillStyle = fill; ctx.fill(); if (line) { ctx.strokeStyle = line; ctx.lineWidth = 1.4; ctx.stroke(); } };
+    const ln = (pts, col, w) => { ctx.beginPath(); for (const q of pts) { ctx.moveTo(q[0], q[1]); ctx.lineTo(q[2], q[3]); } ctx.strokeStyle = col; ctx.lineWidth = w; ctx.stroke(); };
+    ctx.save();
+    ctx.translate(bx, by); ctx.lineJoin = 'round';
+    // the red railing behind the deck (the fighters stand in front of it)
+    for (let x = -hw + 6; x <= hw - 5; x += 37) box(x - 3.5, -top - 40, 7, 40, '#7d2219', '#2a0d09');
+    box(-hw + 2, -top - 44, K.w - 4, 7, '#a8342a', '#2a0d09');
+    box(-hw + 2, -top - 22, K.w - 4, 3.5, '#8a281f', '#2a0d09');
+    ln([[-hw + 3, -top - 43.2, hw - 3, -top - 43.2]], 'rgba(255,190,150,.55)', 1.2);
+    // dark under the deck, the posts down to the ground
+    box(-hw, -top + 9, K.w, top - 9, 'rgba(12,8,6,.94)');
+    for (const x of [-hw + 5, -hw / 2, 0, hw / 2, hw - 5]) box(x - 4.5, -top + 8, 9, top - 8, '#3a2415', '#160b05');
+    // the deck: front beam, boards, a lit lip
+    box(-hw - 3, -top, K.w + 6, 10, '#7a5232', '#1e1008');
+    ln([[-hw - 2, -top + 0.8, hw + 2, -top + 0.8]], 'rgba(255,214,160,.7)', 1.6);
+    ln([[-hw / 2, -top + 2, -hw / 2, -top + 9], [0, -top + 2, 0, -top + 9], [hw / 2, -top + 2, hw / 2, -top + 9]], 'rgba(30,16,8,.55)', 0.9);
+    // stone steps at both ends: two steps up to the deck
+    for (const s of [-1, 1]) {
+      const x0 = s * (hw + 3);
+      for (const [h, d] of [[top / 3, 42], [(2 * top) / 3, 26]]) {
+        const xa = s > 0 ? x0 : x0 - d;
+        box(xa, -h, d, h, '#77726b', '#1f1d1b');
+        box(xa, -h, d, 4, '#9a948a');
+        ln([[xa + 1, -h + 0.8, xa + d - 1, -h + 0.8]], 'rgba(250,240,215,.85)', 1.5);
+      }
+    }
+    ctx.restore();
+  }
+  // a puddle: a thin glossy pool on the floor, sake amber or water grey-blue, gone over its last 1.5 s
+  function drawSpills(ctx) {
+    const L = G.flags && G.flags.envSpill;
+    if (!L || !L.length) return;
+    ctx.save();
+    for (const sp of L) {
+      const grow = Math.min(1, (6 - sp[1]) / 0.4), a = Math.min(1, sp[1] / 1.5), w = 30 + 16 * grow;
+      const col = sp[2] === 'water' ? '120,150,175' : '205,170,105';
+      ctx.globalAlpha = 0.85 * a;
+      ctx.beginPath(); ctx.ellipse(sp[0], 1, w, 6, 0, 0, Math.PI * 2); ctx.fillStyle = `rgba(${col},.8)`; ctx.fill();
+      ctx.beginPath(); ctx.ellipse(sp[0] + w * 0.4, 2, w * 0.4, 4, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 0.9 * a;
+      ctx.beginPath(); ctx.ellipse(sp[0] - w * 0.25, -0.5, w * 0.4, 1.6, 0, 0, Math.PI * 2); ctx.fillStyle = 'rgba(255,248,230,.9)'; ctx.fill();
+    }
+    ctx.restore();
+  }
+  if (P.draw) {
+    const pdraw0 = P.draw;
+    P.draw = function (ctx, layer) {
+      hookMocap();
+      if (layer !== 'back' || !G.F || !G.F[0] || !G.F[0].dz) return pdraw0.call(this, ctx, layer);
+      const v = S.arena === 'temple' ? S.items.filter((p) => p.k === 'veranda' && p.st === 0) : [];
+      cam.world(ctx);
+      for (const p of v) drawShrine(ctx, p);
+      // (the market's veranda picture is left out for this one call: the deck above stands in its place)
+      for (const p of v) p.st = 2;
+      try { pdraw0.call(this, ctx, layer); } finally { for (const p of v) p.st = 0; }
+      cam.world(ctx);
+      drawSpills(ctx); // (over the broken pieces: the pool is what the slip is about)
+    };
+  }
+
+  // ------------------------------------------------------------------ drawing: recorded motion in the stations
+  // The mocap agent's arena clips (ND.duel.mocap.act, drawing only) play inside the station moves: each clip's action
+  // part time-scaled onto the move's own window (the move's timing, position and height stay the fight's truth). The
+  // clip's own rise is taken off while the fight already lifts the body (the hip follows the fight's height: the jump is
+  // not counted twice). No clip yet (still loading): the hand-keyed poses.
+  //   [clip, clip from, clip to, move t0, move t1, legs]
+  const MCL = {
+    vault: ['fRunJumpOver', 0.32, 1.26, 0, 0.7, 'air'],
+    wall: ['fBackflip', 0, 0.66, 0, 0.47, 'air'],
+    steps: ['fStepstoolJump', 0.3, 0.78, 0.36, 0.6, 'air'], // (then the hand-keyed overhead cut on the way down)
+    vaultKick: ['fRunJumpOver', 0.32, 0.95, 0, 0.46, 'air'], // (the jump; the kick itself hand-keyed)
+    slip: ['fSlipSake', 0.05, 1.25, 0, 1.25, 'down'],
+  };
+  const MCG = ['fStoolPick', 0.05, 0.75, 0, 0.42, null]; // (the stool picked up: the props module's pr_grab)
+  const MCS = new WeakMap(), HIPS = {};
+  // the clip's hip height at clip time t (sampled once, 60 a second)
+  function hipAt(id, t) {
+    const Mo = ND.mocap, C = Mo && Mo.clips && Mo.clips[id];
+    if (!C) return null;
+    let H = HIPS[id];
+    if (!H) { H = HIPS[id] = []; const fr = Mo.newFrame(); for (let i = 0; i <= Math.ceil(C.dur * 60); i++) { Mo.sample(C, i / 60, fr); H.push(fr.hip[1]); } }
+    const x = clamp(t * 60, 0, H.length - 1), i = Math.floor(x), u = x - i;
+    return H[i] + (H[Math.min(H.length - 1, i + 1)] - H[i]) * u;
+  }
+  // which clip plays for f now, and where in it: { m, ct } or null
+  function mcNow(f) {
+    if (!f.dz || f.dead) return null;
+    const c = f.state === 'denv' ? f.dz.env : null;
+    if (c && MCL[c.a]) { const m = c.a === 'vault' && c.kick ? MCL.vaultKick : MCL[c.a]; if (c.t < m[3] || c.t > m[4]) return null; return { m, t: c.t, key: f.serial + ':' + c.a }; }
+    if (f.state === 'atk' && f.atkName === 'pr_grab' && f.mem && f.mem.pid != null) {
+      const q = P.get(f.mem.pid);
+      if (q && q.k === 'stool' && f.st <= MCG[4]) return { m: MCG, t: f.st, key: f.serial + ':grab' };
+    }
+    return null;
+  }
+  // start the clip at the matching point when the move reaches its window (once per move); the lift to take off
+  function mcLift(f) {
+    const MD = D.mocap;
+    if (!MD || !MD.ready || !MD.act) return 0;
+    const n = mcNow(f), st = MCS.get(f);
+    if (!n) {
+      // (a move cut short - hit out of it: the clip stops with it; one that ran its window plays out and fades. The
+      // slip's clip carries on through the fight's own down that follows it)
+      if (st && st.on) {
+        const c = f.state === 'denv' && f.dz && f.dz.env ? f.serial + ':' + f.dz.env.a : f.state === 'atk' && f.atkName === 'pr_grab' ? f.serial + ':grab' : null;
+        if (c !== st.key && st.id !== 'fSlipSake' && MD.actOf(f) === st.id) MD.actStop(f);
+        st.on = false;
+      }
+      return 0;
+    }
+    const m = n.m, span = m[4] - m[3], ct = m[1] + (m[2] - m[1]) * clamp((n.t - m[3]) / span, 0, 1);
+    if (!st || st.key !== n.key) {
+      if (!MD.act(f, m[0], { from: ct, to: m[2], dur: Math.max(0.05, m[4] - n.t), legs: m[5] || undefined, keepSword: true, fade: 0.1 })) return 0;
+      MCS.set(f, { key: n.key, id: m[0], on: true });
+    }
+    if (m[5] !== 'air') return 0;
+    const h0 = hipAt(m[0], m[1]), h = hipAt(m[0], ct);
+    return h0 == null || h == null ? 0 : Math.max(0, h0 - h);
+  }
+  D.envClip = mcNow;
+  // (wrapped outside the recorded-motion drawing, which loads after this file: the first prop drawing hooks it)
+  let hooked = false;
+  function hookMocap() {
+    if (hooked || !D.mocap || !D.mocap.act) return;
+    hooked = true;
+    const draw1 = FP.draw;
+    FP.draw = function (ctx, reflect, layer) {
+      const l = reflect ? 0 : mcLift(this);
+      if (!l) return draw1.call(this, ctx, reflect, layer);
+      const y0 = this.y; this.y = y0 + l;
+      try { return draw1.call(this, ctx, reflect, layer); } finally { this.y = y0; }
+    };
+    const A3 = ND.depth25;
+    if (A3 && A3.snap) {
+      const snap1 = A3.snap;
+      A3.snap = function (f, o) {
+        const l = f ? mcLift(f) : 0;
+        if (!l) return snap1.call(this, f, o);
+        const y0 = f.y; f.y = y0 + l;
+        try { return snap1.call(this, f, o); } finally { f.y = y0; }
+      };
+    }
+  }
 
   // ------------------------------------------------------------------ drawing: the set never hides the fight
   const duelOn = () => !!(G.F && G.F[0] && G.F[0].dz && (G.phase === 'fight' || G.phase === 'ko' || G.phase === 'intro'));
