@@ -74,16 +74,30 @@
     if (!S.hud) return;
     try { drawDuel(ctx); } catch (e) { /* the test overlay must never break a frame */ }
   };
+  // every text the overlay draws this frame, as a box (scripts/duel-labels.mjs: no two may overlap)
+  D.textBoxes = [];
   function txt(ctx, s, x, y, px, col, align = 'center', a = 1) {
     ctx.globalAlpha = a; ctx.font = `700 ${Math.round(px)}px Oswald, sans-serif`; ctx.textAlign = align; ctx.textBaseline = 'middle';
+    // (one text per place: a text that would land on one already drawn this frame is left out. The overlay draws the
+    // most important first: the headline, the defence / technique label, then the prompts, names and markers)
+    if (a > 0.05 && s) {
+      const w = ctx.measureText(s).width, x0 = align === 'center' ? x - w / 2 : align === 'right' ? x - w : x, bx = { s: String(s), x0, y0: y - px * 0.55, x1: x0 + w, y1: y + px * 0.55 };
+      for (const o of D.textBoxes) if (Math.min(o.x1, bx.x1) - Math.max(o.x0, bx.x0) > 1 && Math.min(o.y1, bx.y1) - Math.max(o.y0, bx.y0) > 1) { ctx.globalAlpha = 1; return; }
+      D.textBoxes.push(bx);
+    }
     ctx.lineWidth = Math.max(2, px * 0.2); ctx.strokeStyle = 'rgba(5,6,12,.88)'; ctx.strokeText(s, x, y); ctx.fillStyle = col; ctx.fillText(s, x, y);
     ctx.globalAlpha = 1;
   }
   const human = (f) => !!(G.isHuman && G.isHuman(f));
   function drawDuel(ctx) {
+    D.textBoxes.length = 0;
     if (!G.F || !(G.phase === 'fight' || G.phase === 'ko' || G.phase === 'intro')) return;
     ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
     const k = cam.k, u = Math.max(cam.ui || cam.s, 0.55);
+    // the most important texts first (a later one never lands on them)
+    drawHeadline(ctx, u);
+    if (D.drawQuietFx) { const now = ND.scene.t, dt = S.qT != null ? Math.max(0, Math.min(0.1, now - S.qT)) : 0; S.qT = now; D.drawQuietFx(ctx, u, dt); }
+    drawSeq(ctx, k, u); // (the showpiece's beat ring and its word: the player's prompt, before names and markers)
     for (const f of G.F) {
       const z = f.dz;
       if (!z || f.dead) continue;
@@ -106,8 +120,13 @@
         // (the move started through the duel's choice, else by its logical / own name: the props' moves have their own)
         const nm = (f.dz.lastMove && ND.ATK[f.dz.lastMove] === f.atk ? NAMES[f.dz.lastMove] : null) || NAMES[f.atkName];
         const ctr = f.atk && f.atk.counter;
-        // (one name at a time: a new one replaces the last, they never stack)
-        if (nm || ctr) { S.labels.length = 0; S.labels.push({ f, s: nm || (f.atkName || '').toUpperCase(), t: 0, col: f.col.ui }); }
+        // (ONE label on screen at a time: a new one replaces the last at once; a special's name is not replaced by an
+        // ordinary move's name while it is up)
+        const pri = f.atk && f.atk.special ? 2 : ctr ? 1 : 0, cur = S.labels[0];
+        if ((nm || ctr) && !(cur && cur.p > pri && cur.t < 0.7)) {
+          S.labels.length = 0; S.labels.push({ f, s: nm || (f.atkName || '').toUpperCase(), t: 0, col: f.col.ui, p: pri });
+          if (D.clearQuietLabel) D.clearQuietLabel();
+        }
       }
     }
     // labels (fade over 0.9 s real time; quiet while a top headline is up)
@@ -138,9 +157,6 @@
         txt(ctx, key, x, y + r0 + 22 * u, 15 * u, '#ffd27a');
       } else if (human(f.opp)) txt(ctx, 'BOUND!', x, y - r0 - 30 * u, 22 * u, '#ff9b7a');
     }
-    drawSeq(ctx, k, u);
-    drawHeadline(ctx, u);
-    if (D.drawQuietFx) { const now = ND.scene.t, dt = S.qT != null ? Math.max(0, Math.min(0.1, now - S.qT)) : 0; S.qT = now; D.drawQuietFx(ctx, u, dt); }
     // the coming cut's path (PATH toggle): from the wind-up tip through the strike to the follow-through
     if (S.path) for (const f of G.F) if (f.state === 'atk' && f.atk && f.atk.dz3 && f.atk.active && f.st < f.atk.active[1]) drawPath(ctx, f, k);
     ctx.restore();
@@ -317,6 +333,7 @@
     const mark = (s) => { Q.until = Math.max(Q.until, (ND.simClock || 0) + (s || 0.6)); };
     const duel = () => !!(G.F && G.F[0] && G.F[0].dz);
     D.quietDefence = quiet;
+    D.clearQuietLabel = () => { Q.label = null; };
     const fx = ND.fx, ring0 = fx.ring, flash0 = fx.flash, spark0 = fx.spark, text1 = fx.text;
     fx.ring = function (x, y, col, size) { if (!quiet()) return ring0.apply(this, arguments); if (!X.ring || Q.inParry) return; return ring0.call(this, x, y, col, (size == null ? 90 : size) * X.ring); };
     fx.flash = function (x, y, ang, size, col) { if (!quiet()) return flash0.apply(this, arguments); if (!X.flash) return; return flash0.call(this, x, y, ang, (size == null ? 60 : size) * X.flash, col); };
@@ -336,6 +353,8 @@
       if (/SER[İI]|RALLY/i.test(raw) && duel()) { if (!G.simOnly && X.rally) Q.corner = { s: sx, col: color || '#ff9b7a', age: 0 }; return; }
       if (!quiet() || /DISARM/i.test(raw)) return text1.apply(this, arguments);
       if (G.simOnly || !X.words) return;
+      if (S.labels[0] && S.labels[0].p >= 2 && S.labels[0].t < 0.7) return; // (a special's name is up)
+      S.labels.length = 0;
       Q.label = { s: sx, col: color || '#ffe3a1', x: (ND.simClock || 0) - Q.ct < 0.6 ? Q.cx : x, age: 0, life: 0.75, k: X.words };
     };
     const FPq = ND.Fighter.prototype, blk0 = FPq.blocked, gh0 = FPq.addGhost;
@@ -379,7 +398,7 @@
         const r = start0.apply(this, arguments);
         const b = this.banner;
         this.banner = null;
-        if (b && X.banner && !G.simOnly) Q.label = { s: b.name, col: 'rgb(' + (b.col || b.t.col) + ')', x: (ND.simClock || 0) - Q.ct < 0.6 ? Q.cx : (b.f.x + b.f.opp.x) / 2, age: 0, life: 1.05 * X.bannerLife, k: X.banner * 1.6 };
+        if (b && X.banner && !G.simOnly && !(S.labels[0] && S.labels[0].p >= 2 && S.labels[0].t < 0.7)) S.labels.length = 0, Q.label = { s: b.name, col: 'rgb(' + (b.col || b.t.col) + ')', x: (ND.simClock || 0) - Q.ct < 0.6 ? Q.cx : (b.f.x + b.f.opp.x) / 2, age: 0, life: 1.05 * X.bannerLife, k: X.banner * 1.6 };
         // (the screen tint of a counter chain stays light: the bodies stay clear)
         if (G.dim > X.dim) G.dim = X.dim;
         return r;
