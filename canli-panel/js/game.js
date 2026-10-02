@@ -1338,6 +1338,8 @@
 
     render() {
       ND.beginBakeFrame?.();
+
+      fx.quiet = this.mode === 'attract' || !!this.paused || this.phase === 'end' || !!(ND.portal && ND.portal.inAd);
       const behindUi = this.phase === 'select' || this.phase === 'vs' || this.phase === 'ending';
 
       if (glr && !GL_FORCE && glr.error) {
@@ -1438,10 +1440,10 @@
       scene.drawFront(ctx);
       PM('front');
       fx.drawTexts(ctx);
-      score.drawPops(ctx);
+      if (!fx.quiet) score.drawPops(ctx);
       this.drawPrompts();
-      if (ND.telegraph) ND.telegraph.draw(ctx, this);
-      if (ND.cine) ND.cine.draw(ctx);
+      if (ND.telegraph && !fx.quiet) ND.telegraph.draw(ctx, this);
+      if (ND.cine && !fx.quiet) ND.cine.draw(ctx);
       if (ND.tutor && ND.tutor.on) ND.tutor.draw(ctx);
       this.overlays();
       PM('hud');

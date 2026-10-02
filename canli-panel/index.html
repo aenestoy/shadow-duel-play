@@ -39,7 +39,7 @@
   };
 })();
 </script>
-<!-- Fonts ship with the game (no external requests): fonts/fonts.css is written by scripts/font-subset.mjs -->
+<!-- Fonts ship with the game (no external requests): fonts/fonts.css is written by scripts/font-subset.mjs -->
 <!-- Load time: the first screen's fonts are asked for while the scripts load (the menu is not laid out before the
      first frame, see .nd-ready below, so nothing else asks for them yet and they would arrive only after it showed).
      Right after the page's first paint, not before it: fonts asked for earlier hold that first paint back (~0.1 s).
@@ -70,7 +70,7 @@ try { (function (list) {
   }
 })((navigator.languages && navigator.languages.length ? Array.prototype.slice.call(navigator.languages) : []).concat(navigator.language || [])); } catch (e) { /* only a hint */ }
 </script>
-<!-- Portal SDK bridge (module, bundled by Vite): publishes window.NDPortal; js/core.js wraps it as ND.portal -->
+<!-- Portal SDK bridge (module, bundled by Vite): publishes window.NDPortal; js/core.js wraps it as ND.portal -->
 <style>
   /* 1.3.2 load time: until the game's first frame (js/game.js adds .nd-ready, the menu then in the player's language),
      the menu's raw Turkish markup is not shown (it also pulled the latin-ext fonts in while the scripts were loading);
@@ -259,6 +259,11 @@ try { (function (list) {
   .brand h1 { margin: 0; font: 700 clamp(46px, 7.4vw, 92px)/.92 var(--display); letter-spacing: 0.01em; text-transform: uppercase; text-wrap: balance; }
   .brand h1 em { font-style: normal; color: var(--akane); }
   .brand h1 em + em { color: var(--aoi); }
+  /* Turkish and Russian titles (GÖLGE DÜELLOSU, ДУЭЛЬ ТЕНЕЙ): the dots over Ö / Ü and the breve over Й stand above the capitals; at the tight .9 line height the second
+     line's marks ran into the first line (a red mark beside the G, a blue one under the Ь). A little more room between the lines, only
+     where the title has them (every other language's title has no marks above its capitals). */
+  .brand h1:lang(tr), .first-wrap h1:lang(tr) { line-height: 1.06; }
+  .brand h1:lang(ru), .first-wrap h1:lang(ru) { line-height: 1.16; } /* (the breve stands higher than the dots) */
   .brand p { margin: 14px 0 0; max-width: 46ch; color: var(--muted); font-size: 16px; }
   .modes { display: grid; gap: 10px; margin-top: 30px; max-width: 460px; }
   .mode { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 16px; text-align: left; padding: 14px 18px; background: rgba(255,255,255,.035); border: 1px solid var(--line); border-radius: 2px; cursor: pointer; transition: background .15s, border-color .15s, transform .15s; }
