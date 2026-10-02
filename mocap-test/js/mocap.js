@@ -85,6 +85,8 @@
   Mo.loadAll = (ids) => Promise.all(ids.map(Mo.load));
 
   // a frame of the clip at time t (seconds), interpolated; out is a reusable frame
+  // (?read=0: the side-view readability rules off, to compare)
+  Mo.readable = !(() => { try { return /[?&]read=0(&|$)/.test(location.search || ''); } catch (e) { return false; } })();
   const DK = ['pl', 'thR', 'snR', 'thL', 'snL', 'sp', 'sc', 'sl', 'hd', 'uaR', 'faR', 'uaL', 'faL', 'bu', 'be', 'ss', 'hf', 'cf'];
   function newFrame() { const d = {}; for (const k of DK) d[k] = [1, 0, 0]; return { hip: [0, 0, 0], d, A: [0, 0, 0], tw: 0, sw: 0, cR: 0, cL: 0, inside: 0, armed: 0, fistR: 0, fistL: 0, vis: null }; }
   function sample(C, t, out) {
@@ -258,6 +260,16 @@
         const th = this.lean, cs = Math.cos(th), sn = Math.sin(th), h0 = P.hip;
         for (const k of UPPER) { const q = P[k]; if (!q) continue; const dx = q[0] - h0[0], dy = q[1] - h0[1]; P[k] = [h0[0] + dx * cs + dy * sn, h0[1] - dx * sn + dy * cs, q[2]]; }
       }
+      // a body that reads from the side (every frame): the head ON the neck, above the shoulders, never sunk in the chest
+      if (this.readable !== false && Mo.readable) readableTorso(P);
+      // a body with its back to the camera is drawn as if turned TO it (Mo.draw: the depth order of the upper body
+      // mirrored, arms and blade in front of the body instead of vanishing behind it; the joints are not moved, the
+      // picture's outline is the same). Hysteresis: back when the shoulder line points forward > 0.45, again < 0.25
+      if (this.readable !== false && Mo.readable) {
+        const bk = norm(sub(P.shR, P.shL))[0];
+        this.mirZ = this.mirZ ? bk > 0.25 : bk > 0.45;
+      } else this.mirZ = false;
+      P.mir = !!this.mirZ;
       // katana: in the right hand (armed), else resting in the saya at the hip
       const A = add(hip, F.A);
       let s = d.ss;
@@ -274,7 +286,10 @@
         P.blade = { h: P.haR, u, e: norm(sub(e0, mul(u, dot(e0, u)))) };
         P.bladeVis = P.inside ? Math.max(0, len(sub(A, P.haR)) - 2) : null;
         if (F.vis != null && iai) { P.inside = F.vis < (this.look.wpn || L).blade - 1; P.bladeVis = P.inside ? F.vis : null; }
+        if (!iai && this.readable !== false && Mo.readable) this.backSheath(P, dt); else this.bk = null;
+        this.armedPrev = true;
       } else {
+        this.armedPrev = false; this.bk = null;
         const h = madd(A, s, -2);
         // edge up in the saya (the katana is worn edge up)
         let e = sub([0, -1, 0], mul(s, -s[1])); e = norm(e);
@@ -293,16 +308,21 @@
         const u = O.u ? nlerp(P.blade.u, O.u, O.w) : P.blade.u, e0 = O.e ? nlerp(P.blade.e, O.e, O.w) : P.blade.e;
         P.blade = { h: P.haR, u, e: norm(sub(e0, mul(u, dot(e0, u)))) };
       }
+      if (P.armed && !P.inside && this.readable !== false && Mo.readable) readableBlade(P.blade);
       // left hand: on the handle (katana grip) or holding the saya mouth
       if (this.gripFix) {
+        // (handle and saya mouth both weighted, so the hand travels from one to the other as the clips cross-fade)
         let tgt = null, w = 0;
-        if (F.armed && F.tw > 0.02 && !P.inside) { tgt = madd(P.blade.h, P.blade.u, -Math.max(GRIP2, ((this.look.wpn || L).handle || 24) - 5)); w = F.tw; }
-        else if (F.sw > 0.02) { tgt = madd(A, s, 3); w = F.sw; }
+        const wT = F.armed && F.tw > 0.02 && !P.inside ? F.tw : 0, wS = F.sw > 0.02 ? F.sw : 0;
+        if (wT > 0 || wS > 0) {
+          const tT = madd(P.blade.h, P.blade.u, -Math.max(GRIP2, ((this.look.wpn || L).handle || 24) - 5)), tS = madd(A, s, 3);
+          tgt = wS <= 0 ? tT : wT <= 0 ? tS : lerp(tT, tS, wS / (wT + wS)); w = Math.min(1, Math.max(wT, wS));
+        }
         if (tgt) {
           const T = lerp(P.haL, tgt, w), pole = sub(P.elL, lerp(P.shL, P.haL, 0.5));
           const r = ik3(P.shL, T, L.uArm, L.fArm, pole);
           P.elL = r.m; P.haL = r.e;
-          P.gripL = w;
+          P.gripL = wT;
         } else P.gripL = 0;
       }
       P.fistR = !!F.fistR || P.armed; P.fistL = !!F.fistL;
@@ -358,6 +378,51 @@
     // well under the hip) and the feet stand a stride apart (never one pillar); grounded, the body sits low enough
     // for the knees to bend, and the lower foot stands on the floor (the fight's own height is the truth).
     // L: { grounded, kick (a kick / air move: no limits), down (lying / getting up: no stride), snap (no easing) }
+    // A blade worn on the back (Kuro's nodachi) taken by a hand reaching behind the head is still IN its scabbard:
+    // only the steel between the guard and the scabbard's mouth shows, running from the hand into the scabbard (as
+    // drawn on the back, js/skeleton.js saya: mouth over the shoulders, end low behind the hip) — never a hilt alone
+    // standing up out of the head. It leaves the scabbard when the recorded blade swings up or forward (at most 0.9 s),
+    // turning to the blade's own line and growing to full length over 0.15 s.
+    backSheath(P, dt) {
+      const W = this.look.wpn || L, BL = W.blade || 96;
+      if (!this.armedPrev) {
+        // (taken just now: from behind the head only; a keyed pose that arms with the hand in front does not start this)
+        this.bk = P.haR[0] < P.neck[0] + 6 ? { t: 0, rel: -1, u: null, vis: 0 } : null;
+      }
+      const B = this.bk;
+      if (!B) return;
+      B.t += Math.max(0, dt || 0);
+      const up = norm(sub(P.neck, P.hip)), bk = norm(sub([-1, 0, 0], mul(up, -up[0]))), sl = (BL + (W.handle || 24)) / 120;
+      const shM = lerp(P.shR, P.shL, 0.5);
+      const M = add(add(shM, mul(bk, 2)), mul(up, 16 * sl));
+      // (the hand that holds it: behind the head at the mouth's line, so the handle stands up and BACK behind the
+      // head, never straight up out of it; it comes back to the recorded hand as the blade leaves)
+      // (the handle up and back at 35°, over the shoulder; only a finger of steel out of the mouth)
+      const Hs = add(add(M, mul(bk, 9)), mul(up, 2)), uIn = norm(add(mul(up, -0.82), mul(bk, -0.57))), visIn = 3;
+      if (B.rel < 0 && (P.haR[0] > P.neck[0] + 20 || (P.blade.u[1] < -0.3 && P.blade.u[0] > -0.2) || B.t > 0.9)) { B.rel = 0; if (!B.u) { B.u = uIn; B.vis = visIn; B.wH = 0; } } // (out when the recorded hand comes forward or its blade swings up)
+      let u, vis, wH;
+      if (B.rel < 0) { u = uIn; vis = visIn; wH = Math.min(1, B.t / 0.08); B.u = u; B.vis = vis; B.wH = wH; }
+      else {
+        B.rel = Math.min(1, B.rel + Math.max(0, dt || 0) / 0.15);
+        const k = B.rel * B.rel * (3 - 2 * B.rel);
+        // (the blade swings out FORWARD, in the picture's plane: from down-forward over the front to the recorded line)
+        const cu = { u: P.blade.u, e: P.blade.e }; readableBlade(cu);
+        const a0 = Math.atan2(B.u[1], B.u[0]); let a1 = Math.atan2(cu.u[1], cu.u[0]); if (a1 > a0) a1 -= TAU;
+        const a = a0 + (a1 - a0) * k, z = B.u[2] + (cu.u[2] - B.u[2]) * k, h = Math.sqrt(Math.max(0, 1 - z * z));
+        u = [Math.cos(a) * h, Math.sin(a) * h, z]; vis = B.vis + (BL - B.vis) * k; wH = B.wH * (1 - k);
+        if (B.rel >= 1) { this.bk = null; return; }
+      }
+      if (wH > 0) {
+        const T2 = lerp(P.haR, Hs, wH), pole = sub(P.elR, lerp(P.shR, P.haR, 0.5));
+        const r = ik3(P.shR, T2, L.uArm, L.fArm, pole);
+        P.elR = r.m; P.haR = r.e;
+      }
+      const e0 = P.blade.e; let e = sub(e0, mul(u, dot(e0, u)));
+      if (len(e) < 0.2) e = cross(u, [0, 0, 1]);
+      P.blade = { h: P.haR, u, e: norm(e) };
+      if (B.rel >= 0) readableBlade(P.blade);
+      P.inside = true; P.bladeVis = Math.min(BL, vis);
+    }
     sideLegs(P, Lg, dt) {
       const fs = 1; // (knees bend the way the fighter faces in the fight: forward, always)
       const LL = L.thigh + L.shin, hip = P.hip;
@@ -481,6 +546,80 @@
   }
   const tw0 = (side) => 'w' + side;
   const UPPER = ['chest', 'neck', 'head', 'shR', 'shL', 'elR', 'elL', 'wrR', 'wrL', 'haR', 'haL'];
+  // HEAD AND SPINE READ FROM THE SIDE. A turn recorded in 3D may point the spine at / away from the camera: drawn
+  // side-on, the torso keeps its full height in the art while the projected spine is short, and the head sinks into
+  // the chest. Here, before anything is hung on the body:
+  //  1. the spine (hip → neck) keeps at least 80 % of its length across the picture: the upper body is turned (one
+  //     rotation round the hip, arms and all) until its depth share is at most 0.6
+  //  2. the shoulders stay below the neck point (never up round the chin); an arm whose shoulder moves keeps its hand
+  //  3. the head stays out on its neck: its centre at least 0.9 of its radius beyond the higher shoulder along the
+  //     spine (above them upright, in front of them bent forward), the neck at least 40 % of its length across the picture
+  const HEADR = 12.5;
+  function rotAbout(P, h, ax, ang, keys) {
+    const c = Math.cos(ang), sn = Math.sin(ang);
+    for (const k of keys) {
+      const q = P[k]; if (!q) continue;
+      const v = sub(q, h), cr = cross(ax, v), d = dot(ax, v);
+      P[k] = add(h, add(add(mul(v, c), mul(cr, sn)), mul(ax, d * (1 - c))));
+    }
+  }
+  // a drawn blade that reads (the turning cut, a high block): turned away from pointing into or out of the picture
+  // (its depth share squeezed to 0.55: a blade pointing at the camera is a sliver) and from showing only its edge (the
+  // edge's angle θ round the blade, from the camera, pushed toward the flat: θ' = 90°·(θ/90°)^0.4 each side, so 2° → 20°,
+  // 5° → 29°, 20° → 49°: an edge-on blade opens, a flat one stays; Mo.draw also gives the drawn blade a least width). Both are smooth maps: the edge never jumps over.
+  function readableBlade(b) {
+    const u = norm([b.u[0], b.u[1], b.u[2] * 0.55]);
+    let e = sub(b.e, mul(u, dot(b.e, u)));
+    e = len(e) > 1e-4 ? norm(e) : norm(cross(u, [0, 0, 1]));
+    const zc = sub([0, 0, 1], mul(u, u[2])), lz = len(zc);
+    if (lz > 0.05) {
+      const ax = mul(zc, 1 / lz), bx = cross(u, ax), th = Math.atan2(dot(e, bx), dot(e, ax));
+      const H = Math.PI / 2, g = (x) => H * Math.pow(x / H, 0.4), a = Math.abs(th), sg = th < 0 ? -1 : 1;
+      const t2 = sg * (a <= H ? g(a) : Math.PI - g(Math.PI - a));
+      e = norm(add(mul(ax, Math.cos(t2)), mul(bx, Math.sin(t2))));
+    }
+    b.u = u; b.e = e;
+  }
+  function readableTorso(P) {
+    const h = P.hip, v = sub(P.neck, h), Lv = len(v) || 1, xy = Math.hypot(v[0], v[1]);
+    if (xy < 0.8 * Lv) {
+      // the target: the same direction across the picture (or straight up when there is none), depth 0.6
+      let dx = v[0], dy = v[1]; if (Math.hypot(dx, dy) < 1e-3) { dx = 0; dy = -1; }
+      const m = Math.hypot(dx, dy); dx /= m; dy /= m;
+      const t = norm([dx * 0.8, dy * 0.8, Math.sign(v[2] || 1) * 0.6]), a = norm(v);
+      const ax = cross(a, t), sa = len(ax);
+      if (sa > 1e-5) rotAbout(P, h, mul(ax, 1 / sa), Math.atan2(sa, dot(a, t)), UPPER);
+    }
+    // shoulders below the neck point along the spine (never up round the chin); the arm keeps its hand
+    let sx = P.neck[0] - h[0], sy = P.neck[1] - h[1]; const sl2 = Math.hypot(sx, sy) || 1; sx /= sl2; sy /= sl2;
+    for (const s of ['R', 'L']) {
+      const sh = P['sh' + s], over = (sh[0] - P.neck[0]) * sx + (sh[1] - P.neck[1]) * sy + 2; // (+: past the neck point along the spine)
+      if (over > 0) {
+        P['sh' + s] = [sh[0] - sx * over, sh[1] - sy * over, sh[2]];
+        const r = ik3(P['sh' + s], P['ha' + s], L.uArm, L.fArm, sub(P['el' + s], lerp(P['sh' + s], P['ha' + s], 0.5)));
+        P['el' + s] = r.m; P['ha' + s] = r.e;
+      }
+    }
+    // the head out on its neck, above the shoulders
+    let hd = sub(P.head, P.neck);
+    if (Math.hypot(hd[0], hd[1]) < 0.4 * HEAD) { hd = [hd[0], -Math.sqrt(Math.max(0, HEAD * HEAD - hd[0] * hd[0] - hd[2] * hd[2] * 0.25)), hd[2] * 0.5]; P.head = add(P.neck, hd); }
+    // (out along the spine: above the shoulders when upright, in front of them when bent forward; measured as DRAWN —
+    // the perspective lifts a near shoulder — and clear of the chest's core, hip to 10 under the neck, by 21)
+    const pj = (q) => { const k = Mo.cam / (Mo.cam - q[2]); return [q[0] * k, q[1] * k]; };
+    const H2 = pj(P.hip), N2 = pj(P.neck);
+    let ax = N2[0] - H2[0], ay = N2[1] - H2[1]; const al = Math.hypot(ax, ay) || 1; ax /= al; ay /= al;
+    const along = (q) => q[0] * ax + q[1] * ay;
+    const kh = Mo.cam / (Mo.cam - P.head[2]);
+    for (let it = 0; it < 4; it++) {
+      const hd2 = pj(P.head);
+      let need = Math.max(along(pj(P.shR)), along(pj(P.shL))) + 0.9 * HEADR + 1 - along(hd2);
+      const ex = N2[0] - ax * 10, ey = N2[1] - ay * 10, vx = ex - H2[0], vy = ey - H2[1], l2 = vx * vx + vy * vy || 1;
+      const t = clamp(((hd2[0] - H2[0]) * vx + (hd2[1] - H2[1]) * vy) / l2, 0, 1), dc = Math.hypot(hd2[0] - H2[0] - vx * t, hd2[1] - H2[1] - vy * t);
+      need = Math.max(need, 21 - dc);
+      if (need <= 0.05) break;
+      P.head = [P.head[0] + (ax * need) / kh, P.head[1] + (ay * need) / kh, P.head[2]];
+    }
+  }
   const LEGW = 1.43; // (tan 55°: a standing leg's foot is at most this far out per unit under the hip)
   // (what touches the floor when the body lies on it: feet, knees, the hip, the back, the head, hands)
   const FLOOR_R2 = [['ftR', 0], ['ftL', 0], ['knR', 6], ['knL', 6], ['hip', 12], ['neck', 10], ['head', 13], ['shR', 7], ['shL', 7], ['elR', 5], ['elL', 5], ['haR', 4], ['haL', 4]];
@@ -538,7 +677,7 @@
     const put = (k, p) => { const q = pr(p); const o = j[k] || (j[k] = { x: 0, y: 0 }); o.x = q.x; o.y = q.y; return q; };
     put('hip', P.hip); put('neck', P.neck); put('head', P.head);
     // near arm (bigger z) in the F slots
-    const rNear = P.elR[2] + P.haR[2] >= P.elL[2] + P.haL[2];
+    const zz = zDraw(P), rNear = zz(P.elR) + zz(P.haR) >= zz(P.elL) + zz(P.haL);
     const aN = rNear ? 'R' : 'L', aF = rNear ? 'L' : 'R';
     put('sh', P['sh' + aN]); put('shB', P['sh' + aF]); put('elF', P['el' + aN]); put('haF', P['ha' + aN]); put('elB', P['el' + aF]); put('haB', P['ha' + aF]);
     const lNear = P.knR[2] + P.ftR[2] >= P.knL[2] + P.ftL[2];
@@ -548,6 +687,9 @@
     j.armNear = aN; j.legNear = gN;
     return j;
   }
+  // the depth a part is DRAWN at: a body with its back to the camera (P.mir, see build) has its upper body's depth
+  // mirrored round the hip, so the arms and the blade are drawn in front of it
+  function zDraw(P) { const z0 = P.hip[2]; return P.mir ? (q) => 2 * z0 - q[2] : (q) => q[2]; }
   // the arm parts read the hand from j: a fist round the handle (towards the tip), a fist, or an open hand
   function armJoints(j, front, side, P, pr, rg) {
     const JA = Object.assign({}, j);
@@ -593,7 +735,7 @@
     const v = last && now > last.t ? Math.hypot(wt[0] - last.wx, wt[1] - last.wy) / (now - last.t) : 0;
     if (S.armed && !S.inside && (v > 700 || (T.length && v > 300))) {
       const pt = pr(tip), pb = pr(base);
-      T.push({ t: now, wx: wt[0], wy: wt[1], tx: pt.x, ty: pt.y, bx: pb.x, by: pb.y, z: tip[2] });
+      T.push({ t: now, wx: wt[0], wy: wt[1], tx: pt.x, ty: pt.y, bx: pb.x, by: pb.y, z: zDraw(S)(tip) });
     } else if (last) last.wx = wt[0], last.wy = wt[1], last.t = now;
     while (T.length && (now - T[0].t > 0.09 || T.length > 14)) T.shift();
     if (!S.armed || S.inside) T.length = 0;
@@ -638,6 +780,7 @@
     const sheathS = !P.armed ? 1 : P.bladeVis != null ? clamp(1 - P.bladeVis / wpn.blade, 0, 1) : 0; // (how much of the blade is still in the saya)
     const bh = P.armed && !P.inside ? madd(P.blade.h, P.blade.u, HILT0) : P.blade.h; // (the guard just ahead of the fist, as depth25)
     const S = { blade: { h: o3(bh), u: o3(P.blade.u), e: o3(P.blade.e) }, sheathed: !P.armed, sheathS, saya: { a: o3(P.saya.a), u: o3(P.saya.u), L: P.saya.L } };
+    if (rg.readable !== false && Mo.readable) S.minFlat = 0.75; // (a blade seen on its edge is drawn at least 0.75 of its width)
     sampleTrail(rg, P, pr);
     K.updLight();
     const D0 = K.pal(c);
@@ -647,8 +790,8 @@
     ctx.save();
     ctx.lineJoin = 'round'; ctx.lineCap = 'round';
     // depth of the body's middle and of each part
-    const zT = (P.hip[2] + P.neck[2]) * 0.5;
-    const zArm = (s) => (P['el' + s][2] + P['ha' + s][2]) * 0.5, zLeg = (s) => (P['kn' + s][2] + P['ft' + s][2]) * 0.5;
+    const zz = zDraw(P), zT = (P.hip[2] + zz(P.neck)) * 0.5;
+    const zArm = (s) => (zz(P['el' + s]) + zz(P['ha' + s])) * 0.5, zLeg = (s) => (P['kn' + s][2] + P['ft' + s][2]) * 0.5;
     const bladeMid = madd(P.blade.h, P.blade.u, wpn.blade * 0.35);
     const items = [];
     // (an arm / leg is in front of the body when its middle is nearer the camera than the body's middle)
@@ -669,7 +812,7 @@
     items.push({ z: zArm('R') + 0.02, f: armItem('R'), arm: 'R' });
     items.push({ z: zArm('L'), f: armItem('L'), arm: 'L' });
     // the katana is drawn just under the hand that holds it, unless the blade is on the other side of the body
-    const zk = P.armed ? bladeMid[2] : P.saya.a[2];
+    const zk = P.armed ? zz(bladeMid) : P.saya.a[2];
     const katana = () => { A3.drawKatana3(ctx, fo, S, prA, c, 0); };
     const armR = items.find((i) => i.arm === 'R');
     const kSide = (zk >= zT) === (armR.z >= zT);
@@ -682,7 +825,7 @@
       if (!wpn.iai && K.saya && wpn.type !== 'naginata' && wpn.type !== 'bo' && wpn.type !== 'tessen' && wpn.type !== 'kusarigama') K.saya(ctx, j, c, D0, wpn);
       if (X.ropes) for (const r of X.ropes) r.rope.draw(ctx, r.col, r.w, 'rgba(255,255,255,.07)');
       if (CO) ND.costumeLayer(CO, 'back', ctx, j);
-      const TF = K.TF, psi = Math.atan2(P.cf[2], Math.abs(P.cf[0])), sp = Math.sin(psi), wide = 1 + 0.3 * Math.abs(sp);
+      const TF = K.TF, psi = Math.atan2(P.cf[2] * (P.mir ? -1 : 1), Math.abs(P.cf[0])), sp = Math.sin(psi), wide = 1 + 0.3 * Math.abs(sp);
       TF.nx *= wide; TF.ny *= wide;
       K.drawTorso(ctx, j, c, D0, acc, 15);
       if (Math.abs(sp) > 0.02) {
@@ -714,13 +857,14 @@
     const fs = j.armNear === 'R' ? 'L' : 'R', far = AJ[fs];
     const farBehind = zArm(fs) < zT;
     if (far && opt.skipArm !== 'B' && farBehind && farInFront(j, far.jj)) {
-      const jB = far.jj, kB = far.k, e = jB.elB, h = jB.haB, ex = e.x + (h.x - e.x) * 0.3, ey = e.y + (h.y - e.y) * 0.3;
-      const dx = h.x - ex, dy = h.y - ey, dl = Math.hypot(dx, dy) || 1, r = 9 * kB, nx = (-dy / dl) * r, ny = (dx / dl) * r;
+      // (the whole forearm from the elbow, with a light rim 2.5 wide round it: a dark coat's arm over its own dark coat)
+      const jB = far.jj, kB = far.k, e = jB.elB, h = jB.haB, ex = e.x + (h.x - e.x) * 0.05, ey = e.y + (h.y - e.y) * 0.05;
+      const dx = h.x - ex, dy = h.y - ey, dl = Math.hypot(dx, dy) || 1, r = 10.5 * kB, nx = (-dy / dl) * r, ny = (dx / dl) * r;
       ctx.save(); ctx.beginPath();
       ctx.moveTo(ex + nx, ey + ny); ctx.lineTo(h.x + nx + (dx / dl) * r, h.y + ny + (dy / dl) * r);
       ctx.lineTo(h.x - nx + (dx / dl) * r, h.y - ny + (dy / dl) * r); ctx.lineTo(ex - nx, ey - ny); ctx.closePath();
       ctx.arc(h.x, h.y, r * 1.15, 0, TAU); ctx.clip();
-      ctx.strokeStyle = rimOf(c); ctx.lineWidth = 12.5 * kB; ctx.lineCap = 'round';
+      ctx.strokeStyle = rimOf(c); ctx.lineWidth = 15.5 * kB; ctx.lineCap = 'round';
       ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(h.x, h.y); ctx.stroke();
       A3.drawArmScaled(ctx, K, jB, false, c, D0, X, wpn, acc, kB);
       ctx.restore();

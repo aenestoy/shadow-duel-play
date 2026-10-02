@@ -74,16 +74,30 @@
     if (!S.hud) return;
     try { drawDuel(ctx); } catch (e) { /* the test overlay must never break a frame */ }
   };
+  // every text the overlay draws this frame, as a box (scripts/duel-labels.mjs: no two may overlap)
+  D.textBoxes = [];
   function txt(ctx, s, x, y, px, col, align = 'center', a = 1) {
     ctx.globalAlpha = a; ctx.font = `700 ${Math.round(px)}px Oswald, sans-serif`; ctx.textAlign = align; ctx.textBaseline = 'middle';
+    // (one text per place: a text that would land on one already drawn this frame is left out. The overlay draws the
+    // most important first: the headline, the defence / technique label, then the prompts, names and markers)
+    if (a > 0.05 && s) {
+      const w = ctx.measureText(s).width, x0 = align === 'center' ? x - w / 2 : align === 'right' ? x - w : x, bx = { s: String(s), x0, y0: y - px * 0.55, x1: x0 + w, y1: y + px * 0.55 };
+      for (const o of D.textBoxes) if (Math.min(o.x1, bx.x1) - Math.max(o.x0, bx.x0) > 1 && Math.min(o.y1, bx.y1) - Math.max(o.y0, bx.y0) > 1) { ctx.globalAlpha = 1; return; }
+      D.textBoxes.push(bx);
+    }
     ctx.lineWidth = Math.max(2, px * 0.2); ctx.strokeStyle = 'rgba(5,6,12,.88)'; ctx.strokeText(s, x, y); ctx.fillStyle = col; ctx.fillText(s, x, y);
     ctx.globalAlpha = 1;
   }
   const human = (f) => !!(G.isHuman && G.isHuman(f));
   function drawDuel(ctx) {
+    D.textBoxes.length = 0;
     if (!G.F || !(G.phase === 'fight' || G.phase === 'ko' || G.phase === 'intro')) return;
     ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
     const k = cam.k, u = Math.max(cam.ui || cam.s, 0.55);
+    // the most important texts first (a later one never lands on them)
+    drawHeadline(ctx, u);
+    if (D.drawQuietFx) { const now = ND.scene.t, dt = S.qT != null ? Math.max(0, Math.min(0.1, now - S.qT)) : 0; S.qT = now; D.drawQuietFx(ctx, u, dt); }
+    drawSeq(ctx, k, u); // (the showpiece's beat ring and its word: the player's prompt, before names and markers)
     for (const f of G.F) {
       const z = f.dz;
       if (!z || f.dead) continue;
@@ -106,7 +120,13 @@
         // (the move started through the duel's choice, else by its logical / own name: the props' moves have their own)
         const nm = (f.dz.lastMove && ND.ATK[f.dz.lastMove] === f.atk ? NAMES[f.dz.lastMove] : null) || NAMES[f.atkName];
         const ctr = f.atk && f.atk.counter;
-        if (nm || ctr) S.labels.push({ f, s: nm || (f.atkName || '').toUpperCase(), t: 0, col: f.col.ui });
+        // (ONE label on screen at a time: a new one replaces the last at once; a special's name is not replaced by an
+        // ordinary move's name while it is up)
+        const pri = f.atk && f.atk.special ? 2 : ctr ? 1 : 0, cur = S.labels[0];
+        if ((nm || ctr) && !(cur && cur.p > pri && cur.t < 0.7)) {
+          S.labels.length = 0; S.labels.push({ f, s: nm || (f.atkName || '').toUpperCase(), t: 0, col: f.col.ui, p: pri });
+          if (D.clearQuietLabel) D.clearQuietLabel();
+        }
       }
     }
     // labels (fade over 0.9 s real time; quiet while a top headline is up)
@@ -115,7 +135,7 @@
       const L = S.labels[i]; L.t += 1 / 60;
       if (L.t > 0.9) { S.labels.splice(i, 1); continue; }
       const x = cam.sx(L.f.x), y = cam.sy(L.f.y - 200) - L.t * 18 * u;
-      txt(ctx, L.s, x, y, 13 * u, L.col, 'center', L.t < 0.7 ? 1 : 1 - (L.t - 0.7) / 0.2);
+      txt(ctx, L.s, x, y, 11 * u, L.col, 'center', L.t < 0.7 ? 1 : 1 - (L.t - 0.7) / 0.2);
     }
     // bind prompt: a ring closing on the crossed blades; gold while the window is open
     for (const f of G.F) {
@@ -137,9 +157,6 @@
         txt(ctx, key, x, y + r0 + 22 * u, 15 * u, '#ffd27a');
       } else if (human(f.opp)) txt(ctx, 'BOUND!', x, y - r0 - 30 * u, 22 * u, '#ff9b7a');
     }
-    drawSeq(ctx, k, u);
-    drawHeadline(ctx, u);
-    if (D.drawQuietFx) { const now = ND.scene.t, dt = S.qT != null ? Math.max(0, Math.min(0.1, now - S.qT)) : 0; S.qT = now; D.drawQuietFx(ctx, u, dt); }
     // the coming cut's path (PATH toggle): from the wind-up tip through the strike to the follow-through
     if (S.path) for (const f of G.F) if (f.state === 'atk' && f.atk && f.atk.dz3 && f.atk.active && f.st < f.atk.active[1]) drawPath(ctx, f, k);
     ctx.restore();
@@ -294,7 +311,7 @@
   // the player's only), rally (the exchange count: small, in a corner).
   // In an exchange (counter after counter) only ONE label shows at a time, by the contact, never over a face.
   const FXS = {
-    small: { ring: 0.5, flash: 0.5, spark: 0.5, sparkPow: 0.7, slashLen: 0.28, slashW: 0.55, slashLife: 0.5, slashSat: 0.5, ghosts: 1, ghostLife: 0.55,
+    small: { ring: 0.5, flash: 0.5, spark: 0.5, sparkPow: 0.7, slashLen: 0.12, slashW: 0.5, slashLife: 0.5, slashSat: 0.5, ghosts: 1, ghostLife: 0.55,
       banner: 0.5, bannerLife: 0.7, words: 1, nums: 0.6, dim: 0.2, trail: 0.3, trailC: 0.2, contact: 1, bindRing: 0.6, rally: 1, special: 0.5 },
     none: { ring: 0, flash: 0, spark: 0.5, sparkPow: 0.6, slashLen: 0, slashW: 0, slashLife: 0, slashSat: 0, ghosts: 0, ghostLife: 0,
       banner: 0, bannerLife: 0, words: 0, nums: 0, dim: 0, trail: 0.7, trailC: 0.3, contact: 0, bindRing: 0, rally: 1, special: 0 },
@@ -316,6 +333,7 @@
     const mark = (s) => { Q.until = Math.max(Q.until, (ND.simClock || 0) + (s || 0.6)); };
     const duel = () => !!(G.F && G.F[0] && G.F[0].dz);
     D.quietDefence = quiet;
+    D.clearQuietLabel = () => { Q.label = null; };
     const fx = ND.fx, ring0 = fx.ring, flash0 = fx.flash, spark0 = fx.spark, text1 = fx.text;
     fx.ring = function (x, y, col, size) { if (!quiet()) return ring0.apply(this, arguments); if (!X.ring || Q.inParry) return; return ring0.call(this, x, y, col, (size == null ? 90 : size) * X.ring); };
     fx.flash = function (x, y, ang, size, col) { if (!quiet()) return flash0.apply(this, arguments); if (!X.flash) return; return flash0.call(this, x, y, ang, (size == null ? 60 : size) * X.flash, col); };
@@ -335,6 +353,8 @@
       if (/SER[İI]|RALLY/i.test(raw) && duel()) { if (!G.simOnly && X.rally) Q.corner = { s: sx, col: color || '#ff9b7a', age: 0 }; return; }
       if (!quiet() || /DISARM/i.test(raw)) return text1.apply(this, arguments);
       if (G.simOnly || !X.words) return;
+      if (S.labels[0] && S.labels[0].p >= 2 && S.labels[0].t < 0.7) return; // (a special's name is up)
+      S.labels.length = 0;
       Q.label = { s: sx, col: color || '#ffe3a1', x: (ND.simClock || 0) - Q.ct < 0.6 ? Q.cx : x, age: 0, life: 0.75, k: X.words };
     };
     const FPq = ND.Fighter.prototype, blk0 = FPq.blocked, gh0 = FPq.addGhost;
@@ -378,7 +398,7 @@
         const r = start0.apply(this, arguments);
         const b = this.banner;
         this.banner = null;
-        if (b && X.banner && !G.simOnly) Q.label = { s: b.name, col: 'rgb(' + (b.col || b.t.col) + ')', x: (ND.simClock || 0) - Q.ct < 0.6 ? Q.cx : (b.f.x + b.f.opp.x) / 2, age: 0, life: 1.05 * X.bannerLife, k: X.banner * 1.6 };
+        if (b && X.banner && !G.simOnly && !(S.labels[0] && S.labels[0].p >= 2 && S.labels[0].t < 0.7)) S.labels.length = 0, Q.label = { s: b.name, col: 'rgb(' + (b.col || b.t.col) + ')', x: (ND.simClock || 0) - Q.ct < 0.6 ? Q.cx : (b.f.x + b.f.opp.x) / 2, age: 0, life: 1.05 * X.bannerLife, k: X.banner * 1.6 };
         // (the screen tint of a counter chain stays light: the bodies stay clear)
         if (G.dim > X.dim) G.dim = X.dim;
         return r;
@@ -414,15 +434,58 @@
         try { slash0.call(this, ctx, sl, s2); } finally { ctx.restore(); }
       };
     }
-    // a technique's own arcs and glows (js/specials.js: the crescent swept round a counter …): smaller and shorter
+    // ---- the bodies always read (any moment, not only defence): no effect may hide a fighter
+    // (scripts/duel-visibility.mjs checks it). A special counts like a defence moment for its arcs and glows.
+    const special = () => !!(G.F && G.F.some((f) => f.dz && f.state === 'atk' && f.atk && f.atk.special));
+    // the hit tint: a brief light touch (the fight's flash at 0.12: a visible lift, details kept) for the first 3 DRAWN frames of a hit, never a flat pale body (the
+    // fight's own flash fades in fight time, so through a hit-stop or slow motion it would stay for many frames)
+    if (ND.scene && ND.scene.lightFighter) {
+      const lf0 = ND.scene.lightFighter, HF = new WeakMap();
+      ND.scene.lightFighter = function (c, f) {
+        if (!f || !f.dz) return lf0.apply(this, arguments);
+        let h = HF.get(f); if (!h) HF.set(f, (h = { last: 0, n: 9 }));
+        const fl = f.flash || 0;
+        if (fl > h.last + 0.05) h.n = 0; // (a new hit)
+        h.last = fl; h.n++;
+        f.flash = fl > 0 && h.n <= 3 ? 0.12 : 0;
+        try { return lf0.apply(this, arguments); } finally { f.flash = fl; }
+      };
+    }
+    // flashes and rings never bigger than ~1.5 heads / a body's width; ink and blood a small burst at the hit point
+    const fl1 = fx.flash, rg1 = fx.ring;
+    fx.flash = function (x, y, ang, size, col) { if (!duel()) return fl1.apply(this, arguments); return fl1.call(this, x, y, ang, Math.min(size == null ? 60 : size, 36), col); };
+    fx.ring = function (x, y, col, size) { if (!duel()) return rg1.apply(this, arguments); return rg1.call(this, x, y, col, Math.min(size == null ? 90 : size, 70)); };
+    if (fx.blood) { const bl0 = fx.blood; fx.blood = function (x, y, dx, dy, n, power) { if (!duel()) return bl0.apply(this, arguments); return bl0.call(this, x, y, dx, dy, Math.max(3, Math.round((n == null ? 18 : n) * 0.35)), (power == null ? 1 : power) * 0.55); }; }
+    // a technique's own arcs and glows (js/specials.js: the crescent swept round a counter, a special's white ball …):
+    // smaller and shorter, a glow under ~1.5 heads
     if (ND.specialFx) {
       const add0 = ND.specialFx.add;
       ND.specialFx.add = function (o) {
-        if (o && o.draw && duel() && quiet()) {
-          if (!X.special) { o.t = 0; return o; }
-          if (o.r) o.r *= X.special; if (o.w) o.w *= X.special; if (o.life) o.life *= 0.6 + 0.4 * X.special;
+        if (o && o.draw && duel() && (quiet() || special())) {
+          if (!X.special && quiet()) { o.t = 0; return o; }
+          const k = X.special || 0.5;
+          if (o.r) o.r = Math.min(o.r * k, o.span == null ? 22 : o.r * k); if (o.w) o.w *= k; if (o.life) o.life *= 0.6 + 0.4 * k;
         }
         return add0.call(this, o);
+      };
+    }
+    // afterimages: at most 2 a move whatever the moment, faint (≤ ~25 %), behind the real body (drawn before it)
+    {
+      const GN2 = new WeakMap(), gh1 = FPq.addGhost, dg0 = FPq.drawGhosts;
+      FPq.addGhost = function () {
+        if (!this.dz) return gh1.apply(this, arguments);
+        let g = GN2.get(this);
+        if (!g || g.serial !== this.serial) GN2.set(this, (g = { serial: this.serial, n: 0 }));
+        if (g.n >= 2) return;
+        const before = this.ghosts.length;
+        gh1.apply(this, arguments);
+        if (this.ghosts.length > before) g.n++;
+      };
+      FPq.drawGhosts = function (ctx) {
+        if (!this.dz || !this.ghosts.length) return dg0.apply(this, arguments);
+        const L = this.ghosts.map((g) => g.life);
+        for (const g of this.ghosts) g.life *= 0.8;
+        try { return dg0.apply(this, arguments); } finally { this.ghosts.forEach((g, i) => { g.life = L[i]; }); }
       };
     }
     // the finisher of an exchange: its tint stays light too

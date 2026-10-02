@@ -372,11 +372,29 @@
     // blade: ribbon from the habaki to the tip, curved toward the spine, as wide as its edge direction shows
     const BL = Math.min(wpn.blade, outL + 4), sori = 3.2 * wpn.blade / 96 * (BL / wpn.blade), N = 10;
     const L1 = [], L2 = [], E = [];
+    // (S.minFlat, the recorded drawing: the drawn ribbon at least this share of its full width, on the side the edge
+    // already shows — a blade seen on its edge still reads as a blade)
+    const mf = S.minFlat || 0; let nd = null;
+    if (mf) {
+      const a0 = pr(add(H, mul(u, 3)), W), a1 = pr(add(H, mul(u, BL)), W), dx = a1.x - a0.x, dy = a1.y - a0.y, dl = Math.hypot(dx, dy);
+      if (dl > 1) {
+        nd = { x: -dy / dl, y: dx / dl };
+        const q0 = pr(H, W), q1 = pr(add(H, e), W);
+        if ((q1.x - q0.x) * nd.x + (q1.y - q0.y) * nd.y < 0) { nd.x = -nd.x; nd.y = -nd.y; }
+      }
+    }
     for (let i = 0; i <= N; i++) {
       const q = i / N, along = 3 + (BL - 3) * q, wq = 2.05 * (1 - Math.pow(q, 5) * 0.92);
       const ctr = add(add(H, mul(u, along)), mul(e, -sori * 4 * q * (1 - q)));
-      const pe = pr(add(ctr, mul(e, wq)), W), ps = pr(add(ctr, mul(e, -wq * 0.95)), W);
-      L1.push(pe); L2.push(ps); E.push(pr(add(ctr, mul(e, wq * 0.62)), W));
+      const pe = pr(add(ctr, mul(e, wq)), W), ps = pr(add(ctr, mul(e, -wq * 0.95)), W), pm = pr(add(ctr, mul(e, wq * 0.62)), W);
+      if (nd) {
+        const pc = pr(ctr, W), want = mf * wq * pc.s;
+        const c1 = (pe.x - pc.x) * nd.x + (pe.y - pc.y) * nd.y, c2 = -((ps.x - pc.x) * nd.x + (ps.y - pc.y) * nd.y), c3 = (pm.x - pc.x) * nd.x + (pm.y - pc.y) * nd.y;
+        if (c1 < want) { pe.x += nd.x * (want - c1); pe.y += nd.y * (want - c1); }
+        if (c2 < want * 0.95) { ps.x -= nd.x * (want * 0.95 - c2); ps.y -= nd.y * (want * 0.95 - c2); }
+        if (c3 < want * 0.62) { pm.x += nd.x * (want * 0.62 - c3); pm.y += nd.y * (want * 0.62 - c3); }
+      }
+      L1.push(pe); L2.push(ps); E.push(pm);
     }
     const p0 = pr(add(H, mul(u, 3)), W), p1 = pr(add(H, mul(u, BL)), W);
     const g = ctx.createLinearGradient(p0.x, p0.y, p1.x, p1.y);

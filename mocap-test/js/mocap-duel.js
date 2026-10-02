@@ -230,16 +230,25 @@
     const rg = s.rig, dir = f.dir < 0 ? -1 : 1;
     // (eased in over a few frames: the blade travels onto the contact line, it never jumps there)
     // the bind (and its first moments after): the hands at the blades' crossing, js/duel-bind.js
-    const BG = D.bindGeom ? D.bindGeom(f) : null;
-    if (BG && BG.w > 0) { O3.h = BG.h; O3.u = BG.u; O3.e = BG.e; O3.w = BG.w; rg.ovr = O3; s.cw = BG.w; MD.stats.contact++; return; }
+    let BG = D.bindGeom ? D.bindGeom(f) : null;
+    // (a crossing out of the arm's reach — a bind left over from another moment — is never reached for)
+    if (BG && rg.P && len(sub(BG.h, rg.P.shR)) > 150) BG = null;
+    // (taken up over 0.03 s from wherever the hand was — from the contact weight it had: the blade arrives on the
+    // crossing, the hand never jumps there in one frame; leaving, it follows the bind's own fade)
+    if (BG && BG.w > 0) {
+      if (!s.bgOn) { s.bw = s.cw || 0; s.ovPrev = null; }
+      s.bgOn = true; s.bw = Math.min(BG.w, s.bw + (dt > 0 ? dt / 0.03 : 0));
+      O3.h = BG.h; O3.u = BG.u; O3.e = BG.e; O3.w = s.bw; ovSmooth(s, dt); rg.ovr = O3; s.cw = s.bw; MD.stats.contact++; return;
+    }
+    s.bgOn = false;
     O3.e = null;
     const wcT = contactW(f);
     s.cw = s.cw == null || dt <= 0 ? wcT : s.cw + (wcT - s.cw) * Math.min(1, dt / 0.035);
     const wc = s.cw > 0.01 ? s.cw : 0, wf = wc > 0 ? 0 : drawFlatW(f, s);
-    if (wc <= 0 && wf <= 0) { rg.ovr = null; return; }
+    if (wc <= 0 && wf <= 0) { rg.ovr = null; s.ovPrev = null; return; }
     if (wc > 0) {
       const j = f.viewJ();
-      if (!j || !j.haF || !j.tip) { rg.ovr = null; return; }
+      if (!j || !j.haF || !j.tip) { rg.ovr = null; s.ovPrev = null; return; }
       const P = rg.P, hz = P ? P.haR[2] : 11;
       const h = [(j.haF.x - f.x) * dir, j.haF.y, hz];
       let bx = (j.tip.x - j.haF.x) * dir, by = j.tip.y - j.haF.y; const bl = Math.hypot(bx, by) || 1;
@@ -249,7 +258,15 @@
       // out in front of the chest, the blade level and a little across the body (a nukitsuke)
       O3.h = [46, -112, 6]; O3.u = norm([0.96, -0.05, -0.28]); O3.w = wf * 0.85;
     }
+    ovSmooth(s, dt);
     rg.ovr = O3;
+  }
+  // (the place the hand is held at never jumps either — the bind handing over to its strike, a parry's contact line
+  // turning: it follows its target within about 0.03 s)
+  function ovSmooth(s, dt) {
+    const k = s.ovPrev && dt > 0 ? Math.min(1, dt / 0.03) : 1;
+    if (k < 1) { O3.h = lerp(s.ovPrev.h, O3.h, k); O3.u = nlerp(s.ovPrev.u, O3.u, k); }
+    s.ovPrev = { h: O3.h.slice(), u: O3.u.slice() };
   }
 
   // ------------------------------------------------------------------ two bodies in a bind keep a gap
@@ -349,7 +366,7 @@
     const put = (k, p) => { const q = pj(p); const t = o[k] || (o[k] = { x: 0, y: 0 }); t.x = q.x; t.y = q.y; };
     put('hip', P.hip); put('neck', P.neck); put('head', P.head); put('sh', P.shR);
     put('elF', P.elR); put('haF', P.haR); put('elB', P.elL); put('haB', P.haL);
-    put('knF', P.knR); put('ftF', P.ftR); put('knB', P.knL); put('ftB', P.ftL); put('hipF', P.hipR); put('hipB', P.hipL);
+    put('knF', P.knR); put('ftF', P.ftR); put('knB', P.knL); put('ftB', P.ftL); put('hipF', P.hipR); put('hipB', P.hipL); put('shB', P.shL);
     const BL = f.wpn.blade, u = P.blade.u;
     put('tip', madd(P.blade.h, u, BL)); put('pom', madd(P.blade.h, u, -f.wpn.handle)); put('hilt', P.armed ? madd(P.blade.h, u, 4) : P.blade.h); put('pomm', madd(P.blade.h, u, P.armed ? 4 - f.wpn.handle : -f.wpn.handle));
     put('saya', P.saya.a); put('sayaEnd', madd(P.saya.a, P.saya.u, P.saya.L)); put('obi', P.saya.a);
