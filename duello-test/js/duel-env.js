@@ -34,6 +34,28 @@
     ['cup', 256, 0, { on: 7 }], ['bottle', 282, 0, { on: 7 }], ['post', 400, -6], ['bale', 510, -6], ['lantern', 610, -12], ['bucket', 690, -4],
     ['rack', 790, -20]];
   P.ARENA_SETS.temple = TEMPLE;
+  // (the long-rally finisher variants (KAESHI, fighter.js) are made the first time a rally reaches them; made here at once,
+  // so every fight - bare or drawn - meets them already in the shared move table: a move added mid-fight was hashed by
+  // its contents in one run and as a shared table in the other, and duel-check saw two different fights)
+  (function preKaeshi() {
+    const K = ND.KAESHI, ATK = ND.ATK;
+    if (!K || !K.sets || !ATK) return;
+    for (const S of Object.values(K.sets)) {
+      const L = S && S.finisher; if (!L || !L[0] || !ATK[L[0]]) continue;
+      const base = L[0], alt = base + '_return';
+      if (ATK[alt]) continue;
+      const replies = S.riposte || K.sets.katana.riposte, one = ATK[replies[1] || replies[0]], two = ATK[replies[0]], a = ATK[base];
+      if (!one || !two || !a || !a.keys) continue;
+      const keys = a.keys.map((k) => k.slice());
+      for (const k of keys) {
+        if (k[0] <= 0.05) k[1] = one.keys[0][1];
+        else if (k[0] <= 0.13) k[1] = one.keys[1][1];
+        else if (k[0] < 0.2) k[1] = two.keys[0][1];
+        else if (k[0] <= 0.25) k[1] = two.keys[1][1];
+      }
+      ATK[alt] = Object.assign({}, a, { keys });
+    }
+  })();
   // (the CPU's use of the set is this file's: the props module's own CPU timer walked it off to a prop every few
   // seconds whatever the fight was doing, and a fighter on a walk cannot guard)
   const enable0 = P.enable;
@@ -284,13 +306,40 @@
   D.envExchange = inExchange;
 
   const FP = ND.Fighter.prototype, upd0 = FP.update, inv0 = FP.isInv, pass0 = FP.passing;
+  // A cut lands only from where the drawn blade reaches (arm + blade, ~170 for Akane's katana): a cut that would have
+  // landed from further (the hand-keyed fight body reached ~220: a thrust or a rising cut hitting a body the drawn blade
+  // never touched) steps in over its wind-up instead - the lunge closes the gap, the blow is the same.
+  const ARM = 76;
+  // Kuro's straight thrust from close in: the long nodachi's point cannot reach a body that close in a straight line
+  // (the drawn blade stopped at the hip edge): within THRUST_MIN the forward-light is his slanting cut instead
+  const THRUST_MIN = 172;
+  for (const id of ['kuro']) {
+    const M = ND.MOVES && ND.MOVES[id];
+    if (typeof M !== 'function') continue;
+    ND.MOVES[id] = (f, n) => {
+      const r = M(f, n);
+      if (r === 'd_tsuki' && f.dz && f.opp && Math.abs(f.opp.x - f.x) < THRUST_MIN && ND.ATK.d_kesaR) { f.dz.lastMove = 'd_kesaR'; return 'd_kesaR'; }
+      return r;
+    };
+  }
+  function reachIn(f, dt) {
+    const o = f.opp, a = f.atk;
+    if (f.state !== 'atk' || !a || a.kind !== 'blade' || a.special || a.prop || !a.active || !o || o.dead || !f.onGround || !o.onGround || o.state === 'down' || o.state === 'getup' || o.state === 'launch') return;
+    if (f.st < a.active[0] - 0.18 || f.st > a.active[1]) return;
+    const reach = ARM + ((f.wpn && f.wpn.blade) || 96) - 8, d = Math.abs(o.x - f.x), s = Math.sign(o.x - f.x) || f.dir;
+    // (a straight thrust of the long nodachi stops short: its point cannot meet a body closer than THRUST_MIN)
+    if (f.ch.id === 'kuro' && f.dz && f.dz.lastMove === 'd_tsuki' && d < THRUST_MIN) { f.x = Math.max(-ND.ARENA, Math.min(ND.ARENA, o.x - s * THRUST_MIN)); return; }
+    if (d <= reach || d > reach + 90) return;
+    const step = Math.min(d - reach, 1500 * dt);
+    f.x = Math.max(-ND.ARENA, Math.min(ND.ARENA, f.x + s * step));
+  }
   FP.update = function (dt) {
     // the player's buttons near a station: read before the fighter's own update would start the ordinary move
     // (the CPU's own presses too: when its eye for the set is ready, a press by a station does that station's move)
     if (this.dz && P.live) { heldButtons(this, dt); if (human(this) && this.state !== 'denv') contextual(this); }
     if (this.dz && this.dz.envRep > 0) this.dz.envRep -= dt; // (the player: the same station move not straight again)
     const c = this.dz && this.state === 'denv' ? this.dz.env : null;
-    if (!c) return upd0.call(this, dt);
+    if (!c) { const r = upd0.call(this, dt); if (this.dz) reachIn(this, dt); return r; }
     upd0.call(this, dt);
     if (this.dead || this.state !== 'denv') { if (this.dz) this.dz.env = null; return; }
     const A = ACT[c.a];
@@ -630,6 +679,7 @@
   // (a special made to go through - its cross - goes through, but never stands in the other: |dx| >= THRU)
   const THRU = 36;
   const through = (f) => f.passing && f.passing() && f.state === 'atk' && f.atk && f.atk.cross;
+  const kicking = (f) => f.state === 'atk' && f.atk && f.atk.kind === 'kick' && f.atk.active && f.st > f.atk.active[0] - 0.08 && f.st < f.atk.active[1] + 0.08;
   function spacing(g, a, b) {
     const za = a.dz, d = b.x - a.x;
     const side = za.side || Math.sign(d) || a.dir || 1;
@@ -658,7 +708,7 @@
     // (and a body coming down over it - thrown, jumping, off the steps - gives way itself: it does not land on him)
     if (la !== lb) {
       const up = la ? b : a, inAir = !up.onGround && up.y < -20;
-      const gap = inAir ? Math.max(DOWN_SEP, up.state === 'launch' ? LAUNCH_SEP : AIR_SEP) : DOWN_SEP;
+      const gap = inAir ? Math.max(DOWN_SEP, up.state === 'launch' ? LAUNCH_SEP : AIR_SEP) : kicking(up) ? Math.max(DOWN_SEP, FOOT_SEP + 10) : up.state === 'droll' ? KICK_SEP : DOWN_SEP;
       placeApart(a, b, over ? Math.sign(d) || side : side, gap, inAir ? (up === a ? 1 : 0) : la ? 1 : 0);
       return after();
     }
@@ -683,7 +733,6 @@
     const hi = a.y < b.y - ABOVE && !a.onGround ? a : b.y < a.y - ABOVE && !b.onGround ? b : null;
     if (hi) { placeApart(a, b, side, ABOVE_SEP, hi === a ? 1 : 0); za.side = side; return; }
     // (a kick lands from a leg's length: the kicker stops there, the foot meets the body)
-    const kicking = (f) => f.state === 'atk' && f.atk && f.atk.kind === 'kick' && f.atk.active && f.st > f.atk.active[0] - 0.08 && f.st < f.atk.active[1] + 0.08;
     // (and a roll tumbles a body's length: it stops a leg's length off him too)
     const kk = kicking(a) || a.state === 'droll' ? a : kicking(b) || b.state === 'droll' ? b : null;
     if (kk) { placeApart(a, b, side, kk.state === 'droll' ? KICK_SEP : FOOT_SEP, kk === a ? 1 : 0); za.side = side; return; }
@@ -697,11 +746,16 @@
     placeApart(a, b, side, gap, Lg ? (Lg === a ? 1 : 0) : va + vb > 1 ? va / (va + vb) : 0.5);
     za.side = side;
   }
+  // (?exold=1: inside a sword exchange the old push instead - tried: no more blade contacts over 14 sessions, 24.1 vs 24.9 a
+  // minute, and 41 frames of bodies drawn inside each other where the old push lets a dodge pass through)
+  const EXOLD = /[?&]exold=1(&|$)/.test(location.search || '');
   const sep0 = G.separate, SEP_OFF = /[?&]dsep=0(&|$)/.test(location.search || ''); // (?dsep=0: the old push-box, to compare)
   if (sep0 && !SEP_OFF) {
     G.separate = function () {
       const F = this.F || G.F;
       if (!F || !F[0] || !F[1] || !F[0].dz || !F[1].dz) return sep0.call(this);
+      // (inside a sword exchange: the old push - the fight keeps its reach; the drawing keeps the bodies apart, js/mocap-duel.js)
+      if (inExchange() && EXOLD) { const r = sep0.call(this); const d = F[1].x - F[0].x; if (d) F[0].dz.side = Math.sign(d); return r; }
       spacing(this, F[0], F[1]);
     };
     // (and once more at the end of the whole step: what moves a body after the push - a special's own placing, the
@@ -710,7 +764,7 @@
     G.update = function () {
       const r = up0.apply(this, arguments);
       const F = this.F || G.F;
-      if (F && F[0] && F[1] && F[0].dz && F[1].dz && (this.phase === 'fight' || this.phase === 'ko')) spacing(this, F[0], F[1]);
+      if (F && F[0] && F[1] && F[0].dz && F[1].dz && (this.phase === 'fight' || this.phase === 'ko') && !(EXOLD && inExchange())) spacing(this, F[0], F[1]);
       return r;
     };
   }

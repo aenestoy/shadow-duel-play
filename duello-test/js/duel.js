@@ -578,7 +578,9 @@
 
   // ------------------------------------------------------------------ BIND: the defence-chain cinematic
   function bindOk(def, att) {
-    return G.phase === 'fight' && !def.dead && !att.dead && def.onGround && att.onGround && Math.abs(def.x - att.x) < 260 &&
+    // (blades can meet: from further apart - a long lunge blocked at its tip - the bind's first frames showed the two
+    // blades a hand apart while the bodies were still being drawn in)
+    return G.phase === 'fight' && !def.dead && !att.dead && def.onGround && att.onGround && Math.abs(def.x - att.x) < 150 &&
       !(att.state === 'atk' && att.atk.special) && !(def.dz.cine || att.dz.cine) && !G.lock;
   }
   function startBind(def, att) {

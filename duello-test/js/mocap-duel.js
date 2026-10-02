@@ -25,18 +25,21 @@
 
   // ------------------------------------------------------------------ move → clip (clip seconds: start, strike, end)
   // The strike second is where the recorded blade (fist, foot) is at full speed; it is put on the move's hit window.
+  // (the strike second is where the recorded blade reaches the opponent — the tip forward at the body's height, the blade
+  // level: measured on each clip, 2026-10-02. The earlier strike seconds came while the blade was still raised, 30-70°
+  // up: the hit, block or parry landed before the blade arrived)
   const SEG = {
-    downR: ['comboSlash', 0.56, 0.8, 1.05], // kesa from the right (the combo's first cut)
-    downL: ['twoHandCombo', 1.18, 1.34, 1.62], // gyaku-kesa
-    down: ['overhead', 0.38, 0.64, 0.98], // shomen
-    men: ['overhead', 0.12, 0.64, 1.2], // the big vertical (the whole wind-up)
-    heavy: ['powerSlash', 0.32, 0.72, 1.3],
-    up: ['comboSlash', 2.42, 2.74, 2.96], // rising (kiri-age)
-    level: ['comboSlash', 1.42, 1.72, 1.96], // yoko
-    low: ['lowSlash', 0.62, 1.0, 1.4], // sune-gari
-    lowRise: ['crouchSlash', 0.25, 0.43, 0.7],
+    downR: ['comboSlash', 0.56, 0.87, 1.08], // kesa from the right (the combo's first cut)
+    downL: ['twoHandCombo', 1.18, 1.36, 1.62], // gyaku-kesa
+    down: ['overhead', 0.38, 0.66, 0.98], // shomen
+    men: ['overhead', 0.12, 0.66, 1.2], // the big vertical (the whole wind-up)
+    heavy: ['powerSlash', 0.32, 0.75, 1.3],
+    up: ['comboSlash', 2.42, 2.68, 2.96], // rising (kiri-age)
+    level: ['comboSlash', 1.5, 1.77, 1.88], // yoko
+    low: ['lowSlash', 0.62, 0.92, 1.4], // sune-gari
+    lowRise: ['crouchSlash', 0.25, 0.47, 0.7],
     short: ['twoHandCombo', 0.47, 0.64, 0.86], // kote (a short cut)
-    spin: ['spinAttackRun', 0.82, 1.07, 1.32],
+    spin: ['spinAttackRun', 0.82, 1.15, 1.38],
     hilt: ['hiltStrike', 0.02, 0.2, 0.62],
     kickA: ['sideKickArmed', 0.38, 0.73, 1.2],
     jab: ['punches', 0.38, 0.57, 0.76],
@@ -52,17 +55,19 @@
     frontF: ['fKickFrontU', 0.1, 0.47, 0.9],
     roundF: ['fKickRoundU', 0.0, 0.4, 0.95],
     spinF: ['fKickSpinBackU', 0.05, 0.59, 1.15],
-    draw: ['drawFwd', 0.43, 0.74, 1.15], // nukitsuke: the hilt taken at the hip, out and through
+    draw: ['drawFwd', 0.43, 0.87, 1.15],
+    // the running cut: only its sweep — the wind-up had the blade pointing behind her, the follow-through twisted away
+    dashCut: ['comboSlash', 1.69, 1.77, 1.84], // nukitsuke: the hilt taken at the hip, out and through
   };
   const MOVE = {
     ak_dNuki: 'draw', ak_dKesa: 'downR', d_kesaR: 'downR', d_kesaL: 'downL', d_shomen: 'down', d_men: 'men', d_kesaH: 'heavy',
-    d_kiriUp: 'up', d_antiH: 'up', d_antiL: 'lowRise', d_suneR: 'low', kr_nagi: 'low', d_dashR: 'level', d_doL: 'level', d_oikomi: 'level',
+    d_kiriUp: 'up', d_antiH: 'up', d_antiL: 'lowRise', d_suneR: 'low', kr_nagi: 'low', d_dashR: 'dashCut', d_doL: 'level', d_oikomi: 'level',
     d_nagare: 'downL', d_kote: 'short', d_kabuto: 'men', kr_iwa: 'heavy', kr_kuruma: 'spin', d_taiatari: 'hilt', ak_tsuka: 'hilt',
     d_hiza: 'kickA', d_kakato: 'axe',
     ua_jab: 'jab', ua_cross: 'cross', ua_lunge: 'cross', ua_palm: 'palm', ua_upper: 'upper', ua_elbow: 'elbow', ua_ram: 'elbow',
     ua_front: 'frontF', ua_round: 'roundF', ua_spinKick: 'spinF',
     // the kit's own moves that come through in the duel (js/fighter.js ATK)
-    light1: 'downR', light2: 'downL', light3: 'down', heavy: 'men',
+    light1: 'downR', light2: 'downL', light3: 'down', heavy: 'men', dash: 'dashCut',
   };
   // moves left on their hand-keyed poses: no recording fits (listed for the report and the test page)
   MD.KEYED = ['d_tsuki', 'd_tsukiL3', 'd_tobikomi', 'd_wallL', 'd_kaiten', 'd_ashibarai', 'ak_dKiri', 'ak_tsubame', 'ak_kage', 'ak_ryusei', 'ak_maki', 'kr_uchi',
@@ -81,7 +86,8 @@
   function warp(seg, a, t) {
     const [, c0, cH, c1] = seg;
     const act = a.active || [a.dur * 0.3, a.dur * 0.45];
-    const tH = act[0] + (act[1] - act[0]) * 0.3, dur = Math.max(a.dur || 0.5, tH + 0.05);
+    // (the strike second on the first frame the move can hit: a hit, block or parry lands then)
+    const tH = act[0] + (act[1] - act[0]) * 0.05, dur = Math.max(a.dur || 0.5, tH + 0.05);
     if (t <= tH) return c0 + (cH - c0) * clamp(t / Math.max(1e-3, tH), 0, 1);
     return cH + (c1 - cH) * clamp((t - tH) / Math.max(1e-3, dur - tH), 0, 1);
   }
@@ -133,6 +139,8 @@
     out.sw = f.wpn.iai && (S.sheathed || out.inside) && j.haB && Math.hypot(P.haB.x - S.saya.a.x, P.haB.y - S.saya.a.y) < 16 ? 1 : 0;
     out.cR = P.ftF.y > -3 && f.onGround ? 1 : 0; out.cL = P.ftB.y > -3 && f.onGround ? 1 : 0;
     out.fistR = j.hasSword || j.fist ? 1 : 0; out.fistL = out.tw > 0.5 || j.fist ? 1 : 0;
+    // (the 20-joint body's own directions, derived from the hand-keyed pose: chest = spine, wrists straight, feet level)
+    if (Mo.fill20) Mo.fill20(d, true);
     return out;
   }
 
@@ -176,8 +184,7 @@
       case 'dbind': {
         // the bind: a two-handed guard body, the hands taken to the crossing (js/duel-bind.js); the strike and an
         // unarmed bind keep their hand-keyed poses
-        const c = f.dz && f.dz.cine;
-        if (armed && c && c.ph === 'bind') return { key: 'bind', src: clip('blockIdle', () => s.idleT % C('blockIdle').dur), fade: 0.08 };
+        // (the hand-keyed bind stands upright in its kamae; the recorded Great Sword block sat in a deep squat)
         return { key: 'keyed', src: keyed, fade: 0.08 };
       }
       case 'move': case 'zanshin': case 'win': case 'land': {
@@ -185,9 +192,13 @@
         const sp = f.vx * (f.dir < 0 ? -1 : 1);
         // Akane between moves: the sword home in the saya, the hand on the hilt (the iai stance)
         if (armed && f.wpn.iai && f.sheathed && f.sheathed()) {
-          if (s.sheatheT < 0.55) return { key: 'sheathe', src: clip('sheathe', () => 0.62 + s.sheatheT * 1.6), fade: 0.1 };
+          // (the sheathe is the hand-keyed one: the hand brings the hilt to the hip scabbard — the recorded clip's start
+          // had the arm over the face and the point down in front)
+          if (s.sheatheT < 0.55) return { key: 'keyed', src: keyed, fade: 0.1 };
           if (Math.abs(sp) > 40) return { key: 'keyed', src: keyed, fade: 0.15 };
-          return { key: 'iai', src: clip('drawFwd', 0.42), fade: 0.18 };
+          // (her iai stance, the hand on the hilt at the hip: the hand-keyed one — the recorded draw's held frame had the
+          // forearm up across the chest)
+          return { key: 'keyed', src: keyed, fade: 0.18 };
         }
         if (!armed) {
           if (Math.abs(sp) > 40) return { key: 'keyed', src: keyed, fade: 0.15 };
@@ -198,18 +209,14 @@
         if (sp < -40) return { key: 'back', src: clip('backWalk', () => s.walkT % C('backWalk').dur), fade: 0.15 };
         return { key: 'idle', src: clip('idle', () => s.idleT % C('idle').dur), fade: 0.2 };
       }
-      case 'guard': {
-        if (!armed) return { key: 'keyed', src: keyed, fade: 0.1 };
-        const low = lowGuard(f);
-        return low ? { key: 'gLow', src: clip('crouchBlockIdle', () => s.idleT % C('crouchBlockIdle').dur), fade: 0.1 } : { key: 'gHigh', src: clip('blockIdle', () => s.idleT % C('blockIdle').dur), fade: 0.1 };
-      }
-      case 'block': {
-        if (!armed) return { key: 'keyed', src: keyed, fade: 0.08 };
-        const low = lowGuard(f);
-        return { key: 'block:' + f.serial, src: clip(low ? 'crouchBlockedImpact' : 'blockedImpact', () => Math.min(0.8, f.st * 1.3)), fade: 0.05 };
-      }
-      case 'recoil': // the blade bounced off a guard: the recorded blocked impact
-        return { key: 'recoil:' + f.serial, src: clip(armed ? 'blockedImpact' : 'hitBody', () => Math.min(0.8, 0.05 + f.st * 1.3), { post: armed ? null : unarm }), fade: 0.05 };
+      // guard, block and the attacker's recoil: the hand-keyed swordsman's guard (upright kamae, knees a little bent, the
+      // blade between the bodies, the face clear; a low guard is the blade low and the body upright). The recorded Great
+      // Sword block clips sat the hips at 76 % / 52 % of standing height and raised both arms over the head.
+      case 'guard': case 'block':
+        return { key: 'keyed', src: keyed, fade: 0.1 };
+      case 'recoil':
+        if (armed) return { key: 'keyed', src: keyed, fade: 0.06 };
+        return { key: 'recoil:' + f.serial, src: clip('hitBody', () => Math.min(0.8, 0.05 + f.st * 1.3), { post: unarm }), fade: 0.05 };
       case 'hurt': case 'gbreak': case 'stagger': {
         // (the head impact for every hit: the weight goes back, away from the blow — the recorded body hit folds
         // forward into the opponent)
@@ -269,7 +276,7 @@
     // (taken up over 0.03 s from wherever the hand was — from the contact weight it had: the blade arrives on the
     // crossing, the hand never jumps there in one frame; leaving, it follows the bind's own fade)
     if (BG && BG.w > 0) {
-      if (!s.bgOn) { s.bw = s.cw || 0; s.ovPrev = null; if (Math.abs(s.ox || 0) < 15) { rg.x -= s.ox || 0; s.ox = 0; } else s.bw = 1; } // (drawn off its place by more: the blades meet at once all the same) // (a small keep-apart offset goes at the bind's first moment: the blades meet where the fight says)
+      if (!s.bgOn) { s.bw = s.cw || 0; s.ovPrev = null; rg.x -= s.ox || 0; s.ox = 0; } // (the keep-apart offset goes at the bind's first moment: the bind places the pair itself, the blades meet where the fight says) // (a small keep-apart offset goes at the bind's first moment: the blades meet where the fight says)
       s.bgOn = true; s.bw = Math.min(BG.w, s.bw + (dt > 0 ? dt / 0.03 : 0));
       // (the crossing is in the fight's world: a body drawn off its x by the keep-apart offset reaches it all the same)
       O3.h = BG.h; O3.u = BG.u; O3.e = BG.e; O3.w = s.bw; ovSmooth(s, dt); oxComp(s, dir); rg.ovr = O3; s.cw = s.bw; MD.stats.contact++; return;
@@ -278,9 +285,12 @@
     O3.e = null;
     const wcT = contactW(f);
     s.cw = s.cw == null || dt <= 0 ? wcT : s.cw + (wcT - s.cw) * Math.min(1, dt / 0.035);
-    const wc = s.cw > 0.01 ? s.cw : 0, wf = wc > 0 ? 0 : drawFlatW(f, s);
-    if (wc <= 0 && wf <= 0) { rg.ovr = null; s.ovPrev = null; return; }
-    if (wc > 0) {
+    // a cut that lands: the blade is ON its target when the fight's hit frame comes (aimW)
+    const wa = aimW(f), aim = wa > 0.01 ? aimAt(f, s, rg, dir) : null;
+    const wc = aim ? 0 : s.cw > 0.01 ? s.cw : 0, wf = wc > 0 || aim ? 0 : drawFlatW(f, s);
+    if (!aim && wc <= 0 && wf <= 0) { rg.ovr = null; s.ovPrev = null; return; }
+    if (aim) { O3.h = aim.h; O3.u = aim.u; O3.w = wa; MD.stats.aim = (MD.stats.aim || 0) + 1; }
+    else if (wc > 0) {
       const j = f.viewJ();
       if (!j || !j.haF || !j.tip) { rg.ovr = null; s.ovPrev = null; return; }
       const P = rg.P, hz = P ? P.haR[2] : 11;
@@ -294,6 +304,45 @@
     }
     ovSmooth(s, dt); oxComp(s, dir);
     rg.ovr = O3;
+  }
+  // A blade cut's hit frames: the weight of the aim (in 0.08 s before the first frame it can hit, held through its
+  // window, out over 0.1 s after). The recorded cut reaches ~140 forward at the chest; the fight's reach and lunges
+  // differ, so at the hit the blade is laid onto what it meets: the defender's blade when it guards / blocks / parries,
+  // else its body (the chest, the head for a cut from above) — the audit's hitEarly measures exactly this.
+  function aimW(f) {
+    const a = f.state === 'atk' ? f.atk : null, o = f.opp;
+    if (!a || a.kind !== 'blade' || !a.active || !o || o.dead || o.hidden || (f.dz && f.dz.armed === false)) return 0;
+    if (f.dz && f.dz.cine) return 0;
+    const t = f.st, a0 = a.active[0], a1 = a.active[1];
+    const k = clamp((t - (a0 - 0.08)) / 0.07, 0, 1) * clamp(1 - (t - a1) / 0.1, 0, 1);
+    return k * k * (3 - 2 * k);
+  }
+  function aimAt(f, s, rg, dir) {
+    const o = f.opp, so = ST.get(o), P = rg.P;
+    if (!P || !so || !so.rig.P || Math.abs(o.x - f.x) > 300) return null;
+    const Q = so.rig.P, pj = (q) => Mo.project(so.rig, q), loc = (w) => [(w.x - rg.x) * dir, w.y, P.haR[2]];
+    const defending = o.state === 'guard' || o.state === 'block' || o.state === 'parry' || o.state === 'clash';
+    const BL = (f.wpn && f.wpn.blade) || 96;
+    let T;
+    if (defending && Q.armed && !Q.inside) { const BLo = (o.wpn && o.wpn.blade) || 96; T = loc(pj(madd(Q.blade.h, Q.blade.u, BLo * 0.45))); }
+    else {
+      // the body's SURFACE facing the attacker (the drawn torso is a capsule of 17 round the spine, the thigh 10): a cut
+      // from above or level meets the shoulder / upper chest edge, a low cut the thigh — never the face; the tip stops
+      // there (3 in): the blade never passes through the body
+      const z = f.atk && f.atk.dz3 ? f.atk.dz3.v : 'level', low = z === 'low';
+      const hip = pj(Q.hip), nk = pj(Q.neck), towards = f.x < o.x ? -1 : 1;
+      let c, r;
+      if (low) { const sd = lerp(Q.hipR, Q.knR, 0.5), sd2 = lerp(Q.hipL, Q.knL, 0.5), a1 = pj(sd), a2 = pj(sd2); c = (a1.x - a2.x) * towards > 0 ? a1 : a2; r = 10; }
+      else { const k = z === 'down' ? 0.8 : 0.68; c = { x: hip.x + (nk.x - hip.x) * k, y: hip.y + (nk.y - hip.y) * k }; r = 17; }
+      T = loc({ x: c.x + towards * (r - 1), y: c.y });
+    }
+    const H = P.haR, toT = sub(T, H), d = len(toT);
+    if (d < 1e-3) return null;
+    // the hand where the blade's tip (0.97 of it) reaches T, within the arm with the elbow kept bent (53 of 59): out of
+    // reach the blade stops short (the fight's distance)
+    const u0 = norm(toT), want = sub(T, mul(u0, BL * (defending ? 0.55 : 0.97))), sh = P.shR, v = sub(want, sh), lv = len(v), reach = 53;
+    const h = lv > reach ? add(sh, mul(v, reach / lv)) : want;
+    return { h, u: norm(sub(T, h)) };
   }
   // (a body drawn off its fight x by the keep-apart offset still reaches the fight's own place: after the smoothing)
   function oxComp(s, dir) { if (s.ox) O3.h = [O3.h[0] - s.ox * dir, O3.h[1], O3.h[2]]; }
@@ -404,7 +453,7 @@
     if (!noPair && MD.sep && so0 && s.pairAt !== clk) {
       if (so0.tickedAt !== clk) tick(o, true);
       s.pairAt = so0.pairAt = clk;
-      if (so0.tickedAt === clk && so0.rig.P) { kickStop(f, s, o, so0); kickStop(o, so0, f, s); apart(f, s, o, so0); } // (legs first: a bent kicking leg may bring its thigh in)
+      if (so0.tickedAt === clk && so0.rig.P) { kickStop(f, s, o, so0); kickStop(o, so0, f, s); apart(f, s, o, so0); bladeStop(f, s, o, so0); bladeStop(o, so0, f, s); } // (legs first: a bent kicking leg may bring its thigh in)
     }
     return s;
   }
@@ -524,6 +573,48 @@
       P['kn' + k] = r.m; P['ft' + k] = r.e;
     }
   }
+  // ------------------------------------------------------------------ a blade stops at the body it meets
+  // An attacker's drawn blade never goes through the other's head (a circle of 14) or deeper than 3 into the torso (a
+  // capsule of 17 round the spine): the sword hand draws back along the blade (the elbow bends, 3D IK from the shoulder)
+  // and, if that is not enough, the blade turns away round the hand — the least that clears it.
+  function bladeStop(f, s, o, so) {
+    const rg = s.rig, P = rg.P;
+    if (!P || !P.armed || P.inside || f.dead || o.dead || o.hidden || !so.rig.P) return;
+    if (f.state === 'dbind' || (f.dz && f.dz.cine)) return;
+    const Q = so.rig.P, pjo = (q) => Mo.project(so.rig, q), hd = pjo(Q.head), hp = pjo(Q.hip), nk = pjo(Q.neck);
+    const BL = (f.wpn && f.wpn.blade) || 96, pj = (q) => Mo.project(rg, q);
+    const segD = (x, y) => { const vx = nk.x - hp.x, vy = nk.y - hp.y, l2 = vx * vx + vy * vy || 1, t = clamp(((x - hp.x) * vx + (y - hp.y) * vy) / l2, 0, 1); return Math.hypot(x - hp.x - vx * t, y - hp.y - vy * t); };
+    const pen = (h, u) => { let m = -1e9; for (let k = 0; k <= 24; k++) { const w = pj(madd(h, u, 4 + ((BL - 4) * k) / 24)); m = Math.max(m, 14.5 - Math.hypot(w.x - hd.x, w.y - hd.y), 17 - segD(w.x, w.y) - 3); } return m; };
+    let h = P.blade.h, u = P.blade.u, p0 = pen(h, u);
+    if (p0 <= 0) return;
+    // the least change that clears it: the hand drawn back (away from the other, within the arm: the elbow bends) and the
+    // blade turned round the hand in the picture's plane — cost: 1 per unit back, 25 per radian turned
+    const hitW = aimW(f), L = Mo.L, L20 = Mo.L20, j20 = !!P.wrR, away = [-1, 0, 0], rot = (uu, a) => { const c = Math.cos(a), sn = Math.sin(a); return norm([uu[0] * c - uu[1] * sn, uu[0] * sn + uu[1] * c, uu[2]]); };
+    let best = null;
+    for (let back = 0; back <= 64; back += 4) {
+      let hb = madd(h, away, back); const dS = len(sub(hb, P.shR)), MXA = L.uArm + L.fArm - 0.5; // (where the arm can put it)
+      if (dS < 14) hb = madd(P.shR, norm(sub(hb, P.shR)), 14); else if (dS > MXA) hb = madd(P.shR, norm(sub(hb, P.shR)), MXA);
+      for (let i = 0; i <= 31; i++) for (const sg of i ? [1, -1] : [1]) {
+        const ang = sg * i * 0.1, uu = i ? rot(u, ang) : u;
+        let cost = back + Math.abs(ang) * 25;
+        if (best && cost >= best.cost) continue;
+        const pn = pen(hb, uu);
+        if (pn > 0) continue;
+        // (in a cut's hit window the blade stays ON the body: a blade turned off it costs its distance from the surface)
+        if (hitW > 0.01) cost += Math.max(0, -pn - 3) * 3 * hitW;
+        if (!best || cost < best.cost) best = { cost, h: hb, u: uu };
+      }
+    }
+    if (!best) return;
+    const h2 = best.h, u2 = best.u;
+    // the arm to the new hand
+    const pole = sub(P.elR, lerp(P.shR, h2, 0.5));
+    if (j20) { const r = Mo.ik3(P.shR, h2, L.uArm, L20.fw + L20.hd, pole); P.elR = r.m; P.haR = r.e; P.wrR = lerp(r.m, r.e, L20.fw / (L20.fw + L20.hd)); } // (the wrist straight on the new forearm)
+    else { const r = Mo.ik3(P.shR, h2, L.uArm, L.fArm, pole); P.elR = r.m; P.haR = r.e; }
+    let e = sub(P.blade.e, mul(u2, dot(P.blade.e, u2))); e = len(e) > 1e-4 ? norm(e) : P.blade.e;
+    P.blade = { h: P.haR, u: u2, e };
+    MD.stats.bladeStop = (MD.stats.bladeStop || 0) + 1;
+  }
   // Arena moments for the props pass (drawing only - the fight's own state, position and timing stay the truth):
   //   ND.duel.mocap.act(f, id, { dur, from, to, fade, legs, keepSword }) -> true when it plays
   //   id: one of MD.ACTS (or any loaded clip); dur: seconds of fight time it takes (default: the clip's own length);
@@ -533,7 +624,44 @@
   //   by itself: keep y on the floor); its own travel is not (the fight moves the body: C.travel, ND.mocap.clips[id]).
   //   MD.actStop(f) ends it early. A fall ('down') that ends with the fight's body up gets up by itself (fGetUp, 0.9 s);
   //   fLadderDown starts at the top of the ladder: call it as fLadderUp ends (MD.actOf(f) then reads 'fLadderUp (end)').
-  MD.ACTS = ACTS;
+  MD.ACTS = ACTS; MD.SEG = SEG; MD.MOVE = MOVE;
+  // ONE MOVE ALONE (a move gallery: ?move=<id>, ?who=kuro for Kuro doing it): once the fight is on, the CPU stops and
+  // the move is played again every ~2 s from the same places — a duel move by name (d_kesaR, d_men, d_dashR, ak_dNuki,
+  // ua_round …), or a defence staged against the other's cut: guard, guardLow, block, recoil, bind, sheathe, hit
+  MD.loopMove = function (id, who) {
+    const g = ND.game; if (!g || !g.F || g.F.length < 2) return false;
+    const F = g.F, A = F.find((f) => f.ch.id === (who || F[0].ch.id)) || F[0], K = F.find((f) => f !== A);
+    let wait = 0, phase = 0;
+    const press = (c, k, on) => { if (!c) return; if (on) c.press(k, 'mv'); else c.release(k, 'mv'); };
+    const cA = A.ctrl, place = (gap) => { for (const f of F) { f.setState('move'); f.vx = 0; f.hp = f.maxHp; f.inv = 0; if (f.dz) f.dz.chain = 0; } A.x = -gap / 2; K.x = gap / 2; A.dir = 1; K.dir = -1; };
+    MD.loop = { id, step() {
+      g.ais = [];
+      for (const f of F) f.hp = f.maxHp;
+      if (F.some((f) => f.state !== 'move' || (f.dz && f.dz.cine))) { wait = 50; return; }
+      if (--wait > 0) return;
+      wait = 160; phase++;
+      press(cA, 'guard', false);
+      switch (id) {
+        case 'guard': place(150); press(cA, 'guard', true); break;
+        case 'guardLow': place(140); press(cA, 'guard', true); K.startAtk('d_suneR'); break;
+        case 'block': case 'recoil': place(140); press(cA, 'guard', true); K.startAtk('d_kesaR'); break;
+        case 'bind': place(130); D.startBind(A, K); break;
+        case 'sheathe': place(220); A.startAtk(A.wpn && A.wpn.iai ? 'ak_dKesa' : 'd_kesaR'); break;
+        case 'hit': place(120); K.startAtk('d_kesaR'); break;
+        default: place(/dash|nagare|oikomi/.test(id) ? 330 : 130); try { A.startAtk(id); } catch (e) { /* no such move */ }
+      }
+    } };
+    return true;
+  };
+  (() => {
+    let q = null; try { q = new URLSearchParams(location.search || ''); } catch (e) { return; }
+    const id = q && q.get('move'); if (!id) return;
+    const iv = setInterval(() => {
+      const g = ND.game; if (!g || g.phase !== 'fight' || !g.F || g.F.length < 2) return;
+      clearInterval(iv); MD.loopMove(id, q.get('who'));
+      const t0 = g.tick; g.tick = function (...a) { if (MD.loop) MD.loop.step(); return t0.apply(this, a); };
+    }, 200);
+  })();
   const DEF_LEGS = { fSlipSake: 'down', fRugPull: 'down', fDiveRoll: 'air', fDiveRollB: 'air', fRunJumpOver: 'air', fStepstoolJump: 'air', fStepstoolUp: 'air',
     fLadderUp: 'air', fLadderDown: 'air', fCartwheel: 'air', fBackflip: 'air', fHandspring: 'air' };
   MD.act = (f, id, o = {}) => {
