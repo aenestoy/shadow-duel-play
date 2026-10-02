@@ -30,7 +30,7 @@
   // (kinds in js/props.js, drawn by js/props-art.js); the normal game never loads this file.
   if (ND.PROP_SETS) {
     ND.PROP_SETS.market = [['shopfront', -800, -16], ['veranda', -500, -12], ['post', -220, -6], ['stool', 10, -4], ['table', 140, -8],
-      ['cup', 122, 0, { on: 4 }], ['cup', 146, 0, { on: 4 }], ['bottle', 172, 0, { on: 4 }], ['stool', 270, -2, { fx: -1 }],
+      ['cup', 122, 0, { on: 4 }], ['cup', 146, 0, { on: 4 }], ['bottle', 188, 0, { on: 4 }], ['stool', 270, -2, { fx: -1 }],
       ['lantern', 520, -14], ['barrel', 640, -10], ['bucket', 760, -4]];
   }
   // ------------------------------------------------------------------ the beats (sequence seconds from the start)
@@ -44,6 +44,7 @@
     { t: 11.6, word: 'KICK!', at: 3 },
   ];
   const STATIONS = ['STALL', 'POST', 'VERANDA', 'SHOP FRONT'];
+  const NOTO = [1.8, 1.94]; // the sword home in its scabbard (hand at the hip) before the stool
   const END = 12.9;
   D.SEQ = { BEATS, WIN, END, STATIONS };
 
@@ -81,7 +82,9 @@
     for (const f of [def, att]) { f.setState('dseq'); f.vx = f.vy = 0; f.counterUntil = 0; f.dz.seq = c; f.dz.cine = null; }
     def.dz.chain = 0;
     build(c);
-    def.x = trackAt(c.dX, 0); att.x = trackAt(c.aX, 0); def.dir = 1; att.dir = -1;
+    // (both glide from where they stand to their first marks: nobody is put there in one frame)
+    c.dX = [[0, def.x], [0.35, c.dX[0][1]], ...c.dX.slice(1)];
+    c.aX = [[0, att.x], [0.35, c.aX[0][1]], ...c.aX.slice(1)];
     // a cut into the scene: flash, the blades ring, the camera comes in
     fx.flash((def.x + att.x) / 2, -130, 0, 160, '255,244,220'); au.clang(1.2, 0, 0.8); if (au.kShing) au.kShing(0);
     if (ND.cine) { ND.cine.rings.length = 0; ND.cine.slashes.length = 0; ND.cine.banner = null; }
@@ -110,7 +113,7 @@
       [B[12].t, -96], [12.05, 0], [END, 0]];
     c.aX = [[0, S1 + 260], [B[0].t, S1 + 222], [B[1].t, S1 + 196], [B[2].t, S1 + 172], [2.35, S1 + 156], [2.95, S1 + 156], [3.3, S1 + 170],
       // the roll past D to the table (the bottle), then behind the table for the flip
-      [3.35, S1 + 170], [3.75, T + 66], [4.25, T + 62], [4.7, T - 84], [5.2, T - 86], [B[7].t, T - 86],
+      [3.35, S1 + 170], [3.75, T + 14], [4.25, T + 10], [4.7, T - 84], [5.2, T - 86], [B[7].t, T - 86],
       // kicked through the second stool, rolls on to the post, up beside it; slips behind it from the draw
       [6.2, S2 - 20], [6.7, S2 - 60], [7.2, PS + 46], [B[8].t - 0.1, PS + 40], [B[8].t + 0.05, PS - 84], [8.0, PS - 84], [B[9].t, PS - 6], [8.6, PS - 30],
       // up onto the veranda; kicks down; swept off the far end; staggers to the shop front; through it
@@ -134,7 +137,10 @@
     const reach = mod('ua_pickLow', { ax: -10, ay: 40, gx: -14, gy: 36, lean: 0.5, hx: -8 });
     const up = mod('ua_guard', { ax: 12, ay: -50, sw: -1.5, gx: 8, gy: -48, grip: 0, hy: -74, lean: 0.02 });
     const twist = Object.assign(pose.copy(up), { ax: 34, ay: -30, gx: 22, gy: -44, lean: 0.22, hx: 6 });
-    c.dK.push([1.85, reach, E.outCubic], [2.05, reach], [2.22, up, E.outQuart], [B[4].t - 0.06, up], [B[4].t + 0.08, twist, E.outQuart], [3.15, twist]);
+    // (the sword goes home first: the hand brings the hilt to the hip, the blade slides into the scabbard, then the
+    // hands are free for the stool; the sword stays in the scabbard at the hip until the draw at the post)
+    c.dK.push([NOTO[0], d.P.stance, E.inOutSine], [NOTO[1], d.P.stance], [2.05, reach, E.outCubic], [2.12, reach], [2.27, up, E.outQuart], [B[4].t - 0.06, up],
+      [B[4].t + 0.08, twist, E.outQuart], [3.15, twist]);
     c.aK.push([2.0, pk('dz_d_menW'), E.inOutSine], [2.2, pk('dz_d_menW')]);
     c.stuckP = {}; // aimed at the stool's seat each step (stuckAim): the stool moves with D's hands
     c.aK.push([B[3].t, c.stuckP, E.inQuad], [B[4].t, c.stuckP], [B[4].t + 0.1, pk('dz_flung'), E.outQuart], [3.3, pk('dz_flung')]);
@@ -198,12 +204,13 @@
     if (c.broke || c.done) return;
     const st = it('s1'), bt = it('bottle'), tb = it('table'), s2 = it('s2'), post = it('post'), shop = it('shop');
     // STALL
-    if (!F.grab && t >= 1.95 && st) F.grab = true;
-    if (F.grab && !F.stoolGone && st && st.st !== 3) holdStool(c, st, t);
+    // (a prop taken up goes from where it was to the hand over PICK s: picked up, never popped into the hand)
+    if (!F.grab && t >= 2.08 && st) { F.grab = true; c.g0 = [st.x, st.y, st.a, t]; }
+    if (F.grab && !F.stoolGone && st && st.st !== 3) { holdStool(c, st, t); pickGlide(st, c.g0, t); }
     if (!F.flung && t >= BEATS[4].t + 0.02) { F.flung = true; D.disarm(a, d, 1, 'bind'); say('DISARMED!', 100); }
     if (F.flung && !F.stoolGone && t >= 3.15 && st) { F.stoolGone = true; st.st = 1; st.vx = 60; st.vy = -120; st.w = -3; st.owner = -1; st.tt = 9; }
-    if (!F.bottle && t >= 3.85 && bt && bt.st !== 3) { F.bottle = true; bt.sup = -1; }
-    if (F.bottle && !F.thrown && bt && bt.st !== 3) holdAt(bt, a.j.haF.x, a.j.haF.y, 0.2 * a.dir);
+    if (!F.bottle && t >= 3.85 && bt && bt.st !== 3) { F.bottle = true; bt.sup = -1; c.b0 = [bt.x, bt.y, bt.a, t]; }
+    if (F.bottle && !F.thrown && bt && bt.st !== 3) { holdGrip(bt, a.j.haF.x, a.j.haF.y, 0.2 * a.dir); pickGlide(bt, c.b0, t); }
     if (!F.thrown && t >= BEATS[5].t - 0.02 && bt && bt.st !== 3) {
       // the bottle flies over the ducking D and shatters behind her (ceramic)
       F.thrown = true; bt.st = 1; bt.owner = a.id; bt.tt = 0; bt.hitF = -1;
@@ -279,6 +286,20 @@
     // bottom-middle at (x, y): the centre of mass sits above it
     const c = Math.cos(a), s = Math.sin(a), cx = -K._com[0], cy = -K._com[1];
     p.x = x + c * cx - s * cy; p.y = y + s * cx + c * cy;
+  }
+  const PICK = 0.12;
+  function pickGlide(p, g0, t) {
+    const u = (t - g0[3]) / PICK;
+    if (!(u < 1)) return;
+    const k = u * u * (3 - 2 * u);
+    p.x = g0[0] + (p.x - g0[0]) * k; p.y = g0[1] + (p.y - g0[1]) * k; p.a = g0[2] + (p.a - g0[2]) * k;
+  }
+  // a prop held by its grip point (a bottle by the neck) at (x, y), turned a
+  function holdGrip(p, x, y, a) {
+    const K = ND.PROP_KINDS[p.k], g = K.grip || [0, 0];
+    p.st = 0; p.sup = -1; p.vx = p.vy = p.w = 0; p.a = a; p.hold = -1;
+    const c = Math.cos(a), s = Math.sin(a), gx = (g[0] - K._com[0]) * p.fx, gy = g[1] - K._com[1];
+    p.x = x - (c * gx - s * gy); p.y = y - (s * gx + c * gy);
   }
   // A's blade bites into the stool's seat (aimed each step: the stool moves with D's hands)
   function stuckAim(c) {
@@ -385,7 +406,50 @@
   FP.passing = function () { return (this.dz && this.state === 'dseq') || passing0.call(this); };
   const sheathed0 = FP.sheathed;
   // D's sword goes back into the scabbard when the stool comes (both hands for it), out again after
-  FP.sheathed = function () { const c = this.dz && this.state === 'dseq' ? this.dz.seq : null; if (c && c.def === this && c.t > 1.8 && c.t < BEATS[8].t - 0.12) return 1; return sheathed0.call(this); };
+  FP.sheathed = function () { const c = this.dz && this.state === 'dseq' ? this.dz.seq : null; if (c && c.def === this && c.t > NOTO[0] + 0.02 && c.t < BEATS[8].t - 0.12) return 1; return sheathed0.call(this); };
+  // the hands the showpiece has busy (js/duel-depth.js leaves them as the choreography puts them): the stool in both
+  D.seqHand = (f) => {
+    const c = f.dz && f.state === 'dseq' ? f.dz.seq : null;
+    if (!c) return null;
+    if (c.def === f && c.fl.grab && !c.fl.stoolGone) return 'B';
+    return null;
+  };
+  // held props drawn in the DRAWN hands (the fight places them at its own joints; the drawing's hands differ a little:
+  // js/anim.js, js/depth25.js). Drawing only: moved for the picture and put back.
+  function heldShift(c, out) {
+    const PR = P(), A3 = ND.depth25, F = c.fl;
+    out.length = 0;
+    if (!PR || !A3 || !A3.snap) return out;
+    if (F.grab && !F.stoolGone) {
+      const st = PR.get(c.ids.s1), s = A3.snap(c.def, SN0), j = c.def.j;
+      const k = c.g0 ? Math.min(1, Math.max(0, (c.t - c.g0[3]) / PICK)) : 1;
+      if (st && s) out.push([st, ((s.haF.x + s.haB.x) / 2 - (j.haF.x + j.haB.x) / 2) * k, (Math.min(s.haF.y, s.haB.y) - Math.min(j.haF.y, j.haB.y)) * k]);
+    }
+    if (F.bottle && !F.thrown) {
+      const bt = PR.get(c.ids.bottle), s = A3.snap(c.att, SN1), j = c.att.j;
+      const k = c.b0 ? Math.min(1, Math.max(0, (c.t - c.b0[3]) / PICK)) : 1;
+      if (bt && s) out.push([bt, (s.haF.x - j.haF.x) * k, (s.haF.y - j.haF.y) * k]);
+    }
+    return out;
+  }
+  const SN0 = {}, SN1 = {}, HS = [];
+  const seqOf = () => { const f = G.F && G.F.find((x) => x.dz && x.state === 'dseq' && x.dz.seq && x.dz.seq.def === x); return f ? f.dz.seq : null; };
+  if (ND.props) {
+    const draw0 = ND.props.draw;
+    ND.props.draw = function (ctx, layer) {
+      const c = seqOf();
+      if (!c) return draw0.call(this, ctx, layer);
+      heldShift(c, HS);
+      for (const h of HS) { h[0].x += h[1]; h[0].y += h[2]; }
+      try { return draw0.call(this, ctx, layer); } finally { for (const h of HS) { h[0].x -= h[1]; h[0].y -= h[2]; } }
+    };
+    // (where a prop is drawn: the continuity audit, scripts/duel-continuity.mjs)
+    ND.props.drawPos = (q) => {
+      const c = seqOf();
+      if (c) for (const h of heldShift(c, [])) if (h[0] === q) return { x: q.x + h[1], y: q.y + h[2] };
+      return { x: q.x, y: q.y };
+    };
+  }
 
   // ------------------------------------------------------------------ the CPU as the defender: presses on the beats
   if (ND.AI) {

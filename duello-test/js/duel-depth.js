@@ -174,13 +174,22 @@
       let o = EXT.get(f); if (!o) EXT.set(f, (o = { w: 1, psi: 0, hz: W3, dx: 0, u3: { x: 1, y: 0, z: 0 }, roll: 0 }));
       const dir = f.dir < 0 ? -1 : 1, bz = C[2], bf = clamp(C[3], 0.2, 1);
       o.psi = C[0] * 1.25; // (radians; + the chest opens to the camera, − the back turns to it)
-      o.hz = bz >= 0 ? W3 : -9; // the sword hand on the far side: the whole arm is drawn behind the torso
+      // the sword hand on the far side: the whole arm is drawn behind the torso (the depth eases over, never jumps)
+      const hzT = bz >= 0 ? W3 : -9, clk = ND.simClock || 0;
+      if (o.clk == null || clk < o.clk || clk - o.clk > 0.5) o.hzS = hzT;
+      else if (clk !== o.clk) o.hzS += (hzT - o.hzS) * (1 - Math.exp(-(clk - o.clk) / 0.03));
+      const dtc = o.clk == null || clk < o.clk ? 1 : clk - o.clk;
+      o.clk = clk; o.hz = o.hzS;
       let bx = (j.tip.x - j.haF.x) * dir, by = j.tip.y - j.haF.y; const bl = Math.hypot(bx, by) || 1; bx /= bl; by /= bl;
-      const zz = Math.sqrt(Math.max(0, 1 - bf * bf)) * (bz >= 0 ? 1 : -1);
-      o.u3.x = bx * bf; o.u3.y = by * bf; o.u3.z = zz;
+      // (the blade's depth side follows the hand's eased depth: it turns through the picture's plane, never jumps it)
+      const side = clamp(((o.hzS + 9) / (W3 + 9)) * 2 - 1, -1, 1);
+      const zz = Math.sqrt(Math.max(0, 1 - bf * bf)) * side, ul = Math.hypot(bx * bf, by * bf, zz) || 1;
+      o.u3.x = bx * bf / ul; o.u3.y = by * bf / ul; o.u3.z = zz / ul;
       const a = f.state === 'atk' ? f.atk : null;
       // a level cut leads with its edge (the blade turns flat to the camera as it sweeps); a vertical one shows its flat
-      o.roll = a && a.dz3 && a.dz3.v === 'level' && a.active && f.st > a.active[0] - 0.08 && f.st < a.active[1] + 0.08 ? 1.25 * (a.dz3.side || 1) : 0;
+      const rT = a && a.dz3 && a.dz3.v === 'level' && a.active && f.st > a.active[0] - 0.08 && f.st < a.active[1] + 0.08 ? 1.25 * (a.dz3.side || 1) : 0;
+      o.rollS = o.rollS == null || dtc > 0.5 ? rT : o.rollS + (rT - o.rollS) * (1 - Math.exp(-dtc / 0.025));
+      o.roll = o.rollS;
       return o;
     };
     A3.backShade = 0.72;
@@ -198,6 +207,86 @@
   ND.anim.present = function (f, dt, hold, sj) {
     present0.call(this, f, dt, hold, sj);
     if (f.dz && !f.dead) apply(f, dt, hold);
+  };
+  // ------------------------------------------------------------------ how the sword is held, and weight (drawing only)
+  // js/anim.js asks this just before it solves the drawn joints (ND.anim.preSolve), on the display pose D:
+  //  1. the grip of a swordsman: the drawn sword is held in BOTH hands (sword hand just behind the guard, the off hand at
+  //     the end of the handle: anim.js gripSlide places it) wherever the off hand can reach the handle; one hand only
+  //     when it is meant: the iai draw (the off hand holds the scabbard's mouth and pulls it back: saya-biki, then rests
+  //     there while the blade is home), a hand busy in the showpiece (a stool, a bottle), a roll, a fall.
+  //  2. weight: no part of the drawn pose moves further in one step than a body can (LIM, per 1/120 s): a pose that
+  //     would snap (a new state, a key a move reaches at once) is carried there over a few frames instead.
+  const LIM = { hx: 6, hy: 6, lean: 0.09, hd: 0.12, ax: 8, ay: 8, sw: 0.26, gx: 9, gy: 9, grip: 0.18, f1x: 9, f1y: 9, f2x: 9, f2y: 9 };
+  const LKEYS = Object.keys(LIM);
+  const FREE = { launch: 1, down: 1, getup: 1, droll: 1, dpick: 1, win: 1, dead: 1 };
+  const PS = new WeakMap();
+  const SAYA_PULL = 12, SAYA_T = [0.07, 0.3];
+  // the off hand at the scabbard's mouth (pose space: x forward, y down; relative to the sword shoulder as solve reads gx/gy)
+  function handOnSaya(D0, back) {
+    const ux = Math.sin(D0.lean), uy = -Math.cos(D0.lean), nx = -uy, ny = ux;
+    const shx = D0.hx + ux * L.torso * 0.86, shy = D0.hy + uy * L.torso * 0.86;
+    let ox = D0.hx + ux * 5 + nx * 13, oy = D0.hy + uy * 5 + ny * 13;
+    ox += -0.955 * (back - 3); oy += 0.296 * (back - 3); // (a little ahead of the mouth: the thumb on the guard)
+    D0.gx = ox - shx; D0.gy = oy - shy; D0.grip = 0;
+  }
+  const SJ = {};
+  function canReach(D0, wpn) {
+    ND.solve(D0, 0, 0, 1, SJ, wpn);
+    const ux = Math.cos(D0.sw), uy = Math.sin(D0.sw), t = Math.max(wpn.handle * 0.55, wpn.handle - 5.5);
+    return Math.hypot(SJ.haF.x - ux * t - (SJ.sh.x - 3), SJ.haF.y - uy * t - (SJ.sh.y + 1)) <= L.uArm + L.fArm - 1.5;
+  }
+  // (?weight=0: no limit on the drawn pose's speed, to compare)
+  const WEIGHT = !/[?&]weight=0(&|$)/.test(location.search || '');
+  const HJ = {};
+  function clearHead(D0, wpn) {
+    for (let it = 0; it < 3; it++) {
+      ND.solve(D0, 0, 0, 1, HJ, wpn);
+      // (the head's radius, a fist's, a little air)
+      const hx = HJ.head.x, hy = HJ.head.y, R = 27;
+      let pen = 0, nx = 0, ny = 0;
+      const test = (x, y) => {
+        const dx = x - hx, dy = y - hy, d = Math.hypot(dx, dy);
+        if (d < R && R - d > pen) { pen = R - d; let ex = dx / (d || 1) + 0.7, ey = dy / (d || 1) - 0.2; const el = Math.hypot(ex, ey) || 1; nx = ex / el; ny = ey / el; }
+      };
+      const ux = Math.cos(D0.sw), uy = Math.sin(D0.sw);
+      for (let q = -0.1; q <= 1.0001; q += 0.25) test(HJ.haF.x - ux * wpn.handle * q, HJ.haF.y - uy * wpn.handle * q);
+      if (pen <= 0.5) return;
+      D0.ax += nx * (pen + 1); D0.ay += ny * (pen + 1);
+    }
+  }
+  ND.anim.preSolve = function (f, D0, S, dt, hold, act) {
+    if (!f.dz || f.dead) return;
+    let P = PS.get(f);
+    if (!P) PS.set(f, (P = { p: null, x: f.x, sh: 0, drawT: 9, atkSh: false, serial: -1 }));
+    const wpn = f.wpn, armed = f.dz.armed !== false && !wpn.fist && !wpn.none;
+    const st = f.state, free = FREE[st] || !!f.roll;
+    // --- 1. the grip
+    if (armed && !free) {
+      const busy = D.seqHand ? D.seqHand(f) : null; // the showpiece: 'B' the off hand holds something, 'F' the sword hand
+      const sh = wpn.iai ? (f.sheathed() ? 1 : 0) : 0;
+      if (!hold) {
+        if (sh !== P.sh) { if (!sh) P.drawT = 0; P.sh = sh; } else P.drawT += dt;
+        if (f.serial !== P.serial) { P.serial = f.serial; P.atkSh = st === 'atk' && !!sh; }
+      }
+      if (busy === 'B' || busy === 'F') { /* the showpiece's own pose */ }
+      else if (wpn.iai && (sh || busy === 'saya' || (st === 'atk' && (P.atkSh || P.drawT < SAYA_T[0] + SAYA_T[1])))) {
+        // iai: the off hand on the scabbard: pulled back with it on the draw, resting there while the blade is home
+        const t = P.drawT, back = sh ? 0 : SAYA_PULL * (t < SAYA_T[0] ? (t / SAYA_T[0]) : Math.max(0, 1 - (t - SAYA_T[0]) / SAYA_T[1]));
+        handOnSaya(D0, back);
+      } else if (D0.grip < 0.9 && canReach(D0, wpn)) D0.grip = 1;
+    }
+    // --- 2. the handle and the fists never pass through the head: carried out in front of the face
+    if (armed && !free && !(wpn.iai && f.sheathed())) clearHead(D0, wpn);
+    // --- 3. weight
+    if (!WEIGHT) { P.p = null; return; }
+    const k = Math.max(dt, 1e-4) * 120 * (act ? 1.6 : 1);
+    if (P.p && Math.abs(f.x - P.x) < 80 && !(S && S.ok === false)) {
+      for (const q of LKEYS) {
+        const lim = LIM[q] * k, d = D0[q] - P.p[q];
+        if (d > lim) D0[q] = P.p[q] + lim; else if (d < -lim) D0[q] = P.p[q] - lim;
+      }
+    }
+    P.p = ND.pose.copy(D0, P.p || {}); P.x = f.x;
   };
   D.depthTarget = target;
 })(window.ND);

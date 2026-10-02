@@ -746,6 +746,9 @@
     // 19 + 16: the guard meets the coming blade; the rebound of a blade that met another is laid on top
     if (M.meet) meet(S, f, D, dt, hold); else S.mw = 0;
     D.sw += S.cb;
+    // (an outside driver's last word on the display pose before the grip and the joints: the duel prototype's grip
+    // and weight rules, js/duel-depth.js; null in the game)
+    if (A.preSolve) A.preSolve(f, D, S, dt, hold, act);
     // 8: the rear hand stays on a two-handed grip
     const g0 = D.grip, gx0 = D.gx, gy0 = D.gy, gEnd = M.grip && f.wpn.type !== 'bo' && f.wpn.type !== 'naginata';
     const grip = !f.wpn.twin && !GRIP_OFF[f.wpn.type] && g0 >= 0.9;
