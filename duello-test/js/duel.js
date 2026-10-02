@@ -583,12 +583,15 @@
     def.dz.cine = att.dz.cine = c;
     def.dz.chain = 0;
     for (const f of [def, att]) { f.setState('dbind'); f.vx = 0; f.vy = 0; f.counterUntil = 0; f.dir = f.opp.x >= f.x ? 1 : -1; }
-    def.x = clamp(mid - sd * gap / 2, -ND.ARENA + 30, ND.ARENA - 30); att.x = clamp(def.x + sd * gap, -ND.ARENA + 30, ND.ARENA - 30);
-    c.x = (def.x + att.x) / 2;
+    // (both step to the bind's distance over its first moment: c.gl, bindPose; nobody is put there in one frame)
+    const tdx = clamp(mid - sd * gap / 2, -ND.ARENA + 30, ND.ARENA - 30), tax = clamp(tdx + sd * gap, -ND.ARENA + 30, ND.ARENA - 30);
+    c.gl = [def.x, att.x, tdx, tax];
+    c.x = (tdx + tax) / 2;
     // the meeting point: a little towards the shorter blade
     const bias = clamp((att.wpn.blade - def.wpn.blade) * 0.25, -14, 14);
     c.px = c.x - sd * bias; c.py = -132;
-    c.pd = bindAim(def, c, true); c.pa = bindAim(att, c, false);
+    const dx0 = def.x, ax0 = att.x;
+    def.x = tdx; att.x = tax; c.pd = bindAim(def, c, true); c.pa = bindAim(att, c, false); def.x = dx0; att.x = ax0;
     pose.copy(def.pose, def.entry); pose.copy(att.pose, att.entry);
     fx.spark(c.px, c.py, -Math.PI / 2, 22, 1.1); fx.ring(c.px, c.py, '255,240,210', 110);
     au.clang(1.3, cam.pan(c.x), 0.75); if (au.kShing) au.kShing(cam.pan(c.x));
@@ -617,6 +620,7 @@
     if (c.ph === 'bind') {
       // grinding: the blades shiver against each other, the bodies lean in
       const k = E.outCubic(clamp(c.t / 0.08, 0, 1)), w = Math.sin(ND.scene.t * 47 + f.id * 2) * 1.2;
+      if (c.gl) f.x = isDef ? c.gl[0] + (c.gl[2] - c.gl[0]) * k : c.gl[1] + (c.gl[3] - c.gl[1]) * k;
       pose.lerp(f.entry, B, k, f.pose);
       f.pose.ax += w; f.pose.ay -= w * 0.5; f.pose.lean += 0.05 * k;
       f.vx = 0;

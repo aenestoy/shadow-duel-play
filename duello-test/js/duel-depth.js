@@ -226,7 +226,7 @@
     const ux = Math.sin(D0.lean), uy = -Math.cos(D0.lean), nx = -uy, ny = ux;
     const shx = D0.hx + ux * L.torso * 0.86, shy = D0.hy + uy * L.torso * 0.86;
     let ox = D0.hx + ux * 5 + nx * 13, oy = D0.hy + uy * 5 + ny * 13;
-    ox += -0.955 * (back - 3); oy += 0.296 * (back - 3); // (a little ahead of the mouth: the thumb on the guard)
+    ox += -0.955 * (back + 7); oy += 0.296 * (back + 7); // (round the scabbard just behind its mouth, behind the sword hand)
     D0.gx = ox - shx; D0.gy = oy - shy; D0.grip = 0;
   }
   const SJ = {};
@@ -274,6 +274,15 @@
         const t = P.drawT, back = sh ? 0 : SAYA_PULL * (t < SAYA_T[0] ? (t / SAYA_T[0]) : Math.max(0, 1 - (t - SAYA_T[0]) / SAYA_T[1]));
         handOnSaya(D0, back);
       } else if (D0.grip < 0.9 && canReach(D0, wpn)) D0.grip = 1;
+    }
+    // --- contact: the guard gives a little along the blow (hands driven back and down, the body rocks back), the
+    // attacker's blade is knocked up and away from the guard (drawing only: the fight's guard and recoil are its own)
+    if (armed && (st === 'block' || st === 'parry') && f.st < 0.16) {
+      const g = Math.sin(Math.PI * f.st / 0.16) * (st === 'parry' ? 0.6 : 1);
+      D0.ax -= 7 * g; D0.ay += 3 * g; D0.lean -= 0.05 * g; D0.hx -= 3 * g;
+    } else if (armed && st === 'recoil' && f.st < 0.22) {
+      const g = Math.sin(Math.PI * f.st / 0.22);
+      D0.sw -= 0.35 * g; D0.ax -= 6 * g; D0.ay -= 4 * g; D0.lean -= 0.04 * g;
     }
     // --- 2. the handle and the fists never pass through the head: carried out in front of the face
     if (armed && !free && !(wpn.iai && f.sheathed())) clearHead(D0, wpn);
