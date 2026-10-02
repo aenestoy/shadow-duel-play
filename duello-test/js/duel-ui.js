@@ -121,11 +121,10 @@
     for (const f of G.F) {
       const c = f.dz && f.dz.cine;
       if (!c || c.def !== f || c.ph !== 'bind') continue;
-      // (the effects table, below: full size with ?fx=1, smaller by default, the player's only with ?fx=0)
-      const sc = D.fxMode === 'full' ? 1 : (D.FXS[D.fxMode] || {}).bindRing || 0;
-      if (!sc && !human(f)) continue;
-      const x = cam.sx(c.px), y = cam.sy(c.py), W = T.bindWin, mid = (W[0] + W[1]) / 2, kk = k * (sc || 0.6);
-      const r0 = 34 * kk, r = r0 + Math.max(0, mid - c.t) * 420 * kk - Math.max(0, c.t - mid) * 60 * kk;
+      // (only for the player who has to press: the CPU's bind is told by the blades alone)
+      if (!human(f) && !/[?&]fx=1(&|$)/.test(location.search || '')) continue;
+      const x = cam.sx(c.px), y = cam.sy(c.py), W = T.bindWin, mid = (W[0] + W[1]) / 2;
+      const r0 = 26 * k, r = r0 + Math.max(0, mid - c.t) * 260 * k - Math.max(0, c.t - mid) * 40 * k;
       const open = c.t >= W[0] && c.t <= W[1];
       ctx.lineWidth = 3 * u; ctx.strokeStyle = 'rgba(255,255,255,.55)';
       ctx.beginPath(); ctx.arc(x, y, r0, 0, 6.283); ctx.stroke();
@@ -139,7 +138,6 @@
     }
     drawSeq(ctx, k, u);
     drawHeadline(ctx, u);
-    if (D.drawQuietFx) { const now = ND.scene.t, dt = S.qT != null ? Math.max(0, Math.min(0.1, now - S.qT)) : 0; S.qT = now; D.drawQuietFx(ctx, u, dt); }
     // the coming cut's path (PATH toggle): from the wind-up tip through the strike to the follow-through
     if (S.path) for (const f of G.F) if (f.state === 'atk' && f.atk && f.atk.dz3 && f.atk.active && f.st < f.atk.active[1]) drawPath(ctx, f, k);
     ctx.restore();
@@ -281,30 +279,13 @@
     if (document.readyState === 'complete') go(); else addEventListener('load', go);
   }
 
-  // ------------------------------------------------------------------ defence: the swords first, the effects second
-  // (drawing only) Around a block, a parry, a bind and the counter after it, the screen effects are scaled down so the
-  // blades tell it (their contact, give and deflection: js/duel-depth.js). One table, one look per mode:
-  //   default 'small': every effect back, smaller, shorter, centred on the blades' contact;
-  //   ?fx=1 'full': the old effects as they were;  ?fx=0 'none': only the contact spark and the sounds.
-  // Per effect: ring / flash (size), spark (count, power), slash (length, width, life, colour saturation), ghosts
-  // (how many per counter, life), banner (the technique's name: size, life; 0 = none), words (PARRY!, OFF-LINE!: size
-  // near the contact; 0 = none), nums (damage numbers: size, the newest only), dim (the screen tint of a counter
-  // chain / finisher: its most), trail / trailC (blade streak alpha: any cut / a counter or the bind), contact (the
-  // white-gold flash at every blade-on-blade contact: size), bindRing (the bind's timing ring for a CPU too: size; 0 =
-  // the player's only), rally (the exchange count: small, in a corner).
-  // In an exchange (counter after counter) only ONE label shows at a time, by the contact, never over a face.
-  const FXS = {
-    small: { ring: 0.5, flash: 0.5, spark: 0.5, sparkPow: 0.7, slashLen: 0.28, slashW: 0.55, slashLife: 0.5, slashSat: 0.5, ghosts: 1, ghostLife: 0.55,
-      banner: 0.5, bannerLife: 0.7, words: 1, nums: 0.6, dim: 0.2, trail: 0.3, trailC: 0.2, contact: 1, bindRing: 0.6, rally: 1, special: 0.5 },
-    none: { ring: 0, flash: 0, spark: 0.5, sparkPow: 0.6, slashLen: 0, slashW: 0, slashLife: 0, slashSat: 0, ghosts: 0, ghostLife: 0,
-      banner: 0, bannerLife: 0, words: 0, nums: 0, dim: 0, trail: 0.7, trailC: 0.3, contact: 0, bindRing: 0, rally: 1, special: 0 },
-  };
-  const FXQ = (/[?&]fx=([01])(&|$)/.exec(location.search || '') || [])[1];
-  const MODE = FXQ === '1' ? 'full' : FXQ === '0' ? 'none' : 'small';
-  D.fxMode = MODE; D.FXS = FXS;
-  if (MODE !== 'full') {
-    const X = FXS[MODE];
-    const Q = { until: -1, cx: 0, cy: -130, ct: -9, label: null, corner: null, flashes: [], lastFl: -9, inParry: false };
+  // ------------------------------------------------------------------ defence told by the swords, not by effects
+  // (drawing only) Around a block, a parry, a bind and the counter that follows, the screen effects step back so the
+  // blades themselves tell it: no rings, flashes, slash lines across the screen, coloured afterimages, name banners
+  // or pop-up words; a small spark where the blades really touch and the sound stay. The blades' own contact, give
+  // and deflection are drawn in js/duel-depth.js. ?fx=1 brings the old effects back (to compare).
+  if (!/[?&]fx=1(&|$)/.test(location.search || '')) {
+    const Q = { until: -1 };
     const DEF_ST = { block: 1, parry: 1, dbind: 1, dcut: 1, clash: 1 };
     const quiet = () => {
       if ((ND.simClock || 0) < Q.until) return true;
@@ -314,147 +295,33 @@
       return false;
     };
     const mark = (s) => { Q.until = Math.max(Q.until, (ND.simClock || 0) + (s || 0.6)); };
-    const duel = () => !!(G.F && G.F[0] && G.F[0].dz);
     D.quietDefence = quiet;
     const fx = ND.fx, ring0 = fx.ring, flash0 = fx.flash, spark0 = fx.spark, text1 = fx.text;
-    fx.ring = function (x, y, col, size) { if (!quiet()) return ring0.apply(this, arguments); if (!X.ring || Q.inParry) return; return ring0.call(this, x, y, col, (size == null ? 90 : size) * X.ring); };
-    fx.flash = function (x, y, ang, size, col) { if (!quiet()) return flash0.apply(this, arguments); if (!X.flash) return; return flash0.call(this, x, y, ang, (size == null ? 60 : size) * X.flash, col); };
-    // (a spark in a defence moment is a blade-on-blade contact: it gets the contact flash, the same every time)
-    fx.spark = function (x, y, dir, n, power, col) {
-      if (!quiet()) return spark0.apply(this, arguments);
-      if (X.contact && !G.simOnly) {
-        const t = ND.scene.t;
-        if (t - Q.lastFl > 0.12 || Math.hypot(x - Q.flX, y - Q.flY) > 30) { Q.flashes.push({ x, y, age: 0 }); Q.lastFl = t; Q.flX = x; Q.flY = y; if (Q.flashes.length > 4) Q.flashes.shift(); }
-      }
-      return spark0.call(this, x, y, dir, Math.max(2, Math.round((n == null ? 14 : n) * X.spark)), (power == null ? 1 : power) * X.sparkPow, col);
-    };
-    // pop-up words: one at a time, small, by the blades' contact (the disarm keeps its headline)
-    fx.text = function (x, y, str, color) {
-      const raw = String(str), sx = ND.i18n && typeof str === 'string' ? ND.i18n.t(str) : raw;
-      // the exchange's count: small, in a corner
-      if (/SER[İI]|RALLY/i.test(raw) && duel()) { if (!G.simOnly && X.rally) Q.corner = { s: sx, col: color || '#ff9b7a', age: 0 }; return; }
-      if (!quiet() || /DISARM/i.test(raw)) return text1.apply(this, arguments);
-      if (G.simOnly || !X.words) return;
-      Q.label = { s: sx, col: color || '#ffe3a1', x: (ND.simClock || 0) - Q.ct < 0.6 ? Q.cx : x, age: 0, life: 0.75, k: X.words };
-    };
+    fx.ring = function () { if (quiet()) return; return ring0.apply(this, arguments); };
+    fx.flash = function () { if (quiet()) return; return flash0.apply(this, arguments); };
+    // (the spark at the contact stays, small)
+    fx.spark = function (x, y, dir, n, power, col) { if (quiet()) return spark0.call(this, x, y, dir, Math.min(n == null ? 14 : n, 6), (power == null ? 1 : power) * 0.6, col); return spark0.apply(this, arguments); };
+    fx.text = function (x, y, str) { if (quiet() && !/DISARM/i.test(String(str))) return; return text1.apply(this, arguments); };
     const FPq = ND.Fighter.prototype, blk0 = FPq.blocked, gh0 = FPq.addGhost;
-    FPq.blocked = function (a, x, y) { if (this.dz) { mark(0.5); Q.cx = x; Q.cy = y; Q.ct = ND.simClock || 0; } return blk0.apply(this, arguments); };
-    // the 2D blade streak of a counter (its technique's colour band) stays faint in an exchange
-    const tr0 = FPq.drawTrail;
-    FPq.drawTrail = function (ctx) {
-      if (!this.dz || !quiet()) return tr0.apply(this, arguments);
-      const a = this.state === 'atk' && this.atk && this.atk.counter ? X.trailC : X.trail;
-      if (a <= 0) return;
-      const g0 = ctx.globalAlpha; ctx.globalAlpha = g0 * a;
-      try { return tr0.apply(this, arguments); } finally { ctx.globalAlpha = g0; }
-    };
-    // afterimages: at most X.ghosts per move, short
-    const GN = new WeakMap();
-    FPq.addGhost = function (life, col) {
-      if (!this.dz || !quiet()) return gh0.apply(this, arguments);
-      if (!X.ghosts) return;
-      let g = GN.get(this);
-      if (!g || g.serial !== this.serial) GN.set(this, (g = { serial: this.serial, n: 0 }));
-      if (g.n >= X.ghosts) return;
-      const before = this.ghosts.length;
-      gh0.call(this, life * X.ghostLife, col);
-      if (this.ghosts.length > before) g.n++;
-    };
+    FPq.blocked = function () { if (this.dz) mark(0.5); return blk0.apply(this, arguments); };
+    FPq.addGhost = function () { if (this.dz && quiet()) return; return gh0.apply(this, arguments); };
     const C = ND.cine;
     if (C) {
-      const onParry0 = C.onParry, start0 = C.counterStart, hit0 = C.counterHit, slash0 = C.drawSlash;
-      // the parry's ring: on the blades' contact, not round the defender's body
-      C.onParry = function (def, att, x, y) {
-        if (!duel()) return onParry0.apply(this, arguments);
-        mark(0.8); Q.cx = x; Q.cy = y; Q.ct = ND.simClock || 0; Q.inParry = true;
-        try { onParry0.apply(this, arguments); } finally { Q.inParry = false; }
-        this.rings.length = 0;
-        if (X.ring) ring0.call(fx, x, y, '255,244,214', 130 * X.ring);
-      };
-      // the technique's name: one short line, small, high (drawn by drawDuel), instead of the big band
-      C.counterStart = function () {
-        if (!duel()) return start0.apply(this, arguments);
-        mark(0.8);
-        const r = start0.apply(this, arguments);
-        const b = this.banner;
-        this.banner = null;
-        if (b && X.banner && !G.simOnly) Q.label = { s: b.name, col: 'rgb(' + (b.col || b.t.col) + ')', x: (ND.simClock || 0) - Q.ct < 0.6 ? Q.cx : (b.f.x + b.f.opp.x) / 2, age: 0, life: 1.05 * X.bannerLife, k: X.banner * 1.6 };
-        // (the screen tint of a counter chain stays light: the bodies stay clear)
-        if (G.dim > X.dim) G.dim = X.dim;
-        return r;
-      };
-      // the slash: short, along the cut near the target, thin, quick, the colour softened
-      C.counterHit = function () {
-        if (!duel()) return hit0.apply(this, arguments);
-        mark(0.5);
-        const n0 = this.slashes.length, r = hit0.apply(this, arguments);
-        if (!X.slashLen) this.slashes.length = Math.min(this.slashes.length, n0);
-        else {
-          for (let i = n0; i < this.slashes.length; i++) {
-            const sl = this.slashes[i];
-            sl.small = 1; sl.life *= X.slashLife;
-            const c = String(sl.col).split(',').map(Number), m = (c[0] + c[1] + c[2]) / 3;
-            sl.col = c.map((v) => Math.round(m + (v - m) * X.slashSat)).join(',');
-          }
-        }
-        return r;
-      };
-      const num0 = C.drawNum;
-      C.drawNum = function (ctx, n, s2) {
-        if (!duel() || !quiet()) return num0.call(this, ctx, n, s2);
-        if (!X.nums || n !== this.nums[this.nums.length - 1]) return; // (the newest only)
-        const x = cam.sx(n.x), y = cam.sy(n.y);
-        ctx.save(); ctx.translate(x, y); ctx.scale(X.nums, X.nums); ctx.translate(-x, -y);
-        try { num0.call(this, ctx, n, s2); } finally { ctx.restore(); }
-      };
-      C.drawSlash = function (ctx, sl, s2) {
-        if (!sl.small) return slash0.call(this, ctx, sl, s2);
-        const x = cam.sx(sl.x), y = cam.sy(sl.y);
-        ctx.save(); ctx.translate(x, y); ctx.rotate(sl.a); ctx.scale(X.slashLen, X.slashW); ctx.rotate(-sl.a); ctx.translate(-x, -y);
-        try { slash0.call(this, ctx, sl, s2); } finally { ctx.restore(); }
-      };
+      for (const k of ['onParry', 'counterStart', 'counterHit']) {
+        const f0 = C[k];
+        if (typeof f0 !== 'function') continue;
+        C[k] = function () {
+          const duel = G.F && G.F[0] && G.F[0].dz;
+          if (duel) mark(k === 'counterHit' ? 0.5 : 0.8);
+          const nS = this.slashes.length;
+          const r = f0.apply(this, arguments);
+          if (duel) { this.rings.length = 0; this.slashes.length = Math.min(this.slashes.length, nS); this.banner = null; }
+          return r;
+        };
+      }
     }
-    // a technique's own arcs and glows (js/specials.js: the crescent swept round a counter …): smaller and shorter
-    if (ND.specialFx) {
-      const add0 = ND.specialFx.add;
-      ND.specialFx.add = function (o) {
-        if (o && o.draw && duel() && quiet()) {
-          if (!X.special) { o.t = 0; return o; }
-          if (o.r) o.r *= X.special; if (o.w) o.w *= X.special; if (o.life) o.life *= 0.6 + 0.4 * X.special;
-        }
-        return add0.call(this, o);
-      };
-    }
-    // the finisher of an exchange: its tint stays light too
-    if (G.onFinisher) { const fin0 = G.onFinisher; G.onFinisher = function () { const r = fin0.apply(this, arguments); if (duel() && this.dim > X.dim) this.dim = X.dim; return r; }; }
-    if (ND.depth25) ND.depth25.trailAlpha = (f) => ((f.state === 'atk' && f.atk && f.atk.counter) || f.state === 'dbind' || f.state === 'dcut' ? X.trailC : X.trail);
-    // the one label, the exchange count and the contact flashes (screen space, over the fight)
-    D.drawQuietFx = function (ctx, u, dt) {
-      const L = Q.label;
-      if (L) {
-        L.age += dt;
-        // by the contact, at waist height: between the two bodies, never over a face
-        if (L.age > L.life) Q.label = null;
-        else txt(ctx, L.s, cam.sx(L.x), cam.sy(-92) + 10 * Math.min(1, L.age / 0.3) * u, 14 * u * L.k, L.col, 'center', L.age < L.life - 0.2 ? 1 : (L.life - L.age) / 0.2);
-      }
-      const R = Q.corner;
-      if (R) {
-        R.age += dt;
-        if (R.age > 1.6) Q.corner = null;
-        else txt(ctx, R.s, cam.W - 18 * u, cam.H * 0.22, 13 * u, R.col, 'right', R.age < 1.3 ? 1 : (1.6 - R.age) / 0.3);
-      }
-      const k = cam.k * X.contact;
-      for (let i = Q.flashes.length - 1; i >= 0; i--) {
-        const f = Q.flashes[i];
-        f.age += dt;
-        if (f.age > 0.1) { Q.flashes.splice(i, 1); continue; }
-        const x = cam.sx(f.x), y = cam.sy(f.y), a = 1 - f.age / 0.1, r = (7 + 9 * (f.age / 0.1)) * k;
-        ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = a;
-        ctx.fillStyle = 'rgba(255,246,214,1)'; ctx.beginPath(); ctx.arc(x, y, 3.2 * k, 0, 6.283); ctx.fill();
-        ctx.strokeStyle = 'rgba(255,226,150,1)'; ctx.lineWidth = 1.6 * k; ctx.beginPath();
-        for (let q = 0; q < 4; q++) { const an = q * Math.PI / 2 + 0.3, l = q % 2 ? r * 0.65 : r; ctx.moveTo(x - Math.cos(an) * l, y - Math.sin(an) * l); ctx.lineTo(x + Math.cos(an) * l, y + Math.sin(an) * l); }
-        ctx.stroke(); ctx.restore();
-      }
-    };
+    if (D.startBind) { const sb0 = D.startBind; D.startBind = function () { mark(0.6); return sb0.apply(this, arguments); }; }
+    // the blade's streak: faint on a counter and while the blades are locked (the cut itself shows the line)
+    if (ND.depth25) ND.depth25.trailAlpha = (f) => (f.state === 'atk' && f.atk && f.atk.counter) || f.state === 'dbind' || f.state === 'dcut' ? 0.3 : 0.7;
   }
 })(window.ND);

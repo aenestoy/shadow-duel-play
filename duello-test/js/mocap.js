@@ -115,7 +115,7 @@
         cur.d[k] = norm(add(mul(a, Math.cos(t)), mul(q, Math.sin(t))));
       }
     }
-    const dy = cur.hip[1] - prev.hip[1], ly = 900 * dt;
+    const dy = cur.hip[1] - prev.hip[1], ly = 500 * dt; // (a body drops or rises at most ~5 m/s)
     if (Math.abs(dy) > ly) cur.hip[1] = prev.hip[1] + Math.sign(dy) * ly;
   }
   // blend frame b into a by weight w (a ← a·(1−w) + b·w); the root (hip x, z) is handled by the rig
@@ -227,6 +227,12 @@
       if (this.maxTurn && dt > 0 && this.prevF) limitTurn(this.prevF, F, dt, this.maxTurn);
       if (this.maxTurn) this.prevF = copyFrame(F, this.prevF || newFrame());
       this.P = this.build(F, dt);
+      // (a joint that is not a number never reaches the picture: the last good pose stays)
+      const P = this.P;
+      if (!(isFinite(P.hip[1]) && isFinite(P.haR[0]) && isFinite(P.ftR[1]) && isFinite(P.ftL[1]) && isFinite(P.head[0]))) {
+        Mo.stats.nan = (Mo.stats.nan || 0) + 1;
+        if (this.goodP) this.P = this.goodP;
+      } else this.goodP = JSON.parse(JSON.stringify(P));
       Mo.stats.poses++;
       // cloth (hair, ribbon, sash) moves every step on the drawn joints
       if (this.puppet && dt > 0) { const j = joints2d(this, this.P, projector(this)); this.puppet.vx = this.vx || 0; this.puppet.cloth(j, Math.min(0.05, dt)); }
@@ -269,6 +275,8 @@
         P.blade = { h, u: s, e };
         P.bladeVis = null;
       }
+      // legs that read from the side, and a body on the ground (the duel: js/mocap-duel.js sets this.legs each frame)
+      if (this.legs) this.sideLegs(P, this.legs, dt);
       // a hand and blade the caller wants somewhere else (the duel: blades that meet where the fight says; a flatter
       // draw): the sword arm reaches there by 3D IK, the blade turns to the given direction, by weight w
       const O = this.ovr;
@@ -292,20 +300,161 @@
         } else P.gripL = 0;
       }
       P.fistR = !!F.fistR || P.armed; P.fistL = !!F.fistL;
-      // the drawn body is thicker than the recorded one: lying down, nothing may go through the floor
+      // feet planted where they landed (world x, z kept; leg IK from the hip joint)
+      if (this.footLock) for (const side of ['R', 'L']) this.lockFoot(P, side, side === 'R' ? F.cR : F.cL, dt);
+      // last word on a standing leg (after the planted feet and their steps): its line at least 35° under the horizontal
+      if (this.legs && !this.legs.kick && !this.legs.down) {
+        for (const k of ['R', 'L']) {
+          const hp = P['hip' + k], ft = P['ft' + k], dy = ft[1] - hp[1], dx = ft[0] - hp[0], lim = Math.max(0, dy) * LEGW;
+          if (Math.abs(dx) > lim + 0.5 || dy < 0.4 * (L.thigh + L.shin)) {
+            const ny = Math.max(dy, 0.4 * (L.thigh + L.shin)), nx = clamp(dx, -ny * LEGW, ny * LEGW);
+            const T = [hp[0] + nx, hp[1] + ny, ft[2]], r = ik3(hp, T, L.thigh, L.shin, [1, -0.5, 0]);
+            P['kn' + k] = r.m; P['ft' + k] = r.e;
+            const K = this.lock; if (K[k]) K[k].x = this.x + (hp[0] + nx) * this.dir; K[k + 'rel'] = null;
+          }
+        }
+      }
+      // standing (the duel): after everything, the lower foot is ON the floor — a planted foot the leg could not
+      // reach any more, a hand-keyed pose that lifts both feet, never leave the body hanging in the air
+      // lying or getting up (on the floor in the fight): the lowest part of the body rests on the floor, no float;
+      // in the air the last correction fades out (a body leaving the floor never jumps by it)
+      if (this.legs) {
+        let fix = null;
+        if (this.legs.grounded) fix = -Math.max(P.ftR[1], P.ftL[1]);
+        else if (this.legs.down && this.legs.onFloor) { let low = -1e9; for (const [k, r] of FLOOR_R2) { const q = P[k]; if (q && q[1] + r > low) low = q[1] + r; } fix = -low; }
+        // (eased over a few hundredths of a second: a foot planted / lifted, a step, a new clip never make the body hop;
+        // the feet are kept on the floor below by the legs themselves)
+        // (lying or getting up: exactly on the floor — the body rests on it, a hand pushes on it)
+        if (fix != null) { if (this.gfix == null || !this.legs.grounded) this.gfix = fix; else if (dt > 0) this.gfix += (fix - this.gfix) * Math.min(1, dt / 0.04); }
+        else if (this.gfix) { this.gfix *= Math.exp(-Math.max(dt, 0) / 0.12); if (Math.abs(this.gfix) < 0.05) this.gfix = 0; }
+        const f2 = this.gfix || 0;
+        if (Math.abs(f2) > 0.05) {
+          for (const k of ALLJ) if (P[k]) P[k] = [P[k][0], P[k][1] + f2, P[k][2]];
+          P.blade.h = [P.blade.h[0], P.blade.h[1] + f2, P.blade.h[2]]; P.saya.a = [P.saya.a[0], P.saya.a[1] + f2, P.saya.a[2]];
+        }
+        if (this.legs.grounded) {
+          const k = P.ftR[1] >= P.ftL[1] ? 'R' : 'L', ft = P['ft' + k], hp = P['hip' + k];
+          if (Math.abs(ft[1]) > 0.3) { const r = ik3(hp, [ft[0], 0, ft[2]], L.thigh, L.shin, sub(P['kn' + k], lerp(hp, ft, 0.5))); P['kn' + k] = r.m; P['ft' + k] = r.e; }
+        }
+      }
+      // (last of all) the drawn body is thicker than the recorded one: lying down, nothing may go through the floor
       { let lift = 0;
         for (const [k, r] of FLOOR_R) { const q = P[k]; if (q && q[1] + r > lift) lift = q[1] + r; }
         if (lift > 0) for (const k of ALLJ) if (P[k]) P[k] = [P[k][0], P[k][1] - lift, P[k][2]];
         if (lift > 0) { P.blade.h = [P.blade.h[0], P.blade.h[1] - lift, P.blade.h[2]]; P.saya.a = [P.saya.a[0], P.saya.a[1] - lift, P.saya.a[2]]; } }
-      // feet planted where they landed (world x, z kept; leg IK from the hip joint)
-      if (this.footLock) for (const side of ['R', 'L']) this.lockFoot(P, side, side === 'R' ? F.cR : F.cL, dt);
+
       return P;
+    }
+    // LEGS FROM THE SIDE (the game is seen side-on): a recorded leg that points at / away from the camera, a wide
+    // stance or a back leg thrown out reads as a fat tube from here. Each leg is laid into its own side plane
+    // (hip ±7.5 across, the foot where the recording puts it forward / up), solved again with the knee bent FORWARD,
+    // lengths kept (46 + 46). Outside a kick or an air move a thigh may not rise towards the horizontal (the foot stays
+    // well under the hip) and the feet stand a stride apart (never one pillar); grounded, the body sits low enough
+    // for the knees to bend, and the lower foot stands on the floor (the fight's own height is the truth).
+    // L: { grounded, kick (a kick / air move: no limits), down (lying / getting up: no stride), snap (no easing) }
+    sideLegs(P, Lg, dt) {
+      const fs = 1; // (knees bend the way the fighter faces in the fight: forward, always)
+      const LL = L.thigh + L.shin, hip = P.hip;
+      const side = (k) => (P['hip' + k][2] - hip[2] >= 0 ? 1 : -1);
+      const feet = {};
+      for (const k of ['R', 'L']) {
+        const ft = P['ft' + k], z = side(k) * HPW;
+        let x = ft[0], y = ft[1];
+        if (!Lg.kick && !Lg.down) {
+          // the thigh stays below ~35° from the horizontal: the foot at least 0.55 of the leg under the hip, at most
+          // 0.8 of it ahead / behind
+          // (the leg's line at least 35° under the horizontal: the foot no further out than 1.43 × its depth under the
+          // hip, and at least 0.4 of the leg under it)
+          const dx = x - hip[0], dy = y - hip[1];
+          const ny = Math.max(dy, 0.4 * LL), lim = Math.min(0.8 * LL, ny * LEGW), nx = clamp(dx, -lim, lim);
+          x = hip[0] + nx; y = hip[1] + ny;
+        }
+        feet[k] = [x, y, z];
+      }
+      // a stride: grounded feet at least 24 apart forward / back (the front foot the one further forward)
+      if (Lg.grounded && !Lg.kick && !Lg.down) {
+        const a = feet.R, b = feet.L, gap = Math.abs(a[0] - b[0]);
+        if (gap < 24) { const m = (a[0] + b[0]) / 2, frontR = a[0] * fs >= b[0] * fs; const h = 12 * fs; a[0] = m + (frontR ? h : -h); b[0] = m + (frontR ? -h : h); }
+      }
+      // grounded: the body low enough that a standing leg bends (no stiff pillars), the lower foot on the floor
+      let dy = 0;
+      if (Lg.grounded) {
+        const low = Math.max(feet.R[1], feet.L[1]);
+        dy = -low; // (the lower foot to the floor)
+        // the hip so high that a planted leg would be straight: lower the body (a bent, athletic stance)
+        for (const k of ['R', 'L']) {
+          const f = feet[k]; if (f[1] < low - 6) continue; // (a lifted foot does not hold the body up)
+          const reach = 0.93 * LL, dx = f[0] - hip[0], need = Math.sqrt(Math.max(0, reach * reach - dx * dx));
+          const hy = hip[1] + dy, fy = f[1] + dy; // (after the shift: foot at 0)
+          if (fy - hy > need) dy += fy - hy - need;
+        }
+        // the body moves to that height smoothly (a hip that jumps reads as a hop)
+        const k = Math.min(1, dt / 0.05);
+        // (a second look in the same instant, dt 0, changes nothing: the eased value stays)
+        if (this.gdy == null) this.gdy = dy; else if (dt > 0) this.gdy += (dy - this.gdy) * k;
+        dy = this.gdy;
+        // the lower foot always on the floor (the eased height may leave it a little off: the feet follow the floor)
+        const lowAfter = low + dy;
+        if (Math.abs(lowAfter) > 0.01) { feet.R[1] -= lowAfter; feet.L[1] -= lowAfter; }
+      } else this.gdy = null;
+      if (dy) {
+        for (const k of ALLJ) if (P[k] && k !== 'ftR' && k !== 'ftL') P[k] = [P[k][0], P[k][1] + dy, P[k][2]];
+        P.blade.h = [P.blade.h[0], P.blade.h[1] + dy, P.blade.h[2]]; P.saya.a = [P.saya.a[0], P.saya.a[1] + dy, P.saya.a[2]];
+      }
+      // each leg in its side plane, the knee forward (the one of the two solutions further the way the body faces)
+      let it20 = 0;
+      const KS = ['R', 'L'];
+      for (let ki = 0; ki < 2; ki++) {
+        const k = KS[ki];
+        const hp = [P.hip[0], P.hip[1], side(k) * HPW], ft = feet[k];
+        P['hip' + k] = hp;
+        let tx = ft[0] - hp[0], ty = ft[1] - hp[1], d = Math.hypot(tx, ty);
+        const max = LL - 0.5;
+        if (d > max) { tx *= max / d; ty *= max / d; d = max; }
+        d = Math.max(d, 1e-3);
+        const a = (L.thigh * L.thigh - L.shin * L.shin + d * d) / (2 * d), h = Math.sqrt(Math.max(0, L.thigh * L.thigh - a * a));
+        const ux = tx / d, uy = ty / d, px = -uy, py = ux;
+        const k1 = [hp[0] + ux * a + px * h, hp[1] + uy * a + py * h], k2 = [hp[0] + ux * a - px * h, hp[1] + uy * a - py * h];
+        const sc = (q) => (q[0] - hp[0]) * fs - 0.5 * (q[1] - hp[1]);
+        let kn = sc(k1) >= sc(k2) ? k1 : k2;
+        // (outside a kick: a thigh never above 35° under the horizontal — the foot comes in under the body)
+        if (!Lg.kick && !Lg.down && Math.atan2(kn[1] - hp[1], Math.abs(kn[0] - hp[0])) < 0.61 && it20 < 8) { ft[0] = hp[0] + (ft[0] - hp[0]) * 0.8; ft[1] = Math.max(ft[1], hp[1] + 0.75 * LL); it20++; ki--; continue; }
+        it20 = 0;
+        P['kn' + k] = [kn[0], kn[1], hp[2]]; P['ft' + k] = [hp[0] + tx, hp[1] + ty, hp[2]];
+      }
     }
     lockFoot(P, side, c, dt) {
       const K = this.lock, ft = P['ft' + side], hp = P['hip' + side], kn = P['kn' + side];
       // world position of this foot (x along the fight line, whichever way the rig faces)
       const wx = this.x + ft[0] * this.dir, wz = this.z + ft[2];
-      const on = c > 0.5 && ft[1] > -14;
+      // (standing in the duel: a foot on the floor is planted whatever the recording's own contact says)
+      const on = (c > 0.5 || (this.legs && this.legs.grounded && ft[1] > -2)) && ft[1] > -14;
+      // a STEP: a planted foot left too far behind / ahead by the body (the fight moves it) is picked up and set
+      // down where the leg now wants it (0.14 s, a small lift), one foot at a time: the feet never slide
+      const other = side === 'R' ? 'L' : 'R', ST = K[side + 'st'];
+      // (the body carried far in a moment — a knockback, a new round: the old spot is forgotten, no long drag)
+      const far = (q) => q && Math.abs((q.x - this.x) * this.dir - ft[0]) > 60;
+      if (far(K[side]) || (ST && Math.abs((ST.a - this.x) * this.dir - ft[0]) > 90)) { K[side] = null; K[side + 'st'] = null; K[side + 'rel'] = null; }
+      if (K[side + 'st']) {
+        const ST = K[side + 'st'];
+        ST.t += dt; ST.b = wx; // (it lands where the leg wants it now)
+        const u = clamp(ST.t / 0.14, 0, 1), e = u * u * (3 - 2 * u), x = ST.a + (ST.b - ST.a) * e;
+        const T = [(x - this.x) * this.dir, Math.min(ft[1], -Math.sin(Math.PI * u) * 7), ft[2]];
+        const r = ik3(hp, T, L.thigh, L.shin, sub(kn, lerp(hp, ft, 0.5)));
+        P['kn' + side] = r.m; P['ft' + side] = r.e;
+        if (u >= 1) { K[side + 'st'] = null; K[side] = on ? { x: ST.b, z: wz } : null; K[tw0(side)] = on ? 1 : 0; }
+        return;
+      }
+      if (on && K[side] && this.legs && this.legs.grounded) {
+        // the planted spot is no good any more: too far from where the leg wants the foot, out of reach, or the thigh
+        // would rise towards the horizontal → a step (or, while the other foot is in the air, the foot goes along)
+        const lx = (K[side].x - this.x) * this.dir, dxh = lx - hp[0], dyh = 0 - hp[1], reach = Math.hypot(dxh, dyh);
+        const bad = Math.abs(lx - ft[0]) > 22 || reach > 0.95 * (L.thigh + L.shin) || (!this.legs.kick && Math.abs(dxh) > 0.62 * (L.thigh + L.shin));
+        if (bad) {
+          if (!K[other + 'st']) { K[side + 'st'] = { a: K[side].x, b: wx, t: 0 }; K[side] = null; return this.lockFoot(P, side, c, 0); }
+          K[side] = { x: wx, z: wz };
+        }
+      }
       if (on && !K[side]) K[side] = { x: wx, z: wz };
       if (!on && K[side]) { K[side + 'rel'] = K[side]; K[side] = null; }
       const tw = 'w' + side;
@@ -313,11 +462,21 @@
       const lk = K[side] || K[side + 'rel'];
       if (!lk || K[tw] <= 0) { K[side + 'rel'] = null; return; }
       // planted: on the floor at the landing spot; lifting off: from that spot back to the recorded foot
-      const T = lerp(ft, [(lk.x - this.x) * this.dir, on ? 0 : ft[1], lk.z - this.z], K[tw]);
+      let lx = (lk.x - this.x) * this.dir;
+      if (on && this.legs && !this.legs.kick && !this.legs.down) {
+        // (a planted foot obeys the standing-leg rule too: too far out, it slides in under the body and is planted there)
+        const dyh = 0 - hp[1], lim = Math.max(0, dyh) * LEGW, dxh = lx - hp[0];
+        if (Math.abs(dxh) > lim) { lx = hp[0] + Math.sign(dxh) * lim; if (K[side]) K[side].x = this.x + lx * this.dir; }
+      }
+      const T = lerp(ft, [lx, on ? 0 : ft[1], lk.z - this.z], K[tw]);
       const r = ik3(hp, T, L.thigh, L.shin, sub(kn, lerp(hp, ft, 0.5)));
       P['kn' + side] = r.m; P['ft' + side] = r.e;
     }
   }
+  const tw0 = (side) => 'w' + side;
+  const LEGW = 1.43; // (tan 55°: a standing leg's foot is at most this far out per unit under the hip)
+  // (what touches the floor when the body lies on it: feet, knees, the hip, the back, the head, hands)
+  const FLOOR_R2 = [['ftR', 0], ['ftL', 0], ['knR', 6], ['knL', 6], ['hip', 12], ['neck', 10], ['head', 13], ['shR', 7], ['shL', 7], ['elR', 5], ['elL', 5], ['haR', 4], ['haL', 4]];
   // how far each drawn part reaches round its joint (the floor check above); feet: none (they stand on it)
   const FLOOR_R = [['head', 13], ['neck', 10], ['hip', 12], ['shR', 7], ['shL', 7], ['elR', 5], ['elL', 5], ['haR', 4], ['haL', 4], ['knR', 7], ['knL', 7]];
   const ALLJ = ['hip', 'hipR', 'hipL', 'knR', 'ftR', 'knL', 'ftL', 'neck', 'head', 'shR', 'shL', 'elR', 'haR', 'elL', 'haL'];
@@ -348,7 +507,8 @@
   Mo.cam = 320;
   // local 3D → world 2D, perspective round the rig (cy: the height the camera looks at)
   function projector(rg) {
-    const dir = rg.dir, cx = rg.x, cy = -80, cam = Mo.cam;
+    // (the vertical perspective pivots on the floor: a foot on the floor stays on it at any depth — the floor is one line)
+    const dir = rg.dir, cx = rg.x, cy = 0, cam = Mo.cam;
     return (p) => {
       const s = cam / (cam - p[2]);
       const wx = rg.x + p[0] * dir;

@@ -101,7 +101,8 @@
     d.uaR = norm(sub(v(P.elF), shF)); d.faR = norm(sub(v(P.haF), v(P.elF))); d.uaL = norm(sub(v(P.elB), shB)); d.faL = norm(sub(v(P.haB), v(P.elB)));
     d.cf = norm([d.sl[2], 0, -d.sl[0]]); d.hf = d.cf.slice();
     const j = f.viewJ();
-    out.hip = [hip[0], hip[1], 0];
+    // (relative to the fight's own height, like a recorded clip: the rig adds f.y to every source alike)
+    out.hip = [hip[0], hip[1] - f.y, 0];
     out.armed = S.armed && !S.sheathed ? 1 : 0;
     out.inside = S.sheathS > 0.01 && !S.sheathed ? 1 : 0;
     out.vis = out.inside ? (1 - S.sheathS) * (f.wpn.blade || 96) : null;
@@ -125,6 +126,7 @@
     }
     return s;
   }
+  const AIRS = { air: 1, jump: 1, launch: 1, plunge: 1 };
   const isArmed = (f) => !(f.dz && f.dz.armed === false) && !(f.wpn && (f.wpn.fist || f.wpn.none));
   // what plays for f now: { key, src, fade } (src as Rig.drive takes it)
   function direct(f, s, dt) {
@@ -132,10 +134,11 @@
     const clip = (id, t, extra) => Object.assign({ clip: C(id), t: typeof t === 'function' ? t : () => t }, extra || {});
     const keyed = { frame: (out) => keyedFrame(f, out) };
     const seqc = st === 'dseq' && f.dz ? f.dz.seq : null;
-    // the showpiece: the vault over the table (D) and the bottle thrown (A); the rest stays hand-keyed
+    // the showpiece: the bottle thrown (A); the rest stays hand-keyed
     if (seqc) {
       const t = seqc.t;
-      if (seqc.def === f && t > 4.98 && t < 5.66) return { key: 'seq:vault', src: clip('vault', () => seg3(t, [5.0, 5.36, 5.64], [0.5, 1.0, 1.4]), { y: 0, along: true }), fade: 0.1 };
+      // (the table vault stays hand-keyed: the recorded box vault's dive and tuck did not read as legs over a flipping
+      // table — knees and shins tangled, the body half in the floor; the leg audit's worst frames, 2026-10-02)
       if (seqc.att === f && t > 3.95 && t < 4.5) return { key: 'seq:throw', src: clip('pickThrow', () => seg3(t, [3.97, 4.21, 4.48], [2.02, 2.45, 2.85])), fade: 0.12 };
       return { key: 'keyed', src: keyed, fade: 0.12 };
     }
@@ -177,8 +180,9 @@
       case 'recoil': // the blade bounced off a guard: the recorded blocked impact
         return { key: 'recoil:' + f.serial, src: clip(armed ? 'blockedImpact' : 'hitBody', () => Math.min(0.8, 0.05 + f.st * 1.3), { post: armed ? null : unarm }), fade: 0.05 };
       case 'hurt': case 'gbreak': case 'stagger': {
-        const head = f.hurtPose === PO.hurt;
-        return { key: st + ':' + f.serial, src: clip(head ? 'hitHead' : 'hitBody', () => (head ? 0.45 : 0.15) + f.st * 1.2, { post: armed ? null : unarm }), fade: 0.05 };
+        // (the head impact for every hit: the weight goes back, away from the blow — the recorded body hit folds
+        // forward into the opponent)
+        return { key: st + ':' + f.serial, src: clip('hitHead', () => 0.45 + f.st * 1.2, { post: armed ? null : unarm }), fade: 0.06 };
       }
       case 'launch': case 'down':
         return { key: 'kd:' + s.kdSerial, src: clip('knockdown', () => Math.min(C('knockdown').dur, 0.55 + s.kdT), { post: sheathed }), fade: 0.05 };
@@ -260,7 +264,19 @@
     if (!d) return null;
     // a recorded run / vault faces the way the body travels
     if (d.src.along && Math.abs(s.mx || 0) > 30) rg.dir = s.mx < 0 ? -1 : 1;
-    rg.y = d.src.clip ? (d.src.y != null ? d.src.y : f.onGround ? 0 : f.y) : 0;
+    // the fight's height is the truth for every source (a clip or the hand-keyed pose blend on the same footing)
+    rg.y = d.src.y != null ? d.src.y : f.y;
+    // the legs (js/mocap.js sideLegs): from the side, knees forward, on the floor while the fight has the body on it
+    const st = f.state, a = st === 'atk' ? f.atk : null;
+    const segK = d.seg && /kick|Kick|front|round/.test(d.seg[0] + (MOVE[f.atkName] || ''));
+    const air = AIRS[st] || !f.onGround || f.y < -2;
+    const kick = air || (a && (a.kind === 'kick' || /^(ftF|ftB|knF|knB)$/.test(a.limb || ''))) || !!segK || d.key === 'seq:vault';
+    const down = st === 'down' || st === 'getup' || st === 'launch' || !!f.roll || d.key.startsWith('kd:') || d.key.startsWith('getup');
+    const L2 = s.legs || (s.legs = {});
+    // (a kick stands on its other foot: grounded, the kicking leg free; only the air leaves the floor)
+    L2.grounded = !air && !down && !f.hidden; L2.kick = !!kick; L2.down = !!down; L2.snap = dt <= 0;
+    L2.onFloor = (st === 'down' || st === 'getup') && f.onGround && f.y > -2;
+    rg.legs = L2;
     rg.footLock = f.onGround && f.state !== 'launch' && !f.roll;
     if (d.src.clip) MD.stats.clip++; else MD.stats.keyed++;
     rg.drive(d.key, d.src, d.fade);
@@ -291,7 +307,7 @@
     const put = (k, p) => { const q = pj(p); const t = o[k] || (o[k] = { x: 0, y: 0 }); t.x = q.x; t.y = q.y; };
     put('hip', P.hip); put('neck', P.neck); put('head', P.head); put('sh', P.shR);
     put('elF', P.elR); put('haF', P.haR); put('elB', P.elL); put('haB', P.haL);
-    put('knF', P.knR); put('ftF', P.ftR); put('knB', P.knL); put('ftB', P.ftL);
+    put('knF', P.knR); put('ftF', P.ftR); put('knB', P.knL); put('ftB', P.ftL); put('hipF', P.hipR); put('hipB', P.hipL);
     const BL = f.wpn.blade, u = P.blade.u;
     put('tip', madd(P.blade.h, u, BL)); put('pom', madd(P.blade.h, u, -f.wpn.handle)); put('hilt', P.armed ? madd(P.blade.h, u, 4) : P.blade.h); put('pomm', madd(P.blade.h, u, P.armed ? 4 - f.wpn.handle : -f.wpn.handle));
     put('saya', P.saya.a); put('sayaEnd', madd(P.saya.a, P.saya.u, P.saya.L)); put('obi', P.saya.a);
