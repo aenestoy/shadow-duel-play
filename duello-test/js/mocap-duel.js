@@ -133,6 +133,8 @@
     out.sw = f.wpn.iai && (S.sheathed || out.inside) && j.haB && Math.hypot(P.haB.x - S.saya.a.x, P.haB.y - S.saya.a.y) < 16 ? 1 : 0;
     out.cR = P.ftF.y > -3 && f.onGround ? 1 : 0; out.cL = P.ftB.y > -3 && f.onGround ? 1 : 0;
     out.fistR = j.hasSword || j.fist ? 1 : 0; out.fistL = out.tw > 0.5 || j.fist ? 1 : 0;
+    // (the 20-joint body's own directions, derived from the hand-keyed pose: chest = spine, wrists straight, feet level)
+    if (Mo.fill20) Mo.fill20(d, true);
     return out;
   }
 

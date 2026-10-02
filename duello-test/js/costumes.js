@@ -26,6 +26,14 @@
   function torso(j) {
     let ux = j.neck.x - j.hip.x, uy = j.neck.y - j.hip.y; const ln = Math.hypot(ux, uy) || 1; ux /= ln; uy /= ln;
     const d = j.dir < 0 ? -1 : 1;
+    // (j.chest: the motion-capture player's 20-joint body — the costume bends with the torso at the chest, like
+    // skeleton.js torsoFrame: tasuki, obi, collar and plates follow the pelvis and the chest each)
+    if (j.chest && ND._draw && ND._draw.bentFrame) {
+      const F = { hx: j.hip.x, hy: j.hip.y, ux, uy, nx: d * -uy, ny: d * ux, ln, d };
+      ND._draw.bentFrame(F, j);
+      F.x = (u, n) => ND._draw.bentPt(F, u, n)[0]; F.y = (u, n) => ND._draw.bentPt(F, u, n)[1];
+      return F;
+    }
     return { hx: j.hip.x, hy: j.hip.y, ux, uy, nx: d * -uy, ny: d * ux, ln, d,
       x(u, n) { return this.hx + this.ux * u + this.nx * n; }, y(u, n) { return this.hy + this.uy * u + this.ny * n; } };
   }
