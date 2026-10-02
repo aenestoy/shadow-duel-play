@@ -269,9 +269,10 @@
     // (taken up over 0.03 s from wherever the hand was — from the contact weight it had: the blade arrives on the
     // crossing, the hand never jumps there in one frame; leaving, it follows the bind's own fade)
     if (BG && BG.w > 0) {
-      if (!s.bgOn) { s.bw = s.cw || 0; s.ovPrev = null; }
+      if (!s.bgOn) { s.bw = s.cw || 0; s.ovPrev = null; if (Math.abs(s.ox || 0) < 15) { rg.x -= s.ox || 0; s.ox = 0; } else s.bw = 1; } // (drawn off its place by more: the blades meet at once all the same) // (a small keep-apart offset goes at the bind's first moment: the blades meet where the fight says)
       s.bgOn = true; s.bw = Math.min(BG.w, s.bw + (dt > 0 ? dt / 0.03 : 0));
-      O3.h = BG.h; O3.u = BG.u; O3.e = BG.e; O3.w = s.bw; ovSmooth(s, dt); rg.ovr = O3; s.cw = s.bw; MD.stats.contact++; return;
+      // (the crossing is in the fight's world: a body drawn off its x by the keep-apart offset reaches it all the same)
+      O3.h = BG.h; O3.u = BG.u; O3.e = BG.e; O3.w = s.bw; ovSmooth(s, dt); oxComp(s, dir); rg.ovr = O3; s.cw = s.bw; MD.stats.contact++; return;
     }
     s.bgOn = false;
     O3.e = null;
@@ -291,9 +292,11 @@
       // out in front of the chest, the blade level and a little across the body (a nukitsuke)
       O3.h = [46, -112, 6]; O3.u = norm([0.96, -0.05, -0.28]); O3.w = wf * 0.85;
     }
-    ovSmooth(s, dt);
+    ovSmooth(s, dt); oxComp(s, dir);
     rg.ovr = O3;
   }
+  // (a body drawn off its fight x by the keep-apart offset still reaches the fight's own place: after the smoothing)
+  function oxComp(s, dir) { if (s.ox) O3.h = [O3.h[0] - s.ox * dir, O3.h[1], O3.h[2]]; }
   // (the place the hand is held at never jumps either — the bind handing over to its strike, a parry's contact line
   // turning: it follows its target within about 0.03 s)
   function ovSmooth(s, dt) {
@@ -311,7 +314,7 @@
     const rg = s.rig, P = rg.P, BG = D.gapPoint && D.gapPoint(f);
     let target = 0;
     if (BG && P) {
-      const dir = f.dir < 0 ? -1 : 1, room = (BG.x - f.x) * dir - 6; // (local forward distance to the contact line)
+      const dir = f.dir < 0 ? -1 : 1, room = (BG.x - f.x - (s.ox || 0)) * dir - 6; // (local forward distance to the contact line)
       // the front of the body as drawn last frame, before its lean, at the current lean
       const th0 = rg.lean || 0, cs = Math.cos(th0), sn = Math.sin(th0), h = P.hip;
       let front = -1e9, ht = 60;
@@ -333,11 +336,12 @@
   }
 
   // ------------------------------------------------------------------ per drawn frame
-  function tick(f) {
+  function tick(f, noPair) {
     const s = stateOf(f), rg = s.rig;
     const clk = ND.simClock || 0;
+    if (s.clk === clk && rg.P && s.tickedAt === clk) return s; // (already brought up to this step: a second look changes nothing)
     let dt = s.clk == null ? 0 : clk - s.clk;
-    if (dt < 0 || dt > 0.25) { dt = 0; rg.layers.length = 0; rg.lock.R = rg.lock.L = null; rg.prevF = null; } // (a jump in time: start over)
+    if (dt < 0 || dt > 0.25) { dt = 0; rg.layers.length = 0; rg.lock.R = rg.lock.L = null; rg.prevF = null; s.ox = 0; s.act = null; s.actTail = null; } // (a jump in time: start over)
     s.clk = clk;
     // clocks the director reads
     const sp = Math.abs(f.vx);
@@ -362,7 +366,11 @@
     // (how fast the body really travels: the showpiece places it directly)
     if (dt > 0 && s.px != null) s.mx = (s.mx || 0) * 0.8 + ((f.x - s.px) / dt) * 0.2;
     s.px = f.x;
-    rg.x = f.x; rg.dir = f.dir < 0 ? -1 : 1; rg.vx = f.vx;
+    // (the drawn body may stand a little off the fight's x — two bodies never drawn inside each other, below — the
+    // offset eases back to the fight's own place as soon as there is room)
+    // (in a bind its own lean keeps the pair apart: the offset goes at once)
+    if (s.ox) { const bind = f.state === 'dbind' || (f.dz && f.dz.cine && !f.dz.cine.done); s.ox *= Math.exp(-Math.max(0, dt) / (bind ? 0.04 : 0.22)); if (Math.abs(s.ox) < 0.2) s.ox = 0; }
+    rg.x = f.x + (s.ox || 0); rg.dir = f.dir < 0 ? -1 : 1; rg.vx = f.vx;
     const d = direct(f, s, dt);
     if (!d) return null;
     // a recorded run / vault faces the way the body travels
@@ -390,9 +398,132 @@
     override(f, s, dt);
     bodyGap(f, s, dt);
     rg.update(dt);
+    s.tickedAt = clk;
+    // the pair, once a step: the other brought up to this step first (both as they will be drawn), then kept apart
+    const o = f.opp, so0 = o && o.dz && !o.dead && !o.hidden ? stateOf(o) : null;
+    if (!noPair && MD.sep && so0 && s.pairAt !== clk) {
+      if (so0.tickedAt !== clk) tick(o, true);
+      s.pairAt = so0.pairAt = clk;
+      if (so0.tickedAt === clk && so0.rig.P) { kickStop(f, s, o, so0); kickStop(o, so0, f, s); apart(f, s, o, so0); } // (legs first: a bent kicking leg may bring its thigh in)
+    }
     return s;
   }
   MD.tick = tick;
+  // ------------------------------------------------------------------ two bodies never drawn inside each other
+  // Outside a bind (its own lean keeps the pair apart: bodyGap) the two fighters' heads and torsos (as drawn: the torso
+  // a capsule hip → neck of radius 17, the head 14, the thighs 10 — the same measure scripts/duel-body-audit.mjs checks) never overlap.
+  // The drawn body is moved off the fight's x just enough (both by half; a body on the floor, getting up or launched
+  // takes most of it); the fight's own x stays the truth, the offset eases back when there is room.
+  // When the fight puts the two closer than BODY_MIN (a dash or a throw through, a juggle under the other) a drawing
+  // cannot keep them apart without leaving the fight's place: those frames are left to the fight (the audit lists them).
+  const BODY_MIN = 20, OX_MAX = 70;
+  MD.sep = !(() => { try { return /[?&]sep=0(&|$)/.test(location.search || ''); } catch (e) { return false; } })(); // (?sep=0: off, to compare)
+  const MOVERS = { down: 1, getup: 1, launch: 1 };
+  function shapesOf(rg, dx) {
+    const P = rg.P, pj = (p) => { const q = Mo.project(rg, p); q.x += dx; return q; };
+    // (the thighs are body too: one standing over a body on the floor, or a kicking hip, never inside the other)
+    return [[pj(P.hip), pj(P.neck), 17], [pj(P.head), null, 14], [pj(P.hipR), pj(P.knR), 10], [pj(P.hipL), pj(P.knL), 10]];
+  }
+  function segDist(p, q, r, t) {
+    const sd = (P, A, B) => { if (!B) return Math.hypot(P.x - A.x, P.y - A.y); const vx = B.x - A.x, vy = B.y - A.y, l2 = vx * vx + vy * vy || 1, u = clamp(((P.x - A.x) * vx + (P.y - A.y) * vy) / l2, 0, 1); return Math.hypot(P.x - A.x - vx * u, P.y - A.y - vy * u); };
+    if (q && t) {
+      const cr = (A, B, C) => (B.x - A.x) * (C.y - A.y) - (B.y - A.y) * (C.x - A.x);
+      const d1 = cr(p, q, r), d2 = cr(p, q, t), d3 = cr(r, t, p), d4 = cr(r, t, q);
+      if ((d1 > 0) !== (d2 > 0) && (d3 > 0) !== (d4 > 0)) return 0;
+    }
+    return Math.min(sd(p, r, t), q ? sd(q, r, t) : 1e9, sd(r, p, q), t ? sd(t, p, q) : 1e9);
+  }
+  function penOf(A, B) { let pen = 0; for (const [p, q, r1] of A) for (const [u, v, r2] of B) pen = Math.max(pen, r1 + r2 - segDist(p, q, u, v)); return pen; }
+  MD.bodyPen = (fa, fb) => { const a = ST.get(fa), b = ST.get(fb); return a && b && a.rig.P && b.rig.P ? penOf(shapesOf(a.rig, 0), shapesOf(b.rig, 0)) : 0; };
+  function apart(f, s, o, so) {
+    if (!s.rig.P || f.dead || o.dead || f.hidden || o.hidden) return;
+    if (f.state === 'dbind' || o.state === 'dbind' || (f.dz && f.dz.cine && !f.dz.cine.done) || (o.dz && o.dz.cine && !o.dz.cine.done)) return;
+    if (Math.abs(f.x - o.x) < BODY_MIN) return;
+    const rA = s.rig, rB = so.rig, B = shapesOf(rB, 0);
+    if (penOf(shapesOf(rA, 0), B) <= 0) return;
+    // the least relative shift that clears it (halving search), A moved away from B
+    const away = f.x < o.x ? -1 : 1;
+    let lo = 0, hi = OX_MAX * 2;
+    if (penOf(shapesOf(rA, away * hi), B) > 0) lo = hi; else for (let i = 0; i < 12; i++) { const m = (lo + hi) / 2; if (penOf(shapesOf(rA, away * m), B) > 0) lo = m; else hi = m; }
+    const need = hi + 0.5;
+    // (shared: a body on the floor / getting up / launched takes most of it, the one standing over it gives way a little;
+    // a share that would pass the limit goes to the other)
+    const mf = MOVERS[f.state] && !MOVERS[o.state] ? 0.8 : MOVERS[o.state] && !MOVERS[f.state] ? 0.2 : 0.5;
+    const mv = (st, rg, sign, amt) => { const nx = clamp((st.ox || 0) + sign * amt, -OX_MAX, OX_MAX), d = nx - (st.ox || 0); st.ox = nx; slide(rg, d); return Math.abs(d); };
+    let left = need - mv(s, rA, away, need * mf);
+    left -= mv(so, rB, -away, need * (1 - mf) + Math.max(0, left - need * (1 - mf)));
+    if (left > 0.3) mv(s, rA, away, left);
+  }
+  // ------------------------------------------------------------------ a kick's foot stops at the body it meets
+  // The foot (and its shin) never goes into the opponent's torso or head as drawn: it comes to rest 3 inside the
+  // surface (a little give) and the leg bends to the real distance (3D IK from its own hip, the knee kept forward).
+  // (the body drawn back off the other until this foot is out: the least step, within the offset's limit)
+  function stepBack(f, s, o, ft, inside) {
+    const rg = s.rig, away = f.x < o.x ? -1 : 1, w = Mo.project(rg, ft);
+    let d = 0;
+    while (d < OX_MAX * 3 && inside({ x: w.x + away * d, y: w.y }) > 0) d += 1;
+    const LIM = OX_MAX * 1.5, nx = clamp((s.ox || 0) + away * (d + 0.5), -LIM, LIM), got = Math.abs(nx - (s.ox || 0));
+    slide(rg, nx - (s.ox || 0)); s.ox = nx;
+    // (what the limit leaves: the other gives way)
+    const so = ST.get(o), left = d + 0.5 - got;
+    if (so && left > 0.3) { const ny = clamp((so.ox || 0) - away * left, -LIM, LIM); slide(so.rig, ny - (so.ox || 0)); so.ox = ny; }
+  }
+  // (the drawn body moved along the floor whole: its planted feet go with it, the legs are not pulled by them)
+  function slide(rg, d) { if (!d) return; rg.x += d; for (const k of ['R', 'L']) if (rg.lock[k] && rg.lock[k].x != null) rg.lock[k].x += d; }
+  function kickStop(f, s, o, so) {
+    const rg = s.rig, P = rg.P;
+    if (!so || !so.rig.P || !P || f.dead || o.dead || o.hidden) return;
+    const B = shapesOf(so.rig, 0).slice(0, 2);
+    // how far a world point is inside the other body (> 0: inside; the foot's own 4 counted, 3 of give allowed)
+    const inside = (w) => { let m = -1e9; for (const [p, q, r] of B) { let cx = p.x, cy = p.y; if (q) { const vx = q.x - p.x, vy = q.y - p.y, l2 = vx * vx + vy * vy || 1, u = clamp(((w.x - p.x) * vx + (w.y - p.y) * vy) / l2, 0, 1); cx = p.x + vx * u; cy = p.y + vy * u; } m = Math.max(m, r + 1 - Math.hypot(w.x - cx, w.y - cy)); } return m; };
+    const KC = s.kc || (s.kc = {});
+    for (const k of ['R', 'L']) {
+      const ft = P['ft' + k], hp = P['hip' + k], v = sub(ft, hp), pc = KC[k];
+      const at = (ang, sc) => { const c = Math.cos(ang), sn = Math.sin(ang); return [hp[0] + (v[0] * c - v[1] * sn) * sc, hp[1] + (v[0] * sn + v[1] * c) * sc, hp[2] + v[2] * sc]; };
+      let T = null;
+      const legIn = (f2, k2) => Math.max(inside(Mo.project(rg, f2)), inside(Mo.project(rg, lerp(P['kn' + k], f2, 0.5))));
+      if (legIn(ft) <= 0) {
+        // (out of the body by itself: last frame's turn lets go over a few frames, never at once)
+        if (!pc) continue;
+        const ang = pc.ang * 0.65, sc = 1 - (1 - pc.sc) * 0.65;
+        if (Math.abs(ang) < 0.02 && sc > 0.985) { delete KC[k]; continue; }
+        const q = at(ang, sc), r0 = Mo.ik3(hp, q, Mo.L.thigh, Mo.L.shin, sub(P['kn' + k], lerp(hp, ft, 0.5)));
+        if (inside(Mo.project(rg, q)) > 0 || inside(Mo.project(rg, lerp(r0.m, r0.e, 0.5))) > 0 || (f.onGround && ft[1] > -4 && q[1] < ft[1] - 1)) { delete KC[k]; continue; }
+        KC[k] = { ang, sc }; T = q;
+      } else {
+        // the leg swung (round its hip, in the picture's plane) and if need be shortened, the least that brings the foot
+        // out of the body — nearest to last frame's turn (a kick that lands on the surface and is turned by it)
+        const a = f.state === 'atk' ? f.atk : null, free = !f.onGround || AIRS[f.state] || f.state === 'launch' || f.state === 'down' || f.state === 'getup' || (a && (a.kind === 'kick' || /^(ftF|ftB|knF|knB)$/.test(a.limb || '')));
+        const pa = pc ? pc.ang : 0, ps = pc ? pc.sc : 1, C = [], onFloor = f.onGround && ft[1] > -4;
+        for (const sc of [1, 0.9, 0.8, 0.7, 0.6, 0.5]) for (let i = -30; i <= 30; i++) { const ang = (i * Math.PI) / 60; C.push([Math.abs(ang - pa) + Math.abs(sc - ps) * 1.5 + Math.abs(ang) * 0.2 + (1 - sc) * 0.3, ang, sc]); }
+        C.sort((x, y) => x[0] - y[0]);
+        for (const [, ang, sc] of C) {
+          if (Math.abs(ang - pa) > 0.6 || Math.abs(sc - ps) > 0.3) continue; // (a leg never flicks round in one frame: the body steps back instead)
+          const q = at(ang, sc);
+          // (outside a kick or the air the leg stays a standing leg: 35° or more under the horizontal)
+          if (!free && Math.atan2(q[1] - hp[1], Math.abs(q[0] - hp[0])) < 0.61) continue;
+          if (onFloor && q[1] < ft[1] - 1) continue; // (a foot standing on the floor is never lifted off it)
+          if (inside(Mo.project(rg, q)) > 0) continue;
+          // (the leg as it will be drawn — its knee too — clear of the body)
+          const r0 = Mo.ik3(hp, q, Mo.L.thigh, Mo.L.shin, sub(P['kn' + k], lerp(hp, ft, 0.5)));
+          if (inside(Mo.project(rg, lerp(r0.m, r0.e, 0.5))) > 0) continue;
+          T = q; KC[k] = { ang, sc }; break;
+        }
+      }
+      if (!T) { stepBack(f, s, o, ft, inside); stepBack(f, s, o, lerp(P['kn' + k], ft, 0.5), inside); continue; }
+      // (the knee kept in the side plane, forward: a leg that does not swing towards the camera)
+      // (as drawn the leg keeps its length: a solution the perspective would stretch past 1.08 is tried flat, else left)
+      const pk = sub(P['kn' + k], lerp(hp, ft, 0.5)), ratio = (a, b) => { const A = Mo.project(rg, a), B = Mo.project(rg, b); return Math.hypot(A.x - B.x, A.y - B.y) / 46; };
+      let r = Mo.ik3(hp, T, Mo.L.thigh, Mo.L.shin, pk);
+      if (ratio(hp, r.m) > 1.08 || ratio(r.m, r.e) > 1.08) r = Mo.ik3(hp, [T[0], T[1], hp[2]], Mo.L.thigh, Mo.L.shin, [pk[0], pk[1], 0]);
+      if (ratio(hp, r.m) > 1.08 || ratio(r.m, r.e) > 1.08 || inside(Mo.project(rg, r.e)) > 0 || inside(Mo.project(rg, lerp(r.m, r.e, 0.5))) > 0) {
+        // (no leg that both reads and stays out: the kicker's drawn body steps back off the other instead)
+        stepBack(f, s, o, ft, inside); stepBack(f, s, o, lerp(P['kn' + k], ft, 0.5), inside);
+        continue;
+      }
+      P['kn' + k] = r.m; P['ft' + k] = r.e;
+    }
+  }
   // Arena moments for the props pass (drawing only - the fight's own state, position and timing stay the truth):
   //   ND.duel.mocap.act(f, id, { dur, from, to, fade, legs, keepSword }) -> true when it plays
   //   id: one of MD.ACTS (or any loaded clip); dur: seconds of fight time it takes (default: the clip's own length);
