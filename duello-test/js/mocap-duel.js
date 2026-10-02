@@ -176,8 +176,11 @@
     const A = s.act;
     if (A && C(A.id)) return { key: 'act:' + A.n, src: clip(A.id, () => A.from + (A.to - A.from) * clamp(A.t / A.dur, 0, 1), { post: actPost(f, A) }), fade: A.fade, act: A };
     if (a) {
-      const seg = segOf(a, f.atkName || a.name || '');
-      if (seg && (seg[0] !== 'drawFwd' || f.wpn.iai)) return { key: 'atk:' + f.serial + ':' + seg[0], src: clip(seg[0], () => warp(seg, a, f.st)), fade: 0.06, seg, a };
+      // (empty-handed: the move that really plays (ua_jab...), not the button's name - 'heavy' is a sword cut's clip, and an
+      // unarmed player's punches were drawn as cuts with a sword in the hand that came and went, 2026-10-03)
+      const seg = segOf(a, armed ? f.atkName || a.name || '' : atkId(a));
+      if (seg && !armed && C(seg[0]) && C(seg[0]).sword !== 'none') return { key: 'keyed', src: keyed, fade: 0.08 };
+      if (seg && (seg[0] !== 'drawFwd' || f.wpn.iai)) return { key: 'atk:' + f.serial + ':' + seg[0], src: clip(seg[0], () => warp(seg, a, f.st), armed ? null : { post: unarm }), fade: 0.06, seg, a };
       return { key: 'keyed', src: keyed, fade: 0.08 };
     }
     switch (st) {
@@ -225,11 +228,11 @@
       case 'launch': case 'down':
         // (on the floor a moment, then up: the recorded get-up from the back starts while the fight still has the body
         // down and runs on through the getup state - one rise over ~1.1 s, the lying start and the standing end cut)
-        if (st === 'down' && f.st > RISE0 && C('fGetUp')) return { key: 'getup:' + s.kdSerial, src: clip('fGetUp', () => riseT(f), { post: sheathed }), fade: 0.22 };
-        return { key: 'kd:' + s.kdSerial, src: clip('knockdown', () => Math.min(C('knockdown').dur, 0.55 + s.kdT), { post: sheathed }), fade: 0.05 };
+        if (st === 'down' && f.st > RISE0 && C('fGetUp')) return { key: 'getup:' + s.kdSerial, src: clip('fGetUp', () => riseT(f), { post: keepOf(f) }), fade: 0.22 };
+        return { key: 'kd:' + s.kdSerial, src: clip('knockdown', () => Math.min(C('knockdown').dur, 0.55 + s.kdT), { post: keepOf(f) }), fade: 0.05 };
       case 'getup':
-        if (C('fGetUp')) return { key: 'getup:' + s.kdSerial, src: clip('fGetUp', () => riseT(f), { post: sheathed }), fade: 0.22 };
-        return { key: 'getup:' + f.serial, src: clip('getUp', () => 0.6 + f.st * 2.4, { post: sheathed }), fade: 0.15 };
+        if (C('fGetUp')) return { key: 'getup:' + s.kdSerial, src: clip('fGetUp', () => riseT(f), { post: keepOf(f) }), fade: 0.22 };
+        return { key: 'getup:' + f.serial, src: clip('getUp', () => 0.6 + f.st * 2.4, { post: keepOf(f) }), fade: 0.15 };
       default:
         return { key: 'keyed', src: keyed, fade: 0.1 };
     }
@@ -240,9 +243,24 @@
   function seg3(t, T, Cc) { if (t <= T[1]) return Cc[0] + (Cc[1] - Cc[0]) * clamp((t - T[0]) / (T[1] - T[0]), 0, 1); return Cc[1] + (Cc[2] - Cc[1]) * clamp((t - T[1]) / (T[2] - T[1]), 0, 1); }
   // a recorded body without its sword: the katana stays in the saya (Akane) / out of the picture
   // (an arena moment: the sword in the saya / on the back, or kept in the hand when asked and the fight has it drawn)
-  function actPost(f, A) { return (fr) => { if (!(A.keepSword && isArmed(f) && fr.armed)) sheathed(fr); }; }
+  // The hand always draws the fight's own state (2026-10-03, the owner: a sword came into the hand and went again by
+  // itself): a fighter that has its sword keeps it in the hand through a fall, the get-up and an arena moment (Akane's
+  // stays in the saya only while the fight has it there); an empty hand never shows one. A recorded body without a
+  // sword (the fall, the rise, the vault) gets one in its right fist, along the forearm and a little up.
+  const sheathedNow = (f) => !!(f.wpn && f.wpn.iai && f.sheathed && f.sheathed());
+  function keepOf(f) { return !isArmed(f) ? unarm : sheathedNow(f) ? sheathed : holdSword; }
+  function actPost(f, A) { return (fr) => { if (!isArmed(f)) unarm(fr); else if (sheathedNow(f)) sheathed(fr); else if (!(A.keepSword && fr.armed)) holdSword(fr); }; }
   function unarm(fr) { fr.armed = 0; fr.inside = 0; fr.tw = 0; fr.fistR = 1; fr.fistL = 1; }
   function sheathed(fr) { fr.armed = 0; fr.inside = 0; fr.tw = 0; }
+  function holdSword(fr) {
+    if (fr.armed && !fr.inside) return;
+    const fa = fr.d.faR, u = norm([fa[0], fa[1] - 0.35, fa[2]]);
+    fr.d.bu = u; fr.d.be = Math.abs(u[1]) > 0.9 ? [1, 0, 0] : [0, -1, 0];
+    fr.armed = 1; fr.inside = 0; fr.vis = null; fr.tw = 0; fr.fistR = 1;
+  }
+  // the move that plays (its ATK name), for the clip of an empty-handed move
+  const ATKN = new Map();
+  function atkId(a) { if (!ATKN.has(a)) for (const k in ND.ATK) ATKN.set(ND.ATK[k], k); return ATKN.get(a) || a.name || ''; }
   // a low guard against a cut that comes in low (the fight's own threat; kept while the block plays)
   function lowGuard(f) {
     const s = stateOf(f);
@@ -344,6 +362,35 @@
     const h = lv > reach ? add(sh, mul(v, reach / lv)) : want;
     return { h, u: norm(sub(T, h)) };
   }
+  // An empty-handed blow that lands is drawn landing (2026-10-03, the owner: the punches felt wrong - the recorded fist
+  // stopped 30-60 short of a body the fight had already hit): over its hit frames the striking fist travels on a line
+  // onto the target's surface - the chin / face for a jab, cross, uppercut, backfist, the chest for a palm, lunge or
+  // counter - and the drawn body steps in up to 40 to reach it (the step eases out with the blow).
+  const FIST_HEAD = { ua_jab: 1, ua_cross: 1, ua_upper: 1, ua_bf: 1, ua_cFin: 1 };
+  function fistAim(f, s, dt) {
+    const rg = s.rig, a = f.state === 'atk' ? f.atk : null, o = f.opp, dir = f.dir < 0 ? -1 : 1;
+    let w = 0;
+    if (a && a.active && !isArmed(f) && /^(haF|haB)$/.test(a.limb || '') && o && !o.dead && !o.hidden && !(f.dz && f.dz.cine) && Math.abs(o.x - f.x) < 260) {
+      const t = f.st, a0 = a.active[0], a1 = a.active[1];
+      const k = clamp((t - (a0 - 0.06)) / 0.06, 0, 1) * clamp(1 - (t - a1) / 0.14, 0, 1);
+      w = k * k * (3 - 2 * k);
+    }
+    const so = o ? ST.get(o) : null, P = rg.P;
+    if (w <= 0.01 || !P || !so || !so.rig.P) { rg.fist = null; s.reach = (s.reach || 0) * Math.exp(-Math.max(0, dt) / 0.08); if (s.reach < 0.3) s.reach = 0; rg.x = f.x + (s.ox || 0) + (s.reach || 0) * dir; return; }
+    // (the hand that strikes: the one the clip has further forward as the blow starts, kept for the whole move)
+    if (s.fistSer !== f.serial) { s.fistSer = f.serial; s.fistSide = P.haR[0] >= P.haL[0] ? 'R' : 'L'; }
+    const S = s.fistSide, Q = so.rig.P, pj = (q) => Mo.project(so.rig, q), towards = f.x < o.x ? -1 : 1;
+    let Tw;
+    if (FIST_HEAD[atkId(a)]) { const h = pj(Q.head); Tw = { x: h.x + towards * 20, y: h.y + 2 }; }
+    else { const h = pj(Q.hip), n = pj(Q.neck); Tw = { x: h.x + (n.x - h.x) * 0.72 + towards * (TORSO_R + 7), y: h.y + (n.y - h.y) * 0.72 }; }
+    // the step in: what the arm (55 of its 59, the elbow not locked) cannot reach from where the body stands
+    const sh = P['sh' + S], baseX = f.x + (s.ox || 0);
+    const need = Math.hypot((Tw.x - baseX) * dir - sh[0], Tw.y - sh[1]) - 55;
+    const want = clamp(need, 0, 40) * w;
+    s.reach = dt > 0 && s.reach != null ? s.reach + (want - s.reach) * Math.min(1, dt / 0.03) : want;
+    rg.x = baseX + s.reach * dir;
+    rg.fist = { S, T: [(Tw.x - rg.x) * dir, Tw.y, P['ha' + S][2]], w };
+  }
   // (a body drawn off its fight x by the keep-apart offset still reaches the fight's own place: after the smoothing)
   function oxComp(s, dir) { if (s.ox) O3.h = [O3.h[0] - s.ox * dir, O3.h[1], O3.h[2]]; }
   // (the place the hand is held at never jumps either — the bind handing over to its strike, a parry's contact line
@@ -420,6 +467,7 @@
     // (in a bind its own lean keeps the pair apart: the offset goes at once)
     if (s.ox) { const bind = f.state === 'dbind' || (f.dz && f.dz.cine && !f.dz.cine.done); s.ox *= Math.exp(-Math.max(0, dt) / (bind ? 0.04 : 0.22)); if (Math.abs(s.ox) < 0.2) s.ox = 0; }
     rg.x = f.x + (s.ox || 0); rg.dir = f.dir < 0 ? -1 : 1; rg.vx = f.vx;
+    rg.noSword = !isArmed(f); // (an empty hand: no blade drawn in it, none in the saya - through every cross-fade too)
     const d = direct(f, s, dt);
     if (!d) return null;
     // a recorded run / vault faces the way the body travels
@@ -445,6 +493,7 @@
     if (d.src.clip) MD.stats.clip++; else MD.stats.keyed++;
     rg.drive(d.key, d.src, d.fade);
     override(f, s, dt);
+    fistAim(f, s, dt);
     bodyGap(f, s, dt);
     rg.update(dt);
     s.tickedAt = clk;
@@ -453,7 +502,7 @@
     if (!noPair && MD.sep && so0 && s.pairAt !== clk) {
       if (so0.tickedAt !== clk) tick(o, true);
       s.pairAt = so0.pairAt = clk;
-      if (so0.tickedAt === clk && so0.rig.P) { kickStop(f, s, o, so0); kickStop(o, so0, f, s); apart(f, s, o, so0); bladeStop(f, s, o, so0); bladeStop(o, so0, f, s); } // (legs first: a bent kicking leg may bring its thigh in)
+      if (so0.tickedAt === clk && so0.rig.P) { kickStop(f, s, o, so0); kickStop(o, so0, f, s); bladeStop(f, s, o, so0); bladeStop(o, so0, f, s); apart(f, s, o, so0); bladeStop(f, s, o, so0); bladeStop(o, so0, f, s); } // (legs first: a bent kicking leg may bring its thigh in)
     }
     return s;
   }
@@ -476,8 +525,10 @@
     // (the thighs are body too: one standing over a body on the floor, or a kicking hip, never inside the other)
     // (and the forearms and shins: an arm reaching into the other's chest, a shin through his hakama read as one pile;
     // limbs are checked against the other's torso and head only - arms and blades may cross in front)
+    // (an empty-handed blow landing (fistAim): its fist is ON the other's face / chest by design - that arm is left out)
+    const FS = rg.fist && rg.fist.w > 0.3 ? rg.fist.S : null;
     return [[pj(P.hip), pj(P.neck), TORSO_R], [pj(P.head), null, 14], [pj(P.hipR), pj(P.knR), 10], [pj(P.hipL), pj(P.knL), 10],
-      [pj(P.elR), pj(P.haR), 6, 1], [pj(P.elL), pj(P.haL), 6, 1], [pj(P.knR), pj(P.ftR), 7, 1], [pj(P.knL), pj(P.ftL), 7, 1]];
+      FS === 'R' ? null : [pj(P.elR), pj(P.haR), 6, 1], FS === 'L' ? null : [pj(P.elL), pj(P.haL), 6, 1], [pj(P.knR), pj(P.ftR), 7, 1], [pj(P.knL), pj(P.ftL), 7, 1]].filter(Boolean);
   }
   function segDist(p, q, r, t) {
     const sd = (P, A, B) => { if (!B) return Math.hypot(P.x - A.x, P.y - A.y); const vx = B.x - A.x, vy = B.y - A.y, l2 = vx * vx + vy * vy || 1, u = clamp(((P.x - A.x) * vx + (P.y - A.y) * vy) / l2, 0, 1); return Math.hypot(P.x - A.x - vx * u, P.y - A.y - vy * u); };
@@ -693,6 +744,34 @@
     if (!s || !s.rig.P) return draw0.call(this, ctx, reflect, layer);
     Mo.draw(ctx, s.rig, {});
   };
+  // a disarmed fighter: the blade is on the floor, so none in the hand and none in the saya (the empty saya stays): the
+  // last frames of a cross-fade from an armed clip and Akane's sheathed katana showed a second sword, 2026-10-03
+  const build0 = Mo.Rig.prototype.build;
+  Mo.Rig.prototype.build = function (F, dt) {
+    if (this.noSword && F) { F.armed = 0; F.inside = 0; F.tw = 0; }
+    const P = build0.call(this, F, dt);
+    // (an empty-handed blow: the fist on its line onto the target, fistAim)
+    const FA = this.fist, Pf = P || this.P;
+    if (FA && FA.w > 0 && Pf) {
+      const S = FA.S, sh = Pf['sh' + S], ha = Pf['ha' + S], el = Pf['el' + S];
+      const r = Mo.ik3(sh, lerp(ha, FA.T, FA.w), L.uArm, L.fArm, sub(el, lerp(sh, ha, 0.5)));
+      Pf['el' + S] = r.m; Pf['ha' + S] = r.e;
+      if (Pf['wr' + S]) Pf['wr' + S] = madd(r.e, norm(sub(r.e, r.m)), -Mo.L20.hd);
+      Pf['fist' + S] = true;
+    }
+    // (a sword held through a fall: its point rests on the floor, never in it)
+    const Q = P || this.P;
+    if (Q && Q.armed && Q.blade && !this.noSword) {
+      const BL = (this.look.wpn || L).blade || 96, u = Q.blade.u, ty = Q.blade.h[1] + u[1] * BL;
+      if (ty > -1.5 && Q.blade.h[1] < -1.5) { const sy = clamp((-1.5 - Q.blade.h[1]) / BL, -1, 1), h = Math.hypot(u[0], u[2]) || 1, k = Math.sqrt(1 - sy * sy) / h; Q.blade.u = [u[0] * k, sy, u[2] * k]; const e = Q.blade.e, nu = Q.blade.u; Q.blade.e = norm(sub(e, mul(nu, dot(e, nu)))); }
+    }
+    return P;
+  };
+  let drawingNoSword = false;
+  const kat0 = A3.drawKatana3;
+  A3.drawKatana3 = function () { if (drawingNoSword) return; return kat0.apply(this, arguments); };
+  const moDraw0 = Mo.draw;
+  Mo.draw = function (ctx, rg) { drawingNoSword = !!(rg && rg.noSword); try { return moDraw0.apply(this, arguments); } finally { drawingNoSword = false; } };
   // what is drawn, for the props carried in a hand (the showpiece) and the continuity audit
   const snap0 = A3.snap;
   A3.snap = function (f, o) {
@@ -709,7 +788,7 @@
     put('tip', madd(P.blade.h, u, BL)); put('pom', madd(P.blade.h, u, -f.wpn.handle)); put('hilt', P.armed ? madd(P.blade.h, u, 4) : P.blade.h); put('pomm', madd(P.blade.h, u, P.armed ? 4 - f.wpn.handle : -f.wpn.handle));
     put('saya', P.saya.a); put('sayaEnd', madd(P.saya.a, P.saya.u, P.saya.L)); put('obi', P.saya.a);
     o.u = { x: u[0], y: u[1], z: u[2] }; o.e = { x: P.blade.e[0], y: P.blade.e[1], z: P.blade.e[2] };
-    o.armed = P.armed; o.sheathed = !P.armed; o.grip = P.gripL || 0; o.dir = rg.dir; o.mocap = true;
+    o.armed = P.armed; o.sheathed = !P.armed; o.grip = P.gripL || 0; o.dir = rg.dir; o.mocap = true; o.fist = rg.fist && rg.fist.w > 0.3 ? rg.fist.S : null;
     return o;
   };
 })(window.ND);

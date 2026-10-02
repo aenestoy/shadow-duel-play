@@ -34,6 +34,16 @@
     ['cup', 256, 0, { on: 7 }], ['bottle', 282, 0, { on: 7 }], ['post', 400, -6], ['bale', 510, -6], ['lantern', 610, -12], ['bucket', 690, -4],
     ['rack', 790, -20]];
   P.ARENA_SETS.temple = TEMPLE;
+  // (a won bind ends with the sword for the CPU: its prop finisher - the cup broken on the head, the kick onto the table -
+  // was a slower, weaker ending than its own disarm-and-cut, and with the set on it lost ~10 points of its win rate for
+  // it, 2026-10-03; the player keeps the prop finisher, the set's show)
+  if (P.cineCandidates) {
+    const cc0 = P.cineCandidates;
+    P.cineCandidates = function (att, def) {
+      if (def && def.dz && isCpu(def) && !(G.F && G.F.some((f) => f.state === 'dseq'))) return [];
+      return cc0.apply(this, arguments);
+    };
+  }
   // (the long-rally finisher variants (KAESHI, fighter.js) are made the first time a rally reaches them; made here at once,
   // so every fight - bare or drawn - meets them already in the shared move table: a move added mid-fight was hashed by
   // its contents in one run and as a shared table in the other, and duel-check saw two different fights)
@@ -230,7 +240,7 @@
   };
   // the blade bites the post: the defender slips behind it (defender's action) …
   ACT.dodgePost = {
-    dur: 1.0, kickWin: [0.6, 0.86],
+    dur: 1.0, kickWin: [0.6, 0.86], air: [0.06, 0.84], // (the hop round the post and the kick from it: off the floor)
     setup(f, c, p) {
       const s = Math.sign(p.x - f.opp.x) || -f.dir; // (the far side of the post from the attacker)
       c.X = [[0, f.x], [0.18, p.x + s * 30], [0.6, p.x + s * 30], [0.75, p.x + s * 24], [1.0, p.x + s * 30]];
@@ -801,8 +811,28 @@
       spills(h, F);
       refill(h, F);
     }
-    return step0.apply(this, arguments);
+    // (a body knocked into the air or down that crashes through a prop of the set breaks it - and flies on: the prop
+    // does not bounce it, slow it or hurt it - in the duel a juggle or a knockdown is the sword's, the set only shows
+    // it; with the crash counted the set cost the CPU, which juggles more, ~13 points of its win rate, 2026-10-03)
+    const keep = F && P.live && SET_CRASH_OFF ? F.map((f) => (!f.dead && (f.state === 'launch' || f.state === 'down' || f.state === 'plunge') ? [f.x, f.y, f.vx, f.vy, f.hp, f.damageTaken, f.state, f.serial] : null)) : null;
+    // (a fight kick does not send a set prop flying: kicking a prop at him is the context button's - with any kick
+    // launching what stood near the feet, the button-masher's kicks pelted the CPU with stools, 2026-10-03; the
+    // props module skips a prop this fighter touched within 0.3 s, so the kicker is marked as just having touched it)
+    if (P.live && F && SET_CRASH_OFF) for (const f of F) {
+      if (f.dead || f.state !== 'atk' || !f.atk || f.atk.kind !== 'kick' || /^pr_/.test(f.atkName || '')) continue;
+      for (const p of S.items) if (p.st !== 3 && p.st !== 2 && Math.abs(p.x - f.x) < 140) { p.hitF = f.id; p.hitT = S.t; }
+    }
+    // (and no freeze for the set: a stool cut through, a cup kicked, a body crashing through a table - every freeze is a
+    // moment the fight stops; dozens a minute of them broke the sword's rhythm and handed the presses buffered in them
+    // to whoever kept pressing, 2026-10-03)
+    const any = P.live && SET_CRASH_OFF, hs0 = G.hitstop, hsT = G.hitstopT;
+    if (any) G.hitstop = function () {};
+    let r;
+    try { r = step0.apply(this, arguments); } finally { if (any) { G.hitstop = hs0; G.hitstopT = hsT; } }
+    if (keep) F.forEach((f, i) => { const k = keep[i]; if (!k || f.dead || f.state !== k[6] || f.serial !== k[7]) return; f.y = k[1]; f.vy = k[3]; f.vx = k[2]; if (f.hp < k[4]) { f.hp = k[4]; f.damageTaken = k[5]; } });
+    return r;
   };
+  const SET_CRASH_OFF = !/[?&]setcrash=1(&|$)/.test(location.search || '');
 
   // ------------------------------------------------------------------ drawing: the shrine steps (temple)
   // The temple's raised deck is the station "From the steps": the market's low veranda picture read as a dark bench, so

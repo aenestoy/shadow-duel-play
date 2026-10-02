@@ -248,7 +248,7 @@
   // front hand = the near hand (ax/ay; sw = the fist's direction), back hand = the far hand (grip 0: gx/gy)
   const U = (name, o) => P(name, Object.assign({ grip: 0 }, o));
   U('ua_stance', { hx: -2, hy: -78, lean: 0.14, hd: 0.08, ax: 24, ay: -12, sw: -0.35, gx: 16, gy: -6, f1x: 24, f2x: -28 });
-  U('ua_guard', { hx: -6, hy: -76, lean: 0.04, hd: 0.18, ax: 18, ay: -26, sw: -1.25, gx: 12, gy: -20, f1x: 20, f2x: -32 });
+  U('ua_guard', { hx: -6, hy: -76, lean: 0.06, hd: 0.18, ax: 20, ay: -16, sw: -1.25, gx: 12, gy: -12, f1x: 20, f2x: -32 }); // (fists at the chin, not over the head: 2026-10-03)
   U('ua_jabA', { hx: 0, hy: -78, lean: 0.18, hd: 0.1, ax: 18, ay: -8, sw: -0.3, gx: 14, gy: -8, f1x: 26, f2x: -28 });
   U('ua_jabB', { hx: 10, hy: -76, lean: 0.32, hd: 0.12, ax: 56, ay: -14, sw: -0.22, gx: 14, gy: -10, f1x: 42, f2x: -26 });
   U('ua_crossA', { hx: -2, hy: -78, lean: 0.1, hd: 0.08, ax: 22, ay: -16, sw: -0.4, gx: 2, gy: -2, f1x: 26, f2x: -30 });
@@ -277,6 +277,11 @@
   U('ua_airB', { hx: -6, hy: -86, lean: -0.3, hd: 0.1, ax: 16, ay: -24, sw: -1.0, gx: 0, gy: -14, f1x: 80, f1y: -40, f2x: -18, f2y: -30 });
   U('ua_stompA', { hx: 0, hy: -90, lean: 0.1, hd: 0.2, ax: 22, ay: -12, sw: -0.6, gx: 12, gy: -10, f1x: 18, f1y: -36, f2x: -14, f2y: -26 });
   U('ua_stompB', { hx: 0, hy: -84, lean: 0.25, hd: 0.3, ax: 20, ay: -8, sw: -0.5, gx: 10, gy: -6, f1x: 26, f1y: 12, f2x: -16, f2y: -20 });
+  // empty hands against a blade: never a forearm into the edge - the body leaves the cut's line (js/duel.js evade):
+  // under a high cut (duck), back from a level one (sway), the front foot lifted out of a low one (slip)
+  U('ua_duck', { hx: -6, hy: -52, lean: 0.62, hd: 0.4, ax: 18, ay: -12, sw: -1.2, gx: 10, gy: -8, f1x: 30, f2x: -36 });
+  U('ua_sway', { hx: -24, hy: -72, lean: -0.5, hd: -0.25, ax: 22, ay: -14, sw: -1.25, gx: 12, gy: -10, f1x: 30, f2x: -44 });
+  U('ua_slip', { hx: -14, hy: -84, lean: 0.12, hd: 0.06, ax: 22, ay: -14, sw: -1.2, gx: 12, gy: -10, f1x: 6, f1y: -24, f2x: -34 });
   U('ua_catchA', { hx: 2, hy: -76, lean: 0.24, hd: 0.0, ax: 42, ay: -30, sw: -0.9, gx: 38, gy: -24, f1x: 34, f2x: -30 });
   U('ua_catchB', { hx: 6, hy: -64, lean: 0.46, hd: 0.25, ax: 24, ay: 30, sw: 1.2, gx: 12, gy: 32, f1x: 40, f2x: -36 });
   U('ua_roll', { hx: 4, hy: -40, lean: 1.05, hd: 0.7, ax: 18, ay: 24, sw: 1.2, gx: 10, gy: 26, f1x: 20, f1y: -22, f2x: -6, f2y: -12 });

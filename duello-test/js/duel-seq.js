@@ -119,7 +119,9 @@
       // up onto the veranda; kicks down; swept off the far end; staggers to the shop front; through it
       [9.0, V + 60], [9.2, V + 40], [B[10].t, V + 40], [B[11].t, V + 30], [10.6, V - 110], [11.0, SH + 120], [B[12].t, SH + 66], [11.85, SH + 4],
       [12.2, SH - 30], [END, SH - 34]];
-    c.aY = [[0, 0], [8.6, 0], [8.8, -24], [9.0, -48], [B[11].t, -48], [10.25, -110], [10.6, 0], [B[12].t, 0], [11.75, -40], [12.2, 0], [END, 0]];
+    // (the roll past D goes over her: a diving roll, she ducks under it - the two bodies never cross on the floor;
+    // the slip behind the post from the draw is a quick hop)
+    c.aY = [[0, 0], [3.36, 0], [3.46, -150], [3.58, -130], [3.7, 0], [7.58, 0], [7.67, -12], [7.76, 0], [8.6, 0], [8.8, -24], [9.0, -48], [B[11].t, -48], [10.25, -110], [10.6, 0], [B[12].t, 0], [11.75, -40], [12.2, 0], [END, 0]];
     // --- poses
     c.dK = [[0, d.entry]]; c.aK = [[0, a.entry]];
     // STALL: three blocks (kesa right, gyaku-kesa left, kesa right): the blades meet overhead in front of D
@@ -158,7 +160,7 @@
     // D: drops the stool, ducks the bottle, runs, vaults, kicks in the air, lands, walks to the post
     const duck = mod('ua_sweepA', { ax: 20, ay: 30, sw: 1.0, hy: -44, lean: 0.7 });
     const kick = mod('ua_airB', { f1x: 92, f1y: -30, lean: -0.3 });
-    c.dK.push([3.35, d.P.stance, E.inOut], [4.05, d.P.stance], [B[5].t - 0.04, duck, E.outCubic], [B[5].t + 0.18, duck], [4.7, d.P.stance, E.inOut],
+    c.dK.push([3.3, d.P.stance, E.inOut], [3.4, duck, E.outCubic], [3.62, duck], [3.82, d.P.stance, E.inOut], [4.05, d.P.stance], [B[5].t - 0.04, duck, E.outCubic], [B[5].t + 0.18, duck], [4.7, d.P.stance, E.inOut],
       [5.05, pk('dz_d_dashRW'), E.inOutSine], [B[6].t, pk('jump'), E.outCubic], [5.5, pk('ua_roll'), E.outCubic], [B[7].t - 0.04, pk('ua_airA'), E.outCubic],
       [B[7].t + 0.06, kick, E.outQuart], [5.95, kick], [6.05, pk('land'), E.outCubic], [6.4, d.P.stance, E.inOut], [7.1, d.P.stance]);
     // the post: an iai draw (level, from the scabbard) that bites into the wood where A was; pulled out with a wrench

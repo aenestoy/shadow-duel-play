@@ -407,10 +407,18 @@
       const th = threat(f);
       z.gsT = th.ok ? th.side : 0;
       if (s === 'guard') {
-        const tgt = guardTarget(f, GP, th);
+        let tgt = guardTarget(f, GP, th);
+        // empty hands: the body starts leaving the cut's line just before it arrives (the evade, below in blocked)
+        const oa = f.opp && f.opp.state === 'atk' ? f.opp.atk : null;
+        if (!z.armed && th.ok && oa && oa.kind === 'blade' && th.t - f.opp.st < 0.14) {
+          const k = evKind(th.y - f.y);
+          z.evPre = { k, serial: f.opp.serial };
+          tgt = PO['ua_' + k] || tgt;
+        }
         if (f.st > dt + 1e-9) pose.copy(z.pp, f.pose); // undo the plain guard step, follow the blade instead
         pose.approach(f.pose, tgt, 24, dt);
       } else if (s === 'block' && z.bk && z.bk.serial === f.serial) blockPose(f, dt);
+      else if (s === 'block' && !z.armed && z.ev && z.ev.serial === f.serial) evadePose(f);
       const d = z.gsT - z.gs, m = T.sideRate * dt;
       z.gs += clamp(d, -m, m);
     } else z.gs *= Math.exp(-3 * dt);
@@ -449,9 +457,13 @@
         z.offLine++; stat('offLine');
         fx.text(o.x, -200, 'OFF-LINE!', '#ff9b7a');
       } else { z.chain += T.blockPts; z.chainT = 0; stat('cleanBlocks'); }
-      if (!z.armed && a.kind === 'blade') {
-        // a forearm against a blade: a little blood (never the last of it)
-        o.hp = Math.max(1, o.hp - T.armChip); o.damageTaken += T.armChip; o.flash = 0.6;
+      if (!z.armed && a.kind === 'blade' && !isKick) {
+        // empty hands never block a blade with a forearm: the body leaves the cut's line - under a high cut, back from a
+        // level one, the front foot out of a low one (the guard's cost stays: posture; 2026-10-03, the owner: the unarmed
+        // defence felt wrong)
+        z.ev = { k: z.evPre && z.evPre.serial === att.serial ? z.evPre.k : evKind(y - o.y), serial: o.serial };
+        stat('evades'); stat('evade_' + z.ev.k);
+        fx.text(o.x, -200, z.ev.k === 'duck' ? 'DUCK!' : z.ev.k === 'slip' ? 'SLIP!' : 'SWAY!', '#bfe3ff');
       }
       // the block pose: the blade put through the contact point, then pushed the way the blow travelled
       if (z.armed && !isKick) {
@@ -469,6 +481,15 @@
     } else if (o.state === 'gbreak') { z.chain = 0; stat('guardBreaks'); }
     return r;
   };
+  const evKind = (hy) => (hy < -138 ? 'duck' : hy > -66 ? 'slip' : 'sway');
+  // the evade (an empty-handed block of a blade): out of the line fast, held through the cut, back into the guard
+  const EVP = {};
+  function evadePose(f) {
+    const P = PO['ua_' + f.dz.ev.k] || PO.ua_guard, dur = Math.max(0.12, f.dur || 0.2), t = f.st;
+    if (t < 0.07) pose.lerp(f.entry, P, E.outCubic(t / 0.07), f.pose);
+    else if (t < dur * 0.62) pose.copy(P, f.pose);
+    else { pose.lerp(P, f.P.guard || P, E.inOutSine(clamp((t - dur * 0.62) / (dur * 0.38), 0, 1)), EVP); pose.copy(EVP, f.pose); }
+  }
   function blockPose(f, dt) {
     const B = f.dz.bk, t = f.st;
     if (t < 0.055) pose.lerp(B.p0, B.p1, E.outCubic(t / 0.055), f.pose);
@@ -482,7 +503,7 @@
   const takeHit0 = FP.takeHit;
   FP.takeHit = function (raw, a, from, x, y, part, kdir) {
     if (!this.dz) return takeHit0.call(this, raw, a, from, x, y, part, kdir);
-    const was = this.state, hp0 = this.hp;
+    const was = this.state, hp0 = this.hp, atk0 = this.atk, st0 = this.st;
     // empty hands hit harder than their size (they get in close): unarmed blows ×uaDmg
     if (from && from.dz && !from.dz.armed && a && !a.special) raw *= T.uaDmg;
     if (was === 'dpick') { raw *= T.punish; fx.text(this.x, -222, 'PUNISHED!', '#ff9b7a'); stat('punishedPicks'); }
@@ -492,6 +513,12 @@
       // (the technique disarms through a guard only, js/duel.js blocked: a clean hit is just a hit)
       const heavy = a && (a.heavyClass || raw >= 20) && a.kind === 'blade';
       if (was === 'gbreak' && heavy && rnd() < T.breakDisarm) disarm(this, from, kdir, 'break');
+      // an empty-handed kick into a cut's wind-up (before its blade can hit) kicks the sword out of the hand: the way back
+      // for the one without a sword - timing, not a guard (2026-10-03)
+      else if (was === 'atk' && from && from.dz && !from.dz.armed && a && a.kind === 'kick' && /^(ftF|knF)$/.test(a.limb || '') &&
+        atk0 && atk0.kind === 'blade' && atk0.active && st0 < atk0.active[0] && disarm(this, from, kdir, 'break')) {
+        stat('kickDisarms'); // (its headline is the disarm's own DISARMED!)
+      }
     }
     if (from && from.dz && D.stats && from.dz.armed !== this.dz.armed) stat(from.dz.armed ? 'asymDmgArmed' : 'asymDmgUnarmed', hp0 - this.hp);
     return r;
