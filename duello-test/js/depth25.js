@@ -213,6 +213,13 @@
       const grip3 = add(Hs, mul(us, -HILT0)), dh = len(sub(hand3, grip3));
       hand3 = lerp3(hand3, grip3, SH.s * (1 - sstep(clamp((dh - 14) / 22, 0, 1))));
     }
+    // (the duel's bind, js/duel-bind.js: the sword hand and blade go where the two blades really cross)
+    const BG = D.bindHand ? D.bindHand(f) : null;
+    if (BG && BG.w > 0) {
+      const k = BG.w;
+      hand3 = lerp3(hand3, v3(BG.h[0], BG.h[1], BG.h[2]), k); u3 = norm(lerp3(u3, v3(BG.u[0], BG.u[1], BG.u[2]), k));
+      e3 = norm(lerp3(e3, v3(BG.e[0], BG.e[1], BG.e[2]), k)); e3 = norm(sub(e3, mul(u3, dot(e3, u3)))); w = Math.max(w, k);
+    }
     // sword arm in 3D (reach clamp), blended with the drawn arm
     const armF = ik3(shF, hand3, ND.LEN.uArm, ND.LEN.fArm, v3(-0.3, 1, 0.22));
     const elF3 = lerp3(P.elF, armF.e, w), haF3 = lerp3(P.haF, armF.h, w);
