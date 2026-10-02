@@ -351,7 +351,7 @@
         // (eased over a few hundredths of a second: a foot planted / lifted, a step, a new clip never make the body hop;
         // the feet are kept on the floor below by the legs themselves)
         // (lying or getting up: exactly on the floor — the body rests on it, a hand pushes on it)
-        if (fix != null) { if (this.gfix == null || !this.legs.grounded) this.gfix = fix; else if (dt > 0) this.gfix += (fix - this.gfix) * Math.min(1, dt / 0.04); }
+        if (fix != null) { if (this.gfix == null || (!this.legs.grounded && !this.legs.lying)) this.gfix = fix; else if (dt > 0) this.gfix += (fix - this.gfix) * Math.min(1, dt / (this.legs.grounded ? 0.04 : 0.07)); } // (lying still: eased too — the part that touches the floor changing never moves the body in one frame; nothing goes through the floor: the lift below)
         else if (this.gfix) { this.gfix *= Math.exp(-Math.max(dt, 0) / 0.12); if (Math.abs(this.gfix) < 0.05) this.gfix = 0; }
         const f2 = this.gfix || 0;
         if (Math.abs(f2) > 0.05) {
@@ -366,6 +366,10 @@
       // (last of all) the drawn body is thicker than the recorded one: lying down, nothing may go through the floor
       { let lift = 0;
         for (const [k, r] of FLOOR_R) { const q = P[k]; if (q && q[1] + r > lift) lift = q[1] + r; }
+        // (it rises at once — nothing ever goes through the floor — but lets go over ~0.06 s: a roll's head or knee
+        // leaving the floor in one frame never drops the whole body by it)
+        if (dt > 0 && this.liftS > lift && !(this.legs && this.legs.grounded)) lift = Math.max(lift, this.liftS * Math.exp(-dt / 0.06));
+        this.liftS = lift;
         if (lift > 0) for (const k of ALLJ) if (P[k]) P[k] = [P[k][0], P[k][1] - lift, P[k][2]];
         if (lift > 0) { P.blade.h = [P.blade.h[0], P.blade.h[1] - lift, P.blade.h[2]]; P.saya.a = [P.saya.a[0], P.saya.a[1] - lift, P.saya.a[2]]; } }
 

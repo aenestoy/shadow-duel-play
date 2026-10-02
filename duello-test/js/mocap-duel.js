@@ -47,15 +47,20 @@
     front: ['sideKick', 0.32, 0.68, 1.25],
     round: ['roundhouse', 0.12, 0.65, 1.2],
     spinKick: ['spinKick', 0.22, 0.62, 1.0],
+    // free motion capture (tools/mocap/bake.mjs f*: the kick itself only, turned onto the fight line; ACCAD, CC BY 3.0)
+    axe: ['fKickAxe', 0.12, 0.75, 1.1], // kakato-otoshi: the leg up high, the heel down through the guard
+    frontF: ['fKickFrontU', 0.1, 0.47, 0.9],
+    roundF: ['fKickRoundU', 0.0, 0.4, 0.95],
+    spinF: ['fKickSpinBackU', 0.05, 0.59, 1.15],
     draw: ['drawFwd', 0.43, 0.74, 1.15], // nukitsuke: the hilt taken at the hip, out and through
   };
   const MOVE = {
     ak_dNuki: 'draw', ak_dKesa: 'downR', d_kesaR: 'downR', d_kesaL: 'downL', d_shomen: 'down', d_men: 'men', d_kesaH: 'heavy',
     d_kiriUp: 'up', d_antiH: 'up', d_antiL: 'lowRise', d_suneR: 'low', kr_nagi: 'low', d_dashR: 'level', d_doL: 'level', d_oikomi: 'level',
     d_nagare: 'downL', d_kote: 'short', d_kabuto: 'men', kr_iwa: 'heavy', kr_kuruma: 'spin', d_taiatari: 'hilt', ak_tsuka: 'hilt',
-    d_hiza: 'kickA', d_kakato: 'kickA',
+    d_hiza: 'kickA', d_kakato: 'axe',
     ua_jab: 'jab', ua_cross: 'cross', ua_lunge: 'cross', ua_palm: 'palm', ua_upper: 'upper', ua_elbow: 'elbow', ua_ram: 'elbow',
-    ua_front: 'front', ua_round: 'round', ua_spinKick: 'spinKick',
+    ua_front: 'frontF', ua_round: 'roundF', ua_spinKick: 'spinF',
     // the kit's own moves that come through in the duel (js/fighter.js ATK)
     light1: 'downR', light2: 'downL', light3: 'down', heavy: 'men',
   };
@@ -82,9 +87,25 @@
   }
 
   // ------------------------------------------------------------------ clips
+  // the arena's moments (MD.act, for the props pass): free motion capture, CMU / ACCAD (tools/mocap/bake.mjs f*)
+  const ACTS = ['fSlipSake', 'fRugPull', 'fStoolPick', 'fRunJumpOver', 'fDiveRoll', 'fDiveRollB', 'fStepstoolJump', 'fStepstoolUp', 'fLadderUp', 'fLadderDown',
+    'fCartwheel', 'fBackflip', 'fHandspring', 'fKickSide'];
   const CLIPS = [...new Set(Object.values(SEG).map((s) => s[0]).concat(['idle', 'walk', 'backWalk', 'run', 'blockIdle', 'blockedImpact', 'crouchBlockIdle', 'crouchBlockedImpact',
-    'hitHead', 'hitBody', 'knockdown', 'getUp', 'sheathe', 'vault', 'pickThrow']))];
-  Mo.loadAll(CLIPS).then(() => { MD.ready = true; }).catch((e) => { MD.error = String(e); });
+    'hitHead', 'hitBody', 'knockdown', 'getUp', 'sheathe', 'vault', 'pickThrow', 'fGetUp']))];
+  Mo.loadAll(CLIPS).then(() => { MD.ready = true; credit(); Mo.loadAll(ACTS).catch(() => {}); }).catch((e) => { MD.error = String(e); });
+  // (the arena moments load after the fight's own clips: MD.act returns false until its clip is in)
+  // the licence line of the ACCAD motion capture (CC BY 3.0: the credit must show wherever its clips play) - the duel
+  // page's footer while the recorded drawing is on (the game has no credits screen yet)
+  MD.CREDIT = 'Motion capture data: ACCAD Open Motion Project, The Ohio State University, CC BY 3.0';
+  function credit() {
+    try {
+      if (typeof document === 'undefined' || !document.body || document.getElementById('mocap-credit')) return;
+      const el = document.createElement('div');
+      el.id = 'mocap-credit'; el.textContent = MD.CREDIT;
+      el.style.cssText = 'position:fixed;left:6px;bottom:2px;font:9px/1.2 sans-serif;color:rgba(255,255,255,.5);text-shadow:0 1px 2px #000;pointer-events:none;z-index:40';
+      document.body.appendChild(el);
+    } catch (e) { /* no page */ }
+  }
   const C = (id) => Mo.clips[id];
 
   // ------------------------------------------------------------------ the hand-keyed pose as a frame (depth25's 3D skeleton)
@@ -143,6 +164,9 @@
       return { key: 'keyed', src: keyed, fade: 0.12 };
     }
     if (f.dead) return null;
+    // an arena moment the props pass asked for (MD.act): it plays over whatever the fight's state is
+    const A = s.act;
+    if (A && C(A.id)) return { key: 'act:' + A.n, src: clip(A.id, () => A.from + (A.to - A.from) * clamp(A.t / A.dur, 0, 1), { post: actPost(f, A) }), fade: A.fade, act: A };
     if (a) {
       const seg = segOf(a, f.atkName || a.name || '');
       if (seg && (seg[0] !== 'drawFwd' || f.wpn.iai)) return { key: 'atk:' + f.serial + ':' + seg[0], src: clip(seg[0], () => warp(seg, a, f.st)), fade: 0.06, seg, a };
@@ -192,15 +216,24 @@
         return { key: st + ':' + f.serial, src: clip('hitHead', () => 0.45 + f.st * 1.2, { post: armed ? null : unarm }), fade: 0.06 };
       }
       case 'launch': case 'down':
+        // (on the floor a moment, then up: the recorded get-up from the back starts while the fight still has the body
+        // down and runs on through the getup state - one rise over ~1.1 s, the lying start and the standing end cut)
+        if (st === 'down' && f.st > RISE0 && C('fGetUp')) return { key: 'getup:' + s.kdSerial, src: clip('fGetUp', () => riseT(f), { post: sheathed }), fade: 0.22 };
         return { key: 'kd:' + s.kdSerial, src: clip('knockdown', () => Math.min(C('knockdown').dur, 0.55 + s.kdT), { post: sheathed }), fade: 0.05 };
       case 'getup':
+        if (C('fGetUp')) return { key: 'getup:' + s.kdSerial, src: clip('fGetUp', () => riseT(f), { post: sheathed }), fade: 0.22 };
         return { key: 'getup:' + f.serial, src: clip('getUp', () => 0.6 + f.st * 2.4, { post: sheathed }), fade: 0.15 };
       default:
         return { key: 'keyed', src: keyed, fade: 0.1 };
     }
   }
+  // the rise: from RISE0 s into 'down' (0.75 s, js/fighter.js) through 'getup' (0.46 s) - the clip's whole length
+  const RISE0 = 0.12, RISE_T = 0.75 - RISE0 + 0.46;
+  function riseT(f) { const t = f.state === 'down' ? f.st - RISE0 : 0.75 - RISE0 + f.st; return C('fGetUp').dur * clamp(t / RISE_T, 0, 1); }
   function seg3(t, T, Cc) { if (t <= T[1]) return Cc[0] + (Cc[1] - Cc[0]) * clamp((t - T[0]) / (T[1] - T[0]), 0, 1); return Cc[1] + (Cc[2] - Cc[1]) * clamp((t - T[1]) / (T[2] - T[1]), 0, 1); }
   // a recorded body without its sword: the katana stays in the saya (Akane) / out of the picture
+  // (an arena moment: the sword in the saya / on the back, or kept in the hand when asked and the fight has it drawn)
+  function actPost(f, A) { return (fr) => { if (!(A.keepSword && isArmed(f) && fr.armed)) sheathed(fr); }; }
   function unarm(fr) { fr.armed = 0; fr.inside = 0; fr.tw = 0; fr.fistR = 1; fr.fistL = 1; }
   function sheathed(fr) { fr.armed = 0; fr.inside = 0; fr.tw = 0; }
   // a low guard against a cut that comes in low (the fight's own threat; kept while the block plays)
@@ -314,6 +347,18 @@
     s.lastSheathed = sh;
     if ((f.state === 'launch' || f.state === 'down') && !(s.lastState === 'launch' || s.lastState === 'down')) { s.kdSerial = (s.kdSerial || 0) + 1; s.kdT = 0; } else s.kdT = (s.kdT || 0) + dt;
     s.lastState = f.state;
+    if (s.act) {
+      s.act.t += dt;
+      if (s.act.t >= s.act.dur) {
+        const A = s.act;
+        s.actTail = { id: A.id, legs: A.legs, t: 0.3 }; s.act = null;
+        // (a fall that leaves the body on the floor while the fight has it up again: it gets up — the recorded rise,
+        // quickly — instead of being stood up by a cross-fade)
+        if (A.legs === 'down' && !A.noRise && C('fGetUp') && f.state !== 'down' && f.state !== 'getup' && f.state !== 'launch') {
+          MD.act(f, 'fGetUp', { dur: 0.9, legs: 'down', fade: 0.1 }); s.act.noRise = true;
+        }
+      }
+    } else if (s.actTail && (s.actTail.t -= dt) <= 0) s.actTail = null;
     // (how fast the body really travels: the showpiece places it directly)
     if (dt > 0 && s.px != null) s.mx = (s.mx || 0) * 0.8 + ((f.x - s.px) / dt) * 0.2;
     s.px = f.x;
@@ -329,11 +374,15 @@
     const segK = d.seg && /kick|Kick|front|round/.test(d.seg[0] + (MOVE[f.atkName] || ''));
     const air = AIRS[st] || !f.onGround || f.y < -2;
     const kick = air || (a && (a.kind === 'kick' || /^(ftF|ftB|knF|knB)$/.test(a.limb || ''))) || !!segK || d.key === 'seq:vault';
-    const down = st === 'down' || st === 'getup' || st === 'launch' || !!f.roll || d.key.startsWith('kd:') || d.key.startsWith('getup');
+    // ('down': a fall / lying; 'air': over something, a roll; else standing — kept 0.3 s after the moment ends, while its
+    // pose still fades out: a body that was lying is never stood up by the standing-leg rules in one frame)
+    const actL = d.act ? d.act.legs : s.actTail ? s.actTail.legs : null;
+    const down = st === 'down' || st === 'getup' || st === 'launch' || !!f.roll || d.key.startsWith('kd:') || d.key.startsWith('getup') || actL === 'down';
     const L2 = s.legs || (s.legs = {});
     // (a kick stands on its other foot: grounded, the kicking leg free; only the air leaves the floor)
-    L2.grounded = !air && !down && !f.hidden; L2.kick = !!kick; L2.down = !!down; L2.snap = dt <= 0;
-    L2.onFloor = (st === 'down' || st === 'getup') && f.onGround && f.y > -2;
+    L2.grounded = !air && !down && !f.hidden && actL !== 'air'; L2.kick = !!kick || actL === 'air'; L2.down = !!down; L2.snap = dt <= 0;
+    L2.onFloor = ((st === 'down' || st === 'getup') && f.onGround && f.y > -2) || (actL === 'down' && f.onGround && f.y > -2);
+    L2.lying = st === 'down' && f.onGround && f.y > -2; // (on the floor, not yet getting up: the floor placement eases)
     rg.legs = L2;
     rg.footLock = f.onGround && f.state !== 'launch' && !f.roll;
     if (d.src.clip) MD.stats.clip++; else MD.stats.keyed++;
@@ -344,6 +393,30 @@
     return s;
   }
   MD.tick = tick;
+  // Arena moments for the props pass (drawing only - the fight's own state, position and timing stay the truth):
+  //   ND.duel.mocap.act(f, id, { dur, from, to, fade, legs, keepSword }) -> true when it plays
+  //   id: one of MD.ACTS (or any loaded clip); dur: seconds of fight time it takes (default: the clip's own length);
+  //   from / to: clip seconds (default the whole clip); legs: 'down' (a fall, a roll: the body rests on the floor),
+  //   'air' (over an obstacle: no foot pinned to the floor), else standing (defaults per clip: DEF_LEGS); keepSword: a
+  //   drawn sword stays in the hand. The clip's own height is drawn on top of the fight's y (a jump over a stool rises
+  //   by itself: keep y on the floor); its own travel is not (the fight moves the body: C.travel, ND.mocap.clips[id]).
+  //   MD.actStop(f) ends it early. A fall ('down') that ends with the fight's body up gets up by itself (fGetUp, 0.9 s);
+  //   fLadderDown starts at the top of the ladder: call it as fLadderUp ends (MD.actOf(f) then reads 'fLadderUp (end)').
+  MD.ACTS = ACTS;
+  const DEF_LEGS = { fSlipSake: 'down', fRugPull: 'down', fDiveRoll: 'air', fDiveRollB: 'air', fRunJumpOver: 'air', fStepstoolJump: 'air', fStepstoolUp: 'air',
+    fLadderUp: 'air', fLadderDown: 'air', fCartwheel: 'air', fBackflip: 'air', fHandspring: 'air' };
+  MD.act = (f, id, o = {}) => {
+    const c = C(id);
+    if (!c || !f) return false;
+    const s = stateOf(f), from = o.from ?? 0, to = o.to ?? c.dur;
+    s.act = { id, n: (s.actN = (s.actN || 0) + 1), t: 0, from, to, dur: Math.max(0.05, o.dur ?? Math.abs(to - from)), fade: o.fade ?? 0.18,
+      legs: o.legs || DEF_LEGS[id] || null, keepSword: !!o.keepSword };
+    return true;
+  };
+  MD.actStop = (f) => { const s = ST.get(f); if (s) s.act = null; };
+  // (the moment playing, or the one just ended while its pose still fades out: 'id (end)')
+  MD.actOf = (f) => { const s = ST.get(f); return s && s.act ? s.act.id : s && s.actTail ? s.actTail.id + ' (end)' : null; };
+  MD.actLegs = (f) => { const s = ST.get(f); return s && s.act ? s.act.legs : s && s.actTail ? s.actTail.legs : null; };
   MD.rigOf = (f) => { const s = ST.get(f); return s ? s.rig : null; };
   MD.sourceOf = (f) => { const s = ST.get(f); const l = s && s.rig.layers[s.rig.layers.length - 1]; return l ? l.key : null; };
 
