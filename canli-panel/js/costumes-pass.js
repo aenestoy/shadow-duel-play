@@ -37,7 +37,8 @@
       rim: 'rgba(206,194,255,.62)', rimDim: 'rgba(140,120,205,.32)',
     },
     back(ctx, j) {
-      const F = torso(j), s2 = sway(1.7, 4);
+
+      const F = torso(j), d = F.d, s2 = sway(1.7, 4);
 
       const bx = F.x(9, -15), by = F.y(9, -15), ang = Math.atan2(F.uy, F.ux);
       ctx.save(); ctx.translate(bx, by); ctx.rotate(ang);

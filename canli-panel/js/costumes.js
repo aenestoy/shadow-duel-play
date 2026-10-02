@@ -176,13 +176,29 @@
   if (PV) setInterval(syncToggle, 300);
 
 
+
+
+
   ND.costumeLayer = function (id, layer, ctx, j) {
     const K = ND.COSTUMES[id], fn = K && K[layer];
     if (!fn || !j || !j.hip || !j.head) return;
     ctx.save();
-
     const t0 = ctx.getTransform ? ctx.getTransform() : null;
-    try { ctx.lineJoin = 'round'; ctx.lineCap = 'round'; fn(ctx, j); } catch (e) { if (ND.costumeDebug) console.warn('[costume]', id, layer, e); if (t0) ctx.setTransform(t0); ctx.globalAlpha = 1; }
+    const hasS = Object.prototype.hasOwnProperty.call(ctx, 'save'), hasR = Object.prototype.hasOwnProperty.call(ctx, 'restore');
+    const oS = ctx.save, oR = ctx.restore;
+    let open = 0;
+    try {
+      ctx.save = function () { open++; return oS.apply(this, arguments); };
+      ctx.restore = function () { if (open > 0) open--; return oR.apply(this, arguments); };
+      ctx.lineJoin = 'round'; ctx.lineCap = 'round'; fn(ctx, j);
+    } catch (e) {
+      if (ND.costumeDebug) console.warn('[costume]', id, layer, e);
+    } finally {
+      if (hasS) ctx.save = oS; else delete ctx.save;
+      if (hasR) ctx.restore = oR; else delete ctx.restore;
+      while (open > 0) { open--; oR.call(ctx); }
+      if (t0 && ctx.setTransform) ctx.setTransform(t0);
+    }
     ctx.restore();
   };
 })(window.ND);
