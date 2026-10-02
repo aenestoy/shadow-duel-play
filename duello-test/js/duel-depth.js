@@ -25,6 +25,14 @@
   const OUT = [0, 0, 1, 1];
   const off = /[?&]depth=0(&|$)/.test(location.search || '');
   D.depthOn = !off;
+  // Milestone 2: prototype A (js/depth25.js) draws every duel fighter in 2.5D — the torso turns (chest / back), the
+  // sword arm is solved and foreshortened in 3D, the blade is a 3D object (edge-on / flat), near and far parts swap
+  // draw order — driven by the same turn data below. ?a=0 keeps milestone 1's flat turn (shoulder / hip split only).
+  const A3 = ND.depth25;
+  // The duel moves the FIGHT's guard onto the coming blade (js/duel.js guardTarget), so the drawing-only guess of the
+  // motion round (js/anim.js "meet") is not needed here and would aim the drawn blade elsewhere: off on the duel page.
+  if (ND.anim.m && ND.anim.m.meet) ND.anim.m.meet = false;
+  D.useA = !!A3 && !/[?&]a=0(&|$)/.test(location.search || '');
 
   // [tw, hp, bz, bf] of fighter f now
   function target(f, out) {
@@ -101,7 +109,7 @@
     const C = S.d3 || (S.d3 = [tg[0], tg[1], tg[2], tg[3]]);
     if (!hold) { const k = 1 - Math.exp(-22 * Math.max(dt, 0)); C[0] += (tg[0] - C[0]) * k; C[1] += (tg[1] - C[1]) * k; C[3] += (tg[3] - C[3]) * k; }
     C[2] = tg[2];
-    const tw = C[0], hp = C[1], dir = j.dir < 0 ? -1 : 1;
+    const tw = D.useA ? 0 : C[0], hp = C[1], dir = j.dir < 0 ? -1 : 1;
     // the body's forward direction (perpendicular to the spine, towards the facing side)
     let ux = j.neck.x - j.hip.x, uy = j.neck.y - j.hip.y; const ul = Math.hypot(ux, uy) || 1; ux /= ul; uy /= ul;
     const fx = dir * -uy, fy = dir * ux;
@@ -129,6 +137,7 @@
     j.head.x += fx * Math.sin(tw) * -4; j.neck.x += fx * Math.sin(tw) * -2;
     // the blade: in front or behind the body, shortened while it points at / away from the camera
     j.bz = C[2];
+    if (D.useA) return; // (A projects the blade from its 3D direction itself)
     if (j.tip && j.haF && C[3] < 0.995 && j.hasSword) {
       const k = clamp(C[3], 0.25, 1);
       j.tip.x = j.haF.x + (j.tip.x - j.haF.x) * k; j.tip.y = j.haF.y + (j.tip.y - j.haF.y) * k;
@@ -155,6 +164,36 @@
     });
     ctx.restore();
   };
+  // ------------------------------------------------------------------ prototype A driven by the turn data
+  if (D.useA) {
+    const EXT = new WeakMap(), W3 = 11;
+    A3.provider = (f) => {
+      if (!f.dz || f.dead) return null;
+      const S = f._anim, C = S && S.d3, j = S && S.j;
+      if (!C || !j || !j.haF || !j.tip) return null;
+      let o = EXT.get(f); if (!o) EXT.set(f, (o = { w: 1, psi: 0, hz: W3, dx: 0, u3: { x: 1, y: 0, z: 0 }, roll: 0 }));
+      const dir = f.dir < 0 ? -1 : 1, bz = C[2], bf = clamp(C[3], 0.2, 1);
+      o.psi = C[0] * 1.25; // (radians; + the chest opens to the camera, − the back turns to it)
+      o.hz = bz >= 0 ? W3 : -9; // the sword hand on the far side: the whole arm is drawn behind the torso
+      let bx = (j.tip.x - j.haF.x) * dir, by = j.tip.y - j.haF.y; const bl = Math.hypot(bx, by) || 1; bx /= bl; by /= bl;
+      const zz = Math.sqrt(Math.max(0, 1 - bf * bf)) * (bz >= 0 ? 1 : -1);
+      o.u3.x = bx * bf; o.u3.y = by * bf; o.u3.z = zz;
+      const a = f.state === 'atk' ? f.atk : null;
+      // a level cut leads with its edge (the blade turns flat to the camera as it sweeps); a vertical one shows its flat
+      o.roll = a && a.dz3 && a.dz3.v === 'level' && a.active && f.st > a.active[0] - 0.08 && f.st < a.active[1] + 0.08 ? 1.25 * (a.dz3.side || 1) : 0;
+      return o;
+    };
+    A3.backShade = 0.72;
+    const SC = { 1: '255,214,140', '-1': '120,180,255', 0: '226,236,255' };
+    A3.trailCol = (f) => { const a = f.state === 'atk' ? f.atk : null; if (!a || !a.dz3 || a.counter || a.special) return '200,222,255'; const sd = a.sides && a.sides[f.hitIdx] != null ? a.sides[f.hitIdx] : a.dz3.side; return SC[sd] || SC[0]; };
+    const FP2 = ND.Fighter.prototype, draw0 = FP2.draw;
+    let inA = false;
+    FP2.draw = function (ctx, reflect, layer) {
+      if (reflect || inA || !this.dz || this.dead || this.hidden) return draw0.call(this, ctx, reflect, layer);
+      inA = true;
+      try { A3.draw(ctx, this); } finally { inA = false; }
+    };
+  }
   const present0 = ND.anim.present;
   ND.anim.present = function (f, dt, hold, sj) {
     present0.call(this, f, dt, hold, sj);

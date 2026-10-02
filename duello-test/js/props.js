@@ -117,6 +117,17 @@
       hull: [[-11, 0], [11, 0], [13.5, -24], [-13.5, -24]],
       parts: [[-13.5, -24, -6.75, 0], [-6.75, -24, 0, 0], [0, -24, 6.75, 0], [6.75, -24, 13.5, 0]],
       weapon: { dmg: 8, stun: 0.6, kb: 220, post: 16 } },
+    // --- set pieces of the duel prototype's market (js/duel-seq.js): fixed in place (fixed: nothing pushes them)
+    // a wooden post: a blade that misses bites into it and sticks; chipped by cuts, splinters
+    post: { w: 24, h: 210, m: 60, hp: 40, mat: 'wood', fixed: 1, kick: 0,
+      hull: [[-12, 0], [12, 0], [12, -210], [-12, -210]], parts: [[-12, -210, 12, -140], [-12, -140, 12, -70], [-12, -70, 12, 0]] },
+    // a raised veranda (engawa) with a step at its end: the high ground (its top is a surface)
+    veranda: { w: 190, h: 48, m: 400, hp: Infinity, mat: 'wood', fixed: 1, top: 48, kick: 0,
+      hull: [[-95, 0], [95, 0], [95, -48], [-95, -48]] },
+    // a shop front: a wooden frame with a paper screen (shoji) and a noren cloth: a body thrown into it tears through
+    shopfront: { w: 80, h: 236, m: 80, hp: 6, mat: 'paper', fixed: 1, kick: 0,
+      hull: [[-40, 0], [40, 0], [40, -236], [-40, -236]],
+      parts: [[-40, -236, 40, -204], [-40, -204, 0, -112], [0, -204, 40, -112], [-40, -112, 0, -18], [0, -112, 40, -18], [-40, -18, 40, 0]] },
     burner: { w: 50, h: 52, m: 30, hp: Infinity, mat: 'metal',
       hull: [[-17, 0], [17, 0], [25, -26], [22, -38], [15, -52], [-15, -52], [-22, -38], [-25, -26]],
       weapon: { dmg: 12, stun: 0.5, kb: 300, knock: 1, post: 40 } },
@@ -444,7 +455,7 @@
   }
 
   // ------------------------------------------------------------------------------------------ damage & breaking
-  function wake(p) { if (p.st === 0) { p.st = 1; p.sl = 0; } }
+  function wake(p) { if (p.st === 0 && !KINDS[p.k].fixed) { p.st = 1; p.sl = 0; } }
   function freeSupported(p) { for (const q of S.items) if (q.sup === p.id && q.st === 0) { q.sup = -1; wake(q); } }
   P.hurt = function (p, dmg, how, ix, iy, dx, dy, by) {
     if (p.st === 3 || !(dmg > 0)) return false;
@@ -688,7 +699,7 @@
         breakProp(p, 'cut', p.x, p.y, dx / dl, dy / dl, f);
         emit({ type: 'cut', p, f, x: p.x, y: p.y });
       } else {
-        wake(p); p.vx += f.dir * 60; p.w += f.dir * 1.2;
+        if (!K.fixed) { wake(p); p.vx += f.dir * 60; p.w += f.dir * 1.2; }
         P.hurt(p, 5, 'shatter', p.x, p.y - 10, f.dir, 0, f);
         if (pres()) { fx.spark(p.x - f.dir * 10, p.y - 10, Math.atan2(-1, -f.dir), 6, 0.6, '240,220,180'); splinters(p.x, p.y - 10, f.dir, 4); }
       }
@@ -797,6 +808,7 @@
         if (d > R) continue;
         a.hitP = b.id;
         const rv = sa, mt = Ka.m + Kb.m;
+        if (Kb.fixed) { P.hurt(b, sa * Ka.m * 0.0006 + 1, 'shatter', a.x + dx * 0.5, a.y + dy * 0.5, Math.sign(a.vx), 0); a.vx = -a.vx * 0.3; a.hitP = b.id; break; }
         wake(b);
         b.vx += a.vx * (2 * Ka.m / mt) * 0.8; b.vy += Math.min(0, a.vy * (Ka.m / mt)) - 80; b.w += (Math.sign(a.vx) || 1) * 4 * Ka.m / mt;
         a.vx *= (Ka.m - Kb.m * 0.6) / mt; a.vy = Math.min(a.vy, -60);

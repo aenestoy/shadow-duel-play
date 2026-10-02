@@ -2497,6 +2497,8 @@
     legGeom, legShin, legFoot, legUpper, legShade, legLines, armGeom, armOutline, armSleeve, armFore, armMouth, handInfo, armHand,
     drawTorso, torsoAO, neckPart, juzu, tantoSheath, drawHead, kusazuri, drawSword, drawTessen, saya, sayaHip, quiverBack,
     bladeBehindHead,
+    // whole-limb steps and the path helpers, for the 2.5D strike prototype (js/depth25.js, branch claude/sd-3d)
+    drawLeg, drawArm, capPath, blob, rgbOf, mixC,
   };
 
   // ---------------------------------------------------------------- RAGDOLL

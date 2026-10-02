@@ -115,6 +115,50 @@
       for (const s of [-1, 1]) lines(x, 'rgba(255,214,160,.28)', 0.9, [[s * 13.4 + (m.from > 0 ? 3.4 : 0), -33, s * 14.4 + (m.from > 0 ? 3.6 : 0), -2]]);
       rr(x, -21, -42, 42, 7.5, 1.6); shade(x, -22, -43, 22, 1, m.from, 0.25);
     },
+    // --- the duel market's set pieces (js/duel-seq.js)
+    post(x, m) {
+      // a wooden shop post on a stone footing, a cap beam, scars of old cuts
+      rr(x, -16, -12, 32, 12, 2); fillLine(x, '#5d5a55', 1.4);
+      lines(x, 'rgba(255,255,255,.18)', 1, [[-14, -11, 14, -11]]);
+      rr(x, -11.5, -204, 23, 194, 2); fillLine(x, '#5b3a22', 1.5);
+      rr(x, -11.5, -204, 23, 194, 2); grain(x, -11.5, -204, 11.5, -10, 'rgba(25,12,6,.45)', 7, 31, true);
+      rr(x, -11.5, -204, 23, 194, 2); shade(x, -12, -205, 12, -9, m.from, 0.34);
+      lines(x, 'rgba(255,214,160,.32)', 1.1, [[m.from > 0 ? 8 : -8, -200, m.from > 0 ? 8 : -8, -14]]);
+      lines(x, 'rgba(20,10,4,.7)', 1, [[-9, -120, 4, -128], [-6, -88, 8, -92]]);
+      rr(x, -17, -212, 34, 9, 1.5); fillLine(x, '#3f2615', 1.4);
+    },
+    veranda(x, m) {
+      // a raised plank deck with a lower step at its end, dark under it, posts down to the ground
+      x.fillStyle = 'rgba(16,10,7,.9)'; x.fillRect(-94, -34, 188, 34);
+      for (const px of [-88, -30, 28, 86]) { rr(x, px - 4, -36, 8, 36, 1); fillLine(x, '#3e2716', 1.2); }
+      rr(x, -95, -48, 155, 9, 1.4); fillLine(x, '#7a5232', 1.5);
+      rr(x, -95, -48, 155, 9, 1.4); grain(x, -95, -48, 60, -39, 'rgba(30,16,8,.4)', 4, 51, false);
+      rr(x, -95, -39, 155, 6, 1); fillLine(x, '#4e321d', 1.2);
+      rr(x, 58, -25, 37, 8, 1.2); fillLine(x, '#6e4a2c', 1.4);
+      rr(x, 58, -17, 37, 5, 1); fillLine(x, '#46301c', 1.1);
+      lines(x, 'rgba(255,214,160,.45)', 1, [[-93, -47.2, 58, -47.2], [60, -24.2, 93, -24.2]]);
+      lines(x, 'rgba(20,10,4,.55)', 0.8, [[-55, -48, -55, -39], [-15, -48, -15, -39], [25, -48, 25, -39]]);
+    },
+    shopfront(x, m) {
+      // a shop front: two posts, a top beam, a paper screen (shoji) with its lattice, an indigo noren with a crest
+      for (const s of [-1, 1]) { rr(x, s > 0 ? 31 : -40, -236, 9, 236, 1.5); fillLine(x, '#4a2e1a', 1.4); }
+      rr(x, -40, -236, 80, 13, 1.5); fillLine(x, '#3a2414', 1.4);
+      rr(x, -31, -204, 62, 186, 1); fillLine(x, '#e6dcc4', 1.2);
+      x.save(); rr(x, -31, -204, 62, 186, 1); x.clip();
+      x.fillStyle = 'rgba(255,200,130,.18)'; x.fillRect(-31, -204, 62, 186);
+      x.strokeStyle = '#5a3a22'; x.lineWidth = 1.3; x.beginPath();
+      for (let gx = -31 + 15.5; gx < 31; gx += 15.5) { x.moveTo(gx, -204); x.lineTo(gx, -18); }
+      for (let gy = -204 + 23; gy < -18; gy += 23) { x.moveTo(-31, gy); x.lineTo(31, gy); }
+      x.stroke(); x.restore();
+      for (let i = 0; i < 3; i++) {
+        const x0 = -33 + i * 22.4;
+        path(x, [[x0, -223], [x0 + 21, -223], [x0 + 21, -168], [x0 + 15, -165], [x0 + 6, -168], [x0, -166]]); fillLine(x, '#26356b', 1.2);
+      }
+      x.beginPath(); x.arc(0, -196, 8, 0, TAU); x.fillStyle = '#e8e0cc'; x.fill();
+      x.beginPath(); x.arc(0, -196, 4.4, 0, TAU); x.fillStyle = '#26356b'; x.fill();
+      rr(x, -40, -18, 80, 18, 1.5); fillLine(x, '#3a2414', 1.4);
+      rr(x, -40, -236, 80, 236, 1); shade(x, -41, -237, 41, 1, m.from, 0.22);
+    },
     table(x, m) {
       // low lacquered table: thick top with a gold edge line, an apron, two square legs with feet
       for (const s of [-1, 1]) { path(x, [[s * 40.5, -26], [s * 49.5, -26], [s * 50, -2], [s * 52, 0], [s * 38.5, 0], [s * 40, -2]]); fillLine(x, '#2e1410', 1.4); }

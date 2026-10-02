@@ -28,6 +28,45 @@
   // (the fight waits while the help box is open)
   G.advance = function (rdt) { if (S.helpEl && !S.helpEl.hidden && G.mode === 'cpu') { this.acc = 0; return 0; } return adv0.call(this, S.slow ? rdt * 0.25 : rdt); };
 
+  // ------------------------------------------------------------------ one headline at a time (decluttered pop-up texts)
+  // The fight's pop-up words (fx.text: PARRY!, CRITICAL!, KNOCKDOWN, 5-HIT RALLY!, DISARMED! …) no longer pile up over
+  // the fighters: each is ranked, the strongest one alive is THE headline (big, in a fixed band under the HUD, never on
+  // the faces), one more may stay as a smaller second line, the rest are dropped. The counter-name banner and the damage
+  // numbers step aside while a top headline (disarm, bind result, finisher…) is up; the score pop-ups are off here.
+  const RANK = [[/DISARM/, 100], [/MAKI-OTOSHI|KIRI-OTOSHI|THROUGH THE STALL/, 95], [/BROKEN|ESCAPED|TOO EARLY|BREAKS/, 90], [/PUNISHED/, 80],
+    [/SWORD BACK|RE-ARMED|TABLE FLIP|STOOL|TWIST|VAULT|KICK!|DUCK/, 75], [/SON VURUŞ|FINISHER/, 70], [/DENGE KIRILDI|POSTURE/, 65], [/KRİTİK|CRITICAL/, 60],
+    [/YERE SERİLDİ|KNOCKDOWN|PINNED/, 55], [/KICKED AWAY|BIND/, 50], [/VURUŞLUK SERİ|RALLY/, 45], [/CATCH|IAI GAESHI|BLOCK/, 42], [/KARŞI!|COUNTER/, 40],
+    [/SAVUŞTURMA|PARRY/, 35], [/OFF-LINE|ÇARPIŞMA|CLASH|KİLİTLENDİ|İTTİ|CUT!/, 30], [/KAFA|HEAD|HAVAYA|LAUNCH/, 22]];
+  const rankOf = (s) => { for (const [re, p] of RANK) if (re.test(s)) return p; return 25; };
+  const HL = S.hl = { head: null, sub: null };
+  function headline(str, p, col) {
+    const s = ND.i18n && typeof str === 'string' ? ND.i18n.t(str) : String(str);
+    const it = { s, p: p ?? rankOf(str), col: col || '#ffd27a', age: 0 };
+    const h = HL.head;
+    if (!h || h.age > 0.85 || it.p >= h.p) { if (h && h.age < 0.85 && h.p >= 30 && h.s !== it.s) HL.sub = h; HL.head = it; }
+    else if (it.p >= 30 && (!HL.sub || HL.sub.age > 0.6 || it.p >= HL.sub.p)) HL.sub = it;
+  }
+  D.headline = (s, p) => headline(s, p);
+  if (S.hud) {
+    const text0 = ND.fx.text;
+    ND.fx.text = function (x, y, str, color) { if (G.simOnly) return; if (!G.F || !G.F[0].dz) return text0.apply(this, arguments); headline(str, rankOf(String(str)), color); };
+    if (ND.score && ND.score.drawPops) ND.score.drawPops = () => {};
+    const banner0 = ND.cine.drawBanner, num0 = ND.cine.drawNum;
+    ND.cine.drawBanner = function (ctx, b, s) { if (HL.head && HL.head.age < 1 && HL.head.p >= 60) return; return banner0.call(this, ctx, b, s); };
+    ND.cine.drawNum = function (ctx, n, s) { if (HL.head && HL.head.age < 1 && HL.head.p >= 45) return; return num0.call(this, ctx, n, s); };
+  }
+  function drawHeadline(ctx, u) {
+    const y0 = cam.H * 0.25;
+    for (const [it, big] of [[HL.head, 1], [HL.sub, 0]]) {
+      if (!it) continue;
+      it.age += 1 / 60;
+      const life = big ? 1.15 : 0.9;
+      if (it.age > life) { if (big) HL.head = null; else HL.sub = null; continue; }
+      const a = it.age < 0.8 * life ? 1 : 1 - (it.age - 0.8 * life) / (0.2 * life), pop = big ? 1 + Math.max(0, 0.12 - it.age) * 2.5 : 1;
+      txt(ctx, it.s, cam.W / 2, big ? y0 : y0 + 34 * u, (big ? 30 : 17) * u * pop, big ? it.col : '#ece6d6', 'center', a);
+    }
+  }
+
   // ------------------------------------------------------------------ overlay drawing (screen space, after ND.cine)
   const cineDraw0 = ND.cine.draw;
   ND.cine.draw = function (ctx) {
@@ -70,7 +109,8 @@
         if (nm || ctr) S.labels.push({ f, s: nm || (f.atkName || '').toUpperCase(), t: 0, col: f.col.ui });
       }
     }
-    // labels (fade over 0.9 s real time)
+    // labels (fade over 0.9 s real time; quiet while a top headline is up)
+    if (HL.head && HL.head.age < 1 && HL.head.p >= 60) S.labels.length = 0;
     for (let i = S.labels.length - 1; i >= 0; i--) {
       const L = S.labels[i]; L.t += 1 / 60;
       if (L.t > 0.9) { S.labels.splice(i, 1); continue; }
@@ -94,9 +134,42 @@
         txt(ctx, key, x, y + r0 + 22 * u, 15 * u, '#ffd27a');
       } else if (human(f.opp)) txt(ctx, 'BOUND!', x, y - r0 - 30 * u, 22 * u, '#ff9b7a');
     }
+    drawSeq(ctx, k, u);
+    drawHeadline(ctx, u);
     // the coming cut's path (PATH toggle): from the wind-up tip through the strike to the follow-through
     if (S.path) for (const f of G.F) if (f.state === 'atk' && f.atk && f.atk.dz3 && f.atk.active && f.st < f.atk.active[1]) drawPath(ctx, f, k);
     ctx.restore();
+  }
+  // the showpiece's beats (js/duel-seq.js): a ring closing on the defender for each beat, the lane of the beats to come
+  function drawSeq(ctx, k, u) {
+    const f = G.F.find((x) => x.dz && x.dz.seq && x.dz.seq.def === x);
+    const c = f && f.dz.seq;
+    if (!c || c.done || !D.SEQ) return;
+    const B = D.SEQ.BEATS, b = B[c.next];
+    if (!b) return;
+    // the closing ring: small, above D's head (never over a face); the beat's word beside it
+    const dt = b.t - c.t, x = cam.sx(f.x), y = Math.max(40 * u, cam.sy(f.y - 236)), r0 = 15 * u, r = r0 + Math.max(0, dt) * 45 * u;
+    const near = Math.abs(dt) <= D.SEQ.WIN;
+    ctx.lineWidth = 2 * u; ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.beginPath(); ctx.arc(x, y, r0, 0, 6.283); ctx.stroke();
+    if (dt > -D.SEQ.WIN && dt < 0.9) { ctx.lineWidth = (near ? 4 : 3) * u; ctx.strokeStyle = near ? '#ffd27a' : 'rgba(255,155,122,.9)'; ctx.beginPath(); ctx.arc(x, y, Math.max(4, r), 0, 6.283); ctx.stroke(); }
+    if (dt < 0.9) txt(ctx, b.word, x, y - r0 - 12 * u, 15 * u, near ? '#ffd27a' : '#ece6d6');
+    // the lane: the beats to come slide to the mark
+    const lx = cam.W / 2, ly = cam.H * 0.86, span = cam.W * 0.32, pxs = span / 1.6;
+    ctx.globalAlpha = 0.85; ctx.fillStyle = 'rgba(6,7,12,.6)'; ctx.fillRect(lx - span * 0.15, ly - 14 * u, span * 1.3, 28 * u); ctx.globalAlpha = 1;
+    ctx.strokeStyle = '#ffd27a'; ctx.lineWidth = 3 * u; ctx.beginPath(); ctx.moveTo(lx, ly - 16 * u); ctx.lineTo(lx, ly + 16 * u); ctx.stroke();
+    for (let i = c.next; i < B.length; i++) {
+      const bx = lx + (B[i].t - c.t) * pxs;
+      if (bx > lx + span * 1.15) break;
+      ctx.fillStyle = i === c.next && near ? '#ffd27a' : '#ece6d6';
+      ctx.beginPath(); ctx.arc(bx, ly, (i === c.next ? 9 : 6) * u, 0, 6.283); ctx.fill();
+    }
+    txt(ctx, `${c.hits} / ${B.length}`, lx - span * 0.08, ly - 26 * u, 12 * u, '#ece6d6');
+    // the stations: where the scene is now
+    const S = D.SEQ.STATIONS;
+    if (S) {
+      const cur = b.at || 0, sy = ly + 30 * u;
+      S.forEach((n, i) => txt(ctx, n, lx + (i - (S.length - 1) / 2) * span * 0.36, sy, (i === cur ? 12 : 10) * u, i === cur ? '#ffd27a' : i < cur ? 'rgba(236,230,214,.45)' : 'rgba(236,230,214,.75)'));
+    }
   }
   const PP = {}, PJ = {};
   function tipAt(f, t) { pose.seq(f.keys, t, PP); const j = ND.solve(PP, f.x, f.y, f.dir, PJ, f.wpn); return [j.tip.x, j.tip.y]; }
@@ -170,6 +243,7 @@
     help.querySelector('.x').onclick = (e) => { e.stopPropagation(); help.hidden = true; };
     btn('HELP', false, () => { help.hidden = !help.hidden; });
     btn('↻', false, () => startDuel());
+    if (ND.props) btn('SHOWPIECE', false, () => showpiece());
     document.body.appendChild(bar); document.body.appendChild(help);
     // audio starts with the first touch / key (as the menus do)
     const unlock = () => {
@@ -186,6 +260,17 @@
     G.start('cpu', { c1: S.side ? ku : ak, c2: S.side ? ak : ku, arena: QS.get('arena') || 'temple' });
   }
   D.startDuel = startDuel;
+  // the market showpiece on demand: a fresh match in the market (props on), the sequence starts with the fight
+  function showpiece() {
+    if (ND.props && !ND.props.live) D.propsOn(true);
+    const ak = ND.CHARS.findIndex((c) => c.id === 'akane'), ku = ND.CHARS.findIndex((c) => c.id === 'kuro');
+    const first = document.getElementById('first'); if (first) first.hidden = true;
+    if (S.helpEl) S.helpEl.hidden = true;
+    G.level = S.lv;
+    G.start('cpu', { c1: S.side ? ku : ak, c2: S.side ? ak : ku, arena: 'market' });
+    D.wantSeq = true;
+  }
+  D.showpiece = showpiece;
   // tools (scripts/duel-*.mjs) start their own fights: ?duel=1&auto=0 leaves the page alone
   if (QS.get('auto') !== '0') {
     const go = () => setTimeout(boot, 0);

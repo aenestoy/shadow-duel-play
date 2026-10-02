@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
     <meta name="robots" content="noindex, nofollow" />
+    <script>(function(){try{var l=location;if(!/[?&]st=/.test(l.search))history.replaceState(null,"",l.pathname+(l.search?l.search+"&":"?")+"st=0"+l.hash)}catch(e){}})();</script>
+    <meta name="robots" content="noindex, nofollow" />
     <script>(function(){try{var l=location,q=l.search,a=["st=0","duel=1"].filter(function(x){return !new RegExp("[?&]"+x.split("=")[0]+"=").test(q)});if(a.length)history.replaceState(null,"",l.pathname+(q?q+"&":"?")+a.join("&")+l.hash)}catch(e){}})();</script>
 <script type="module" crossorigin src="./assets/index-kUdXeJA5.js"></script>
 <link rel="stylesheet" crossorigin href="./assets/index-QEQwL5px.css">
@@ -2361,6 +2363,8 @@
 <script  src="js/flair.js"></script>
 <script  src="js/fighter.js?v=flair-1"></script>
 <script  src="js/specials.js?v=bo-sound-1"></script>
+<!-- 2.5D strike prototype (branch claude/sd-3d only): dormant unless ?depth=1 or the uc-boyut-test page drives it -->
+<script  src="js/depth25.js"></script>
 <script  src="js/haptics.js?v=hitch-1"></script>
 <script  src="js/telegraph.js?v=wide-bg-1"></script>
 <script  src="js/ai.js"></script>
@@ -2416,6 +2420,7 @@
 <script  data-duel type="text/plain" src="js/duel-moves.js"></script>
 <script  data-duel type="text/plain" src="js/duel-depth.js"></script>
 <script  data-duel type="text/plain" src="js/duel-ai.js"></script>
+<script  data-duel type="text/plain" src="js/duel-seq.js"></script>
 <script  data-duel type="text/plain" src="js/duel-ui.js"></script>
 <script>if(/[?&]duel=\d/.test(location.search))for(const s of document.querySelectorAll('script[data-duel]')){const e=document.createElement('script');e.src=s.getAttribute('src');e.async=false;document.body.appendChild(e);}</script>
 <!-- online "play with a friend" (docs/SHADOW-DUEL-ONLINE.md): the match loop and the rooms. data-online: left out of the

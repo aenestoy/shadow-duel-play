@@ -378,6 +378,7 @@
   // before the fighter's own update: unarmed pickup / stomp intercepts
   function pre(f, dt) {
     const z = f.dz, c = f.ctrl, s = f.state;
+    if (D.wantSeq && f.id === 0 && G.phase === 'fight' && D.startSeq) { D.wantSeq = false; D.startSeq(f, f.opp); }
     z.chainT += dt;
     if (s === 'guard') pose.copy(f.pose, z.pp); // (post: the guard moves on from here, not from the plain guard pose)
     if (z.chain > 0 && z.chainT > T.chainIdle) z.chain = 0;
@@ -438,7 +439,8 @@
     if (o.state === 'parry' && o.st === 0) {
       z.chain += T.parryPts; z.chainT = 0; stat('parries');
       if (!o.dz.armed) { fx.text(o.x, -232, 'CATCH!', '#ffe3a1'); stat('catches'); }
-      if (z.chain >= T.chainNeed && bindOk(o, att)) startBind(o, att);
+      // a full chain: the market's showpiece when its props are at hand (js/duel-seq.js), else the blade bind
+      if (z.chain >= T.chainNeed && bindOk(o, att)) { if (!(D.seqPossible && D.seqPossible(o, att) && D.startSeq(o, att))) startBind(o, att); }
     } else if (o.state === 'block' && o.st === 0) {
       const off = !isKick && (sideErr > T.offLine || bodyHit) && a.kind === 'blade';
       if (off) {
