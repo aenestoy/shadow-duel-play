@@ -480,33 +480,44 @@
     // a technique's own arcs and glows (js/specials.js: the crescent swept round a counter, a special's white ball …):
     // smaller and shorter, a glow under ~1.5 heads
     if (ND.specialFx) {
-      const add0 = ND.specialFx.add;
+      const add0 = ND.specialFx.add, ARC = {};
       ND.specialFx.add = function (o) {
         if (o && o.draw && duel() && (quiet() || special())) {
           if (!X.special && quiet()) { o.t = 0; return o; }
           const k = X.special || 0.5;
           if (o.r) o.r = Math.min(o.r * k, o.span == null ? 22 : o.r * k); if (o.w) o.w *= k; if (o.life) o.life *= 0.6 + 0.4 * k;
+          // (in an exchange - counters, finishers, the rally - a swept crescent stays small and dim: at most ~1.5 heads
+          // across, half as bright (it is drawn additively: its colours halved), short; one at a time per fighter)
+          if (quiet() && o.span != null) {
+            o.r = Math.min(o.r || 0, 34); if (o.w) o.w = Math.min(o.w, 8); if (o.life) o.life = Math.min(o.life, 0.25);
+            const dim = (c) => (typeof c === 'string' && /^\d+,\d+,\d+$/.test(c) ? c.split(',').map((v) => Math.round(+v * 0.45)).join(',') : c);
+            o.col = dim(o.col); o.core = dim(o.core);
+            const now = ND.simClock || 0;
+            if (o.f || o.x != null) { const key = o.f ? o.f.id : Math.round(o.x / 200); ARC[key] = ARC[key] || -9; if (now - ARC[key] < 0.2) { o.t = o.life || 1; return o; } ARC[key] = now; }
+          }
         }
         return add0.call(this, o);
       };
     }
-    // afterimages: at most 2 a move whatever the moment, faint (≤ ~25 %), behind the real body (drawn before it)
+    // afterimages: at most 1 a move and 1 on screen per fighter, faint (≤ ~7 %), the counter's coloured ones not at all, behind the real body (drawn before it)
     {
       const GN2 = new WeakMap(), gh1 = FPq.addGhost, dg0 = FPq.drawGhosts;
       FPq.addGhost = function () {
         if (!this.dz) return gh1.apply(this, arguments);
         let g = GN2.get(this);
         if (!g || g.serial !== this.serial) GN2.set(this, (g = { serial: this.serial, n: 0 }));
-        if (g.n >= 2) return;
+        if (g.n >= 1 || this.ghosts.length >= 1) return; // (one at a time, never a second body)
         const before = this.ghosts.length;
         gh1.apply(this, arguments);
         if (this.ghosts.length > before) g.n++;
       };
       FPq.drawGhosts = function (ctx) {
         if (!this.dz || !this.ghosts.length) return dg0.apply(this, arguments);
-        const L = this.ghosts.map((g) => g.life);
-        for (const g of this.ghosts) g.life *= 0.8;
-        try { return dg0.apply(this, arguments); } finally { this.ghosts.forEach((g, i) => { g.life = L[i]; }); }
+        // (faint, a trace only: the counter's coloured afterimage - a whole filled second body for Kuro - not drawn at all)
+        const all = this.ghosts, keep = all.filter((g) => !g.c), L = keep.map((g) => g.life);
+        for (const g of keep) g.life *= 0.3;
+        this.ghosts = keep;
+        try { return dg0.apply(this, arguments); } finally { keep.forEach((g, i) => { g.life = L[i]; }); this.ghosts = all; }
       };
     }
     // the finisher of an exchange: its tint stays light too

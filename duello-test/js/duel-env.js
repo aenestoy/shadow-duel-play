@@ -312,7 +312,7 @@
   const ARM = 76;
   // Kuro's straight thrust from close in: the long nodachi's point cannot reach a body that close in a straight line
   // (the drawn blade stopped at the hip edge): within THRUST_MIN the forward-light is his slanting cut instead
-  const THRUST_MIN = 172;
+  const THRUST_MIN = 172, CUT_MIN = 68;
   for (const id of ['kuro']) {
     const M = ND.MOVES && ND.MOVES[id];
     if (typeof M !== 'function') continue;
@@ -325,6 +325,10 @@
   function reachIn(f, dt) {
     const o = f.opp, a = f.atk;
     if (f.state !== 'atk' || !a || a.kind !== 'blade' || a.special || a.prop || !a.active || !o || o.dead || !f.onGround || !o.onGround || o.state === 'down' || o.state === 'getup' || o.state === 'launch') return;
+    const d0 = Math.abs(o.x - f.x), s0 = Math.sign(o.x - f.x) || f.dir;
+    // (and a cut's lunge never carries the body into the other's: it stops a body's width off - a riposte that ran in to
+    // 40 drew the two half inside each other)
+    if (d0 < CUT_MIN && !a.cross && f.st < a.active[1] + 0.1) { f.x = Math.max(-ND.ARENA, Math.min(ND.ARENA, o.x - s0 * CUT_MIN)); f.vx = 0; }
     if (f.st < a.active[0] - 0.18 || f.st > a.active[1]) return;
     const reach = ARM + ((f.wpn && f.wpn.blade) || 96) - 8, d = Math.abs(o.x - f.x), s = Math.sign(o.x - f.x) || f.dir;
     // (a straight thrust of the long nodachi stops short: its point cannot meet a body closer than THRUST_MIN)
@@ -666,6 +670,9 @@
   // it is above the other, AIR_SEP otherwise; a kick lands from KICK_SEP (the foot meets the body, it does not go in).
   // Each fighter's side is fight state (f.dz.side).
   const KICK_SEP = 78, FOOT_SEP = 56; // (a station kick / a roll: a leg's length; a fight kick: close enough to land)
+  // (SEP_EX: in a sword exchange two bodies a body's width apart - closer, the drawn bodies with their arms forward
+  // were half inside each other; still well inside sword reach)
+  const SEP_EX = 40;
   const SEP = 40, DOWN_SEP = 50, LAUNCH_SEP = 60, AIR_SEP = 72, OVER = 175, ABOVE = 40, ABOVE_SEP = 100;
   const held = (f) => f.state === 'lock' || f.state === 'dbind' || f.state === 'dseq' || !!(f.dz && f.dz.cine);
   const lying = (f) => f.state === 'down' || f.state === 'getup' || (f.state === 'launch' && f.onGround);
@@ -699,7 +706,7 @@
     // (inside a sword exchange: only out of each other - never pushed out of the other's reach)
     if (inExchange() && !la && !lb && !over && !through(a) && !through(b) && a.onGround && b.onGround) {
       const va = Math.abs(a.vx || 0), vb = Math.abs(b.vx || 0);
-      placeApart(a, b, side, SEP, va + vb > 1 ? va / (va + vb) : 0.5);
+      placeApart(a, b, side, SEP_EX, va + vb > 1 ? va / (va + vb) : 0.5);
       za.side = side;
       return;
     }
@@ -761,8 +768,10 @@
     // (and once more at the end of the whole step: what moves a body after the push - a special's own placing, the
     // props, the hits - does not leave the two inside each other either)
     const up0 = G.update;
-    G.update = function () {
+    G.update = function (rdt) {
       const r = up0.apply(this, arguments);
+      // (the exchange clock: set or not, the set on or off - the spacing reads it)
+      if (this.F && this.F[0] && this.F[0].dz && this.phase === 'fight' && this.hitstopT <= 0) exchangeStep((rdt || 0) * (this.slow || 1), this.F);
       const F = this.F || G.F;
       if (F && F[0] && F[1] && F[0].dz && F[1].dz && (this.phase === 'fight' || this.phase === 'ko') && !(EXOLD && inExchange())) spacing(this, F[0], F[1]);
       return r;
@@ -787,7 +796,6 @@
   const step0 = P.step;
   P.step = function (h, F) {
     if (P.live && F) {
-      exchangeStep(h, F);
       for (const f of F) if (!human(f)) think(f, h);
       throughTable(F);
       spills(h, F);

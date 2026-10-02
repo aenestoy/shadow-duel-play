@@ -460,18 +460,24 @@
   MD.tick = tick;
   // ------------------------------------------------------------------ two bodies never drawn inside each other
   // Outside a bind (its own lean keeps the pair apart: bodyGap) the two fighters' heads and torsos (as drawn: the torso
-  // a capsule hip → neck of radius 17, the head 14, the thighs 10 — the same measure scripts/duel-body-audit.mjs checks) never overlap.
+  // a capsule hip → neck of radius TORSO_R (24), the head 14, the thighs 10 — the same measure scripts/duel-body-audit.mjs checks) never overlap.
   // The drawn body is moved off the fight's x just enough (both by half; a body on the floor, getting up or launched
   // takes most of it); the fight's own x stays the truth, the offset eases back when there is room.
   // When the fight puts the two closer than BODY_MIN (a dash or a throw through, a juggle under the other) a drawing
   // cannot keep them apart without leaving the fight's place: those frames are left to the fight (the audit lists them).
-  const BODY_MIN = 20, OX_MAX = 70;
+  // (TORSO_R: the drawn torso with its jacket and sleeves, ~24 either side of the spine in profile - 17 let two leaning
+  // bodies in an exchange be drawn half inside each other while the capsules still cleared, 2026-10-02)
+  const BODY_MIN = 20, OX_MAX = 70, TORSO_R = 24;
+  MD.TORSO_R = TORSO_R;
   MD.sep = !(() => { try { return /[?&]sep=0(&|$)/.test(location.search || ''); } catch (e) { return false; } })(); // (?sep=0: off, to compare)
   const MOVERS = { down: 1, getup: 1, launch: 1 };
   function shapesOf(rg, dx) {
     const P = rg.P, pj = (p) => { const q = Mo.project(rg, p); q.x += dx; return q; };
     // (the thighs are body too: one standing over a body on the floor, or a kicking hip, never inside the other)
-    return [[pj(P.hip), pj(P.neck), 17], [pj(P.head), null, 14], [pj(P.hipR), pj(P.knR), 10], [pj(P.hipL), pj(P.knL), 10]];
+    // (and the forearms and shins: an arm reaching into the other's chest, a shin through his hakama read as one pile;
+    // limbs are checked against the other's torso and head only - arms and blades may cross in front)
+    return [[pj(P.hip), pj(P.neck), TORSO_R], [pj(P.head), null, 14], [pj(P.hipR), pj(P.knR), 10], [pj(P.hipL), pj(P.knL), 10],
+      [pj(P.elR), pj(P.haR), 6, 1], [pj(P.elL), pj(P.haL), 6, 1], [pj(P.knR), pj(P.ftR), 7, 1], [pj(P.knL), pj(P.ftL), 7, 1]];
   }
   function segDist(p, q, r, t) {
     const sd = (P, A, B) => { if (!B) return Math.hypot(P.x - A.x, P.y - A.y); const vx = B.x - A.x, vy = B.y - A.y, l2 = vx * vx + vy * vy || 1, u = clamp(((P.x - A.x) * vx + (P.y - A.y) * vy) / l2, 0, 1); return Math.hypot(P.x - A.x - vx * u, P.y - A.y - vy * u); };
@@ -482,7 +488,7 @@
     }
     return Math.min(sd(p, r, t), q ? sd(q, r, t) : 1e9, sd(r, p, q), t ? sd(t, p, q) : 1e9);
   }
-  function penOf(A, B) { let pen = 0; for (const [p, q, r1] of A) for (const [u, v, r2] of B) pen = Math.max(pen, r1 + r2 - segDist(p, q, u, v)); return pen; }
+  function penOf(A, B) { let pen = 0; for (const [p, q, r1, l1] of A) for (const [u, v, r2, l2] of B) { if (l1 && l2) continue; pen = Math.max(pen, r1 + r2 - segDist(p, q, u, v)); } return pen; }
   MD.bodyPen = (fa, fb) => { const a = ST.get(fa), b = ST.get(fb); return a && b && a.rig.P && b.rig.P ? penOf(shapesOf(a.rig, 0), shapesOf(b.rig, 0)) : 0; };
   function apart(f, s, o, so) {
     if (!s.rig.P || f.dead || o.dead || f.hidden || o.hidden) return;

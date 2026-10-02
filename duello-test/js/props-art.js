@@ -477,6 +477,38 @@
     ctx.restore();
   }
 
+  // The duel: a prop in the hands must read at phone size against a dark arena and a dark body - drawn a little bigger
+  // (round the grip), its wood lighter, with a thin warm light outline (a silhouette of the prop drawn 8 times round it).
+  const SIL = new WeakMap();
+  function silhouette(S) {
+    let o = SIL.get(S);
+    if (o) return o;
+    const c = document.createElement('canvas'); c.width = S.sw || S.c.width; c.height = S.sh || S.c.height;
+    const g = c.getContext('2d');
+    if (S.sw) g.drawImage(S.c, S.sx, S.sy, S.sw, S.sh, 0, 0, S.sw, S.sh); else g.drawImage(S.c, 0, 0);
+    g.globalCompositeOperation = 'source-in'; g.fillStyle = 'rgb(255,226,170)'; g.fillRect(0, 0, c.width, c.height);
+    o = { c, ox: S.ox, oy: S.oy, s: S.s };
+    SIL.set(S, o);
+    return o;
+  }
+  function heldBright(ctx, p, X) {
+    const K = KINDS[p.k], S = sprite(p.k, variant(p), p), sc = 1.18, fl = X.fx, a = X.a;
+    const c = Math.cos(a), s = Math.sin(a), lx = -K._com[0] * fl, ly = -K._com[1];
+    // (scaled round the hand, so the grip stays in the fist)
+    const bx = X.hx + (X.x + c * lx - s * ly - X.hx) * sc, by = X.hy + (X.y + s * lx + c * ly - X.hy) * sc;
+    const sil = silhouette(S), d = 1.6;
+    ctx.save(); ctx.globalAlpha = 0.85;
+    for (let i = 0; i < 8; i++) {
+      const th = (i / 8) * Math.PI * 2;
+      ctx.save(); place(ctx, { c: sil.c, ox: sil.ox, oy: sil.oy, s: sil.s / sc }, bx + Math.cos(th) * d, by + Math.sin(th) * d, a, fl); ctx.restore();
+    }
+    ctx.restore();
+    ctx.save(); place(ctx, { c: S.c, sx: S.sx, sy: S.sy, sw: S.sw, sh: S.sh, ox: S.ox, oy: S.oy, s: S.s / sc }, bx, by, a, fl); ctx.restore();
+    // (the wood a shade lighter: the prop again, added at a third)
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.3;
+    place(ctx, { c: S.c, sx: S.sx, sy: S.sy, sw: S.sw, sh: S.sh, ox: S.ox, oy: S.oy, s: S.s / sc }, bx, by, a, fl);
+    ctx.restore();
+  }
   // the held prop where the DRAWN hand is (display joints), the same rule as the simulation's holdPose
   const XF = { x: 0, y: 0, a: 0, hx: 0, hy: 0, fx: 1 };
   function heldAt(p, f) {
@@ -575,7 +607,7 @@
         const X = heldAt(p, f);
         if (!X) continue;
         const hx = X.hx, hy = X.hy, a = X.a;
-        drawProp(ctx, p, X.x, X.y, a, X.fx);
+        if (f.dz) heldBright(ctx, p, X); else drawProp(ctx, p, X.x, X.y, a, X.fx);
         fist(ctx, f, hx, hy, a);
       }
       particles(ctx, t);
