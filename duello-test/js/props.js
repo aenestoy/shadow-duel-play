@@ -540,9 +540,8 @@
         if (imp > 150 && p.owner >= 0) p.owner = -1; // a thrown prop that landed is just a prop again
       }
       p.spin = p.w;
-      // sleep: still on a surface (vy: a resting heavy prop keeps a small gravity jitter round 10, which must not keep
-      // it awake for good: a table that never sleeps is never a station again)
-      if (p._ct && Math.abs(p.vx) < 8 && Math.abs(p.vy) < 24 && Math.abs(p.w) < 0.35) { p.sl += h; if (p.sl > 0.2) { p.st = 0; p.vx = p.vy = p.w = 0; p.owner = -1; } }
+      // sleep: still on a surface
+      if (p._ct && Math.abs(p.vx) < 8 && Math.abs(p.vy) < 12 && Math.abs(p.w) < 0.35) { p.sl += h; if (p.sl > 0.2) { p.st = 0; p.vx = p.vy = p.w = 0; p.owner = -1; } }
       else p.sl = 0;
       if (p.y > 400) p.st = 3;
     }

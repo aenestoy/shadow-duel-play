@@ -637,7 +637,7 @@
     return o;
   }
   Mo.Rig = Rig;
-  Mo.newFrame = newFrame; Mo.sample = sample; Mo.ik3 = ik3;
+  Mo.newFrame = newFrame; Mo.sample = sample; Mo.ik3 = ik3; Mo.L = L;
   Mo.v = { add, sub, mul, madd, dot, cross, len, norm, lerp, nlerp };
 
   // the rig's cloth (hair, ribbon, sash) moves like the fighter's own: a puppet with the fighter's ropes

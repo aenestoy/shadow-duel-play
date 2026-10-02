@@ -18,14 +18,6 @@
     fk_s1: 'Yama-oroshi', fk_s2: 'Iwa-kudaki', fk_dh: 'Tatsu-maki', fk_up: 'Kiriage', fk_bh: 'Men-otoshi', ak_bl: 'Tsuka-ate (pommel)', kick: 'Mae-geri', throw: 'Shuriken',
     pr_smash: 'Breaks it over the head', pr_swing: 'Stool swing', pr_throw: 'Throws it', pr_kick: 'Kicks it at them', pr_shove: 'Kicked through the table', pr_rearm: 'Spare sword from the rack',
     sp_akane: 'KURENAI ISSEN (ki)', sp_kuro: 'YAMA KUDAKI (ki)', chase: 'Oikake (air chase)', chaseEnd: 'Otoshi (air spike)', air: 'Air cut' });
-  // (the front kick onto a prop: named after the prop it lands him on, the table only when it is the table)
-  const ONTO = { table: 'Kicked through the table', stool: 'Kicked over the stool', crate: 'Kicked into the crate', barrel: 'Kicked into the barrel',
-    bale: 'Kicked into the straw', jar: 'Kicked into the jar', bucket: 'Kicked over the bucket' };
-  function propName(f) {
-    if (f.atkName !== 'pr_shove' || !ND.props || !f.mem || f.mem.pid == null) return null;
-    const p = ND.props.get(f.mem.pid);
-    return p ? ONTO[p.k] || 'Kicked into the ' + p.k : null;
-  }
   const S = D.ui = {
     slow: QS.get('slow') === '1', names: QS.get('names') !== '0', path: QS.get('path') === '1', help: QS.get('help') !== '0',
     side: QS.get('side') === '1' ? 1 : 0, lv: QS.has('lv') && [0, 1, 2].includes(+QS.get('lv')) ? +QS.get('lv') : 1, labels: [], seen: [null, null], hud: QS.get('hud') !== '0',
@@ -55,13 +47,6 @@
     else if (it.p >= 30 && (!HL.sub || HL.sub.age > 0.6 || it.p >= HL.sub.p)) HL.sub = it;
   }
   D.headline = (s, p) => headline(s, p);
-  // an environment moment's name (js/duel-env.js): the one label, big, over the fighter who does it
-  D.envLabel = (f, s) => {
-    const cur = S.labels[0];
-    if (cur && cur.p >= 2 && cur.t < 0.7) return;
-    S.labels.length = 0; S.labels.push({ f, s, t: 0, col: '#ffe3a1', p: 1.5, big: true });
-    if (D.clearQuietLabel) D.clearQuietLabel();
-  };
   if (S.hud) {
     const text0 = ND.fx.text;
     ND.fx.text = function (x, y, str, color) { if (G.simOnly) return; if (!G.F || !G.F[0].dz) return text0.apply(this, arguments); headline(str, rankOf(String(str)), color); };
@@ -133,14 +118,13 @@
       if (S.names && f.state === 'atk' && f.serial !== S.seen[f.id]) {
         S.seen[f.id] = f.serial;
         // (the move started through the duel's choice, else by its logical / own name: the props' moves have their own)
-        const nm = (f.dz.lastMove && ND.ATK[f.dz.lastMove] === f.atk ? NAMES[f.dz.lastMove] : null) || propName(f) || NAMES[f.atkName];
+        const nm = (f.dz.lastMove && ND.ATK[f.dz.lastMove] === f.atk ? NAMES[f.dz.lastMove] : null) || NAMES[f.atkName];
         const ctr = f.atk && f.atk.counter;
         // (ONE label on screen at a time: a new one replaces the last at once; a special's name is not replaced by an
         // ordinary move's name while it is up)
         const pri = f.atk && f.atk.special ? 2 : ctr ? 1 : 0, cur = S.labels[0];
         if ((nm || ctr) && !(cur && cur.p > pri && cur.t < 0.7)) {
-          const env = /^pr_/.test(f.atkName || '');
-          S.labels.length = 0; S.labels.push({ f, s: nm || (f.atkName || '').toUpperCase(), t: 0, col: env ? '#ffe3a1' : f.col.ui, p: env ? Math.max(pri, 1.5) : pri, big: env });
+          S.labels.length = 0; S.labels.push({ f, s: nm || (f.atkName || '').toUpperCase(), t: 0, col: f.col.ui, p: pri });
           if (D.clearQuietLabel) D.clearQuietLabel();
         }
       }
@@ -151,8 +135,7 @@
       const L = S.labels[i]; L.t += 1 / 60;
       if (L.t > 0.9) { S.labels.splice(i, 1); continue; }
       const x = cam.sx(L.f.x), y = cam.sy(L.f.y - 200) - L.t * 18 * u;
-      // (an environment moment reads at phone size: bigger than a move name)
-      txt(ctx, L.s, x, y, (L.big ? 16 : 11) * u, L.col, 'center', L.t < 0.7 ? 1 : 1 - (L.t - 0.7) / 0.2);
+      txt(ctx, L.s, x, y, 11 * u, L.col, 'center', L.t < 0.7 ? 1 : 1 - (L.t - 0.7) / 0.2);
     }
     // bind prompt: a ring closing on the crossed blades; gold while the window is open
     for (const f of G.F) {
@@ -465,9 +448,7 @@
         if (fl > h.last + 0.05) h.n = 0; // (a new hit)
         h.last = fl; h.n++;
         f.flash = fl > 0 && h.n <= 3 ? 0.12 : 0;
-        // (local lights — a lantern's warm glow — at most a subtle warm edge: the body keeps its own colours)
-        const ga = c.globalAlpha; c.globalAlpha = ga * 0.35;
-        try { return lf0.apply(this, arguments); } finally { f.flash = fl; c.globalAlpha = ga; }
+        try { return lf0.apply(this, arguments); } finally { f.flash = fl; }
       };
     }
     // flashes and rings never bigger than ~1.5 heads / a body's width; ink and blood a small burst at the hit point
