@@ -526,7 +526,8 @@
     cam.world(ctx);
     ctx.save();
     if (layer === 'back') {
-      for (const f of F) if (P.held(f) && !(f.state === 'atk' && f.atk && f.atk.prop) && handOfDrawn(f) === 'B') carryArm(f);
+      // (on guard the prop comes up in front with the guard's hands: it is what blocks)
+      for (const f of F) if (P.held(f) && !(f.state === 'atk' && f.atk && f.atk.prop) && !GUARDS[f.state] && handOfDrawn(f) === 'B') carryArm(f);
       // contact shadows
       ctx.globalCompositeOperation = 'source-over';
       for (const p of P.items) {
@@ -583,6 +584,7 @@
     ctx.restore();
     if (layer === 'front') ctx.globalAlpha = 1;
   };
+  const GUARDS = { guard: 1, block: 1, parry: 1 };
   const handOfDrawn = (f) => (P.handOf ? P.handOf(f) : 'B');
   function swordShard(ctx, d) {
     const c = Math.cos(d.a), s = Math.sin(d.a);

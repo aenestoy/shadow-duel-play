@@ -399,7 +399,8 @@
     if (s === 'dcut') { cutPose(f, dt); return; }
     if (s === 'dpick') { pickStep(f, dt); return; }
     if (s === 'droll') { rollStep(f, dt); return; }
-    if (s === 'dodge' && !z.armed && !f.back && f.st <= dt + 1e-9) { startRoll(f); return; }
+    // (an unarmed dash is a roll only towards the own sword lying ahead - the roll that takes it up; else a plain dash)
+    if (s === 'dodge' && !z.armed && !f.back && f.st <= dt + 1e-9 && rollToSword(f)) { startRoll(f); return; }
     // the side the guard is on follows the threat at a finite speed (also between guards: the hands stay where they were)
     const guarding = s === 'guard' || s === 'block' || s === 'parry';
     if (guarding) {
@@ -543,6 +544,13 @@
       pose.lerp(f.entry, f.P.stance, E.outCubic(u), f.pose);
     } else pose.seq([[0, f.entry], [0.16, P0, E.outCubic], [T.pickDur, P0]], t, f.pose);
     if (t >= T.pickDur + (f.mem.got != null ? 0.1 : 0)) f.setState('move');
+  }
+  function rollToSword(f) {
+    const sw = D.swordOf(f), d = f.ddir || f.dir;
+    if (!sw || !sw.resting || !sw.resting()) return false;
+    sw.grip(PT);
+    const dx = (PT.x - f.x) * d;
+    return dx > 20 && dx < 300;
   }
   function startRoll(f) {
     const d = f.ddir || f.dir;

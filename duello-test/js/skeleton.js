@@ -753,32 +753,8 @@
   function torsoFrame(j) {
     let ux = j.neck.x - j.hip.x, uy = j.neck.y - j.hip.y; const ln = Math.hypot(ux, uy) || 1; ux /= ln; uy /= ln;
     TF.hx = j.hip.x; TF.hy = j.hip.y; TF.ux = ux; TF.uy = uy; TF.nx = j.dir * -uy; TF.ny = j.dir * ux; TF.ln = ln;
-    // (j.chest: the 20-joint body of the motion-capture player, js/mocap.js — the torso bends at the chest: the pelvis
-    // half along hip → chest, the chest half along chest → neck, each turned by itself (j.wideP / j.wideC). Without
-    // it, as always: one straight frame.)
-    TF.bend = !!j.chest;
-    if (TF.bend) bendFrame(TF, j);
   }
-  function bendFrame(F, j) {
-    const d = j.dir < 0 ? -1 : 1, c = j.chest;
-    let ax = c.x - j.hip.x, ay = c.y - j.hip.y; const l1 = Math.hypot(ax, ay) || 1; ax /= l1; ay /= l1;
-    let bx = j.neck.x - c.x, by = j.neck.y - c.y; const l2 = Math.hypot(bx, by) || 1; bx /= l2; by /= l2;
-    F.k = l1 / (l1 + l2); F.l1 = l1; F.l2 = l2; F.ax = ax; F.ay = ay; F.bx = bx; F.by = by; F.cx = c.x; F.cy = c.y;
-    const wp = j.wideP || 1, wc = j.wideC || 1;
-    F.n1x = d * -ay * wp; F.n1y = d * ax * wp; F.n2x = d * -by * wc; F.n2y = d * bx * wc;
-  }
-  // a point of the bent torso (u along the spine from the hip, as a share of the whole torso length ln; n across)
-  const BP = [0, 0];
-  function bentPt(F, u, n) {
-    const s = u / F.ln, k = F.k;
-    let x, y;
-    if (s <= k) { const t = (s / k) * F.l1; x = F.hx + F.ax * t; y = F.hy + F.ay * t; } else { const t = ((s - k) / (1 - k)) * F.l2; x = F.cx + F.bx * t; y = F.cy + F.by * t; }
-    // (the across direction turns smoothly through the seam: no kink at the chest)
-    let w = (s - (k - 0.12)) / 0.24; w = w < 0 ? 0 : w > 1 ? 1 : w * w * (3 - 2 * w);
-    BP[0] = x + (F.n1x + (F.n2x - F.n1x) * w) * n; BP[1] = y + (F.n1y + (F.n2y - F.n1y) * w) * n;
-    return BP;
-  }
-  const PX = (u, n) => (TF.bend ? bentPt(TF, u, n)[0] : TF.hx + TF.ux * u + TF.nx * n), PY = (u, n) => (TF.bend ? bentPt(TF, u, n)[1] : TF.hy + TF.uy * u + TF.ny * n);
+  const PX = (u, n) => TF.hx + TF.ux * u + TF.nx * n, PY = (u, n) => TF.hy + TF.uy * u + TF.ny * n;
   // Atletik gövde profili (u oranı × boy, n): karın, göğüs, köprücük, ense, kürek, bel çukuru, kalça
   const TORSO = [-0.14, 13, 0.25, 15.5, 0.62, 18.5, 0.92, 14, 1.06, 6, 1.08, -4, 0.95, -12.5, 0.7, -17.2, 0.42, -15, 0.14, -17.5, -0.14, -15, -0.24, 0];
   function torsoPath(ctx) {
@@ -791,14 +767,6 @@
   const FF = { fx: 1, fy: 0, ux: 0, uy: -1, ox: 0, oy: 0 };
   const FOOT = [-4.5, -1, -4.8, -4.4, -2.5, -5.9, 6, -6.1, 11.8, -5.7, 13.4, -3.4, 11.7, -1.1, 6, 0.9, 1.5, 3.8, -3.8, 3.3];
   function footFrame(ft, kn, dir, s) {
-    // (ft.tx / ft.ty: the foot's own direction, the motion-capture player's 20-joint body: heel-toe roll, a push-off;
-    // the sole is kept under the foot whichever way it points)
-    if (ft.tx != null) {
-      let fx = ft.tx - ft.x, fy = ft.ty - ft.y; const m = Math.hypot(fx, fy) || 1; fx /= m; fy /= m;
-      const sd2 = fx >= 0 ? 1 : -1, r = ft.tr || 1; // (r: foreshortened, a foot pointing into the picture)
-      FF.fx = fx * s * r; FF.fy = fy * s * r; FF.ux = sd2 * fy * s; FF.uy = -sd2 * fx * s; FF.ox = ft.x; FF.oy = ft.y;
-      return;
-    }
     const sd = dir < 0 ? -1 : 1, ad = Math.max(0.12, Math.abs(dir));
     let sx = (ft.x - kn.x) / ad, sy = ft.y - kn.y; const d = Math.hypot(sx, sy) || 1; sx /= d; sy /= d;
     let fx = sd * sy, fy = -sd * sx;
@@ -1453,8 +1421,6 @@
     // (j.shB: the back arm's own shoulder when the drawn torso turns, js/duel-depth.js; undefined otherwise)
     const sh = front ? j.sh : j.shB || j.sh, el = front ? j.elF : j.elB, ha = front ? j.haF : j.haB;
     AG.sh = sh; AG.el = el; AG.ha = ha; AG.front = front;
-    // (j.wrF / j.wrB: the wrist of the motion-capture player's 20-joint body: the hand bends off the forearm)
-    AG.wr = (front ? j.wrF : j.wrB) || null;
     AG.s = front ? 1 : 0.93; AG.rimC = front ? c.rim : c.rimDim;
     AG.clothC = front ? c.cloth : c.clothDark; AG.wrapC = front ? c.wrap : c.wrapDark;
     let ux = el.x - sh.x, uy = el.y - sh.y; const d = Math.hypot(ux, uy) || 1; ux /= d; uy /= d;
@@ -1485,8 +1451,7 @@
   function armOutline(ctx, D, sl, fa) {
     const { el, ha, s } = AG;
     ctx.strokeStyle = D.line; ctx.lineWidth = 2.6;
-    const wr = AG.wr;
-    ctx.beginPath(); if (sl) sleevePath(ctx); if (fa) { if (wr) { capPath(ctx, el.x, el.y, wr.x, wr.y, 5.2 * s, 4.5 * s); capPath(ctx, wr.x, wr.y, ha.x, ha.y, 4.6 * s, 4.3 * s); } else capPath(ctx, el.x, el.y, ha.x, ha.y, 5.2 * s, 4.3 * s); } ctx.stroke();
+    ctx.beginPath(); if (sl) sleevePath(ctx); if (fa) capPath(ctx, el.x, el.y, ha.x, ha.y, 5.2 * s, 4.3 * s); ctx.stroke();
   }
   function armSleeve(ctx, c, D, acc) {
     const { sh, el, s, rimC, clothC, ux, uy, nx, ny, sag, mx, my, front } = AG;
@@ -1505,9 +1470,7 @@
   }
   // önkol (tekko sargısı) + bileği örten koyu eldiven manşeti
   function armFore(ctx, D) {
-    const { el, ha: ha0, s, rimC, wrapC, front } = AG;
-    // (with a wrist: the wrapped forearm ends there and the glove carries on to the fist along the hand's own way)
-    const ha = AG.wr || ha0, hdx = ha.x - el.x, hdy = ha.y - el.y, hd0 = Math.hypot(hdx, hdy) || 1, fx = hdx / hd0, fy = hdy / hd0;
+    const { el, ha, s, rimC, wrapC, hdx, hdy, fx, fy, front } = AG;
     ctx.fillStyle = wrapC; ctx.beginPath(); capPath(ctx, el.x, el.y, ha.x, ha.y, 5.2 * s, 4.3 * s); ctx.fill();
     shade(ctx, el.x, el.y, ha.x, ha.y, 5.2 * s, 4.3 * s, front ? D.hiW : null, rimC, front ? undefined : 0);
     if (front) {
@@ -1524,7 +1487,6 @@
       ctx.strokeStyle = D.hiW; ctx.lineWidth = 0.9;
       ctx.beginPath(); line(ctx, el.x + hdx * 0.72 - fy * 4.6, el.y + hdy * 0.72 + fx * 4.6, el.x + hdx * 0.72 + fy * 4.6, el.y + hdy * 0.72 - fx * 4.6); ctx.stroke();
     }
-    if (AG.wr) { ctx.fillStyle = D.glove; ctx.beginPath(); capPath(ctx, ha.x, ha.y, ha0.x, ha0.y, 4.6 * s, 4.4 * s); ctx.fill(); }
   }
   // yen ağzı (dirseği örten manşet) + içindeki gölge + ağız kenarında ışık
   function armMouth(ctx, D) {
@@ -1584,10 +1546,7 @@
   }
   // the hand itself (after handInfo)
   function armHand(ctx, j, D) {
-    const { ha, rimC } = AG;
-    // (with a wrist the hand points its own way, else along the forearm)
-    let fx = AG.fx, fy = AG.fy;
-    if (AG.wr) { const dx = ha.x - AG.wr.x, dy = ha.y - AG.wr.y, l = Math.hypot(dx, dy); if (l > 0.5) { fx = dx / l; fy = dy / l; } }
+    const { ha, fx, fy, rimC } = AG;
     if (HD.k === 'fist') fist(ctx, ha.x, ha.y, HD.hx, HD.hy, fx, fy, D, rimC, HD.hi);
     else openHand(ctx, ha.x, ha.y, fx, fy, j.dir < 0 ? -1 : 1, D, rimC, HD.hi);
   }
@@ -2540,8 +2499,6 @@
     bladeBehindHead,
     // whole-limb steps and the path helpers, for the 2.5D strike prototype (js/depth25.js, branch claude/sd-3d)
     drawLeg, drawArm, capPath, blob, rgbOf, mixC,
-    // the 20-joint body's bent torso frame (costumes.js torso follows it)
-    bentFrame: bendFrame, bentPt,
   };
 
   // ---------------------------------------------------------------- RAGDOLL

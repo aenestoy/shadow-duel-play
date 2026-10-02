@@ -27,9 +27,11 @@
 
   // ------------------------------------------------------------------ the set (left to right)
   // [kind, x, floor depth, extra]; on: index of the prop it stands on
+  // (the middle of the floor kept clear - where the sword fight mostly is: a crate and a jar there cost the CPU fights,
+  // tripping and landing on things mid-exchange)
   const TEMPLE = [['burner', -860, -18], ['veranda', -650, -12], ['barrel', -470, -10], ['post', -400, -6], ['stool', -290, -4],
-    ['crate', -175, -12], ['lantern', -60, -10], ['jar', 50, -6], ['stool', 140, -2], ['table', 250, -8], ['cup', 232, 0, { on: 9 }],
-    ['cup', 256, 0, { on: 9 }], ['bottle', 282, 0, { on: 9 }], ['post', 400, -6], ['bale', 510, -6], ['lantern', 610, -12], ['bucket', 690, -4],
+    ['lantern', -150, -10], ['stool', 140, -2], ['table', 250, -8], ['cup', 232, 0, { on: 7 }],
+    ['cup', 256, 0, { on: 7 }], ['bottle', 282, 0, { on: 7 }], ['post', 400, -6], ['bale', 510, -6], ['lantern', 610, -12], ['bucket', 690, -4],
     ['rack', 790, -20]];
   P.ARENA_SETS.temple = TEMPLE;
   // (the CPU's use of the set is this file's: the props module's own CPU timer walked it off to a prop every few
@@ -265,11 +267,27 @@
   }
 
   // ------------------------------------------------------------------ the 'denv' state
+  // ------------------------------------------------------------------ the sword exchange comes first
+  // An exchange: from a blade contact (block, parry, clash, recoil, bind) until EX_HOLD after the last one. Inside it the
+  // set stays out of the way: attack presses are sword attacks, no station move starts (player or CPU), the CPU does
+  // not walk off to a station, and the spacing only keeps the two from standing in each other (never out of reach).
+  // Within sword reach (REACH) an attack button is always the sword, exchange or not. G.flags.envEx: time left.
+  const CONTACT = { block: 1, parry: 1, clash: 1, recoil: 1, dbind: 1, lock: 1 };
+  const EX_HOLD = 1.0, REACH = 150;
+  const inExchange = () => !!(G.flags && G.flags.envEx > 0) || !!(G.F && G.F.some((f) => f && CONTACT[f.state]));
+  function exchangeStep(h, F) {
+    const Fl = G.flags;
+    if (!Fl) return;
+    if (F.some((f) => CONTACT[f.state])) Fl.envEx = EX_HOLD;
+    else if (Fl.envEx > 0) Fl.envEx = Math.max(0, Fl.envEx - h);
+  }
+  D.envExchange = inExchange;
+
   const FP = ND.Fighter.prototype, upd0 = FP.update, inv0 = FP.isInv, pass0 = FP.passing;
   FP.update = function (dt) {
     // the player's buttons near a station: read before the fighter's own update would start the ordinary move
     // (the CPU's own presses too: when its eye for the set is ready, a press by a station does that station's move)
-    if (this.dz && P.live && this.state !== 'denv' && (human(this) || (isCpu(this) && !(this.dz.envCd > 0)))) contextual(this);
+    if (this.dz && P.live) { heldButtons(this, dt); if (human(this) && this.state !== 'denv') contextual(this); }
     if (this.dz && this.dz.envRep > 0) this.dz.envRep -= dt; // (the player: the same station move not straight again)
     const c = this.dz && this.state === 'denv' ? this.dz.env : null;
     if (!c) return upd0.call(this, dt);
@@ -366,21 +384,24 @@
   }
 
   // ------------------------------------------------------------------ the CPU's eye for the set
-  const ENV = D.env2 = { gap: [0.8, 1.8], st: {} }; // (st: station moves started / landed, by name, for the audits)
+  const ENV = D.env2 = { gap: [3.0, 5.0], st: {}, cpuOff: /[?&]envcpu=0(&|$)/.test(location.search || '') }; // (?envcpu=0: the CPU leaves the set alone, to compare) // (st: station moves started / landed, by name, for the audits)
   function pairBite(d, a, p) {
     if (!start(d, 'dodgePost', p)) return false;
     start(a, 'stuck', p);
     return true;
   }
+  const CPU_FAR = 320;
   function think(f, h) {
     const z = f.dz;
     if (!z || f.dead || !isCpu(f) || G.phase !== 'fight') return;
     z.envCd = (z.envCd == null ? 1.2 : z.envCd) - h;
+    if (z.envBiteT > 0) z.envBiteT -= h;
+    if (inExchange() || ENV.cpuOff) return; // (the sword exchange first: the set waits)
     // the post's trick is a reaction: his cut is coming and I stand by a post
     const o = f.opp;
     if (o && !o.dead && o.state === 'atk' && o.atk && o.atk.kind === 'blade' && o.atk.active && o.st < o.atk.active[0] - 0.05 && armed(o) && free(f) && !S.tasks[f.id]) {
       const ps = near(f, (p) => p.k === 'post', 100);
-      if (ps && Math.abs(o.x - f.x) < 180 && rnd() < h * 14) { pairBite(f, o, ps); return; }
+      if (ps && Math.abs(o.x - f.x) < 180 && !(z.envBiteT > 0) && rnd() < h * 14) { pairBite(f, o, ps); z.envBiteT = 6; return; } // (not again for 6 s)
     }
     // a prop in hand: use it (the props module's own CPU walks off to props on a timer - a time sink: off, see enable)
     const held = P.held(f);
@@ -392,31 +413,12 @@
       return;
     }
     if (z.envCd > 0) return;
-    const db = ENV.dbg; if (db) { db.look++; if (S.tasks[f.id]) db.task++; else if (!free(f)) { db.busy++; db.st[f.state] = (db.st[f.state] || 0) + 1; } else if (P.held(f)) db.held++; }
-    // (an attack it has only just begun counts as free: the station's move takes its place)
-    // (from a free stance, or a plain blow only just begun: given up for a station move only when that pays - choose
-    // keeps what good() allows: an opening, or room)
-    const starting = f.state === 'atk' && f.st < 0.08 && f.onGround && f.atk && !f.atk.special && !f.atk.prop && !/^pr_/.test(f.atkName || '');
-    if (S.tasks[f.id] || !(free(f) || starting) || P.held(f) || z.cine) return;
+    // (the sword fight first: the CPU reaches for the set only from a distance, free, never giving up a blow of its own,
+    // never walking off to a station - with the set used close in or on a walk the exchanges fell by a half)
+    if (S.tasks[f.id] || !free(f) || P.held(f) || z.cine) return;
+    if (Math.abs(o.x - f.x) < CPU_FAR) { z.envCd = 0.25; return; }
     if (choose(f)) return;
     z.envCd = 0.25; // (nothing at hand: look again soon)
-    {
-      // nothing in reach: now and then walk over to the nearest station (the set is there to be used)
-      if (Math.abs(o.x - f.x) > 300 && rnd() < 0.35) {
-        const recent = (z.envR || '') + ',' + (z.envGoK || '');
-        // (the table above all: him beyond it, I go to it and it comes over at him)
-        const toward = Math.sign(o.x - f.x) || f.dir;
-        const tb = recent.indexOf('flip') < 0 && near(f, (p) => p.k === 'table' && (p.x - f.x) * toward > 60 && (o.x - p.x) * toward > -30 && Math.abs(o.x - p.x) < 300, 460);
-        if (tb && rnd() < 0.7 && P.go(f, tb, 'none')) { z.envGoK = 'table'; z.envCd = 0.2; return; }
-        // (a station near him: when I get there, it is in play)
-        // (only one on the way to him: walking off from him to a station is the time the set must not cost)
-        const way = (p) => STATION[p.k] && (p.x - f.x) * toward > 90 && Math.abs(p.x - o.x) < 260;
-        const st = Math.abs(o.x - f.x) > 420 ? null : near(f, (p) => way(p) && recent.indexOf(p.k) < 0, 480) || near(f, way, 480);
-        if (st) z.envGoK = st.k;
-        if (st && P.go(f, st, 'none')) z.envCd = 0.2;
-      }
-      return;
-    }
   }
   // the CPU's pick among what is at hand: never the same trick twice in a row, seldom the one before, what it has done
   // lately counts little (the set is used all over, not one trick again and again). true if it started one
@@ -458,56 +460,117 @@
     return true;
   }
 
-  // ------------------------------------------------------------------ the player: the same buttons, near a station
-  const KEYS = ['up', 'light', 'heavy', 'guard', 'kick', 'throw'];
-  function contextual(f) {
-    const z = f.dz, b = f.ctrl && f.ctrl.buf;
-    if (!z || !b || f.dead || G.phase !== 'fight') return;
-    const seen = z.envPb || (z.envPb = {});
-    const fresh = {};
-    for (const k of KEYS) { const v = b[k]; if (v != null && v !== seen[k]) fresh[k] = true; seen[k] = v == null ? null : v; }
-    if (ENV.dbg && !human(f) && (fresh.light || fresh.heavy || fresh.kick)) { ENV.dbg.cpuFresh = (ENV.dbg.cpuFresh || 0) + 1; if (!free(f)) { ENV.dbg.cpuFreshBusy = (ENV.dbg.cpuFreshBusy || 0) + 1; ENV.dbg.fs = ENV.dbg.fs || {}; ENV.dbg.fs[f.state] = (ENV.dbg.fs[f.state] || 0) + 1; } }
-    if (!free(f) || S.tasks[f.id] || z.cine) return;
-    const o = f.opp, held = P.held(f);
-    if (!o || o.dead) return;
-    // the CPU: an attack it was about to make, by a station, becomes that station's move (its own pick, as in think)
-    if (!human(f)) {
-      if (held || !(fresh.light || fresh.heavy || fresh.kick)) return;
-      if (ENV.dbg) ENV.dbg.cpuPress = (ENV.dbg.cpuPress || 0) + 1;
-      if (choose(f)) { for (const k of ['light', 'heavy', 'kick']) { b[k] = null; seen[k] = null; } }
-      return;
+  // ------------------------------------------------------------------ the context button: the set on its own button
+  // The sword buttons (light, heavy, kick, guard, up, dash) are always the sword. The set has its own button: it shows
+  // (phone: a round button with the station's icon; keyboard: Q) only while something is in reach, and does that
+  // station's move. Direction + context picks a variant where a station has two (forward: over it; back: the table
+  // flipped up as a shield). While a prop is in hand: context throws it, attack swings it, guard blocks with it.
+  // ctxPick(f, hold) → { a: action, p: prop, icon } or null; hold: 1 forward, -1 back, 0 none (towards the opponent).
+  const CARRY = { stool: 1, bottle: 1, jar: 1, bucket: 1, cup: 1 };
+  const ICON = { table: 'table', stool: 'stool', bottle: 'jar', jar: 'jar', bucket: 'jar', cup: 'jar', barrel: 'barrel', bale: 'barrel', crate: 'barrel', post: 'post', lantern: 'lantern', veranda: 'steps', rack: 'rack' };
+  function ctxPick(f, hold) {
+    const o = f.opp, A = ND.ARENA;
+    if (!o || f.dead || !f.dz) return null;
+    const held = P.held(f);
+    if (held) return KINDS[held.k].throw ? { a: 'p:throw', p: held, icon: 'throw' } : null;
+    const toward = Math.sign(o.x - f.x) || f.dir, dist = Math.abs(o.x - f.x), C = [];
+    const add = (a, p, d, icon) => C.push({ a, p, d, icon });
+    // the wall right at my back, him in front
+    if (Math.abs(f.x) > A - 90 && (o.x - f.x) * Math.sign(f.x) < 0) add('wall', null, A - Math.abs(f.x), 'wall');
+    for (const p of S.items) {
+      if (p.st !== 0) continue;
+      const K = KINDS[p.k], dx = p.x - f.x, ad = Math.abs(dx), ahead = dx * toward > 0;
+      if (p.k === 'veranda') { if (ad < K.w / 2 + 40 && dist > 90) add('steps', p, Math.max(0, ad - K.w / 2), 'steps'); continue; }
+      if (p.k === 'post') { if (ad < 90) add(o.state === 'atk' && o.atk && o.atk.kind === 'blade' && o.atk.active && o.st < o.atk.active[0] && armed(o) && dist < 180 ? 'dodgePost' : 'swing', p, ad, 'post'); continue; }
+      if (p.k === 'lantern') { if (ad < 120 && armed(f)) add('lantern', p, ad, 'lantern'); continue; }
+      if (p.k === 'rack') { if (ad < 110 && f.wpn && f.wpn.none) add('p:rearm', p, ad, 'rack'); continue; }
+      if (p.k === 'table') {
+        if (ad > 120) continue;
+        const beyond = (o.x - p.x) * toward > K.w / 2 + 30;
+        if (hold < 0 && ahead) add('flip', p, ad, 'table');
+        else if (hold > 0 && ahead) add('vault', p, ad, 'table');
+        else if (ahead) add(beyond ? 'flip' : 'vault', p, ad, 'table');
+        continue;
+      }
+      if (CARRY[p.k] && K.carry) { if (ad < 80 && !(p.sup >= 0)) add('p:grab', p, ad, ICON[p.k]); else if (p.k === 'stool' && ahead && ad < 90 && hold > 0) add('vault', p, ad, 'stool'); continue; }
+      if (VAULT[p.k] && ad < 95 && ahead) { add(hold > 0 || !K.kick ? 'vault' : 'p:kick', p, ad, ICON[p.k] || 'barrel'); continue; }
+      if (K.kick && !K.fixed && ad < 90) add('p:kick', p, ad, ICON[p.k] || 'barrel');
     }
-    const use = (k) => { b[k] = null; seen[k] = null; if (!human(f)) z.envCd = ENV.gap[0] + rnd() * (ENV.gap[1] - ENV.gap[0]); };
-    if (held) {
-      if (fresh.throw && KINDS[held.k].throw) { if (P.act(f, 'throw')) use('throw'); return; }
-      if (fresh.light && Math.abs(o.x - f.x) < 140) { if (P.act(f, KINDS[held.k].swing ? 'swing' : 'smash')) use('light'); }
-      return;
-    }
-    if (fresh.guard && o.state === 'atk' && o.atk && o.atk.kind === 'blade' && o.atk.active && o.st < o.atk.active[0] && armed(o)) {
-      const ps = near(f, (p) => p.k === 'post', 90);
-      if (ps && Math.abs(o.x - f.x) < 180) { if (pairBite(f, o, ps)) use('guard'); return; }
-    }
-    // (the player's reach is tighter than the CPU's look-around: a press means the station right here)
-    const again = (n) => z.envRep > 0 && z.envLast === n; // (mashing one button by a post: one turn round it, then the ordinary move)
-    const L = options(f).filter((e) => !again(e[0])).filter((e) => !e[1] || Math.abs(e[1].x - f.x) <= (e[0] === 'steps' ? 150 : e[0] === 'vault' ? 120 : 90)), has = (n) => L.find((e) => e[0] === n);
-    let e = null, k = null;
-    if (fresh.up) { e = has('vault') || has('wall') || has('steps'); k = 'up'; }
-    if (!e && fresh.heavy) { e = has('flip') || has('lantern'); k = 'heavy'; }
-    if (!e && fresh.light) { e = has('swing') || has('lantern'); k = 'light'; }
-    if (e) { if (start(f, e[0], e[1])) use(k); return; }
-    if (fresh.kick) {
-      const kk = near(f, (p) => KINDS[p.k].kick && !KINDS[p.k].fixed && ahead(f, p), 85);
-      if (kk && P.act(f, 'kick', kk)) { use('kick'); return; }
-      const ps = near(f, (p) => p.k === 'post', 70);
-      if (ps && !again('swing') && Math.abs(o.x - f.x) < 230 && start(f, 'swing', ps)) { use('kick'); return; }
-      const sh = propOptions(f).find((q) => q[0] === 'p:shove');
-      if (sh && P.act(f, 'shove', sh[1])) { use('kick'); return; }
-    }
-    if (fresh.throw) {
-      const cc = near(f, (p) => KINDS[p.k].carry, 75);
-      if (cc && P.act(f, 'grab', cc)) use('throw');
-    }
+    if (!C.length) return null;
+    C.sort((x, y) => x.d - y.d);
+    return C[0];
   }
+  D.envCtxPick = ctxPick;
+  function doCtx(f, e) {
+    if (!e) return false;
+    if (e.a === 'p:throw') return P.act(f, 'throw');
+    if (e.a === 'p:grab') return P.act(f, 'grab', e.p);
+    if (e.a === 'p:kick') return P.act(f, 'kick', e.p);
+    if (e.a === 'p:rearm') return P.go(f, e.p, 'rearm');
+    if (e.a === 'dodgePost') return pairBite(f, f.opp, e.p);
+    return start(f, e.a, e.p);
+  }
+  // the player's context presses (the button or Q): queued into the fight here, used when the fighter is free
+  const CTX = D.envCtx = { pending: 0, key: 'KeyQ' };
+  function contextual(f) {
+    const z = f.dz;
+    if (!z || f.dead || G.phase !== 'fight') { CTX.pending = 0; return; }
+    if (CTX.pending) { CTX.pending = 0; z.envQ = 0.3; CTX.pressT = 0.2; }
+    if (!(z.envQ > 0)) return;
+    if (!free(f) || S.tasks[f.id] || z.cine) return;
+    const hold = (f.ctrl && f.ctrl.axis ? f.ctrl.axis() : 0) * (Math.sign(f.opp.x - f.x) || f.dir);
+    const e = ctxPick(f, hold > 0 ? 1 : hold < 0 ? -1 : 0);
+    if (doCtx(f, e)) { z.envQ = 0; remember(f, e.a); }
+  }
+  // a prop in hand: the hands hold it, so the buttons are the prop's - attack swings / smashes it, the ki technique and
+  // every sword cut are off, guard blocks with it (blocked below); the CPU the same
+  function heldButtons(f, dt) {
+    const p = P.held(f), z = f.dz, b = f.ctrl && f.ctrl.buf;
+    if (z && z.envQ > 0) z.envQ -= dt;
+    if (!p || !b || !z) { if (z) { z.envHQ = 0; z.envHP = -1; } return; }
+    // (presses from before it was in the hands are not a swing)
+    if (z.envHP !== p.id) { z.envHP = p.id; z.envHQ = 0; b.light = null; b.heavy = null; }
+    if (b.light != null || b.heavy != null) z.envHQ = 0.6;
+    b.light = null; b.heavy = null; b.special = null;
+    if (z.envHQ > 0) {
+      z.envHQ -= dt;
+      if (P.free(f) && !S.tasks[f.id] && P.act(f, KINDS[p.k].swing ? 'swing' : 'smash')) z.envHQ = 0;
+    }
+    z.chain = 0; // (no blade bind with a stool in the hands)
+  }
+
+  // no blade lock (tsubazeriai) with a prop in the hands: the cut is simply blocked by it (a clash parts the two)
+  const lock0 = G.startLock;
+  if (lock0) {
+    G.startLock = function (a, b, x, y) {
+      if (!(P.live && ((a && P.held(a)) || (b && P.held(b))))) return lock0.apply(this, arguments);
+      const atk = a.state === 'atk' && b.state !== 'atk' ? a : b.state === 'atk' && a.state !== 'atk' ? b : null;
+      if (atk) { const d = atk.opp; atk.setState('recoil'); atk.vx = -atk.dir * 120; d.setState('block', { dur: 0.2 }); d.vx = atk.dir * 90; }
+      else { a.setState('clash'); b.setState('clash'); a.vx = -a.dir * 330; b.vx = -b.dir * 330; }
+    };
+  }
+  // guard with a prop in hand: the blade bites into the prop (it breaks after a few: a stool on the third cut, a bottle
+  // on the first), no blade bind, no sword knocked out of a hand that does not hold it
+  const blk0 = FP.blocked;
+  FP.blocked = function (a, x, y, isKick, fromX) {
+    const o = this.opp, p = o && o.dz && P.live ? P.held(o) : null;
+    if (!p) return blk0.apply(this, arguments);
+    const dis = a && a.disarm;
+    if (dis) a.disarm = false;
+    o.dz.chain = -1e3;
+    // (the prop is held square to the cut: never "off-line")
+    const sd = a && a.sides && a.sides[this.hitIdx] != null ? a.sides[this.hitIdx] : a && a.dz3 ? a.dz3.side : 0;
+    o.dz.gs = -sd;
+    let r;
+    try { r = blk0.apply(this, arguments); } finally { if (dis) a.disarm = dis; o.dz.chain = 0; }
+    if ((o.state === 'block' || o.state === 'parry') && o.st === 0 && !isKick && p.st === 2) {
+      const K = KINDS[p.k], dmg = 2.6 + (a && a.dmg ? a.dmg : 10) * 0.07;
+      fx.spark(x, y, Math.atan2(-0.5, -this.dir), 8, 0.6, K.mat === 'wood' ? '230,200,150' : '240,240,240'); au.thud(0.8, o.pan);
+      if (!P.hurt(p, dmg, 'cut', x, y, this.dir, 0.3, this)) { if (!o.dz.envBlk) label(o, 'Blocks with the ' + p.k); }
+      o.dz.envBlk = (o.dz.envBlk || 0) + 1;
+    }
+    return r;
+  };
 
   // ------------------------------------------------------------------ spilled sake / water: a slip
   // A broken bottle, cup, jar, barrel or bucket leaves a puddle (G.flags.envSpill: [x, life,
@@ -583,6 +646,13 @@
       return;
     }
     const over = Math.abs(a.y - b.y) > OVER, la = lying(a), lb = lying(b);
+    // (inside a sword exchange: only out of each other - never pushed out of the other's reach)
+    if (inExchange() && !la && !lb && !over && !through(a) && !through(b) && a.onGround && b.onGround) {
+      const va = Math.abs(a.vx || 0), vb = Math.abs(b.vx || 0);
+      placeApart(a, b, side, SEP, va + vb > 1 ? va / (va + vb) : 0.5);
+      za.side = side;
+      return;
+    }
     const after = () => { if (b.x !== a.x) za.side = Math.sign(b.x - a.x); };
     // a body on the floor: never under the other's feet, whoever is in the air over it (the lying one slides on)
     // (and a body coming down over it - thrown, jumping, off the steps - gives way itself: it does not land on him)
@@ -663,6 +733,7 @@
   const step0 = P.step;
   P.step = function (h, F) {
     if (P.live && F) {
+      exchangeStep(h, F);
       for (const f of F) if (!human(f)) think(f, h);
       throughTable(F);
       spills(h, F);
@@ -725,6 +796,7 @@
     const pdraw0 = P.draw;
     P.draw = function (ctx, layer) {
       hookMocap();
+      if (layer === 'back') { try { uiUpdate(); } catch (e) { /* the button never breaks the picture */ } }
       if (layer !== 'back' || !G.F || !G.F[0] || !G.F[0].dz) return pdraw0.call(this, ctx, layer);
       const v = S.arena === 'temple' ? S.items.filter((p) => p.k === 'veranda' && p.st === 0) : [];
       cam.world(ctx);
@@ -802,8 +874,16 @@
   function hookMocap() {
     if (hooked || !D.mocap || !D.mocap.act) return;
     hooked = true;
+    // a prop in the hands: the sword is drawn home in its scabbard (hip / back) the whole time it is held
+    const MD = D.mocap, Rig = ND.mocap && ND.mocap.Rig;
+    const markHold = () => { for (const f of G.F || []) { const rg = f && MD.rigOf ? MD.rigOf(f) : null; if (rg) rg.__hold = P.live && !f.dead && !!P.held(f); } };
+    if (Rig && Rig.prototype.build) {
+      const build0 = Rig.prototype.build;
+      Rig.prototype.build = function (F, dt) { if (this.__hold) { F.armed = 0; F.inside = 0; F.tw = 0; } return build0.call(this, F, dt); };
+    }
     const draw1 = FP.draw;
     FP.draw = function (ctx, reflect, layer) {
+      markHold();
       const l = reflect ? 0 : mcLift(this);
       if (!l) return draw1.call(this, ctx, reflect, layer);
       const y0 = this.y; this.y = y0 + l;
@@ -813,6 +893,7 @@
     if (A3 && A3.snap) {
       const snap1 = A3.snap;
       A3.snap = function (f, o) {
+        markHold();
         const l = f ? mcLift(f) : 0;
         if (!l) return snap1.call(this, f, o);
         const y0 = f.y; f.y = y0 + l;
@@ -820,6 +901,111 @@
       };
     }
   }
+
+  // ------------------------------------------------------------------ the context button on the screen
+  // Phone: a round button that fades in only while something is in reach, with the station's icon; it never covers
+  // another control (placed beside the action buttons where nothing is). Keyboard: Q (the hint shows the key). The
+  // first time it shows in a duel: a one-line hint, once per player (localStorage).
+  const SVG = (b) => `<svg viewBox="0 0 24 24" width="62%" height="62%" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${b}</svg>`;
+  const ICONS = {
+    stool: SVG('<path d="M5 8h14M7 8l-2 11M17 8l2 11M8 14h8"/>'),
+    table: SVG('<path d="M3 9h18M5 9v9M19 9v9M3 9l2-2h14l2 2"/>'),
+    post: SVG('<path d="M9 3h6v18H9zM7 3h10M7 21h10"/>'),
+    lantern: SVG('<path d="M12 2v3M8 5h8l1 3v8l-1 3H8l-1-3V8z M7 12h10"/>'),
+    wall: SVG('<path d="M4 3v18M8 3v18M4 8h4M4 14h4M4 19h4M14 15l4-6m0 0l2 4m-2-4l-3 1"/>'),
+    steps: SVG('<path d="M3 20h5v-5h5v-5h5V5h3"/>'),
+    barrel: SVG('<path d="M7 4h10q2 8 0 16H7q-2-8 0-16zM6 9h12M6 15h12"/>'),
+    jar: SVG('<path d="M9 3h6M10 3v3q-5 2-4 9 1 5 6 6 5-1 6-6 1-7-4-9V3"/>'),
+    rack: SVG('<path d="M4 20V6M20 20V6M3 9h18M3 14h18M6 9l12 0"/>'),
+    throw: SVG('<path d="M4 18c4-8 9-11 16-12M14 4l6 2-2 6"/>'),
+  };
+  const UI = { el: null, ic: '', on: false, hint: null, placedFor: '' };
+  const KEYNAME = 'Q';
+  function uiBuild() {
+    if (UI.el || typeof document === 'undefined' || !document.getElementById('app')) return;
+    const st = document.createElement('style');
+    st.textContent = `#tCtx{position:absolute;left:0;top:0;z-index:31;width:var(--ctxd,64px);height:var(--ctxd,64px);border-radius:50%;border:0;padding:0;display:grid;place-items:center;
+      color:#ffe3a1;background:radial-gradient(circle at 50% 45%,rgba(255,214,140,.28),rgba(20,16,12,.62) 70%);box-shadow:0 0 0 2px rgba(255,214,140,.75),0 0 14px rgba(255,190,90,.35);
+      opacity:0;transform:scale(.8);transition:opacity .22s ease,transform .22s ease;pointer-events:none;touch-action:none;-webkit-tap-highlight-color:transparent}
+      #tCtx.show{opacity:.95;transform:scale(1);pointer-events:auto}
+      #tCtx.on{transform:scale(.92)}
+      #tCtx b{position:absolute;right:-2px;bottom:-2px;font:700 12px/1 system-ui,sans-serif;color:#1b140c;background:#ffe3a1;border-radius:6px;padding:2px 4px}
+      #tCtxHint{position:absolute;z-index:31;max-width:220px;font:600 13px/1.25 system-ui,sans-serif;color:#fff;background:rgba(20,16,12,.85);border:1px solid rgba(255,214,140,.6);
+      border-radius:8px;padding:6px 9px;opacity:0;transition:opacity .3s;pointer-events:none}
+      #tCtxHint.show{opacity:1}`;
+    document.head.appendChild(st);
+    const b = document.createElement('button');
+    b.id = 'tCtx'; b.type = 'button'; b.tabIndex = -1; b.setAttribute('aria-label', 'Use it');
+    const press = (e) => { e.preventDefault(); e.stopPropagation(); CTX.pending = 1; CTX.taps = (CTX.taps || 0) + 1; b.classList.add('on'); };
+    const up = (e) => { e.stopPropagation(); b.classList.remove('on'); };
+    b.addEventListener('pointerdown', press); b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up);
+    b.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
+    document.getElementById('app').appendChild(b);
+    const h = document.createElement('div'); h.id = 'tCtxHint'; document.getElementById('app').appendChild(h);
+    UI.el = b; UI.hint = h;
+    window.addEventListener('keydown', (e) => { if (e.code === CTX.key && !e.repeat && duelOn()) { CTX.pending = 1; b.classList.add('on'); } });
+    window.addEventListener('keyup', (e) => { if (e.code === CTX.key) b.classList.remove('on'); });
+    window.addEventListener('resize', () => { UI.placedFor = ''; });
+  }
+  const touchOn = () => !!(ND.touch && ND.touch.active) && !!document.getElementById('touch') && !document.getElementById('touch').hidden;
+  // the free spot: beside the action buttons, inside the screen, over nothing (every control's circle measured)
+  function uiPlace() {
+    const b = UI.el, app = document.getElementById('app'), W = app.clientWidth, H = app.clientHeight;
+    const key = W + 'x' + H + (touchOn() ? 't' : 'k');
+    if (UI.placedFor === key) return;
+    UI.placedFor = key;
+    const R = app.getBoundingClientRect();
+    if (!touchOn()) { const d = 58; b.style.setProperty('--ctxd', d + 'px'); b.style.translate = `${W - d - 28}px ${H - d - 96}px`; UI.x = W - d / 2 - 28; UI.y = H - d / 2 - 96; UI.r = d / 2; return; }
+    const ctl = [...document.querySelectorAll('#touch button, #touch .t-base, #pauseBtn')].filter((e) => e.offsetParent !== null && getComputedStyle(e).display !== 'none')
+      .map((e) => { const r = e.getBoundingClientRect(); return { x: r.left - R.left + r.width / 2, y: r.top - R.top + r.height / 2, r: Math.max(r.width, r.height) / 2, act: e.dataset ? e.dataset.act : null }; }).filter((c) => c.r > 4);
+    const acts = ctl.filter((c) => c.act);
+    const tb = acts.length ? Math.min(...acts.map((c) => c.r)) * 2 : 64, d = Math.round(tb * 0.92), r = d / 2;
+    // (the safe area: the notch and the home bar, read from env(); --sa-* stands in for it in the layout check)
+    const pr = document.createElement('div');
+    pr.style.cssText = 'position:absolute;visibility:hidden;padding:var(--sa-t,env(safe-area-inset-top,0px)) var(--sa-r,env(safe-area-inset-right,0px)) var(--sa-b,env(safe-area-inset-bottom,0px)) var(--sa-l,env(safe-area-inset-left,0px))';
+    app.appendChild(pr); const cs = getComputedStyle(pr), SA = [cs.paddingTop, cs.paddingRight, cs.paddingBottom, cs.paddingLeft].map((v) => parseFloat(v) || 0); pr.remove();
+    const ok = (x, y) => x - r >= SA[3] + 6 && y - r >= SA[0] + 6 && x + r <= W - SA[1] - 6 && y + r <= H - SA[2] - 6 && ctl.every((c) => Math.hypot(c.x - x, c.y - y) >= c.r + r + 6);
+    const light = acts.find((c) => c.act === 'light') || acts[0];
+    let best = null;
+    for (const c of acts) for (let k = 0; k < 16; k++) {
+      const a = (k / 16) * Math.PI * 2, x = c.x + Math.cos(a) * (c.r + r + 8), y = c.y + Math.sin(a) * (c.r + r + 8);
+      if (!ok(x, y)) continue;
+      const score = (light ? Math.hypot(light.x - x, light.y - y) : 0) + Math.max(0, W * 0.55 - x) * 2;
+      if (!best || score < best.s) best = { x, y, s: score };
+    }
+    if (!best) best = { x: W - r - 10, y: r + 60 };
+    b.style.setProperty('--ctxd', d + 'px');
+    b.style.translate = `${(best.x - r).toFixed(1)}px ${(best.y - r).toFixed(1)}px`;
+    UI.x = best.x; UI.y = best.y; UI.r = r;
+  }
+  function uiHint() {
+    let seen = false;
+    try { seen = localStorage.getItem('sd.duel.ctxHint') === '1'; localStorage.setItem('sd.duel.ctxHint', '1'); } catch (e) { seen = UI.hinted; }
+    if (seen || UI.hinted) return;
+    UI.hinted = true;
+    const h = UI.hint, app = document.getElementById('app');
+    h.textContent = touchOn() ? 'Something to use is in reach: tap this button.' : `Something to use is in reach: press ${KEYNAME}.`;
+    h.style.left = Math.max(8, Math.min(app.clientWidth - 230, (UI.x || 0) - 200)) + 'px';
+    h.style.top = Math.max(8, (UI.y || 0) - (UI.r || 30) - 46) + 'px';
+    h.classList.add('show');
+    setTimeout(() => h.classList.remove('show'), 3800);
+  }
+  // per drawn frame: what the context button would do for the player now (and its icon), shown / hidden smoothly
+  function uiUpdate() {
+    if (!UI.el) uiBuild();
+    if (!UI.el) return;
+    const f = (G.F || []).find((q) => q && q.dz && human(q));
+    let e = null;
+    if (f && P.live && G.phase === 'fight' && !G.paused && !f.dead && (free(f) || P.held(f))) {
+      const hold = (f.ctrl && f.ctrl.axis ? f.ctrl.axis() : 0) * (Math.sign(f.opp.x - f.x) || f.dir);
+      e = ctxPick(f, hold > 0 ? 1 : hold < 0 ? -1 : 0);
+    }
+    if (!e && CTX.force) e = { icon: CTX.force === true ? 'stool' : CTX.force };
+    const on = !!e;
+    if (on) { uiPlace(); if (UI.ic !== e.icon) { UI.ic = e.icon; UI.el.innerHTML = (ICONS[e.icon] || ICONS.barrel) + (touchOn() ? '' : `<b>${KEYNAME}</b>`); } }
+    if (on !== UI.on) { UI.on = on; UI.el.classList.toggle('show', on); if (on && !CTX.force) uiHint(); }
+  }
+  D.envUi = { icons: ICONS, update: () => uiUpdate(), place: () => { UI.placedFor = ''; uiPlace(); }, state: () => ({ on: UI.on, x: UI.x, y: UI.y, r: UI.r, ic: UI.ic, t: CTX.shownT || 0 }) };
 
   // ------------------------------------------------------------------ drawing: the set never hides the fight
   const duelOn = () => !!(G.F && G.F[0] && G.F[0].dz && (G.phase === 'fight' || G.phase === 'ko' || G.phase === 'intro'));
