@@ -121,8 +121,10 @@
     for (const f of G.F) {
       const c = f.dz && f.dz.cine;
       if (!c || c.def !== f || c.ph !== 'bind') continue;
+      // (only for the player who has to press: the CPU's bind is told by the blades alone)
+      if (!human(f) && !/[?&]fx=1(&|$)/.test(location.search || '')) continue;
       const x = cam.sx(c.px), y = cam.sy(c.py), W = T.bindWin, mid = (W[0] + W[1]) / 2;
-      const r0 = 34 * k, r = r0 + Math.max(0, mid - c.t) * 420 * k - Math.max(0, c.t - mid) * 60 * k;
+      const r0 = 26 * k, r = r0 + Math.max(0, mid - c.t) * 260 * k - Math.max(0, c.t - mid) * 40 * k;
       const open = c.t >= W[0] && c.t <= W[1];
       ctx.lineWidth = 3 * u; ctx.strokeStyle = 'rgba(255,255,255,.55)';
       ctx.beginPath(); ctx.arc(x, y, r0, 0, 6.283); ctx.stroke();
@@ -275,5 +277,51 @@
   if (QS.get('auto') !== '0') {
     const go = () => setTimeout(boot, 0);
     if (document.readyState === 'complete') go(); else addEventListener('load', go);
+  }
+
+  // ------------------------------------------------------------------ defence told by the swords, not by effects
+  // (drawing only) Around a block, a parry, a bind and the counter that follows, the screen effects step back so the
+  // blades themselves tell it: no rings, flashes, slash lines across the screen, coloured afterimages, name banners
+  // or pop-up words; a small spark where the blades really touch and the sound stay. The blades' own contact, give
+  // and deflection are drawn in js/duel-depth.js. ?fx=1 brings the old effects back (to compare).
+  if (!/[?&]fx=1(&|$)/.test(location.search || '')) {
+    const Q = { until: -1 };
+    const DEF_ST = { block: 1, parry: 1, dbind: 1, dcut: 1, clash: 1 };
+    const quiet = () => {
+      if ((ND.simClock || 0) < Q.until) return true;
+      const F = G.F;
+      if (!F || !F[0] || !F[0].dz) return false;
+      for (const f of F) if (f.dz && (DEF_ST[f.state] || (f.state === 'atk' && f.atk && f.atk.counter))) return true;
+      return false;
+    };
+    const mark = (s) => { Q.until = Math.max(Q.until, (ND.simClock || 0) + (s || 0.6)); };
+    D.quietDefence = quiet;
+    const fx = ND.fx, ring0 = fx.ring, flash0 = fx.flash, spark0 = fx.spark, text1 = fx.text;
+    fx.ring = function () { if (quiet()) return; return ring0.apply(this, arguments); };
+    fx.flash = function () { if (quiet()) return; return flash0.apply(this, arguments); };
+    // (the spark at the contact stays, small)
+    fx.spark = function (x, y, dir, n, power, col) { if (quiet()) return spark0.call(this, x, y, dir, Math.min(n == null ? 14 : n, 6), (power == null ? 1 : power) * 0.6, col); return spark0.apply(this, arguments); };
+    fx.text = function (x, y, str) { if (quiet() && !/DISARM/i.test(String(str))) return; return text1.apply(this, arguments); };
+    const FPq = ND.Fighter.prototype, blk0 = FPq.blocked, gh0 = FPq.addGhost;
+    FPq.blocked = function () { if (this.dz) mark(0.5); return blk0.apply(this, arguments); };
+    FPq.addGhost = function () { if (this.dz && quiet()) return; return gh0.apply(this, arguments); };
+    const C = ND.cine;
+    if (C) {
+      for (const k of ['onParry', 'counterStart', 'counterHit']) {
+        const f0 = C[k];
+        if (typeof f0 !== 'function') continue;
+        C[k] = function () {
+          const duel = G.F && G.F[0] && G.F[0].dz;
+          if (duel) mark(k === 'counterHit' ? 0.5 : 0.8);
+          const nS = this.slashes.length;
+          const r = f0.apply(this, arguments);
+          if (duel) { this.rings.length = 0; this.slashes.length = Math.min(this.slashes.length, nS); this.banner = null; }
+          return r;
+        };
+      }
+    }
+    if (D.startBind) { const sb0 = D.startBind; D.startBind = function () { mark(0.6); return sb0.apply(this, arguments); }; }
+    // the blade's streak: faint on a counter and while the blades are locked (the cut itself shows the line)
+    if (ND.depth25) ND.depth25.trailAlpha = (f) => (f.state === 'atk' && f.atk && f.atk.counter) || f.state === 'dbind' || f.state === 'dcut' ? 0.3 : 0.7;
   }
 })(window.ND);

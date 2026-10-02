@@ -157,7 +157,7 @@ const cv = [$('c0'), $('c1')], ctx2 = cv.map((c) => c.getContext('2d'));
 // ------------------------------------------------------------------ the game copy
 async function boot() {
   const fr = $('game');
-  fr.src = GAME + '?duel=1&mocap=1&auto=0&mute=1&st=0&lang=en&voice=off&renderer=canvas&vib=0&cap=1#notouch';
+  fr.src = GAME + '?duel=1&mocap=1&mduel=0&auto=0&mute=1&st=0&lang=en&voice=off&renderer=canvas&vib=0&cap=1#notouch';
   await new Promise((r) => fr.addEventListener('load', r, { once: true }));
   W = fr.contentWindow;
   await until(() => W.ND && W.ND.game && W.ND.game.F && W.ND.duel && W.ND.duel.LIST && W.ND.mocap && W.ND.depth25 && W.ND._draw && W.ND.game.saveState);

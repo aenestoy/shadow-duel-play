@@ -309,7 +309,8 @@
   function drawTrail(ctx, f, S, pr, front) {
     const T = trailState(f).T;
     if (T.length < 2) return;
-    const n = T.length;
+    const n = T.length, ka = D.trailAlpha ? D.trailAlpha(f) : 1;
+    if (ka <= 0) return;
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
     for (let i = 1; i < n; i++) {
       const a = T[i - 1], b = T[i];
@@ -318,10 +319,10 @@
       const k = i / n;
       const pa = pr(a.b, W), pb = pr(b.b, W), ta = pr(a.p, W), tb = pr(b.p, W);
       const s = (ta.s + tb.s) * 0.5, near = clamp((s - 1) * 6, -0.6, 1);
-      ctx.fillStyle = `rgba(${D.trailCol ? D.trailCol(f) : '200,222,255'},${(k * (0.34 + 0.22 * near)).toFixed(3)})`;
+      ctx.fillStyle = `rgba(${D.trailCol ? D.trailCol(f) : '200,222,255'},${(ka * k * (0.34 + 0.22 * near)).toFixed(3)})`;
       ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(ta.x, ta.y); ctx.lineTo(tb.x, tb.y); ctx.lineTo(pb.x, pb.y); ctx.closePath(); ctx.fill();
       // bright core along the tip's path: thicker in front of the body
-      ctx.strokeStyle = `rgba(245,250,255,${(k * 0.85).toFixed(3)})`;
+      ctx.strokeStyle = `rgba(245,250,255,${(ka * k * 0.85).toFixed(3)})`;
       ctx.lineWidth = Math.max(0.6, (1.2 + 3.4 * Math.max(0, near)) * k);
       ctx.beginPath(); ctx.moveTo(ta.x, ta.y); ctx.lineTo(tb.x, tb.y); ctx.stroke();
     }
@@ -453,7 +454,7 @@
   D.drawKatana3 = drawKatana3; D.drawSaya3 = drawSaya3; D.drawArmScaled = drawArmScaled;
 
   // Draw fighter f in 2.5D (falls back to the ordinary drawing outside the listed moves).
-  // opt: { glintOff }
+  // opt: { glintOff, skipArm: 'F' | 'B' (tools only) }
   D.draw = function (ctx, f, opt) {
     const S = D.pose3d(f);
     if (!S || f.hidden) { f.draw(ctx, false, false); return; }
@@ -468,6 +469,7 @@
     const D0 = K.pal(c);
     const X = { ropes: f.ropeList(), wpn, acc, glint: 0 };
     const glint = opt && opt.glintOff ? 0 : f.glint();
+    const skip = opt && opt.skipArm; // (tools: leave one arm out, to measure how much of it shows)
     const behind = S.P.haF.z < -4; // sword hand behind the torso (back turned to the camera): the whole arm goes behind
     // (a touch more than the true perspective: the near fist and sleeve read bigger at phone size)
     const kF = clamp(1 + (pr(S.P.haF, W).s * 0.6 + pr(S.P.elF, W).s * 0.4 - 1) * 1.6, 0.75, 1.5);
@@ -479,8 +481,25 @@
     const CO = c.costume && ND.costumeLayer && ND.COSTUMES && ND.COSTUMES[c.costume] ? c.costume : null;
     const swordArm = () => {
       if (S.armed) drawKatana3(ctx, f, S, pr, c, glint); // (an empty-handed fighter, js/duel.js: fists, no blade)
-      drawArmScaled(ctx, K, jF, true, c, D0, X, wpn, acc, kF);
-      if (CO) ND.costumeLayer(CO, 'front', ctx, jF);
+      if (skip !== 'F') {
+        drawArmScaled(ctx, K, jF, true, c, D0, X, wpn, acc, kF);
+        if (CO) ND.costumeLayer(CO, 'front', ctx, jF);
+      }
+      // the far fist holding the hilt (two hands) or the scabbard's mouth (iai) is drawn last, over the handle and the
+      // near arm: both hands always read (side-on, the near forearm would hide it whole)
+      if (skip !== 'B' && farFist()) {
+        ctx.save(); ctx.beginPath(); ctx.arc(jB.haB.x, jB.haB.y, 6.2 * kB, 0, TAU); ctx.clip();
+        ctx.fillStyle = rimOf(c); ctx.beginPath(); ctx.arc(jB.haB.x, jB.haB.y, 6.2 * kB, 0, TAU); ctx.fill();
+        drawArmScaled(ctx, K, jB, false, c, D0, X, wpn, acc, kB);
+        ctx.restore();
+      }
+    };
+    const farFist = () => {
+      if (S.armed && !S.sheathed && S.grip > 0.5) return true;
+      if (!S.armed) return farInFront(j, jB); // (empty hands: the far fist of a guard or a grab, past the near arm)
+      if (!wpn.iai || !S.saya) return false;
+      const m = pr(S.saya.a, W);
+      return Math.hypot(jB.haB.x - m.x, jB.haB.y - m.y) < 16;
     };
     // far side first: scabbard, back leg, cloth ends, back arm
     K.torsoFrame(j);
@@ -489,8 +508,10 @@
     if (CO) ND.costumeLayer(CO, 'back', ctx, j);
     K.drawLeg(ctx, j, false, c, D0);
     if (X.ropes) for (const r of X.ropes) r.rope.draw(ctx, r.col, r.w, 'rgba(255,255,255,.07)');
-    drawArmScaled(ctx, K, jB, false, c, D0, X, wpn, acc, kB);
-    if (CO) ND.costumeLayer(CO, 'backArm', ctx, jB);
+    if (skip !== 'B') {
+      drawArmScaled(ctx, K, jB, false, c, D0, X, wpn, acc, kB);
+      if (CO) ND.costumeLayer(CO, 'backArm', ctx, jB);
+    }
     drawTrail(ctx, f, S, pr, false);
     if (behind) swordArm();
     // torso, twisted: wider as the back or chest turns to the camera, shaded on the side turning away
@@ -519,10 +540,49 @@
     if (CO) ND.costumeLayer(CO, 'head', ctx, j);
     K.drawLeg(ctx, j, true, c, D0);
     if (CO) ND.costumeLayer(CO, 'hem', ctx, j);
+    // the far arm never vanishes: its hand in front of the body (on the hilt, on the scabbard's mouth at the belt, a
+    // fist up in guard) would be hidden whole by the torso drawn over it; its forearm and hand are drawn again in front
+    // of the torso (the upper arm stays behind it), under the near arm
+    if (skip !== 'B' && farInFront(j, jB)) {
+      const e = jB.elB, h = jB.haB, ex = e.x + (h.x - e.x) * 0.3, ey = e.y + (h.y - e.y) * 0.3;
+      const dx = h.x - ex, dy = h.y - ey, dl = Math.hypot(dx, dy) || 1, r = 9 * kB, nx = (-dy / dl) * r, ny = (dx / dl) * r;
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(ex + nx, ey + ny); ctx.lineTo(h.x + nx + (dx / dl) * r, h.y + ny + (dy / dl) * r);
+      ctx.lineTo(h.x - nx + (dx / dl) * r, h.y - ny + (dy / dl) * r); ctx.lineTo(ex - nx, ey - ny); ctx.closePath();
+      ctx.arc(h.x, h.y, r * 1.15, 0, TAU);
+      ctx.clip();
+      // (a thin edge in the body's opposite tone, so a dark sleeve on a dark coat still reads)
+      ctx.strokeStyle = rimOf(c); ctx.lineWidth = 12.5 * kB; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(h.x, h.y); ctx.stroke();
+      drawArmScaled(ctx, K, jB, false, c, D0, X, wpn, acc, kB);
+      if (CO) ND.costumeLayer(CO, 'backArm', ctx, jB);
+      ctx.restore();
+    }
     if (!behind) swordArm();
     drawTrail(ctx, f, S, pr, true);
     ctx.restore();
   };
+  // a rim tone against the fighter's own coat: light on a dark coat, dark on a light one
+  const RIM = new Map();
+  function rimOf(c) {
+    const k = c.cloth || '#808080';
+    let v = RIM.get(k);
+    if (!v) {
+      const n = parseInt(k.slice(1, 7), 16), l = (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
+      v = l < 0.3 ? 'rgba(176,186,220,.6)' : 'rgba(24,18,26,.5)';
+      RIM.set(k, v);
+    }
+    return v;
+  }
+  // the far hand not behind the back (toward where the fighter faces, or inside the body's outline)
+  function farInFront(j, jB) {
+    let ux = j.neck.x - j.hip.x, uy = j.neck.y - j.hip.y; const ul = Math.hypot(ux, uy) || 1; ux /= ul; uy /= ul;
+    const d = j.dir < 0 ? -1 : 1, nx = -uy * d, ny = ux * d; // (forward: perpendicular to the spine, the way it faces)
+    const h = jB.haB, ax = h.x - j.hip.x, ay = h.y - j.hip.y, along = ax * ux + ay * uy;
+    // (anywhere but clearly behind the back: a hand inside the body's outline would be hidden whole)
+    return ax * nx + ay * ny > -15 && along > -24 && along < ul + 40;
+  }
   // What D.draw puts on screen for f, in world 2D (tools: the continuity audit, scripts/duel-continuity.mjs; the duel's
   // props held in a hand). null when f is not drawn through this file. Read only.
   D.snap = function (f, o) {

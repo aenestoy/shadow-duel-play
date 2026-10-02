@@ -19,7 +19,7 @@
   const FLAG = (() => { try { return /[?&]mocap=1(&|$)/.test(location.search || ''); } catch (e) { return false; } })();
   const Mo = (ND.mocap = { on: FLAG, base: 'mocap/', clips: {}, stats: { draws: 0, poses: 0 } });
   const L = ND.LEN;
-  const SHC = 0.86 * L.torso, SHW = 11, HPW = 7.5, HEAD = 15, GRIP2 = 19;
+  const SHC = 0.86 * L.torso, SHW = 11, HPW = 7.5, HEAD = 15, GRIP2 = 19, HILT0 = 4;
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
   const sstep = (u) => { u = clamp(u, 0, 1); return u * u * (3 - 2 * u); };
   const TAU = Math.PI * 2;
@@ -86,7 +86,7 @@
 
   // a frame of the clip at time t (seconds), interpolated; out is a reusable frame
   const DK = ['pl', 'thR', 'snR', 'thL', 'snL', 'sp', 'sc', 'sl', 'hd', 'uaR', 'faR', 'uaL', 'faL', 'bu', 'be', 'ss', 'hf', 'cf'];
-  function newFrame() { const d = {}; for (const k of DK) d[k] = [1, 0, 0]; return { hip: [0, 0, 0], d, A: [0, 0, 0], tw: 0, sw: 0, cR: 0, cL: 0, inside: 0, armed: 0, fistR: 0, fistL: 0 }; }
+  function newFrame() { const d = {}; for (const k of DK) d[k] = [1, 0, 0]; return { hip: [0, 0, 0], d, A: [0, 0, 0], tw: 0, sw: 0, cR: 0, cL: 0, inside: 0, armed: 0, fistR: 0, fistL: 0, vis: null }; }
   function sample(C, t, out) {
     const x = clamp(t * C.fps, 0, C.n - 1), i = Math.floor(x), u = x - i, a = C.F[i], b = C.F[Math.min(C.n - 1, i + 1)];
     out.hip = lerp(a.hip, b.hip, u); out.A = lerp(a.A, b.A, u);
@@ -94,16 +94,38 @@
     out.tw = a.tw + (b.tw - a.tw) * u; out.sw = a.sw + (b.sw - a.sw) * u;
     const n = u < 0.5 ? a : b;
     out.cR = a.cR + (b.cR - a.cR) * u; out.cL = a.cL + (b.cL - a.cL) * u;
-    out.inside = n.inside; out.armed = a.armed && b.armed ? 1 : n.armed; out.fistR = n.fistR; out.fistL = n.fistL;
+    out.inside = n.inside; out.armed = a.armed && b.armed ? 1 : n.armed; out.fistR = n.fistR; out.fistL = n.fistL; out.vis = null;
     return out;
+  }
+  // the edge turns ROUND the blade from a towards b (never through nothing: an edge that flips over would show)
+  function turnAbout(a, b, u, w) {
+    const pa = norm(sub(a, mul(u, dot(a, u)))), pb = norm(sub(b, mul(u, dot(b, u)))), q = cross(u, pa);
+    const th = Math.atan2(dot(q, pb), dot(pa, pb)) * w;
+    return norm(add(mul(pa, Math.cos(th)), mul(q, Math.sin(th))));
+  }
+  // a body's speed: no bone turns faster than a person can (rad / s); a cross-fade or a squeezed wind-up that would
+  // snap is carried over a few frames instead (the duel; the test page's clips play as recorded)
+  function limitTurn(prev, cur, dt, maxT) {
+    for (const k of DK) {
+      const a = prev.d[k], b = cur.d[k], c = clamp(dot(a, b), -1, 1), ang = Math.acos(c), lim = (k === 'bu' || k === 'be' ? maxT * 1.4 : maxT) * dt;
+      if (ang > lim && ang > 1e-4) {
+        // slerp a → b by lim / ang (a nearly opposite pair turns round any perpendicular)
+        let q = sub(b, mul(a, c)); if (len(q) < 1e-5) q = Math.abs(a[1]) < 0.9 ? cross(a, [0, 1, 0]) : cross(a, [1, 0, 0]);
+        q = norm(q); const t = lim;
+        cur.d[k] = norm(add(mul(a, Math.cos(t)), mul(q, Math.sin(t))));
+      }
+    }
+    const dy = cur.hip[1] - prev.hip[1], ly = 900 * dt;
+    if (Math.abs(dy) > ly) cur.hip[1] = prev.hip[1] + Math.sign(dy) * ly;
   }
   // blend frame b into a by weight w (a ← a·(1−w) + b·w); the root (hip x, z) is handled by the rig
   function blendInto(a, b, w) {
     a.hip[1] += (b.hip[1] - a.hip[1]) * w;
     a.A = lerp(a.A, b.A, w);
-    for (const k of DK) a.d[k] = nlerp(a.d[k], b.d[k], w);
+    for (const k of DK) a.d[k] = k === 'be' ? turnAbout(a.d.be, b.d.be, a.d.bu, w) : nlerp(a.d[k], b.d[k], w);
     a.tw += (b.tw - a.tw) * w; a.sw += (b.sw - a.sw) * w; a.cR += (b.cR - a.cR) * w; a.cL += (b.cL - a.cL) * w;
-    if (w >= 0.5) { a.inside = b.inside; a.armed = b.armed; a.fistR = b.fistR; a.fistL = b.fistL; }
+    a.hip[0] += (b.hip[0] - a.hip[0]) * w; a.hip[2] += (b.hip[2] - a.hip[2]) * w;
+    if (w >= 0.5) { a.inside = b.inside; a.armed = b.armed; a.fistR = b.fistR; a.fistL = b.fistL; a.vis = b.vis; }
     else if (b.armed && !a.armed && b.inside) { /* (keep a's state until the cross-fade is half way) */ }
   }
 
@@ -131,6 +153,7 @@
       this.puppet = makePuppet(look);
       this.footLock = true; this.gripFix = true; this.showSaya = true; this.travel = 1;
       this.zTravel = 0; // (travel towards / away from the camera is dropped: the fight is a line)
+      this.driven = false; this.y = 0; this.ovr = null; // (the duel: js/mocap-duel.js)
     }
     // play a clip: { fade (s), rate, from (clip s), to (clip s, stop there), warp, loop, hold (keep last frame) }
     play(id, o = {}) {
@@ -139,6 +162,17 @@
       const fade = o.fade ?? 0.15;
       const Ly = { C, p: 0, rate: o.rate ?? 1, from: o.from ?? 0, to: o.to ?? C.dur, warp: o.warp || null, loop: o.loop ?? C.loop, w: this.layers.length ? 0 : 1, fade, prevRoot: null, done: false, onEnd: o.onEnd || null, mirror: !!o.mirror };
       for (const l of this.layers) l.out = true;
+      this.layers.push(Ly);
+      return Ly;
+    }
+    // driven playback (the duel, js/mocap-duel.js): the caller names what plays now; a new key cross-fades in.
+    // src: { clip: C, t: () => clip s } (a clip at a time the caller computes) or { frame: (out) => out } (a pose made
+    // elsewhere, e.g. the hand-keyed drawing). A layer that fades out keeps running on its own clock.
+    drive(key, src, fade = 0.12) {
+      const top = this.layers[this.layers.length - 1];
+      if (top && top.key === key) { top.src = src; return top; }
+      for (const l of this.layers) { l.out = true; l.fade2 = fade; if (l.src) l.src = Object.assign({}, l.src, { t: null }); }
+      const Ly = { key, src, C: src.clip || null, p: 0, rate: 1, from: 0, to: 1e9, w: this.layers.length ? 0 : 1, fade, done: false, f: newFrame(), ct: 0 };
       this.layers.push(Ly);
       return Ly;
     }
@@ -154,6 +188,17 @@
         // fade weights
         if (Ly.out) Ly.w = Math.max(0, Ly.w - dt / Math.max(1e-3, Ly.fade2 || this.layers[this.layers.length - 1].fade));
         else Ly.w = Math.min(1, Ly.w + dt / Math.max(1e-3, Ly.fade));
+        if (Ly.src) {
+          // driven: the caller's clock while current, its own afterwards (a fading clip runs on, a pose holds)
+          if (Ly.src.clip) {
+            Ly.ct = Ly.src.t && !Ly.out ? Ly.src.t() : Math.min(Ly.C.dur, Ly.ct + dt * (Ly.src.rate || 1));
+            sample(Ly.C, Ly.ct, Ly.f);
+            // (the caller places the body: a clip's own travel is dropped, its hip stays over the root)
+            Ly.f.hip[0] = 0; Ly.f.hip[2] = 0;
+            if (Ly.src.post) Ly.src.post(Ly.f);
+          } else if (Ly.src.frame && (!Ly.out || !Ly.held)) { Ly.src.frame(Ly.f); if (Ly.out) Ly.held = true; }
+          continue;
+        }
         // time
         Ly.p += dt;
         let ct = clipTime(Ly, Ly.p);
@@ -179,6 +224,8 @@
         if (first) { copyFrame(Ly.f, F); first = false; continue; }
         blendInto(F, Ly.f, Ly.w);
       }
+      if (this.maxTurn && dt > 0 && this.prevF) limitTurn(this.prevF, F, dt, this.maxTurn);
+      if (this.maxTurn) this.prevF = copyFrame(F, this.prevF || newFrame());
       this.P = this.build(F, dt);
       Mo.stats.poses++;
       // cloth (hair, ribbon, sash) moves every step on the drawn joints
@@ -187,7 +234,7 @@
     // the 3D joints (local, round the root: x forward, y down, z to the camera) from a blended frame
     build(F, dt) {
       const d = F.d, P = this.P || {};
-      const hip = [0, F.hip[1], 0];
+      const hip = this.driven ? [F.hip[0], F.hip[1] + this.y, F.hip[2]] : [0, F.hip[1], 0];
       P.hip = hip;
       P.hipR = madd(hip, d.pl, HPW); P.hipL = madd(hip, d.pl, -HPW);
       P.knR = madd(P.hipR, d.thR, L.thigh); P.ftR = madd(P.knR, d.snR, L.shin);
@@ -214,6 +261,7 @@
         const e0 = d.be;
         P.blade = { h: P.haR, u, e: norm(sub(e0, mul(u, dot(e0, u)))) };
         P.bladeVis = P.inside ? Math.max(0, len(sub(A, P.haR)) - 2) : null;
+        if (F.vis != null && iai) { P.inside = F.vis < (this.look.wpn || L).blade - 1; P.bladeVis = P.inside ? F.vis : null; }
       } else {
         const h = madd(A, s, -2);
         // edge up in the saya (the katana is worn edge up)
@@ -221,10 +269,20 @@
         P.blade = { h, u: s, e };
         P.bladeVis = null;
       }
+      // a hand and blade the caller wants somewhere else (the duel: blades that meet where the fight says; a flatter
+      // draw): the sword arm reaches there by 3D IK, the blade turns to the given direction, by weight w
+      const O = this.ovr;
+      if (O && O.w > 0 && P.armed) {
+        const T = lerp(P.haR, O.h, O.w), pole = sub(P.elR, lerp(P.shR, P.haR, 0.5));
+        const r = ik3(P.shR, T, L.uArm, L.fArm, pole);
+        P.elR = r.m; P.haR = r.e;
+        const u = O.u ? nlerp(P.blade.u, O.u, O.w) : P.blade.u;
+        P.blade = { h: P.haR, u, e: norm(sub(P.blade.e, mul(u, dot(P.blade.e, u)))) };
+      }
       // left hand: on the handle (katana grip) or holding the saya mouth
       if (this.gripFix) {
         let tgt = null, w = 0;
-        if (F.armed && F.tw > 0.02 && !P.inside) { tgt = madd(P.blade.h, P.blade.u, -GRIP2); w = F.tw; }
+        if (F.armed && F.tw > 0.02 && !P.inside) { tgt = madd(P.blade.h, P.blade.u, -Math.max(GRIP2, ((this.look.wpn || L).handle || 24) - 5)); w = F.tw; }
         else if (F.sw > 0.02) { tgt = madd(A, s, 3); w = F.sw; }
         if (tgt) {
           const T = lerp(P.haL, tgt, w), pole = sub(P.elL, lerp(P.shL, P.haL, 0.5));
@@ -266,10 +324,12 @@
   function copyFrame(a, o) {
     o.hip = a.hip.slice(); o.A = a.A.slice();
     for (const k of DK) o.d[k] = a.d[k].slice();
-    o.tw = a.tw; o.sw = a.sw; o.cR = a.cR; o.cL = a.cL; o.inside = a.inside; o.armed = a.armed; o.fistR = a.fistR; o.fistL = a.fistL;
+    o.tw = a.tw; o.sw = a.sw; o.cR = a.cR; o.cL = a.cL; o.inside = a.inside; o.armed = a.armed; o.fistR = a.fistR; o.fistL = a.fistL; o.vis = a.vis;
     return o;
   }
   Mo.Rig = Rig;
+  Mo.newFrame = newFrame; Mo.sample = sample; Mo.ik3 = ik3;
+  Mo.v = { add, sub, mul, madd, dot, cross, len, norm, lerp, nlerp };
 
   // the rig's cloth (hair, ribbon, sash) moves like the fighter's own: a puppet with the fighter's ropes
   function makePuppet(look) {
@@ -342,6 +402,20 @@
     return JA;
   }
 
+  // a rim tone against the fighter's own coat: light on a dark coat, dark on a light one (as depth25)
+  const RIM = new Map();
+  function rimOf(c) {
+    const k = c.cloth || '#808080';
+    let v = RIM.get(k);
+    if (!v) { const n = parseInt(k.slice(1, 7), 16), l = (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255; v = l < 0.3 ? 'rgba(176,186,220,.6)' : 'rgba(24,18,26,.5)'; RIM.set(k, v); }
+    return v;
+  }
+  // the far hand not behind the back (towards where the body faces, or inside its outline)
+  function farInFront(j, jB) {
+    let ux = j.neck.x - j.hip.x, uy = j.neck.y - j.hip.y; const ul = Math.hypot(ux, uy) || 1; ux /= ul; uy /= ul;
+    const d = j.dir < 0 ? -1 : 1, nx = -uy * d, ny = ux * d, h = jB.haB, ax = h.x - j.hip.x, ay = h.y - j.hip.y, along = ax * ux + ay * uy;
+    return ax * nx + ay * ny > -15 && along > -24 && along < ul + 40;
+  }
   // the blade streak: base and tip of the blade (world 2D) while it moves fast
   function sampleTrail(rg, S, pr) {
     const T = rg.trail, b = S.blade, BL = (rg.look.wpn || L).blade;
@@ -395,7 +469,8 @@
     // cloth (hair, ribbon, sash) on the drawn joints
     const pup = rg.puppet;
     const sheathS = !P.armed ? 1 : P.bladeVis != null ? clamp(1 - P.bladeVis / wpn.blade, 0, 1) : 0; // (how much of the blade is still in the saya)
-    const S = { blade: { h: o3(P.blade.h), u: o3(P.blade.u), e: o3(P.blade.e) }, sheathed: !P.armed, sheathS, saya: { a: o3(P.saya.a), u: o3(P.saya.u), L: P.saya.L } };
+    const bh = P.armed && !P.inside ? madd(P.blade.h, P.blade.u, HILT0) : P.blade.h; // (the guard just ahead of the fist, as depth25)
+    const S = { blade: { h: o3(bh), u: o3(P.blade.u), e: o3(P.blade.e) }, sheathed: !P.armed, sheathS, saya: { a: o3(P.saya.a), u: o3(P.saya.u), L: P.saya.L } };
     sampleTrail(rg, P, pr);
     K.updLight();
     const D0 = K.pal(c);
@@ -411,10 +486,14 @@
     const items = [];
     // (an arm / leg is in front of the body when its middle is nearer the camera than the body's middle)
     const scaleK = (p) => clamp(1 + (pr(p).s - 1) * 1.1, 0.8, 1.3);
+    const AJ = {};
     const armItem = (s) => {
       const front = s === j.armNear;
       const jj = armJoints(j, front, s, P, pr, rg);
       const k = scaleK(P['ha' + s]) * 0.6 + scaleK(P['el' + s]) * 0.4;
+      AJ[s] = { jj, k, front };
+      // (opt.skipArm 'F' | 'B': leave the near / far arm out — the continuity audit measures how much of each shows)
+      if (opt.skipArm === (front ? 'F' : 'B')) return () => {};
       return () => { A3.drawArmScaled(ctx, K, jj, front, c, D0, X, wpn, acc, k); if (CO) ND.costumeLayer(CO, front ? 'front' : 'backArm', ctx, jj); };
     };
     const legItem = (s) => { const front = s === j.legNear; return () => { K.torsoFrame(j); K.drawLeg(ctx, j, front, c, D0); if (front && CO) ND.costumeLayer(CO, 'hem', ctx, j); }; };
@@ -462,6 +541,31 @@
     }
     items.sort((a, b) => a.z - b.z);
     for (const it of items) it.f();
+    // the far arm never vanishes (as the duel's 2.5D drawing, js/depth25.js): drawn behind the body, its forearm and
+    // hand are drawn again in front of the torso when the hand is not behind the back; a far fist on the hilt or at
+    // the scabbard's mouth is drawn last, over the handle and the near arm, with a rim in the coat's opposite tone
+    const fs = j.armNear === 'R' ? 'L' : 'R', far = AJ[fs];
+    const farBehind = zArm(fs) < zT;
+    if (far && opt.skipArm !== 'B' && farBehind && farInFront(j, far.jj)) {
+      const jB = far.jj, kB = far.k, e = jB.elB, h = jB.haB, ex = e.x + (h.x - e.x) * 0.3, ey = e.y + (h.y - e.y) * 0.3;
+      const dx = h.x - ex, dy = h.y - ey, dl = Math.hypot(dx, dy) || 1, r = 9 * kB, nx = (-dy / dl) * r, ny = (dx / dl) * r;
+      ctx.save(); ctx.beginPath();
+      ctx.moveTo(ex + nx, ey + ny); ctx.lineTo(h.x + nx + (dx / dl) * r, h.y + ny + (dy / dl) * r);
+      ctx.lineTo(h.x - nx + (dx / dl) * r, h.y - ny + (dy / dl) * r); ctx.lineTo(ex - nx, ey - ny); ctx.closePath();
+      ctx.arc(h.x, h.y, r * 1.15, 0, TAU); ctx.clip();
+      ctx.strokeStyle = rimOf(c); ctx.lineWidth = 12.5 * kB; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(h.x, h.y); ctx.stroke();
+      A3.drawArmScaled(ctx, K, jB, false, c, D0, X, wpn, acc, kB);
+      ctx.restore();
+    }
+    const onHilt = fs === 'L' && P.armed && !P.inside && P.gripL > 0.5, onSaya = fs === 'L' && wpn.iai && Math.hypot(...sub(P.haL, P.saya.a)) < 16;
+    if (far && opt.skipArm !== 'B' && (onHilt || onSaya) && !far.front) {
+      const jB = far.jj, kB = far.k, h = jB.haB;
+      ctx.save(); ctx.beginPath(); ctx.arc(h.x, h.y, 6.2 * kB, 0, TAU); ctx.clip();
+      ctx.fillStyle = rimOf(c); ctx.beginPath(); ctx.arc(h.x, h.y, 6.2 * kB, 0, TAU); ctx.fill();
+      A3.drawArmScaled(ctx, K, jB, false, c, D0, X, wpn, acc, kB);
+      ctx.restore();
+    }
     ctx.restore();
   };
 

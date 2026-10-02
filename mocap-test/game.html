@@ -2421,9 +2421,11 @@
 <script  data-duel type="text/plain" src="js/duel-seq.js"></script>
 <script  data-duel type="text/plain" src="js/duel-ui.js"></script>
 <script>if(/[?&]duel=\d/.test(location.search))for(const s of document.querySelectorAll('script[data-duel]')){const e=document.createElement('script');e.src=s.getAttribute('src');e.async=false;document.body.appendChild(e);}</script>
-<!-- motion-capture retarget prototype (branch claude/sd-mocap, mocap-test page): inert text the same way; only ?mocap=1 runs it -->
+<!-- motion-capture prototype (branch claude/sd-mocap; docs/SHADOW-DUEL-MOCAP.md): inert text the same way; ?mocap=1 (the
+     mocap-test page) or the duel (?duel=1, unless ?mocap=0) runs it: the duel's fighters are then drawn from recorded motion -->
 <script  data-mocap type="text/plain" src="js/mocap.js"></script>
-<script>if(/[?&]mocap=1(&|$)/.test(location.search))for(const s of document.querySelectorAll('script[data-mocap]')){const e=document.createElement('script');e.src=s.getAttribute('src');e.async=false;document.body.appendChild(e);}</script>
+<script  data-mocap type="text/plain" src="js/mocap-duel.js"></script>
+<script>if(/[?&]mocap=1(&|$)/.test(location.search)||(/[?&]duel=\d/.test(location.search)&&!/[?&]mocap=0(&|$)/.test(location.search)))for(const s of document.querySelectorAll('script[data-mocap]')){const e=document.createElement('script');e.src=s.getAttribute('src');e.async=false;document.body.appendChild(e);}</script>
 <!-- online "play with a friend" (docs/SHADOW-DUEL-ONLINE.md): the match loop and the rooms. data-online: left out of the
      offline portal builds (Yandex, Playgama; vite.config.ts), so they carry no online code or address -->
 <script  data-online src="js/net.js"></script>
