@@ -69,6 +69,7 @@
       const fr = { hip: [dv.getInt16(p, true) / 10, dv.getInt16(p + 2, true) / 10, dv.getInt16(p + 4, true) / 10], d: {} };
       p += 6;
       for (const key of J.dirs) { fr.d[key] = unocta((B[p] << 4) | (B[p + 1] >> 4), ((B[p + 1] & 15) << 8) | B[p + 2]); p += 3; }
+      fill20(fr.d);
       fr.A = [dv.getInt8(p) / 2, dv.getInt8(p + 1) / 2, dv.getInt8(p + 2) / 2]; p += 3;
       fr.tw = B[p] / 255; fr.sw = B[p + 1] / 255;
       const fl = B[p + 2];
@@ -87,7 +88,32 @@
   // a frame of the clip at time t (seconds), interpolated; out is a reusable frame
   // (?read=0: the side-view readability rules off, to compare)
   Mo.readable = !(() => { try { return /[?&]read=0(&|$)/.test(location.search || ''); } catch (e) { return false; } })();
-  const DK = ['pl', 'thR', 'snR', 'thL', 'snL', 'sp', 'sc', 'sl', 'hd', 'uaR', 'faR', 'uaL', 'faL', 'bu', 'be', 'ss', 'hf', 'cf'];
+  const DK = ['pl', 'thR', 'snR', 'thL', 'snL', 'sp', 'sc', 'sl', 'hd', 'uaR', 'faR', 'uaL', 'faL', 'bu', 'be', 'ss', 'hf', 'cf',
+    'ch', 'nk', 'cR', 'cL', 'fwR', 'hdR', 'fwL', 'hdL', 'toR', 'toL'];
+  // the 20-joint body (?j20=0: the 14-joint one, to compare): pelvis → chest → neck, the shoulders hung from the chest
+  // (clavicles: shrugs, a shoulder thrown forward), wrists (the hand bends off the forearm), the feet's own direction
+  Mo.j20 = !(() => { try { return /[?&]j20=0(&|$)/.test(location.search || ''); } catch (e) { return false; } })();
+  const L20 = { ch: 38.4, nk: 17.6, sh: 18.1, fw: 23.5, hd: 5.5, toe: 13 };
+  Mo.L20 = L20;
+  // a frame without the 20-joint directions (an older clip, a hand-keyed pose): derived from the 14-joint ones
+  function fill20(d, force) {
+    if (force) d.ch = d.nk = d.cR = d.cL = d.fwR = d.hdR = d.fwL = d.hdL = d.toR = d.toL = null;
+    if (!d.ch) d.ch = d.sp.slice();
+    if (!d.nk) d.nk = d.sp.slice();
+    if (!d.cR || !d.cL) {
+      // the shoulder points of the 14-joint body (0.86 up the spine, ±11 across) seen from the chest point
+      const sc = mul(d.sc, SHC), ch = mul(d.ch, L20.ch);
+      d.cR = norm(sub(add(sc, mul(d.sl, SHW)), ch)); d.cL = norm(sub(add(sc, mul(d.sl, -SHW)), ch));
+    }
+    if (!d.fwR) d.fwR = d.faR.slice();
+    if (!d.hdR) d.hdR = d.faR.slice();
+    if (!d.fwL) d.fwL = d.faL.slice();
+    if (!d.hdL) d.hdL = d.faL.slice();
+    if (!d.toR) d.toR = [1, 0, 0];
+    if (!d.toL) d.toL = [1, 0, 0];
+    return d;
+  }
+  Mo.fill20 = fill20;
   function newFrame() { const d = {}; for (const k of DK) d[k] = [1, 0, 0]; return { hip: [0, 0, 0], d, A: [0, 0, 0], tw: 0, sw: 0, cR: 0, cL: 0, inside: 0, armed: 0, fistR: 0, fistL: 0, vis: null }; }
   function sample(C, t, out) {
     const x = clamp(t * C.fps, 0, C.n - 1), i = Math.floor(x), u = x - i, a = C.F[i], b = C.F[Math.min(C.n - 1, i + 1)];
@@ -156,6 +182,7 @@
       this.footLock = true; this.gripFix = true; this.showSaya = true; this.travel = 1;
       this.zTravel = 0; // (travel towards / away from the camera is dropped: the fight is a line)
       this.driven = false; this.y = 0; this.ovr = null; // (the duel: js/mocap-duel.js)
+      this.j20 = Mo.j20;
     }
     // play a clip: { fade (s), rate, from (clip s), to (clip s, stop there), warp, loop, hold (keep last frame) }
     play(id, o = {}) {
@@ -247,12 +274,22 @@
       P.hipR = madd(hip, d.pl, HPW); P.hipL = madd(hip, d.pl, -HPW);
       P.knR = madd(P.hipR, d.thR, L.thigh); P.ftR = madd(P.knR, d.snR, L.shin);
       P.knL = madd(P.hipL, d.thL, L.thigh); P.ftL = madd(P.knL, d.snL, L.shin);
-      P.neck = madd(hip, d.sp, L.torso);
-      const shC = madd(hip, d.sc, SHC);
-      P.shR = madd(shC, d.sl, SHW); P.shL = madd(shC, d.sl, -SHW);
+      if (this.j20) {
+        // pelvis → chest → neck; the shoulders from the chest point; elbow → wrist → the fist's centre; the feet's own way
+        P.chest = madd(hip, d.ch, L20.ch); P.neck = madd(P.chest, d.nk, L20.nk);
+        P.shR = madd(P.chest, d.cR, L20.sh); P.shL = madd(P.chest, d.cL, L20.sh);
+        P.elR = madd(P.shR, d.uaR, L.uArm); P.wrR = madd(P.elR, d.fwR, L20.fw); P.haR = madd(P.wrR, d.hdR, L20.hd);
+        P.elL = madd(P.shL, d.uaL, L.uArm); P.wrL = madd(P.elL, d.fwL, L20.fw); P.haL = madd(P.wrL, d.hdL, L20.hd);
+        P.toR = d.toR; P.toL = d.toL;
+      } else {
+        P.chest = null; P.wrR = P.wrL = null; P.toR = P.toL = null;
+        P.neck = madd(hip, d.sp, L.torso);
+        const shC = madd(hip, d.sc, SHC);
+        P.shR = madd(shC, d.sl, SHW); P.shL = madd(shC, d.sl, -SHW);
+        P.elR = madd(P.shR, d.uaR, L.uArm); P.haR = madd(P.elR, d.faR, L.fArm);
+        P.elL = madd(P.shL, d.uaL, L.uArm); P.haL = madd(P.elL, d.faL, L.fArm);
+      }
       P.head = madd(P.neck, d.hd, HEAD);
-      P.elR = madd(P.shR, d.uaR, L.uArm); P.haR = madd(P.elR, d.faR, L.fArm);
-      P.elL = madd(P.shL, d.uaL, L.uArm); P.haL = madd(P.elL, d.faL, L.fArm);
       P.cf = d.cf; P.hf = d.hf; P.pl = d.pl;
       // the upper body leans by this.lean (rad, + back, − in) round the hip: the duel keeps the fronts of two bodies
       // pressing in a bind apart this way (js/mocap-duel.js); arms and blade are solved again after it
@@ -261,6 +298,12 @@
         for (const k of UPPER) { const q = P[k]; if (!q) continue; const dx = q[0] - h0[0], dy = q[1] - h0[1]; P[k] = [h0[0] + dx * cs + dy * sn, h0[1] - dx * sn + dy * cs, q[2]]; }
       }
       // a body that reads from the side (every frame): the head ON the neck, above the shoulders, never sunk in the chest
+      // (20 joints: the torso never folds more than 30° at the chest — a knockdown's 50-60° fold turned the straps into
+      // stripes; the upper body is turned back round the chest point, arms and blade solved after it)
+      if (P.chest && Mo.readable) {
+        const a = norm(sub(P.chest, P.hip)), b = norm(sub(P.neck, P.chest)), c = clamp(dot(a, b), -1, 1), ang = Math.acos(c), MAXF = (30 * Math.PI) / 180;
+        if (ang > MAXF) { const ax = cross(b, a), sa = len(ax); if (sa > 1e-5) rotAbout(P, P.chest, mul(ax, 1 / sa), ang - MAXF, ['neck', 'head', 'shR', 'shL', 'elR', 'elL', 'wrR', 'wrL', 'haR', 'haL']); }
+      }
       if (this.readable !== false && Mo.readable) readableTorso(P);
       // a body with its back to the camera is drawn as if turned TO it (Mo.draw: the depth order of the upper body
       // mirrored, arms and blade in front of the body instead of vanishing behind it; the joints are not moved, the
@@ -326,6 +369,8 @@
         } else P.gripL = 0;
       }
       P.fistR = !!F.fistR || P.armed; P.fistL = !!F.fistL;
+      // (after the arm IK above: the wrist sits behind the fist along the hand's own direction)
+      if (this.j20) { P.wrR = madd(P.haR, d.hdR, -L20.hd); P.wrL = madd(P.haL, d.hdL, -L20.hd); }
       // feet planted where they landed (world x, z kept; leg IK from the hip joint)
       if (this.footLock) for (const side of ['R', 'L']) this.lockFoot(P, side, side === 'R' ? F.cR : F.cL, dt);
       // last word on a standing leg (after the planted feet and their steps): its line at least 35° under the horizontal
@@ -366,13 +411,27 @@
       // (last of all) the drawn body is thicker than the recorded one: lying down, nothing may go through the floor
       { let lift = 0;
         for (const [k, r] of FLOOR_R) { const q = P[k]; if (q && q[1] + r > lift) lift = q[1] + r; }
+        // (off its feet — launched, lying, rolling — the feet too: an ankle is never drawn under the floor)
+        if (this.legs && !this.legs.grounded) for (const k of ['ftR', 'ftL']) { const q = P[k]; if (q && q[1] + 1 > lift) lift = q[1] + 1; }
         // (it rises at once — nothing ever goes through the floor — but lets go over ~0.06 s: a roll's head or knee
         // leaving the floor in one frame never drops the whole body by it)
         if (dt > 0 && this.liftS > lift && !(this.legs && this.legs.grounded)) lift = Math.max(lift, this.liftS * Math.exp(-dt / 0.06));
         this.liftS = lift;
         if (lift > 0) for (const k of ALLJ) if (P[k]) P[k] = [P[k][0], P[k][1] - lift, P[k][2]];
         if (lift > 0) { P.blade.h = [P.blade.h[0], P.blade.h[1] - lift, P.blade.h[2]]; P.saya.a = [P.saya.a[0], P.saya.a[1] - lift, P.saya.a[2]]; } }
-
+      if (P.chest && Mo.readable) {
+        feetAndWrists(P);
+        // (a foot turns at most 10 rad/s: a source change, a foot leaving the floor or a fast clip never swing it round in a frame)
+        const T0 = this.toPrev || (this.toPrev = {});
+        for (const sd of ['R', 'L']) {
+          const to = P['to' + sd], p0 = T0[sd];
+          if (p0 && dt > 0) {
+            const c = clamp(dot(p0, to), -1, 1), ang = Math.acos(c), mx = 10 * dt;
+            if (ang > mx) { let pp = sub(to, mul(p0, c)); const pl = len(pp); pp = pl > 1e-5 ? mul(pp, 1 / pl) : [0, -1, 0]; P['to' + sd] = norm(add(mul(p0, Math.cos(mx)), mul(pp, Math.sin(mx)))); }
+          }
+          T0[sd] = P['to' + sd].slice();
+        }
+      }
       return P;
     }
     // LEGS FROM THE SIDE (the game is seen side-on): a recorded leg that points at / away from the camera, a wide
@@ -584,6 +643,40 @@
     }
     b.u = u; b.e = e;
   }
+  // 20 joints, last of all: a foot's toe and heel never below the floor (a planted foot kept the clip's tiptoe and was
+  // drawn stabbed into the floor: the foot is turned onto the floor, or onto its toes above it), and a hand never folded
+  // more than 55° off its forearm (the wrist moves, the hand and the blade stay)
+  const TOE = 13, HEEL = 4.5;
+  function feetAndWrists(P) {
+    for (const s of ['R', 'L']) {
+      const ft = P['ft' + s], to = P['to' + s];
+      if (ft && to) {
+        const lo = Math.min(0, ft[1] / HEEL), hi = Math.max(0, -ft[1] / TOE), ty = clamp(to[1], lo, hi);
+        if (ty !== to[1]) { const h = Math.hypot(to[0], to[2]) || 1, k = Math.sqrt(Math.max(0, 1 - ty * ty)) / h; P['to' + s] = h > 1e-4 ? [to[0] * k, ty, to[2] * k] : [Math.sqrt(1 - ty * ty), ty, 0]; }
+      }
+      const el = P['el' + s], wr = P['wr' + s], ha = P['ha' + s];
+      if (el && wr && ha) {
+        const fw = norm(sub(wr, el)), hd = norm(sub(ha, wr)), c = clamp(dot(fw, hd), -1, 1), MAXW = (55 * Math.PI) / 180;
+        if (Math.acos(c) > MAXW) {
+          // the hand direction turned toward the forearm to 60°: the wrist moves behind the fist along it
+          let perp = sub(hd, mul(fw, c)); const pl = len(perp); perp = pl > 1e-5 ? mul(perp, 1 / pl) : [0, 1, 0];
+          const h2 = add(mul(fw, Math.cos(MAXW)), mul(perp, Math.sin(MAXW)));
+          P['wr' + s] = madd(ha, h2, -len(sub(ha, wr)));
+        }
+      }
+    }
+  }
+  // the drawn toe point of a 20-joint foot (world 2D). Seen from the side a foot reads by its pitch (heel-toe roll, a
+  // push-off, toes hanging in a step): the drawn foot keeps the recorded pitch and always points the way the body faces
+  // — a recorded foot that turns through the camera's line swung the drawn one from back to front in a frame, and one
+  // pointing into the picture was drawn full length along a sliver. The toe is never drawn under the floor.
+  function footTip(rg, P, pr, s) {
+    const ft = P['ft' + s], to = P['to' + s], a = pr(ft), full = L20.toe * a.s, face = (rg.dir || 1) * (rg.flip || 1);
+    let pitch = Math.atan2(to[1], Math.hypot(to[0], to[2]));
+    const fl = Math.max(a.y, 0) - a.y; if (Math.sin(pitch) * full > fl) pitch = Math.asin(clamp(fl / full, -1, 1));
+    return { x: a.x + face * Math.cos(pitch) * full, y: a.y + Math.sin(pitch) * full, r: 1 };
+  }
+  Mo.footTip = (rg, s) => { const P = rg.P; if (!P || !P.chest) return null; return footTip(rg, P, projector(rg), s); };
   function readableTorso(P) {
     const h = P.hip, v = sub(P.neck, h), Lv = len(v) || 1, xy = Math.hypot(v[0], v[1]);
     if (xy < 0.8 * Lv) {
@@ -629,7 +722,7 @@
   const FLOOR_R2 = [['ftR', 0], ['ftL', 0], ['knR', 6], ['knL', 6], ['hip', 12], ['neck', 10], ['head', 13], ['shR', 7], ['shL', 7], ['elR', 5], ['elL', 5], ['haR', 4], ['haL', 4]];
   // how far each drawn part reaches round its joint (the floor check above); feet: none (they stand on it)
   const FLOOR_R = [['head', 13], ['neck', 10], ['hip', 12], ['shR', 7], ['shL', 7], ['elR', 5], ['elL', 5], ['haR', 4], ['haL', 4], ['knR', 7], ['knL', 7]];
-  const ALLJ = ['hip', 'hipR', 'hipL', 'knR', 'ftR', 'knL', 'ftL', 'neck', 'head', 'shR', 'shL', 'elR', 'haR', 'elL', 'haL'];
+  const ALLJ = ['hip', 'hipR', 'hipL', 'knR', 'ftR', 'knL', 'ftL', 'neck', 'head', 'shR', 'shL', 'elR', 'haR', 'elL', 'haL', 'chest', 'wrR', 'wrL'];
   function copyFrame(a, o) {
     o.hip = a.hip.slice(); o.A = a.A.slice();
     for (const k of DK) o.d[k] = a.d[k].slice();
@@ -689,6 +782,15 @@
     put('hipF', P['hip' + gN]); put('hipB', P['hip' + gF]); put('knF', P['kn' + gN]); put('ftF', P['ft' + gN]); put('knB', P['kn' + gF]); put('ftB', P['ft' + gF]);
     j.hang = Math.atan2(j.head.y - j.neck.y, j.head.x - j.neck.x);
     j.armNear = aN; j.legNear = gN;
+    // the 20-joint body: the chest point (the drawn torso bends there, js/skeleton.js torsoFrame), the wrists (the
+    // hand bends off the forearm: armGeom), the feet's own direction (heel-toe: footFrame reads ft.tx / ft.ty)
+    if (P.chest) {
+      put('chest', P.chest); put('wrF', P['wr' + aN]); put('wrB', P['wr' + aF]);
+      for (const [k, s] of [['ftF', gN], ['ftB', gF]]) { const t = footTip(rg, P, pr, s); j[k].tx = t.x; j[k].ty = t.y; j[k].tr = t.r; }
+      // each half of the torso turns by itself: the chest with the shoulders, the pelvis with the hips
+      const pf = [P.pl[2], 0, -P.pl[0]];
+      j.psiC = Math.atan2(P.cf[2] * (P.mir ? -1 : 1), Math.abs(P.cf[0])); j.psiP = Math.atan2(pf[2], Math.abs(pf[0]) + 1e-6);
+    } else { j.chest = null; j.wrF = j.wrB = null; j.ftF.tx = j.ftB.tx = undefined; j.ftF.tr = j.ftB.tr = undefined; j.psiC = j.psiP = null; }
     return j;
   }
   // the depth a part is DRAWN at: a body with its back to the camera (P.mir, see build) has its upper body's depth
@@ -823,24 +925,37 @@
     if (P.armed && kSide) { const f0 = armR.f; armR.f = () => { drawTrail(ctx, rg, armR.z >= zT); katana(); f0(); }; }
     else if (P.armed) items.push({ z: zk, f: () => { drawTrail(ctx, rg, zk >= zT); katana(); } });
     // the torso (with the head on it); the scabbard at the far hip
+    // the torso's turn shading: chest open to the camera → lit, back to it → in shadow (one band of the torso)
+    const shadeBand = (TF, sp, cx0, cy0, nx, ny, clipHalf) => {
+      if (Math.abs(sp) <= 0.02) return;
+      ctx.save(); ctx.beginPath(); K.torsoPath(ctx); ctx.clip();
+      if (clipHalf) { ctx.beginPath(); clipHalf(); ctx.clip(); }
+      const ax = cx0 + nx * 20, ay = cy0 + ny * 20, bx = cx0 - nx * 20, by = cy0 - ny * 20;
+      const g = ctx.createLinearGradient(ax, ay, bx, by);
+      if (sp < 0) { g.addColorStop(0, `rgba(0,0,0,${(0.62 * -sp).toFixed(3)})`); g.addColorStop(0.55, `rgba(0,0,0,${(0.2 * -sp).toFixed(3)})`); g.addColorStop(1, 'rgba(0,0,0,0)'); }
+      else { g.addColorStop(0, `rgba(255,236,214,${(0.22 * sp).toFixed(3)})`); g.addColorStop(0.6, 'rgba(255,236,214,0)'); g.addColorStop(1, `rgba(0,0,0,${(0.3 * sp).toFixed(3)})`); }
+      ctx.fillStyle = g; ctx.fillRect(Math.min(ax, bx) - 60, Math.min(ay, by) - 80, Math.abs(ax - bx) + 120, Math.abs(ay - by) + 160);
+      ctx.restore();
+    };
     const torso = () => {
+      // (20-joint body: the chest and the pelvis each widen and shade by their own turn)
+      const sC = Math.sin(j.psiC != null ? j.psiC : Math.atan2(P.cf[2] * (P.mir ? -1 : 1), Math.abs(P.cf[0]))), sP = Math.sin(j.psiP != null ? j.psiP : 0);
+      if (j.chest) { j.wideC = 1 + 0.3 * Math.abs(sC); j.wideP = 1 + 0.3 * Math.abs(sP); }
       K.torsoFrame(j);
       // (a long blade worn on the back keeps the drawing's own scabbard, as depth25 does)
       if (!wpn.iai && K.saya && wpn.type !== 'naginata' && wpn.type !== 'bo' && wpn.type !== 'tessen' && wpn.type !== 'kusarigama') K.saya(ctx, j, c, D0, wpn);
       if (X.ropes) for (const r of X.ropes) r.rope.draw(ctx, r.col, r.w, 'rgba(255,255,255,.07)');
       if (CO) ND.costumeLayer(CO, 'back', ctx, j);
-      const TF = K.TF, psi = Math.atan2(P.cf[2] * (P.mir ? -1 : 1), Math.abs(P.cf[0])), sp = Math.sin(psi), wide = 1 + 0.3 * Math.abs(sp);
-      TF.nx *= wide; TF.ny *= wide;
+      const TF = K.TF;
+      if (!j.chest) { const wide = 1 + 0.3 * Math.abs(sC); TF.nx *= wide; TF.ny *= wide; }
       K.drawTorso(ctx, j, c, D0, acc, 15);
-      if (Math.abs(sp) > 0.02) {
-        ctx.save(); ctx.beginPath(); K.torsoPath(ctx); ctx.clip();
-        const cxm = (j.hip.x + j.neck.x) * 0.5, cym = (j.hip.y + j.neck.y) * 0.5;
-        const ax = cxm + TF.nx * 20, ay = cym + TF.ny * 20, bx = cxm - TF.nx * 20, by = cym - TF.ny * 20;
-        const g = ctx.createLinearGradient(ax, ay, bx, by);
-        if (sp < 0) { g.addColorStop(0, `rgba(0,0,0,${(0.62 * -sp).toFixed(3)})`); g.addColorStop(0.55, `rgba(0,0,0,${(0.2 * -sp).toFixed(3)})`); g.addColorStop(1, 'rgba(0,0,0,0)'); }
-        else { g.addColorStop(0, `rgba(255,236,214,${(0.22 * sp).toFixed(3)})`); g.addColorStop(0.6, 'rgba(255,236,214,0)'); g.addColorStop(1, `rgba(0,0,0,${(0.3 * sp).toFixed(3)})`); }
-        ctx.fillStyle = g; ctx.fillRect(Math.min(ax, bx) - 40, Math.min(ay, by) - 60, Math.abs(ax - bx) + 80, Math.abs(ay - by) + 120);
-        ctx.restore();
+      if (!j.chest) shadeBand(TF, sC, (j.hip.x + j.neck.x) * 0.5, (j.hip.y + j.neck.y) * 0.5, TF.nx, TF.ny, null);
+      else {
+        // the line across the torso at the chest point splits it: the pelvis half below, the chest half above
+        const cx0 = j.chest.x, cy0 = j.chest.y, ux = TF.ux, uy = TF.uy, R = 400;
+        const half = (up) => () => { const s0 = up ? 1 : -1; ctx.moveTo(cx0 - uy * R, cy0 + ux * R); ctx.lineTo(cx0 + uy * R, cy0 - ux * R); ctx.lineTo(cx0 + uy * R + ux * R * s0, cy0 - ux * R + uy * R * s0); ctx.lineTo(cx0 - uy * R + ux * R * s0, cy0 + ux * R + uy * R * s0); ctx.closePath(); };
+        shadeBand(TF, sP, (j.hip.x + cx0) * 0.5, (j.hip.y + cy0) * 0.5, TF.n1x, TF.n1y, half(false));
+        shadeBand(TF, sC, (cx0 + j.neck.x) * 0.5, (cy0 + j.neck.y) * 0.5, TF.n2x, TF.n2y, half(true));
       }
       if (CO) ND.costumeLayer(CO, 'body', ctx, j);
       K.torsoFrame(j);
