@@ -1338,6 +1338,8 @@
 
     render() {
       ND.beginBakeFrame?.();
+
+      fx.quiet = this.mode === 'attract' || !!this.paused || this.phase === 'end' || !!(ND.portal && ND.portal.inAd);
       const behindUi = this.phase === 'select' || this.phase === 'vs' || this.phase === 'ending';
 
       if (glr && !GL_FORCE && glr.error) {
@@ -1438,10 +1440,10 @@
       scene.drawFront(ctx);
       PM('front');
       fx.drawTexts(ctx);
-      score.drawPops(ctx);
+      if (!fx.quiet) score.drawPops(ctx);
       this.drawPrompts();
-      if (ND.telegraph) ND.telegraph.draw(ctx, this);
-      if (ND.cine) ND.cine.draw(ctx);
+      if (ND.telegraph && !fx.quiet) ND.telegraph.draw(ctx, this);
+      if (ND.cine && !fx.quiet) ND.cine.draw(ctx);
       if (ND.tutor && ND.tutor.on) ND.tutor.draw(ctx);
       this.overlays();
       PM('hud');
@@ -1990,7 +1992,9 @@
       pv.st += rdt;
       const tp = ND.pose.copy(ND.POSES[pv.pvPose] || (pv.P && pv.P.stance) || ND.POSES.stance, pv.tmp);
       tp.hy += Math.sin(t * 2.3) * 1.3; tp.ay += Math.sin(t * 2.3 + 0.6) * 1.6; tp.sw += Math.sin(t * 1.15) * 0.035;
-      ND.pose.approach(pv.pose, tp, pv.pvPose ? 4 : 10, rdt);
+
+      const gr = ND.alive ? ND.alive.gesture(pv, tp, rdt) : 0;
+      ND.pose.approach(pv.pose, tp, gr || (pv.pvPose ? 4 : 10), rdt);
       pv.solve(rdt);
       ND.updateCloth(pv.j, rdt);
     },

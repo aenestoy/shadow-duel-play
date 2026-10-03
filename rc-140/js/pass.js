@@ -401,7 +401,11 @@
       const g = LV.claim(se.C, S(), se.key, tier, way, ok, { ranked: hasRanked() });
       if (g) {
         commit();
-        if (!payOut(g)) gotToast(g);
+
+
+        const it = g.id ? LV.item(g.id) : null;
+        const cel = !!it && safe(() => ND.alive && ND.alive.celebrate({ kind: 'claim', icon: icon(g.id), title: g.dup ? T().gotDup(g.n) : itemName(g.id), sub: T().got, color: it.color }));
+        if (!payOut(g) && !cel) gotToast(g);
         fx('claim'); changed(); applyWorn(); if (first) once('first_bonus_claim');
 
         if ((g.kind === 'rw' || g.kind === 'shield') && ND.passNet) ND.passNet.now();
@@ -1143,8 +1147,12 @@
   let io = null;
   const ioT = new Map();
   function stopWatch() { if (io) io.disconnect(); io = null; for (const k of ioT.values()) clearTimeout(k); ioT.clear(); }
+
+  const WIPE_MS = 500;
+  let watchAt = 0;
   function watchNew() {
     stopWatch();
+    watchAt = Date.now();
     if (typeof IntersectionObserver !== 'function' || !pov) return;
     io = new IntersectionObserver((es) => {
       for (const e of es) {
@@ -1153,7 +1161,7 @@
           if (!ioT.has(el)) ioT.set(el, setTimeout(() => {
             ioT.delete(el);
             if (P.isOpen && tab === 'profile' && el.isConnected && !document.hidden) markSeen(id);
-          }, SEEN_MS));
+          }, SEEN_MS + Math.max(0, watchAt + WIPE_MS - Date.now())));
         } else if (ioT.has(el)) { clearTimeout(ioT.get(el)); ioT.delete(el); }
       }
     }, { threshold: [0, 0.5, 1] });

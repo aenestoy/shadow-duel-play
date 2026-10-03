@@ -148,6 +148,9 @@
   const decalCap = () => (ND.gfx && ND.gfx.tier === 'low' ? 140 : 420);
   const fx = ND.fx = {
     parts: [], decals: [], texts: [],
+
+
+    quiet: false,
     clear() { this.parts.length = 0; this.decals.length = 0; this.texts.length = 0; },
     spark(x, y, dir, n = 14, power = 1, color = '255,214,140') {
       for (let i = 0; i < n; i++) {
@@ -320,6 +323,7 @@
           ctx.beginPath(); ctx.ellipse(0, 0, p.size * 0.5, p.size * 0.5, 0, 0, 6.283); ctx.fill();
           ctx.restore();
         } else if (p.k === 'r') {
+          if (this.quiet) continue;
           ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = t;
           ctx.strokeStyle = rgbC(p.c); ctx.lineWidth = 3 * t + 0.5;
           ctx.beginPath(); ctx.arc(p.x, p.y, p.size * (1.15 - t), 0, 6.283); ctx.stroke();
@@ -375,6 +379,7 @@
       ctx.globalAlpha = 0.92 * a; ctx.fillStyle = p.ic || INK; path(1); ctx.fill();
     },
     drawTexts(ctx) {
+      if (this.quiet) return;
       for (const t of this.texts) {
         const a = Math.min(1, t.life / t.max * 2.2);
         const x = cam.sx(t.x), y = cam.sy(t.y);

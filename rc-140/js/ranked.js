@@ -1562,7 +1562,9 @@
     if (screen !== 'pick' || !X || !p.box.isConnected || !rk || rk.hidden) { stopPreview(); return; }
     const dt = Math.min(0.05, Math.max(0, (now - p.last) / 1000));
     p.last = now;
-    G.stepPv(p.f, dt, now / 1000);
+
+
+    for (let r = dt, t = now / 1000 - dt; r > 1e-6; ) { const h = Math.min(1 / 60, r); r -= h; t += h; G.stepPv(p.f, h, t); }
     drawPreview(true);
     p.raf = requestAnimationFrame(previewFrame);
   }
