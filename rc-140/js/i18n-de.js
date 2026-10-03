@@ -1302,6 +1302,8 @@
         aiNote: 'Wenn wenige Spieler online sind, kannst du auf KI-Gegner treffen, die im Stil echter Spieler kämpfen.', gotIt: 'Verstanden',
         err: { network: 'Server nicht erreichbar. Prüfe deine Internetverbindung.', bad_version: 'Eine neue Spielversion ist da: Lade die Seite neu.', busy: 'Die Warteschlange ist voll, versuch es gleich noch mal.',
           rate_limited: 'Zu viele Versuche, warte kurz.', disabled: 'Ranglistenspiele sind gerade nicht verfügbar.', banned: 'Dieses Konto darf keine Ranglistenspiele spielen.', other: 'Etwas ist schiefgelaufen, versuch es noch mal.' },
+
+        bg: { ru: 'Während der Suche stöbern', stopT: 'Ranglistensuche beenden?', stopS: 'Dieser Kampf beendet deine Suche.', stopGo: 'Beenden und spielen', keep: 'Weiter suchen', stopped: 'Ranglistensuche beendet', chip: 'Suche' },
         card: { findMatch: 'Match suchen', searching: 'Suche…', resume: 'Zurück zum Match',
           place: (p, n) => `Platz ${p} von ${n}`, placeOnly: (p) => `Platz ${p} der Rangliste`,
           toBoard: (n) => (n === 1 ? 'Noch 1 Match bis zur Rangliste' : `Noch ${n} Matches bis zur Rangliste`), toBoardSoon: 'Noch ein paar Matches bis zur Rangliste',

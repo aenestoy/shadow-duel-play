@@ -1292,6 +1292,8 @@
         aiNote: 'Cuando hay pocos jugadores conectados, puedes enfrentarte a rivales de IA que juegan con el estilo de jugadores reales.', gotIt: 'Entendido',
         err: { network: 'No se pudo contactar con el servidor. Revisa tu conexión a internet.', bad_version: 'Hay una versión nueva del juego: recarga la página.', busy: 'La cola está muy llena, inténtalo en un rato.',
           rate_limited: 'Demasiados intentos, espera un momento.', disabled: 'El modo clasificatorio no está disponible ahora.', banned: 'Esta cuenta no puede jugar clasificatorias.', other: 'Algo salió mal, inténtalo de nuevo.' },
+
+        bg: { ru: 'Explorar mientras buscas', stopT: '¿Detener la búsqueda clasificatoria?', stopS: 'Empezar este combate termina tu búsqueda.', stopGo: 'Detener y jugar', keep: 'Seguir buscando', stopped: 'Búsqueda clasificatoria detenida', chip: 'Buscando' },
         card: { findMatch: 'Buscar rival', searching: 'Buscando…', resume: 'Volver al combate',
           place: (p, n) => `#${p} de ${n} en la tabla`, placeOnly: (p) => `#${p} en la tabla`,
           toBoard: (n) => (n === 1 ? '1 combate más para entrar en la clasificación' : `${n} combates más para entrar en la clasificación`), toBoardSoon: 'Unos combates más para entrar en la clasificación',

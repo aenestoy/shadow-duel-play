@@ -1290,6 +1290,8 @@
         aiNote: '線上玩家較少時，你可能會配對到模仿真實玩家風格的 AI 對手。', gotIt: '知道了',
         err: { network: '無法連上伺服器。請檢查你的網路連線。', bad_version: '遊戲有新版本了：請重新整理頁面。', busy: '目前排隊人數很多，請稍後再試。',
           rate_limited: '嘗試次數過多，請稍等一下。', disabled: '排位賽目前暫停中。', banned: '這個帳號無法參加排位賽。', other: '發生錯誤，請再試一次。' },
+
+        bg: { ru: '搜尋時瀏覽選單', stopT: '停止排位配對？', stopS: '開始這場戰鬥會結束配對。', stopGo: '停止並開始', keep: '繼續配對', stopped: '已停止排位配對', chip: '配對中' },
         card: { findMatch: '尋找對手', searching: '搜尋中…', resume: '返回比賽',
           place: (p, n) => `第${p}名（共${n}人）`, placeOnly: (p) => `排行榜第${p}名`,
           toBoard: (n) => `再打${n}場即可上榜`, toBoardSoon: '再打幾場即可上榜',

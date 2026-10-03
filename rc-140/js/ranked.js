@@ -225,9 +225,10 @@
       return;
     }
     const since = Q && keep ? Q.since : Date.now();
+    const inBg = bgOn();
     stopQueue();
     Q = { ticket: r.ticket, since, polls: 0, timer: 0, warm: false, ranked: !!r.ranked, window: 100, ghost: null };
-    show('queue');
+    if (inBg) { decorateEntry(); renderChip(); } else show('queue');
     schedulePoll(POLL_FIRST);
     if (Q.ranked) ghostInfo(Q);
   }
@@ -255,6 +256,7 @@
     if (Q.warm) endWarm(false);
     Q = null;
     renderBar();
+    decorateEntry();
     if (tell) call('nd_rank_leave', {}, 6000).catch(() => {});
   }
 
@@ -281,6 +283,8 @@
 
 
   function onFound(view) {
+    if (bgOn()) closeOthers();
+    stopAsk();
     if (X && X.ghost && !X.begun) { dropOffer(X); X = null; }
     const warm = Q && Q.warm;
     if (Q) { clearTimeout(Q.timer); if (warm) endWarm(false); }
@@ -408,6 +412,8 @@
   function dropOffer(o) { if (o && o.id && o.token) call('nd_rank_ghost_start', { p_match: o.id, p_token: o.token, p_ninja: null }, 6000).catch(() => {}); }
   function onGhostOffer(q, o) {
     if (!(+o.v >= 2)) { dropOffer(o); q.ghost = { on: false, why: 'old_server' }; return; }
+    if (bgOn()) closeOthers();
+    stopAsk();
     const w = Math.max(0, Math.min(1, +o.weight || 0));
     const x = X = { ghost: true, id: o.id, token: o.token, side: 0, since: q.since, timer: 0, accepted: false, picked: false, pick: null, look: null, begun: false,
       report: null, result: null, done: false, tFound: Date.now(), viewAt: Date.now(), tLive: 0, log: '',
@@ -817,6 +823,7 @@
   function toMenu() {
     teardownMatch(true); stopQueue(true); X = null; hideAll(); screen = null;
     G.goMenu();
+    decorateEntry();
 
     setTimeout(() => { if (!screen) loadMe(); }, 1500);
   }
@@ -1017,6 +1024,21 @@
   #rkBar .rk-pill .tag { color: rgba(255,180,168,.9); font-weight: 500; }
   #rkBar .rk-x { padding: 0 10px 0 8px; border-left: 1px solid rgba(217,179,108,.3); color: var(--muted); font-size: 13px; }
   #rkBar button:hover, #rkBar button:focus-visible { color: #f1d69c; }
+  /* 1.4: the search in the background, a chip on every screen that is not a fight (bottom left, over the screens) */
+  #rkChip { position: absolute; left: calc(var(--sl, 0px) + 10px); bottom: calc(env(safe-area-inset-bottom, 0px) + 10px); z-index: 70; display: flex; align-items: stretch;
+    background: rgba(8,9,16,.92); border: 1px solid rgba(226,88,62,.75); border-radius: 999px; box-shadow: 0 4px 16px rgba(0,0,0,.5), 0 0 12px rgba(226,88,62,.25);
+    font: 600 12px/1 var(--display); letter-spacing: .1em; text-transform: uppercase; }
+  #rkChip[hidden] { display: none; }
+  #rkChip button { margin: 0; border: 0; background: none; color: var(--text, #eee); font: inherit; letter-spacing: inherit; text-transform: inherit; cursor: pointer; display: flex; align-items: center; min-height: 36px; white-space: nowrap; }
+  #app.touch #rkChip button { min-height: 44px; }
+  #rkChip .rk-pill { gap: 8px; padding: 0 10px 0 12px; }
+  #rkChip .rk-x { padding: 0 12px 0 10px; border-left: 1px solid rgba(217,179,108,.3); color: var(--muted); font-size: 14px; }
+  #rkChip button:hover, #rkChip button:focus-visible { color: #f1d69c; }
+  #rkChip .rk-dot { width: 8px; height: 8px; border-radius: 50%; background: #e2583e; box-shadow: 0 0 6px rgba(226,88,62,.8); animation: rkBeat 1.2s ease-in-out infinite; }
+  @media (prefers-reduced-motion: reduce) { #rkChip .rk-dot { animation: none; } }
+  #rkStopQ { display: grid; place-items: center; background: rgba(5,6,12,.78); z-index: 72; }
+  #rkStopQ[hidden] { display: none; }
+  #rkStopQ .title { font-size: clamp(24px, 4.4vw, 34px) !important; }
   #rkBar .rk-dot { width: 7px; height: 7px; border-radius: 50%; background: #e2583e; box-shadow: 0 0 6px rgba(226,88,62,.8); animation: rkBeat 1.2s ease-in-out infinite; }
   @keyframes rkBeat { 0%, 100% { opacity: .45; transform: scale(.85); } 18% { opacity: 1; transform: scale(1.15); } 36% { opacity: .7; transform: scale(.95); } }
   @media (prefers-reduced-motion: reduce) { #rkBar .rk-dot { animation: none; } }
@@ -1176,6 +1198,7 @@
   function show(which) {
     build();
     screen = which;
+    decorateEntry();
     hideAll();
     $('menu').hidden = true;
     if ($('first')) $('first').hidden = true;
@@ -1378,8 +1401,9 @@
     const gOn = !!(Q.ghost && Q.ghost.on);
     const row = el('div', 'rk-btns');
     if (Date.now() - Q.since >= WARM_AFTER && !gOn) row.append(btn(L.warm, 'primary', () => warmUp()));
+    const bb = btn(BGL().ru, '', () => background()); bb.id = 'rkBrowse';
     const cb = btn(L.cancel, '', () => { stopQueue(true); flashMsg = ''; show('home'); }); cb.id = 'rkCancel';
-    row.append(cb);
+    row.append(bb, cb);
     c.append(row);
     clearTimeout(renderQueue.t);
     renderQueue.t = setTimeout(() => { if (screen === 'queue') renderQueue(); }, 1000);
@@ -1390,6 +1414,7 @@
   const covered = () => !!(G.paused || (ND.portal && ND.portal.inAd) || OVER.some((id) => { const e = $(id); return e && !e.hidden && e.getClientRects().length > 0; }) ||
     (() => { const r = $('rotate'); return !!(r && getComputedStyle(r).display !== 'none'); })());
   function renderBar() {
+    renderChip();
     const b = $('rkBar');
     if (!b) return;
     const on = !!(Q && Q.warm && screen === null);
@@ -1671,7 +1696,7 @@
     loadMe();
     if (ND.rewards) ND.rewards.refresh();
   }
-  function close() { stopQueue(true); hideAll(); screen = null; $('menu').hidden = false; setTimeout(() => { const b = $('mranked'); if (b) b.focus(); }, 0); }
+  function close() { stopQueue(true); hideAll(); screen = null; $('menu').hidden = false; decorateEntry(); setTimeout(() => { const b = $('mranked'); if (b) b.focus(); }, 0); }
   function openHall() {
     close();
     if (ND.banzuke && ND.banzuke.ui && ND.banzuke.ui.showHall) ND.banzuke.ui.showHall('ranked', null);
@@ -1773,6 +1798,88 @@
     B.ext = B.ext || {};
     B.ext.ranked = { label: () => ({ k: '戦', n: M().hallTab }), render: hallRender, available: () => available() && serverHas() };
   }
+
+
+
+
+
+
+
+
+
+  const BG = { ru: 'Rakip ararken menülere göz at', stopT: 'Dereceli arama durdurulsun mu?', stopS: 'Bu dövüş aramanı bitirir.', stopGo: 'Durdur ve oyna', keep: 'Aramaya devam et', stopped: 'Dereceli arama durdu', chip: 'Aranıyor' };
+  const BGL = () => { const L = M(); return L.bg && typeof L.bg.ru === 'string' ? L.bg : BG; };
+  const bgOn = () => !!(Q && !Q.warm && !X && screen === null);
+  function background() {
+    if (!Q || X) return;
+    hideAll(); screen = null;
+    if (G.mode !== 'attract') G.goMenu(); else { $('menu').hidden = false; if ($('first')) $('first').hidden = true; }
+    decorateEntry(); renderChip();
+    setTimeout(() => { const b = $('mrankedFind'); if (b) b.focus(); }, 0);
+  }
+
+  function closeOthers() {
+    try { if (ND.pass && ND.pass.isOpen) ND.pass.close(); } catch (e) {            }
+    try { if (ND.settingsUI && ND.settingsUI.isOpen) ND.settingsUI.close(); } catch (e) {            }
+    try { if (ND.banzuke && ND.banzuke.ui && ND.banzuke.ui.closeLayer) ND.banzuke.ui.closeLayer(); } catch (e) {            }
+    try { if (ND.lbUI && ND.lbUI.open && ND.lbUI.close) ND.lbUI.close(); } catch (e) {            }
+    try { if (ND.langUI && ND.langUI.close) ND.langUI.close(); } catch (e) {            }
+    try { if (G.mode !== 'attract' || G.phase === 'select' || ($('vs') && !$('vs').hidden)) { beginning = true; try { G.goMenu(); } finally { beginning = false; } } } catch (e) {            }
+  }
+
+  const FIGHTING = () => G.mode !== 'attract' && G.phase !== 'select';
+  function renderChip() {
+    let c = $('rkChip');
+    const on = bgOn() && !FIGHTING() && !(ND.portal && ND.portal.inAd);
+    if (!on) { if (c) c.hidden = true; clearTimeout(renderChip.t); return; }
+    const L = BGL(), L0 = M();
+    if (!c) {
+      css();
+      c = document.createElement('div'); c.id = 'rkChip'; c.setAttribute('role', 'status'); c.setAttribute('aria-live', 'off');
+      const pill = el('button', 'rk-pill'); pill.type = 'button';
+      pill.append(el('span', 'rk-dot'), el('span', 'rk-clk'));
+      pill.onclick = () => { try { if (ND.audio) ND.audio.ui(); } catch (e) {                } closeOthers(); show('queue'); };
+      const x = el('button', 'rk-x', '✕'); x.type = 'button';
+      x.onclick = () => { try { if (ND.audio) ND.audio.ui(); } catch (e) {                } stopQueue(true); };
+      c.append(pill, x);
+      ($('app') || document.body).appendChild(c);
+    }
+    c.hidden = false;
+    const t = (L.chip || L0.searchShort) + ' ' + fmtClock(Date.now() - Q.since);
+    c.querySelector('.rk-clk').textContent = t;
+    c.querySelector('.rk-pill').setAttribute('aria-label', L0.searching + ' ' + fmtClock(Date.now() - Q.since));
+    c.querySelector('.rk-x').setAttribute('aria-label', L0.cancel); c.querySelector('.rk-x').title = L0.cancel;
+    clearTimeout(renderChip.t);
+    renderChip.t = setTimeout(renderChip, 1000);
+  }
+
+  const FIGHT_BTNS = '#bFight, #vsGo, #bRematch, #bzResAgain, #mwatch, #mtFree, #mtTut, #mtDrill, #fPlay';
+  let stopOk = false;
+  document.addEventListener('click', (e) => {
+    if (stopOk || !bgOn()) return;
+    const b = e.target && e.target.closest ? e.target.closest(FIGHT_BTNS) : null;
+    if (!b || b.disabled) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    askStop(() => { stopQueue(true); stopOk = true; try { b.click(); } finally { stopOk = false; } });
+  }, true);
+  function askStop(go) {
+    build();
+    let d = $('rkStopQ');
+    if (!d) {
+      d = document.createElement('div'); d.id = 'rkStopQ'; d.className = 'overlay'; d.hidden = true; d.setAttribute('role', 'dialog'); d.setAttribute('aria-modal', 'true');
+      d.innerHTML = '<div class="dialog card"><p class="title" style="font-size:28px"></p><p class="sub"></p><div class="btns"><button class="btn primary" type="button" data-k="go"></button><button class="btn" type="button" data-k="keep"></button></div></div>';
+      ($('app') || document.body).appendChild(d);
+    }
+    const L = BGL();
+    d.querySelector('.title').textContent = L.stopT; d.querySelector('.sub').textContent = L.stopS;
+    const bGo = d.querySelector('[data-k="go"]'), bKeep = d.querySelector('[data-k="keep"]');
+    bGo.textContent = L.stopGo; bKeep.textContent = L.keep;
+    bGo.onclick = () => { d.hidden = true; go(); };
+    bKeep.onclick = () => { d.hidden = true; };
+    d.hidden = false;
+    setTimeout(() => bKeep.focus(), 0);
+  }
+  const stopAsk = () => { const d = $('rkStopQ'); if (d) d.hidden = true; };
 
 
 
@@ -1947,7 +2054,7 @@
 
   const R = ND.ranked = {
     available, open, close, onKey, tierInfo, TIERS,
-    find: () => find(), cancel: () => { stopQueue(true); show('home'); }, warmUp, endWarm: () => endWarm(true),
+    find: () => find(), cancel: () => { stopQueue(true); show('home'); }, warmUp, background: () => background(), endWarm: () => endWarm(true),
     accept: (ok) => accept(ok !== false), pick: (id, look) => { setPick(id, look); return lockIn(); }, choose: setPick,
     quit: () => quitMatch(), rematch: () => rematch(), findAgain: () => findAgain(), menu: () => toMenu(), reload: () => loadMe(),
 
@@ -1963,6 +2070,16 @@
       demoOn = true;
 
 
+
+      if (which === 'bg' || which === 'stop-ask') {
+        Q = { ticket: 'demo', since: Date.now() - 42000, warm: false, ranked: true, window: 300, demo: true, timer: 0 }; X = null;
+        hideAll(); screen = null; stopAsk();
+        if ($('first')) $('first').hidden = true;
+        $('menu').hidden = false;
+        decorateEntry(); renderChip();
+        if (which === 'stop-ask') askStop(() => {});
+        return;
+      }
       if (/^menu-/.test(which)) {
         const t0 = Date.now(), season = { id: 3, start: t0 - 19 * 864e5, end: t0 + 9 * 864e5, rewards: [] };
         const top = [{ place: 1, player_id: 11, nick: 'StolenBurntToast', rating: 1846, tier: 11 }, { place: 2, player_id: 7, nick: 'Kenji', rating: 1712, tier: 9 }, { place: 3, player_id: 23, nick: 'Mira', rating: 1655, tier: 8 }];
@@ -2013,7 +2130,7 @@
       show(which === 'vs' ? 'vs' : which);
     },
     rulesSeen: () => rulesSeen(), rulesDone: () => { if (screen === 'rules') rulesDone(); },
-    endDemo() { if (Q && Q.demo) Q = null; if (X && X.demo) X = null; hideAll(); screen = null; },
+    endDemo() { if (Q && Q.demo) Q = null; if (X && X.demo) X = null; hideAll(); screen = null; stopAsk(); renderChip(); decorateEntry(); },
   };
 
   if (!available()) return;
@@ -2038,6 +2155,11 @@
 
   const start0 = G.start;
   G.start = function (mode) {
+
+    if (!beginning && !starting && !warmStarting && mode !== 'attract' && mode !== 'online' && mode !== 'shadow' && bgOn()) {
+      stopQueue(true);
+      try { if (ND.toast) ND.toast(BGL().stopped, '戦'); } catch (e) {                }
+    }
     if (!beginning && !starting && !warmStarting) {
       if (X && X.begun && screen === 'match' && mode !== (X.ghost ? 'shadow' : 'online')) { quitMatch(); }
       else if (Q && Q.warm && mode !== 'cpu') { Q.warm = false; const r = start0.apply(this, arguments); show('queue'); return r; }

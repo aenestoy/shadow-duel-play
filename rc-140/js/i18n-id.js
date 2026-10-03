@@ -1294,6 +1294,8 @@
         aiNote: 'Saat pemain online sedikit, kamu mungkin dipertemukan dengan lawan AI yang bermain dengan gaya pemain sungguhan.', gotIt: 'Mengerti',
         err: { network: 'Tidak bisa menghubungi server. Periksa koneksi internetmu.', bad_version: 'Versi baru game sudah keluar: muat ulang halaman.', busy: 'Antrean sangat penuh, coba lagi sebentar lagi.',
           rate_limited: 'Terlalu banyak percobaan, tunggu sebentar.', disabled: 'Ranked sedang offline.', banned: 'Akun ini tidak bisa bermain ranked.', other: 'Terjadi kesalahan, coba lagi.' },
+
+        bg: { ru: 'Jelajahi sambil mencari', stopT: 'Hentikan pencarian peringkat?', stopS: 'Memulai laga ini mengakhiri pencarianmu.', stopGo: 'Hentikan dan main', keep: 'Terus mencari', stopped: 'Pencarian peringkat dihentikan', chip: 'Mencari' },
         card: { findMatch: 'Cari lawan', searching: 'Mencari…', resume: 'Kembali ke laga',
           place: (p, n) => `#${p} dari ${n} di papan`, placeOnly: (p) => `#${p} di papan`,
           toBoard: (n) => `${n} laga lagi untuk masuk papan peringkat`, toBoardSoon: 'Beberapa laga lagi untuk masuk papan peringkat',

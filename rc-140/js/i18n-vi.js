@@ -1293,6 +1293,8 @@
         aiNote: 'Khi ít người chơi trực tuyến, bạn có thể gặp đối thủ AI đánh theo lối của người chơi thật.', gotIt: 'Đã hiểu',
         err: { network: 'Không kết nối được máy chủ. Kiểm tra kết nối Internet.', bad_version: 'Đã có phiên bản game mới: hãy tải lại trang.', busy: 'Hàng chờ đang rất đông, thử lại sau nhé.',
           rate_limited: 'Thử quá nhiều lần, đợi một chút.', disabled: 'Đấu xếp hạng hiện đang tạm ngưng.', banned: 'Tài khoản này không thể đấu xếp hạng.', other: 'Đã có lỗi, thử lại nhé.' },
+
+        bg: { ru: 'Xem menu khi đang tìm', stopT: 'Dừng tìm trận xếp hạng?', stopS: 'Bắt đầu trận này sẽ dừng việc tìm trận.', stopGo: 'Dừng và chơi', keep: 'Tiếp tục tìm', stopped: 'Đã dừng tìm trận xếp hạng', chip: 'Đang tìm' },
         card: { findMatch: 'Tìm trận', searching: 'Đang tìm…', resume: 'Quay lại trận',
           place: (p, n) => `Hạng ${p}/${n} trên bảng`, placeOnly: (p) => `Hạng ${p} trên bảng`,
           toBoard: (n) => `Còn ${n} trận nữa để vào bảng xếp hạng`, toBoardSoon: 'Thêm vài trận nữa để vào bảng xếp hạng',

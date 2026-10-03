@@ -1314,6 +1314,8 @@
         aiNote: 'Gdy online jest mało graczy, możesz trafić na rywali SI, którzy grają w stylu prawdziwych graczy.', gotIt: 'Rozumiem',
         err: { network: 'Brak połączenia z serwerem. Sprawdź internet.', bad_version: 'Jest nowa wersja gry: odśwież stronę.', busy: 'Kolejka jest bardzo pełna, spróbuj za chwilę.',
           rate_limited: 'Za dużo prób, poczekaj chwilę.', disabled: 'Tryb rankingowy jest teraz niedostępny.', banned: 'To konto nie może grać rankingowo.', other: 'Coś poszło nie tak, spróbuj ponownie.' },
+
+        bg: { ru: 'Przeglądaj podczas szukania', stopT: 'Zatrzymać szukanie rankingowe?', stopS: 'Ta walka zakończy szukanie.', stopGo: 'Zatrzymaj i graj', keep: 'Szukaj dalej', stopped: 'Szukanie rankingowe zatrzymane', chip: 'Szukam' },
         card: { findMatch: 'Szukaj meczu', searching: 'Szukam…', resume: 'Wróć do meczu',
           place: (p, n) => `${p}. z ${n} w rankingu`, placeOnly: (p) => `${p}. w rankingu`,
           toBoard: (n) => (n === 1 ? 'Jeszcze 1 mecz do rankingu' : `Jeszcze ${n} ${n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 'mecze' : 'meczów'} do rankingu`), toBoardSoon: 'Jeszcze kilka meczów do rankingu',

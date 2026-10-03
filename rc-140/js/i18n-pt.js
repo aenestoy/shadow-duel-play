@@ -1301,6 +1301,8 @@
         aiNote: 'Quando há poucos jogadores online, você pode enfrentar adversários de IA que jogam no estilo de jogadores reais.', gotIt: 'Entendi',
         err: { network: 'Não foi possível falar com o servidor. Verifique sua conexão.', bad_version: 'Há uma nova versão do jogo: recarregue a página.', busy: 'A fila está cheia, tente daqui a pouco.',
           rate_limited: 'Tentativas demais, espere um pouco.', disabled: 'O modo ranqueado está indisponível agora.', banned: 'Esta conta não pode jogar ranqueado.', other: 'Algo deu errado, tente de novo.' },
+
+        bg: { ru: 'Navegar enquanto procura', stopT: 'Parar a busca ranqueada?', stopS: 'Começar esta luta encerra sua busca.', stopGo: 'Parar e jogar', keep: 'Continuar buscando', stopped: 'Busca ranqueada parada', chip: 'Buscando' },
         card: { findMatch: 'Buscar oponente', searching: 'Buscando…', resume: 'Voltar à luta',
           place: (p, n) => `#${p} de ${n} no ranking`, placeOnly: (p) => `#${p} no ranking`,
           toBoard: (n) => (n === 1 ? 'Mais 1 partida para entrar no ranking' : `Mais ${n} partidas para entrar no ranking`), toBoardSoon: 'Mais algumas partidas para entrar no ranking',

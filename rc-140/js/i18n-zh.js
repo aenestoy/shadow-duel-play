@@ -1292,6 +1292,8 @@
         aiNote: '在线玩家较少时，你可能会匹配到模仿真实玩家风格的AI对手。', gotIt: '知道了',
         err: { network: '无法连接服务器。请检查网络连接。', bad_version: '游戏有新版本了：请刷新页面。', busy: '排队人数过多，请稍后再试。',
           rate_limited: '尝试次数过多，请稍等片刻。', disabled: '排位赛暂时关闭。', banned: '此账号无法进行排位赛。', other: '出错了，请再试一次。' },
+
+        bg: { ru: '搜索时浏览菜单', stopT: '停止排位匹配？', stopS: '开始这场战斗会结束匹配。', stopGo: '停止并开始', keep: '继续匹配', stopped: '已停止排位匹配', chip: '匹配中' },
         card: { findMatch: '寻找对手', searching: '搜索中…', resume: '返回比赛',
           place: (p, n) => `第${p}名（共${n}人）`, placeOnly: (p) => `排行榜第${p}名`,
           toBoard: (n) => `再打${n}场即可上榜`, toBoardSoon: '再打几场即可上榜',

@@ -1287,6 +1287,8 @@
         aiNote: "When few players are online, you may be matched with AI opponents that play in real players' styles.", gotIt: 'Got it',
         err: { network: "Couldn't reach the server. Check your internet connection.", bad_version: 'A new version of the game is out: reload the page.', busy: 'The queue is very full, try again soon.',
           rate_limited: 'Too many tries, wait a moment.', disabled: 'Ranked is offline right now.', banned: "This account can't play ranked.", other: 'Something went wrong, try again.' },
+
+        bg: { ru: 'Browse while searching', stopT: 'Stop the ranked search?', stopS: 'Starting this fight ends your search.', stopGo: 'Stop and play', keep: 'Keep searching', stopped: 'Ranked search stopped', chip: 'Searching' },
         card: { findMatch: 'Find match', searching: 'Searching…', resume: 'Back to match',
           place: (p, n) => `#${p} of ${n} on the board`, placeOnly: (p) => `#${p} on the board`,
           toBoard: (n) => (n === 1 ? '1 more match to enter the leaderboard' : `${n} more matches to enter the leaderboard`), toBoardSoon: 'A few more matches to enter the leaderboard',

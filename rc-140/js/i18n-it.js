@@ -1295,6 +1295,8 @@
         aiNote: 'Quando ci sono pochi giocatori online, potresti affrontare avversari IA che giocano con lo stile di giocatori veri.', gotIt: 'Ho capito',
         err: { network: 'Impossibile raggiungere il server. Controlla la connessione a internet.', bad_version: 'È uscita una nuova versione del gioco: ricarica la pagina.', busy: 'La coda è molto piena, riprova tra poco.',
           rate_limited: 'Troppi tentativi, aspetta un attimo.', disabled: 'La Classificata al momento è offline.', banned: 'Questo account non può giocare in Classificata.', other: 'Qualcosa è andato storto, riprova.' },
+
+        bg: { ru: 'Esplora mentre cerchi', stopT: 'Fermare la ricerca classificata?', stopS: 'Iniziare questo scontro termina la ricerca.', stopGo: 'Ferma e gioca', keep: 'Continua a cercare', stopped: 'Ricerca classificata fermata', chip: 'Ricerca' },
         card: { findMatch: 'Trova partita', searching: 'Ricerca…', resume: 'Torna alla partita',
           place: (p, n) => `${p}° su ${n} in classifica`, placeOnly: (p) => `${p}° in classifica`,
           toBoard: (n) => (n === 1 ? 'Ancora 1 partita per entrare in classifica' : `Ancora ${n} partite per entrare in classifica`), toBoardSoon: 'Ancora qualche partita per entrare in classifica',

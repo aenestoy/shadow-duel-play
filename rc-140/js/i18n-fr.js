@@ -1298,6 +1298,8 @@
         aiNote: "Quand peu de joueurs sont en ligne, tu peux affronter des adversaires IA qui jouent dans le style de vrais joueurs.", gotIt: 'Compris',
         err: { network: 'Serveur injoignable. Vérifie ta connexion internet.', bad_version: 'Une nouvelle version du jeu est sortie : recharge la page.', busy: "La file d'attente est pleine, réessaie bientôt.",
           rate_limited: 'Trop de tentatives, attends un peu.', disabled: 'Le mode classé est indisponible pour le moment.', banned: 'Ce compte ne peut pas jouer en classé.', other: 'Un problème est survenu, réessaie.' },
+
+        bg: { ru: 'Naviguer pendant la recherche', stopT: 'Arrêter la recherche classée ?', stopS: 'Lancer ce combat met fin à ta recherche.', stopGo: 'Arrêter et jouer', keep: 'Continuer à chercher', stopped: 'Recherche classée arrêtée', chip: 'Recherche' },
         card: { findMatch: 'Trouver un match', searching: 'Recherche…', resume: 'Retour au match',
           place: (p, n) => `${p === 1 ? '1er' : p + 'e'} sur ${n} au classement`, placeOnly: (p) => `${p === 1 ? '1er' : p + 'e'} au classement`,
           toBoard: (n) => (n === 1 ? 'Encore 1 match pour entrer au classement' : `Encore ${n} matchs pour entrer au classement`), toBoardSoon: 'Encore quelques matchs pour entrer au classement',
