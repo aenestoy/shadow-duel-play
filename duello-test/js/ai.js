@@ -10,7 +10,7 @@
   // full, glowing KI bar for up to ~55 s of fighting (Master up to ~15 s), which read as "the CPU's KI does not work".
   // kiWait = that wait; apprenticePlusK = how far Apprentice+ sits from Apprentice towards Usta (below). Both, and the
   // level numbers, may be changed by remote tuning (js/tune.js), only between fights (ND.tune.commit in the constructor).
-  const KNOBS = ND.AI_KNOBS = { kiWait: 6, apprenticePlusK: 0.4 };
+  const KNOBS = ND.AI_KNOBS = { kiWait: 6, apprenticePlusK: 0.4, duelK: 0.6 }; // (duelK: the cinematic duel only, js/duel-ai.js)
 
   // Optional knobs a profile may carry (a ranked shadow, js/ghost.js; absent = today's constant, so the levels below play
   // exactly as before): ki (spend a full KI in range, per decision; default smart × 0.25), kick (kick a guarding

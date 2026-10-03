@@ -3,7 +3,7 @@
 // The CPU level numbers (ND.AI_LEVELS 0–3, ai.js), Apprentice+'s place between Apprentice and Usta (k), the CPU's KI
 // wait and the journey ladder (ND.JOURNEY.ladder, journey.js) can be changed without a new build: a small JSON of
 // overrides, every part optional, e.g.
-//   {"v":1,"levels":{"1":{"parry":0.35}},"apprenticePlusK":0.4,"kiWait":6,
+//   {"v":1,"levels":{"1":{"parry":0.35}},"apprenticePlusK":0.4,"kiWait":6,"duelK":0.5,
 //    "journey":{"levels":[0,0,0,1,1,2,2,3],"ai":[null,0.5,0.5,null,null,null,null,null],"hp":[0,0,0,0,0,0,1.15,0]}}
 // Where it comes from:
 //   - the plain build (CrazyGames, our own site): our server, RPC nd_tune (supabase/ai-tune.sql);
@@ -39,7 +39,7 @@
   const clamp = (v, r) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(r[1], Math.max(r[0], v)) : undefined);
 
   // ---------------------------------------------------------------- built-in defaults (read before any tune)
-  const DEF = { levels: {}, apprenticePlusK: K.apprenticePlusK, kiWait: K.kiWait,
+  const DEF = { levels: {}, apprenticePlusK: K.apprenticePlusK, kiWait: K.kiWait, duelK: K.duelK,
     journey: { levels: J.ladder.levels.slice(), ai: J.ladder.ai.slice(), hp: J.ladder.hp.slice() } };
   for (const l of LEVEL_KEYS) {
     const d = DEF.levels[l] = {};
@@ -75,6 +75,8 @@
     if (k !== undefined) t.apprenticePlusK = k;
     const w = clamp(o.kiWait, [1, 120]);
     if (w !== undefined) t.kiWait = w;
+    const dk = clamp(o.duelK, [0, 1]);
+    if (dk !== undefined) t.duelK = dk;
     if (isObj(o.journey)) {
       // per fight; an entry that is missing or of the wrong type keeps the default (undefined)
       const per = (a, fn) => (Array.isArray(a) ? Array.from({ length: N }, (_, i) => (i < a.length ? fn(a[i]) : undefined)) : null);
@@ -93,7 +95,7 @@
   // a clean tune (or null) → every number in force (defaults where the tune says nothing)
   function effective(t) {
     t = t || {};
-    const E = { levels: {}, apprenticePlusK: t.apprenticePlusK ?? DEF.apprenticePlusK, kiWait: t.kiWait ?? DEF.kiWait, journey: {} };
+    const E = { levels: {}, apprenticePlusK: t.apprenticePlusK ?? DEF.apprenticePlusK, kiWait: t.kiWait ?? DEF.kiWait, duelK: t.duelK ?? DEF.duelK, journey: {} };
     for (const l of LEVEL_KEYS) {
       const o = (t.levels && t.levels[l]) || {};
       E.levels[l] = Object.assign({}, DEF.levels[l], o, { tick: (o.tick || DEF.levels[l].tick).slice() });
@@ -112,7 +114,7 @@
       for (const f of Object.keys(FIELDS)) lv[f] = e[f];
       lv.tick[0] = e.tick[0]; lv.tick[1] = e.tick[1];
     }
-    K.apprenticePlusK = E.apprenticePlusK; K.kiWait = E.kiWait;
+    K.apprenticePlusK = E.apprenticePlusK; K.kiWait = E.kiWait; K.duelK = E.duelK;
     if (ND.aiDerive) ND.aiDerive();
   }
   function applyLadder(E) {

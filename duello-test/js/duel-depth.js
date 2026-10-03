@@ -19,7 +19,7 @@
   'use strict';
   const FLAG = (() => { try { return /[?&]duel=\d/.test(location.search || ''); } catch (e) { return false; } })();
   if (!FLAG || !ND.duel || !ND.anim) return;
-  const D = ND.duel, L = ND.LEN;
+  const D = ND.duel, L = ND.LEN, G = ND.game;
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
   const SHW = 21, HPW = 13; // half shoulder / hip width seen from the front
   const OUT = [0, 0, 1, 1];
@@ -168,7 +168,7 @@
   if (D.useA) {
     const EXT = new WeakMap(), W3 = 11;
     A3.provider = (f) => {
-      if (!f.dz || f.dead) return null;
+      if (!f.dz || f.dead || D.lite) return null;
       const S = f._anim, C = S && S.d3, j = S && S.j;
       if (!C || !j || !j.haF || !j.tip) return null;
       let o = EXT.get(f); if (!o) EXT.set(f, (o = { w: 1, psi: 0, hz: W3, dx: 0, u3: { x: 1, y: 0, z: 0 }, roll: 0 }));
@@ -198,9 +198,33 @@
     const FP2 = ND.Fighter.prototype, draw0 = FP2.draw;
     let inA = false;
     FP2.draw = function (ctx, reflect, layer) {
-      if (reflect || inA || !this.dz || this.dead || this.hidden) return draw0.call(this, ctx, reflect, layer);
+      if (reflect || inA || !this.dz || this.dead || this.hidden || D.lite) return draw0.call(this, ctx, reflect, layer); // (D.lite: a slow device, below)
       inA = true;
       try { A3.draw(ctx, this); } finally { inA = false; }
+    };
+  }
+  // A slow device (2026-10-03, phones): the duel's 2.5D and recorded-motion drawing cost about twice the normal game's
+  // frame; when the game's own frames take long (median over 4 s of fight > LITE_MS) the duel is drawn the light way -
+  // the normal game's baked bodies with the duel's poses, blades, binds and set (drawing only: the fight is the same).
+  // Remembered on the device; ?lite=1 forces it, ?lite=0 never.
+  const LQ = (/[?&]lite=([01])(&|$)/.exec(location.search || '') || [])[1];
+  const LITE_MS = 22, LK = 'nd_duel_lite';
+  D.lite = LQ === '1' || (LQ !== '0' && (() => { try { return localStorage.getItem(LK) === '1'; } catch (e) { return false; } })());
+  D.liteAuto = { samples: [], on: LQ !== '0' && LQ !== '1', ms: LITE_MS };
+  // (the game's own frame work, measured for its quality ladder: js/gfx.js ladderFrame - real play and tests alike)
+  if (ND.gfx && ND.gfx.ladderFrame) {
+    const lf0 = ND.gfx.ladderFrame;
+    ND.gfx.ladderFrame = function (aq, gapMs, workMs) {
+      const A = D.liteAuto;
+      if (A.on && !D.lite && G && G.phase === 'fight' && !G.paused && G.F && G.F[0] && G.F[0].dz && !document.hidden) {
+        A.samples.push(workMs);
+        if (A.samples.length >= 240) {
+          const S = A.samples.slice().sort((x, y) => x - y), med = S[S.length >> 1];
+          A.samples.length = 0; A.last = med;
+          if (med > A.ms) { D.lite = true; A.switched = med; try { localStorage.setItem(LK, '1'); } catch (e) { /* private window */ } }
+        }
+      }
+      return lf0.apply(this, arguments);
     };
   }
   const present0 = ND.anim.present;

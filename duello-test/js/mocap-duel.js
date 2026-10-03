@@ -383,7 +383,8 @@
       const hip = pj(Q.hip), nk = pj(Q.neck), towards = f.x < o.x ? -1 : 1;
       let c, r;
       if (low) { const sd = lerp(Q.hipR, Q.knR, 0.5), sd2 = lerp(Q.hipL, Q.knL, 0.5), a1 = pj(sd), a2 = pj(sd2); c = (a1.x - a2.x) * towards > 0 ? a1 : a2; r = 10; }
-      else { const k = z === 'down' ? 0.8 : 0.68; c = { x: hip.x + (nk.x - hip.x) * k, y: hip.y + (nk.y - hip.y) * k }; r = 17; }
+      // (the chest - 0.55 up the spine, 0.65 for a cut from above - on the torso as drawn: never the collar under the chin)
+      else { const k = z === 'down' ? 0.65 : 0.55; c = { x: hip.x + (nk.x - hip.x) * k, y: hip.y + (nk.y - hip.y) * k }; r = TORSO_R - 2; }
       T = loc({ x: c.x + towards * (r - 1), y: c.y });
     }
     const H = P.haR, toT = sub(T, H), d = len(toT);
@@ -534,7 +535,7 @@
     if (!noPair && MD.sep && so0 && s.pairAt !== clk) {
       if (so0.tickedAt !== clk) tick(o, true);
       s.pairAt = so0.pairAt = clk;
-      if (so0.tickedAt === clk && so0.rig.P) { kickStop(f, s, o, so0); kickStop(o, so0, f, s); bladeStop(f, s, o, so0); bladeStop(o, so0, f, s); apart(f, s, o, so0); bladeStop(f, s, o, so0); bladeStop(o, so0, f, s); } // (legs first: a bent kicking leg may bring its thigh in)
+      if (so0.tickedAt === clk && so0.rig.P) { kickStop(f, s, o, so0); kickStop(o, so0, f, s); bladeStop(f, s, o, so0); bladeStop(o, so0, f, s); const ox0 = (s.ox || 0) * 1e3 + (so0.ox || 0); apart(f, s, o, so0); if ((s.ox || 0) * 1e3 + (so0.ox || 0) !== ox0) { bladeStop(f, s, o, so0); bladeStop(o, so0, f, s); apart(f, s, o, so0); } } // (the second round only when the keep-apart moved a body: nothing else changed) // (legs first: a bent kicking leg may bring its thigh in; blade-stop before AND after the keep-apart, and the keep-apart once more last: an arm pulled back by a blade-stop never ends in the other's head or hat brim)
     }
     return s;
   }
@@ -548,7 +549,7 @@
   // cannot keep them apart without leaving the fight's place: those frames are left to the fight (the audit lists them).
   // (TORSO_R: the drawn torso with its jacket and sleeves, ~24 either side of the spine in profile - 17 let two leaning
   // bodies in an exchange be drawn half inside each other while the capsules still cleared, 2026-10-02)
-  const BODY_MIN = 20, OX_MAX = 70, TORSO_R = 24;
+  const BODY_MIN = 20, OX_MAX = 80, TORSO_R = 24;
   MD.TORSO_R = TORSO_R;
   MD.sep = !(() => { try { return /[?&]sep=0(&|$)/.test(location.search || ''); } catch (e) { return false; } })(); // (?sep=0: off, to compare)
   const MOVERS = { down: 1, getup: 1, launch: 1 };
@@ -560,11 +561,12 @@
     // (an empty-handed blow landing (fistAim): its fist is ON the other's face / chest by design - only the fist is
     // left out, the forearm up to it still keeps clear: a counter's arm lay across the chest, 2026-10-03)
     const FS = rg.fist && rg.fist.w > 0.3 ? rg.fist.S : null;
+    // (the legs as drawn: the hakama's thigh 11 round, the knee bag and the wrapped shin 8.5)
     const arm = (S) => [pj(P['el' + S]), pj(FS === S ? lerp(P['el' + S], P['ha' + S], 0.7) : P['ha' + S]), 6, 1];
     // (the head 14.5; a straw kasa's brim too: a band 54 wide over the head — two heads, a hat and a head, never pressed)
     const hd = pj(P.head), kasa = rg.look && rg.look.ch && rg.look.ch.acc === 'kasa';
-    return [[pj(P.hip), pj(P.neck), TORSO_R], [hd, null, 14.5], kasa ? [{ x: hd.x - 27, y: hd.y - 8 }, { x: hd.x + 27, y: hd.y - 8 }, 6] : null, [pj(P.hipR), pj(P.knR), 10], [pj(P.hipL), pj(P.knL), 10],
-      arm('R'), arm('L'), [pj(P.knR), pj(P.ftR), 7, 1], [pj(P.knL), pj(P.ftL), 7, 1]].filter(Boolean);
+    return [[pj(P.hip), pj(P.neck), TORSO_R], [hd, null, 14.5], kasa ? [{ x: hd.x - 27, y: hd.y - 8 }, { x: hd.x + 27, y: hd.y - 8 }, 6] : null, [pj(P.hipR), pj(P.knR), 11], [pj(P.hipL), pj(P.knL), 11],
+      arm('R'), arm('L'), [pj(P.knR), pj(P.ftR), 8.5, 1], [pj(P.knL), pj(P.ftL), 8.5, 1]].filter(Boolean);
   }
   function segDist(p, q, r, t) {
     const sd = (P, A, B) => { if (!B) return Math.hypot(P.x - A.x, P.y - A.y); const vx = B.x - A.x, vy = B.y - A.y, l2 = vx * vx + vy * vy || 1, u = clamp(((P.x - A.x) * vx + (P.y - A.y) * vy) / l2, 0, 1); return Math.hypot(P.x - A.x - vx * u, P.y - A.y - vy * u); };
@@ -667,38 +669,102 @@
     }
   }
   // ------------------------------------------------------------------ a blade stops at the body it meets
-  // An attacker's drawn blade never goes through the other's head (a circle of 14) or deeper than 3 into the torso (a
-  // capsule of 17 round the spine): the sword hand draws back along the blade (the elbow bends, 3D IK from the shoulder)
+  // An attacker's drawn blade never goes through the other's head (a circle of 14), neck or deeper than 3 into the torso (a
+  // capsule of TORSO_R round the spine: the torso as drawn): the sword hand draws back along the blade (the elbow bends, 3D IK from the shoulder)
   // and, if that is not enough, the blade turns away round the hand — the least that clears it.
   function bladeStop(f, s, o, so) {
     const rg = s.rig, P = rg.P;
-    if (!P || !P.armed || P.inside || f.dead || o.dead || o.hidden || !so.rig.P) return;
+    if (!P || !P.armed || f.dead || o.dead || o.hidden || !so.rig.P) return;
+    // (a blade still coming out of the saya - an iai draw-cut: only as far as it shows)
+    if (P.inside && !(P.bladeVis > 12)) return;
     if (f.state === 'dbind' || (f.dz && f.dz.cine)) return;
     const Q = so.rig.P, pjo = (q) => Mo.project(so.rig, q), hd = pjo(Q.head), hp = pjo(Q.hip), nk = pjo(Q.neck);
-    const BL = (f.wpn && f.wpn.blade) || 96, pj = (q) => Mo.project(rg, q);
+    const BLf = (f.wpn && f.wpn.blade) || 96, BL = P.inside ? Math.min(BLf, P.bladeVis) : BLf, PJR = Mo.projectorOf ? Mo.projectorOf(rg) : null, pj = PJR || ((q) => Mo.project(rg, q));
     const segD = (x, y) => { const vx = nk.x - hp.x, vy = nk.y - hp.y, l2 = vx * vx + vy * vy || 1, t = clamp(((x - hp.x) * vx + (y - hp.y) * vy) / l2, 0, 1); return Math.hypot(x - hp.x - vx * t, y - hp.y - vy * t); };
-    const pen = (h, u) => { let m = -1e9; for (let k = 0; k <= 24; k++) { const w = pj(madd(h, u, 4 + ((BL - 4) * k) / 24)); m = Math.max(m, 14.5 - Math.hypot(w.x - hd.x, w.y - hd.y), 17 - segD(w.x, w.y) - 3); } return m; };
+    // (the neck too: neck point to the head's centre, 9 round - a blade through the throat of one leaning back)
+    const neckD = (x, y) => { const vx = hd.x - nk.x, vy = hd.y - nk.y, l2 = vx * vx + vy * vy || 1, t = clamp(((x - nk.x) * vx + (y - nk.y) * vy) / l2, 0, 1); return Math.hypot(x - nk.x - vx * t, y - nk.y - vy * t); };
+    // (a cut landing - its own hit window - may rest 5 into the torso as drawn (a slash ON the chest, not through it); an
+    // arm brought in by it is kept off the other's body by the keep-apart that runs after the blade-stop, tick)
+    const give = aimW(f) > 0.01 ? 5 : 3;
+    // (the point never rests on the face, throat or under the chin - head 20, neck 20 in the cut's own hit window (22, 16
+    // outside it), nor on the collar - 26 round the neck point: a riposte's point on the chin read as a cut through the
+    // neck; the cut lands on the chest)
+    const HR = give > 3 ? 20 : 22, NR = give > 3 ? 20 : 16;
+    // (and the legs as drawn - the hakama's thighs 11, the shins 8.5, 2 of give (a landing cut's 5): a follow-through
+    // turned off the body went down through the other's legs instead; and never into the floor: its point stays above it)
+    const LG = [['hipR', 'knR', 11], ['hipL', 'knL', 11], ['knR', 'ftR', 8.5], ['knL', 'ftL', 8.5]].map(([a, b, r]) => [pjo(Q[a]), pjo(Q[b]), r - (give > 3 ? give : 2)]);
+    const segP = (p, q, x, y) => { const vx = q.x - p.x, vy = q.y - p.y, l2 = vx * vx + vy * vy || 1, t = clamp(((x - p.x) * vx + (y - p.y) * vy) / l2, 0, 1); return Math.hypot(x - p.x - vx * t, y - p.y - vy * t); };
+    // (and not ALONG the other's body: a cut touches the torso / neck / head as drawn at one point - at most 10 of the
+    // blade over them - a riposte lying across the chest up to the chin read as through the neck)
+    // (penT: how far the blade is from the torso's surface - the contact a landing cut is drawn to, never the head's)
+    let penT = 0;
+    const pen = (h, u, NS = 24) => { let m = -1e9, over = 0; penT = 1e9; const dl = (BL - 4) / NS; for (let k = 0; k <= NS; k++) { const w = pj(madd(h, u, 4 + dl * k)), dh = Math.hypot(w.x - hd.x, w.y - hd.y), dn = neckD(w.x, w.y), dt = segD(w.x, w.y); penT = Math.min(penT, dt - TORSO_R); m = Math.max(m, HR - dh, NR - dn, TORSO_R - dt - give, 26 - Math.hypot(w.x - nk.x, w.y - nk.y)); if (dh < HR || dn < NR || dt < TORSO_R) over += dl; for (const [a, b, r] of LG) m = Math.max(m, r - segP(a, b, w.x, w.y)); m = Math.max(m, w.y + 1); } return Math.max(m, over - 10); };
     let h = P.blade.h, u = P.blade.u, p0 = pen(h, u);
-    if (p0 <= 0) return;
+    // (in a cut's own hit window a blade that misses her - more than 6 off the body - is brought ON to it as well: the hit
+    // never shows with the blade away from her)
+    if (p0 <= 0 && !(aimW(f) > 0.3 && penT > 6)) return;
     // the least change that clears it: the hand drawn back (away from the other, within the arm: the elbow bends) and the
     // blade turned round the hand in the picture's plane — cost: 1 per unit back, 25 per radian turned
     const hitW = aimW(f), L = Mo.L, L20 = Mo.L20, j20 = !!P.wrR, away = [-1, 0, 0], rot = (uu, a) => { const c = Math.cos(a), sn = Math.sin(a); return norm([uu[0] * c - uu[1] * sn, uu[0] * sn + uu[1] * c, uu[2]]); };
-    let best = null;
-    for (let back = 0; back <= 64; back += 4) {
-      let hb = madd(h, away, back); const dS = len(sub(hb, P.shR)), MXA = L.uArm + L.fArm - 0.5; // (where the arm can put it)
+    // (a hand drawn back toward the picture's edge shows the blade shorter under the perspective: its depth share is cut
+    // until the drawn blade is 0.8 of its length again, js/mocap.js readableBlade - measured as it will be drawn)
+    const flat = (hb, uu) => { for (let i = 0; i < 12 && Mo.bladeDrawn(hb, uu, BL) < 0.8; i++) uu = norm([uu[0], uu[1], uu[2] * 0.75]); return uu; };
+    // (the sword hand, moved, never goes into the other's head, hat brim or body further than it already was: the keep-apart
+    // ran before this, and an arm pulled back into a straw kasa's brim read as one pile - the forearm's 6 counted)
+    const kasa = so.rig.look && so.rig.look.ch && so.rig.look.ch.acc === 'kasa';
+    const handIn = (q) => { const w = pj(q); return Math.max(14.5 + 6 - Math.hypot(w.x - hd.x, w.y - hd.y), TORSO_R + 6 - segD(w.x, w.y), kasa ? 12 - Math.hypot(Math.max(0, Math.abs(w.x - hd.x) - 27), w.y - hd.y + 8) : -1e9); };
+    const hand0 = Math.max(0, handIn(h));
+    // (nor into its own body, further than the drawing already has it: js/mocap.js Mo.selfPen)
+    const self0 = Math.max(0, Mo.selfPen(P, h, u, BLf));
+    const pv = s.bsPrev && s.bsPrev.clk >= (ND.simClock || 0) - 0.05 ? s.bsPrev : null;
+    let best = null, least = null;
+    // (the hand also up or down a little - over or under the other's arm - when drawn back is not enough: 2 per unit)
+    // (in a cut's hit window the drawn reach may also be shortened - the blade turned into the picture's depth, drawn
+    // down to 0.6 of itself - so it lands ON the chest instead of being swung away from her: 30 per 0.1 of length)
+    // (a frame's cost: a coarse pass - every other turn and hand step - then the neighbours of its best, cut off as soon as
+    // nothing further can beat the best found; the full grid cost ~2 ms a frame on a phone, 2026-10-03)
+    const DQ = hitW > 0.01 ? [1, 0.85, 0.7] : [1], HB = new Map();
+    const handAt = (back, up) => {
+      const key = back * 1000 + up; if (HB.has(key)) return HB.get(key);
+      let hb = madd(madd(h, away, back), [0, 1, 0], up); const dS = len(sub(hb, P.shR)), MXA = L.uArm + L.fArm - 0.5; // (where the arm can put it)
       if (dS < 14) hb = madd(P.shR, norm(sub(hb, P.shR)), 14); else if (dS > MXA) hb = madd(P.shR, norm(sub(hb, P.shR)), MXA);
-      for (let i = 0; i <= 31; i++) for (const sg of i ? [1, -1] : [1]) {
-        const ang = sg * i * 0.1, uu = i ? rot(u, ang) : u;
-        let cost = back + Math.abs(ang) * 25;
-        if (best && cost >= best.cost) continue;
-        const pn = pen(hb, uu);
-        if (pn > 0) continue;
-        // (in a cut's hit window the blade stays ON the body: a blade turned off it costs its distance from the surface)
-        if (hitW > 0.01) cost += Math.max(0, -pn - 3) * 8 * hitW;
-        if (!best || cost < best.cost) best = { cost, h: hb, u: uu };
+      if ((back || up) && handIn(hb) > hand0 + 0.5) hb = null;
+      HB.set(key, hb); return hb;
+    };
+    const tryOne = (back, up, dq, ang) => {
+      if (back < 0 || back > 64 || Math.abs(ang) > 3.15) return;
+      if (best && back + Math.abs(up) * 2 + Math.abs(ang) * 25 + (1 - dq) * 300 >= best.cost) return;
+      const hb = handAt(back, up); if (!hb) return;
+      let uu = flat(hb, ang ? rot(u, ang) : u);
+      if (dq < 1) { const r = Math.hypot(uu[0], uu[1]) || 1, q = r * dq; uu = [uu[0] / r * q, uu[1] / r * q, (uu[2] < 0 ? -1 : 1) * Math.sqrt(Math.max(0, 1 - q * q))]; if (Mo.bladeDrawn(hb, uu, BL) < 0.6) return; }
+      // (and near last frame's turn: a blade held off the body keeps to one side of it, never flipping over from frame to frame)
+      let cost = back + Math.abs(up) * 2 + Math.abs(ang) * 25 + (1 - dq) * 300 + (pv && hitW <= 0.01 ? Math.abs(ang - pv.ang) * 30 + Math.abs(back - pv.back) * 0.5 : 0);
+      if (best && cost >= best.cost) return;
+      // (a quick look first - 12 points along the blade, 10 apart; only a candidate that may win is measured in full)
+      const pq = pen(hb, uu, 12);
+      if (pq > 4) { if (!least || pq < least.pn) least = { pn: pq, h: hb, u: uu, ang, back, up, dq }; return; }
+      const po = pen(hb, uu), tc = penT, pn = Math.max(po, Mo.selfPen(P, hb, uu, BLf) - self0 - 0.5);
+      if (pn > 0) { if (!least || pn < least.pn) least = { pn, h: hb, u: uu, ang, back, up, dq }; return; }
+      // (in a cut's hit window the blade stays ON the body: a blade turned off it costs its distance from the surface)
+      if (hitW > 0.01) cost += Math.max(0, tc - 3) * 8 * hitW; // (from the other's torso: the chest, not the face)
+      if (!best || cost < best.cost) best = { cost, h: hb, u: uu, ang, back, up, dq };
+    };
+    for (const up of [0, -12, 12, -24, 24]) {
+      if (up && best && best.cost < Math.abs(up) * 2) continue;
+      for (let back = 0; back <= 64; back += 8) {
+        if (best && back + Math.abs(up) * 2 >= best.cost) break; // (nothing further back can be cheaper)
+        for (const dq of DQ) for (let i = 0; i <= 30; i += 2) {
+          if (best && back + Math.abs(up) * 2 + i * 2.5 + (1 - dq) * 300 >= best.cost) break;
+          tryOne(back, up, dq, i * 0.1); if (i) tryOne(back, up, dq, -i * 0.1);
+        }
       }
     }
+    // the neighbours of the coarse best (or of the least deep, when nothing cleared)
+    { const c = best || least; if (c) for (const db of [-4, 0, 4]) for (const da of [-0.1, 0, 0.1]) if (db || da) tryOne(c.back + db, c.up, c.dq || 1, Math.round((c.ang + da) * 10) / 10); }
+    // (nothing clears it in reach: the least deep of them, never left as it was)
+    if (!best && least && least.pn < p0) best = least;
     if (!best) return;
+    s.bsPrev = { ang: best.ang, back: best.back, clk: ND.simClock || 0 };
     const h2 = best.h, u2 = best.u;
     // the arm to the new hand
     const pole = sub(P.elR, lerp(P.shR, h2, 0.5));
@@ -775,7 +841,7 @@
   // ------------------------------------------------------------------ drawing (after duel-depth's own override)
   const FP = ND.Fighter.prototype, draw0 = FP.draw;
   FP.draw = function (ctx, reflect, layer) {
-    if (reflect || !MD.ready || !this.dz || this.dead || this.hidden) return draw0.call(this, ctx, reflect, layer);
+    if (reflect || !MD.ready || !this.dz || this.dead || this.hidden || D.lite) return draw0.call(this, ctx, reflect, layer);
     const s = tick(this);
     if (!s || !s.rig.P) return draw0.call(this, ctx, reflect, layer);
     Mo.draw(ctx, s.rig, {});
@@ -799,7 +865,15 @@
     const Q = P || this.P;
     if (Q && Q.armed && Q.blade && !this.noSword) {
       const BL = (this.look.wpn || L).blade || 96, u = Q.blade.u, ty = Q.blade.h[1] + u[1] * BL;
-      if (ty > -1.5 && Q.blade.h[1] < -1.5) { const sy = clamp((-1.5 - Q.blade.h[1]) / BL, -1, 1), h = Math.hypot(u[0], u[2]) || 1, k = Math.sqrt(1 - sy * sy) / h; Q.blade.u = [u[0] * k, sy, u[2] * k]; const e = Q.blade.e, nu = Q.blade.u; Q.blade.e = norm(sub(e, mul(nu, dot(e, nu)))); }
+      if (ty > -1.5 && Q.blade.h[1] < -1.5) { const sy = clamp((-1.5 - Q.blade.h[1]) / BL, -1, 1), h = Math.hypot(u[0], u[2]) || 1, k = Math.sqrt(1 - sy * sy) / h; let nx = u[0] * k, nz = u[2] * k;
+        // (its length kept in the picture: at least 0.85 of it across, the rest in depth - a point on the floor pointing at the camera read as a stub)
+        // (and, with the perspective, drawn at least 0.8 of its length: turned on toward the picture as far as that needs)
+        const sx = nx < 0 || (nx === 0 && u[0] < 0) ? -1 : 1, szz = nz < 0 ? -1 : 1, top = 1 - sy * sy;
+        const at = (q) => [sx * Math.sqrt(Math.max(0, q)), sy, szz * Math.sqrt(Math.max(0, top - q))];
+        let need = Math.min(top, Math.max(nx * nx, 0.7225 - sy * sy));
+        if (Mo.bladeDrawn(Q.blade.h, at(need), BL) < 0.8) { let lo = need, hi = top; for (let i = 0; i < 10; i++) { const m = (lo + hi) / 2; if (Mo.bladeDrawn(Q.blade.h, at(m), BL) < 0.8) lo = m; else hi = m; } need = hi; }
+        if (need > nx * nx) { const v = at(need); nx = v[0]; nz = v[2]; }
+        Q.blade.u = [nx, sy, nz]; const e = Q.blade.e, nu = Q.blade.u; Q.blade.e = norm(sub(e, mul(nu, dot(e, nu)))); }
     }
     return P;
   };
@@ -812,7 +886,7 @@
   const snap0 = A3.snap;
   A3.snap = function (f, o) {
     // (brought up to this step first: the audit reads it without drawing)
-    const s = MD.ready && f && f.dz && !f.dead && !f.hidden ? tick(f) : null;
+    const s = MD.ready && !D.lite && f && f.dz && !f.dead && !f.hidden ? tick(f) : null;
     if (!s || !s.rig.P) return snap0.call(this, f, o);
     const rg = s.rig, P = rg.P, pj = (p) => Mo.project(rg, p);
     o = o || {};

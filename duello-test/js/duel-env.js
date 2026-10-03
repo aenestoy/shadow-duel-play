@@ -460,9 +460,15 @@
     return true;
   }
   const CPU_FAR = 320;
+  // the CPU's level for the set (js/ai.js profile in force, the panel's tune included): str - how often it reaches for
+  // a station between exchanges (the gap scales), smart - how quick it is to use a prop in hand or the post's trick
+  // (level 2 = the rates below, measured; lower levels less often)
+  const cpuLv = (f) => { const a = G.ais && G.ais.find((q) => q && q.me === f); return a && a.lv ? a.lv : null; };
+  const LV2 = () => (ND.AI_LEVELS && ND.AI_LEVELS[2]) || { smart: 0.95, str: 0.76 };
   function think(f, h) {
     const z = f.dz;
     if (!z || f.dead || !isCpu(f) || G.phase !== 'fight') return;
+    const L0 = cpuLv(f), kS = L0 ? Math.max(0.1, (L0.smart || 0) / (LV2().smart || 1)) : 1;
     z.envCd = (z.envCd == null ? 1.2 : z.envCd) - h;
     if (z.envBiteT > 0) z.envBiteT -= h;
     if (inExchange() || ENV.cpuOff) return; // (the sword exchange first: the set waits)
@@ -470,15 +476,15 @@
     const o = f.opp;
     if (o && !o.dead && o.state === 'atk' && o.atk && o.atk.kind === 'blade' && o.atk.active && o.st < o.atk.active[0] - 0.05 && armed(o) && free(f) && !S.tasks[f.id]) {
       const ps = near(f, (p) => p.k === 'post', 100);
-      if (ps && Math.abs(o.x - f.x) < 180 && !(z.envBiteT > 0) && rnd() < h * 14) { pairBite(f, o, ps); z.envBiteT = 6; return; } // (not again for 6 s)
+      if (ps && Math.abs(o.x - f.x) < 180 && !(z.envBiteT > 0) && rnd() < h * 14 * kS) { pairBite(f, o, ps); z.envBiteT = 6; return; } // (not again for 6 s)
     }
     // a prop in hand: use it (the props module's own CPU walks off to props on a timer - a time sink: off, see enable)
     const held = P.held(f);
     if (held && free(f) && !S.tasks[f.id]) {
       const K = KINDS[held.k], dist = Math.abs(o.x - f.x);
       z.envHeld = (z.envHeld || 0) + h;
-      if (dist < 130 && o.state !== 'atk' && rnd() < h * 4) { if (P.act(f, K.swing ? 'swing' : 'smash')) z.envHeld = 0; }
-      else if (K.throw && ((dist > 200 && dist < 560 && rnd() < h * 1.2) || z.envHeld > 4)) { if (P.act(f, 'throw')) z.envHeld = 0; }
+      if (dist < 130 && o.state !== 'atk' && rnd() < h * 4 * kS) { if (P.act(f, K.swing ? 'swing' : 'smash')) z.envHeld = 0; }
+      else if (K.throw && ((dist > 200 && dist < 560 && rnd() < h * 1.2 * kS) || z.envHeld > 4 / kS)) { if (P.act(f, 'throw')) z.envHeld = 0; }
       return;
     }
     if (z.envCd > 0) return;
@@ -525,7 +531,8 @@
     let r = rnd() * tot, pick = L[0];
     for (const e of L) { r -= e[2]; if (r <= 0) { pick = e; break; } }
     if (!doOption(f, pick)) return false;
-    z.envCd = ENV.gap[0] + rnd() * (ENV.gap[1] - ENV.gap[0]);
+    const L0 = cpuLv(f), kT = L0 ? Math.max(0.25, (L0.str || 0) / (LV2().str || 1)) : 1;
+    z.envCd = (ENV.gap[0] + rnd() * (ENV.gap[1] - ENV.gap[0])) / Math.min(1.25, kT);
     return true;
   }
 

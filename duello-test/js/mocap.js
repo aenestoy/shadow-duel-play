@@ -351,7 +351,7 @@
         const u = O.u ? nlerp(P.blade.u, O.u, O.w) : P.blade.u, e0 = O.e ? nlerp(P.blade.e, O.e, O.w) : P.blade.e;
         P.blade = { h: P.haR, u, e: norm(sub(e0, mul(u, dot(e0, u)))) };
       }
-      if (P.armed && !P.inside && this.readable !== false && Mo.readable) readableBlade(P.blade);
+      if (P.armed && !P.inside && this.readable !== false && Mo.readable) readableBlade(P.blade, (this.look.wpn || L).blade, P, this);
       // left hand: on the handle (katana grip) or holding the saya mouth
       if (this.gripFix) {
         // (handle and saya mouth both weighted, so the hand travels from one to the other as the clips cross-fade)
@@ -435,6 +435,23 @@
         this.liftS = lift;
         if (lift > 0) for (const k of ALLJ) if (P[k]) P[k] = [P[k][0], P[k][1] - lift, P[k][2]];
         if (lift > 0) { P.blade.h = [P.blade.h[0], P.blade.h[1] - lift, P.blade.h[2]]; P.saya.a = [P.saya.a[0], P.saya.a[1] - lift, P.saya.a[2]]; } }
+      // the body's height over the fight's own never jumps: a source change, a landing, a fall onto the floor, the floor
+      // rule lifting a body — the hip moves at most 11 a frame (60 a second) towards where it belongs. Standing, the
+      // feet stay where they are and the legs bend to it; off the feet the whole body moves
+      if (this.driven && Mo.readable) {
+        const rel = P.hip[1] - this.y, rp = this.relPrev, a = 11 * Math.max(0, dt) * 60;
+        if (rp != null && dt > 0 && dt < 0.1 && Math.abs(rel - rp) > a) {
+          const standing = this.legs && this.legs.grounded;
+          let corr = clamp(rel, rp - a, rp + a) - rel;
+          // (off the feet the body is never eased down through the floor: the feet stay over it)
+          if (!standing && corr > 0) corr = Math.max(0, Math.min(corr, -Math.max(P.ftR[1], P.ftL[1])));
+          const keys = standing ? ALLJ.filter((k) => !/^(kn|ft)/.test(k)) : ALLJ;
+          for (const k of keys) if (P[k]) P[k] = [P[k][0], P[k][1] + corr, P[k][2]];
+          P.blade.h = [P.blade.h[0], P.blade.h[1] + corr, P.blade.h[2]]; P.saya.a = [P.saya.a[0], P.saya.a[1] + corr, P.saya.a[2]];
+          if (standing) for (const k of ['R', 'L']) { const r = ik3(P['hip' + k], P['ft' + k], L.thigh, L.shin, [1, -0.5, 0]); P['kn' + k] = r.m; P['ft' + k] = r.e; }
+          this.relPrev = rel + corr;
+        } else this.relPrev = rel;
+      }
       if (P.chest && Mo.readable) {
         feetAndWrists(P);
         // (a foot turns at most 10 rad/s: a source change, a foot leaving the floor or a fast clip never swing it round in a frame)
@@ -658,8 +675,68 @@
   // (its depth share squeezed to 0.55: a blade pointing at the camera is a sliver) and from showing only its edge (the
   // edge's angle θ round the blade, from the camera, pushed toward the flat: θ' = 90°·(θ/90°)^0.4 each side, so 2° → 20°,
   // 5° → 29°, 20° → 49°: an edge-on blade opens, a flat one stays; Mo.draw also gives the drawn blade a least width). Both are smooth maps: the edge never jumps over.
-  function readableBlade(b) {
-    const u = norm([b.u[0], b.u[1], b.u[2] * 0.55]);
+  // (and never drawn shorter than 4/5 of itself: the part of the blade in the picture's plane is at least 0.8 -
+  // r' = sqrt(0.64 + 0.36 r²), smooth, 1 stays 1 - then, with the drawing's perspective (Mo.cam), turned on toward the
+  // plane until the drawn length is 0.8 of the true one: a katana pointing at or away from the camera read as a stub)
+  // (the share of a blade's true length the picture shows, with the drawing's perspective: hand h, direction u, length BL)
+  Mo.bladeDrawn = (h, u, BL) => { const cam = Mo.cam, sh = cam / (cam - h[2]), t = madd(h, u, BL), st = cam / (cam - t[2]); return Math.hypot(t[0] * st - h[0] * sh, t[1] * st - h[1] * sh) / (BL * sh); };
+  // (a fighter's own blade over its own head, neck, torso as drawn or legs, in the picture: how deep at most - the hand
+  // and the first 10 of the blade by it left out, the hands hold it in front of the body; same measure as the audit's
+  // bladeSelf: head 14, neck 8, the torso's 24 with 6 of give, thighs 11 and shins 8.5 with 6)
+  const segP2 = (p, q, x, y) => { const vx = q[0] - p[0], vy = q[1] - p[1], l2 = vx * vx + vy * vy || 1, t = clamp(((x - p[0]) * vx + (y - p[1]) * vy) / l2, 0, 1); return Math.hypot(x - p[0] - vx * t, y - p[1] - vy * t); };
+  // (which of its own body parts a blade is drawn IN FRONT of - Mo.draw's own layering: the katana's depth at 0.35 of it
+  // against the torso's middle and each leg's; a blade behind them is drawn under them and reads as behind, not over)
+  Mo.bladeFront = (P, h, u, BL) => {
+    const zz = zDraw(P), zk = zz(madd(h, u, BL * 0.35)), zT = (P.hip[2] + zz(P.neck)) * 0.5, zLeg = (s) => (P['kn' + s][2] + P['ft' + s][2]) * 0.5;
+    return { T: zk >= zT, R: zk >= zLeg('R'), L: zk >= zLeg('L') };
+  };
+  Mo.selfPen = (P, h, u, BL) => {
+    const cam = Mo.cam, pr = (p) => { const s = cam / (cam - p[2]); return [p[0] * s, p[1] * s]; };
+    const fr = Mo.bladeFront(P, h, u, BL);
+    if (!fr.T && !fr.R && !fr.L) return -1e9;
+    const hd = pr(P.head), nk = pr(P.neck), hp = pr(P.hip), LG = [fr.R && [pr(P.hipR), pr(P.knR), 5], fr.L && [pr(P.hipL), pr(P.knL), 5], fr.R && [pr(P.knR), pr(P.ftR), 2.5], fr.L && [pr(P.knL), pr(P.ftL), 2.5]].filter(Boolean);
+    let m = -1e9;
+    for (let k = 0; k <= 20; k++) {
+      const w = pr(madd(h, u, 10 + ((BL - 10) * k) / 20)), x = w[0], y = w[1];
+      if (fr.T) m = Math.max(m, 14 - Math.hypot(x - hd[0], y - hd[1]), 8 - segP2(nk, hd, x, y), 18 - segP2(hp, nk, x, y));
+      for (const [a, c, r] of LG) m = Math.max(m, r - segP2(a, c, x, y));
+    }
+    return m;
+  };
+  function readableBlade(b, BL, P, rg) {
+    let u = norm([b.u[0], b.u[1], b.u[2] * 0.55]);
+    {
+      const r = Math.hypot(u[0], u[1]), sg = u[2] < 0 ? -1 : 1, dx = r > 1e-4 ? u[0] / r : 0.7071, dy = r > 1e-4 ? u[1] / r : -0.7071;
+      const fit = (q, a = 0) => { const c = Math.cos(a), sn = Math.sin(a); return [(dx * c - dy * sn) * q, (dx * sn + dy * c) * q, sg * Math.sqrt(Math.max(0, 1 - q * q))]; };
+      let q = Math.sqrt(0.64 + 0.36 * r * r);
+      if (BL && b.h) {
+        const h = b.h, drawn = (v) => Mo.bladeDrawn(h, v, BL);
+        if (drawn(fit(q)) < 0.8) { let lo = q, hi = 1; for (let i = 0; i < 10; i++) { const m = (lo + hi) / 2; if (drawn(fit(m)) < 0.8) lo = m; else hi = m; } q = hi; }
+      }
+      q = Math.max(q, r);
+      u = fit(q);
+      // never turned INTO its own body: a blade read longer that would lie over the wielder's own body is turned the least
+      // round the hand in the picture that keeps it off (near last frame's turn), or drawn shorter - 0.6 of it at least;
+      // if nothing in reach is clear, the least deep of them (js/mocap-duel.js's audit: bladeSelf)
+      let a0 = 0;
+      // (a blade the duel places - a bind, a cut aimed at its target: rg.ovr - is left where it is put)
+      if (P && BL && b.h && !(rg && rg.ovr && rg.ovr.w > 0.01) && Mo.selfPen(P, b.h, u, BL) > 0) {
+        const pa = rg && rg.rbA != null ? rg.rbA : 0, qs = [];
+        for (let qq = q; qq >= Math.min(q, 0.6) - 1e-6; qq -= 0.05) qs.push(qq);
+        let best = null, least = null;
+        for (const qq of qs) for (let i = 0; i <= 24; i++) for (const sgn of i ? [1, -1] : [1]) {
+          const a = sgn * i * 0.05, cost = Math.abs(a) + (q - qq) * 2 + Math.abs(a - pa) * 0.5;
+          if (best && cost >= best.cost) continue;
+          const v = fit(qq, a);
+          if (Mo.bladeDrawn(b.h, v, BL) < 0.6) continue; // (never drawn under 0.6 of its length)
+          const pn = Mo.selfPen(P, b.h, v, BL);
+          if (pn <= 0) best = { cost, v, a }; else if (!least || pn < least.pn) least = { pn, v, a };
+        }
+        const ch = best || (least && least.pn < Mo.selfPen(P, b.h, u, BL) - 2 ? least : null);
+        if (ch) { u = ch.v; a0 = ch.a; }
+      }
+      if (rg) rg.rbA = a0;
+    }
     let e = sub(b.e, mul(u, dot(b.e, u)));
     e = len(e) > 1e-4 ? norm(e) : norm(cross(u, [0, 0, 1]));
     const zc = sub([0, 0, 1], mul(u, u[2])), lz = len(zc);
@@ -788,6 +865,7 @@
   }
   // a local 3D point of the rig → world 2D (as drawn)
   Mo.project = (rg, p) => projector(rg)(p);
+  Mo.projectorOf = projector; // (one projector for many points: the duel's blade search, js/mocap-duel.js)
   // depth25's helpers take {x, y, z} points and a projector pr(p, zN)
   const o3 = (a) => ({ x: a[0], y: a[1], z: a[2] });
   const J2 = (q) => ({ x: q.x, y: q.y });

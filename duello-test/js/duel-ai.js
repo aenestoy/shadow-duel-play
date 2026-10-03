@@ -16,10 +16,33 @@
   const G = ND.game;
   const PT = { x: 0, y: 0 };
 
+  // The duel's CPU levels: the same profiles (and the same remote tune, js/tune.js) brought closer to Apprentice by
+  // AI_KNOBS.duelK - a parry, a guard and a counter are worth more in the duel (a full chain binds, a bind disarms or
+  // cuts), so the same numbers made a harder opponent than the normal fight (a button-masher lost 29 of 48 to
+  // Apprentice+ instead of 16, 2026-10-03). Each level's duel profile is kept in place and re-made with the tune.
+  const LV = ND.AI_LEVELS, KN = ND.AI_KNOBS, DUEL_LV = new Map();
+  const duelDerive = () => {
+    const a = LV[0], k = KN.duelK ?? 0.6;
+    for (const key of Object.keys(LV)) {
+      const b = LV[key]; if (!b || b === a) continue;
+      let o = DUEL_LV.get(b); if (!o) DUEL_LV.set(b, (o = { name: b.name }));
+      for (const f of Object.keys(b)) {
+        if (f === 'name') continue;
+        if (Array.isArray(b[f])) { const t = o[f] || (o[f] = []); b[f].forEach((v, i) => { t[i] = a[f][i] + (v - a[f][i]) * k; }); }
+        else if (typeof b[f] === 'number' && typeof a[f] === 'number') o[f] = a[f] + (b[f] - a[f]) * k;
+        else o[f] = b[f];
+      }
+    }
+  };
+  duelDerive();
+  { const d0 = ND.aiDerive; ND.aiDerive = function () { const r = d0 && d0.apply(this, arguments); duelDerive(); return r; }; }
+  D.duelLevel = (lv) => DUEL_LV.get(lv) || lv;
+
   const up0 = AP.update;
   AP.update = function (dt) {
     const me = this.me;
     if (!me.dz) return up0.call(this, dt);
+    if (!this.duelLv) { this.duelLv = true; this.lv = D.duelLevel(this.lv); }
     // queued presses (input combos): [time, action, 'tap' | 'hold' | 'rel']
     if (this.dq && this.dq.length) {
       for (const a of this.taps) if (!this.held[a]) this.c.release(a, 'ai');
@@ -85,7 +108,7 @@
         }
         // the opponent in reach: keep the guard up for his cut (an evade) or trade blows (fists are fast) rather than
         // turn away from it
-        if (dist < 190 && o.dz && o.dz.armed && rnd() < 0.45) { this.setHeld('left', false); this.setHeld('right', false); this.move = 0; this.setHeld('guard', true); this.guardUntil = this.t + rand(0.35, 0.6); return; }
+        if (dist < 190 && o.dz && o.dz.armed && rnd() < 0.5 * (lv.guard || 0)) { this.setHeld('left', false); this.setHeld('right', false); this.move = 0; this.setHeld('guard', true); this.guardUntil = this.t + rand(0.35, 0.6); return; } // (guard: how often it keeps the guard up)
         if (dist < 150 && rnd() < 0.6) return decide0.call(this, dist, fwd);
         if (!oppBetween) { this.go(toward, rand(0.2, 0.35)); return; }
         // the opponent stands between: roll past it (the roll goes through), or fight to make room
@@ -108,7 +131,7 @@
       if (!between && Math.abs(dsw) > 40 && rnd() < 0.25 * lv.smart) { this.go(Math.sign(dsw) || fwd, rand(0.2, 0.32)); return; }
       // the sword has the reach: it presses the empty-handed one (cuts it must duck, sway or catch) rather than waiting
       // over the blade (CPU against CPU, a disarm used to stall the fight: ~2 blade contacts a minute, 2026-10-03)
-      if (o.state !== 'atk' && rnd() < 0.55) {
+      if (o.state !== 'atk' && rnd() < 0.3 + 0.38 * (lv.aggr || 0)) { // (aggr: how hard it presses)
         if (dist < 175) { this.dirTap(rnd() < 0.7 ? 'light' : 'heavy', 0); return; }
         if (dist < 320) { this.go(fwd, rand(0.15, 0.25)); return; }
       }
