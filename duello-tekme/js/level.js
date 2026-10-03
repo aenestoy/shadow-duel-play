@@ -1,0 +1,496 @@
+
+
+
+
+
+
+
+
+
+
+(function (ND) {
+  'use strict';
+  const MAX = 100;
+  const clampInt = (v, lo, hi) => (typeof v === 'number' && Number.isFinite(v) ? Math.max(lo, Math.min(hi, Math.round(v))) : lo);
+  const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+  const ID = /^[a-z0-9_]{2,40}$/;
+
+
+
+
+  const need = (L) => (L >= MAX ? Infinity : Math.min(4000, Math.round(25 + 20 * L + 1.2 * L * L)));
+  const BASE = [0, 0];
+  for (let L = 2; L <= MAX; L++) BASE[L] = BASE[L - 1] + need(L - 1);
+  const XP_MAX = BASE[MAX] * 4;
+
+
+  const XP = {
+    win: 40, loss: 15, round: 5,
+    parry: 2, counter: 2, rally: 4, perfect: 6, styleCap: 20,
+    lvMul: [0.9, 1, 1.15, 1.3],
+
+
+    mode: { cpu: 1, arcade: 1, tourney: 1.2, dan: 1.2, rival: 1.1, friend: 1, ranked: 1.3, shadow: 1.3 },
+    fightCap: 150,
+    firstWin: 100, streak: 15, streakMax: 6,
+    shortSec: 25, minSec: 6, shortWin: 1800,
+    boostMul: 1.5,
+
+    trial: 25, trialAgain: 5, trialAgainMax: 10, tutorial: 50, lesson: 10,
+    clear: [150, 250, 400, 100],
+  };
+
+
+  const dayOf = (now, tz) => Math.floor((now - (tz | 0) * 60000) / 864e5);
+
+
+
+
+  const SEASON = { days: 28, epoch: Date.UTC(2026, 9, 1) };
+  function seasonAt(now, cal) {
+    const C = cal || SEASON, len = C.days * 864e5;
+    const n = Math.max(1, Math.floor((now - C.epoch) / len) + 1);
+    const start = C.epoch + (n - 1) * len;
+    return { key: 'L' + n, n, start, end: start + len };
+  }
+
+
+
+
+
+
+  const THEMES = {
+    sakura: { cloth: '#e9c6d0', clothHi: '#f7e3e8', clothDark: '#b38593', wrap: '#5a2a3c', wrapDark: '#3a1a27', accent: '#ff7fa8', accentDark: '#9c3658', ui: '#ff8fb3', hakama: '#3d2230', hakamaDark: '#26141e' },
+    ember: { cloth: '#2c1b14', clothHi: '#46291c', clothDark: '#190e0a', wrap: '#6a2a14', wrapDark: '#41180b', accent: '#ff7a2a', accentDark: '#8a3510', ui: '#ff8c42', hakama: '#1a100c', hakamaDark: '#0e0806', rim: 'rgba(255,150,80,.6)', rimDim: 'rgba(200,90,40,.32)' },
+    frost: { cloth: '#cfe0ea', clothHi: '#eef6fb', clothDark: '#8ea7b8', wrap: '#2c3e52', wrapDark: '#1b2735', accent: '#58c8f0', accentDark: '#1f6f8f', ui: '#7fd6f5', hakama: '#26364a', hakamaDark: '#172231', rim: 'rgba(190,230,255,.62)', rimDim: 'rgba(130,170,210,.32)' },
+    jade: { cloth: '#1f4b3b', clothHi: '#2f6a54', clothDark: '#123024', wrap: '#c9a96a', wrapDark: '#8a7040', accent: '#e8d08a', accentDark: '#8a7442', ui: '#6fdcaa', hakama: '#0f241c', hakamaDark: '#08150f' },
+    ash: { cloth: '#5a5c62', clothHi: '#7d8088', clothDark: '#3a3c41', wrap: '#16171a', wrapDark: '#0c0d0f', accent: '#d6262e', accentDark: '#6e0e12', ui: '#e8434a', hakama: '#202125', hakamaDark: '#121316' },
+    moon: { cloth: '#1b2440', clothHi: '#2c3a63', clothDark: '#101629', wrap: '#c8ccd8', wrapDark: '#8a8fa0', accent: '#e6ecff', accentDark: '#8c96b8', ui: '#c9d6ff', hakama: '#121a30', hakamaDark: '#0a0f1c', rim: 'rgba(200,215,255,.7)', rimDim: 'rgba(140,155,200,.36)' },
+    lotus: { cloth: '#3a2458', clothHi: '#553780', clothDark: '#241638', wrap: '#f0a8c8', wrapDark: '#a8607e', accent: '#ff9ad0', accentDark: '#9a3f70', ui: '#d9a2ff', hakama: '#1e1230', hakamaDark: '#120a1d' },
+    storm: { cloth: '#2a3138', clothHi: '#414b56', clothDark: '#181d22', wrap: '#1a1f24', wrapDark: '#0f1215', accent: '#ffe14a', accentDark: '#8a7410', ui: '#ffe866', hakama: '#14181c', hakamaDark: '#0b0d10', rim: 'rgba(255,240,140,.55)', rimDim: 'rgba(200,180,80,.3)' },
+    yami: { cloth: '#0b0a10', clothHi: '#1c1828', clothDark: '#06050a', wrap: '#24182f', wrapDark: '#140d1b', accent: '#b77cff', accentDark: '#4d2c80', ui: '#c79bff', hakama: '#08070c', hakamaDark: '#040306', rim: 'rgba(190,140,255,.85)', rimDim: 'rgba(150,100,230,.45)' },
+  };
+
+
+  const COSTUMES = [['sakura', 'akane'], ['moon', 'aoi'], ['ash', 'kuro'], ['frost', 'yuki'], ['lotus', 'hana'], ['jade', 'tetsu'],
+    ['ember', 'ren'], ['yami', 'kage'], ['storm', 'tora'], ['jade', 'jin'], ['sakura', 'mai'], ['frost', 'tsubame']];
+  const ITEMS = {};
+  for (const [th, nj] of COSTUMES) ITEMS['cos_' + th + '_' + nj] = { kind: 'cos', theme: th, ninja: nj, pal: THEMES[th] };
+  Object.assign(ITEMS, {
+
+    trail_sakura: { kind: 'trail', rgb: '255,160,200' },
+    trail_ember: { kind: 'trail', rgb: '255,150,70' },
+    trail_frost: { kind: 'trail', rgb: '150,235,255' },
+    trail_jade: { kind: 'trail', rgb: '110,240,170' },
+    trail_violet: { kind: 'trail', rgb: '200,150,255' },
+    trail_gold: { kind: 'trail', rgb: '255,215,110' },
+
+    title_novice: { kind: 'title', color: '#c9c2b0' },
+    title_wanderer: { kind: 'title', color: '#b9d0e6' },
+    title_duelist: { kind: 'title', color: '#e8b86a' },
+    title_parry: { kind: 'title', color: '#9fe0ff' },
+    title_ronin: { kind: 'title', color: '#e07a62' },
+    title_nightblade: { kind: 'title', color: '#b99cff' },
+    title_s1: { kind: 'title', color: '#d9a2ff' },
+
+    badge_blade: { kind: 'badge', icon: '刃', color: '#d9dde8' },
+    badge_moon: { kind: 'badge', icon: '月', color: '#c9d6ff' },
+    badge_fire: { kind: 'badge', icon: '炎', color: '#ff8c42' },
+    badge_snow: { kind: 'badge', icon: '雪', color: '#e6f4ff' },
+    badge_sakura: { kind: 'badge', icon: '桜', color: '#ff9ec0' },
+    badge_dragon: { kind: 'badge', icon: '龍', color: '#6fdcaa' },
+    badge_kage: { kind: 'badge', icon: '影', color: '#c79bff' },
+
+    frame_bronze: { kind: 'frame', color: '#c07b45' },
+    frame_silver: { kind: 'frame', color: '#c3c8d4' },
+    frame_crimson: { kind: 'frame', color: '#d8392d' },
+    frame_jade: { kind: 'frame', color: '#45c08e' },
+    frame_gold: { kind: 'frame', color: '#f0c55a' },
+
+    boost3: { kind: 'boost', n: 3 },
+    boost5: { kind: 'boost', n: 5 },
+    honor100: { kind: 'honor', n: 100 },
+    honor200: { kind: 'honor', n: 200 },
+
+
+
+
+    honor300: { kind: 'honor', n: 300 },
+    honor500: { kind: 'honor', n: 500 },
+    key_rival: { kind: 'rkey' },
+    key_arena: { kind: 'akey' },
+    ticket_trial: { kind: 'ticket', n: 3 },
+    shield: { kind: 'shield' },
+
+    pass1_akane: { kind: 'cos', ninja: 'akane', drawn: 'pass1_akane' },
+  });
+
+
+  const FLAIR_IDS = {
+    pose: ['pose_tenchi', 'pose_rei', 'pose_hiza', 'pose_katsugi', 'pose_kissaki'],
+    hitfx: ['hitfx_kinpaku', 'hitfx_aizome', 'hitfx_sakura', 'hitfx_kitsunebi', 'hitfx_raijin'],
+    slash: ['slash_kin', 'slash_sumi', 'slash_hana', 'slash_rai'],
+    aura: ['aura_kitsunebi', 'aura_raiun', 'aura_hana', 'aura_gekko'],
+    ko: ['ko_enso', 'ko_hanafubuki', 'ko_raiko', 'ko_mikazuki'],
+    card: ['card_seigaiha', 'card_yozakura', 'card_ryu', 'card_tsukiyo', 'card_asanoha'],
+    arena: ['arena_temple_snow', 'arena_rain_moon', 'arena_snow_night', 'arena_market_rain'],
+    music: ['music_haru', 'music_yuki', 'music_matsuri'],
+  };
+
+  const ARENA_BASE = { arena_temple_snow: 'temple', arena_rain_moon: 'rain', arena_snow_night: 'snow', arena_market_rain: 'market' };
+  const FLAIR_KINDS = Object.keys(FLAIR_IDS);
+  for (const k of FLAIR_KINDS) for (const id of FLAIR_IDS[k]) ITEMS[id] = k === 'arena' ? { kind: k, flair: true, base: ARENA_BASE[id] } : { kind: k, flair: true };
+
+
+  const EQ_KINDS = ['title', 'badge', 'frame', 'trail', 'pose', 'hitfx', 'slash', 'aura', 'ko', 'card', 'music'];
+
+  const USED = { boost: 1, honor: 1, rkey: 1, akey: 1, ticket: 1, shield: 1, rw: 1 };
+  const SHIELD_MAX = 3, TICKET_MAX = 9, KEY_HONOR = 300;
+
+
+
+  const isJourneyItem = (id) => /^j[ct][23]_[a-z]{2,12}$/.test(id);
+
+
+
+  const RW = /^rw:[a-z0-9_]{3,40}$/;
+  function item(id) {
+    if (typeof id !== 'string') return null;
+    if (ITEMS[id]) return Object.assign({ id }, ITEMS[id]);
+    if (RW.test(id)) return { id, kind: 'rw', ref: id.slice(3) };
+    if (isJourneyItem(id)) return { id, kind: id[1] === 'c' ? 'cos' : 'title', journey: +id[2], ninja: id.slice(4), color: id[2] === '3' ? '#ff6a4a' : '#e6e9f0' };
+    return null;
+  }
+
+
+
+
+
+
+  const NEW_MAX = 60;
+  const UNLOCK_ID = /^(ch|ar):[a-z0-9_]{2,24}$/;
+  const NEW_HELD = { rw: 1, ticket: 1, shield: 1 };
+  function newOk(id) {
+    if (typeof id !== 'string') return false;
+    if (UNLOCK_ID.test(id)) return true;
+    const it = item(id);
+    return !!it && (!USED[it.kind] || !!NEW_HELD[it.kind]);
+  }
+
+  function markNew(st, ids) {
+    if (!Array.isArray(st.nw)) st.nw = [];
+    let n = 0;
+    for (const id of [].concat(ids)) if (newOk(id) && !st.nw.includes(id)) { st.nw.push(id); n++; }
+    if (st.nw.length > NEW_MAX) st.nw.splice(0, st.nw.length - NEW_MAX);
+    return n;
+  }
+
+  function markSeen(st, ids) {
+    if (!Array.isArray(st.nw) || !st.nw.length) return 0;
+    const drop = new Set([].concat(ids)), before = st.nw.length;
+    st.nw = st.nw.filter((id) => !drop.has(id));
+    return before - st.nw.length;
+  }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  const SEASON_1 = ['title_novice', 'boost3', 'trail_frost', 'cos_sakura_akane', 'badge_moon', 'honor200', 'cos_frost_yuki',
+    'shield', 'key_rival', 'hitfx_sakura', 'ticket_trial', 'pose_rei', 'key_arena', 'frame_jade', 'aura_kitsunebi',
+    'honor300', 'card_yozakura', 'shield', 'title_ronin', 'slash_kin', 'arena_temple_snow', 'honor500', 'ko_hanafubuki',
+    'music_haru', 'cos_yami_kage', 'shield', 'pose_tenchi', 'trail_gold', 'title_s1', 'pass1_akane'];
+  const DEFAULT_SEASON = {
+    v: 1, id: 's1',
+    xp: { early: 200, earlyN: 3, per: 500 },
+    waitTiers: 3, soon: 0,
+    tiers: SEASON_1.map((r) => ({ r })),
+  };
+
+
+
+  const passItem = (id) => typeof id === 'string' && Object.prototype.hasOwnProperty.call(ITEMS, id);
+
+
+
+  function cleanSeason(c) {
+    if (!isObj(c) || (c.v != null && c.v !== 1) || !Array.isArray(c.tiers) || !c.tiers.length) return null;
+    const tiers = c.tiers.slice(0, 60).map((t) => {
+      const r = !isObj(t) ? null : 'r' in t ? t.r : passItem(t.f) ? t.f : t.b;
+      return { r: passItem(r) ? r : null };
+    });
+    const x = isObj(c.xp) ? c.xp : {};
+    const out = {
+      v: 1, id: typeof c.id === 'string' && ID.test(c.id) ? c.id : 's1',
+      xp: { early: clampInt(x.early ?? 200, 50, 5000), earlyN: clampInt(x.earlyN ?? 5, 0, 60), per: clampInt(x.per ?? 400, 50, 5000) },
+      waitTiers: clampInt(c.waitTiers ?? 3, 1, 60), soon: clampInt(c.soon ?? 0, 0, 60),
+
+      mul: typeof c.mul === 'number' && Number.isFinite(c.mul) ? Math.max(0.5, Math.min(3, c.mul)) : 1,
+      lvMul: typeof c.lvMul === 'number' && Number.isFinite(c.lvMul) ? Math.max(0.5, Math.min(3, c.lvMul)) : 1,
+      tiers,
+    };
+    if (isObj(c.names)) out.names = c.names;
+    return out;
+  }
+
+  function tierXp(S, t) {
+    const e = Math.min(t, S.xp.earlyN);
+    return e * S.xp.early + Math.max(0, t - S.xp.earlyN) * S.xp.per;
+  }
+  function tierOf(S, x) {
+    const N = S.tiers.length;
+    let t = 0;
+    while (t < N && x >= tierXp(S, t + 1)) t++;
+    const from = tierXp(S, t), to = t < N ? tierXp(S, t + 1) : from;
+    return { tier: t, max: N, into: x - from, need: to - from, pct: t >= N ? 1 : (x - from) / Math.max(1, to - from) };
+  }
+
+
+
+
+
+
+
+
+
+
+
+  const V = 1;
+  const intList = (a, hi) => (Array.isArray(a) ? [...new Set(a.filter((n) => Number.isInteger(n) && n >= 1 && n <= hi))].sort((p, q) => p - q) : []);
+  function cleanState(o, chars) {
+    const s = isObj(o) ? o : {};
+    const ids = Array.isArray(chars) ? chars : null;
+    const okNinja = (k) => /^[a-z]{2,12}$/.test(k) && (!ids || ids.includes(k));
+    const d = isObj(s.d) ? s.d : {};
+    const out = {
+      v: V, xp: clampInt(s.xp, 0, XP_MAX),
+      d: { k: clampInt(d.k, 0, 1e6), s: clampInt(d.s, 0, 9999), w: clampInt(d.w, 0, 1e6), t: clampInt(d.t, 0, 999) },
+      sh: isObj(s.sh) ? { t: clampInt(s.sh.t, 0, 1e14), n: clampInt(s.sh.n, 0, 99) } : { t: 0, n: 0 },
+      bo: clampInt(s.bo, 0, 99), ps: {}, own: [], eq: {}, av: {}, wear: {}, jc: {}, seen: clampInt(s.seen, 0, MAX), nw: [],
+      tk: clampInt(s.tk, 0, TICKET_MAX), sd: clampInt(s.sd, 0, SHIELD_MAX),
+    };
+    if (s.mig) out.mig = 1;
+    if (isObj(s.ps)) {
+      const keys = Object.keys(s.ps).filter((k) => /^[LS]\d{1,5}$/.test(k)).sort((p, q) => +p.slice(1) - +q.slice(1)).slice(-6);
+      for (const k of keys) {
+        const p = isObj(s.ps[k]) ? s.ps[k] : {};
+
+        out.ps[k] = { x: clampInt(p.x, 0, 1e7), f: intList([...(Array.isArray(p.f) ? p.f : []), ...(Array.isArray(p.b) ? p.b : [])], 60), b: [], a: clampInt(p.a, 0, 999), w: clampInt(p.w, 0, 60) };
+        if (typeof p.id === 'string' && ID.test(p.id)) out.ps[k].id = p.id;
+      }
+    }
+    if (Array.isArray(s.own)) out.own = [...new Set(s.own.filter((id) => { const it = item(id); return it && !USED[it.kind]; }))].slice(0, 400);
+    if (isObj(s.eq)) for (const k of EQ_KINDS) {
+      const it = item(s.eq[k]);
+      if (it && it.kind === k && out.own.includes(it.id)) out.eq[k] = it.id;
+    }
+    if (isObj(s.av)) for (const b of Object.keys(s.av)) {
+      const it = item(s.av[b]);
+      if (it && it.kind === 'arena' && it.base === b && out.own.includes(it.id)) out.av[b] = it.id;
+    }
+    if (isObj(s.wear)) for (const k of Object.keys(s.wear)) {
+      const it = item(s.wear[k]);
+      if (okNinja(k) && it && it.kind === 'cos' && out.own.includes(it.id) && (!it.ninja || it.ninja === k)) out.wear[k] = it.id;
+    }
+    if (isObj(s.jc)) for (const k of Object.keys(s.jc)) if (okNinja(k)) { const n = clampInt(s.jc[k], 0, 9999); if (n) out.jc[k] = n; }
+
+    if (Array.isArray(s.nw)) out.nw = [...new Set(s.nw.filter((id) => newOk(id) && (UNLOCK_ID.test(id) || NEW_HELD[item(id).kind] || out.own.includes(id))))].slice(-NEW_MAX);
+    return out;
+  }
+
+
+
+
+  function migrate(st, p) {
+    if (!p || st.mig) return st;
+    const hon = p.hon && typeof p.hon.t === 'number' ? p.hon.t : 0;
+    st.xp = Math.max(st.xp, clampInt(hon, 0, BASE[60]));
+    const cl = p.journey && isObj(p.journey.cleared) ? p.journey.cleared : {};
+    for (const k of Object.keys(cl)) if (cl[k] && /^[a-z]{2,12}$/.test(k)) st.jc[k] = Math.max(st.jc[k] | 0, 1);
+    st.seen = Math.max(st.seen, levelOf(st.xp).lv);
+    st.mig = 1;
+    return st;
+  }
+
+  function levelOf(xp) {
+    xp = Math.max(0, xp | 0);
+    let lv = 1;
+    while (lv < MAX && xp >= BASE[lv + 1]) lv++;
+    const into = xp - BASE[lv], nd = lv < MAX ? need(lv) : 0;
+    return { lv, into, need: nd, pct: lv >= MAX ? 1 : into / nd, xp };
+  }
+
+
+  function touchDay(st, now, tz) {
+    const today = dayOf(now, tz);
+    if (st.d.k !== today) { st.d.s = st.d.k === today - 1 ? st.d.s + 1 : 1; st.d.k = today; st.d.t = 0; }
+    return today;
+  }
+
+
+
+
+  function fight(st, c, now, tz) {
+    const rows = [];
+    const today = touchDay(st, now, tz);
+    const sec = typeof c.sec === 'number' && Number.isFinite(c.sec) ? Math.max(0, c.sec) : XP.shortSec;
+    if (sec < XP.minSec) return { total: 0, rows, short: true, boosted: false };
+    const mul = (XP.mode[c.mode] ?? 1) * (XP.lvMul[c.level] ?? 1);
+    if (c.won) rows.push(['win', Math.round(XP.win * mul)]);
+    else {
+      rows.push(['loss', Math.round(XP.loss * mul)]);
+      if (c.roundsWon > 0) rows.push(['rounds', Math.round(XP.round * Math.min(3, c.roundsWon) * mul), c.roundsWon]);
+    }
+    let cap = XP.styleCap;
+    const style = (key, n, each) => {
+      n = Math.max(0, n | 0); if (!n || cap <= 0) return;
+      const v = Math.min(cap, n * each); cap -= v; rows.push([key, v, n]);
+    };
+    style('perfect', c.perfects, XP.perfect);
+    style('rally', c.rallies, XP.rally);
+    style('counter', c.counters, XP.counter);
+    style('parry', c.parries, XP.parry);
+    let total = Math.min(XP.fightCap, rows.reduce((s, r) => s + r[1], 0));
+
+    let short = false;
+    if (sec < XP.shortSec) {
+      short = true;
+      st.sh = now - st.sh.t < XP.shortWin * 1000 ? { t: now, n: st.sh.n + 1 } : { t: now, n: 1 };
+      const f = Math.max(0.1, (sec / XP.shortSec) * Math.pow(0.5, st.sh.n - 1));
+      total = Math.round(total * f);
+      rows.push(['short', -Math.max(0, rows.reduce((s, r) => s + r[1], 0) - total)]);
+    } else st.sh.n = 0;
+    let boosted = false;
+    if (st.bo > 0 && total > 0) {
+      const extra = Math.round(total * (XP.boostMul - 1));
+      total += extra; st.bo--; boosted = true;
+      rows.push(['boost', extra]);
+    }
+
+    if (c.won && !short && st.d.w !== today) {
+      st.d.w = today;
+      rows.push(['daily', XP.firstWin]);
+      total += XP.firstWin;
+      const extra = XP.streak * Math.min(XP.streakMax, Math.max(0, st.d.s - 1));
+      if (extra) { rows.push(['streak', extra, st.d.s]); total += extra; }
+    }
+    return { total: Math.max(0, total), rows, short, boosted };
+  }
+
+
+
+  function add(st, n, key, seasonMul, levelMul) {
+    n = Math.max(0, Math.round(n || 0));
+    const from = levelOf(st.xp);
+    st.xp = Math.min(XP_MAX, st.xp + Math.round(n * (levelMul || 1)));
+    if (key) {
+      const p = st.ps[key] || (st.ps[key] = { x: 0, f: [], b: [], a: 0, w: 0 });
+      p.x = Math.min(1e7, p.x + Math.round(n * (seasonMul || 1)));
+    }
+    const to = levelOf(st.xp), ups = [];
+    for (let L = from.lv + 1; L <= to.lv; L++) ups.push(L);
+    return { from, to, ups, n };
+  }
+
+
+
+
+
+  function claimWay(S, p, t, adsOk) {
+    const T = S.tiers[t - 1], reached = tierOf(S, p.x).tier;
+    if (!T || !T.r || t > reached || p.f.includes(t)) return null;
+    if (adsOk) return 'ad';
+    return reached >= Math.min(S.tiers.length, t + S.waitTiers) ? 'wait' : null;
+  }
+
+  function waitTier(S, t) { return Math.min(S.tiers.length, t + S.waitTiers); }
+
+
+
+  function grant(st, id, o) {
+    const it = item(id);
+    if (!it) return null;
+    if (it.kind === 'boost') { st.bo = Math.min(99, st.bo + it.n); return { id, kind: 'boost', n: it.n }; }
+    if (it.kind === 'honor') return { id, kind: 'honor', n: it.n };
+    if (it.kind === 'rkey' || it.kind === 'akey') return { id, kind: it.kind };
+    if (it.kind === 'ticket') { st.tk = Math.min(TICKET_MAX, (st.tk | 0) + 1); markNew(st, id); return { id, kind: 'ticket', n: it.n }; }
+    if (it.kind === 'shield') {
+      if (!(o && o.ranked) || (st.sd | 0) >= SHIELD_MAX) return { id, kind: 'honor', n: KEY_HONOR, from: 'shield' };
+      st.sd = Math.min(SHIELD_MAX, (st.sd | 0) + 1);
+      markNew(st, id);
+      return { id, kind: 'shield' };
+    }
+
+    if (it.kind === 'rw') { markNew(st, id); return { id, kind: 'rw', ref: it.ref }; }
+    if (st.own.includes(id)) {
+
+      st.bo = Math.min(99, st.bo + 2);
+      return { id, kind: it.kind, dup: true, n: 2 };
+    }
+    st.own.push(id);
+    markNew(st, id);
+
+
+    if (EQ_KINDS.includes(it.kind) && !st.eq[it.kind]) st.eq[it.kind] = id;
+    if (it.kind === 'arena' && it.base && !st.av[it.base]) st.av[it.base] = id;
+    return { id, kind: it.kind };
+  }
+
+  function claim(S, st, key, t, way, adsOk, o) {
+    const p = st.ps[key];
+    if (!p) return null;
+    const w = claimWay(S, p, t, adsOk);
+    if (!w || w !== way) return null;
+    p.f.push(t); p.f.sort((a, b) => a - b);
+    if (way === 'ad') p.a = Math.min(999, p.a + 1);
+    return grant(st, S.tiers[t - 1].r, o);
+  }
+
+  function equip(st, kind, id) {
+    if (kind === 'arena') {
+      const it = item(id);
+      if (!it || it.kind !== 'arena' || !st.own.includes(id)) return false;
+      st.av[it.base] = id; return true;
+    }
+    if (!EQ_KINDS.includes(kind)) return false;
+    if (id == null) { delete st.eq[kind]; return true; }
+    const it = item(id);
+    if (!it || it.kind !== kind || !st.own.includes(id)) return false;
+    st.eq[kind] = id; return true;
+  }
+
+  function fightFlair(eq) {
+    const o = {};
+    for (const k of ['pose', 'hitfx', 'slash', 'aura', 'ko', 'card']) { const it = eq && item(eq[k]); o[k] = it && it.kind === k ? it.id : null; }
+    return o;
+  }
+
+
+  function journeyClear(st, ninja) {
+    const n = st.jc[ninja] = Math.min(9999, (st.jc[ninja] | 0) + 1);
+    const xp = XP.clear[Math.min(n, 4) - 1];
+    const items = [];
+    if (n === 2 || n === 3) for (const k of ['jc', 'jt']) { const g = grant(st, k + n + '_' + ninja); if (g && !g.dup) items.push(g); }
+    return { n, xp, items };
+  }
+
+  ND.LEVEL = {
+    MAX, XP, SEASON, ITEMS, THEMES, COSTUMES, DEFAULT_SEASON, BASE, FLAIR_IDS, FLAIR_KINDS, ARENA_BASE, EQ_KINDS, USED,
+    SHIELD_MAX, TICKET_MAX, KEY_HONOR, NEW_MAX,
+    need, levelOf, dayOf, seasonAt, item, cleanSeason, tierXp, tierOf,
+    cleanState, migrate, touchDay, fight, add, grant, claimWay, waitTier, claim, journeyClear, equip, fightFlair,
+    newOk, markNew, markSeen,
+  };
+})(typeof window !== 'undefined' ? (window.ND = window.ND || {}) : (globalThis.ND = globalThis.ND || {}));
