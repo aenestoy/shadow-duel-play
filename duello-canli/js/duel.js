@@ -43,6 +43,19 @@
   // WHERE: the single-player fights (a match vs the CPU, the journey and its tourney / dan / rival runs, training) and
   // two players on one device; the tutorial, online, ranked and the ghosts keep the old fight
   const MODES = { cpu: 1, watch: 1, '2p': 1, attract: 1, train: 1, arcade: 1, tourney: 1, dan: 1, rival: 1 };
+  // THE DUEL'S SPEED (2026-10-03, the owner: try it a notch slower): the whole duel fight runs on a scaled clock - every
+  // fight step advances the fight by STEP × speed (movement, attacks, the CPU, hit stops and the input windows together;
+  // deterministic: a constant per fight, never the frame time; js/game.js tick). 0.7-1.0. ?speed=0.9 for tests, else the
+  // remote tune's duelSpeed (js/tune.js), else the page's default (the work-in-progress page: 0.9), else 1. Only a duel
+  // fight: the old fight and the menus keep 1.
+  const SPQ = (/[?&]speed=([\d.]+)/.exec(location.search || '') || [])[1];
+  {
+    ND.timeScale = (g) => {
+      if (!g || !g.F || !g.F[0] || !g.F[0].dz) return 1;
+      const v = SPQ != null ? +SPQ : ND.AI_KNOBS && ND.AI_KNOBS.duelSpeed != null ? ND.AI_KNOBS.duelSpeed : typeof window !== 'undefined' && window.__duelSpeedDefault ? +window.__duelSpeedDefault : 1;
+      return v >= 0.7 && v <= 1 ? v : 1;
+    };
+  }
   const D = ND.duel = {
     on: true, ROSTER, MODES,
     // tuning (seconds are fight seconds)

@@ -1186,7 +1186,7 @@
       if (this.phase === 'replay') { if (sim) scene.advance(rdt * 0.4); else scene.update(rdt * 0.4); this.updateReplay(rdt); this.bars = 1; return; }
       // Rally tutorial (js/tutorial.js): tz is its time scale for this step (set in advance). 0 = time stands still
       // until the player presses the prompted button: nothing moves or counts down, only the camera leans in.
-      const T = ND.tutor && ND.tutor.on && ND.tutor.G === this ? ND.tutor : null, tz = T ? this.tz : 1;
+      const T = ND.tutor && ND.tutor.on && ND.tutor.G === this ? ND.tutor : null, tz = T || ND.timeScale ? this.tz : 1; // (ND.timeScale: the duel's speed, js/duel.js; absent = 1)
       if (tz === 0 && this.phase === 'fight') {
         const d = Math.abs(f1.x - f2.x);
         cam.follow(rdt, f1, f2, { x: (f1.x + f2.x) / 2, y: -112, z: Math.min(1.4, cam.W / (cam.s * (d + 380 + cam.padX))) });
@@ -1199,7 +1199,7 @@
       this.phaseUpdate(rdt, gdt);
       if (sim) scene.advance(gdt); else scene.update(gdt); // scene.t (breathing poses, cloth wind) is fight state
       let fdt = gdt;
-      if (this.hitstopT > 0) { this.hitstopT -= rdt; fdt = 0; }
+      if (this.hitstopT > 0) { this.hitstopT -= T ? rdt : rdt * tz; fdt = 0; } // (the duel's speed scales its hit stops too)
       this.recording = this.mode !== 'attract' && (this.phase === 'fight' || this.phase === 'ko');
       if (fdt > 0) {
         if (!T) for (const ai of this.ais) ai.update(fdt); // the tutorial drives the CPU itself
@@ -1275,7 +1275,7 @@
       const STEP = this.STEP;
       // tick boundary for the controllers: a keyboard / pad GUARD tap hold that has run out lets go (js/input.js)
       for (const f of F) if (f.ctrl.step) f.ctrl.step();
-      const tz = this.tz = ND.tutor && ND.tutor.on ? ND.tutor.pre(this, STEP) : 1;
+      const tz = this.tz = ND.tutor && ND.tutor.on ? ND.tutor.pre(this, STEP) : ND.timeScale ? ND.timeScale(this) : 1;
       ND.simClock = (ND.simClock || 0) + STEP * tz;
       this.presPart = false;
       if (present) { try { this.update(STEP); } finally { this.presPart = false; } return; }
