@@ -103,6 +103,12 @@
   /* (the glow in the ninja's colour is the canvas's own background: drawn once by the browser, not every frame) */
   .nd-fig { position: absolute; z-index: 1; display: block; cursor: pointer; -webkit-tap-highlight-color: transparent; background: radial-gradient(closest-side at var(--gx, 50%) 60%, var(--gc, transparent), transparent); }
   .nd-fig[hidden] { display: none; }
+  /* inside the PLAY card: room on the right, the canvas takes no taps (the card's own click decides), 道 dimmed behind */
+  #mplay.nd-fig-card { padding-right: calc(var(--ndfw, 0px) + 14px); }
+  #mplay.nd-fig-card kbd { display: none; }
+  #mplay.nd-fig-card .mk { position: absolute; right: calc(var(--ndfw, 60px) / 2 - .5em + 6px); top: 50%; transform: translateY(-50%); margin: 0; opacity: .22; font-size: 52px; z-index: 0; pointer-events: none; }
+  #mplay .nd-fig { pointer-events: none; z-index: 1; }
+  #mplay > :not(.nd-fig):not(.mk) { position: relative; z-index: 2; }
   .nd-fig-m { -webkit-mask-image: linear-gradient(90deg, transparent, #000 16%, #000 84%, transparent); mask-image: linear-gradient(90deg, transparent, #000 16%, #000 84%, transparent); }
   .nd-fig { animation: ndFigIn .5s ease-out .6s backwards; }
   @keyframes ndFigIn { from { opacity: 0; translate: 0 8px; } }
@@ -585,6 +591,7 @@
     const o = { id, f: null, ci, look: false, c: null, host, dir, ox: 0.5 };
     const c = o.c = doc.createElement('canvas'); c.className = 'nd-fig'; c.hidden = true; c.setAttribute('aria-hidden', 'true');
     c.addEventListener('click', () => { if (o.f && !o.f._ndG) play(o.f, flourishOf(o.f)); });
+    o.c.__o = o;
     host.insertBefore(c, host.firstChild);
     return o;
   }
@@ -606,36 +613,17 @@
   }
   function ensureFigs() {
     if (figs || !ND.Fighter || !ND.CHARS || !G()) return figs;
-    const first = $('first'), brand = doc.querySelector('#menu .brand');
-    if (!first || !brand) return null;
+    const first = $('first'), card = $('mplay');
+    if (!first || !card) return null;
     const ak = Math.max(0, ND.CHARS.findIndex((c) => c.id === 'akane')), ao = Math.max(0, ND.CHARS.findIndex((c) => c.id === 'aoi'));
-    const L = makeFig(2, ak, 1, first), R = makeFig(3, ao, -1, first), M = makeFig(4, 0, -1, brand);
+    const L = makeFig(2, ak, 1, first), R = makeFig(3, ao, -1, first), M = makeFig(4, 0, -1, card);
     figs = { L, R, M };
     const ro = window.ResizeObserver ? new ResizeObserver(() => figLayout()) : null;
-    if (ro) { ro.observe(first); ro.observe(brand); }
+    if (ro) { ro.observe(first); ro.observe($('menu')); }
+
+
+    card.addEventListener('click', (e) => { if (M.on && M.f && hitFig(M, e.clientX, e.clientY)) { e.preventDefault(); e.stopImmediatePropagation(); if (!M.f._ndG) play(M.f, flourishOf(M.f)); } }, true);
     return figs;
-  }
-
-
-
-  function freeSpot(menu, brand, aspect) {
-    const vw = innerWidth, vh = innerHeight, B = brand.getBoundingClientRect(), pad = 6, obs = [];
-    const add = (r) => { if (r && r.width > 0 && r.height > 0) obs.push([r.left - pad, r.top - pad, r.right + pad, r.bottom + pad]); };
-    for (const el of menu.querySelectorAll('h1, p, .vk, button, .mode, .opts > *, #mstrip, .honor-strip, aside, .tog, small, strong, span')) {
-      if (!shown(el) || el.closest('.nd-fig')) continue;
-      if (el.matches('h1, p, .vk, small, strong, span')) { const r = doc.createRange(); r.selectNodeContents(el); for (const q of r.getClientRects()) add(q); }
-      else add(el.getBoundingClientRect());
-    }
-
-    let zr = vw - 4;
-    for (const el of menu.querySelectorAll('.modes, aside')) { const r = el.getBoundingClientRect(); if (r.left > B.left + 40 && r.top < B.bottom && r.left < zr) zr = r.left - 4; }
-    const zl = Math.max(4, B.left), zt = Math.max(4, B.top - 4), zb = Math.min(vh - 4, B.bottom + Math.max(40, B.height));
-    const free = (x0, y0, x1, y1) => { for (const o of obs) if (x0 < o[2] && x1 > o[0] && y0 < o[3] && y1 > o[1]) return false; return true; };
-    for (let h = Math.min(320, zb - zt); h >= 64; h -= 6) {
-      const w = h * aspect;
-      for (let y = zb - h; y >= zt; y -= 8) for (let x = zr - w; x >= zl; x -= 8) if (free(x, y, x + w, y + h)) return { x, y, w, h };
-    }
-    return null;
   }
 
 
@@ -659,6 +647,15 @@
     const e = { up: up + 6, fw, bk, asp: (fw + bk) / ((up + 6) / 0.95) };
     extCache[key] = e;
     return e;
+  }
+
+  const BODY = ['head', 'neck', 'sh', 'hip', 'elF', 'haF', 'elB', 'haB', 'knF', 'ftF', 'knB', 'ftB'];
+  function hitFig(o, x, y) {
+    const f = o.f, r = o.c.getBoundingClientRect(); if (!f || !f.j || !o.k) return false;
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    for (const k of BODY) { const q = f.j[k]; if (!q) continue; x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y); }
+    const sx = r.width / o.c.width, px = (v) => r.left + (o.x0 + v * o.k) * sx, py = (v) => r.top + (o.y0 + v * o.k) * sx;
+    return x >= px(x0) - 10 && x <= px(x1) + 10 && y >= py(y0 - 34) - 6 && y <= py(y1) + 6;
   }
 
   const textRect = (el) => { if (!el || !shown(el)) return null; const r = doc.createRange(); r.selectNodeContents(el); const b = r.getBoundingClientRect(); return b.width ? b : null; };
@@ -691,16 +688,28 @@
       }
     }
 
-    const menu = $('menu'), brand = menu && menu.querySelector('.brand');
-    if (shown(menu) && brand) {
+
+
+    const menu = $('menu'), card = $('mplay');
+    if (menu && card) card.classList.toggle('nd-fig-card', shown(menu) && QS.get('fig') !== '0');
+    if (shown(menu) && shown(card)) {
       const g = G(), S = g && g.sel, c0 = S && S.c ? S.c[0] : 0, ci = c0 != null && ND.CHARS[c0] ? c0 : 0, ch = ND.CHARS[ci];
-      const ext = extentOf(ci, M_EXCL), spot = freeSpot(menu, brand, Math.max(0.5, ext.asp * SIDE));
-      if (spot) {
-        place(M, spot.x, spot.y, spot.w, spot.h);
-        M.ext = ext; M.side = SIDE; M.c.classList.add('nd-fig-m');
+      const ext = extentOf(ci, M_EXCL), asp = Math.max(0.42, ext.asp * SIDE);
+
+      let w = 0, r = null;
+      for (let i = 0; i < 3; i++) {
+        r = card.getBoundingClientRect();
+        const nw = Math.round(Math.min(r.height * asp, r.width * 0.34));
+        if (Math.abs(nw - w) < 2) break;
+        w = nw; card.style.setProperty('--ndfw', w + 'px');
+      }
+      r = card.getBoundingClientRect();
+      if (w >= 34 && r.height >= 50) {
+        place(M, r.right - w - 6, r.top + 2, w, r.height - 4);
+        M.ext = ext; M.side = SIDE; M.c.classList.add('nd-fig-m', 'nd-fig-in');
         setFigChar(M, ci, ch && ND.save && ND.save.look ? safe(() => ND.save.look(ch.id)) || false : false);
         if (M.f) M.f._ndExcl = M_EXCL;
-      }
+      } else card.classList.remove('nd-fig-card');
     }
     for (const o of [L, R, M]) if (!o.on) o.c.hidden = true;
     figRun();
@@ -744,7 +753,7 @@
     const e = o.ext || { up: 230, fw: 90, bk: 90 }, back = o.dir > 0 ? e.bk : e.fw, ox = back / (e.fw + e.bk);
     if (c.__gc !== f.col.ui) { c.__gc = f.col.ui; c.style.setProperty('--gc', f.col.ui + '40'); c.style.setProperty('--gx', (ox * 100).toFixed(0) + '%'); }
     const k = Math.min(H * 0.95 / e.up, W / ((e.fw + e.bk) * (o.side || 1)));
-    pc.setTransform(k, 0, 0, k, W * ox, H * 0.95);
+    pc.setTransform(k, 0, 0, k, W * ox, H * 0.95); o.k = k; o.x0 = W * ox; o.y0 = H * 0.95;
 
     const half = W / 2 / k, ln = pc.createLinearGradient(-half, 0, half, 0);
     ln.addColorStop(0, 'rgba(217,179,108,0)'); ln.addColorStop(0.5, 'rgba(217,179,108,.35)'); ln.addColorStop(1, 'rgba(217,179,108,0)');
