@@ -1,0 +1,1 @@
+2026-10-04 01:20  be08adbc  Counter cinematics, Akane: block/parry then strike back within 1 s - tier 1/2/3 by the pips (一 二 三), unarmed one; test page ?duel=1 has CINE buttons
