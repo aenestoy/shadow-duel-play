@@ -35,9 +35,9 @@
   // pole, staff, twin blades, fans, chain and bow as each lands). A fight with anyone not on it runs the old fight, for
   // both sides. ?duelroster=akane,kuro (tests) overrides it.
   // (2026-10-03: Tetsu's naginata, Jin's bō and Tsubame's bow + tantō in - drawing, determinism, 32-match stability and
-  // CPU difficulty checked; Hana's twin tantō, Mai's fans and Tora's chain wait: the second weapon / chain still goes
-  // through the other's body)
-  const ROSTER_LIST = ND.DUEL_ROSTER = ['akane', 'aoi', 'kuro', 'yuki', 'ren', 'kage', 'shura', 'tetsu', 'jin', 'tsubame'];
+  // CPU difficulty checked; then Hana's twin tantō (no blade through a head or neck, none behind a torso, 16 drawn matches
+  // clean); Mai's fans and Tora's chain wait: 2-14 frames through a head or neck a run)
+  const ROSTER_LIST = ND.DUEL_ROSTER = ['akane', 'aoi', 'kuro', 'yuki', 'ren', 'kage', 'shura', 'tetsu', 'jin', 'tsubame', 'hana'];
   const ROSTER = {};
   { const q = (/[?&]duelroster=([a-z,]+)/.exec(location.search || '') || [])[1]; for (const id of q ? q.split(',') : ROSTER_LIST) ROSTER[id] = 1; }
   // WHERE: the single-player fights (a match vs the CPU, the journey and its tourney / dan / rival runs, training) and
