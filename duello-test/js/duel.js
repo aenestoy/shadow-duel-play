@@ -41,7 +41,7 @@
       bindSlow: 0.36, bindWin: [0.15, 0.43], bindEnd: 0.5, strikeDur: 0.62, strikeSlow: 0.5, escapeDur: 0.3,
       sideRate: 9, offLine: 0.75, offPost: 0.6, armChip: 2,
       pickR: 60, pickDur: 0.44, pickGrab: 0.25, punish: 1.2, breakDisarm: 0.35, rollDur: 0.44, rollInv: [0.03, 0.3],
-      disarmKi: 50, comboWin: 0.42, kickCool: 2.5, uaDmg: 1.5, uaWalk: 0.18, uaKi: 1.5,
+      disarmKi: 50, comboWin: 0.42, kickCool: 2.5, uaDmg: 1.5, uaWalk: 0.18, uaKi: 1.5, chDmg: { akane: 0.8, kuro: 1.2 },
     },
     stats: null, // simulation counters (scripts/duel-sim.mjs): not fight state
     env: null, // environment objects hook (see bottom)
@@ -539,6 +539,9 @@
     const was = this.state, hp0 = this.hp, atk0 = this.atk, st0 = this.st;
     // empty hands hit harder than their size (they get in close): unarmed blows ×uaDmg
     if (from && from.dz && !from.dz.armed && a && !a.special) raw *= T.uaDmg;
+    // (the duel's characters even: Akane's quick draws and strings out-damaged Kuro's heavier kit - against the same
+    // button-masher the CPU won 100 % as Akane and 63-70 % as Kuro, 2026-10-03)
+    if (from && from.ch && T.chDmg[from.ch.id]) raw *= T.chDmg[from.ch.id];
     if (was === 'dpick') { raw *= T.punish; fx.text(this.x, -222, 'PUNISHED!', '#ff9b7a'); stat('punishedPicks'); }
     const r = takeHit0.call(this, raw, a, from, x, y, part, kdir);
     this.dz.chain = 0;

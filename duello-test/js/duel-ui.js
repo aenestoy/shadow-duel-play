@@ -72,6 +72,9 @@
     ND.cine.drawNum = function (ctx, n, s) { if (HL.head && HL.head.age < 1 && HL.head.p >= 45) return; return num0.call(this, ctx, n, s); };
   }
   const headUp = () => !!(HL.head && HL.head.age < 1.15);
+  // the line just above both fighters' heads (world y): words and numbers go there, never on a body
+  const ABOVE_HEADS = D.aboveHeads = () => { let y = -215; for (const f of G.F || []) if (f && !f.dead && !f.hidden) y = Math.min(y, f.y - 215); return y; };
+  const ctrUp = () => !!(G.F && G.F.some((f) => G.isHuman && G.isHuman(f) && f.counterUntil > (G.clock || 0) && /^(block|parry|guard|move|recoil)$/.test(f.state)));
   const bindUp = () => !!(G.F && G.F.some((f) => f.dz && f.dz.cine && f.dz.cine.ph === 'bind' && f.dz.cine.def === f));
   // a screen box under a live hit flash, ring or spark (ND.fx.parts, world space): the pick-up prompt waits for it,
   // scripts/duel-labels.mjs counts every text under one
@@ -108,12 +111,12 @@
   };
   // every text the overlay draws this frame, as a box (scripts/duel-labels.mjs: no two may overlap)
   D.textBoxes = [];
-  function txt(ctx, s, x, y, px, col, align = 'center', a = 1, kind) {
+  function txt(ctx, s, x, y, px, col, align = 'center', a = 1, kind, who) {
     ctx.globalAlpha = a; ctx.font = `700 ${Math.round(px)}px Oswald, sans-serif`; ctx.textAlign = align; ctx.textBaseline = 'middle';
     // (one text per place: a text that would land on one already drawn this frame is left out. The overlay draws the
     // most important first: the headline, the defence / technique label, then the prompts, names and markers)
     if (a > 0.05 && s) {
-      const w = ctx.measureText(s).width, x0 = align === 'center' ? x - w / 2 : align === 'right' ? x - w : x, bx = { s: String(s), x0, y0: y - px * 0.55, x1: x0 + w, y1: y + px * 0.55, kind: kind || null };
+      const w = ctx.measureText(s).width, x0 = align === 'center' ? x - w / 2 : align === 'right' ? x - w : x, bx = { s: String(s), x0, y0: y - px * 0.55, x1: x0 + w, y1: y + px * 0.55, kind: kind || null, who: who ?? null };
       for (const o of D.textBoxes) if (Math.min(o.x1, bx.x1) - Math.max(o.x0, bx.x0) > 1 && Math.min(o.y1, bx.y1) - Math.max(o.y0, bx.y0) > 1) { ctx.globalAlpha = 1; return; }
       D.textBoxes.push(bx);
     }
@@ -122,11 +125,11 @@
   }
   // a small text near the fighters that waits while a hit's flash, ring or sparks are on its place (the pick-up prompt,
   // the UNARMED tag)
-  function clearTxt(ctx, s, x, y, px, col, kind) {
+  function clearTxt(ctx, s, x, y, px, col, kind, who) {
     ctx.font = `700 ${Math.round(px)}px Oswald, sans-serif`;
     const w = ctx.measureText(s).width;
     if (D.underFlash({ x0: x - w / 2, y0: y - px * 0.55, x1: x + w / 2, y1: y + px * 0.55 })) return;
-    txt(ctx, s, x, y, px, col, 'center', 1, kind);
+    txt(ctx, s, x, y, px, col, 'center', 1, kind, who);
   }
   const human = (f) => !!(G.isHuman && G.isHuman(f));
   function drawDuel(ctx) {
@@ -138,6 +141,20 @@
     drawHeadline(ctx, u);
     if (D.drawQuietFx) { const now = ND.scene.t, dt = S.qT != null ? Math.max(0, Math.min(0.1, now - S.qT)) : 0; S.qT = now; D.drawQuietFx(ctx, u, dt); }
     drawSeq(ctx, k, u); // (the showpiece's beat ring and its word: the player's prompt, before names and markers)
+    // ONE small text per fighter at a time (2026-10-03: UNARMED and "Teisho" over her head with PICK UP at her feet):
+    // the pick-up prompt first (unarmed by her own sword), else the move's name, else the UNARMED tag
+    let promptWho = -1;
+    const P0w = () => S.pick.who;
+    if (S.pick && S.pick.t === ND.scene.t && !headUp()) {
+      // (above her own head, in the tag's place - at the sword it lay on whoever stood over it; the sword keeps its ring)
+      const own = G.F[P0w()], P0 = S.pick, X0 = own ? cam.sx(own.x) : cam.sx(P0.x), Y0 = own ? cam.sy(own.y - 236) + 16 * u : cam.sy(P0.y), sz0 = 13 * u;
+      ctx.font = `700 ${Math.round(sz0)}px Oswald, sans-serif`;
+      const w0 = ctx.measureText(P0.s).width;
+      if (!D.underFlash({ x0: X0 - w0 / 2, y0: Y0 - sz0 * 0.55, x1: X0 + w0 / 2, y1: Y0 + sz0 * 0.55 })) { txt(ctx, P0.s, X0, Y0, sz0, '#ffd27a', 'center', 1, 'prompt', P0.who); promptWho = P0.who; }
+    }
+    S.pick = null;
+    if (promptWho >= 0 && S.labels[0] && !S.labels[0].big && S.labels[0].f.id === promptWho) S.labels.length = 0;
+    const tagsDue = [];
     for (const f of G.F) {
       const z = f.dz;
       if (!z || f.dead) continue;
@@ -154,7 +171,7 @@
         if (z.chain >= N) txt(ctx, 'BIND READY', hx, hy - 16 * u, 12 * u, '#ffd27a');
       }
       // (UNARMED: quiet while a headline is up - DISARMED! already says it)
-      if (!z.armed && !headUp()) clearTxt(ctx, 'UNARMED', hx, hy + 16 * u, 11 * u, '#ff9b7a', 'tag');
+      if (!z.armed) tagsDue.push([f, hx, hy]); // (drawn after the move names are settled, below)
       // move name label
       if (S.names && f.state === 'atk' && f.serial !== S.seen[f.id]) {
         S.seen[f.id] = f.serial;
@@ -173,8 +190,9 @@
     }
     // the pick-up prompt over the player's own sword on the floor (recorded by D.drawSwordMark): never under a hit's
     // flash, ring or sparks and not while a headline is up - it comes back as soon as they are gone
-    if (S.pick && S.pick.t === ND.scene.t && !headUp()) clearTxt(ctx, S.pick.s, cam.sx(S.pick.x), cam.sy(S.pick.y), 15 * u, '#ffd27a', 'prompt');
-    S.pick = null;
+    // the UNARMED tags: only when nothing else is up - no headline, no big name, not the fighter's prompt or move name
+    { const L0 = S.labels[0], labelOn = L0 && !L0.big ? L0.f : null;
+      for (const [f, hx, hy] of tagsDue) if (!headUp() && !(L0 && L0.big) && promptWho !== f.id && labelOn !== f) clearTxt(ctx, 'UNARMED', hx, hy + 16 * u, 11 * u, '#ff9b7a', 'tag', f.id); }
     // labels (fade over 0.9 s real time; quiet while a top headline is up)
     if (HL.head && HL.head.age < 1 && HL.head.p >= 60) S.labels.length = 0;
     for (let i = S.labels.length - 1; i >= 0; i--) {
@@ -183,11 +201,12 @@
       if (L.t > life) { S.labels.splice(i, 1); continue; }
       const sz = (L.big ? 24 : 11) * u, w = L.big ? sz * 0.3 * L.s.length : 0;
       // (an environment moment reads on a 6" phone: twice a move name's size, kept on the screen)
-      const x = L.big ? Math.max(w + 8 * u, Math.min(cam.W - w - 8 * u, cam.sx(L.f.x))) : cam.sx(L.f.x), y = cam.sy(L.f.y - 200) - L.t * (L.big ? 12 : 18) * u;
+      const x = L.big ? Math.max(w + 8 * u, Math.min(cam.W - w - 8 * u, cam.sx(L.f.x))) : cam.sx(L.f.x), y = L.big ? cam.sy(L.f.y - 200) - L.t * 12 * u : cam.sy(L.f.y - 236) + 17 * u; // (a move's name in the tag's place, above the head, under the pips)
       // (an environment moment's big name is a headline of its own: never two at once - it waits under the fight's
       // headline, and gives way to the bind prompt)
       if (L.big && (headUp() || bindUp())) continue;
-      txt(ctx, L.s, x, y, sz, L.col, 'center', L.t < life - 0.2 ? 1 : 1 - (L.t - (life - 0.2)) / 0.2, L.big ? 'headline' : 'label');
+      if (!L.big && L.f.id === promptWho) continue; // (one small text per fighter: the prompt wins)
+      txt(ctx, L.s, x, y, sz, L.col, 'center', L.t < life - 0.2 ? 1 : 1 - (L.t - (life - 0.2)) / 0.2, L.big ? 'headline' : 'label', L.f.id);
     }
     // bind prompt: a ring closing on the crossed blades; gold while the window is open
     for (const f of G.F) {
@@ -272,7 +291,7 @@
     if (human(owner) && D.canPick(owner) && owner.state !== 'dpick') {
       // (drawn with the overlay's texts, drawDuel: there it keeps clear of flashes, headlines and other texts)
       const tch = !!(ND.touch && ND.touch.active);
-      S.pick = { x: gx, y: gy - 46, s: tch ? 'PICK UP: SHURIKEN' : 'PICK UP: ' + (owner.id === 0 ? 'T' : 'I'), t: ND.scene.t };
+      S.pick = { x: gx, y: gy - 46, s: tch ? 'PICK UP: SHURIKEN' : 'PICK UP: ' + (owner.id === 0 ? 'T' : 'I'), t: ND.scene.t, who: owner.id };
     }
   };
 
@@ -362,7 +381,7 @@
   // the player's only), rally (the exchange count: small, in a corner).
   // In an exchange (counter after counter) only ONE label shows at a time, by the contact, never over a face.
   const FXS = {
-    small: { ring: 0.5, flash: 0.5, spark: 0.5, sparkPow: 0.7, slashLen: 0.12, slashW: 0.5, slashLife: 0.5, slashSat: 0.5, ghosts: 1, ghostLife: 0.55,
+    small: { ring: 0.5, flash: 0.5, spark: 0.5, sparkPow: 0.7, slashLen: 0, slashW: 0.5, slashLife: 0.5, slashSat: 0.5, ghosts: 1, ghostLife: 0.55,
       banner: 0.5, bannerLife: 0.7, words: 1, nums: 0.6, dim: 0.2, trail: 0.3, trailC: 0.2, contact: 1, bindRing: 0.6, rally: 1, special: 0.5 },
     none: { ring: 0, flash: 0, spark: 0.5, sparkPow: 0.6, slashLen: 0, slashW: 0, slashLife: 0, slashSat: 0, ghosts: 0, ghostLife: 0,
       banner: 0, bannerLife: 0, words: 0, nums: 0, dim: 0, trail: 0.7, trailC: 0.3, contact: 0, bindRing: 0, rally: 1, special: 0 },
@@ -470,13 +489,20 @@
         }
         return r;
       };
+      // (the counter window's PARRY! prompt waits while the bind's STRIKE! prompt is up: the two were drawn on each
+      // other, 2026-10-03 - the bind is the press that counts now)
+      const pr0 = C.drawPrompt;
+      if (pr0) C.drawPrompt = function (ctx, f, s2) { if (duel() && bindUp()) return; return pr0.call(this, ctx, f, s2); };
       const num0 = C.drawNum;
+      // (a damage number sits above the heads, never on a body: "-8" lay on her arm and chest, 2026-10-03)
+      const numUp = (n, fn) => { const y0 = n.y; n.y = Math.min(n.y, ABOVE_HEADS() - 85); try { return fn(); } finally { n.y = y0; } };
       C.drawNum = function (ctx, n, s2) {
-        if (!duel() || !quiet()) return num0.call(this, ctx, n, s2);
+        if (!duel()) return num0.call(this, ctx, n, s2);
+        if (!quiet()) return numUp(n, () => num0.call(this, ctx, n, s2));
         if (!X.nums || n !== this.nums[this.nums.length - 1]) return; // (the newest only)
         const x = cam.sx(n.x), y = cam.sy(n.y);
         ctx.save(); ctx.translate(x, y); ctx.scale(X.nums, X.nums); ctx.translate(-x, -y);
-        try { num0.call(this, ctx, n, s2); } finally { ctx.restore(); }
+        try { numUp(n, () => num0.call(this, ctx, n, s2)); } finally { ctx.restore(); }
       };
       C.drawSlash = function (ctx, sl, s2) {
         if (!sl.small) return slash0.call(this, ctx, sl, s2);
@@ -514,12 +540,17 @@
     if (ND.specialFx) {
       const add0 = ND.specialFx.add, ARC = {};
       ND.specialFx.add = function (o) {
+        // (a swept crescent of a counter or a cut lay over the attacker's face and front, 2026-10-03: in the duel there is
+        // none outside a special - the blade, its spark and its trail tell the cut)
+        if (o && o.draw && o.span != null && duel() && !special()) { o.t = o.life || 1; return o; }
         if (o && o.draw && duel() && (quiet() || special())) {
           if (!X.special && quiet()) { o.t = 0; return o; }
           const k = X.special || 0.5;
           if (o.r) o.r = Math.min(o.r * k, o.span == null ? 22 : o.r * k); if (o.w) o.w *= k; if (o.life) o.life *= 0.6 + 0.4 * k;
           // (in an exchange - counters, finishers, the rally - a swept crescent stays small and dim: at most ~1.5 heads
           // across, half as bright (it is drawn additively: its colours halved), short; one at a time per fighter)
+          // (a counter's crescent lay over the attacker's face and front, 2026-10-03: in an exchange there is none - the
+          // blade, its spark and the trail tell the counter)
           if (quiet() && o.span != null) {
             o.r = Math.min(o.r || 0, 34); if (o.w) o.w = Math.min(o.w, 8); if (o.life) o.life = Math.min(o.life, 0.25);
             const dim = (c) => (typeof c === 'string' && /^\d+,\d+,\d+$/.test(c) ? c.split(',').map((v) => Math.round(+v * 0.45)).join(',') : c);
@@ -562,7 +593,9 @@
         L.age += dt;
         // by the contact, at waist height: between the two bodies, never over a face
         if (L.age > L.life) Q.label = null;
-        else if (!headUp()) txt(ctx, L.s, cam.sx(L.x), cam.sy(-92) + 10 * Math.min(1, L.age / 0.3) * u, 14 * u * L.k, L.col, 'center', L.age < L.life - 0.2 ? 1 : (L.life - L.age) / 0.2, 'word'); // (quiet under a headline)
+        // (over the contact, above the heads - never on a body: SURIAGE! lay on his chest, 2026-10-03)
+        // (and not over the player's STRIKE! counter prompt - js/kaeshi-cine.js drawPrompt, the same place)
+        else if (!headUp() && !bindUp() && !ctrUp()) txt(ctx, L.s, cam.sx(L.x), cam.sy(ABOVE_HEADS() - 55) - 10 * Math.min(1, L.age / 0.3) * u, 14 * u * L.k, L.col, 'center', L.age < L.life - 0.2 ? 1 : (L.life - L.age) / 0.2, 'word'); // (quiet under a headline)
       }
       const R = Q.corner;
       if (R) {

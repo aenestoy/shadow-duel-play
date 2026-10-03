@@ -348,7 +348,7 @@
   P.held = (f) => { for (const p of S.items) if (p.st === 2 && p.hold === f.id) return p; return null; };
 
   P.reset = function (arena, o = {}) {
-    S.arena = arena; S.items.length = 0; S.shards.length = 0; S.t = 0; S.nid = 1;
+    S.arena = arena; S.items.length = 0; S.shards.length = 0; S.t = 0; S.nid = 1; S.brk = 0; S.mv = 0;
     S.rs = ((o.seed != null ? o.seed : ND.rng ? ND.rng.s : 1) ^ 0x5bd1e995) | 0;
     S.tasks[0] = S.tasks[1] = null; S.dizzy[0] = S.dizzy[1] = 0;
     S.brain[0] = { cd: 1.5 }; S.brain[1] = { cd: 2.6 };
@@ -455,7 +455,7 @@
   }
 
   // ------------------------------------------------------------------------------------------ damage & breaking
-  function wake(p) { if (p.st === 0 && !KINDS[p.k].fixed) { p.st = 1; p.sl = 0; } }
+  function wake(p) { if (p.st === 0 && !KINDS[p.k].fixed) { p.st = 1; p.sl = 0; S.mv = (S.mv || 0) + 1; } }
   function freeSupported(p) { for (const q of S.items) if (q.sup === p.id && q.st === 0) { q.sup = -1; wake(q); } }
   P.hurt = function (p, dmg, how, ix, iy, dx, dy, by) {
     if (p.st === 3 || !(dmg > 0)) return false;
@@ -466,6 +466,7 @@
   };
   // how: 'shatter' (impact) | 'cut' (blade, dx/dy = the blade direction) | 'crush' (a body falling on it)
   function breakProp(p, how, ix, iy, dx, dy, by) {
+    S.brk = (S.brk || 0) + 1; // (resting pieces above the floor look again for what holds them: shardStep)
     const K = KINDS[p.k];
     if (p.st === 3) return;
     if (K.hp === Infinity) return;
@@ -563,13 +564,15 @@
     for (let i = S.shards.length - 1; i >= 0; i--) {
       const d = S.shards[i];
       d.age += h;
+      // (a piece asleep on something that has since broken or moved falls on - never left hanging in the air)
+      if (d.sl >= 0.25 && d.y < (d.gz || 0) - 6 && (d.brk !== (S.brk || 0) || d.mv !== (S.mv || 0))) d.sl = 0;
       if (d.sl < 0.25 || d.fade === 0) {
         const pc = shardPiece(d);
         if (d.sl < 0.25) {
           const imp = integrate(d, pc.v, pc.m, pc.I, KINDS[d.k]._mat, h, d.fl, false);
           if (imp > 160 && d.age > 0.05 && d.ct < 2) { d.ct++; if (pres()) shardTick(d, imp); } // (the count is state: also when not presented)
           if (d._ct && Math.abs(d.vx) < 10 && Math.abs(d.vy) < 14 && Math.abs(d.w) < 0.5) d.sl += h; else d.sl = 0;
-          if (d.sl >= 0.25) { d.vx = d.vy = d.w = 0; }
+          if (d.sl >= 0.25) { d.vx = d.vy = d.w = 0; d.brk = S.brk || 0; d.mv = S.mv || 0; }
         }
       }
       if (d.fade === 0 && d.sl >= 0.25 && d.age > keep) d.fade = 0.0001;
@@ -1224,11 +1227,11 @@
 
   // ------------------------------------------------------------------------------------------ save / load / hash
   const ITEM_KEYS = ['id', 'k', 'x', 'y', 'vx', 'vy', 'a', 'w', 'gz', 'gz0', 'hp', 'st', 'sup', 'hold', 'hand', 'owner', 'tt', 'sl', 'fx', 'lit', 'n', 'cut', 'q', 'hitF', 'hitT', 'hitP', 'spin'];
-  const SHARD_KEYS = ['k', 'pi', 'sword', 'x', 'y', 'vx', 'vy', 'a', 'w', 'gz', 'fl', 'age', 'sl', 'fade', 'fq', 'ct'];
+  const SHARD_KEYS = ['k', 'pi', 'sword', 'x', 'y', 'vx', 'vy', 'a', 'w', 'gz', 'fl', 'age', 'sl', 'fade', 'fq', 'ct', 'brk', 'mv'];
   const cp = (o, K) => { const r = {}; for (const k of K) if (o[k] !== undefined) r[k] = o[k]; return r; };
   P.save = function () {
     return {
-      rs: S.rs, t: S.t, nid: S.nid, arena: S.arena,
+      rs: S.rs, t: S.t, nid: S.nid, arena: S.arena, brk: S.brk || 0, mv: S.mv || 0,
       items: S.items.map((p) => cp(p, ITEM_KEYS)),
       shards: S.shards.map((d) => Object.assign(cp(d, SHARD_KEYS), d.cb ? { cb: d.cb } : null)),
       tasks: S.tasks.map((t) => (t ? Object.assign({}, t) : null)), // (done: the caller's callback, kept by reference)
@@ -1237,7 +1240,7 @@
   };
   P.load = function (s) {
     if (!s) return;
-    S.rs = s.rs; S.t = s.t; S.nid = s.nid; S.arena = s.arena;
+    S.rs = s.rs; S.t = s.t; S.nid = s.nid; S.arena = s.arena; S.brk = s.brk || 0; S.mv = s.mv || 0;
     S.items = s.items.map((p) => Object.assign({}, p));
     S.shards = s.shards.map((d) => Object.assign({}, d));
     S.tasks = s.tasks.map((t) => (t ? Object.assign({}, t) : null));
@@ -1248,7 +1251,7 @@
     let h0 = 0x811c9dc5 | 0, h1 = 0x9e3779b9 | 0;
     const w = (x) => { h0 = Math.imul(h0 ^ (x | 0), 16777619); h1 = Math.imul(h1 ^ (x | 0), 2246822519) ^ (h1 >>> 15); };
     const v = (x) => { if (typeof x === 'number') { F64[0] = x; w(U32[0]); w(U32[1]); } else if (typeof x === 'string') { for (let i = 0; i < x.length; i++) w(x.charCodeAt(i)); } else w(x === true ? 3 : x === false ? 4 : 5); };
-    v(S.rs); v(S.t); v(S.items.length); v(S.shards.length);
+    v(S.rs); v(S.t); v(S.items.length); v(S.shards.length); v(S.brk || 0); v(S.mv || 0);
     for (const p of S.items) for (const k of ITEM_KEYS) v(p[k]);
     for (const d of S.shards) for (const k of SHARD_KEYS) v(d[k]);
     for (const t of S.tasks) if (t) { v(t.act); v(t.pid); v(t.t); v(t.ph); }

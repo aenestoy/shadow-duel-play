@@ -301,6 +301,10 @@
     }
     s.bgOn = false;
     O3.e = null;
+    // a deflecting counter (suriage and its kin, a.slide): before its cut the blade rides UP the opponent's drawn blade
+    // - from its middle towards its point - and sparks where they touch; then the cut (2026-10-03: the owner's suriage
+    // screenshot - the blades never met, the deflection did not read)
+    { const SL = slideAt(f, s, rg, dir); if (SL) { O3.h = SL.h; O3.u = SL.u; O3.w = SL.w; ovSmooth(s, dt); oxComp(s, dir); rg.ovr = O3; MD.stats.slide = (MD.stats.slide || 0) + 1; return; } }
     const wcT = contactW(f);
     s.cw = s.cw == null || dt <= 0 ? wcT : s.cw + (wcT - s.cw) * Math.min(1, dt / 0.035);
     // a cut that lands: the blade is ON its target when the fight's hit frame comes (aimW)
@@ -334,6 +338,34 @@
     const t = f.st, a0 = a.active[0], a1 = a.active[1];
     const k = clamp((t - (a0 - 0.08)) / 0.07, 0, 1) * clamp(1 - (t - a1) / 0.1, 0, 1);
     return k * k * (3 - 2 * k);
+  }
+  function slideAt(f, s, rg, dir) {
+    const a = f.state === 'atk' ? f.atk : null, o = f.opp;
+    if (!a || !a.counter || !a.slide || !isArmed(f) || !o || o.dead || !isArmed(o)) return null;
+    const S2 = a.slide, t = f.st, end = Math.max(S2[1], a.defl || 0) + 0.03;
+    if (t < S2[0] || t > end + 0.05) return null;
+    // (the cut's own hit frames belong to the aim: the blade on what it meets)
+    if (aimW(f) > 0.01) return null;
+    const so = ST.get(o), P = rg.P;
+    if (!P || !so || !so.rig.P || !so.rig.P.armed || Math.abs(o.x - f.x) > 300) return null;
+    const Q = so.rig.P, BLo = (o.wpn && o.wpn.blade) || 96, BL = (f.wpn && f.wpn.blade) || 96;
+    const k = Math.min(1, Math.max(0, (t - S2[0]) / Math.max(1e-3, end - S2[0])));
+    const along = 0.45 + 0.4 * k; // (up his blade, from its middle towards the point)
+    const cw = Mo.project(so.rig, madd(Q.blade.h, Q.blade.u, BLo * along));
+    // (only a blade held out between the two: one swept back behind his body is not reached through it)
+    const oh = Mo.project(so.rig, Q.hip);
+    if ((cw.x - oh.x) * (f.x - o.x) < 18) return null;
+    const T = [(cw.x - rg.x) * dir, cw.y, P.haR[2]];
+    // (my blade under his, rising: the hand below and behind the contact, my edge along his and tilted up)
+    const tipW = Mo.project(so.rig, madd(Q.blade.h, Q.blade.u, BLo)), hiW = Mo.project(so.rig, Q.blade.h);
+    let ux = (hiW.x - tipW.x) * dir, uy = hiW.y - tipW.y; const ul = Math.hypot(ux, uy) || 1; ux /= ul; uy /= ul;
+    const ca = Math.cos(-0.45), sa = Math.sin(-0.45), u = norm([-(ux * ca - uy * sa), -(ux * sa + uy * ca), 0]);
+    const want = [T[0] - u[0] * BL * 0.55, T[1] - u[1] * BL * 0.55 + 6, T[2]];
+    const v = sub(want, P.shR), lv = len(v), reach = 53, h = lv > reach ? add(P.shR, mul(v, reach / lv)) : want;
+    const w = t <= end ? 1 : Math.max(0, 1 - (t - end) / 0.05);
+    // (the spark where they touch: presentation only)
+    if (!(ND.game && ND.game.simOnly) && t <= end && ND.fx && (s.slq == null || ND.simClock - s.slq > 0.025)) { s.slq = ND.simClock; ND.fx.spark(cw.x, cw.y, -Math.PI / 2, 3, 0.5, '255,236,190'); }
+    return { h, u: norm(sub(T, h)), w };
   }
   function aimAt(f, s, rg, dir) {
     const o = f.opp, so = ST.get(o), P = rg.P;

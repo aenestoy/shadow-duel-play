@@ -254,6 +254,7 @@
       D0.ax += nx * (pen + 1); D0.ay += ny * (pen + 1);
     }
   }
+  const SLD = {};
   ND.anim.preSolve = function (f, D0, S, dt, hold, act) {
     if (!f.dz || f.dead) return;
     let P = PS.get(f);
@@ -283,6 +284,23 @@
     } else if (armed && st === 'recoil' && f.st < 0.22) {
       const g = Math.sin(Math.PI * f.st / 0.22);
       D0.sw -= 0.35 * g; D0.ax -= 6 * g; D0.ay -= 4 * g; D0.lean -= 0.04 * g;
+    }
+    // --- 1b. a parried cut is still out in front when his deflecting counter (suriage and its kin, a.slide) comes: the
+    // blade waits at the crossing for his to ride up it, and is knocked away at the deflection (the fight's own rk pose);
+    // swept back behind her it left the counter nothing to slide on (2026-10-03, the owner's suriage screenshot)
+    {
+      const o = f.opp, A = o && o.state === 'atk' ? o.atk : null;
+      if (armed && st === 'recoil' && A && A.counter && A.slide && D.aimPose && !o.dead) {
+        // (until his deflection only: from his cut's hit frames on she reacts as the fight has her)
+        const t = o.st, end = Math.min(Math.max(A.slide[1], A.defl || 0) + 0.03, (A.active ? A.active[0] : 1) - 0.06);
+        const w = t <= end ? 1 : Math.max(0, 1 - (t - end) / 0.04);
+        if (w > 0) {
+          const cx = f.x + (o.x - f.x) * 0.45, cy = f.y - 124, ang = Math.atan2(-0.32, Math.sign(o.x - f.x) || f.dir);
+          D.aimPose(f, SLD, D0, cx, cy, ang, 0.6);
+          D0.ax += (SLD.ax - D0.ax) * w; D0.ay += (SLD.ay - D0.ay) * w;
+          D0.sw += Math.atan2(Math.sin(SLD.sw - D0.sw), Math.cos(SLD.sw - D0.sw)) * w;
+        }
+      }
     }
     // --- 2. the handle and the fists never pass through the head: carried out in front of the face
     if (armed && !free && !(wpn.iai && f.sheathed())) clearHead(D0, wpn);
