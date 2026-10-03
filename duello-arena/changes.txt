@@ -1,0 +1,1 @@
+2026-10-04 01:20  42036e71  Waterfall changes the fight: the stream carries you right, the right edge is a pool (ring-out), a surge every ~25 s (jump or guard), water kick (Q / button in the water)
