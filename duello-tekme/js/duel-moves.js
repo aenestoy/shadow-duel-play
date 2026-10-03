@@ -360,12 +360,7 @@
 
 
 
-
-  const KICK_ON0 = Object.freeze({ akane: 1, aoi: 1, kuro: 1, yuki: 1, hana: 1, tetsu: 1, ren: 1, kage: 1, tora: 1, jin: 1 }), KICK_ON = Object.assign({}, KICK_ON0);
-  { const q = (/[?&]kicks=([a-z,]+|all|0)(&|$)/.exec(location.search || '') || [])[1]; if (q === '0') for (const k of Object.keys(KICK_ON)) delete KICK_ON[k]; else if (q === 'all') for (const id of Object.keys(D.ROSTER)) KICK_ON[id] = 1; else if (q) for (const id of q.split(',')) KICK_ON[id] = 1; }
-  D.KICK_ON = KICK_ON;
-  const kOn = (id) => (ND.game && ND.game.mode === 'online' ? KICK_ON0 : KICK_ON)[id];
-  D.kicksOn = (f) => !!(f && f.ch && kOn(f.ch.id));
+  D.kicksOn = (f) => !!(f && f.dz);
   const KZ = (a, b) => [[0, ...REST], ...a, [b, ...REST]];
 
   const KH = { ax: 10, ay: 12, sw: -1.25 };
@@ -487,24 +482,25 @@
       spin: [0.17, 0.26, 1], z3: KZ([[0.08, 0.3, 0.3, 1, 1], [0.15, -0.3, -0.3, 1, 1], [0.29, 0.2, 0.1, 1, 1]], 0.64) },
     'Tenbin-geri (staff held overhead, a low kick then a high one)');
 
-  P('mi_omA', K({ hx: 0, hy: -86, lean: 0.0, hd: 0.0, ax: 40, ay: -30, sw: -1.0, gx: -30, gy: -30, f1x: 20, f2x: -22 }));
-  P('mi_omB', K({ hx: -10, hy: -86, lean: -0.42, hd: 0.1, ax: 36, ay: -26, sw: -1.1, gx: -24, gy: -30, f1x: 84, f1y: -104, f2x: -18 }));
-  P('mi_omC', K({ hx: -6, hy: -84, lean: -0.2, hd: 0.06, ax: 34, ay: -20, sw: -1.1, gx: -26, gy: -26, f1x: 76, f1y: -40, f2x: -20 }));
+  P('mi_omA', K({ hx: 0, hy: -86, lean: 0.0, hd: 0.0, ax: 46, ay: -44, sw: -1.0, gx: -38, gy: -42, f1x: 20, f2x: -22 }));
+  P('mi_omB', K({ hx: -10, hy: -86, lean: -0.42, hd: 0.1, ax: 44, ay: -42, sw: -1.1, gx: -34, gy: -40, f1x: 84, f1y: -104, f2x: -18 }));
+  P('mi_omC', K({ hx: -6, hy: -84, lean: -0.2, hd: 0.06, ax: 40, ay: -34, sw: -1.1, gx: -32, gy: -34, f1x: 76, f1y: -40, f2x: -20 }));
   sig('mi_ogi', 'mai', [[0.1, 'mi_omA', es], [0.22, 'mi_omB', eq], [0.3, 'mi_omC', eo], [0.56, 'mi_stance', ei]],
     { active: [0.18, 0.28], dmg: 10, post: 26, kb: 420, stun: 0.55, knock: true, spin: [0.02, 0.18, 1], lunge: [0.04, 0.2, 300], z3: KZ([[0.1, 0.5, 0.3, 1, 1], [0.22, -0.4, -0.3, 1, 1]], 0.56) },
     'Ogi-mai (fan twirl into a crescent kick)');
 
   P('ts_sgA', K({ hx: 0, hy: -70, lean: 0.3, hd: 0.06, ax: 20, ay: 28, sw: -0.5, f1x: 26, f2x: -30 }));
-  P('ts_sgB', K({ hx: -6, hy: -92, lean: -0.6, hd: 0.2, ax: 16, ay: 24, sw: -0.6, f1x: 74, f1y: -120, f2x: -10, f2y: -30 }));
+  P('ts_sgB', K({ hx: -6, hy: -120, lean: -0.6, hd: 0.2, ax: 16, ay: 24, sw: -0.6, f1x: 74, f1y: -120, f2x: -10, f2y: -30 }));
   sig('ts_tsubame', 'tsubame', [[0.07, 'ts_sgA', es], [0.16, 'ts_sgB', eq], [0.3, 'ts_sgB'], [0.56, 'fall']],
-    { active: [0.12, 0.22], dmg: 9, post: 20, kb: 300, stun: 0.6, launch: true, air: true, rollT: [0.12, 0.42], lunge: [0.0, 0.05, 200], tick: hop(0.1, -620, -300),
+    { active: [0.12, 0.22], dmg: 9, post: 20, kb: 300, stun: 0.6, launch: true, air: true, lunge: [0.0, 0.05, 200],
+      tick(f, dt, t) { if (!f.mem.hop && t > 0.1) { f.mem.hop = 1; f.onGround = false; f.vy = -500; f.vx = -f.dir * 220; } f.roll = t >= 0.12 && t < 0.42 ? -f.dir * Math.PI * 2 * es((t - 0.12) / 0.3) : 0; },
       z3: KZ([[0.07, 0.2, 0.2, 1, 1], [0.16, -0.2, -0.1, 1, 1]], 0.56) },
     'Tsubame-gaeshi geri (somersault kick, away)');
 
   P('sh_aoA', K({ hx: -6, hy: -96, lean: -0.2, hd: -0.05, ax: 6, ay: -20, sw: -1.8, f1x: 34, f1y: -134, f2x: -16, f2y: -24 }));
   P('sh_aoB', K({ hx: 8, hy: -78, lean: 0.26, hd: 0.15, ax: 10, ay: -10, sw: -1.7, f1x: 70, f1y: -36, f2x: -22 }));
   sig('sh_ashura', 'shura', [[0.18, 'sh_aoA', es], [0.3, 'sh_aoB', eqd], [0.38, 'sh_aoB'], [0.78, 'stance', ei]],
-    { active: [0.25, 0.34], dmg: 14, post: 52, gcrush: 1.8, kb: 360, stun: 0.6, knock: true, lunge: [0.1, 0.28, 420], tick: hop(0.08, -420, 320), z3: KZ([[0.18, 0.3, 0.5, 1, 1], [0.3, -0.1, -0.2, 1, 1]], 0.78) },
+    { active: [0.25, 0.34], dmg: 14, post: 52, gcrush: 1.8, kb: 360, stun: 0.6, knock: true, lunge: [0.1, 0.28, 420], tick: hop(0.08, -420, 100), z3: KZ([[0.18, 0.3, 0.5, 1, 1], [0.3, -0.1, -0.2, 1, 1]], 0.78) },
     'Ashura-otoshi (leaping axe kick, breaks a guard)');
   const SIG = { akane: 'ak_nidan', aoi: 'ao_kaze', kuro: 'kr_yama', yuki: 'yk_kitsune', hana: 'hn_sakura', tetsu: 'tt_vault', ren: 'rn_oni', kage: 'kg_kage',
     tora: 'tr_kusari', jin: 'jn_tenbin', mai: 'mi_ogi', tsubame: 'ts_tsubame', shura: 'sh_ashura' };
@@ -550,7 +546,7 @@
     const id = f.ch.id, opener = (f.chainN | 0) === 0;
     if (isSpecial(f, n)) return f.dz.armed ? null : 'ua_ki';
     const btn = /^(light1|fLight|bLight|dash)$/.test(n) ? 'L' : /^(heavy|fHeavy|bHeavy|dashHeavy)$/.test(n) ? 'H' : n === 'kick' ? 'K' : null;
-    if (opener && btn === 'K' && kOn(id)) { const k = kickPick(f); if (k && ATK[k]) return k; }
+    if (opener && btn === 'K') { const k = kickPick(f); if (k && ATK[k]) return k; }
     if (!f.dz.armed) {
       if (opener && btn) {
         const cb = D.combo(f);

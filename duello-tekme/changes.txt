@@ -2,3 +2,4 @@
 2026-10-04 01:12  cf39d1d3  Kicks for Aoi (Kaze-geri), Kuro (Yama-geri), Yuki (Kitsune-tobi) + Akane: each has down/back/forward/air KICK and back-forward+KICK own kick; unarmed: KICK at your sword flicks it up
 2026-10-04 01:24  308d9f20  Kicks now for 7 ninjas: + Hana (flip heel kick), Tetsu (vaults on the naginata), Ren (knee then stamp kick); a blocked spinning kick can be punished
 2026-10-04 01:27  c59a942d  Kicks now for 10 ninjas: + Kage (vanishing kick), Tora (chain-whirl jumping kick), Jin (staff overhead, low-high kicks)
+2026-10-04 01:31  eabd543c  Kicks for all 13 ninjas: + Mai (fan twirl kick), Tsubame (back-flip kick), Shura (leaping axe kick)
