@@ -1,25 +1,25 @@
-// Shadow Duel (Дуэль теней) — Russian catalog for ND.i18n (Turkish is the source language).
-// Same structure as js/i18n-en.js; see js/i18n.js for how each part is applied.
-//   EN.STR ← ND.STR · EN.CHARS ← ND.CHARS · EN.ARENAS · EN.SPECIALS · EN.TXT · EN.AI_LEVELS · EN.NUMWORDS
-//   EN.PHRASES exact Turkish text → Russian · EN.HTML whole-element HTML · EN.PATTERNS regex rules
-// Informal "ты" throughout. Character names, Kyu/Dan ranks and Japanese technique names stay in Latin letters.
-//
-// GLOSSARY (use these everywhere)
-//   parry → отбив (verb: отбить; prompt ОТБЕЙ, pop-up ОТБИВ!)      guard / block → блок (держать блок)
-//   counter → контрудар (verb: контратаковать; short HUD form КОНТРА)   counter hit → ВСТРЕЧНЫЙ!
-//   posture → стойка (posture bar = шкала стойки; POSTURE BROKEN = СТОЙКА СБИТА!)   guard break → пробой блока (БЛОК ПРОБИТ!)
-//   ki → ки (m.) · ki bar → шкала ки · ki technique → техника ки · ki cancel → отмена ки
-//   combo → комбо · string/chain → серия · string ender → завершение серии · finisher → добивание
-//   launcher → подброс · juggle → жонгляж · dash → рывок · air slash → удар в воздухе · dive → пике
-//   rally → обмен ударами (short: обмен) · blade lock → сцепка клинков (СЦЕПКА!) · clash → СШИБКА!
-//   light / heavy slash → лёгкий / тяжёлый удар · kick → удар ногой · sweep → подсечка · cross-up → обход
-//   round → раунд · KO → нокаут · dummy → манекен · CPU → ИИ · honor → честь · rival challenge → вызов соперника
-//   monthly tournament → Турнир месяца · Dan trial → экзамен на Dan · combo trial → испытание комбо
-//   difficulty: Apprentice/Master/Legend → Ученик/Мастер/Легенда · arcade → Аркада · leaderboard → таблица рекордов
-// Touch buttons (STR.touch.btn) and every text that names them:
-//   ATTACK → АТАКА · HEAVY → ТЯЖ. · KICK → НОГА · GUARD → БЛОК · DASH → РЫВОК · SHUR. → СЮР. · KI → КИ · JUMP → ПРЫЖОК
-//   LIGHT (keyboard light slash in move texts) → ЛЁГК. · SHURIKEN (editor name) → СЮРИКЕН · Fwd+/Back+ → Вперёд+/Назад+
-// Numbers: plurals via pl(n, one, few, many); percent "80 %" with a no-break space.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 (function (ND) {
   'use strict';
   (ND.I18N_CATALOGS || (ND.I18N_CATALOGS = {})).ru = function (I, EN) {
@@ -27,7 +27,7 @@
     const num = (n) => I.num(n);
     const dec = (x) => I.dec(x);
     const fmtTime = (s) => I.time(s);
-    // Russian plural: pl(1,'бой','боя','боёв') → 'бой', pl(3,…) → 'боя', pl(5,…) → 'боёв'. Accepts formatted numbers ("1,234").
+
     const pl = (n, one, few, many) => {
       const v = Math.abs(parseInt(String(n).replace(/[^\d-]/g, ''), 10));
       if (!Number.isFinite(v)) return many;
@@ -37,7 +37,7 @@
     const pts = (n) => pl(n, 'очко', 'очка', 'очков');
     const NB = ' ';
 
-    // ================================================================ UI tables (ND.STR)
+
     merge(EN.STR, {
       menu: {
         brand: (nc, na) => {
@@ -171,7 +171,7 @@
       bz: {
         back: 'Назад', toMenu: 'Главное меню', you: 'Ты', youTag: 'ты', newBest: 'Новый рекорд!', seeResult: 'К результату',
         resetIn: 'Сброс через',
-        // time left: дни (д) · часы (ч) · минуты (мин) · секунды (с)
+
         left: (ms) => { const t = Math.floor(ms / 1000), d = Math.floor(t / 86400), hh = Math.floor((t % 86400) / 3600), mm = Math.floor((t % 3600) / 60), ss = t % 60; return d ? `${d}${NB}д ${hh}${NB}ч ${mm}${NB}мин` : hh ? `${hh}${NB}ч ${mm}${NB}мин` : `${mm}${NB}мин ${ss}${NB}с`; },
         leftShort: (ms) => { const t = Math.floor(ms / 60000), d = Math.floor(t / 1440), hh = Math.floor((t % 1440) / 60), mm = t % 60; return d ? `${d}${NB}д ${hh}${NB}ч` : hh ? `${hh}${NB}ч ${mm}${NB}мин` : `${mm}${NB}мин`; },
         weekName: (m, y) => `${['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'][m - 1] || m} ${y}`,
@@ -257,7 +257,7 @@
           pending: (n) => `Ждут отправки: ${n}`,
           classic: 'Таблицы Аркады и «Легенды»',
         },
-        // Monthly Tournament rewards: permanent title (top 3) and Champion colors (1st)
+
         ttl: {
           champ: 'Чемпион месяца', finalist: 'Финалист',
           reward: 'Начиная с турнира октября 2026 года топ-3 каждого месяца получают постоянный титул. Чемпион также получает эксклюзивные цвета чемпиона для ниндзя, которым победил. Для титулов нужно не менее 5 игроков за месяц.',
@@ -395,9 +395,9 @@
       ],
     });
 
-    // ================================================================ story, fighters, arenas, specials
+
     merge(EN.STR, {
-      // open = speaks first (opponent), reply = answers (player), boss = said to the final boss
+
       talk: {
         akane: {
           open: ['Мой клинок алый, помыслы чисты. Сразись со мной с честью.', 'Сначала поклон, потом удар. Так будет честно.', 'Этот поединок — за нашу честь. Отступать некуда.'],
@@ -465,7 +465,7 @@
           boss: 'Shura, в небе негде спрятаться. Моя стрела найдёт тебя.',
         },
       },
-      // Special match-ups: lines are spoken in the order written
+
       pairs: {
         'akane|aoi': [['akane', 'Aoi! Пора закончить наш незаконченный поединок.'], ['aoi', 'Ветер всегда дует к одному и тому же огню, Akane. Начинай.']],
         'kuro|tetsu': [['kuro', 'Железный панцирь. Посмотрим, не пустой ли.'], ['tetsu', 'Даже гора склоняется перед дисциплиной, Kuro.']],
@@ -562,22 +562,22 @@
 
     EN.NUMWORDS = ['Ноль', 'Один', 'Два', 'Три', 'Четыре', 'Пять', 'Шесть', 'Семь', 'Восемь', 'Девять', 'Десять', 'Одиннадцать', 'Двенадцать'];
 
-    // ================================================================ static HTML, hardcoded literals, canvas pop-ups
+
     merge(EN.PHRASES, {
-      // ---------------------------------------------------------------- index.html: <title>, brand, HUD
+
       'Gölge Düellosu': 'Дуэль теней',
       'Duraklat': 'Пауза',
       'KARŞILIKLI SERİ': 'ОБМЕН УДАРАМИ',
       'SON DARBE': 'РЕШАЮЩИЙ УДАР',
       'atlamak için bir tuşa bas': 'нажми любую клавишу, чтобы пропустить',
-      // touch buttons (static fallbacks of data-s="touch.btn.*")
+
       'GARD': 'БЛОК',
       'HAFİF': 'ЛЁГК.',
       'SALDIR': 'АТАКА',
       'AĞIR': 'ТЯЖ.',
       'ATIL': 'РЫВОК',
       'TEKME': 'НОГА',
-      // ---------------------------------------------------------------- main menu
+
       'Sekiz savaşçı, üç arena. Gerçek zamanlı kılıç çarpışması, kılıç kilitlenmesi, savuşturma, denge kırma, Gölge Kesiği ve ragdoll fiziği.': 'Восемь бойцов, три арены. Схватки на мечах в реальном времени, сцепки клинков, отбивы, сбитые стойки, Разрез тени и физика рэгдолла.',
       'İki Oyuncu': 'Два игрока',
       'Aynı klavyede ya da iki gamepad ile kafa kafaya': 'Лицом к лицу за одной клавиатурой или с двумя геймпадами',
@@ -597,7 +597,7 @@
       'Kan efekti': 'Кровь',
       'Tuş ipuçları': 'Подсказки клавиш',
       'Yüksek grafik': 'Высокая графика',
-      // ---------------------------------------------------------------- controls card
+
       'Kontroller': 'Управление',
       '1. Oyuncu': 'Игрок 1',
       '2. Oyuncu': 'Игрок 2',
@@ -611,7 +611,7 @@
       'Sağ Shift': 'Правый Shift',
       'Atılma': 'Рывок',
       'Ki tekniği (ki dolu)': 'Техника ки (при полном ки)',
-      // ---------------------------------------------------------------- select screen
+
       'Ninjanı seç': 'Выбери ниндзя',
       'Hazır': 'Готово',
       '1. oyuncunun ninjası': 'Ниндзя игрока 1',
@@ -628,7 +628,7 @@
       'Güç': 'Сила',
       'Menzil': 'Дальность',
       'Can': 'Здоровье',
-      // ---------------------------------------------------------------- pause / end
+
       'Duraklatıldı': 'Пауза',
       'Devam et': 'Продолжить',
       'Maçı yeniden başlat': 'Начать матч заново',
@@ -640,20 +640,20 @@
       'Verilen hasar': 'Нанесённый урон',
       'Savuşturma': 'Отбивы',
       'Ki Saldırısı': 'Атаки ки',
-      // ---------------------------------------------------------------- training / leaderboard / misc
+
       'Antrenman': 'Тренировка',
       'ANTRENMAN': 'ТРЕНИРОВКА',
       'Sıralama': 'Рекорды',
       'Tümü': 'Все',
       'Ekranı yan çevir': 'Поверни экран',
       'Performans için grafik düşürüldü': 'Графика снижена для плавности',
-      // hidden boss pushed into ND.CHARS by arcade.js (safety net; EN.CHARS.shura should carry the same)
+
       'Kanlı Usta': 'Кровавый мастер',
       'Yolunu kanla çizen iblis usta. Uzun nodachi, yıkıcı darbeler, neredeyse kusursuz savuşturma.': 'Мастер-демон, прокладывающий путь кровью. Длинный нодати, сокрушительные удары, почти безупречные отбивы.',
-      // ---------------------------------------------------------------- HUD tags (fallbacks when STR.hud is missing)
+
       'SEN': 'ТЫ',
       'KUKLA': 'МАНЕКЕН',
-      // ---------------------------------------------------------------- round banners (#bt / #bs)
+
       'Son raund': 'Последний раунд',
       'Kazanan her şeyi alır': 'Победитель забирает всё',
       'İlk iki raundu alan kazanır': 'Побеждает тот, кто первым возьмёт два раунда',
@@ -662,13 +662,13 @@
       'Berabere': 'Ничья',
       'Çifte K.O.': 'Двойной нокаут',
       'Mükemmel': 'Безупречно',
-      // blade-lock hint (fallbacks of STR.hud.lockSolo / lockDuo)
+
       'F / K tuşuna hızlıca bas!': 'Жми F / K!',
       'Hafif ya da ağır tuşuna hızlıca bas!': 'Жми лёгкий или тяжёлый!',
-      // counter / parry prompt labels under the key ring (ctx.fillText in drawPrompts)
+
       'KARŞILIK': 'КОНТРА',
       'SAVUŞTUR': 'ОТБЕЙ',
-      // ---------------------------------------------------------------- canvas pop-ups (fx.text)
+
       'SON VURUŞ!': 'ДОБИВАНИЕ!',
       'KİLİTLENDİ!': 'СЦЕПКА!',
       'İTTİ!': 'ТОЛЧОК!',
@@ -691,9 +691,9 @@
     });
 
     merge(EN.HTML, {
-      // brand title
+
       'Gölge<br><em>Düel</em><em>losu</em>': 'Дуэль<br><em>те</em><em>ней</em>',
-      // tips list (<ul class="tips">)
+
       '<b>Savuşturma:</b> darbe gelmeden hemen önce gard tuşuna bas; rakip sendeler.':
         '<b>Отбив:</b> нажми блок прямо перед ударом — соперник пошатнётся.',
       '<b>Karşılık (返し技):</b> gard ya da savuşturmanın hemen ardından saldırı tuşu → anında karşı kesik. <b>İleri</b> + hafif = bacağa süpürme, <b>geri</b> + hafif = yanından dönüp arkadan kesme, <b>ağır</b> = güçlü karşı darbe.':
@@ -708,30 +708,30 @@
         '<b>Рывок + лёгкий</b> = удар в рывке. <b>В воздухе</b> лёгкий = удар в воздухе, тяжёлый = пике. Тяжёлый удар сбивает с ног; отброшенный в стену отскакивает обратно.',
       '<b>Denge çubuğu</b> dolarsa gard kırılır. Tekme gardı delip dengeyi hızla doldurur.':
         'Когда <b>шкала стойки</b> заполнится, блок пробит. Удары ногой проходят сквозь блок и быстро сбивают стойку.',
-      // gamepad note (Esc -> Start or P)
+
       'Gamepad: X hafif · Y ağır · B tekme · A zıpla · LB gard · RB shuriken · RT atılma · R3 ki tekniği. Start ya da <kbd>P</kbd> duraklatır. CPU modunda her iki tuş seti de seni yönetir.':
         'Геймпад: X лёгкий · Y тяжёлый · B удар ногой · A прыжок · LB блок · RB сюрикен · RT рывок · R3 техника ки. Start или <kbd>P</kbd> — пауза. В игре против ИИ тобой управляют оба набора клавиш.',
-      // select / VS hints (Esc -> ⌫)
+
       '<kbd>Enter</kbd> başlatır · <kbd>⌫</kbd> menüye döner': '<kbd>Enter</kbd> старт · <kbd>⌫</kbd> назад',
       '<kbd>Enter</kbd> / <kbd>F</kbd> başlatır · <kbd>⌫</kbd> çıkar': '<kbd>Enter</kbd> / <kbd>F</kbd> старт · <kbd>⌫</kbd> выход',
     });
 
     EN.PATTERNS.push(
-      // HUD round label (#rlabel) and round banner
+
       [/^RAUND (\d+)$/, 'РАУНД $1'],
       [/^(\d+)\. Raund$/, 'Раунд $1'],
-      // canvas pop-ups built from numbers
+
       [/^(\d+)\. KARŞILIK$/, 'КОНТРА ×$1'],
       [/^(\d+) VURUŞLUK SERİ!$/, (m, n) => `ОБМЕН: ${n} ${pl(n, 'УДАР', 'УДАРА', 'УДАРОВ')}!`],
-      // time-up banner sub: `${name} önde`
+
       [/^(.+) önde$/, (m, n) => I.t(n) + ' впереди'],
-      // end screen title: `${Name} kazandı`
+
       [/^(.+) kazandı$/, (m, n) => I.t(n) + ' побеждает'],
-      // end screen sub line: `${a} – ${b} · ${round} raund · ${arenaName}`
+
       [/^(\d+) – (\d+) · (\d+) raund · (.+)$/, (m, a, b, r, ar) => `${a} – ${b} · ${r} ${pl(r, 'раунд', 'раунда', 'раундов')} · ${I.t(ar)}`],
     );
 
-    // ================================================================ added with the portal build (PLAY, ads, coach)
+
     merge(EN.STR, {
       menu: { play: 'Играть', playSub: (name, lv) => `${name} против ИИ · ${lv}` },
       first: { play: 'Играть', sub: 'Одно касание — и ты в бою', menu: 'Все режимы' },
@@ -750,20 +750,20 @@
       },
     });
 
-    // ================================================================ VOLUME: sliders on the menu card and in pause (js/volume.js)
+
     merge(EN.STR, {
       vol: {
         title: 'Громкость', master: 'Общая', music: 'Музыка', sfx: 'Эффекты', sound: 'Звук',
         pct: (n) => `${n}${NB}%`,
         muted: 'Звук выключен. Сдвинь любой ползунок, чтобы включить его.',
-        // Settings > Audio: character / announcer voices switch (js/voice.js) and the courtesy credit under it
+
         voice: 'Голоса',
         uiSfx: 'Звуки меню',
         credit: 'Голоса: ユーフルカ (youfulca.com) · 効果音ラボ · すぱらんど',
       },
     });
 
-    // ================================================================ TOUCH LAYOUT EDITOR: movement modes + "Customize controls"
+
     merge(EN.STR, {
       tedit: {
         move: 'Движение',
@@ -797,7 +797,7 @@
       },
     });
 
-    // ================================================================ PROGRESSION: honor, rival challenges, moves panel
+
     merge(EN.STR, {
       menu: { arcadeDesc: 'Побеждай соперников одного за другим, пока растёт сложность; в конце ждёт тайный мастер. Лучший источник чести.' },
       sel: {
@@ -870,7 +870,7 @@
       },
     });
 
-    // ================================================================ COMBAT: new kits, combos, move list (combat designer)
+
     merge(EN.CHARS, {
       akane: { desc: 'Мастер иайдзюцу. Клинок ждёт в ножнах, и каждый удар — это выхват; её стойка выхвата перехватывает удары.', weapon: 'Катана (иай)' },
       aoi: { desc: 'Фехтование ветра: тати в одной руке. Дальние уколы и шаги ветра сокращают любую дистанцию одним движением.', weapon: 'Тати' },
@@ -880,7 +880,7 @@
     merge(EN.TXT, { kiCancel: 'ОТМЕНА КИ!', launch: 'ПОДБРОС!', iaiCatch: 'IAI GAESHI!' });
     EN.PATTERNS.push([/^(\d+) VURUŞ$/, (m, n) => `${n} ${pl(n, 'УДАР', 'УДАРА', 'УДАРОВ')}`]);
     merge(EN.PHRASES, {
-      // shared rows
+
       'Tekme': 'Удар ногой',
       'Tekme: dengeyi hızla doldurur, gardı kırmaya yarar. Ardından AĞIR ile seri bitirişine bağlanır.': 'Удар ногой: быстро сбивает стойку и помогает пробить блок. Затем ТЯЖ. — завершение серии.',
       'Shuriken fırlatır; zamanla yeniden dolar.': 'Бросает сюрикен; запас со временем пополняется.',
@@ -900,7 +900,7 @@
       'Atılırken dönerek geniş kesik; yere serer.': 'Широкий разрез с разворотом в рывке; сбивает с ног.',
       'İki kesiklik seri bitirişi; son kesik yere serer.': 'Завершение серии из двух разрезов; последний сбивает с ног.',
       'Rakibin kılıcını aşağı çarpıp dürter: gardı ezer.': 'Сбивает клинок соперника вниз и колет: проламывает блок.',
-      // Akane
+
       'Kından yatay çekiş kesiği, çapraz iniş, geri dönen kesik; kılıç her seferinde kınına döner.': 'Горизонтальный разрез выхватом из ножен, косой удар вниз и возвратный разрез; каждый раз клинок уходит обратно в ножны.',
       'Derin çömelişten geniş yatay çekiş; yere serer.': 'Широкий горизонтальный выхват из глубокого приседа; сбивает с ног.',
       'Atılarak kından çekiş: uzak mesafeyi bir anda kapatır, seriye devam eder.': 'Выхват в рывке: мгновенно сокращает большую дистанцию и продолжает серию.',
@@ -909,7 +909,7 @@
       'Çekiş duruşu: kısa bir an bekler; bu sırada gelen yakın dövüş darbesini yakalar ve kaçınılmaz bir iai kesiğiyle karşılık verir. Boşa giderse açık kalır.': 'Стойка выхвата: короткое ожидание; удар вблизи, пришедший в этот миг, перехватывается и наказывается неотвратимым разрезом иай. Если удара нет, она остаётся открытой.',
       'Kesa’dan sonra yükselen ve inen iki çekiş kesiği; son kesik yere serer.': 'После Kesa — восходящий и нисходящий разрезы выхватом; последний сбивает с ног.',
       'Tekmeden sonra çömelip rakibin içinden geçen kızıl iai; arkasında belirir.': 'После удара ногой — алый иай из приседа сквозь соперника; она возникает у него за спиной.',
-      // Aoi
+
       'Tek elle uzun dürtüş, yukarı savrulan kesik ve rüzgâr adımıyla derin atılma dürtüşü.': 'Длинный укол одной рукой, хлёсткий восходящий разрез и глубокий выпад на шаге ветра.',
       'Dönerek geniş yatay kesik; yere serer.': 'Широкий горизонтальный разрез с разворотом; сбивает с ног.',
       'Rüzgâr adımı: çok uzaktan tek hamlede dürter, seriye devam eder.': 'Шаг ветра: укол с очень большой дистанции одним движением; продолжает серию.',
@@ -918,7 +918,7 @@
       'Geri sıçrar, ardından çok uzağa uzanan dürtüşle geri döner: gardı ezer, yere serer.': 'Отскок назад, затем возврат с очень длинным уколом: проламывает блок и сбивает с ног.',
       'Üç hızlı dürtüş; sonuncusu rüzgârla rakibi savurur.': 'Три быстрых укола; последний сносит соперника порывом ветра.',
       'İki kez dönerek çevresini biçen kesik; gardı ezer.': 'Двойной разворот с разрезами во все стороны; проламывает блок.',
-      // Ren
+
       'Kesik · Dirsek · Diz': 'Разрез · Локоть · Колено',
       'Tek elle kesik, dirsek darbesi ve uçan diz: kılıçla başlayıp bedenle biter.': 'Разрез одной рукой, удар локтем и колено в прыжке: начинается мечом, заканчивается телом.',
       'İki elle tepeden ezici iniş; gardı zorlar, yere serer.': 'Сокрушительный удар сверху двумя руками; давит на блок и сбивает с ног.',
@@ -928,7 +928,7 @@
       'Topuğu havaya kaldırıp balta gibi indirir: yere serer.': 'Высоко заносит пятку и обрушивает её, как топор: сбивает с ног.',
       'Dirsekten sonra kesik ve tepeden ezici iniş; son vuruş yere serer.': 'После локтя — разрез и сокрушительный удар сверху; последний сбивает с ног.',
       'Tekmenin ardından dönen topuk tekmesi; yere serer.': 'После удара ногой — удар пяткой с разворота; сбивает с ног.',
-      // Kage
+
       'Ters tutuşla kesik, dönen kesik ve gölge adımı: kaybolup öne geçer, dürterek belirir.': 'Разрез обратным хватом, разрез с разворотом и теневой шаг: исчезает, проскальзывает вперёд и возникает с уколом.',
       'Sıçrayıp ters tutuşla aşağı saplar; yere serer.': 'Подскок и удар вниз обратным хватом; сбивает с ног.',
       'Gölge gibi uzun atılma kesiği; seriye devam eder.': 'Длинный разрез в рывке, словно тень; продолжает серию.',
@@ -937,17 +937,17 @@
       'Ayağının dibine sis bombası atar: yakındakini sersemletir, Kage dumanın içinde geri kaçar.': 'Бросает дымовую бомбу под ноги: оглушает тех, кто рядом, а Kage отступает в дыму.',
       'Üç hızlı ters kesik ve aşağı saplama; sonuncusu yere serer.': 'Три быстрых обратных разреза и удар вниз; последний сбивает с ног.',
       'Tekmeden sonra dumanda kaybolur, rakibin arkasında belirip saplar.': 'После удара ногой исчезает в дыму и возникает за спиной соперника с ударом.',
-      // template row names
+
       'Nodachi serisi': 'Серия нодати', 'Ağır nodachi': 'Тяжёлый нодати', 'Kodachi serisi': 'Серия кодати', 'Ağır kesik': 'Тяжёлый удар',
       'Tantō dansı': 'Танец танто', 'Çift kesik': 'Двойной разрез', 'Naginata serisi': 'Серия нагинаты', 'Ağır savuruş': 'Тяжёлый взмах',
       'Zincir ve orak': 'Цепь и серп', 'Zincir çekişi': 'Притяжение цепью', 'Asa serisi': 'Серия посоха', 'Ağır süpürme': 'Тяжёлая подсечка',
       'Yelpaze serisi': 'Серия вееров', 'Rüzgâr dalgası': 'Волна ветра', 'Tantō serisi': 'Серия танто', 'Ok (basılı tut: güçlü)': 'Стрела (удерживай: мощный выстрел)',
       'Geri + AĞIR da ok atar (basılı tut: güçlü atış); ok kalmadıysa tantō ile tepeden iner.': 'Назад + ТЯЖ. тоже стреляет (удерживай для мощного выстрела); без стрел Tsubame обрушивается сверху с танто.',
-      // combat pop-ups
+
       'KI İPTALİ!': 'ОТМЕНА КИ!', 'HAVAYA!': 'ПОДБРОС!',
     });
 
-    // ================================================================ COUNTER CINEMATIC + COMBO TRIAL (combat feel pass)
+
     {
       const tb = (t, c) => `<i class="tb${c ? ' ' + c : ''}">${t}</i>`;
       merge(EN.STR, {
@@ -1004,7 +1004,7 @@
       });
     }
 
-    // ================================================================ GRAPHICS QUALITY: the Graphics setting (js/gfx.js)
+
     merge(EN.STR, {
       gfx: {
         title: 'Графика',
@@ -1017,8 +1017,8 @@
           custom: 'Твои собственные настройки (Расширенные).',
         },
         now: (lv) => `Сейчас: ${lv}`,
-        // Settings → Graphics → Advanced (game.js gfxAdvBuild, js/gfx.js KNOBS): the switch, the line under it, the hint on
-        // the heaviest rows, one title per knob and the value words (resolution shows percentages, anti-aliasing 2× / 4×)
+
+
         adv: {
           title: 'Расширенные',
           note: 'Если изменить одну, выбор станет «Своя»; нажатие на готовый вариант вернёт его значения.',
@@ -1029,8 +1029,8 @@
       },
     });
 
-    // ================================================================ FRAME RATE: Settings → Graphics (js/gfx.js makePacer)
-    // (Turkish source in i18n.js, block "frame rate"; the numbers themselves are not translated)
+
+
     merge(EN.STR, {
       fps: {
         title: 'Частота кадров',
@@ -1045,7 +1045,7 @@
       },
     });
 
-    // ================================================================ SETTINGS SCREEN (js/settings.js; Turkish source in i18n.js)
+
     merge(EN.STR, {
       set: {
         title: 'Настройки', close: 'Закрыть',
@@ -1055,15 +1055,15 @@
       },
     });
 
-    // ================================================================ LANGUAGE PICKER (js/lang-ui.js; Turkish source in i18n.js)
-    // Language names are not translated: each one is written in its own language (ND.i18n.names).
+
+
     merge(EN.STR, { lang: { title: 'Язык', change: 'Сменить язык', close: 'Закрыть' } });
 
-    // ================================================================ SHARED LABELS (static HTML / move list text that is the same word in Turkish)
+
     merge(EN.PHRASES, { 'Shuriken': 'Сюрикен', 'KI': 'КИ' });
 
-    // ================================================================ TOUCH HELP PER MOVEMENT MODE
-    // (game.js touchHelp(): the menu's touch help follows the movement mode; Turkish source in i18n.js)
+
+
     merge(EN.STR, {
       thelp: {
         title: { float: 'Джойстик', fixed: 'Фиксированный джойстик', dpad: 'Кнопки движения' },
@@ -1077,7 +1077,7 @@
       },
     });
 
-    // Persistent character journeys.
+
     merge(EN.STR, { menu: { arcadeDesc: "Путь из восьми боёв для каждого ниндзя. Продолжи со следующего соперника и открой концовку персонажа и печать мастера." }, sel: { title: { arcade: "Аркада · Путь персонажа" } },
       journey: {
         start: "Начать путь",
@@ -1094,8 +1094,8 @@
       }
     });
 
-    // ================================================================ PROGRESS / ACCOUNT (Settings → Progress, Hall of Champions;
-    // js/settings.js, js/banzuke.js; Turkish source in i18n.js, block "account and recovery code")
+
+
     merge(EN.STR, {
       set: { tabs: { save: 'Прогресс' } },
       acct: {
@@ -1119,8 +1119,8 @@
       lb: { savedLocalAccount: (r) => (r ? `#${r} на этом устройстве · аккаунт сейчас недоступен` : 'Сохранено на устройстве · аккаунт сейчас недоступен') },
     });
 
-    // ================================================================ PRIVACY (js/privacy.js; Turkish source in i18n.js, block
-    // "privacy"). The policy page itself (privacy.html) is English + Turkish; this language sees the English part.
+
+
     merge(EN.STR, {
       priv: {
         notice: '«Дуэль теней» сохраняет твой ник и очки для онлайн-рейтингов.',
@@ -1129,8 +1129,8 @@
       },
     });
 
-    // ================================================================ FIRST-FIGHT RALLY TUTORIAL: js/tutorial.js STR.tutor and
-    // Training → Parry drill (Turkish source in i18n.js, block "rally tutorial")
+
+
     merge(EN.STR, {
       menu: { trainDrill: 'Отработка отбива' },
       tutor: {
@@ -1150,12 +1150,21 @@
         mastered: 'ОСВОЕНО!', masteredSub: 'Защита, контрудар, снова',
         warm: (l) => `Разминка: три удара ${l}`,
         nudge: (k) => `Нажми ${k}`, nudgeT: (k) => `Коснись ${k}`,
+
+
+        skip: 'Пропустить ›',
+        steps: {
+          attack: (b) => `Бей: ${b}`, guard: (b) => `Отрази клинок: ${b}`, counter: (b) => `Контрудар: ${b}`,
+          timing: (b, l) => `Твоя очередь: ${b}, когда кольцо сомкнётся, затем ${l}`,
+        },
+        ok: { attack: 'ОТЛИЧНО!', guard: 'ПАРИРОВАНО!', counter: 'КОНТРУДАР!', timing: 'ИДЕАЛЬНО!' },
+        ready: 'ГОТОВ!', readySub: 'Теперь выиграй дуэль',
       },
     });
 
-    // ================================================================ NEW PLAYER: the select screen's one-time greeting
-    // (game.js openSelect), the VS goal line's "?" (arcade.js openVs) and the just-in-time tips (js/coach.js ND.coach.tips;
-    // arguments: key / button chips, lessons: the menu names of Training and Tutorial). Turkish source in i18n.js.
+
+
+
     merge(EN.STR, {
       onb: { selIntro: 'Выбери ниндзя: у каждого свой путь', more: 'Подробнее' },
       tips: {
@@ -1172,7 +1181,7 @@
       },
     });
 
-    // ================================================================ online "play with a friend" (js/online.js: ND.STR.online)
+
     merge(EN.STR, {
       online: {
         title: 'Играть с другом',
@@ -1245,7 +1254,7 @@
       },
     });
 
-    // ================================================================ ranked duel (js/ranked.js: ND.STR.ranked)
+
     merge(EN.STR, {
       ranked: {
         title: 'Рейтинговая дуэль', menuSub: 'Случайный соперник · очки, ранги и сезоны', offline: 'Рейтинговые бои сейчас недоступны',
@@ -1297,7 +1306,20 @@
         aiNote: 'Когда в сети мало игроков, вам могут попасться ИИ-соперники, которые играют в стиле настоящих игроков.', gotIt: 'Понятно',
         err: { network: 'Не удалось связаться с сервером. Проверьте интернет.', bad_version: 'Вышла новая версия игры: обновите страницу.', busy: 'Очередь переполнена, попробуйте позже.',
           rate_limited: 'Слишком много попыток, подождите.', disabled: 'Рейтинговые бои сейчас недоступны.', banned: 'Этот аккаунт не может играть в рейтинговых боях.', other: 'Что-то пошло не так, попробуйте ещё раз.' },
+
+        bg: { ru: 'Смотреть меню во время поиска', stopT: 'Остановить рейтинговый поиск?', stopS: 'Этот бой завершит поиск.', stopGo: 'Остановить и играть', keep: 'Продолжить поиск', stopped: 'Рейтинговый поиск остановлен', chip: 'Поиск' },
+        card: { findMatch: 'Найти соперника', searching: 'Поиск…', resume: 'Вернуться в бой',
+          place: (p, n) => `${p}-е место из ${n}`, placeOnly: (p) => `${p}-е место в таблице`,
+          toBoard: (n) => `Ещё ${n} ${n % 10 === 1 && n % 100 !== 11 ? 'матч' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 'матча' : 'матчей'} до таблицы лидеров`, toBoardSoon: 'Ещё несколько матчей — и вы в таблице лидеров',
+          invite: 'От асигару до сёгуна: первый рейтинговый матч в одном касании',
+          guestInvite: 'Войдите, чтобы играть на очки · гости играют без рейтинга', nickInvite: 'Выберите ник, чтобы играть на очки',
+          winRate: (p) => `${p}% побед`,
+          streakW: (n) => `${n} ${n % 10 === 1 && n % 100 !== 11 ? 'победа' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 'победы' : 'побед'} подряд`,
+          streakL: (n) => `${n} ${n % 10 === 1 && n % 100 !== 11 ? 'поражение' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 'поражения' : 'поражений'} подряд`,
+          peak: (t) => `Лучшее за сезон: ${t}`, shields: (n) => `Щит ×${n}`, top: 'Топ-3 сезона', you: 'Вы', empty: 'В таблице пока никого: будьте первым', rating: 'рейтинг' },
       },
+
+      upd: { ready: 'Готова новая версия — нажмите, чтобы обновить', refresh: 'Вышла новая версия — обновите страницу, чтобы играть в неё', close: 'Закрыть' },
     });
 
     void dec; void fmtTime; void num;

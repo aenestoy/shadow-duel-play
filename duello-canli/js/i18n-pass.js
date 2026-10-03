@@ -1,11 +1,11 @@
-// Shadow Duel — texts of the player level and the Shadow Pass (js/level.js, js/pass.js) in all seven languages.
-// Turkish is the source (ND.STR.pass, set here); the other languages are added to the language catalogs of
-// js/i18n-*.js (ND.I18N_CATALOGS[lang], wrapped: the catalog runs first, then these texts are merged into EN.STR.pass).
-// Load order: after the catalogs (i18n-en.js … i18n-fr.js) and before js/i18n.js. scripts/i18n-check.mjs loads this
-// file after the catalogs too, so every language is checked against English like the rest.
+
+
+
+
+
 (function (ND) {
   'use strict';
-  // (the costume themes come first in each language's list: js/level.js THEMES; a costume is "<theme> · <Ninja>")
+
   const THEME_IDS = ['sakura', 'ember', 'frost', 'jade', 'ash', 'moon', 'lotus', 'storm', 'yami'];
   const ITEM_IDS = ['trail_sakura', 'trail_ember', 'trail_frost', 'trail_jade', 'trail_violet', 'trail_gold',
     'title_novice', 'title_wanderer', 'title_duelist', 'title_parry', 'title_ronin', 'title_nightblade', 'title_s1',
@@ -14,7 +14,7 @@
   const items = (names) => Object.fromEntries(ITEM_IDS.map((k, i) => [k, names[i + THEME_IDS.length]]));
   const themes = (names) => Object.fromEntries(THEME_IDS.map((k, i) => [k, names[i]]));
 
-  // ---------------------------------------------------------------- Turkish (source)
+
   const TR = {
     k: '影', lv: 'SV',
     level: (n) => `Seviye ${n}`,
@@ -24,7 +24,7 @@
     free: 'Ücretsiz', bonus: 'Gölge', bonusAds: 'Her ödül: bir reklam', bonusWait: (n) => `Reklamsız: ${n} kademe sonra açılır`,
     claim: 'Al', claimAll: (n) => `Hepsini al (${n})`, owned: 'Alındı', watch: 'Reklam', milestone: 'Ücretsiz', opensAt: (t) => `${t}. kademede`,
     online: 'Çevrimiçi gerekir', soon: 'Yeni kademeler yakında', soonXp: 'XP’n birikmeye devam ediyor', close: 'Kapat', tabs: { pass: 'Pass', profile: 'Profil' },
-    rows: { win: 'Galibiyet', loss: 'Katılım', rounds: 'Raund', perfect: 'Kusursuz', rally: 'Karşılık zinciri', counter: 'Karşılık', parry: 'Savuşturma', short: 'Kısa maç', boost: 'Takviye', daily: 'Günün ilk galibiyeti', streak: 'Seri', clear: 'Yolculuk', trial: 'Kombo denemesi', tutorial: 'Eğitim' },
+    rows: { win: 'Galibiyet', loss: 'Katılım', rounds: 'Raund', perfect: 'Kusursuz', rally: 'Karşılık zinciri', counter: 'Karşılık', parry: 'Savuşturma', short: 'Kısa maç', boost: 'Takviye', daily: 'Günün ilk galibiyeti', streak: 'Seri', clear: 'Yolculuk', trial: 'Kombo denemesi', tutorial: 'Eğitim', first: 'Hoş geldin' },
     streakN: (n) => `${n}. gün`,
     up: 'Seviye atladın', got: 'Yeni ödül',
     boostName: (n) => `×1,5 XP · ${n} dövüş`, honorName: (n) => `+${n} onur`,
@@ -51,7 +51,7 @@
   };
   if (ND.STR) ND.STR.pass = TR;
 
-  // ---------------------------------------------------------------- the other languages
+
   const L = {};
   L.en = (I) => ({
     k: '影', lv: 'LV',
@@ -62,7 +62,7 @@
     free: 'Free', bonus: 'Shadow', bonusAds: 'Each reward: one ad', bonusWait: (n) => `No ads: opens ${n} tiers later`,
     claim: 'Claim', claimAll: (n) => `Claim all (${n})`, owned: 'Claimed', watch: 'Watch ad', milestone: 'Free', opensAt: (t) => `At tier ${t}`,
     online: 'Needs online', soon: 'More tiers coming soon', soonXp: 'Your XP keeps counting', close: 'Close', tabs: { pass: 'Pass', profile: 'Profile' },
-    rows: { win: 'Win', loss: 'Played', rounds: 'Rounds', perfect: 'Perfect', rally: 'Rally', counter: 'Counter', parry: 'Parry', short: 'Short fight', boost: 'Booster', daily: 'First win of the day', streak: 'Streak', clear: 'Journey', trial: 'Combo trial', tutorial: 'Tutorial' },
+    rows: { win: 'Win', loss: 'Played', rounds: 'Rounds', perfect: 'Perfect', rally: 'Rally', counter: 'Counter', parry: 'Parry', short: 'Short fight', boost: 'Booster', daily: 'First win of the day', streak: 'Streak', clear: 'Journey', trial: 'Combo trial', tutorial: 'Tutorial', first: 'Welcome bonus' },
     streakN: (n) => `day ${n}`,
     up: 'Level up', got: 'New reward',
     boostName: (n) => `×1.5 XP · ${n} fights`, honorName: (n) => `+${n} honor`,
@@ -96,7 +96,7 @@
     free: 'Gratis', bonus: 'Sombra', bonusAds: 'Cada premio: un anuncio', bonusWait: (n) => `Sin anuncios: se abre ${n} niveles después`,
     claim: 'Reclamar', claimAll: (n) => `Reclamar todo (${n})`, owned: 'Reclamado', watch: 'Ver anuncio', milestone: 'Gratis', opensAt: (t) => `En el nivel ${t}`,
     online: 'Requiere conexión', soon: 'Más niveles muy pronto', soonXp: 'Tu XP sigue contando', close: 'Cerrar', tabs: { pass: 'Pase', profile: 'Perfil' },
-    rows: { win: 'Victoria', loss: 'Jugado', rounds: 'Rondas', perfect: 'Perfecto', rally: 'Contraataques seguidos', counter: 'Contraataque', parry: 'Parada', short: 'Combate corto', boost: 'Potenciador', daily: 'Primera victoria del día', streak: 'Racha', clear: 'Travesía', trial: 'Prueba de combo', tutorial: 'Tutorial' },
+    rows: { win: 'Victoria', loss: 'Jugado', rounds: 'Rondas', perfect: 'Perfecto', rally: 'Contraataques seguidos', counter: 'Contraataque', parry: 'Parada', short: 'Combate corto', boost: 'Potenciador', daily: 'Primera victoria del día', streak: 'Racha', clear: 'Travesía', trial: 'Prueba de combo', tutorial: 'Tutorial', first: 'Bienvenida' },
     streakN: (n) => `día ${n}`,
     up: 'Subes de nivel', got: 'Nuevo premio',
     boostName: (n) => `×1,5 XP · ${n} combates`, honorName: (n) => `+${n} de honor`,
@@ -130,7 +130,7 @@
     free: 'Grátis', bonus: 'Sombra', bonusAds: 'Cada prêmio: um anúncio', bonusWait: (n) => `Sem anúncios: abre ${n} etapas depois`,
     claim: 'Resgatar', claimAll: (n) => `Resgatar tudo (${n})`, owned: 'Resgatado', watch: 'Ver anúncio', milestone: 'Grátis', opensAt: (t) => `Na etapa ${t}`,
     online: 'Requer conexão', soon: 'Mais etapas em breve', soonXp: 'Seu XP continua contando', close: 'Fechar', tabs: { pass: 'Passe', profile: 'Perfil' },
-    rows: { win: 'Vitória', loss: 'Jogado', rounds: 'Rounds', perfect: 'Perfeito', rally: 'Sequência de contra-ataques', counter: 'Contra-ataque', parry: 'Aparo', short: 'Luta curta', boost: 'Bônus', daily: 'Primeira vitória do dia', streak: 'Sequência', clear: 'Jornada', trial: 'Desafio de combo', tutorial: 'Tutorial' },
+    rows: { win: 'Vitória', loss: 'Jogado', rounds: 'Rounds', perfect: 'Perfeito', rally: 'Sequência de contra-ataques', counter: 'Contra-ataque', parry: 'Aparo', short: 'Luta curta', boost: 'Bônus', daily: 'Primeira vitória do dia', streak: 'Sequência', clear: 'Jornada', trial: 'Desafio de combo', tutorial: 'Tutorial', first: 'Boas-vindas' },
     streakN: (n) => `dia ${n}`,
     up: 'Subiu de nível', got: 'Novo prêmio',
     boostName: (n) => `×1,5 XP · ${n} lutas`, honorName: (n) => `+${n} de honra`,
@@ -164,7 +164,7 @@
     free: 'Бесплатно', bonus: 'Тень', bonusAds: 'Каждая награда: одна реклама', bonusWait: (n) => `Без рекламы: откроется через ${n} ступени`,
     claim: 'Забрать', claimAll: (n) => `Забрать всё (${n})`, owned: 'Получено', watch: 'Реклама', milestone: 'Бесплатно', opensAt: (t) => `На ступени ${t}`,
     online: 'Нужна сеть', soon: 'Скоро новые ступени', soonXp: 'Твой XP продолжает копиться', close: 'Закрыть', tabs: { pass: 'Пропуск', profile: 'Профиль' },
-    rows: { win: 'Победа', loss: 'Участие', rounds: 'Раунды', perfect: 'Без урона', rally: 'Серия контратак', counter: 'Контратака', parry: 'Парирование', short: 'Короткий бой', boost: 'Ускоритель', daily: 'Первая победа дня', streak: 'Серия', clear: 'Путь', trial: 'Испытание комбо', tutorial: 'Обучение' },
+    rows: { win: 'Победа', loss: 'Участие', rounds: 'Раунды', perfect: 'Без урона', rally: 'Серия контратак', counter: 'Контратака', parry: 'Парирование', short: 'Короткий бой', boost: 'Ускоритель', daily: 'Первая победа дня', streak: 'Серия', clear: 'Путь', trial: 'Испытание комбо', tutorial: 'Обучение', first: 'Бонус новичка' },
     streakN: (n) => `день ${n}`,
     up: 'Новый уровень', got: 'Новая награда',
     boostName: (n) => `×1,5 XP · боёв: ${n}`, honorName: (n) => `+${n} чести`,
@@ -198,7 +198,7 @@
     free: 'Gratis', bonus: 'Schatten', bonusAds: 'Jede Belohnung: eine Werbung', bonusWait: (n) => `Ohne Werbung: öffnet ${n} Ränge später`,
     claim: 'Abholen', claimAll: (n) => `Alle abholen (${n})`, owned: 'Abgeholt', watch: 'Werbung', milestone: 'Gratis', opensAt: (t) => `Ab Rang ${t}`,
     online: 'Nur online', soon: 'Bald weitere Ränge', soonXp: 'Deine XP zählen weiter', close: 'Schließen', tabs: { pass: 'Pass', profile: 'Profil' },
-    rows: { win: 'Sieg', loss: 'Gespielt', rounds: 'Runden', perfect: 'Perfekt', rally: 'Konter-Serie', counter: 'Konter', parry: 'Parade', short: 'Kurzer Kampf', boost: 'Booster', daily: 'Erster Sieg des Tages', streak: 'Serie', clear: 'Reise', trial: 'Combo-Prüfung', tutorial: 'Tutorial' },
+    rows: { win: 'Sieg', loss: 'Gespielt', rounds: 'Runden', perfect: 'Perfekt', rally: 'Konter-Serie', counter: 'Konter', parry: 'Parade', short: 'Kurzer Kampf', boost: 'Booster', daily: 'Erster Sieg des Tages', streak: 'Serie', clear: 'Reise', trial: 'Combo-Prüfung', tutorial: 'Tutorial', first: 'Willkommensbonus' },
     streakN: (n) => `Tag ${n}`,
     up: 'Stufe aufgestiegen', got: 'Neue Belohnung',
     boostName: (n) => `×1,5 XP · ${n} Kämpfe`, honorName: (n) => `+${n} Ehre`,
@@ -232,7 +232,7 @@
     free: 'Gratuit', bonus: 'Ombre', bonusAds: 'Chaque récompense : une pub', bonusWait: (n) => `Sans pub : s’ouvre ${n} paliers plus tard`,
     claim: 'Récupérer', claimAll: (n) => `Tout récupérer (${n})`, owned: 'Récupéré', watch: 'Voir une pub', milestone: 'Gratuit', opensAt: (t) => `Au palier ${t}`,
     online: 'En ligne requis', soon: 'D’autres paliers arrivent bientôt', soonXp: 'Ton XP continue de compter', close: 'Fermer', tabs: { pass: 'Passe', profile: 'Profil' },
-    rows: { win: 'Victoire', loss: 'Participation', rounds: 'Manches', perfect: 'Parfait', rally: 'Série de contres', counter: 'Contre', parry: 'Parade', short: 'Combat court', boost: 'Bonus', daily: 'Première victoire du jour', streak: 'Série', clear: 'Voyage', trial: 'Épreuve de combo', tutorial: 'Tutoriel' },
+    rows: { win: 'Victoire', loss: 'Participation', rounds: 'Manches', perfect: 'Parfait', rally: 'Série de contres', counter: 'Contre', parry: 'Parade', short: 'Combat court', boost: 'Bonus', daily: 'Première victoire du jour', streak: 'Série', clear: 'Voyage', trial: 'Épreuve de combo', tutorial: 'Tutoriel', first: 'Bienvenue' },
     streakN: (n) => `jour ${n}`,
     up: 'Niveau supérieur', got: 'Nouvelle récompense',
     boostName: (n) => `×1,5 XP · ${n} combats`, honorName: (n) => `+${n} d’honneur`,
@@ -258,10 +258,10 @@
       'Cadre de bronze', 'Cadre d’argent', 'Cadre écarlate', 'Cadre de jade', 'Cadre doré']),
   });
 
-  // ---------------------------------------------------------------- 1.3.2: the 30-tier pass, fight flair, progress
-  // rewards, the ranked shield, the Profile screen, honor from ranked (merged into the same ND.STR.pass in every
-  // language; kinds2: the wardrobe slots and reward kinds; flair: the fight flair's names (the same as js/flair.js's own
-  // table, here so every language, the on-demand ones too, has them in its catalog)
+
+
+
+
   const X = {};
   X.tr = {
     kinds2: { pose: 'Zafer pozu', hitfx: 'Vuruş efekti', slash: 'Karşılık kesiği', aura: 'Ki halesi', ko: 'K.O. bitirişi', card: 'İsim kartı', arena: 'Arena çeşidi', music: 'Menü müziği', rkey: 'Anahtar', akey: 'Anahtar', ticket: 'Bilet', shield: 'Kalkan' },
@@ -361,16 +361,32 @@
     flair: { pose_tenchi: 'Lame vers le ciel', pose_rei: 'Salut rei', pose_hiza: 'Zanshin à genou', pose_katsugi: 'Arme sur l’épaule', pose_kissaki: 'À ton tour', hitfx_kinpaku: 'Coups à la feuille d’or', hitfx_aizome: 'Encre indigo', hitfx_sakura: 'Éclat de sakura', hitfx_kitsunebi: 'Feu de renard', hitfx_raijin: 'Étincelles de Raijin', slash_kin: 'Tranchant doré', slash_sumi: 'Pinceau sumi', slash_hana: 'Vent de pétales', slash_rai: 'Coupe du tonnerre', aura_kitsunebi: 'Aura de feu de renard', aura_raiun: 'Aura d’orage', aura_hana: 'Aura de fleurs', aura_gekko: 'Aura de clair de lune', ko_enso: 'Final ensō', ko_hanafubuki: 'Tempête de pétales', ko_raiko: 'Coup de foudre', ko_mikazuki: 'Croissant de lune', card_seigaiha: 'Vagues seigaiha', card_yozakura: 'Sakura de nuit', card_ryu: 'Laque du dragon', card_tsukiyo: 'Pins au clair de lune', card_asanoha: 'Or asanoha', arena_temple_snow: 'Temple sous la neige', arena_rain_moon: 'Bambous au clair de lune', arena_snow_night: 'Sommet enneigé la nuit', arena_market_rain: 'Marché de nuit sous la pluie', music_haru: 'Jardin de printemps', music_yuki: 'Lune de neige', music_matsuri: 'Nuit de festival', pass1_akane: 'Parure Ombre de lune' },
     shieldUsed: 'Bouclier utilisé : aucun point perdu', rankedHonor: (n) => `+${n} d’honneur`, variant: 'Variante',
   };
+
+
+  const X133 = {
+    tr: { newTag: 'YENİ', newN: (n) => `${n} yeni`, headUnlocks: 'Ninjalar ve arenalar', headRewards: 'Dereceli ödülleri' },
+    en: { newTag: 'NEW', newN: (n) => `${n} new`, headUnlocks: 'Ninjas and arenas', headRewards: 'Ranked rewards' },
+    es: { newTag: 'NUEVO', newN: (n) => `Nuevos: ${n}`, headUnlocks: 'Ninjas y arenas', headRewards: 'Recompensas clasificatorias' },
+    pt: { newTag: 'NOVO', newN: (n) => `Novos: ${n}`, headUnlocks: 'Ninjas e arenas', headRewards: 'Recompensas ranqueadas' },
+    ru: { newTag: 'НОВОЕ', newN: (n) => `Новое: ${n}`, headUnlocks: 'Ниндзя и арены', headRewards: 'Рейтинговые награды' },
+    de: { newTag: 'NEU', newN: (n) => `Neu: ${n}`, headUnlocks: 'Ninjas und Arenen', headRewards: 'Ranglisten-Belohnungen' },
+    fr: { newTag: 'NOUVEAU', newN: (n) => `Nouveautés : ${n}`, headUnlocks: 'Ninjas et arènes', headRewards: 'Récompenses classées' },
+  };
+  for (const k of Object.keys(X133)) Object.assign(X[k], X133[k]);
   Object.assign(TR, X.tr);
+
+
+
 
   const CATS = ND.I18N_CATALOGS || (ND.I18N_CATALOGS = {});
   for (const lang of Object.keys(L)) {
-    const base = CATS[lang];
-    CATS[lang] = function (I, EN) {
+    let base = CATS[lang];
+    const both = function (I, EN) {
       if (typeof base === 'function') base(I, EN);
       I.merge(EN.STR, { pass: Object.assign(L[lang](I), X[lang] || {}) });
     };
+    Object.defineProperty(CATS, lang, { configurable: true, enumerable: true, get: () => (typeof base === 'function' ? both : undefined), set: (fn) => { base = fn; } });
   }
   ND.PASS_ITEM_IDS = ITEM_IDS;
-  ND.PASS_TEXT_132 = X; // (the 1.3.2 additions per language: a new language adds its own entry to X)
+  ND.PASS_TEXT_132 = X;
 })(window.ND = window.ND || {});

@@ -1,13 +1,13 @@
-// Shadow Duel — Thai catalog for ND.i18n, translated from the English one (js/i18n-en.js).
-// Loaded on demand: js/i18n.js loads this file only when the game runs in this language. Same structure as i18n-en.js.
-// Glossary: guard = การ์ด (verb: กันการ์ด), parry = ปัดป้อง, counter = สวนกลับ, posture = สมดุล (posture bar = แถบสมดุล),
-//   ki = คิ (button label KI), ki technique = ท่าคิ, blade lock = ประดาบ, dash = พุ่ง, combo = คอมโบ, light slash = ฟันเบา,
-//   heavy slash = ฟันหนัก, kick = เตะ, rally = แลกสวน, finisher = ปิดฉาก, arcade = อาร์เคด, training = ฝึกซ้อม,
-//   tutorial = สอนเล่น, ranked = แรงค์, journey = เส้นทาง, mastery star = ดาวเชี่ยวชาญ, Hall of Champions = หอแชมเปี้ยน,
-//   shadow (ghost opponent) = เงา, season = ซีซัน, round = ยก, honor = เกียรติ, dummy = หุ่นซ้อม, arena = สังเวียน,
-//   shuriken = ดาวกระจาย (button ปาดาว), CPU = คอม, points = แต้ม, leaderboard = ตารางอันดับ, nickname = ชื่อในเกม,
-//   level = เลเวล, Shadow Pass = พาสเงา, pass tier = ชั้น, ranked tier = ระดับ, placement = จัดอันดับ, rating = เรตติ้ง,
-//   claim = รับ, costume = ชุด, title = ตำแหน่ง, badge = เหรียญตรา, frame = กรอบ, blade trail = รอยดาบ, booster = บูสเตอร์
+
+
+
+
+
+
+
+
+
+
 (function (ND) {
   'use strict';
   (ND.I18N_CATALOGS || (ND.I18N_CATALOGS = {}))['th'] = function (I, EN) {
@@ -16,7 +16,7 @@
     const dec = (x) => I.dec(x);
     const fmtTime = (s) => I.time(s);
 
-    // ================================================================ UI tables (ND.STR)
+
     merge(EN.STR, {
       menu: {
         brand: (nc, na) => `นักสู้ ${nc} คน ${na} สังเวียน และยอดฝีมือลับอีกหนึ่งคน ดวลดาบแบบเรียลไทม์ ประดาบ ปัดป้อง ทำลายสมดุล ท่าคิ และฟิสิกส์ร่างกายสมจริง`,
@@ -145,7 +145,7 @@
       bz: {
         back: 'กลับ', toMenu: 'เมนูหลัก', you: 'คุณ', youTag: 'คุณ', newBest: 'สถิติใหม่!', seeResult: 'ดูผล',
         resetIn: 'รีเซ็ตใน',
-        // time left: days (d) · hours (h) · minutes (m) · seconds (s)
+
         left: (ms) => { const t = Math.floor(ms / 1000), d = Math.floor(t / 86400), hh = Math.floor((t % 86400) / 3600), mm = Math.floor((t % 3600) / 60), ss = t % 60; return d ? `${d}วัน ${hh}ชม. ${mm}นาที` : hh ? `${hh}ชม. ${mm}นาที` : `${mm}นาที ${ss}วิ`; },
         leftShort: (ms) => { const t = Math.floor(ms / 60000), d = Math.floor(t / 1440), hh = Math.floor((t % 1440) / 60), mm = t % 60; return d ? `${d}วัน ${hh}ชม.` : hh ? `${hh}ชม. ${mm}นาที` : `${mm}นาที`; },
         weekName: (m, y) => `${['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'][m - 1] || m} ${y}`,
@@ -231,7 +231,7 @@
           pending: (n) => `รายการที่รอส่ง: ${n}`,
           classic: 'ตารางอาร์เคด · ตำนาน',
         },
-        // Monthly Tournament rewards: permanent title (top 3) and Champion colors (1st)
+
         ttl: {
           champ: 'แชมป์ประจำเดือน', finalist: 'ผู้เข้ารอบ',
           reward: 'ตั้งแต่ทัวร์นาเมนต์เดือนตุลาคม 2026 เป็นต้นไป ท็อป 3 ของแต่ละเดือนจะได้ตำแหน่งถาวร แชมป์ยังได้สีแชมเปี้ยนพิเศษให้นินจาที่ใช้ด้วย ต้องมีผู้เล่นอย่างน้อย 5 คนในเดือนนั้นจึงจะได้ตำแหน่ง',
@@ -369,10 +369,10 @@
       ],
     });
 
-    // ================================================================ story, fighters, arenas, specials
-    // ---- Fragment B: story text (talk, pairs, endings, roster2 notes), characters, arenas, specials, pop-ups, AI levels, number words
+
+
     merge(EN.STR, {
-      // open = speaks first (opponent), reply = answers (player), boss = said to the final boss
+
       talk: {
         akane: {
           open: ['ดาบข้าสีชาด เจตนาข้าบริสุทธิ์ จงเผชิญหน้าข้าอย่างมีเกียรติ', 'ข้าคำนับก่อน แล้วค่อยฟัน นั่นจึงจะยุติธรรม', 'การดวลครั้งนี้เพื่อเกียรติของเรา ไม่มีทางถอย'],
@@ -440,7 +440,7 @@
           boss: 'Shura บนฟ้าไม่มีที่ให้ซ่อน ลูกธนูข้าจะหาเจ้าเจอ',
         },
       },
-      // Special match-ups: lines are spoken in the order written
+
       pairs: {
         'akane|aoi': [['akane', 'Aoi! ถึงเวลาจบการดวลที่ค้างไว้แล้ว'], ['aoi', 'ลมพัดเข้าหาไฟกองเดิมเสมอ Akane เริ่มเถอะ']],
         'kuro|tetsu': [['kuro', 'เปลือกเหล็ก มาดูกันว่าข้างในกลวงหรือเปล่า'], ['tetsu', 'แม้ภูเขายังก้มหัวให้วินัย Kuro']],
@@ -537,22 +537,22 @@
 
     EN.NUMWORDS = ['ศูนย์', 'หนึ่ง', 'สอง', 'สาม', 'สี่', 'ห้า', 'หก', 'เจ็ด', 'แปด', 'เก้า', 'สิบ', 'สิบเอ็ด', 'สิบสอง'];
 
-    // ================================================================ static HTML, hardcoded literals, canvas pop-ups
+
     merge(EN.PHRASES, {
-      // ---------------------------------------------------------------- index.html: <title>, brand, HUD
+
       'Gölge Düellosu': 'Shadow Duel',
       'Duraklat': 'พัก',
       'KARŞILIKLI SERİ': 'แลกสวน',
       'SON DARBE': 'ดาบสุดท้าย',
       'atlamak için bir tuşa bas': 'กดปุ่มใดก็ได้เพื่อข้าม',
-      // touch buttons (static fallbacks of data-s="touch.btn.*")
+
       'GARD': 'การ์ด',
       'HAFİF': 'เบา',
       'SALDIR': 'โจมตี',
       'AĞIR': 'หนัก',
       'ATIL': 'พุ่ง',
       'TEKME': 'เตะ',
-      // ---------------------------------------------------------------- main menu
+
       'Sekiz savaşçı, üç arena. Gerçek zamanlı kılıç çarpışması, kılıç kilitlenmesi, savuşturma, denge kırma, Gölge Kesiği ve ragdoll fiziği.': 'นักสู้แปดคน สามสังเวียน ดวลดาบแบบเรียลไทม์ ประดาบ ปัดป้อง ทำลายสมดุล ฟันเงา และฟิสิกส์ร่างกายสมจริง',
       'İki Oyuncu': 'สองผู้เล่น',
       'Aynı klavyede ya da iki gamepad ile kafa kafaya': 'ดวลกันบนคีย์บอร์ดเดียวหรือจอยสองตัว',
@@ -572,7 +572,7 @@
       'Kan efekti': 'เลือด',
       'Tuş ipuçları': 'คำใบ้ปุ่ม',
       'Yüksek grafik': 'กราฟิกสูง',
-      // ---------------------------------------------------------------- controls card
+
       'Kontroller': 'การควบคุม',
       '1. Oyuncu': 'ผู้เล่น 1',
       '2. Oyuncu': 'ผู้เล่น 2',
@@ -586,7 +586,7 @@
       'Sağ Shift': 'Shift ขวา',
       'Atılma': 'พุ่ง',
       'Ki tekniği (ki dolu)': 'ท่าคิ (คิเต็ม)',
-      // ---------------------------------------------------------------- select screen
+
       'Ninjanı seç': 'เลือกนินจา',
       'Hazır': 'พร้อม',
       '1. oyuncunun ninjası': 'นินจาของผู้เล่น 1',
@@ -603,7 +603,7 @@
       'Güç': 'พลัง',
       'Menzil': 'ระยะ',
       'Can': 'พลังชีวิต',
-      // ---------------------------------------------------------------- pause / end
+
       'Duraklatıldı': 'พักเกม',
       'Devam et': 'เล่นต่อ',
       'Maçı yeniden başlat': 'เริ่มแมตช์ใหม่',
@@ -615,20 +615,20 @@
       'Verilen hasar': 'ดาเมจที่ทำได้',
       'Savuşturma': 'ปัดป้อง',
       'Ki Saldırısı': 'ท่าคิ',
-      // ---------------------------------------------------------------- training / leaderboard / misc
+
       'Antrenman': 'ฝึกซ้อม',
       'ANTRENMAN': 'ฝึกซ้อม',
       'Sıralama': 'ตารางอันดับ',
       'Tümü': 'ทั้งหมด',
       'Ekranı yan çevir': 'หมุนจอเป็นแนวนอน',
       'Performans için grafik düşürüldü': 'ลดกราฟิกลงเพื่อให้ลื่นขึ้น',
-      // hidden boss pushed into ND.CHARS by arcade.js (safety net; EN.CHARS.shura should carry the same)
+
       'Kanlı Usta': 'ปรมาจารย์โลหิต',
       'Yolunu kanla çizen iblis usta. Uzun nodachi, yıkıcı darbeler, neredeyse kusursuz savuşturma.': 'ปรมาจารย์ปีศาจผู้กรุยทางด้วยเลือด nodachi ยาว ตีหนักหน่วง ปัดป้องแทบไร้ที่ติ',
-      // ---------------------------------------------------------------- HUD tags (fallbacks when STR.hud is missing)
+
       'SEN': 'คุณ',
       'KUKLA': 'หุ่น',
-      // ---------------------------------------------------------------- round banners (#bt / #bs)
+
       'Son raund': 'ยกสุดท้าย',
       'Kazanan her şeyi alır': 'ผู้ชนะได้ทุกอย่าง',
       'İlk iki raundu alan kazanır': 'ชนะก่อนสองยกเป็นผู้ชนะ',
@@ -637,13 +637,13 @@
       'Berabere': 'เสมอ',
       'Çifte K.O.': 'K.O. คู่',
       'Mükemmel': 'เพอร์เฟกต์',
-      // blade-lock hint (fallbacks of STR.hud.lockSolo / lockDuo)
+
       'F / K tuşuna hızlıca bas!': 'รัว F / K!',
       'Hafif ya da ağır tuşuna hızlıca bas!': 'รัวเบาหรือหนัก!',
-      // counter / parry prompt labels under the key ring (ctx.fillText in drawPrompts)
+
       'KARŞILIK': 'สวน',
       'SAVUŞTUR': 'ปัด',
-      // ---------------------------------------------------------------- canvas pop-ups (fx.text)
+
       'SON VURUŞ!': 'ปิดฉาก!',
       'KİLİTLENDİ!': 'ประดาบ!',
       'İTTİ!': 'ผลัก!',
@@ -666,9 +666,9 @@
     });
 
     merge(EN.HTML, {
-      // brand title
+
       'Gölge<br><em>Düel</em><em>losu</em>': 'Shadow<br><em>Du</em><em>el</em>',
-      // tips list (<ul class="tips">)
+
       '<b>Savuşturma:</b> darbe gelmeden hemen önce gard tuşuna bas; rakip sendeler.':
         '<b>ปัดป้อง:</b> กดการ์ดก่อนโดนตีนิดเดียว คู่ต่อสู้จะเสียหลัก',
       '<b>Karşılık (返し技):</b> gard ya da savuşturmanın hemen ardından saldırı tuşu → anında karşı kesik. <b>İleri</b> + hafif = bacağa süpürme, <b>geri</b> + hafif = yanından dönüp arkadan kesme, <b>ağır</b> = güçlü karşı darbe.':
@@ -683,30 +683,30 @@
         '<b>พุ่ง + เบา</b> = พุ่งฟัน <b>กลางอากาศ</b> เบา = ฟันกลางอากาศ หนัก = ดิ่งฟัน ฟันหนักล้มคู่ต่อสู้ ใครกระแทกกำแพงจะเด้งกลับมา',
       '<b>Denge çubuğu</b> dolarsa gard kırılır. Tekme gardı delip dengeyi hızla doldurur.':
         'เมื่อ<b>แถบสมดุล</b>เต็ม การ์ดจะแตก ลูกเตะทะลุการ์ดและเติมแถบสมดุลได้เร็ว',
-      // gamepad note (Esc -> Start or P)
+
       'Gamepad: X hafif · Y ağır · B tekme · A zıpla · LB gard · RB shuriken · RT atılma · R3 ki tekniği. Start ya da <kbd>P</kbd> duraklatır. CPU modunda her iki tuş seti de seni yönetir.':
         'จอย: X เบา · Y หนัก · B เตะ · A กระโดด · LB การ์ด · RB ดาวกระจาย · RT พุ่ง · R3 ท่าคิ กด Start หรือ <kbd>P</kbd> เพื่อพัก ในโหมดสู้กับคอม ปุ่มทั้งสองชุดควบคุมตัวคุณ',
-      // select / VS hints (Esc -> ⌫)
+
       '<kbd>Enter</kbd> başlatır · <kbd>⌫</kbd> menüye döner': '<kbd>Enter</kbd> เริ่ม · <kbd>⌫</kbd> กลับ',
       '<kbd>Enter</kbd> / <kbd>F</kbd> başlatır · <kbd>⌫</kbd> çıkar': '<kbd>Enter</kbd> / <kbd>F</kbd> เริ่ม · <kbd>⌫</kbd> ออก',
     });
 
     EN.PATTERNS.push(
-      // HUD round label (#rlabel) and round banner
+
       [/^RAUND (\d+)$/, 'ยก $1'],
       [/^(\d+)\. Raund$/, 'ยกที่ $1'],
-      // canvas pop-ups built from numbers
+
       [/^(\d+)\. KARŞILIK$/, 'สวน ×$1'],
       [/^(\d+) VURUŞLUK SERİ!$/, 'แลกสวน $1 ฮิต!'],
-      // time-up banner sub: `${name} önde`
+
       [/^(.+) önde$/, (m, n) => I.t(n) + ' นำอยู่'],
-      // end screen title: `${Name} kazandı`
+
       [/^(.+) kazandı$/, (m, n) => I.t(n) + ' ชนะ'],
-      // end screen sub line: `${a} – ${b} · ${round} raund · ${arenaName}`
+
       [/^(\d+) – (\d+) · (\d+) raund · (.+)$/, (m, a, b, r, ar) => `${a} – ${b} · ${r} ยก · ${I.t(ar)}`],
     );
 
-    // ================================================================ added with the portal build (PLAY, ads, coach)
+
     merge(EN.STR, {
       menu: { play: 'เล่น', playSub: (name, lv) => `${name} ปะทะคอม · ${lv}` },
       first: { play: 'เล่น', sub: 'แตะครั้งเดียวก็เริ่มสู้', menu: 'ทุกโหมด' },
@@ -725,21 +725,21 @@
       },
     });
 
-    // ================================================================ VOLUME: sliders on the menu card and in pause (js/volume.js)
+
     merge(EN.STR, {
       vol: {
         title: 'ระดับเสียง', master: 'รวม', music: 'เพลง', sfx: 'เอฟเฟกต์', sound: 'เสียง',
         pct: (n) => `${n}%`,
         muted: 'ปิดเสียงอยู่ เลื่อนแถบใดก็ได้เพื่อเปิดเสียง',
-        // Settings > Audio: character / announcer voices switch (js/voice.js) and the courtesy credit under it
+
         voice: 'เสียงพากย์',
         uiSfx: 'เสียงเมนู',
         credit: 'เสียงพากย์: ユーフルカ (youfulca.com) · 効果音ラボ · すぱらんど',
       },
     });
 
-    // ================================================================ TOUCH LAYOUT EDITOR: movement modes + "Customize controls"
-    // (js/touch.js settings rows, js/touch-editor.js; Turkish source in i18n.js, block "touch movement modes + layout editor")
+
+
     merge(EN.STR, {
       tedit: {
         move: 'การเคลื่อนที่',
@@ -773,8 +773,8 @@
       },
     });
 
-    // ================================================================ PROGRESSION: honor, rival challenges, moves panel
-    // (arcade.js STR.honor / STR.rival / STR.hint, game.js select screen; rules in js/honor.js)
+
+
     merge(EN.STR, {
       menu: { arcadeDesc: 'ล้มคู่ต่อสู้ทีละคนขณะที่ความยากเพิ่มขึ้น ปรมาจารย์ลับรออยู่ตอนท้าย แหล่งเกียรติที่ให้มากที่สุด' },
       sel: {
@@ -847,8 +847,8 @@
       },
     });
 
-    // ================================================================ COMBAT: new kits, combos, move list (combat designer)
-    // Akane/Aoi/Ren/Kage identities, combo counter, ki cancel, ND.MOVELIST names/descriptions (read through ND.i18n.t)
+
+
     merge(EN.CHARS, {
       akane: { desc: 'ยอดฝีมือ iaijutsu ดาบรออยู่ในฝัก ทุกการฟันคือการชักดาบ ท่าตั้งชักดาบของนางรับการโจมตีที่พุ่งเข้ามาได้', weapon: 'Katana (iai)' },
       aoi: { desc: 'นักดาบ tachi มือเดียวแห่งสายลม แทงได้ไกลและก้าวลมปิดระยะได้ในจังหวะเดียว', weapon: 'Tachi' },
@@ -858,7 +858,7 @@
     merge(EN.TXT, { kiCancel: 'ยกเลิกด้วยคิ!', launch: 'ลอย!', iaiCatch: 'IAI GAESHI!' });
     EN.PATTERNS.push([/^(\d+) VURUŞ$/, '$1 ฮิต']);
     merge(EN.PHRASES, {
-      // shared rows
+
       'Tekme': 'เตะ',
       'Tekme: dengeyi hızla doldurur, gardı kırmaya yarar. Ardından AĞIR ile seri bitirişine bağlanır.': 'เตะ: เติมแถบสมดุลเร็วและช่วยทลายการ์ด ตามด้วยหนักเพื่อปิดชุดท่า',
       'Shuriken fırlatır; zamanla yeniden dolar.': 'ปาดาวกระจาย จะเติมเองเมื่อเวลาผ่านไป',
@@ -878,7 +878,7 @@
       'Atılırken dönerek geniş kesik; yere serer.': 'หมุนฟันกว้างระหว่างพุ่ง ล้มคู่ต่อสู้',
       'İki kesiklik seri bitirişi; son kesik yere serer.': 'ท่าปิดชุดสองดาบ ดาบสุดท้ายล้มคู่ต่อสู้',
       'Rakibin kılıcını aşağı çarpıp dürter: gardı ezer.': 'ฟาดดาบคู่ต่อสู้ลงแล้วแทง ทลายการ์ด',
-      // Akane
+
       'Kından yatay çekiş kesiği, çapraz iniş, geri dönen kesik; kılıç her seferinde kınına döner.': 'ชักดาบฟันแนวนอนจากฝัก ฟันเฉียงลง และฟันย้อนกลับ ดาบกลับเข้าฝักทุกครั้ง',
       'Derin çömelişten geniş yatay çekiş; yere serer.': 'ย่อตัวต่ำแล้วชักดาบฟันแนวนอนกว้าง ล้มคู่ต่อสู้',
       'Atılarak kından çekiş: uzak mesafeyi bir anda kapatır, seriye devam eder.': 'พุ่งพร้อมชักดาบจากฝัก ปิดระยะไกลได้ในพริบตาและต่อชุดท่าได้',
@@ -887,7 +887,7 @@
       'Çekiş duruşu: kısa bir an bekler; bu sırada gelen yakın dövüş darbesini yakalar ve kaçınılmaz bir iai kesiğiyle karşılık verir. Boşa giderse açık kalır.': 'ท่าตั้งชักดาบ: รอชั่วครู่ ถ้ามีการโจมตีระยะประชิดเข้ามาจะรับไว้แล้วสวนด้วยดาบ iai ที่หลบไม่ได้ ถ้าไม่มีอะไรเข้ามา นางจะเปิดช่อง',
       'Kesa’dan sonra yükselen ve inen iki çekiş kesiği; son kesik yere serer.': 'หลัง Kesa ชักดาบเสยขึ้นและฟันลงอีกสองครั้ง ดาบสุดท้ายล้มคู่ต่อสู้',
       'Tekmeden sonra çömelip rakibin içinden geçen kızıl iai; arkasında belirir.': 'หลังเตะ ย่อตัวแล้วฟัน iai สีชาดทะลุผ่านคู่ต่อสู้ ไปโผล่ด้านหลัง',
-      // Aoi
+
       'Tek elle uzun dürtüş, yukarı savrulan kesik ve rüzgâr adımıyla derin atılma dürtüşü.': 'แทงยาวมือเดียว สะบัดฟันขึ้น และก้าวลมพุ่งแทงลึก',
       'Dönerek geniş yatay kesik; yere serer.': 'หมุนตัวฟันแนวนอนกว้าง ล้มคู่ต่อสู้',
       'Rüzgâr adımı: çok uzaktan tek hamlede dürter, seriye devam eder.': 'ก้าวลม: แทงจากไกลมากในจังหวะเดียว และต่อชุดท่าได้',
@@ -896,7 +896,7 @@
       'Geri sıçrar, ardından çok uzağa uzanan dürtüşle geri döner: gardı ezer, yere serer.': 'กระโดดถอย แล้วกลับมาด้วยการแทงไกลมาก ทลายการ์ดและล้มคู่ต่อสู้',
       'Üç hızlı dürtüş; sonuncusu rüzgârla rakibi savurur.': 'แทงเร็วสามครั้ง ครั้งสุดท้ายลมพัดคู่ต่อสู้กระเด็น',
       'İki kez dönerek çevresini biçen kesik; gardı ezer.': 'หมุนสองรอบฟันรอบตัว ทลายการ์ด',
-      // Ren
+
       'Kesik · Dirsek · Diz': 'ฟัน · ศอก · เข่า',
       'Tek elle kesik, dirsek darbesi ve uçan diz: kılıçla başlayıp bedenle biter.': 'ฟันมือเดียว ศอก และเข่าลอย เริ่มด้วยดาบแล้วจบด้วยร่างกาย',
       'İki elle tepeden ezici iniş; gardı zorlar, yere serer.': 'ฟาดสองมือจากด้านบนอย่างหนักหน่วง กดดันการ์ดและล้มคู่ต่อสู้',
@@ -906,7 +906,7 @@
       'Topuğu havaya kaldırıp balta gibi indirir: yere serer.': 'ยกส้นเท้าสูงแล้วจามลงเหมือนขวาน ล้มคู่ต่อสู้',
       'Dirsekten sonra kesik ve tepeden ezici iniş; son vuruş yere serer.': 'หลังศอก ฟันแล้วฟาดลงจากด้านบน ครั้งสุดท้ายล้มคู่ต่อสู้',
       'Tekmenin ardından dönen topuk tekmesi; yere serer.': 'หลังเตะ ตามด้วยเตะส้นหมุน ล้มคู่ต่อสู้',
-      // Kage
+
       'Ters tutuşla kesik, dönen kesik ve gölge adımı: kaybolup öne geçer, dürterek belirir.': 'ฟันจับกลับด้าม หมุนฟัน และก้าวเงา หายตัว พุ่งไปข้างหน้า แล้วโผล่มาพร้อมแทง',
       'Sıçrayıp ters tutuşla aşağı saplar; yere serer.': 'กระโดดแล้วแทงลงด้วยการจับกลับด้าม ล้มคู่ต่อสู้',
       'Gölge gibi uzun atılma kesiği; seriye devam eder.': 'พุ่งฟันไกลดุจเงา ต่อชุดท่าได้',
@@ -915,18 +915,18 @@
       'Ayağının dibine sis bombası atar: yakındakini sersemletir, Kage dumanın içinde geri kaçar.': 'ขว้างระเบิดควันลงที่เท้า คนที่อยู่ใกล้จะมึน ส่วน Kage ถอยหนีในควัน',
       'Üç hızlı ters kesik ve aşağı saplama; sonuncusu yere serer.': 'ฟันกลับด้ามเร็วสามครั้งและแทงลง ครั้งสุดท้ายล้มคู่ต่อสู้',
       'Tekmeden sonra dumanda kaybolur, rakibin arkasında belirip saplar.': 'หลังเตะ หายไปในควันแล้วโผล่หลังคู่ต่อสู้พร้อมแทง',
-      // template row names
+
       'Nodachi serisi': 'ชุดท่า Nodachi', 'Ağır nodachi': 'Nodachi หนัก', 'Kodachi serisi': 'ชุดท่า Kodachi', 'Ağır kesik': 'ฟันหนัก',
       'Tantō dansı': 'ระบำ Tantō', 'Çift kesik': 'ฟันคู่', 'Naginata serisi': 'ชุดท่า Naginata', 'Ağır savuruş': 'เหวี่ยงหนัก',
       'Zincir ve orak': 'โซ่และเคียว', 'Zincir çekişi': 'ดึงโซ่', 'Asa serisi': 'ชุดท่าไม้พลอง', 'Ağır süpürme': 'กวาดหนัก',
       'Yelpaze serisi': 'ชุดท่าพัด', 'Rüzgâr dalgası': 'คลื่นลม', 'Tantō serisi': 'ชุดท่า Tantō', 'Ok (basılı tut: güçlü)': 'ธนู (กดค้าง: ยิงแรง)',
       'Geri + AĞIR da ok atar (basılı tut: güçlü atış); ok kalmadıysa tantō ile tepeden iner.': 'หลัง + หนัก ก็ยิงธนูได้ (กดค้างเพื่อยิงแรง) ถ้าลูกธนูหมด นางจะฟาดลงจากด้านบนด้วย tantō',
-      // combat pop-ups
+
       'KI İPTALİ!': 'ยกเลิกด้วยคิ!', 'HAVAYA!': 'ลอย!',
     });
 
-    // ================================================================ COUNTER CINEMATIC + COMBO TRIAL (combat feel pass)
-    // js/kaeshi-cine.js STR.kaeshi, js/combo-trial.js STR.trial, js/coach.js combo/counter tips, move list legend
+
+
     {
       const tb = (t, c) => `<i class="tb${c ? ' ' + c : ''}">${t}</i>`;
       merge(EN.STR, {
@@ -983,8 +983,8 @@
       });
     }
 
-    // ================================================================ GRAPHICS QUALITY: the Graphics setting (js/gfx.js)
-    // (Turkish source in i18n.js, block "graphics quality")
+
+
     merge(EN.STR, {
       gfx: {
         title: 'กราฟิก',
@@ -997,8 +997,8 @@
           custom: 'ค่าที่คุณตั้งเอง (ขั้นสูง)',
         },
         now: (lv) => `ตอนนี้: ${lv}`,
-        // Settings → Graphics → Advanced (game.js gfxAdvBuild, js/gfx.js KNOBS): the switch, the line under it, the hint on
-        // the heaviest rows, one title per knob and the value words (resolution shows percentages, anti-aliasing 2× / 4×)
+
+
         adv: {
           title: 'ขั้นสูง',
           note: 'เปลี่ยนค่าใดค่าหนึ่งจะกลายเป็น “กำหนดเอง” กดค่าสำเร็จรูปเพื่อคืนค่าของมัน',
@@ -1009,8 +1009,8 @@
       },
     });
 
-    // ================================================================ FRAME RATE: Settings → Graphics (js/gfx.js makePacer)
-    // (Turkish source in i18n.js, block "frame rate"; the numbers themselves are not translated)
+
+
     merge(EN.STR, {
       fps: {
         title: 'อัตราเฟรม',
@@ -1025,7 +1025,7 @@
       },
     });
 
-    // ================================================================ SETTINGS SCREEN (js/settings.js; Turkish source in i18n.js)
+
     merge(EN.STR, {
       set: {
         title: 'ตั้งค่า', close: 'ปิด',
@@ -1035,13 +1035,13 @@
       },
     });
 
-    // ================================================================ LANGUAGE PICKER (js/lang-ui.js; Turkish source in i18n.js)
-    // Language names are not translated: each one is written in its own language (ND.i18n.names).
+
+
     merge(EN.STR, { lang: { title: 'ภาษา', change: 'เปลี่ยนภาษา', close: 'ปิด' } });
 
-    // ================================================================ TOUCH HELP PER MOVEMENT MODE
-    // (game.js touchHelp(): the menu's touch help follows the movement mode; Turkish source in i18n.js, block
-    // "touch help per movement mode")
+
+
+
     merge(EN.STR, {
       thelp: {
         title: { float: 'จอยสติ๊ก', fixed: 'จอยสติ๊กคงที่', dpad: 'ปุ่มทิศ' },
@@ -1055,10 +1055,10 @@
       },
     });
 
-    // ================================================================ SHARED LABELS (static HTML / move list text that is the same word in Turkish)
+
     merge(EN.PHRASES, { 'Shuriken': 'ดาวกระจาย', 'KI': 'KI' });
 
-    // Persistent character journeys.
+
     merge(EN.STR, { menu: { arcadeDesc: 'เส้นทางแปดไฟต์ของนินจาแต่ละคน สู้ต่อกับคู่ต่อสู้คนถัดไป ปลดล็อกฉากจบของตัวละครและตราปรมาจารย์' }, sel: { title: { arcade: 'อาร์เคด · เส้นทางตัวละคร' } },
       journey: {
         start: 'เริ่มเส้นทาง',
@@ -1075,8 +1075,8 @@
       }
     });
 
-    // ================================================================ PROGRESS / ACCOUNT (Settings → Progress, Hall of Champions;
-    // js/settings.js, js/banzuke.js; Turkish source in i18n.js, block "account and recovery code")
+
+
     merge(EN.STR, {
       set: { tabs: { save: 'ความคืบหน้า' } },
       acct: {
@@ -1100,8 +1100,8 @@
       lb: { savedLocalAccount: (r) => (r ? `#${r} ในเครื่องนี้ · ตอนนี้เชื่อมต่อบัญชีไม่ได้` : 'บันทึกในเครื่องนี้แล้ว · ตอนนี้เชื่อมต่อบัญชีไม่ได้') },
     });
 
-    // ================================================================ PRIVACY (js/privacy.js; Turkish source in i18n.js, block
-    // "privacy"). The policy page itself (privacy.html) is English + Turkish; other languages see the English part.
+
+
     merge(EN.STR, {
       priv: {
         notice: 'Shadow Duel บันทึกชื่อในเกมและคะแนนของคุณสำหรับตารางอันดับออนไลน์',
@@ -1110,8 +1110,8 @@
       },
     });
 
-    // ================================================================ FIRST-FIGHT RALLY TUTORIAL: js/tutorial.js STR.tutor and
-    // Training → Parry drill (Turkish source in i18n.js, block "rally tutorial")
+
+
     merge(EN.STR, {
       menu: { trainDrill: 'ฝึกปัดป้อง' },
       tutor: {
@@ -1131,12 +1131,21 @@
         mastered: 'เชี่ยวชาญแล้ว!', masteredSub: 'ป้องกัน สวนกลับ ทำซ้ำ',
         warm: (l) => `วอร์มอัป: กด ${l} สามครั้ง`,
         nudge: (k) => `กด ${k}`, nudgeT: (k) => `แตะ ${k}`,
+
+
+        skip: 'ข้าม ›',
+        steps: {
+          attack: (b) => `โจมตีด้วย ${b}`, guard: (b) => `ปัดดาบด้วย ${b}`, counter: (b) => `โต้กลับด้วย ${b}`,
+          timing: (b, l) => `ตาคุณ: ${b} ตอนวงแหวนหด แล้ว ${l}`,
+        },
+        ok: { attack: 'ดีมาก!', guard: 'ปัดได้!', counter: 'สวนกลับ!', timing: 'สมบูรณ์แบบ!' },
+        ready: 'พร้อมแล้ว!', readySub: 'ตอนนี้ชนะการดวลให้ได้',
       },
     });
 
-    // ================================================================ NEW PLAYER: the select screen's one-time greeting
-    // (game.js openSelect), the VS goal line's "?" (arcade.js openVs) and the just-in-time tips (js/coach.js ND.coach.tips;
-    // arguments: key / button chips, lessons: the menu names of Training and Tutorial). Turkish source in i18n.js.
+
+
+
     merge(EN.STR, {
       onb: { selIntro: 'เลือกนินจา แต่ละคนมีเส้นทางของตัวเอง', more: 'รายละเอียด' },
       tips: {
@@ -1153,7 +1162,7 @@
       },
     });
 
-    // ================================================================ online "play with a friend" (js/online.js: ND.STR.online)
+
     merge(EN.STR, {
       online: {
         title: 'เล่นกับเพื่อน',
@@ -1226,7 +1235,7 @@
       },
     });
 
-    // ================================================================ ranked duel (js/ranked.js: ND.STR.ranked)
+
     merge(EN.STR, {
       ranked: {
         title: 'ดวลแรงค์', menuSub: 'คู่ต่อสู้แบบสุ่ม · แต้ม ระดับ และซีซัน', offline: 'ตอนนี้โหมดแรงค์ปิดอยู่',
@@ -1278,11 +1287,22 @@
         aiNote: 'เมื่อมีผู้เล่นออนไลน์น้อย คุณอาจเจอคู่ต่อสู้ AI ที่เล่นในสไตล์ของผู้เล่นจริง', gotIt: 'เข้าใจแล้ว',
         err: { network: 'ติดต่อเซิร์ฟเวอร์ไม่ได้ ตรวจสอบอินเทอร์เน็ต', bad_version: 'มีเกมเวอร์ชันใหม่แล้ว รีโหลดหน้าเว็บ', busy: 'คิวแน่นมาก ลองใหม่อีกสักครู่',
           rate_limited: 'ลองหลายครั้งเกินไป รอสักครู่', disabled: 'ตอนนี้โหมดแรงค์ปิดอยู่', banned: 'บัญชีนี้เล่นแรงค์ไม่ได้', other: 'มีบางอย่างผิดพลาด ลองอีกครั้ง' },
+
+        bg: { ru: 'ดูเมนูระหว่างค้นหา', stopT: 'หยุดค้นหาแมตช์จัดอันดับ?', stopS: 'เริ่มการต่อสู้นี้จะหยุดการค้นหา', stopGo: 'หยุดและเล่น', keep: 'ค้นหาต่อ', stopped: 'หยุดค้นหาแมตช์จัดอันดับแล้ว', chip: 'กำลังค้นหา' },
+        card: { findMatch: 'หาแมตช์', searching: 'กำลังค้นหา…', resume: 'กลับสู่แมตช์',
+          place: (p, n) => `อันดับ ${p} จาก ${n}`, placeOnly: (p) => `อันดับ ${p} บนกระดาน`,
+          toBoard: (n) => `อีก ${n} แมตช์เพื่อเข้าตารางอันดับ`, toBoardSoon: 'อีกไม่กี่แมตช์เพื่อเข้าตารางอันดับ',
+          invite: 'จากอาชิการุสู่โชกุน: แมตช์จัดอันดับแรกห่างแค่แตะเดียว',
+          guestInvite: 'ลงชื่อเข้าใช้เพื่อเล่นชิงแต้ม · ผู้เยี่ยมชมเล่นแบบไม่จัดอันดับ', nickInvite: 'ตั้งชื่อเล่นเพื่อเล่นชิงแต้ม',
+          winRate: (p) => `ชนะ ${p}%`, streakW: (n) => `ชนะติดกัน ${n} ครั้ง`, streakL: (n) => `แพ้ติดกัน ${n} ครั้ง`,
+          peak: (t) => `ดีที่สุดฤดูกาลนี้: ${t}`, shields: (n) => `โล่ ×${n}`, top: 'สามอันดับแรกของฤดูกาล', you: 'คุณ', empty: 'ยังไม่มีใครบนกระดาน: เป็นคนแรกเลย', rating: 'แต้ม' },
       },
+
+      upd: { ready: 'เวอร์ชันใหม่พร้อมแล้ว — แตะเพื่ออัปเดต', refresh: 'มีเวอร์ชันใหม่ — รีเฟรชหน้านี้เพื่อเล่น', close: 'ปิด' },
     });
 
-    // ================================================================ LEVEL + SHADOW PASS (js/level.js, js/pass.js)
-    // English: L.en in js/i18n-pass.js; the on-demand languages keep these texts in their own file.
+
+
     merge(EN.STR, {
       pass: {
         k: '影', lv: 'Lv',
@@ -1293,7 +1313,7 @@
         free: 'ฟรี', bonus: 'เงา', bonusAds: 'แต่ละรางวัล: ดูโฆษณา 1 ครั้ง', bonusWait: (n) => `ไม่ดูโฆษณา: เปิดช้ากว่า ${n} ชั้น`,
         claim: 'รับ', claimAll: (n) => `รับทั้งหมด (${n})`, owned: 'รับแล้ว', watch: 'ดูโฆษณา', milestone: 'ฟรี', opensAt: (t) => `ที่ชั้น ${t}`,
         online: 'ต้องออนไลน์', soon: 'ชั้นใหม่เร็วๆ นี้', soonXp: 'XP ของคุณยังสะสมต่อไป', close: 'ปิด', tabs: { pass: 'พาส', profile: 'โปรไฟล์' },
-        rows: { win: 'ชนะ', loss: 'ลงสนาม', rounds: 'ยก', perfect: 'เพอร์เฟกต์', rally: 'แลกสวน', counter: 'สวนกลับ', parry: 'ปัดป้อง', short: 'ไฟต์สั้น', boost: 'บูสเตอร์', daily: 'ชนะครั้งแรกของวัน', streak: 'ต่อเนื่อง', clear: 'เส้นทาง', trial: 'ท้าทายคอมโบ', tutorial: 'สอนเล่น' },
+        rows: { win: 'ชนะ', loss: 'ลงสนาม', rounds: 'ยก', perfect: 'เพอร์เฟกต์', rally: 'แลกสวน', counter: 'สวนกลับ', parry: 'ปัดป้อง', short: 'ไฟต์สั้น', boost: 'บูสเตอร์', daily: 'ชนะครั้งแรกของวัน', streak: 'ต่อเนื่อง', clear: 'เส้นทาง', trial: 'ท้าทายคอมโบ', tutorial: 'สอนเล่น', first: 'โบนัสต้อนรับ' },
         streakN: (n) => `วันที่ ${n}`,
         up: 'เลเวลอัป', got: 'รางวัลใหม่',
         boostName: (n) => `XP ×1.5 · ${n} ไฟต์`, honorName: (n) => `+${n} เกียรติ`,
@@ -1317,8 +1337,8 @@
       },
     });
 
-    // ================================================================ 1.3.2 SHADOW PASS: 30 tiers, fight flair, progress rewards,
-    // the ranked shield, the Profile screen (English: X.en in js/i18n-pass.js; flair: the fight flair's names, js/flair.js ids)
+
+
     merge(EN.STR, {
       pass: {
         kinds2: { pose: 'ท่าฉลองชัย', hitfx: 'เอฟเฟกต์โจมตี', slash: 'ฟันสวนกลับ', aura: 'ออร่าพลังปราณ', ko: 'ท่าปิดฉาก KO', card: 'การ์ดชื่อ', arena: 'สังเวียนแบบพิเศษ', music: 'เพลงเมนู', rkey: 'กุญแจ', akey: 'กุญแจ', ticket: 'ตั๋ว', shield: 'โล่' },
@@ -1347,6 +1367,8 @@
         shieldUsed: 'ใช้โล่แล้ว: ไม่เสียแต้ม',
         rankedHonor: (n) => `+${n} เกียรติ`,
         variant: 'แบบพิเศษ',
+
+        newTag: 'ใหม่', newN: (n) => `ใหม่: ${n}`, headUnlocks: 'นินจาและสังเวียน', headRewards: 'รางวัลแรงค์',
         flair: { pose_tenchi: 'ชูดาบสู่ฟ้า', pose_rei: 'คำนับ', pose_hiza: 'ซันชินคุกเข่า', pose_katsugi: 'พาดดาบบนบ่า', pose_kissaki: 'ตาเจ้าแล้ว', hitfx_kinpaku: 'โจมตีทองคำเปลว', hitfx_aizome: 'หมึกคราม', hitfx_sakura: 'ซากุระบาน', hitfx_kitsunebi: 'ไฟจิ้งจอก', hitfx_raijin: 'ประกายไรจิน', slash_kin: 'คมดาบทอง', slash_sumi: 'พู่กันหมึก', slash_hana: 'สายลมกลีบดอก', slash_rai: 'ฟันสายฟ้า', aura_kitsunebi: 'ออร่าไฟจิ้งจอก', aura_raiun: 'ออร่าพายุ', aura_hana: 'ออร่าดอกไม้', aura_gekko: 'ออร่าแสงจันทร์', ko_enso: 'ปิดฉากเอ็นโซ', ko_hanafubuki: 'พายุกลีบดอก', ko_raiko: 'ฟ้าผ่า', ko_mikazuki: 'จันทร์เสี้ยว', card_seigaiha: 'คลื่นเซไกฮะ', card_yozakura: 'ซากุระยามค่ำ', card_ryu: 'รักลายมังกร', card_tsukiyo: 'สนใต้แสงจันทร์', card_asanoha: 'ลายอาซาโนฮะทอง', arena_temple_snow: 'ศาลเจ้าหิมะตก', arena_rain_moon: 'ป่าไผ่ใต้แสงจันทร์', arena_snow_night: 'ยอดเขาหิมะยามค่ำ', arena_market_rain: 'ตลาดกลางคืนยามฝนพรำ', music_haru: 'สวนฤดูใบไม้ผลิ', music_yuki: 'จันทร์หิมะ', music_matsuri: 'คืนเทศกาล', pass1_akane: 'ชุดเงาจันทร์' },
       },
     });
@@ -1354,8 +1376,8 @@
     void dec; void fmtTime; void num;
   };
 
-  // ---------------------------------------------------------------- journey texts (js/journey-text.js reads ND.JOURNEY_COPY)
-  // Same lists, same order and same counts as the `en` entry in js/journey-text.js (ui 17, goals 10, titles 13, endings 13).
+
+
   (ND.JOURNEY_COPY || (ND.JOURNEY_COPY = {}))['th'] = {
     ui: ['เส้นทางตัวละคร', 'คู่ปรับสุดท้าย', 'ความเชี่ยวชาญ (ไม่บังคับ)', 'ชนะไฟต์นี้เพื่อเก็บดาวไว้', 'ได้ดาวเชี่ยวชาญแล้ว', 'ไม่ได้ดาว · ลองใหม่ตอนเล่นซ้ำ', 'ดาวเชี่ยวชาญ', 'จบเส้นทางด้วยดาว 6 จาก 8 ดวงเพื่อรับตำแหน่งและสีมรดก ดาวจะเก็บไว้ข้ามการเล่นซ้ำ', 'สีดั้งเดิม', 'สีมรดก', 'รูปลักษณ์', 'เก็บดาวเชี่ยวชาญ 6 ดวงแล้วจบเส้นทางของตัวละครนี้', 'เส้นทางเดิมและรางวัลของคุณยังอยู่ครบ เล่นซ้ำเพื่อสำรวจเส้นทางใหม่', 'ท้าดวล Shura: จบเส้นทางของตัวละคร 3 คนที่ต่างกัน', 'ชนะการดวลนี้เพื่อปลดล็อก', 'จบเส้นทางแล้ว', 'บท'],
     goals: ['ปัดป้อง', 'สวนกลับเข้าเป้า', 'ตีหนักเข้าเป้า', 'เตะเข้าเป้า', 'ตีกลางอากาศเข้าเป้า', 'พุ่งโจมตีเข้าเป้า', 'คอมโบครั้งที่สามเข้าเป้า', 'ของขว้างเข้าเป้า', 'ท่าคิเข้าเป้า', 'ทำลายการ์ด'],

@@ -1,34 +1,34 @@
-// Gölge Düellosu — 2.5D strike prototype (branch claude/sd-3d only; never shipped).
-//
-// The fighter is still drawn by skeleton.js (same art, same parts). For the moves listed in MOVES this file gives the
-// skeleton a depth axis for drawing: the torso twists round the spine (wind-up turns the back to the camera, release
-// opens the chest), the sword arm reaches toward / away from the camera and is solved in 3D, the katana is a 3D
-// object (blade edge-on narrow or flat wide, the guard an ellipse, the scabbard turning with the hips), the blade
-// streak is a ribbon in 3D (thicker where it passes in front), and the near / far parts swap draw order mid-swing.
-// Everything is projected back to the 2D picture with a perspective camera.
-//
-// Drawing only: it reads the display joints (f.viewJ(), js/anim.js) and the move time (f.st) and writes nothing the
-// fight reads: its own state lives in a WeakMap keyed by the fighter (never a field on it, so sim-state.js never saves
-// or fingerprints it). Off unless ?depth=1 (whole game) or the test page calls ND.depth25.draw itself.
-// ND.depth25.pose3d(f) gives the same 3D skeleton to the real-3D comparison model (uc-boyut-test/model3d.js).
+
+
+
+
+
+
+
+
+
+
+
+
+
 (function (ND) {
   'use strict';
   const D = (ND.depth25 = {
     on: typeof location !== 'undefined' && /[?&]depth=1(&|$)/.test(location.search || ''),
-    cam: 320, // camera distance in world units (perspective strength)
+    cam: 320,
     stats: { draws: 0 },
   });
   const DEG = Math.PI / 180, TAU = Math.PI * 2;
-  const W = 11; // half shoulder width
-  const HILT0 = 4; // the guard ahead of the sword hand's centre (a fist round the handle, just behind the tsuba)
+  const W = 11;
+  const HILT0 = 4;
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
   const sstep = (u) => u * u * (3 - 2 * u);
 
-  // ------------------------------------------------------------ choreography
-  // Tracks: [move time, value]; smooth between keys. psi: torso yaw (deg, + = chest opens to the camera, - = back to
-  // the camera); hz: sword-hand depth (+ = toward the camera); yaw / el: blade direction (deg; yaw 0 = toward the
-  // opponent, 90 = toward the camera, 180 = back; el + = up); roll: edge (90 = edge up as in the scabbard, 0 = edge
-  // leading the horizontal sweep); dx: sword hand forward shift. In / out: blend from and back to the drawn 2D pose.
+
+
+
+
+
   const SPEC = {
     ak_heavy: {
       end: 0.92, inT: 0.1, out: [0.8, 0.92],
@@ -77,14 +77,14 @@
     const M = moves();
     return (M && M.get(f.atk)) || null;
   }
-  // An outside driver (the duel prototype, js/duel-depth.js) may turn EVERY state of a fighter through this file:
-  // D.provider(f) → null, or { w, psi (rad), hz, dx, u3: blade direction (local 3D unit vector) | null, roll (rad: the
-  // edge turned round the blade from "edge up"), draw?: true } — read only when no move of SPEC is playing.
+
+
+
   D.provider = null;
   const extOf = (f) => (D.provider && f && !f.dead ? D.provider(f) : null);
   D.active = (f) => !!specOf(f) || !!extOf(f);
 
-  // ------------------------------------------------------------ small vector helpers (local 3D: X forward, Y down, Z to the camera)
+
   const v3 = (x, y, z) => ({ x, y, z });
   const sub = (a, b) => v3(a.x - b.x, a.y - b.y, a.z - b.z);
   const add = (a, b) => v3(a.x + b.x, a.y + b.y, a.z + b.z);
@@ -94,7 +94,7 @@
   const len = (a) => Math.hypot(a.x, a.y, a.z);
   const norm = (a) => { const l = len(a) || 1; return v3(a.x / l, a.y / l, a.z / l); };
   const lerp3 = (a, b, t) => v3(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t);
-  // two-bone IK in 3D: elbow / knee from root s, end h, lengths, pole direction
+
   function ik3(s, h, l1, l2, pole) {
     let d = sub(h, s), dist = len(d);
     const max = l1 + l2 - 0.01;
@@ -107,7 +107,7 @@
     return { e: add(add(s, mul(u, a)), mul(p, hh)), h };
   }
 
-  // turn unit vector a toward b by t on the great circle (opposite ones: by way of mid, e.g. the far side of the body)
+
   const FAR = { x: 0, y: -0.25, z: -0.97 };
   function slerp3(a, b, t, mid) {
     const c = clamp(dot(a, b), -1, 1);
@@ -117,21 +117,21 @@
     const s0 = Math.sin((1 - t) * th) / Math.sin(th), s1 = Math.sin(t * th) / Math.sin(th);
     return norm(add(mul(a, s0), mul(b, s1)));
   }
-  // ------------------------------------------------------------ the scabbard (koshi-zashi)
-  // the obi point over the far hip (5 up the spine, 13 forward), turned round the hip with the pelvis
+
+
   function obiAt(P, psi, nx, ny) {
     const ps = psi * 0.55;
     let ux = P.neck.x - P.hip.x, uy = P.neck.y - P.hip.y; const ul = Math.hypot(ux, uy) || 1; ux /= ul; uy /= ul;
     const rx = ux * 5 + nx * 13, ry = uy * 5 + ny * 13, rz = -6;
     return v3(P.hip.x + rx * Math.cos(ps) - rz * Math.sin(ps), P.hip.y + ry, rx * Math.sin(ps) + rz * Math.cos(ps));
   }
-  // back and down from the belt, turning with the hips
+
   function restDirAt(psi) {
     const ps = psi * 0.55, r0 = norm(v3(-0.955, 0.296, -0.12));
     return norm(v3(r0.x * Math.cos(ps) - r0.z * Math.sin(ps), r0.y, r0.x * Math.sin(ps) + r0.z * Math.cos(ps)));
   }
-  // how far the sword is in its scabbard (0 drawn … 1 home), per fighter (outside it): the sheathing (noto) takes
-  // NOTO_T, the draw DRAW_T; pull: the scabbard pulled back along itself on the draw (saya-biki) and home again
+
+
   const SHS = new WeakMap(), NOTO_T = 0.16, DRAW_T = 0.05, PULL = 12, PULL_T = [0.07, 0.3];
   function sheath(f, home) {
     const clk = ND.simClock || 0;
@@ -149,16 +149,16 @@
     return st;
   }
 
-  // ------------------------------------------------------------ the 3D skeleton
-  // Neutral depth of each drawn joint (the side view: sword-arm side toward the camera).
+
+
   const ZN = { hip: 0, neck: 0, sh: 0, head: 0, elF: W + 1, haF: W, tip: W, pom: W, elB: -W - 1, haB: -W, knF: 7, ftF: 7, knB: -7, ftB: -7 };
   const KEYS = Object.keys(ZN);
-  const POSE = new WeakMap(), TRAIL = new WeakMap(); // per fighter, outside the fighter object
-  // local 3D of a display joint
+  const POSE = new WeakMap(), TRAIL = new WeakMap();
+
   function loc(f, p, z) { return v3((p.x - f.x) * (f.dir < 0 ? -1 : 1), p.y, z); }
 
-  // f → { t, w, psi, P: {joint: v3 local}, shF, shB, blade: {h, u, e}, sheathed, spec } or null (no 3D move)
-  // force: build the neutral 3D skeleton even outside a listed move (the 3D model draws every frame).
+
+
   D.pose3d = function (f, force) {
     const j = f.viewJ && f.viewJ();
     if (!j || !j.hip) return null;
@@ -171,41 +171,41 @@
     const psi = sp ? track(sp.psi, t) * DEG * w : ex ? ex.psi * w : 0;
     const P = {};
     for (const k of KEYS) if (j[k]) P[k] = loc(f, j[k], ZN[k]);
-    // torso frame (local 2D): u along the spine, n forward
+
     let ux = P.neck.x - P.hip.x, uy = P.neck.y - P.hip.y; const ul = Math.hypot(ux, uy) || 1; ux /= ul; uy /= ul;
-    const nx = -uy, ny = ux; // forward perpendicular (upright: (1, 0))
+    const nx = -uy, ny = ux;
     const sn = Math.sin(psi), cs = Math.cos(psi);
     const shF = v3(P.sh.x - nx * W * sn, P.sh.y - ny * W * sn, W * cs);
     const shB = v3(P.sh.x + nx * W * sn, P.sh.y + ny * W * sn, -W * cs);
-    // blade from the 2D picture (in the plane)
+
     const tip2 = P.tip || P.haF, hand2 = P.haF;
     let b2 = norm(v3(tip2.x - hand2.x, tip2.y - hand2.y, 0));
     if (!(Math.abs(b2.x) + Math.abs(b2.y) > 0)) b2 = v3(1, 0, 0);
     let u3 = b2, hand3 = v3(hand2.x, hand2.y, W), e3;
-    // edge in the plane: perpendicular to the blade, on the side away from the spine curve (2D: "up" side)
+
     const e2 = norm(v3(b2.y, -b2.x, 0));
     if (sp) {
       const yaw = track(sp.yaw, t) * DEG, el = track(sp.el, t) * DEG, roll = track(sp.roll, t) * DEG;
       const d3 = v3(Math.cos(el) * Math.cos(yaw), -Math.sin(el), Math.cos(el) * Math.sin(yaw));
       u3 = norm(lerp3(b2, d3, w));
-      // edge: horizontal perpendicular leading the sweep (increasing yaw) turned by roll toward "up"
+
       const eh = norm(v3(-Math.sin(yaw), 0, Math.cos(yaw)));
-      let ev = cross(eh, u3); if (ev.y > 0) ev = mul(ev, -1); // the perpendicular pointing up
+      let ev = cross(eh, u3); if (ev.y > 0) ev = mul(ev, -1);
       const e3a = norm(add(mul(eh, Math.cos(roll)), mul(ev, Math.sin(roll))));
       e3 = norm(lerp3(e2, e3a, w));
       hand3 = v3(hand2.x + track(sp.dx, t) * w, hand2.y, W + (track(sp.hz, t) - W) * w);
     } else if (ex) {
       if (ex.u3) u3 = norm(lerp3(b2, ex.u3, w));
-      // the edge: "up" in the picture's plane, turned round the blade by roll (a level cut leads with it)
+
       const fv0 = norm(cross(u3, e2));
       e3 = ex.roll ? norm(add(mul(e2, Math.cos(ex.roll * w)), mul(fv0, Math.sin(ex.roll * w)))) : e2;
       hand3 = v3(hand2.x + (ex.dx || 0) * w, hand2.y, W + ((ex.hz ?? W) - W) * w);
     } else e3 = e2;
-    // keep the edge perpendicular to the blade
+
     e3 = norm(sub(e3, mul(u3, dot(e3, u3))));
-    // the iai scabbard lives at the far hip, through the obi (it never leaves it): a sheathed sword is drawn IN it
-    // (hilt forward out of the mouth), and the sword hand closes on that hilt when it is near; the sword slides in
-    // (noto) and out (the draw, the off hand pulling the scabbard back: saya-biki) over a few frames, never at once
+
+
+
     const SH = sheath(f, !!j.wSheath && j.hasSword !== false && !!(f.wpn && f.wpn.iai));
     const obi = obiAt(P, psi, nx, ny), us = restDirAt(psi);
     const mouth = SH.pull > 0 ? add(obi, mul(us, SH.pull)) : obi, Hs = add(mouth, mul(us, -1.5));
@@ -213,22 +213,22 @@
       const grip3 = add(Hs, mul(us, -HILT0)), dh = len(sub(hand3, grip3));
       hand3 = lerp3(hand3, grip3, SH.s * (1 - sstep(clamp((dh - 14) / 22, 0, 1))));
     }
-    // (the duel's bind, js/duel-bind.js: the sword hand and blade go where the two blades really cross)
+
     const BG = D.bindHand ? D.bindHand(f) : null;
     if (BG && BG.w > 0) {
       const k = BG.w;
       hand3 = lerp3(hand3, v3(BG.h[0], BG.h[1], BG.h[2]), k); u3 = norm(lerp3(u3, v3(BG.u[0], BG.u[1], BG.u[2]), k));
       e3 = norm(lerp3(e3, v3(BG.e[0], BG.e[1], BG.e[2]), k)); e3 = norm(sub(e3, mul(u3, dot(e3, u3)))); w = Math.max(w, k);
     }
-    // sword arm in 3D (reach clamp), blended with the drawn arm
+
     const armF = ik3(shF, hand3, ND.LEN.uArm, ND.LEN.fArm, v3(-0.3, 1, 0.22));
     const elF3 = lerp3(P.elF, armF.e, w), haF3 = lerp3(P.haF, armF.h, w);
-    // back hand: where the picture has it, at the depth of its shoulder; but a back hand on the hilt in the picture (a
-    // two-handed grip) holds the 3D hilt wherever it turns: the sword hand just behind the guard, the off hand at the
-    // end of the handle by the pommel, a fist's width between them (kenjutsu grip; the nodachi's longer handle spaces
-    // them wider). g: how much the picture's back hand grips (1 on the hilt, 0 free).
+
+
+
+
     const wpn = f.wpn || ND.LEN;
-    // (where along the picture's handle the back hand is, and how far off it)
+
     const ta = clamp((P.haB.x - hand2.x) * -b2.x + (P.haB.y - hand2.y) * -b2.y, 6, wpn.handle);
     const off = Math.hypot(P.haB.x - (hand2.x - b2.x * ta), P.haB.y - (hand2.y - b2.y * ta));
     const g = j.hasSword === false || j.wSheath ? 0 : 1 - sstep(clamp((off - 3) / 11, 0, 1));
@@ -242,13 +242,13 @@
     let out = POSE.get(f); if (!out) POSE.set(f, (out = {}));
     out.t = t; out.w = w; out.psi = psi; out.P = P; out.shF = shF; out.shB = shB; out.spec = sp || ex;
     out.armed = j.hasSword !== false;
-    // (the guard sits a little ahead of the sword hand: the fist closes round the handle just behind it)
+
     let bh = add(haF3, mul(u3, HILT0)), bu = u3, be = e3;
     if (SH.s > 0) {
-      // in (or sliding into / out of) the scabbard: the guard at its mouth, the blade along it, edge up
+
       let es = sub(v3(0, -1, 0), mul(us, -us.y)); es = norm(es);
       bh = lerp3(bh, Hs, SH.s); bu = slerp3(u3, us, SH.s, FAR);
-      // (the edge turns over round the blade to "up", never through nothing: a roll, not a flip)
+
       if (dot(e3, es) >= 0) be = norm(lerp3(e3, es, SH.s));
       else { const fv = norm(cross(bu, e3)), a = Math.PI * SH.s; be = norm(lerp3(norm(add(mul(e3, Math.cos(a)), mul(fv, Math.sin(a)))), es, SH.s * SH.s)); }
       be = norm(sub(be, mul(bu, dot(be, bu))));
@@ -259,8 +259,8 @@
     return out;
   };
 
-  // ------------------------------------------------------------ projection
-  // local 3D → world 2D, perspective round the fighter (zN: the depth that projects exactly where the 2D picture is)
+
+
   function projector(f, cam) {
     const dir = f.dir < 0 ? -1 : 1, cx = f.x, cy = -80;
     const pr = (p, zN = 0) => {
@@ -271,17 +271,17 @@
     return pr;
   }
 
-  // ------------------------------------------------------------ drawing
+
   const DJ = {};
   function jointsFor(f, S, pr) {
     const j0 = f.viewJ();
     for (const k in j0) DJ[k] = j0[k];
     const P = S.P;
-    // (a back hand on the hilt projects like the hilt it holds)
+
     for (const k of ['elF', 'haF', 'elB', 'haB', 'tip', 'pom']) { const q = pr(P[k], k === 'haB' && S.grip ? -W + 2 * W * S.grip : ZN[k]); DJ[k] = { x: q.x, y: q.y }; }
     return DJ;
   }
-  // trail samples (local 3D of the blade base and tip), time-based
+
   function trailState(f) { let s = TRAIL.get(f); if (!s) TRAIL.set(f, (s = { T: [], lastSt: -1, lastAtk: null })); return s; }
   function sampleTrail(f, S) {
     const st = trailState(f), sp = S.spec;
@@ -291,8 +291,8 @@
     const A = f.atk, on = !S.sheathed && A && A.active && f.st > A.active[0] - 0.05 && f.st < A.active[1] + 0.12;
     const L = (f.wpn || ND.LEN).blade;
     if (on && st.wasSheathed && sp && sp.draw != null) {
-      // the draw itself is faster than one picture: the streak fills in the arc the blade travelled out of the
-      // scabbard, round the far side of the body to where it is now (a horizontal ellipse in 3D)
+
+
       const u1 = S.blade.u, y1 = Math.atan2(u1.z, u1.x), e1 = Math.asin(clamp(-u1.y, -1, 1));
       let y0 = 198 * DEG; const e0 = -14 * DEG;
       let yy = y1; while (yy < y0) yy += TAU;
@@ -328,20 +328,20 @@
       const s = (ta.s + tb.s) * 0.5, near = clamp((s - 1) * 6, -0.6, 1);
       ctx.fillStyle = `rgba(${D.trailCol ? D.trailCol(f) : '200,222,255'},${(ka * k * (0.34 + 0.22 * near)).toFixed(3)})`;
       ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(ta.x, ta.y); ctx.lineTo(tb.x, tb.y); ctx.lineTo(pb.x, pb.y); ctx.closePath(); ctx.fill();
-      // bright core along the tip's path: thicker in front of the body
+
       ctx.strokeStyle = `rgba(245,250,255,${(ka * k * 0.85).toFixed(3)})`;
       ctx.lineWidth = Math.max(0.6, (1.2 + 3.4 * Math.max(0, near)) * k);
       ctx.beginPath(); ctx.moveTo(ta.x, ta.y); ctx.lineTo(tb.x, tb.y); ctx.stroke();
     }
     ctx.restore();
   }
-  // the katana as a 3D object: handle, guard disc, curved blade ribbon (width from its edge direction)
+
   const STEEL0 = '#9aa3b2', STEEL1 = '#d7dde6', STEEL2 = '#f5f8fc';
   function drawKatana3(ctx, f, S, pr, c, glint) {
     const b = S.blade, wpn = f.wpn || ND.LEN, u = b.u, e = b.e, fv = cross(u, e);
     const H = b.h, ph = pr(H, W);
     const pom = pr(add(H, mul(u, -wpn.handle)), W);
-    // handle (tsuka) + wrap marks
+
     ctx.lineCap = 'round';
     ctx.strokeStyle = '#141116'; ctx.lineWidth = 5.2 * ph.s;
     ctx.beginPath(); ctx.moveTo(pom.x, pom.y); ctx.lineTo(ph.x, ph.y); ctx.stroke();
@@ -356,7 +356,7 @@
     ctx.strokeStyle = '#3b3530'; ctx.lineWidth = 5.8 * pom.s;
     const pk = pr(add(H, mul(u, -wpn.handle + 1.6)), W);
     ctx.beginPath(); ctx.moveTo(pom.x, pom.y); ctx.lineTo(pk.x, pk.y); ctx.stroke();
-    // guard (tsuba): a disc across the blade → an ellipse that opens as the blade turns to the camera
+
     const C = add(H, mul(u, 1.5));
     ctx.beginPath();
     for (let i = 0; i <= 16; i++) {
@@ -366,14 +366,14 @@
     ctx.closePath();
     ctx.fillStyle = '#3b3530'; ctx.fill();
     ctx.strokeStyle = 'rgba(255,236,200,.35)'; ctx.lineWidth = 0.9 * ph.s; ctx.stroke();
-    // (only the part outside the scabbard while it slides home or out)
+
     const outL = sayaPose(f, S).out;
     if (outL <= 0) return;
-    // blade: ribbon from the habaki to the tip, curved toward the spine, as wide as its edge direction shows
+
     const BL = Math.min(wpn.blade, outL + 4), sori = 3.2 * wpn.blade / 96 * (BL / wpn.blade), N = 10;
     const L1 = [], L2 = [], E = [];
-    // (S.minFlat, the recorded drawing: the drawn ribbon at least this share of its full width, on the side the edge
-    // already shows — a blade seen on its edge still reads as a blade)
+
+
     const mf = S.minFlat || 0; let nd = null;
     if (mf) {
       const a0 = pr(add(H, mul(u, 3)), W), a1 = pr(add(H, mul(u, BL)), W), dx = a1.x - a0.x, dy = a1.y - a0.y, dl = Math.hypot(dx, dy);
@@ -404,9 +404,9 @@
     for (let i = 1; i <= N; i++) ctx.lineTo(L1[i].x, L1[i].y);
     for (let i = N; i >= 0; i--) ctx.lineTo(L2[i].x, L2[i].y);
     ctx.closePath(); ctx.fill();
-    // outline so an edge-on blade still reads as a crisp line
+
     ctx.strokeStyle = 'rgba(40,46,60,.55)'; ctx.lineWidth = 0.7 * ph.s; ctx.stroke();
-    // flat facing the camera → a broad sheen; edge-on → a thin bright edge line
+
     const flat = Math.abs(fv.z);
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
     if (flat > 0.25) {
@@ -423,12 +423,12 @@
     ctx.strokeStyle = '#fff'; ctx.lineWidth = (0.8 + (1 - flat) * 0.6) * ph.s;
     ctx.beginPath(); ctx.moveTo(E[0].x, E[0].y); for (let i = 1; i <= N; i++) ctx.lineTo(E[i].x, E[i].y); ctx.stroke();
     ctx.restore();
-    // hamon line
+
     ctx.strokeStyle = 'rgba(255,255,255,.28)'; ctx.lineWidth = 0.6 * ph.s;
     ctx.beginPath();
     for (let i = 1; i < N; i++) { const a = L1[i], z = L2[i], k = 0.3 + Math.sin(i * 2.1) * 0.06; const x = a.x + (z.x - a.x) * k, y = a.y + (z.y - a.y) * k; i > 1 ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
     ctx.stroke();
-    // habaki
+
     const hb = pr(add(H, mul(u, 2.5)), W);
     ctx.fillStyle = '#c8b27a'; ctx.beginPath(); ctx.arc(hb.x, hb.y, 1.9 * hb.s, 0, TAU); ctx.fill();
     if (glint > 0) {
@@ -438,13 +438,13 @@
       ctx.fillStyle = gg; ctx.beginPath(); ctx.arc(p1.x, p1.y, r, 0, TAU); ctx.fill(); ctx.restore();
     }
   }
-  // the scabbard at the far hip: mouth a, direction u, length L (shared with the 3D model); out = blade outside it
+
   function sayaPose(f, S) {
     const wpn = f.wpn || ND.LEN;
     return { a: S.saya.a, u: S.saya.u, L: wpn.blade + 6, out: wpn.blade * (1 - (S.sheathS || 0)) };
   }
   D.sayaPose = sayaPose;
-  // the scabbard: along the blade while sheathed, else back and down from the far hip, turning with the hips
+
   function drawSaya3(ctx, f, S, pr, c, D0) {
     const { a, u, L: L0 } = sayaPose(f, S);
     const b = add(a, mul(u, L0)), pa = pr(a, W), pb = pr(b, W);
@@ -463,8 +463,8 @@
     ctx.strokeStyle = c.accent; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(pa.x + dx * 0.1, pa.y + dy * 0.1); ctx.quadraticCurveTo(pa.x + dx * 0.16 + nx * 5, pa.y + dy * 0.16 + ny * 5, pa.x + dx * 0.25 + nx * 2, pa.y + dy * 0.25 + ny * 2); ctx.stroke();
   }
-  // an arm drawn bigger round its shoulder (near the camera: thicker sleeve, bigger fist), joints placed so the
-  // scaled picture lands on the projected points
+
+
   const JA = {};
   function drawArmScaled(ctx, K, j, front, c, D0, X, wpn, acc, k) {
     for (const key in j) JA[key] = j[key];
@@ -475,11 +475,11 @@
     ctx.restore();
   }
 
-  // the 3D katana, the scabbard and the perspective-scaled arm, for the motion-capture player (js/mocap.js)
+
   D.drawKatana3 = drawKatana3; D.drawSaya3 = drawSaya3; D.drawArmScaled = drawArmScaled;
 
-  // Draw fighter f in 2.5D (falls back to the ordinary drawing outside the listed moves).
-  // opt: { glintOff, skipArm: 'F' | 'B' (tools only) }
+
+
   D.draw = function (ctx, f, opt) {
     const S = D.pose3d(f);
     if (!S || f.hidden) { f.draw(ctx, false, false); return; }
@@ -488,30 +488,30 @@
     sampleTrail(f, S);
     const j = jointsFor(f, S, pr);
     const shF2 = pr(S.shF, W), shB2 = pr(S.shB, -W);
-    // the shoulder points move with the twist (the 2D picture has one shoulder point for both arms)
+
     const jF = Object.assign({}, j, { sh: { x: shF2.x, y: shF2.y } }), jB = Object.assign({}, j, { sh: { x: shB2.x, y: shB2.y } });
     K.updLight();
     const D0 = K.pal(c);
     const X = { ropes: f.ropeList(), wpn, acc, glint: 0 };
     const glint = opt && opt.glintOff ? 0 : f.glint();
-    const skip = opt && opt.skipArm; // (tools: leave one arm out, to measure how much of it shows)
-    const behind = S.P.haF.z < -4; // sword hand behind the torso (back turned to the camera): the whole arm goes behind
-    // (a touch more than the true perspective: the near fist and sleeve read bigger at phone size)
+    const skip = opt && opt.skipArm;
+    const behind = S.P.haF.z < -4;
+
     const kF = clamp(1 + (pr(S.P.haF, W).s * 0.6 + pr(S.P.elF, W).s * 0.4 - 1) * 1.6, 0.75, 1.5);
     const kB = clamp(1 + (pr(S.P.haB, -W).s - 1) * 1.6, 0.75, 1.4);
     ctx.save();
     if (f.jit > 0) ctx.translate((Math.random() - 0.5) * 5, 0);
     ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-    // a drawn costume (js/costumes.js) keeps its layers between the parts, as in skeleton.js drawNinja
+
     const CO = c.costume && ND.costumeLayer && ND.COSTUMES && ND.COSTUMES[c.costume] ? c.costume : null;
     const swordArm = () => {
-      if (S.armed) drawKatana3(ctx, f, S, pr, c, glint); // (an empty-handed fighter, js/duel.js: fists, no blade)
+      if (S.armed) drawKatana3(ctx, f, S, pr, c, glint);
       if (skip !== 'F') {
         drawArmScaled(ctx, K, jF, true, c, D0, X, wpn, acc, kF);
         if (CO) ND.costumeLayer(CO, 'front', ctx, jF);
       }
-      // the far fist holding the hilt (two hands) or the scabbard's mouth (iai) is drawn last, over the handle and the
-      // near arm: both hands always read (side-on, the near forearm would hide it whole)
+
+
       if (skip !== 'B' && farFist()) {
         ctx.save(); ctx.beginPath(); ctx.arc(jB.haB.x, jB.haB.y, 6.2 * kB, 0, TAU); ctx.clip();
         ctx.fillStyle = rimOf(c); ctx.beginPath(); ctx.arc(jB.haB.x, jB.haB.y, 6.2 * kB, 0, TAU); ctx.fill();
@@ -521,14 +521,14 @@
     };
     const farFist = () => {
       if (S.armed && !S.sheathed && S.grip > 0.5) return true;
-      if (!S.armed) return farInFront(j, jB); // (empty hands: the far fist of a guard or a grab, past the near arm)
+      if (!S.armed) return farInFront(j, jB);
       if (!wpn.iai || !S.saya) return false;
       const m = pr(S.saya.a, W);
       return Math.hypot(jB.haB.x - m.x, jB.haB.y - m.y) < 16;
     };
-    // far side first: scabbard, back leg, cloth ends, back arm
+
     K.torsoFrame(j);
-    // (the hip scabbard turns with the hips; a weapon carried on the back keeps the drawing's own scabbard)
+
     if (wpn.iai) drawSaya3(ctx, f, S, pr, c, D0); else if (K.saya && wpn.type !== 'naginata' && wpn.type !== 'bo' && wpn.type !== 'tessen' && wpn.type !== 'kusarigama') K.saya(ctx, j, c, D0, wpn);
     if (CO) ND.costumeLayer(CO, 'back', ctx, j);
     K.drawLeg(ctx, j, false, c, D0);
@@ -539,7 +539,7 @@
     }
     drawTrail(ctx, f, S, pr, false);
     if (behind) swordArm();
-    // torso, twisted: wider as the back or chest turns to the camera, shaded on the side turning away
+
     K.torsoFrame(j);
     const TF = K.TF, sp = Math.sin(S.psi), wide = 1 + 0.3 * Math.abs(sp);
     TF.nx *= wide; TF.ny *= wide;
@@ -549,10 +549,10 @@
       const cxm = (j.hip.x + j.neck.x) * 0.5, cym = (j.hip.y + j.neck.y) * 0.5;
       const ax = cxm + TF.nx * 20, ay = cym + TF.ny * 20, bx = cxm - TF.nx * 20, by = cym - TF.ny * 20;
       const g = ctx.createLinearGradient(ax, ay, bx, by);
-      if (sp < 0) { // back to the camera: the chest side falls into shadow, the back catches the rim light
-        const kb = D.backShade || 0.5; // (the duel page reads the turn harder: 0.7)
+      if (sp < 0) {
+        const kb = D.backShade || 0.5;
         g.addColorStop(0, `rgba(0,0,0,${(kb * -sp).toFixed(3)})`); g.addColorStop(0.55, `rgba(0,0,0,${(kb * 0.3 * -sp).toFixed(3)})`); g.addColorStop(1, 'rgba(0,0,0,0)');
-      } else { // chest open: the front faces the light
+      } else {
         g.addColorStop(0, `rgba(255,236,214,${(0.22 * sp).toFixed(3)})`); g.addColorStop(0.6, 'rgba(255,236,214,0)'); g.addColorStop(1, `rgba(0,0,0,${(0.3 * sp).toFixed(3)})`);
       }
       ctx.fillStyle = g; ctx.fillRect(Math.min(ax, bx) - 40, Math.min(ay, by) - 60, Math.abs(ax - bx) + 80, Math.abs(ay - by) + 120);
@@ -565,9 +565,9 @@
     if (CO) ND.costumeLayer(CO, 'head', ctx, j);
     K.drawLeg(ctx, j, true, c, D0);
     if (CO) ND.costumeLayer(CO, 'hem', ctx, j);
-    // the far arm never vanishes: its hand in front of the body (on the hilt, on the scabbard's mouth at the belt, a
-    // fist up in guard) would be hidden whole by the torso drawn over it; its forearm and hand are drawn again in front
-    // of the torso (the upper arm stays behind it), under the near arm
+
+
+
     if (skip !== 'B' && farInFront(j, jB)) {
       const e = jB.elB, h = jB.haB, ex = e.x + (h.x - e.x) * 0.3, ey = e.y + (h.y - e.y) * 0.3;
       const dx = h.x - ex, dy = h.y - ey, dl = Math.hypot(dx, dy) || 1, r = 9 * kB, nx = (-dy / dl) * r, ny = (dx / dl) * r;
@@ -577,7 +577,7 @@
       ctx.lineTo(h.x - nx + (dx / dl) * r, h.y - ny + (dy / dl) * r); ctx.lineTo(ex - nx, ey - ny); ctx.closePath();
       ctx.arc(h.x, h.y, r * 1.15, 0, TAU);
       ctx.clip();
-      // (a thin edge in the body's opposite tone, so a dark sleeve on a dark coat still reads)
+
       ctx.strokeStyle = rimOf(c); ctx.lineWidth = 12.5 * kB; ctx.lineCap = 'round';
       ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(h.x, h.y); ctx.stroke();
       drawArmScaled(ctx, K, jB, false, c, D0, X, wpn, acc, kB);
@@ -588,7 +588,7 @@
     drawTrail(ctx, f, S, pr, true);
     ctx.restore();
   };
-  // a rim tone against the fighter's own coat: light on a dark coat, dark on a light one
+
   const RIM = new Map();
   function rimOf(c) {
     const k = c.cloth || '#808080';
@@ -600,16 +600,16 @@
     }
     return v;
   }
-  // the far hand not behind the back (toward where the fighter faces, or inside the body's outline)
+
   function farInFront(j, jB) {
     let ux = j.neck.x - j.hip.x, uy = j.neck.y - j.hip.y; const ul = Math.hypot(ux, uy) || 1; ux /= ul; uy /= ul;
-    const d = j.dir < 0 ? -1 : 1, nx = -uy * d, ny = ux * d; // (forward: perpendicular to the spine, the way it faces)
+    const d = j.dir < 0 ? -1 : 1, nx = -uy * d, ny = ux * d;
     const h = jB.haB, ax = h.x - j.hip.x, ay = h.y - j.hip.y, along = ax * ux + ay * uy;
-    // (anywhere but clearly behind the back: a hand inside the body's outline would be hidden whole)
+
     return ax * nx + ay * ny > -15 && along > -24 && along < ul + 40;
   }
-  // What D.draw puts on screen for f, in world 2D (tools: the continuity audit, scripts/duel-continuity.mjs; the duel's
-  // props held in a hand). null when f is not drawn through this file. Read only.
+
+
   D.snap = function (f, o) {
     const S = D.pose3d(f, true);
     if (!S || f.hidden) return null;
@@ -626,7 +626,7 @@
     o.armed = S.armed; o.sheathed = S.sheathed; o.grip = S.grip || 0; o.dir = S.dir;
     return o;
   };
-  // camera feel for a panel: push-in and shake round the impact of a listed move (0 outside)
+
   D.cameraKick = function (f) {
     const sp = specOf(f);
     if (!sp) return { zoom: 1, sx: 0, sy: 0 };
@@ -638,7 +638,7 @@
     return { zoom: 1 + 0.07 * z, sx, sy };
   };
 
-  // ?depth=1: the whole game draws the listed moves in 2.5D (drawing only)
+
   if (D.on && ND.Fighter) {
     const base = ND.Fighter.prototype.draw;
     ND.Fighter.prototype.draw = function (ctx, reflect, layer) {

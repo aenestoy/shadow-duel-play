@@ -1,41 +1,41 @@
-// Gölge Düellosu — fight state for online play (rollback netcode, phase 0): save, restore, hash, quiet re-simulation
-//
-// game.saveState()  → everything the fight needs to go on bit for bit: both fighters (pose, joints, state machine,
-//                     cloth, ragdoll, chain, loose sword...), their controllers (held keys, press times), the CPU minds
-//                     if any, projectiles, sword lock, rally, round / match flow, slow motion and hit-stop timers, the
-//                     simulation clocks, the scene clock and the fight's random stream (ND.rng).
-// game.loadState(s) → puts it back in place (the same fighter / controller / AI objects, so every reference to them
-//                     stays valid). The saved object is not consumed: it can be loaded again.
-// game.hashState()  → a short fingerprint of that state (two peers compare it to catch a desync; tests compare runs).
-// game.resim(n, before, after) → n simulation steps with nothing presented (no sound, no new particles, camera
-//                     untouched): a rollback replays the steps after the corrected input this way; before(i) feeds step
-//                     i's inputs, after(i) may save the state it reached.
-// Not in the state: pictures and sound (particles, decals, special-effect layers, camera, HUD, KO replay pictures).
-// They are re-derived from the fight or simply carry on from what the player saw.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 (function (ND) {
   'use strict';
   const G = ND.game;
   if (!G) return;
   const hasOwn = Object.prototype.hasOwnProperty;
 
-  // ------------------------------------------------------------ what belongs to the fight
-  // Game fields that are fight state (the rest of ND.game is menus, screens, HUD and renderer bookkeeping).
+
+
   const GAME_KEYS = ['mode', 'matchLevel', 'winsNeed', 'phase', 'pt', 'round', 'wins', 'timer', 'clock', 'projs', 'lock', 'rally',
     'hitstopT', 'slow', 'slowT', 'slowV', 'cineT', 'cineX', 'cineZ', 'dim', 'focus', 'flags', 'doubleKO', 'winner', 'loser',
     'stats', 'recording', 'recOdd', 'recN', 'recShift', 'koIndex', 'replay', 'tz'];
-  // Fighter fields never saved, restored or fingerprinted: drawing caches and presentation links, and the purely visual
-  // state the fight never reads (hair / scarf / sash cloth, blade streak, afterimages, the drawn body js/anim.js). After a rollback those simply
-  // carry on from the picture the player saw.
+
+
+
   const SKIP = { _bake: 1, _dopt: 1, _litFn: 1, _trailFn: 1, _bb: 1, _ropes: 1, _ropesCol: 1, _ropesTails: 1, _ropesSash: 1, _pd: 1, comboTxt: 1,
     tails: 1, sash: 1, trail: 1, ghosts: 1, _anim: 1 };
-  // Saved (so a restore looks right) but left out of the fingerprint: they may differ between two devices without the
-  // fight differing (afterimage count follows the graphics setting; decal count; the last input device).
+
+
   const NOHASH = { decals: 1, lastSrc: 1, srcs: 1, edges: 1, onPress: 1 };
 
-  // Shared tables the fight points into but never changes (moves, poses, characters, CPU levels...): kept by reference.
-  // (marked with a symbol property: a plain property check, cheaper than a WeakSet lookup on every copied object)
+
+
   const ST = Symbol('static');
-  const STATIC = { has: (o) => o[ST] === true, add: (o) => { try { Object.defineProperty(o, ST, { value: true }); } catch (e) { /* frozen */ } } };
+  const STATIC = { has: (o) => o[ST] === true, add: (o) => { try { Object.defineProperty(o, ST, { value: true }); } catch (e) {              } } };
   const host = (o) => typeof o.nodeType === 'number' || typeof o.getContext === 'function' || typeof o.addColorStop === 'function' || typeof o.connect === 'function';
   function reg(o) {
     if (o === null || typeof o !== 'object' || STATIC.has(o) || host(o)) return;
@@ -45,22 +45,22 @@
   let atkN = -1;
   function statics() {
     const n = ND.ATK ? Object.keys(ND.ATK).length : 0;
-    if (n !== atkN) { // moves are added lazily (KAESHI finisher variants): walk again, known ones stop at once
+    if (n !== atkN) {
       atkN = n;
       for (const t of [ND.POSES, ND.ATK, ND.CHARS, ND.AI_LEVELS, ND.DEFL, ND.KAESHI, ND.SPECIALS, ND.KITS, ND.COMBO, ND.LEN, ND.cine && ND.cine.TY]) reg(t);
-      for (const k of Object.keys(ND.ATK || {})) reg(ND.ATK[k]); // (the table itself is marked already: its new entries)
+      for (const k of Object.keys(ND.ATK || {})) reg(ND.ATK[k]);
     }
     for (const f of G.F) { reg(f.ch); reg(f.col); reg(f.wpn); if (f.P !== ND.POSES) reg(f.P); }
   }
 
-  // ------------------------------------------------------------ deep copy (identity kept: shared → shared, cycles ok)
+
   function copy(v, memo) {
-    if (v === null || typeof v !== 'object') return v; // numbers, strings, functions (kept as they are)
+    if (v === null || typeof v !== 'object') return v;
     let c = memo.get(v);
     if (c !== undefined) return c;
     if (STATIC.has(v)) return v;
     if (Array.isArray(v)) {
-      c = []; memo.set(v, c); // (pushed, not preallocated: a packed array like the original)
+      c = []; memo.set(v, c);
       for (let i = 0; i < v.length; i++) c.push(copy(v[i], memo));
       return c;
     }
@@ -77,7 +77,7 @@
     for (const k in v) if (hasOwn.call(v, k)) c[k] = copy(v[k], memo);
     return c;
   }
-  // the objects restored in place: fighters, their controllers, CPU minds
+
   function roots() {
     const F = G.F, R = [F[0], F[1], F[0].ctrl, F[1].ctrl];
     for (const a of G.ais) R.push(a);
@@ -90,8 +90,8 @@
     return s;
   }
   function loadObj(o, s, memo) {
-    // a field added after the save becomes undefined (never deleted: that would put the object in V8's slow dictionary
-    // mode; the fight reads undefined and absent alike)
+
+
     for (const k of Object.keys(o)) if (!SKIP[k] && !hasOwn.call(s, k) && o[k] !== undefined) o[k] = undefined;
     for (const k in s) o[k] = copy(s[k], memo);
   }
@@ -103,7 +103,7 @@
     return {
       v: 1, nAi: G.ais.length, objs: R.map((o) => saveObj(o, memo)), g,
       simClock: ND.simClock, rng: ND.rng.s, sceneT: ND.scene.t, wind: ND.scene.wind,
-      props: ND.props && ND.props.live ? ND.props.save() : null, // interactive props (js/props.js), when switched on
+      props: ND.props && ND.props.live ? ND.props.save() : null,
     };
   };
   G.loadState = function (S) {
@@ -115,21 +115,21 @@
     if (S.props && ND.props) ND.props.load(S.props);
   };
 
-  // ------------------------------------------------------------ fingerprint
-  // FNV-1a over 32-bit words, two lanes; numbers by their exact IEEE bits, object keys in sorted order.
-  // Shared tables (STATIC: moves, poses, characters, palettes…) are never part of what diverges: a fighter points into
-  // them, and the fight's own fields (state, move and pose names, timers, positions…) say where it is. They count as one
-  // word, not their contents: hashing them was most of the work (~0.5 ms a fingerprint; ~12 ms on a slow phone, twice a
-  // second online), and their texts follow the player's language (ND.CHARS titles): two players in different
-  // languages would have looked out of sync.
+
+
+
+
+
+
+
   const F64 = new Float64Array(1), U32 = new Uint32Array(F64.buffer);
   function hasher(pre) {
-    // (the two lanes live in an Int32Array: as closure variables most 32-bit values were boxed, one allocation per word)
+
     const H = new Int32Array(2);
     H[0] = 0x811c9dc5; H[1] = 0x9e3779b9;
     const w = (x) => { H[0] = Math.imul(H[0] ^ (x | 0), 16777619); H[1] = Math.imul(H[1] ^ (x | 0), 2246822519) ^ (H[1] >>> 15); };
     const seen = new Map();
-    if (pre) for (const o of pre) seen.set(o, -1 - seen.size); // other parts: referenced, not repeated
+    if (pre) for (const o of pre) seen.set(o, -1 - seen.size);
     const val = (v) => {
       switch (typeof v) {
         case 'number':
@@ -152,14 +152,14 @@
       if (v instanceof Set) { w(11); w(v.size); for (const x of v) val(x); return; }
       if (v instanceof Map) { w(12); w(v.size); for (const [k, x] of v) { val(k); val(x); } return; }
       w(13);
-      const keys = Object.keys(v); // (filtered in place: one array per object)
+      const keys = Object.keys(v);
       let n = 0;
-      for (let i = 0; i < keys.length; i++) { const k = keys[i]; if (!SKIP[k] && !NOHASH[k] && v[k] !== undefined) keys[n++] = k; } // undefined = absent
+      for (let i = 0; i < keys.length; i++) { const k = keys[i]; if (!SKIP[k] && !NOHASH[k] && v[k] !== undefined) keys[n++] = k; }
       keys.length = n; keys.sort();
       w(n);
       for (let i = 0; i < n; i++) { val(keys[i]); val(v[keys[i]]); }
     };
-    // a controller as the fight sees it: which actions are held, the press buffer, the double-tap memory
+
     const ctrl = (c) => {
       w(14);
       let m = 0;
@@ -168,7 +168,7 @@
     };
     return { val, hex: () => (H[0] >>> 0).toString(16).padStart(8, '0') + (H[1] >>> 0).toString(16).padStart(8, '0') };
   }
-  // one fingerprint per part (easier to see what diverged first) and a combined one
+
   G.hashParts = function () {
     const out = {}, R = roots();
     const part = (name, fn) => { const h = hasher(R); fn(h.val); out[name] = h.hex(); };
@@ -180,7 +180,7 @@
     part('clock', (v) => { v(ND.simClock); v(ND.rng.s); v(ND.scene.t); v(ND.scene.wind); });
     return out;
   };
-  // the shared tables are marked when a match starts (not at its first save, in the middle of the fight)
+
   const newMatch = G.newMatch;
   G.newMatch = function () { const r = newMatch.apply(this, arguments); statics(); return r; };
   G.hashState = function () {
@@ -192,9 +192,9 @@
     return h.hex();
   };
 
-  // ------------------------------------------------------------ quiet re-simulation
-  // n steps (game.tick simOnly) without sound, new particles, decals, special-effect layers or cinematic overlays,
-  // and with the camera as it was: the picture carries on from what the player already saw.
+
+
+
   G.resim = function (n, before, after) {
     const fx = ND.fx, S = ND.specialFx, C = ND.cine, cam = ND.cam, au = ND.audio;
     const keep = { p: fx.parts, d: fx.decals, t: fx.texts, s: S && S.list, q: au.quiet,

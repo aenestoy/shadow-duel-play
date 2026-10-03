@@ -1,25 +1,25 @@
-// Shadow Duel — Spanish catalog for ND.i18n (Turkish is the source language; English is the reference catalog).
-// Neutral Spanish for Spain and Latin America, "tú" throughout. Same structure as js/i18n-en.js; see js/i18n.js.
-//   ES.STR       ← ND.STR (arcade.js, roster2.js, banzuke/leaderboard screens)
-//   ES.CHARS     ← ND.CHARS title/desc/weapon    ES.ARENAS ← ND.ARENAS names
-//   ES.SPECIALS  ← ND.SPECIALS desc/tip (names stay Japanese)   ES.TXT ← ND.TXT canvas texts
-//   ES.PHRASES   exact Turkish text → Spanish    ES.HTML whole-element HTML    ES.PATTERNS regex rules
-//
-// GLOSSARY (used everywhere):
-//   parry → desvío / desviar            guard → guardia (hold guard: mantén la guardia)
-//   counter → contra (counter-slash: contracorte; counter hit pop-up: ¡A CONTRAPIÉ!)
-//   posture → postura (bar: barra de postura; broken: ¡POSTURA ROTA!)   guard break → guardia rota
-//   ki → ki    ki technique → técnica ki    ki cancel → cancelación ki
-//   combo → combo    string/chain → cadena    string ender → cierre de cadena    finisher → remate
-//   launcher → lanzador    juggle → malabar    knockdown / knocks down → derribo / derriba
-//   rally → intercambio    dash → impulso    round → asalto    KO → K.O.
-//   blade lock → traba de filos (pop-up ¡TRABADOS!)    clash → choque    mash → machacar
-//   light / heavy slash → corte ligero / pesado    kick → patada    sweep → barrido    dive → picado
-//   cross-up → cruce    dummy → muñeco    honor → honor    rival challenge → Desafío rival
-//   monthly tournament → Torneo mensual    Dan trial → Examen Dan    combo trial → Prueba de combo
-//   leaderboard → clasificación    nickname → apodo    best → récord    gamepad → mando
-//   Touch buttons: ATAQUE · PESADO · PATADA · GUARDIA · IMPULSO · SHUR. · KI · SALTO (static LIGHT → LIGERO)
-//   Move-list prefixes: Fwd+ → Ade+ · Back+ → Atr+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 (function (ND) {
   'use strict';
   (ND.I18N_CATALOGS || (ND.I18N_CATALOGS = {})).es = function (I, EN) {
@@ -28,7 +28,7 @@
     const dec = (x) => I.dec(x);
     const fmtTime = (s) => I.time(s);
 
-    // ================================================================ UI tables (ND.STR)
+
     merge(EN.STR, {
       menu: {
         brand: (nc, na) => `${nc} luchadores, ${na} arenas y un maestro oculto. Choques de espadas en tiempo real, filos trabados, desvíos, posturas rotas, técnicas ki y física ragdoll.`,
@@ -157,7 +157,7 @@
       bz: {
         back: 'Volver', toMenu: 'Menú principal', you: 'Tú', youTag: 'tú', newBest: '¡Nuevo récord!', seeResult: 'Ver resultado',
         resetIn: 'Se reinicia en',
-        // time left: días (d) · horas (h) · minutos (min) · segundos (s)
+
         left: (ms) => { const t = Math.floor(ms / 1000), d = Math.floor(t / 86400), hh = Math.floor((t % 86400) / 3600), mm = Math.floor((t % 3600) / 60), ss = t % 60; return d ? `${d}d ${hh}h ${mm}min` : hh ? `${hh}h ${mm}min` : `${mm}min ${ss}s`; },
         leftShort: (ms) => { const t = Math.floor(ms / 60000), d = Math.floor(t / 1440), hh = Math.floor((t % 1440) / 60), mm = t % 60; return d ? `${d}d ${hh}h` : hh ? `${hh}h ${mm}min` : `${mm}min`; },
         weekName: (m, y) => `${['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'][m - 1] || m} de ${y}`,
@@ -243,7 +243,7 @@
           pending: (n) => `Envíos pendientes: ${n}`,
           classic: 'Tablas Arcade · Leyenda',
         },
-        // Monthly Tournament rewards: permanent title (top 3) and Champion colors (1st)
+
         ttl: {
           champ: 'Campeón mensual', finalist: 'Finalista',
           reward: 'Desde el torneo de octubre de 2026, el top 3 de cada mes gana un título permanente. El campeón también gana colores de campeón exclusivos para el ninja que usó. Los títulos requieren al menos 5 jugadores ese mes.',
@@ -381,9 +381,9 @@
       ],
     });
 
-    // ================================================================ story, fighters, arenas, specials
+
     merge(EN.STR, {
-      // open = speaks first (opponent), reply = answers (player), boss = said to the final boss
+
       talk: {
         akane: {
           open: ['Mi hoja es carmesí; mi intención, pura. Enfréntate a mí con honor.', 'Primero me inclino, después ataco. Es lo justo.', 'Este duelo es por nuestro honor. No hay retirada.'],
@@ -451,7 +451,7 @@
           boss: 'Shura, en el cielo no hay dónde esconderse. Mi flecha te encontrará.',
         },
       },
-      // Special match-ups: lines are spoken in the order written
+
       pairs: {
         'akane|aoi': [['akane', '¡Aoi! Es hora de terminar el duelo que dejamos a medias.'], ['aoi', 'El viento siempre sopla hacia el mismo fuego, Akane. Empieza.']],
         'kuro|tetsu': [['kuro', 'Caparazón de hierro. Veamos si está hueco.'], ['tetsu', 'Hasta la montaña se inclina ante la disciplina, Kuro.']],
@@ -548,22 +548,22 @@
 
     EN.NUMWORDS = ['Cero', 'Uno', 'Dos', 'Tres', 'Cuatro', 'Cinco', 'Seis', 'Siete', 'Ocho', 'Nueve', 'Diez', 'Once', 'Doce'];
 
-    // ================================================================ static HTML, hardcoded literals, canvas pop-ups
+
     merge(EN.PHRASES, {
-      // ---------------------------------------------------------------- index.html: <title>, brand, HUD
+
       'Gölge Düellosu': 'Shadow Duel',
       'Duraklat': 'Pausa',
       'KARŞILIKLI SERİ': 'INTERCAMBIO',
       'SON DARBE': 'GOLPE FINAL',
       'atlamak için bir tuşa bas': 'pulsa una tecla para omitir',
-      // touch buttons (static fallbacks of data-s="touch.btn.*")
+
       'GARD': 'GUARDIA',
       'HAFİF': 'LIGERO',
       'SALDIR': 'ATAQUE',
       'AĞIR': 'PESADO',
       'ATIL': 'IMPULSO',
       'TEKME': 'PATADA',
-      // ---------------------------------------------------------------- main menu
+
       'Sekiz savaşçı, üç arena. Gerçek zamanlı kılıç çarpışması, kılıç kilitlenmesi, savuşturma, denge kırma, Gölge Kesiği ve ragdoll fiziği.': 'Ocho luchadores, tres arenas. Choques de espadas en tiempo real, filos trabados, desvíos, posturas rotas, el Tajo de Sombra y física ragdoll.',
       'İki Oyuncu': 'Dos jugadores',
       'Aynı klavyede ya da iki gamepad ile kafa kafaya': 'Cara a cara en un teclado o con dos mandos',
@@ -583,7 +583,7 @@
       'Kan efekti': 'Sangre',
       'Tuş ipuçları': 'Ayuda de teclas',
       'Yüksek grafik': 'Gráficos altos',
-      // ---------------------------------------------------------------- controls card
+
       'Kontroller': 'Controles',
       '1. Oyuncu': 'Jugador 1',
       '2. Oyuncu': 'Jugador 2',
@@ -597,7 +597,7 @@
       'Sağ Shift': 'Shift der.',
       'Atılma': 'Impulso',
       'Ki tekniği (ki dolu)': 'Técnica ki (ki lleno)',
-      // ---------------------------------------------------------------- select screen
+
       'Ninjanı seç': 'Elige tu ninja',
       'Hazır': 'Listo',
       '1. oyuncunun ninjası': 'Ninja del jugador 1',
@@ -614,7 +614,7 @@
       'Güç': 'Fuerza',
       'Menzil': 'Alcance',
       'Can': 'Vida',
-      // ---------------------------------------------------------------- pause / end
+
       'Duraklatıldı': 'En pausa',
       'Devam et': 'Continuar',
       'Maçı yeniden başlat': 'Reiniciar combate',
@@ -626,20 +626,20 @@
       'Verilen hasar': 'Daño causado',
       'Savuşturma': 'Desvíos',
       'Ki Saldırısı': 'Ataques ki',
-      // ---------------------------------------------------------------- training / leaderboard / misc
+
       'Antrenman': 'Entrenamiento',
       'ANTRENMAN': 'ENTRENAMIENTO',
       'Sıralama': 'Clasificación',
       'Tümü': 'Todos',
       'Ekranı yan çevir': 'Gira la pantalla',
       'Performans için grafik düşürüldü': 'Gráficos reducidos para ganar fluidez',
-      // hidden boss pushed into ND.CHARS by arcade.js (safety net; ES.CHARS.shura should carry the same)
+
       'Kanlı Usta': 'El Maestro Sangriento',
       'Yolunu kanla çizen iblis usta. Uzun nodachi, yıkıcı darbeler, neredeyse kusursuz savuşturma.': 'Un maestro demoníaco que se abre camino con sangre. Nodachi larga, golpes aplastantes, desvíos casi perfectos.',
-      // ---------------------------------------------------------------- HUD tags (fallbacks when STR.hud is missing)
+
       'SEN': 'TÚ',
       'KUKLA': 'MUÑECO',
-      // ---------------------------------------------------------------- round banners (#bt / #bs)
+
       'Son raund': 'Último asalto',
       'Kazanan her şeyi alır': 'Quien gane se lo lleva todo',
       'İlk iki raundu alan kazanır': 'Gana quien se lleve dos asaltos',
@@ -648,13 +648,13 @@
       'Berabere': 'Empate',
       'Çifte K.O.': 'Doble K.O.',
       'Mükemmel': 'Perfecto',
-      // blade-lock hint (fallbacks of STR.hud.lockSolo / lockDuo)
+
       'F / K tuşuna hızlıca bas!': '¡Machaca F / K!',
       'Hafif ya da ağır tuşuna hızlıca bas!': '¡Machaca ligero o pesado!',
-      // counter / parry prompt labels under the key ring (ctx.fillText in drawPrompts)
+
       'KARŞILIK': 'CONTRA',
       'SAVUŞTUR': 'DESVÍA',
-      // ---------------------------------------------------------------- canvas pop-ups (fx.text)
+
       'SON VURUŞ!': '¡REMATE!',
       'KİLİTLENDİ!': '¡TRABADOS!',
       'İTTİ!': '¡EMPUJÓN!',
@@ -677,9 +677,9 @@
     });
 
     merge(EN.HTML, {
-      // brand title (the game keeps its English name)
+
       'Gölge<br><em>Düel</em><em>losu</em>': 'Shadow<br><em>Du</em><em>el</em>',
-      // tips list (<ul class="tips">)
+
       '<b>Savuşturma:</b> darbe gelmeden hemen önce gard tuşuna bas; rakip sendeler.':
         '<b>Desvío:</b> pulsa guardia justo antes de que llegue el golpe; tu rival se tambalea.',
       '<b>Karşılık (返し技):</b> gard ya da savuşturmanın hemen ardından saldırı tuşu → anında karşı kesik. <b>İleri</b> + hafif = bacağa süpürme, <b>geri</b> + hafif = yanından dönüp arkadan kesme, <b>ağır</b> = güçlü karşı darbe.':
@@ -694,30 +694,30 @@
         '<b>Impulso + ligero</b> = corte en impulso. <b>En el aire</b>, ligero = corte aéreo, pesado = picado. El corte pesado derriba; quien choca contra una pared rebota.',
       '<b>Denge çubuğu</b> dolarsa gard kırılır. Tekme gardı delip dengeyi hızla doldurur.':
         'Cuando la <b>barra de postura</b> se llena, la guardia se rompe. Las patadas atraviesan la guardia y llenan la postura rápido.',
-      // gamepad note (Esc -> Start or P)
+
       'Gamepad: X hafif · Y ağır · B tekme · A zıpla · LB gard · RB shuriken · RT atılma · R3 ki tekniği. Start ya da <kbd>P</kbd> duraklatır. CPU modunda her iki tuş seti de seni yönetir.':
         'Mando: X ligero · Y pesado · B patada · A saltar · LB guardia · RB shuriken · RT impulso · R3 técnica ki. Start o <kbd>P</kbd> pausa el juego. En modo CPU, los dos juegos de teclas te controlan a ti.',
-      // select / VS hints (Esc -> ⌫)
+
       '<kbd>Enter</kbd> başlatır · <kbd>⌫</kbd> menüye döner': '<kbd>Enter</kbd> empezar · <kbd>⌫</kbd> volver',
       '<kbd>Enter</kbd> / <kbd>F</kbd> başlatır · <kbd>⌫</kbd> çıkar': '<kbd>Enter</kbd> / <kbd>F</kbd> empezar · <kbd>⌫</kbd> salir',
     });
 
     EN.PATTERNS.push(
-      // HUD round label (#rlabel) and round banner
+
       [/^RAUND (\d+)$/, 'ASALTO $1'],
       [/^(\d+)\. Raund$/, 'Asalto $1'],
-      // canvas pop-ups built from numbers
+
       [/^(\d+)\. KARŞILIK$/, 'CONTRA ×$1'],
       [/^(\d+) VURUŞLUK SERİ!$/, '¡INTERCAMBIO ×$1!'],
-      // time-up banner sub: `${name} önde`
+
       [/^(.+) önde$/, (m, n) => I.t(n) + ' va en cabeza'],
-      // end screen title: `${Name} kazandı`
+
       [/^(.+) kazandı$/, (m, n) => I.t(n) + ' gana'],
-      // end screen sub line: `${a} – ${b} · ${round} raund · ${arenaName}`
+
       [/^(\d+) – (\d+) · (\d+) raund · (.+)$/, (m, a, b, r, ar) => `${a} – ${b} · ${r} ${r === '1' ? 'asalto' : 'asaltos'} · ${I.t(ar)}`],
     );
 
-    // ================================================================ added with the portal build (PLAY, ads, coach)
+
     merge(EN.STR, {
       menu: { play: 'Jugar', playSub: (name, lv) => `${name} vs CPU · ${lv}` },
       first: { play: 'Jugar', sub: 'Un toque y a luchar', menu: 'Todos los modos' },
@@ -736,20 +736,20 @@
       },
     });
 
-    // ================================================================ VOLUME: sliders on the menu card and in pause (js/volume.js)
+
     merge(EN.STR, {
       vol: {
         title: 'Volumen', master: 'General', music: 'Música', sfx: 'Efectos', sound: 'Sonido',
         pct: (n) => `${n} %`,
         muted: 'El sonido está desactivado. Mueve un control para volver a activarlo.',
-        // Settings > Audio: character / announcer voices switch (js/voice.js) and the courtesy credit under it
+
         voice: 'Voces',
         uiSfx: 'Sonidos del menú',
         credit: 'Voces: ユーフルカ (youfulca.com) · 効果音ラボ · すぱらんど',
       },
     });
 
-    // ================================================================ TOUCH LAYOUT EDITOR: movement modes + "Customize controls"
+
     merge(EN.STR, {
       tedit: {
         move: 'Movimiento',
@@ -783,7 +783,7 @@
       },
     });
 
-    // ================================================================ PROGRESSION: honor, rival challenges, moves panel
+
     merge(EN.STR, {
       menu: { arcadeDesc: 'Vence a tus rivales uno a uno mientras sube la dificultad; al final te espera un maestro oculto. La mayor fuente de honor.' },
       sel: {
@@ -856,7 +856,7 @@
       },
     });
 
-    // ================================================================ COMBAT: new kits, combos, move list (combat designer)
+
     merge(EN.CHARS, {
       akane: { desc: 'Maestra del iaijutsu. La hoja espera en la vaina y cada corte es un desenvaine; su postura de desenvaine atrapa los golpes que le llegan.', weapon: 'Katana (iai)' },
       aoi: { desc: 'Esgrimista del viento con tachi a una mano. Estocadas de largo alcance y pasos de viento que acortan cualquier distancia en un solo movimiento.', weapon: 'Tachi' },
@@ -866,7 +866,7 @@
     merge(EN.TXT, { kiCancel: '¡CANCELACIÓN KI!', launch: '¡AL AIRE!', iaiCatch: '¡IAI GAESHI!' });
     EN.PATTERNS.push([/^(\d+) VURUŞ$/, '$1 GOLPES']);
     merge(EN.PHRASES, {
-      // shared rows
+
       'Tekme': 'Patada',
       'Tekme: dengeyi hızla doldurur, gardı kırmaya yarar. Ardından AĞIR ile seri bitirişine bağlanır.': 'Patada: llena la postura rápido y ayuda a romper guardias. Sigue con PESADO para cerrar la cadena.',
       'Shuriken fırlatır; zamanla yeniden dolar.': 'Lanza un shuriken; se recargan con el tiempo.',
@@ -886,7 +886,7 @@
       'Atılırken dönerek geniş kesik; yere serer.': 'Un amplio corte giratorio al salir de un impulso; derriba.',
       'İki kesiklik seri bitirişi; son kesik yere serer.': 'Cierre de cadena de dos cortes; el último derriba.',
       'Rakibin kılıcını aşağı çarpıp dürter: gardı ezer.': 'Abate la hoja del rival y lanza una estocada: aplasta la guardia.',
-      // Akane
+
       'Kından yatay çekiş kesiği, çapraz iniş, geri dönen kesik; kılıç her seferinde kınına döner.': 'Un corte de desenvaine horizontal, un corte diagonal descendente y un corte de vuelta; la hoja regresa a la vaina cada vez.',
       'Derin çömelişten geniş yatay çekiş; yere serer.': 'Un amplio desenvaine horizontal desde una postura baja; derriba.',
       'Atılarak kından çekiş: uzak mesafeyi bir anda kapatır, seriye devam eder.': 'Desenvaine en impulso: cierra una gran distancia en un instante y sigue la cadena.',
@@ -895,7 +895,7 @@
       'Çekiş duruşu: kısa bir an bekler; bu sırada gelen yakın dövüş darbesini yakalar ve kaçınılmaz bir iai kesiğiyle karşılık verir. Boşa giderse açık kalır.': 'Postura de desenvaine: espera un instante; si en ese momento llega un golpe cuerpo a cuerpo, lo atrapa y responde con un corte iai inevitable. Si no llega nada, queda expuesta.',
       'Kesa’dan sonra yükselen ve inen iki çekiş kesiği; son kesik yere serer.': 'Tras Kesa, dos cortes de desenvaine, uno ascendente y otro descendente; el último derriba.',
       'Tekmeden sonra çömelip rakibin içinden geçen kızıl iai; arkasında belirir.': 'Tras la patada, un iai carmesí agachada que atraviesa al rival; reaparece a su espalda.',
-      // Aoi
+
       'Tek elle uzun dürtüş, yukarı savrulan kesik ve rüzgâr adımıyla derin atılma dürtüşü.': 'Una larga estocada a una mano, un corte ascendente de muñeca y una profunda estocada a fondo con paso de viento.',
       'Dönerek geniş yatay kesik; yere serer.': 'Un amplio corte horizontal con giro; derriba.',
       'Rüzgâr adımı: çok uzaktan tek hamlede dürter, seriye devam eder.': 'Paso de viento: una estocada desde muy lejos en un solo movimiento; sigue la cadena.',
@@ -904,7 +904,7 @@
       'Geri sıçrar, ardından çok uzağa uzanan dürtüşle geri döner: gardı ezer, yere serer.': 'Salta hacia atrás y vuelve con una estocada larguísima: aplasta la guardia y derriba.',
       'Üç hızlı dürtüş; sonuncusu rüzgârla rakibi savurur.': 'Tres estocadas rápidas; la última se lleva al rival con el viento.',
       'İki kez dönerek çevresini biçen kesik; gardı ezer.': 'Gira dos veces cortando a su alrededor; aplasta la guardia.',
-      // Ren
+
       'Kesik · Dirsek · Diz': 'Corte · Codo · Rodilla',
       'Tek elle kesik, dirsek darbesi ve uçan diz: kılıçla başlayıp bedenle biter.': 'Un corte a una mano, un codazo y un rodillazo volador: empieza con la espada y termina con el cuerpo.',
       'İki elle tepeden ezici iniş; gardı zorlar, yere serer.': 'Un golpe aplastante a dos manos desde arriba; castiga la guardia y derriba.',
@@ -914,7 +914,7 @@
       'Topuğu havaya kaldırıp balta gibi indirir: yere serer.': 'Alza el talón y lo deja caer como un hacha: derriba.',
       'Dirsekten sonra kesik ve tepeden ezici iniş; son vuruş yere serer.': 'Tras el codazo, un corte y un golpe aplastante desde arriba; el último golpe derriba.',
       'Tekmenin ardından dönen topuk tekmesi; yere serer.': 'Tras la patada, una patada giratoria de talón; derriba.',
-      // Kage
+
       'Ters tutuşla kesik, dönen kesik ve gölge adımı: kaybolup öne geçer, dürterek belirir.': 'Un corte con agarre invertido, un corte giratorio y un paso de sombra: desaparece, se adelanta y reaparece con una estocada.',
       'Sıçrayıp ters tutuşla aşağı saplar; yere serer.': 'Salta y apuñala hacia abajo con agarre invertido; derriba.',
       'Gölge gibi uzun atılma kesiği; seriye devam eder.': 'Un largo corte en impulso, como una sombra; sigue la cadena.',
@@ -923,17 +923,17 @@
       'Ayağının dibine sis bombası atar: yakındakini sersemletir, Kage dumanın içinde geri kaçar.': 'Lanza una bomba de humo a sus pies: aturde a quien esté cerca mientras Kage se escabulle hacia atrás dentro del humo.',
       'Üç hızlı ters kesik ve aşağı saplama; sonuncusu yere serer.': 'Tres cortes invertidos rápidos y una puñalada hacia abajo; la última derriba.',
       'Tekmeden sonra dumanda kaybolur, rakibin arkasında belirip saplar.': 'Tras la patada, desaparece en el humo y reaparece a espaldas del rival para apuñalarlo.',
-      // template row names
+
       'Nodachi serisi': 'Cadena de nodachi', 'Ağır nodachi': 'Nodachi pesada', 'Kodachi serisi': 'Cadena de kodachi', 'Ağır kesik': 'Corte pesado',
       'Tantō dansı': 'Danza de tantō', 'Çift kesik': 'Corte doble', 'Naginata serisi': 'Cadena de naginata', 'Ağır savuruş': 'Tajo pesado',
       'Zincir ve orak': 'Cadena y hoz', 'Zincir çekişi': 'Tirón de cadena', 'Asa serisi': 'Cadena de bastón', 'Ağır süpürme': 'Barrido pesado',
       'Yelpaze serisi': 'Cadena de abanico', 'Rüzgâr dalgası': 'Ola de viento', 'Tantō serisi': 'Cadena de tantō', 'Ok (basılı tut: güçlü)': 'Flecha (mantén: tiro potente)',
       'Geri + AĞIR da ok atar (basılı tut: güçlü atış); ok kalmadıysa tantō ile tepeden iner.': 'Atrás + PESADO también dispara una flecha (mantén para un tiro potente); sin flechas, cae desde arriba con el tantō.',
-      // combat pop-ups
+
       'KI İPTALİ!': '¡CANCELACIÓN KI!', 'HAVAYA!': '¡AL AIRE!',
     });
 
-    // ================================================================ COUNTER CINEMATIC + COMBO TRIAL (combat feel pass)
+
     {
       const tb = (t, c) => `<i class="tb${c ? ' ' + c : ''}">${t}</i>`;
       merge(EN.STR, {
@@ -990,7 +990,7 @@
       });
     }
 
-    // ================================================================ GRAPHICS QUALITY: the Graphics setting (js/gfx.js)
+
     merge(EN.STR, {
       gfx: {
         title: 'Gráficos',
@@ -1003,8 +1003,8 @@
           custom: 'Tus propios ajustes (Avanzado).',
         },
         now: (lv) => `Ahora: ${lv}`,
-        // Settings → Graphics → Advanced (game.js gfxAdvBuild, js/gfx.js KNOBS): the switch, the line under it, the hint on
-        // the heaviest rows, one title per knob and the value words (resolution shows percentages, anti-aliasing 2× / 4×)
+
+
         adv: {
           title: 'Avanzado',
           note: 'Si cambias uno, la elección pasa a "Personalizado"; al pulsar un ajuste predefinido vuelven sus valores.',
@@ -1015,8 +1015,8 @@
       },
     });
 
-    // ================================================================ FRAME RATE: Settings → Graphics (js/gfx.js makePacer)
-    // (Turkish source in i18n.js, block "frame rate"; the numbers themselves are not translated)
+
+
     merge(EN.STR, {
       fps: {
         title: 'Fotogramas',
@@ -1031,7 +1031,7 @@
       },
     });
 
-    // ================================================================ SETTINGS SCREEN (js/settings.js; Turkish source in i18n.js)
+
     merge(EN.STR, {
       set: {
         title: 'Ajustes', close: 'Cerrar',
@@ -1041,15 +1041,15 @@
       },
     });
 
-    // ================================================================ LANGUAGE PICKER (js/lang-ui.js; Turkish source in i18n.js)
-    // Language names are not translated: each one is written in its own language (ND.i18n.names).
+
+
     merge(EN.STR, { lang: { title: 'Idioma', change: 'Cambiar idioma', close: 'Cerrar' } });
 
-    // ================================================================ SHARED LABELS (static HTML / move list text that is the same word in Turkish)
+
     merge(EN.PHRASES, { 'Shuriken': 'Shuriken', 'KI': 'KI' });
 
-    // ================================================================ TOUCH HELP PER MOVEMENT MODE
-    // (game.js touchHelp(): the menu's touch help follows the movement mode; Turkish source in i18n.js)
+
+
     merge(EN.STR, {
       thelp: {
         title: { float: 'Joystick', fixed: 'Joystick fijo', dpad: 'Cruceta' },
@@ -1063,7 +1063,7 @@
       },
     });
 
-    // Persistent character journeys.
+
     merge(EN.STR, { menu: { arcadeDesc: "Un viaje de ocho combates para cada ninja. Continúa con tu próximo rival y desbloquea su final y el sello de maestro." }, sel: { title: { arcade: "Arcade · Viaje del personaje" } },
       journey: {
         start: "Iniciar viaje",
@@ -1080,8 +1080,8 @@
       }
     });
 
-    // ================================================================ PROGRESS / ACCOUNT (Settings → Progress, Hall of Champions;
-    // js/settings.js, js/banzuke.js; Turkish source in i18n.js, block "account and recovery code")
+
+
     merge(EN.STR, {
       set: { tabs: { save: 'Progreso' } },
       acct: {
@@ -1105,8 +1105,8 @@
       lb: { savedLocalAccount: (r) => (r ? `#${r} en este dispositivo · ahora no se puede acceder a tu cuenta` : 'Guardado en este dispositivo · ahora no se puede acceder a tu cuenta') },
     });
 
-    // ================================================================ PRIVACY (js/privacy.js; Turkish source in i18n.js, block
-    // "privacy"). The policy page itself (privacy.html) is English + Turkish; this language sees the English part.
+
+
     merge(EN.STR, {
       priv: {
         notice: 'Shadow Duel guarda tu apodo y tus puntuaciones para las clasificaciones en línea.',
@@ -1115,8 +1115,8 @@
       },
     });
 
-    // ================================================================ FIRST-FIGHT RALLY TUTORIAL: js/tutorial.js STR.tutor and
-    // Training → Parry drill (Turkish source in i18n.js, block "rally tutorial")
+
+
     merge(EN.STR, {
       menu: { trainDrill: 'Práctica de desvío' },
       tutor: {
@@ -1136,12 +1136,21 @@
         mastered: '¡DOMINADO!', masteredSub: 'Defiende, contraataca, repite',
         warm: (l) => `Calienta: golpea tres veces con ${l}`,
         nudge: (k) => `Pulsa ${k}`, nudgeT: (k) => `Toca ${k}`,
+
+
+        skip: 'Saltar ›',
+        steps: {
+          attack: (b) => `Golpea con ${b}`, guard: (b) => `Bloquea la hoja con ${b}`, counter: (b) => `Contraataca con ${b}`,
+          timing: (b, l) => `Tu turno: ${b} cuando se cierre el anillo, luego ${l}`,
+        },
+        ok: { attack: '¡BIEN!', guard: '¡DESVIADO!', counter: '¡CONTRAATAQUE!', timing: '¡PERFECTO!' },
+        ready: '¡LISTO!', readySub: 'Ahora gana el duelo',
       },
     });
 
-    // ================================================================ NEW PLAYER: the select screen's one-time greeting
-    // (game.js openSelect), the VS goal line's "?" (arcade.js openVs) and the just-in-time tips (js/coach.js ND.coach.tips;
-    // arguments: key / button chips, lessons: the menu names of Training and Tutorial). Turkish source in i18n.js.
+
+
+
     merge(EN.STR, {
       onb: { selIntro: 'Elige a tu ninja: cada uno tiene su propio viaje', more: 'Detalles' },
       tips: {
@@ -1158,7 +1167,7 @@
       },
     });
 
-    // ================================================================ online "play with a friend" (js/online.js: ND.STR.online)
+
     merge(EN.STR, {
       online: {
         title: 'Jugar con un amigo',
@@ -1231,7 +1240,7 @@
       },
     });
 
-    // ================================================================ ranked duel (js/ranked.js: ND.STR.ranked)
+
     merge(EN.STR, {
       ranked: {
         title: 'Duelo clasificatorio', menuSub: 'Rival aleatorio · puntos, rangos y temporadas', offline: 'El modo clasificatorio no está disponible ahora',
@@ -1283,7 +1292,18 @@
         aiNote: 'Cuando hay pocos jugadores conectados, puedes enfrentarte a rivales de IA que juegan con el estilo de jugadores reales.', gotIt: 'Entendido',
         err: { network: 'No se pudo contactar con el servidor. Revisa tu conexión a internet.', bad_version: 'Hay una versión nueva del juego: recarga la página.', busy: 'La cola está muy llena, inténtalo en un rato.',
           rate_limited: 'Demasiados intentos, espera un momento.', disabled: 'El modo clasificatorio no está disponible ahora.', banned: 'Esta cuenta no puede jugar clasificatorias.', other: 'Algo salió mal, inténtalo de nuevo.' },
+
+        bg: { ru: 'Explorar mientras buscas', stopT: '¿Detener la búsqueda clasificatoria?', stopS: 'Empezar este combate termina tu búsqueda.', stopGo: 'Detener y jugar', keep: 'Seguir buscando', stopped: 'Búsqueda clasificatoria detenida', chip: 'Buscando' },
+        card: { findMatch: 'Buscar rival', searching: 'Buscando…', resume: 'Volver al combate',
+          place: (p, n) => `#${p} de ${n} en la tabla`, placeOnly: (p) => `#${p} en la tabla`,
+          toBoard: (n) => (n === 1 ? '1 combate más para entrar en la clasificación' : `${n} combates más para entrar en la clasificación`), toBoardSoon: 'Unos combates más para entrar en la clasificación',
+          invite: 'De Ashigaru a Shōgun: tu primer combate clasificatorio está a un toque',
+          guestInvite: 'Inicia sesión para jugar por puntos · los invitados juegan sin puntos', nickInvite: 'Elige un apodo para jugar por puntos',
+          winRate: (p) => `${p}% victorias`, streakW: (n) => `${n} victorias seguidas`, streakL: (n) => `${n} derrotas seguidas`,
+          peak: (t) => `Mejor de la temporada: ${t}`, shields: (n) => `Escudo ×${n}`, top: 'Top 3 de la temporada', you: 'Tú', empty: 'Nadie en la tabla aún: sé el primero', rating: 'puntos' },
       },
+
+      upd: { ready: 'Nueva versión lista: toca para actualizar', refresh: 'Hay una versión nueva: recarga la página para jugarla', close: 'Cerrar' },
     });
 
     void dec; void fmtTime; void num;

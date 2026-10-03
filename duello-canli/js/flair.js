@@ -1,55 +1,55 @@
-// Shadow Duel — flair: cosmetic Shadow Pass rewards that are not costumes (victory poses, hit effects, counter slash
-// colours, ki auras, KO finishes, VS name cards, arena variants, menu music). Drawing and sound only.
-//
-// ================================================================ SPEC (for the Pass side: js/level.js, js/pass.js)
-// Catalogue: ND.FLAIR[kind][id] (ids are stable, they go into saves and the server). Kinds and ids:
-//   pose   victory pose after a won round      pose_tenchi pose_rei pose_hiza pose_katsugi pose_kissaki
-//   hitfx  hit sparks + ink colours             hitfx_kinpaku hitfx_aizome hitfx_sakura hitfx_kitsunebi hitfx_raijin
-//   slash  counter (kaeshi-waza) slash theme    slash_kin slash_sumi slash_hana slash_rai
-//   aura   ki aura (ki technique, round start)  aura_kitsunebi aura_raiun aura_hana aura_gekko
-//   ko     KO finish on the final hit           ko_enso ko_hanafubuki ko_raiko ko_mikazuki
-//   card   VS screen name card background       card_seigaiha card_yozakura card_ryu card_tsukiyo card_asanoha
-//   arena  arena variant (needs its base arena) arena_temple_snow arena_rain_moon arena_snow_night arena_market_rain
-//   music  menu music variant                   music_haru music_yuki music_matsuri
-// The Season 1 final costume is a drawn costume, not flair: ND.COSTUMES.pass1_akane (js/costumes-pass.js, Akane only).
-// Wear it like the other drawn costumes: palette = ND.costumePal(ch.col, 'pass1_akane') (ND.passCostume(ch) does it).
-//
-// API (ND.flair):
-//   set(side, { pose, hitfx, slash, aura, ko, card })  side 0 = 1P / left fighter (ND.game.F[0]), 1 = 2P / right. Call it
-//                                before every match (and before the VS screen shows: the cards are put on at once);
-//                                unknown or empty ids = the default look. Both sides may wear flair (CPU, ranked, ghosts).
-//   get(side)                    → a copy of what that side wears ({ pose: id|null, ... })
-//   clear()                      both sides back to the default look
-//   arena(arenaId, variantId|null) the variant drawn for that arena (null: the plain arena); the scene changes at once
-//                                when that arena is on screen. variant(arenaId) → the variant id or null.
-//                                base(variantId) → its arena id ('temple' for arena_temple_snow). The base arena must be
-//                                unlocked to use a variant: check ND.save.isArenaUnlocked(base) before offering it.
-//   music(id|null)               the menu music variant (null: the usual menu music); takes effect at the next bar
-//   ids(kind)                    → the ids of a kind; kinds → the kind list; kind(id) → the kind of an id or null
-//   name(id, lang?)              → display name (en tr de es fr pt ru; lang defaults to the game's language, else English)
-//   kindName(kind, lang?)        → the wardrobe slot's name ('Victory pose', ...)
-//   preview(kind, id, canvasOrEl, opts?) → draws a small preview into the canvas (or a new canvas appended to the
-//                                element); opts: { w, h (css px, default 160×160), dpr, fighter: 'akane', look, t, bg }.
-//                                music has no picture (a small music mark). Returns the canvas.
-// Where the hooks live (each is one guarded line, `ND.flair && ...`; nothing here reads or writes the fight's state):
-//   js/anim.js       A.present            display pose of a fighter in state 'win' (pose)
-//   js/fighter.js    takeHit / die        hitBegin / hitEnd around the hit's effects (hitfx), onKO (ko)
-//   js/scene.js      fx draw / update     ink colours per particle (p.ic / p.ir), flair particles (k 'F'); setTheme (arena)
-//   js/game.js       onSpecial, the round's "Fight!" (aura), renderScene drawBehind (aura glow), showStage (card)
-//   js/kaeshi-cine.js counterStart / counterHit / drawSlash / banner / afterimages (slash)
-//   js/music.js      play('menu')         menu variant (music)
-//   js/ranked.js     renderVs             card on the ranked VS card; js/arcade.js ending preview uses the victory pose
-// What the Pass side does:
-//   1. register every id above in LEVEL.ITEMS with the kinds above (kind: 'pose' | 'hitfx' | ... | 'music'); the names
-//      come from ND.flair.name(id) (or copy them into i18n-pass.js); pictures from ND.flair.preview(kind, id, el)
-//   2. add one wardrobe slot per kind in the Profile (equip one id per kind or none); arena: one choice per base arena
-//   3. at match start call ND.flair.set(side, worn) for each side (your own save for your side; the opponent's synced
-//      choice in online / ranked / ghost fights; CPU: nothing or a pick), ND.flair.arena(arena, variant) for the
-//      match's arena, and ND.flair.music(id) whenever the menu music choice changes (and once at start-up)
-//   4. sync what is worn so the opponent sees it (online / ranked: send the six ids + arena variant with the picks).
-//      Both devices must agree on the arena variant only for the picture: wind and everything the fight reads stay the
-//      base arena's, so a mismatch never desyncs the fight.
-// Determinism: particles use Math.random (never ND.rng); poses change only the drawn body (js/anim.js), never f.pose.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 (function (ND) {
   'use strict';
   const TAU = Math.PI * 2;
@@ -59,12 +59,12 @@
   const mk = pose && pose.mk ? pose.mk : (o) => Object.assign({}, PO.stance, o);
   const low = () => !!(ND.gfx && ND.gfx.tier === 'low');
   const G = () => ND.game;
-  // the unwrapped fx functions (game.js records the wrapped ones for the KO replay; ours record their own event)
+
   const raw = (n) => (ND.fx['_' + n] || ND.fx[n]).bind(ND.fx);
   const rgba = (c, a) => `rgba(${c},${a})`;
 
-  // ================================================================ VICTORY POSES (pose)
-  // keys after the shared start (the chiburi flick, 0–0.5 s of state 'win', the fight's own pose): [t, pose, ease]
+
+
   const CHI = PO.chiburi;
   const P = {
     tenchiA: mk({ hx: -2, hy: -76, lean: 0.2, hd: 0.14, ax: 10, ay: 44, sw: 1.9, grip: 0, gx: -4, gy: 40, f1x: 18, f2x: -20 }),
@@ -82,12 +82,12 @@
     pose_katsugi: { end: P.katsugi, keys: [[0.5, CHI], [1.1, P.katsugi, E.outCubic]] },
     pose_kissaki: { end: P.kissaki, keys: [[0.5, CHI], [0.95, P.kissaki, E.outQuart]] },
   };
-  // (the select screen's preview poses read ND.POSES by name: the arcade ending shows the worn pose as 'fl_<id>')
+
   for (const id in POSE) PO['fl_' + id] = POSE[id].end;
 
-  // ================================================================ HIT EFFECTS (hitfx)
-  // spark / flash / ring: 'r,g,b' of those particles; ink + rim: the ink stroke, splash and droplets (and their stains);
-  // cloth: the cut scraps; extra: flair particles thrown with the hit
+
+
+
   const HIT = {
     hitfx_kinpaku: { spark: '255,214,120', flash: '255,228,160', ring: '255,214,120', ink: '#b8862a', rim: 'rgb(255,236,186)', cloth: ['#e9c25a', '#c99a2e', '#fff0b8'], extra: 'leaf', ui: '#e9c25a' },
     hitfx_aizome: { spark: '150,190,255', flash: '175,205,255', ring: '160,195,255', ink: '#1f3a86', rim: 'rgb(170,200,255)', cloth: ['#1f3a86', '#2d4fa8', '#e8eefc'], extra: 'ripple', ui: '#4f7ce0' },
@@ -97,8 +97,8 @@
   };
   const FLAME = { hitfx: ['110,240,220', '220,255,250'] };
 
-  // ================================================================ COUNTER SLASH THEMES (slash)
-  // per technique (kaeshi-cine.js TY ids) the theme's colour; edge: the ink band under it, core: the hot line on top
+
+
   const SLASH = {
     slash_kin: { col: { suriage: '255,206,96', harai: '255,232,150', nuki: '240,178,80', uchiotoshi: '255,160,64', sandan: '255,244,210' }, edge: 'rgb(56,34,6)', core: 'rgb(255,250,226)', extra: 'fleck', ui: '#ffd36a' },
     slash_sumi: { col: { suriage: '232,224,206', harai: '206,220,234', nuki: '222,210,236', uchiotoshi: '238,206,196', sandan: '248,244,236' }, edge: 'rgb(3,4,7)', edgeW: 2.5, core: 'rgb(255,255,255)', extra: 'brush', ui: '#e8e2d2' },
@@ -106,7 +106,7 @@
     slash_rai: { col: { suriage: '204,184,255', harai: '170,212,255', nuki: '218,160,255', uchiotoshi: '190,150,255', sandan: '236,230,255' }, edge: 'rgb(18,8,44)', core: 'rgb(246,242,255)', extra: 'bolt', ui: '#c3a6ff' },
   };
 
-  // ================================================================ KI AURAS (aura)
+
   const AURA = {
     aura_kitsunebi: { glow: '70,200,255', hot: '210,250,255', kind: 'flame', ui: '#5fd2ff' },
     aura_raiun: { glow: '160,120,255', hot: '236,224,255', kind: 'zap', ui: '#a88cff' },
@@ -114,7 +114,7 @@
     aura_gekko: { glow: '190,210,255', hot: '255,255,255', kind: 'moon', ui: '#cfdcff' },
   };
 
-  // ================================================================ KO FINISHES (ko)
+
   const KO = {
     ko_enso: { ui: '#e8e2d2' },
     ko_hanafubuki: { ui: '#ff9fc8' },
@@ -122,8 +122,8 @@
     ko_mikazuki: { ui: '#dfe8ff' },
   };
 
-  // ================================================================ NAME CARDS (card)
-  // draw(g, w, h): the card picture (w × h px), the name side on the left (mirrored for the right-hand fighter)
+
+
   const CARD = {
     card_seigaiha: { ui: '#5aa8e6', draw: cardSeigaiha },
     card_yozakura: { ui: '#ff9fc8', draw: cardYozakura },
@@ -132,8 +132,8 @@
     card_asanoha: { ui: '#f0c55a', draw: cardAsanoha },
   };
 
-  // ================================================================ ARENA VARIANTS (arena)
-  // over: theme fields replaced (js/scene.js THEMES); wind / gust always stay the base arena's (fight state)
+
+
   const ARENA = {
     arena_temple_snow: { base: 'temple', ui: '#dfe6f5', over: {
       sky: ['#0a0f20', '#1b2544', '#46517a', '#262d48'], stars: 0.55, cloud: 'rgba(70,80,122,.5)',
@@ -157,8 +157,8 @@
       ambience: 'rain', motes: null, fog: '70,50,70', fogA: 0.06 } },
   };
 
-  // ================================================================ MENU MUSIC (music)
-  // scale: semitones of the five degrees; play(M, t, s): one 16th step (M = this player, see menuPlay)
+
+
   const MUSIC = {
     music_haru: { ui: '#ffb7d2', gain: 1.4, base: 196.0, scale: [0, 2, 5, 7, 9], tempo: 72, play: playHaru },
     music_yuki: { ui: '#cfdcff', gain: 1.5, base: 146.83, scale: [0, 2, 3, 7, 8], tempo: 50, play: playYuki },
@@ -171,7 +171,7 @@
   const KIND_OF = {};
   for (const k of KINDS) for (const id in FLAIR[k]) KIND_OF[id] = k;
 
-  // ================================================================ NAMES (en tr de es fr pt ru)
+
   const L7 = ['en', 'tr', 'de', 'es', 'fr', 'pt', 'ru'];
   const N = {
     pose_tenchi: ['Heaven Raise', 'Göğe Kaldırış', 'Himmelsgruß', 'Alzada al cielo', 'Lame vers le ciel', 'Erguida ao céu', 'Клинок к небу'],
@@ -208,7 +208,7 @@
     music_haru: ['Spring Garden', 'Bahar Bahçesi', 'Frühlingsgarten', 'Jardín de primavera', 'Jardin de printemps', 'Jardim de primavera', 'Весенний сад'],
     music_yuki: ['Snow Moon', 'Karlı Ay', 'Schneemond', 'Luna de nieve', 'Lune de neige', 'Lua de neve', 'Снежная луна'],
     music_matsuri: ['Festival Night', 'Festival Gecesi', 'Festnacht', 'Noche de festival', 'Nuit de festival', 'Noite de festival', 'Ночь фестиваля'],
-    // the Season 1 final costume (js/costumes-pass.js)
+
     pass1_akane: ['Moonshadow Regalia', 'Ay Gölgesi Kimonosu', 'Mondschatten-Ornat', 'Atuendo Sombra Lunar', 'Parure Ombre de lune', 'Traje Sombra da Lua', 'Наряд лунной тени'],
   };
   const KN = {
@@ -224,19 +224,19 @@
   const langNow = () => { const l = ND.i18n && ND.i18n.lang; return L7.includes(l) ? l : 'en'; };
   const pickL = (row, lang) => (row ? row[Math.max(0, L7.indexOf(L7.includes(lang) ? lang : langNow()))] || row[0] : null);
 
-  // ================================================================ STATE
+
   const blank = () => ({ pose: null, hitfx: null, slash: null, aura: null, ko: null, card: null });
   const worn = [blank(), blank()];
-  const VAR = {};          // arena id → variant id
+  const VAR = {};
   let musicId = null;
-  // (the menu's demo fight wears nothing: it is not anyone's match)
+
   const wornOf = (f) => { const g = G(); return f && (f.id === 0 || f.id === 1) && !(g && g.mode === 'attract') ? worn[f.id] : null; };
 
-  // ================================================================ PARTICLES (fx.parts, kind 'F'; js/scene.js calls upd / drw)
-  // fn: the particle's look; every one keeps x, y, life, max like the other fx particles
+
+
   const FP = {};
   function add(p) { p.k = 'F'; ND.fx.parts.push(p); return p; }
-  // gold leaf: a fluttering square flake with a glint
+
   FP.leaf = {
     u(p, dt) { p.vx *= 1 - 2.4 * dt; p.vy += 420 * dt; p.vy *= 1 - 1.8 * dt; p.ph += dt * 10; p.x += (p.vx + Math.sin(p.ph) * 36) * dt; p.y += p.vy * dt; p.rot += p.vr * dt; if (p.y > -2) { p.y = -2; p.vy = 0; p.vx *= 0.8; } },
     d(ctx, p, t) {
@@ -248,7 +248,7 @@
       ctx.restore();
     },
   };
-  // a cherry petal: notched oval that turns and flutters down with the wind
+
   function petalPath(ctx, s) {
     ctx.beginPath(); ctx.moveTo(0, -s);
     ctx.quadraticCurveTo(s * 0.95, -s * 0.55, s * 0.55, s * 0.55); ctx.quadraticCurveTo(0, s * 1.05, -s * 0.55, s * 0.55);
@@ -265,7 +265,7 @@
       ctx.restore();
     },
   };
-  // a small spirit flame that rises and shrinks (lighter)
+
   function flamePath(ctx, w, h) { ctx.beginPath(); ctx.moveTo(0, -h); ctx.quadraticCurveTo(w, -h * 0.15, 0, h * 0.35); ctx.quadraticCurveTo(-w, -h * 0.15, 0, -h); ctx.closePath(); }
   FP.flame = {
     u(p, dt) { p.vy -= 60 * dt; p.x += (p.vx + Math.sin(p.ph + p.max * 9 - p.life * 9) * 18) * dt; p.y += p.vy * dt; },
@@ -278,7 +278,7 @@
       ctx.restore();
     },
   };
-  // a short crackling arc (the points are new on every frame it is drawn)
+
   function zigzag(ctx, x0, y0, x1, y1, n, amp) {
     const dx = x1 - x0, dy = y1 - y0, l = Math.hypot(dx, dy) || 1, nx = -dy / l, ny = dx / l;
     ctx.moveTo(x0, y0);
@@ -295,7 +295,7 @@
       ctx.globalAlpha = a; ctx.strokeStyle = rgba(p.c[1], 1); ctx.lineWidth = 1.8; ctx.stroke();
     },
   };
-  // two thin rings spreading like a drop on water
+
   FP.ripple = {
     u() {},
     d(ctx, p, t) {
@@ -309,8 +309,8 @@
       }
     },
   };
-  // ---- KO finishes
-  // ensō: one brush circle painted round the fallen fighter, then it fades
+
+
   FP.enso = {
     u() {},
     d(ctx, p, t, lo) {
@@ -318,7 +318,7 @@
       const n = 56, sweep = TAU * 0.9 * grow, R = p.r, top = [], bot = [];
       for (let i = 0; i <= n; i++) {
         const q = i / n, a = p.a0 + sweep * q;
-        // pressure: heavy start, thinning and drying out at the tail
+
         const w = p.w * Math.pow(Math.sin(Math.PI * Math.min(1, 0.08 + q * 0.95)), 0.45) * (1 - 0.45 * q) * (1 + 0.12 * Math.sin(q * 23 + p.seed));
         const r = R * (1 + 0.04 * Math.sin(q * 5 + p.seed));
         top.push(p.x + Math.cos(a) * (r + w), p.y + Math.sin(a) * (r + w) * 0.92);
@@ -329,13 +329,13 @@
       if (!lo) { ctx.globalAlpha = 0.5 * fade; ctx.strokeStyle = 'rgb(198,208,236)'; ctx.lineWidth = 2.6; path(); ctx.stroke(); }
       ctx.globalAlpha = 0.94 * fade; ctx.fillStyle = '#07080e'; path(); ctx.fill();
       if (lo) return;
-      // dry-brush hairs along the stroke
+
       ctx.globalAlpha = 0.45 * fade; ctx.strokeStyle = 'rgb(198,208,236)'; ctx.lineWidth = 0.8; ctx.beginPath();
       for (const k of [0.25, 0.6]) { const r = R + p.w * (k - 0.4); ctx.moveTo(p.x + Math.cos(p.a0) * r, p.y + Math.sin(p.a0) * r * 0.92); for (let i = 1; i <= 24; i++) { const a = p.a0 + sweep * 0.85 * (i / 24); ctx.lineTo(p.x + Math.cos(a) * r, p.y + Math.sin(a) * r * 0.92); } }
       ctx.stroke();
     },
   };
-  // a lightning bolt from the sky onto the fallen fighter: a few strikes, each a new path
+
   function boltPts(x0, y0, x1, y1, n, amp) {
     const a = [x0, y0];
     for (let i = 1; i < n; i++) { const q = i / n; a.push(x0 + (x1 - x0) * q + rand(-amp, amp) * (1 - q * 0.6), y0 + (y1 - y0) * q + rand(-amp, amp) * 0.25); }
@@ -356,7 +356,7 @@
       for (const b of p.br) { line(b); ctx.stroke(); }
     },
   };
-  // the crescent moon: a huge silver crescent swept through the hit point, opening out and fading
+
   function crescentPath(ctx, R) {
     ctx.beginPath(); ctx.arc(0, 0, R, -1.9, 1.9, false); ctx.arc(-R * 0.22, 0, R * 0.95, 1.676, -1.676, true); ctx.closePath();
   }
@@ -373,7 +373,7 @@
       ctx.restore();
     },
   };
-  // a soft coloured glow that swells and fades (lighter)
+
   FP.glow = {
     u() {},
     d(ctx, p, t) {
@@ -382,7 +382,7 @@
       ctx.save(); ctx.translate(p.x, p.y); ctx.scale(r, r * (p.sy || 1)); ctx.fillStyle = glowGrad(ctx, p.c); ctx.beginPath(); ctx.arc(0, 0, 1, 0, TAU); ctx.fill(); ctx.restore();
     },
   };
-  // a silver fleck that twinkles (crescent KO, golden slash preview)
+
   FP.fleck = {
     u(p, dt) { p.vx *= 1 - 2 * dt; p.vy *= 1 - 2 * dt; p.vy += 40 * dt; p.x += p.vx * dt; p.y += p.vy * dt; },
     d(ctx, p, t) {
@@ -392,7 +392,7 @@
       ctx.moveTo(p.x - s * 2, p.y); ctx.lineTo(p.x, p.y - s * 0.6); ctx.lineTo(p.x + s * 2, p.y); ctx.lineTo(p.x, p.y + s * 0.6); ctx.closePath(); ctx.fill();
     },
   };
-  // unit-radius glow gradients, one per colour and context (the GPU path's context has its own gradient objects)
+
   const GRAD = new WeakMap();
   function glowGrad(ctx, c) {
     let m = GRAD.get(ctx);
@@ -402,10 +402,10 @@
     return g;
   }
 
-  // ================================================================ HIT EFFECTS: the hook (js/fighter.js takeHit)
+
   let hitMark = -1;
   function recordFx(name, args) { const g = G(); if (g && g.recording) g.fxEvents.push([name, args]); }
-  // the KO replay replays these (game.js updateReplay calls fx['_' + name])
+
   ND.fx._flairMark = () => { hitMark = ND.fx.parts.length; };
   ND.fx._flairHit = (id, x, y, kdir, raw) => applyHit(id, hitMark, x, y, kdir, raw);
   ND.fx._flairKO = (id, x, y, kdir) => spawnKO(id, x, y, kdir);
@@ -433,7 +433,7 @@
     }
   }
 
-  // ================================================================ KO FINISHES: the hook (js/fighter.js die)
+
   function spawnKO(id, x, y, kdir) {
     if (!KO[id]) return;
     const lo = low(), d = kdir < 0 ? -1 : 1, fx = ND.fx;
@@ -464,10 +464,10 @@
     }
   }
 
-  // ================================================================ AURAS: specialFx objects (js/specials.js list; game.js draws them)
-  // behind(ctx): the glow behind the fighter (game.js renderScene: drawBehind); draw(ctx): its particles in front
+
+
   function Aura(f, id, mode) {
-    this.fl = 1; this.f = f; this.A = AURA[id]; this.mode = mode; // 'special' | 'round' | 'hold' (previews)
+    this.fl = 1; this.f = f; this.A = AURA[id]; this.mode = mode;
     this.k = 0; this.life = mode === 'round' ? 1.3 : 6; this.ps = []; this.acc = 0; this.ph = rand(0, 6);
   }
   Aura.prototype.centre = function () {
@@ -494,7 +494,7 @@
   };
   Aura.prototype.spawn = function (c) {
     const A = this.A, j = c.j, kind = A.kind;
-    // a point on the body: along the spine, the arms or the legs
+
     const pick = () => { const L = [j.head, j.neck, j.hip, j.elF, j.haF, j.elB, j.knF, j.knB, j.ftF, j.ftB]; const a = L[(Math.random() * L.length) | 0] || c, b = L[(Math.random() * L.length) | 0] || c, q = Math.random(); return { x: a.x + (b.x - a.x) * q + rand(-12, 12), y: a.y + (b.y - a.y) * q + rand(-8, 8) }; };
     if (kind === 'flame') { const p = pick(); this.ps.push({ x: p.x, y: p.y, vx: rand(-20, 20), vy: rand(-110, -60), up: 90, s: rand(9, 17), life: rand(0.35, 0.6), max: 0.6 }); }
     else if (kind === 'zap') { const a = pick(), b = pick(); this.ps.push({ zap: true, x: a.x, y: a.y, x1: b.x, y1: b.y, life: rand(0.06, 0.14), max: 0.14 }); }
@@ -510,7 +510,7 @@
     ctx.translate(c.x, c.y - 8); ctx.scale(92, 128); ctx.fillStyle = glowGrad(ctx, A.glow); ctx.beginPath(); ctx.arc(0, 0, 1, 0, TAU); ctx.fill();
     ctx.restore();
     if (A.kind === 'moon') {
-      // the moon halo: a thin silver ring behind the head and shoulders
+
       const h = c.j.head || c;
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
       ctx.globalAlpha = 0.75 * k; ctx.strokeStyle = 'rgb(225,232,255)'; ctx.lineWidth = 2.2;
@@ -553,7 +553,7 @@
     return ND.specialFx.add(new Aura(f, w.aura, mode));
   }
 
-  // ================================================================ SLASH THEMES (js/kaeshi-cine.js)
+
   function slashExtra(ctx, sl, x, y, L, c, sn, w, fade, s) {
     const S = SLASH[sl.sty]; if (!S) return;
     const lo = low();
@@ -566,7 +566,7 @@
         ctx.beginPath(); ctx.moveTo(px, py - r * 2); ctx.lineTo(px + r * 0.6, py); ctx.lineTo(px, py + r * 2); ctx.lineTo(px - r * 0.6, py); ctx.closePath(); ctx.fill();
       }
     } else if (S.extra === 'brush') {
-      // dry-brush hairs beside the stroke and a few ink drops thrown off its ends
+
       ctx.globalCompositeOperation = 'source-over'; ctx.strokeStyle = 'rgb(3,4,7)'; ctx.lineWidth = 1.4 * s;
       for (let i = -2; i <= 2; i++) {
         if (!i) continue;
@@ -586,7 +586,7 @@
         petalPath(ctx, (4 + (i % 3)) * s); ctx.fillStyle = i % 3 ? '#ffc2da' : '#fff0f5'; ctx.fill(); ctx.restore();
       }
     } else if (S.extra === 'bolt') {
-      // a jagged lightning line along the cut, new on every frame
+
       ctx.globalCompositeOperation = 'lighter'; ctx.lineJoin = 'round';
       ctx.beginPath(); zigzag(ctx, x - c * L * 0.85, y - sn * L * 0.85, x + c * L * 0.85, y + sn * L * 0.85, 18, w * 1.2);
       if (!lo) { ctx.globalAlpha = fade * 0.4; ctx.strokeStyle = 'rgb(150,110,255)'; ctx.lineWidth = 7 * s; ctx.stroke(); }
@@ -595,9 +595,9 @@
     ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
   }
 
-  // ================================================================ ARENA VARIANTS (js/scene.js setTheme)
-  // a variant theme is built once and kept in ND.THEMES as '<arena>~<variant>' (scene.js frees its cached pictures like
-  // any other theme's); the scene keeps the base arena's id
+
+
+
   function variantTheme(arenaId) {
     const vid = VAR[arenaId], V = vid && ARENA[vid], T = ND.THEMES;
     if (!V || !T || !T[arenaId] || V.base !== arenaId) return null;
@@ -609,8 +609,8 @@
     return T[key];
   }
 
-  // ================================================================ MENU MUSIC (js/music.js play('menu'))
-  // koto notes in the variant's own scale: Karplus-Strong buffers made on first use, one per note (~1 ms each)
+
+
   const KOTO = new Map();
   function kotoBuf(mu, V, i) {
     i = clamp(i | 0, 0, 14);
@@ -627,8 +627,8 @@
     if (p) { p.pan.value = pan; s.connect(g); g.connect(p); p.connect(mu.bus); } else { s.connect(g); g.connect(mu.bus); }
     s.start(t);
   }
-  // a soft bell (two sines, long tail): the snow moon's high notes
-  function bell(mu, t, f, vel) { // (vel includes the variant's gain)
+
+  function bell(mu, t, f, vel) {
     const c = ND.audio.ctx;
     for (const [m, a] of [[1, 1], [2.76, 0.35]]) {
       const o = c.createOscillator(); o.type = 'sine'; o.frequency.value = f * m;
@@ -638,7 +638,7 @@
   }
   const walkN = (st, lo, hi) => { const r = Math.random(); st.w += r < 0.4 ? 1 : r < 0.8 ? -1 : r < 0.9 ? 2 : -2; if (st.w < lo) st.w = lo + 1; if (st.w > hi) st.w = hi - 1; return st.w; };
   const MST = { w: 6 };
-  // Spring Garden: yo scale, flowing broken chords on the koto, a light shakuhachi line, an occasional temple bell tap
+
   function playHaru(mu, V, t, s) {
     const bar = Math.floor(s / 16), b16 = s % 16;
     const roots = [0, 3, 1, 4], r = roots[bar % 4];
@@ -647,7 +647,7 @@
     if (b16 === 4 && bar % 4 === 1) mu.shakuhachi(t, noteF(V, walkN(MST, 6, 11)), 2.4, 0.6);
     if (b16 === 12 && bar % 8 === 6) mu.shakuhachi(t, noteF(V, walkN(MST, 5, 10)), 1.6, 0.5);
   }
-  // Snow Moon: hirajoshi, slow and sparse, a low koto drone, high bell notes, long shakuhachi breaths
+
   function playYuki(mu, V, t, s) {
     const bar = Math.floor(s / 16), b16 = s % 16;
     if (b16 === 0 && bar % 2 === 0) koto(mu, V, t, 0, 0.5, -0.3);
@@ -655,7 +655,7 @@
     if (b16 % 4 === 0 && Math.random() < 0.35) bell(mu, t, noteF(V, walkN(MST, 9, 14)), 0.8 * V.gain);
     if (b16 === 0 && bar % 4 === 2) mu.shakuhachi(t, noteF(V, walkN(MST, 5, 10)), 3.6, 0.65);
   }
-  // Festival Night: min'yō scale, light taiko pattern, a call-and-response koto melody and a high flute
+
   function playMatsuri(mu, V, t, s) {
     const bar = Math.floor(s / 16), b16 = s % 16;
     if (b16 === 0 || b16 === 10) mu.drum(t, 'o', b16 ? 0.4 : 0.55);
@@ -666,12 +666,12 @@
     if (b16 === 0 && bar % 8 === 4) mu.shakuhachi(t, noteF(V, walkN(MST, 9, 13)), 2.2, 0.45);
   }
 
-  // ================================================================ NAME CARDS (pictures, made once)
+
   function cardBase(g, w, h, c0, c1) {
     const gr = g.createLinearGradient(0, 0, w, h); gr.addColorStop(0, c0); gr.addColorStop(1, c1);
     g.fillStyle = gr; g.fillRect(0, 0, w, h);
   }
-  // the name side (left) darker so the name reads on any motif; a fine gold edge line top and bottom
+
   function cardFinish(g, w, h, edge) {
     const sh = g.createLinearGradient(0, 0, w, 0); sh.addColorStop(0, 'rgba(6,7,12,.74)'); sh.addColorStop(0.5, 'rgba(6,7,12,.5)'); sh.addColorStop(1, 'rgba(6,7,12,.42)');
     g.fillStyle = sh; g.fillRect(0, 0, w, h);
@@ -694,7 +694,7 @@
   }
   function cardYozakura(g, w, h) {
     cardBase(g, w, h, '#120a1c', '#2d1430');
-    // a moonlit glow and a dark branch with blossoms, from the far side
+
     const m = g.createRadialGradient(w * 0.82, h * 0.3, 2, w * 0.82, h * 0.3, h * 0.9); m.addColorStop(0, 'rgba(255,220,235,.35)'); m.addColorStop(1, 'rgba(255,220,235,0)');
     g.fillStyle = m; g.fillRect(0, 0, w, h);
     g.strokeStyle = '#0a0508'; g.lineCap = 'round';
@@ -708,7 +708,7 @@
   }
   function cardRyu(g, w, h) {
     cardBase(g, w, h, '#0a0606', '#1d0c0a');
-    // gold dragon scales (uroko) sweeping in from the far side and a cloud scroll
+
     const s = h * 0.13;
     for (let row = 0; row * s * 0.55 < h + s; row++) {
       for (let col = 0; col * s < w; col++) {
@@ -730,7 +730,7 @@
     g.fillStyle = '#f2f0e4'; g.beginPath(); g.arc(mx, my, mr, 0, TAU); g.fill();
     g.fillStyle = 'rgba(180,176,160,.35)'; for (const [dx, dy, r] of [[-0.3, -0.1, 0.22], [0.25, 0.2, 0.16], [0.05, -0.4, 0.1]]) { g.beginPath(); g.arc(mx + dx * mr, my + dy * mr, r * mr, 0, TAU); g.fill(); }
     for (let i = 0; i < 40; i++) { g.fillStyle = `rgba(255,255,255,${0.3 + (i % 3) * 0.2})`; g.fillRect(w * ((i * 0.618) % 1), h * ((i * 0.381) % 0.7), 1.5, 1.5); }
-    // pine silhouettes over the moon
+
     const pine = (x, y, s) => { g.fillStyle = '#04060c'; g.fillRect(x - s * 0.04, y - s * 0.2, s * 0.08, s * 1.2); for (let k = 0; k < 4; k++) { const yy = y + k * s * 0.22, ww = s * (0.25 + k * 0.12); g.beginPath(); g.ellipse(x + (k % 2 ? 1 : -1) * s * 0.08, yy, ww, s * 0.08, 0, 0, TAU); g.fill(); } };
     pine(w * 0.68, h * 0.42, h * 0.75); pine(w * 0.93, h * 0.58, h * 0.6);
     g.fillStyle = '#04060c'; g.fillRect(0, h * 0.9, w, h * 0.1);
@@ -738,7 +738,7 @@
   }
   function cardAsanoha(g, w, h) {
     cardBase(g, w, h, '#2a0a0e', '#5a1218');
-    // the hemp-leaf star pattern in gold on crimson lacquer
+
     const s = h * 0.34, hy = s * Math.sqrt(3) / 2;
     g.strokeStyle = 'rgba(240,197,90,.6)'; g.lineWidth = h * 0.01;
     for (let row = -1; row * hy < h + hy; row++) {
@@ -750,13 +750,13 @@
         g.stroke();
       }
     }
-    // gold leaf flakes thick on the far side
+
     for (let i = 0; i < 26; i++) { const x = w * (0.55 + ((i * 0.618) % 1) * 0.45), y = h * ((i * 0.37) % 1), r = h * (0.04 + (i % 4) * 0.02); g.fillStyle = `rgba(240,197,90,${0.35 + (i % 3) * 0.2})`; g.save(); g.translate(x, y); g.rotate(i); g.fillRect(-r, -r * 0.8, r * 2, r * 1.6); g.restore(); }
     cardFinish(g, w, h, '#f0c55a');
   }
   const CARD_PX = { w: 560, h: 140 };
   const cardCache = new Map();
-  // the card picture as a data URL (flip: mirrored for the right-hand fighter)
+
   function cardURL(id, flip) {
     const key = id + (flip ? '|r' : '|l');
     let u = cardCache.get(key);
@@ -770,7 +770,7 @@
     if (u) cardCache.set(key, u);
     return u;
   }
-  // puts the card behind a name block (or takes it away); side 1 is the right-hand fighter
+
   function applyCard(el, side, id) {
     if (!el) return;
     const u = id && CARD[id] ? cardURL(id, side === 1) : null;
@@ -789,13 +789,13 @@
     for (const n of [1, 2]) { const side = document.getElementById('vss' + n); applyCard(side && side.querySelector('.vs-name'), n - 1, worn[n - 1].card); }
   }
 
-  // ================================================================ PREVIEWS (wardrobe, studio panel)
+
   let PVF = null;
   function pvFighter() {
     if (!PVF && ND.Fighter && ND.Ctrl) { PVF = new ND.Fighter(0, new ND.Ctrl()); PVF.fullDetail = true; }
     return PVF;
   }
-  // a fighter standing in pose P (cloth settled), ready to draw
+
   function posed(chId, look, P, dir, costume) {
     const f = pvFighter(); if (!f) return null;
     const ch = ND.charById ? ND.charById(chId) : ND.CHARS[0];
@@ -820,10 +820,10 @@
     gr.addColorStop(0, col ? col + '55' : 'rgba(120,130,180,.25)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
     g.fillStyle = '#0b0c14'; g.fillRect(0, 0, W, H); g.fillStyle = gr; g.fillRect(0, 0, W, H);
   }
-  // world → picture: the floor at 88 % of the height, `span` world units tall
+
   function place(g, W, H, span, cx = 0) { const k = H / span; g.setTransform(k, 0, 0, k, W / 2 - cx * k, H * 0.88); return k; }
   function shadow(g) { g.fillStyle = 'rgba(0,0,0,.45)'; g.beginPath(); g.ellipse(0, 3, 50, 7, 0, 0, TAU); g.fill(); }
-  // runs fx particles made by fn on their own list for `t` seconds and draws them (the game's own fx code)
+
   function withFx(g, fn, t) {
     const fx = ND.fx, keep = { p: fx.parts, d: fx.decals, x: fx.texts };
     fx.parts = []; fx.decals = []; fx.texts = [];
@@ -836,7 +836,7 @@
     g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, W, H);
     if (o.bg !== false && kind !== 'card' && kind !== 'arena') pvBg(g, W, H, F && F.ui);
     try {
-      if (!F) { /* nothing worn: the background only */ }
+      if (!F) {                                         }
       else if (kind === 'pose') { const f = posed(chId, o.look, F.end, 1, o.costume); place(g, W, H, id === 'pose_tenchi' ? 340 : 250, 4); shadow(g); if (f) { f.draw(g, false); ND.eyeGlow?.(g, f.viewJ(), f.col, f.ch.acc); } }
       else if (kind === 'aura') {
         const f = posed(chId, o.look, 'stance', 1, o.costume); place(g, W, H, 250, 0);
@@ -885,7 +885,7 @@
     g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
     return cv;
   }
-  // a small picture of an arena variant: its sky, moon, hills, floor and weather (the real arena is the panel's picture)
+
   function arenaSwatch(g, W, H, V) {
     const T = Object.assign({}, (ND.THEMES && ND.THEMES[V.base]) || {}, V.over);
     const sk = g.createLinearGradient(0, 0, 0, H * 0.7), S = T.sky || ['#05070f', '#0f1630', '#262d4c', '#141828'];
@@ -908,7 +908,7 @@
     }
   }
 
-  // ================================================================ API
+
   const ok = (kind, id) => (typeof id === 'string' && FLAIR[kind] && FLAIR[kind][id] ? id : null);
   const flair = ND.flair = {
     kinds: KINDS.slice(), slots: SLOTS.slice(),
@@ -939,8 +939,8 @@
     preview,
     cardURL,
 
-    // ---- hooks (called by the game files; see the spec at the top)
-    // js/anim.js: the drawn pose of a winner in state 'win' (D: the display pose, written in place)
+
+
     winPose(f, D) {
       const w = wornOf(f), V = w && POSE[w.pose];
       if (!V || !(f.st > V.keys[0][0])) return;
@@ -948,9 +948,9 @@
       const b = Math.min(1, (f.st - V.keys[V.keys.length - 1][0]) / 0.4);
       if (b > 0) { const t = f.st; D.hy += Math.sin(t * 2.2) * 1.1 * b; D.ay += Math.sin(t * 2.2 + 0.6) * 1.2 * b; }
     },
-    // the preview fighters' pose name for side's worn victory pose (js/arcade.js ending), null when none
+
     pvPose(side) { const w = worn[side === 1 ? 1 : 0]; return w.pose && POSE[w.pose] ? 'fl_' + w.pose : null; },
-    // js/fighter.js takeHit: mark = hitBegin(from) before the hit's effects, hitEnd(from, mark, ...) after them
+
     hitBegin(from) {
       const w = wornOf(from), g = G();
       if (!w || !w.hitfx || (g && g.simOnly)) return -1;
@@ -963,30 +963,30 @@
       recordFx('flairHit', [w.hitfx, x, y, kdir, rawDmg]);
       applyHit(w.hitfx, mark, x, y, kdir, rawDmg);
     },
-    // js/fighter.js die: the winner's KO finish at the final hit
+
     onKO(from, loser, x, y, kdir) {
       const w = wornOf(from), g = G();
       if (!w || !w.ko || !KO[w.ko] || (g && (g.simOnly || g.mode === 'attract'))) return;
       recordFx('flairKO', [w.ko, x, y, kdir]);
       spawnKO(w.ko, x, y, kdir);
     },
-    // js/game.js onSpecial (a ki technique starts) and the round's "Fight!"
+
     onSpecial(f) { addAura(f, 'special'); },
     onRoundStart(F) { if (F) for (const f of F) addAura(f, 'round'); },
-    // js/game.js renderScene: the aura glows behind the fighters (world transform set)
+
     drawBehind(ctx) {
       const L = ND.specialFx && ND.specialFx.list;
       if (!L || !L.length) return;
       for (const o of L) if (o.fl === 1 && o.behind) { ctx.save(); o.behind(ctx); ctx.restore(); }
     },
-    // js/kaeshi-cine.js: the counter's colour ('r,g,b') for fighter f and technique type t, its theme id (or null)
+
     slashCol(f, t) { const w = wornOf(f), S = w && SLASH[w.slash]; return S ? S.col[t.id] || t.col : t.col; },
     slashSty(f) { const w = wornOf(f); return w && SLASH[w.slash] ? w.slash : null; },
     slashEdge(sty) { return SLASH[sty] ? SLASH[sty] : null; },
     slashExtra,
-    // js/scene.js setTheme: the theme to draw for arena id (a variant or null = the plain one)
+
     theme(arenaId) { return variantTheme(arenaId); },
-    // js/music.js play: true when a menu variant played this step
+
     menuPlay(mu, t, s) {
       const V = musicId && MUSIC[musicId];
       if (!V || !mu.bus || !ND.audio || !ND.audio.ctx) return false;
@@ -994,10 +994,10 @@
       V.play(mu, V, t, s);
       return true;
     },
-    // js/game.js showStage / js/ranked.js renderVs: the name cards
+
     stage(phase) { if (phase === 'vs') refreshCards(); else if (phase === 'select') { for (const n of [1, 2]) { const s = typeof document !== 'undefined' && document.getElementById('vss' + n); applyCard(s && s.querySelector('.vs-name'), n - 1, null); } } },
     card(el, side) { applyCard(el, side, worn[side === 1 ? 1 : 0].card); },
-    // js/scene.js fx: flair particles (kind 'F')
+
     upd(p, dt) { const f = FP[p.fn]; if (f) f.u(p, dt); },
     drw(ctx, p, t, lo) { const f = FP[p.fn]; if (f) f.d(ctx, p, t, lo); },
   };

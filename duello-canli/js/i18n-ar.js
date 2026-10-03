@@ -1,15 +1,15 @@
-// Shadow Duel — Arabic catalog for ND.i18n, translated from the English one (js/i18n-en.js).
-// Loaded on demand: js/i18n.js loads this file only when the game runs in this language. Same structure as i18n-en.js.
-// Modern Standard Arabic, friendly mobile-game register, masculine singular imperative; Western digits; text is RTL.
-// Glossary: guard = دفاع (button دفاع), parry = صد (HUD صد!), counter = هجوم مضاد / مضاد, posture = التوازن
-//   (posture bar = شريط التوازن), ki technique = تقنية Ki (Ki stays Latin: the Arabic spelling also means "ironing"),
-//   blade lock = التحام السيوف, dash = اندفاع, combo = كومبو, heavy slash = ضربة ثقيلة, light slash = ضربة خفيفة,
-//   kick = ركلة, rally = تبادل الضربات, arcade = آركيد, training = تدريب, tutorial = التعليم, ranked = مصنف,
-//   journey = رحلة, mastery star = نجمة الإتقان, Hall of Champions = قاعة الأبطال, shadow (ghost opponent) = ظل,
-//   season = موسم, round = جولة, fight = نزال, match = مباراة, duel = مبارزة, dummy = الدمية, honor = الشرف,
-//   rival = غريم, nickname = اسم اللاعب, Monthly Tournament = البطولة الشهرية, Dan Trial = اختبار Dan,
-//   ranked tier = فئة, player level = المستوى, Shadow Pass = تذكرة الظل, pass tier = درجة, claim = استلم, reward = مكافأة,
-//   costume = زي, title = لقب, badge = شارة, frame = إطار, blade trail = أثر النصل, XP booster = معزز XP (XP stays XP)
+
+
+
+
+
+
+
+
+
+
+
+
 (function (ND) {
   'use strict';
   (ND.I18N_CATALOGS || (ND.I18N_CATALOGS = {}))['ar'] = function (I, EN) {
@@ -17,8 +17,8 @@
     const num = (n) => I.num(n);
     const dec = (x) => I.dec(x);
     const fmtTime = (s) => I.time(s);
-    // Arabic counted nouns (simplified): 1 → one, 2 → two (dual), 3–10 → "n few" (plural), 11+ → "n many" (singular
-    // accusative), 0 / hundreds → "n many". n may be a number, a formatted number or a number word from EN.NUMWORDS.
+
+
     const ix = (w) => EN.NUMWORDS.indexOf(String(w));
     const pl = (n, one, two, few, many) => {
       const i = ix(n);
@@ -29,7 +29,7 @@
       return v === 1 ? one : v === 2 ? two : a >= 3 && a <= 10 ? `${shown} ${few}` : `${shown} ${many}`;
     };
 
-    // ================================================================ UI tables (ND.STR)
+
     merge(EN.STR, {
       menu: {
         brand: (nc, na) => `${pl(nc, 'مقاتل واحد', 'مقاتلان', 'مقاتلين', 'مقاتلا')} و${pl(na, 'ساحة واحدة', 'ساحتان', 'ساحات', 'ساحة')} وسيد خفي. صدامات سيوف لحظية، والتحام النصال، وصد، وكسر التوازن، وتقنيات Ki، وفيزياء سقوط واقعية.`,
@@ -158,7 +158,7 @@
       bz: {
         back: 'رجوع', toMenu: 'القائمة الرئيسية', you: 'أنت', youTag: 'أنت', newBest: 'رقم قياسي جديد!', seeResult: 'عرض النتيجة',
         resetIn: 'يتجدد بعد',
-        // time left: days (ي) · hours (س) · minutes (د) · seconds (ث)
+
         left: (ms) => { const t = Math.floor(ms / 1000), d = Math.floor(t / 86400), hh = Math.floor((t % 86400) / 3600), mm = Math.floor((t % 3600) / 60), ss = t % 60; return d ? `${d}ي ${hh}س ${mm}د` : hh ? `${hh}س ${mm}د` : `${mm}د ${ss}ث`; },
         leftShort: (ms) => { const t = Math.floor(ms / 60000), d = Math.floor(t / 1440), hh = Math.floor((t % 1440) / 60), mm = t % 60; return d ? `${d}ي ${hh}س` : hh ? `${hh}س ${mm}د` : `${mm}د`; },
         weekName: (m, y) => `${['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'][m - 1] || m} ${y}`,
@@ -244,7 +244,7 @@
           pending: (n) => `نتائج بانتظار الإرسال: ${n}`,
           classic: 'لوحات الآركيد · الأسطورة',
         },
-        // Monthly Tournament rewards: permanent title (top 3) and Champion colors (1st)
+
         ttl: {
           champ: 'بطل الشهر', finalist: 'متأهل للنهائي',
           reward: 'بدءا من بطولة أكتوبر 2026، ينال أفضل 3 كل شهر لقبا دائما. ويفوز البطل أيضا بألوان البطل الحصرية للنينجا الذي لعب به. تتطلب الألقاب 5 لاعبين على الأقل في ذلك الشهر.',
@@ -382,10 +382,10 @@
       ],
     });
 
-    // ================================================================ story, fighters, arenas, specials
-    // ---- Fragment B: story text (talk, pairs, endings, roster2 notes), characters, arenas, specials, pop-ups, AI levels, number words
+
+
     merge(EN.STR, {
-      // open = speaks first (opponent), reply = answers (player), boss = said to the final boss
+
       talk: {
         akane: {
           open: ['نصلي قرمزي ونيتي صافية. واجهني بشرف.', 'أنحني أولا ثم أضرب. هذا هو العدل.', 'هذه المبارزة من أجل شرفنا. لا تراجع.'],
@@ -453,7 +453,7 @@
           boss: 'لا مخبأ في السماء يا Shura. سهمي سيجدك.',
         },
       },
-      // Special match-ups: lines are spoken in the order written
+
       pairs: {
         'akane|aoi': [['akane', 'يا Aoi! حان وقت إنهاء المبارزة التي لم تكتمل.'], ['aoi', 'الريح تهب دائما نحو النار نفسها يا Akane. ابدئي.']],
         'kuro|tetsu': [['kuro', 'قشرة من حديد. لنر إن كانت جوفاء.'], ['tetsu', 'حتى الجبل ينحني للانضباط يا Kuro.']],
@@ -550,22 +550,22 @@
 
     EN.NUMWORDS = ['صفر', 'واحد', 'اثنان', 'ثلاثة', 'أربعة', 'خمسة', 'ستة', 'سبعة', 'ثمانية', 'تسعة', 'عشرة', 'أحد عشر', 'اثنا عشر'];
 
-    // ================================================================ static HTML, hardcoded literals, canvas pop-ups
+
     merge(EN.PHRASES, {
-      // ---------------------------------------------------------------- index.html: <title>, brand, HUD
+
       'Gölge Düellosu': 'Shadow Duel',
       'Duraklat': 'إيقاف مؤقت',
       'KARŞILIKLI SERİ': 'تبادل الضربات',
       'SON DARBE': 'الضربة الأخيرة',
       'atlamak için bir tuşa bas': 'اضغط أي زر للتخطي',
-      // touch buttons (static fallbacks of data-s="touch.btn.*")
+
       'GARD': 'دفاع',
       'HAFİF': 'خفيف',
       'SALDIR': 'هجوم',
       'AĞIR': 'ثقيل',
       'ATIL': 'اندفاع',
       'TEKME': 'ركلة',
-      // ---------------------------------------------------------------- main menu
+
       'Sekiz savaşçı, üç arena. Gerçek zamanlı kılıç çarpışması, kılıç kilitlenmesi, savuşturma, denge kırma, Gölge Kesiği ve ragdoll fiziği.': 'ثمانية مقاتلين وثلاث ساحات. صدامات سيوف لحظية، والتحام النصال، وصد، وكسر التوازن، وقطع الظل، وفيزياء سقوط واقعية.',
       'İki Oyuncu': 'لاعبان',
       'Aynı klavyede ya da iki gamepad ile kafa kafaya': 'وجها لوجه على لوحة مفاتيح واحدة أو بيدي تحكم',
@@ -585,7 +585,7 @@
       'Kan efekti': 'الدماء',
       'Tuş ipuçları': 'تلميحات الأزرار',
       'Yüksek grafik': 'رسومات عالية',
-      // ---------------------------------------------------------------- controls card
+
       'Kontroller': 'التحكم',
       '1. Oyuncu': 'اللاعب 1',
       '2. Oyuncu': 'اللاعب 2',
@@ -599,7 +599,7 @@
       'Sağ Shift': 'زر Shift الأيمن',
       'Atılma': 'اندفاع',
       'Ki tekniği (ki dolu)': 'تقنية Ki (عند امتلاء Ki)',
-      // ---------------------------------------------------------------- select screen
+
       'Ninjanı seç': 'اختر النينجا',
       'Hazır': 'جاهز',
       '1. oyuncunun ninjası': 'نينجا اللاعب 1',
@@ -616,7 +616,7 @@
       'Güç': 'القوة',
       'Menzil': 'المدى',
       'Can': 'الصحة',
-      // ---------------------------------------------------------------- pause / end
+
       'Duraklatıldı': 'متوقف مؤقتا',
       'Devam et': 'متابعة',
       'Maçı yeniden başlat': 'إعادة بدء المباراة',
@@ -628,20 +628,20 @@
       'Verilen hasar': 'الضرر المسبب',
       'Savuşturma': 'الصد',
       'Ki Saldırısı': 'هجمات Ki',
-      // ---------------------------------------------------------------- training / leaderboard / misc
+
       'Antrenman': 'تدريب',
       'ANTRENMAN': 'تدريب',
       'Sıralama': 'لوحة الصدارة',
       'Tümü': 'الكل',
       'Ekranı yan çevir': 'أدر شاشتك أفقيا',
       'Performans için grafik düşürüldü': 'تم خفض الرسومات لتحسين الأداء',
-      // hidden boss pushed into ND.CHARS by arcade.js (safety net; EN.CHARS.shura should carry the same)
+
       'Kanlı Usta': 'السيد الدموي',
       'Yolunu kanla çizen iblis usta. Uzun nodachi, yıkıcı darbeler, neredeyse kusursuz savuşturma.': 'سيد شيطاني رسم طريقه بالدم. سيف Nodachi طويل، وضربات ساحقة، وصد شبه مثالي.',
-      // ---------------------------------------------------------------- HUD tags (fallbacks when STR.hud is missing)
+
       'SEN': 'أنت',
       'KUKLA': 'دمية',
-      // ---------------------------------------------------------------- round banners (#bt / #bs)
+
       'Son raund': 'الجولة الأخيرة',
       'Kazanan her şeyi alır': 'الفائز يأخذ كل شيء',
       'İlk iki raundu alan kazanır': 'من يفز بجولتين أولا يربح',
@@ -650,13 +650,13 @@
       'Berabere': 'تعادل',
       'Çifte K.O.': 'ضربة قاضية مزدوجة',
       'Mükemmel': 'مثالي',
-      // blade-lock hint (fallbacks of STR.hud.lockSolo / lockDuo)
+
       'F / K tuşuna hızlıca bas!': 'اضغط F / K بسرعة!',
       'Hafif ya da ağır tuşuna hızlıca bas!': 'اضغط خفيف أو ثقيل بسرعة!',
-      // counter / parry prompt labels under the key ring (ctx.fillText in drawPrompts)
+
       'KARŞILIK': 'مضاد',
       'SAVUŞTUR': 'صد',
-      // ---------------------------------------------------------------- canvas pop-ups (fx.text)
+
       'SON VURUŞ!': 'الضربة القاضية!',
       'KİLİTLENDİ!': 'التحام!',
       'İTTİ!': 'دفع!',
@@ -679,9 +679,9 @@
     });
 
     merge(EN.HTML, {
-      // brand title
+
       'Gölge<br><em>Düel</em><em>losu</em>': 'Shadow<br><em>Du</em><em>el</em>',
-      // tips list (<ul class="tips">)
+
       '<b>Savuşturma:</b> darbe gelmeden hemen önce gard tuşuna bas; rakip sendeler.':
         '<b>الصد:</b> اضغط زر الدفاع قبل وصول الضربة مباشرة؛ فيترنح خصمك.',
       '<b>Karşılık (返し技):</b> gard ya da savuşturmanın hemen ardından saldırı tuşu → anında karşı kesik. <b>İleri</b> + hafif = bacağa süpürme, <b>geri</b> + hafif = yanından dönüp arkadan kesme, <b>ağır</b> = güçlü karşı darbe.':
@@ -696,30 +696,30 @@
         '<b>اندفاع + خفيف</b> = ضربة اندفاع. <b>في الهواء</b> خفيف = ضربة جوية، ثقيل = انقضاض. الضربة الثقيلة تطرح أرضا؛ ومن يرتطم بالجدار يرتد.',
       '<b>Denge çubuğu</b> dolarsa gard kırılır. Tekme gardı delip dengeyi hızla doldurur.':
         'عندما يمتلئ <b>شريط التوازن</b> ينكسر الدفاع. الركلات تخترق الدفاع وتملأ التوازن بسرعة.',
-      // gamepad note (Esc -> Start or P)
+
       'Gamepad: X hafif · Y ağır · B tekme · A zıpla · LB gard · RB shuriken · RT atılma · R3 ki tekniği. Start ya da <kbd>P</kbd> duraklatır. CPU modunda her iki tuş seti de seni yönetir.':
         'يد التحكم: X خفيف · Y ثقيل · B ركلة · A قفز · LB دفاع · RB شوريكن · RT اندفاع · R3 تقنية Ki. زر Start أو <kbd>P</kbd> للإيقاف المؤقت. في وضع الكمبيوتر تتحكم فيك مجموعتا الأزرار كلتاهما.',
-      // select / VS hints (Esc -> ⌫)
+
       '<kbd>Enter</kbd> başlatır · <kbd>⌫</kbd> menüye döner': 'ابدأ <kbd>Enter</kbd> · رجوع <kbd>⌫</kbd>',
       '<kbd>Enter</kbd> / <kbd>F</kbd> başlatır · <kbd>⌫</kbd> çıkar': 'ابدأ <kbd>Enter</kbd> / <kbd>F</kbd> · خروج <kbd>⌫</kbd>',
     });
 
     EN.PATTERNS.push(
-      // HUD round label (#rlabel) and round banner
+
       [/^RAUND (\d+)$/, 'الجولة $1'],
       [/^(\d+)\. Raund$/, 'الجولة $1'],
-      // canvas pop-ups built from numbers
+
       [/^(\d+)\. KARŞILIK$/, 'مضاد ×$1'],
       [/^(\d+) VURUŞLUK SERİ!$/, 'تبادل من $1 ضربات!'],
-      // time-up banner sub: `${name} önde`
+
       [/^(.+) önde$/, (m, n) => 'في المقدمة: ' + I.t(n)],
-      // end screen title: `${Name} kazandı`
+
       [/^(.+) kazandı$/, (m, n) => 'الفائز: ' + I.t(n)],
-      // end screen sub line: `${a} – ${b} · ${round} raund · ${arenaName}`
+
       [/^(\d+) – (\d+) · (\d+) raund · (.+)$/, (m, a, b, r, ar) => `${a} – ${b} · ${r === '1' ? 'جولة واحدة' : r === '2' ? 'جولتان' : r + ' جولات'} · ${I.t(ar)}`],
     );
 
-    // ================================================================ added with the portal build (PLAY, ads, coach)
+
     merge(EN.STR, {
       menu: { play: 'العب', playSub: (name, lv) => `النينجا ${name} ضد الكمبيوتر · ${lv}` },
       first: { play: 'العب', sub: 'نقرة واحدة وتبدأ القتال', menu: 'كل الأوضاع' },
@@ -738,21 +738,21 @@
       },
     });
 
-    // ================================================================ VOLUME: sliders on the menu card and in pause (js/volume.js)
+
     merge(EN.STR, {
       vol: {
         title: 'مستوى الصوت', master: 'الرئيسي', music: 'الموسيقى', sfx: 'المؤثرات', sound: 'الصوت',
         pct: (n) => `${n}%`,
         muted: 'الصوت مغلق. حرك أي شريط لتشغيله من جديد.',
-        // Settings > Audio: character / announcer voices switch (js/voice.js) and the courtesy credit under it
+
         voice: 'الأصوات',
         uiSfx: 'أصوات القوائم',
         credit: 'الأصوات: ユーフルカ (youfulca.com) · 効果音ラボ · すぱらんど',
       },
     });
 
-    // ================================================================ TOUCH LAYOUT EDITOR: movement modes + "Customize controls"
-    // (js/touch.js settings rows, js/touch-editor.js; Turkish source in i18n.js, block "touch movement modes + layout editor")
+
+
     merge(EN.STR, {
       tedit: {
         move: 'الحركة',
@@ -786,8 +786,8 @@
       },
     });
 
-    // ================================================================ PROGRESSION: honor, rival challenges, moves panel
-    // (arcade.js STR.honor / STR.rival / STR.hint, game.js select screen; rules in js/honor.js)
+
+
     merge(EN.STR, {
       menu: { arcadeDesc: 'اهزم خصومك واحدا تلو الآخر والصعوبة ترتفع، وفي النهاية ينتظرك سيد خفي. أغنى مصدر للشرف.' },
       sel: {
@@ -860,8 +860,8 @@
       },
     });
 
-    // ================================================================ COMBAT: new kits, combos, move list (combat designer)
-    // Akane/Aoi/Ren/Kage identities, combo counter, ki cancel, ND.MOVELIST names/descriptions (read through ND.i18n.t)
+
+
     merge(EN.CHARS, {
       akane: { desc: 'محاربة Iaijutsu. النصل ينتظر في غمده وكل ضربة سحب؛ ووضعية السحب لديها تلتقط الضربات القادمة.', weapon: 'Katana (iai)' },
       aoi: { desc: 'مبارز Tachi بيد واحدة، ابن الريح. طعنات بعيدة المدى وخطوات ريح تغلق أي مسافة بحركة واحدة.', weapon: 'Tachi' },
@@ -871,7 +871,7 @@
     merge(EN.TXT, { kiCancel: 'إلغاء Ki!', launch: 'إلى الأعلى!', iaiCatch: 'IAI GAESHI!' });
     EN.PATTERNS.push([/^(\d+) VURUŞ$/, 'كومبو $1']);
     merge(EN.PHRASES, {
-      // shared rows
+
       'Tekme': 'ركلة',
       'Tekme: dengeyi hızla doldurur, gardı kırmaya yarar. Ardından AĞIR ile seri bitirişine bağlanır.': 'ركلة: تملأ التوازن بسرعة وتساعد على كسر الدفاع. تابعها بزر ثقيل لإنهاء السلسلة.',
       'Shuriken fırlatır; zamanla yeniden dolar.': 'يرمي شوريكن؛ وتمتلئ من جديد مع الوقت.',
@@ -891,7 +891,7 @@
       'Atılırken dönerek geniş kesik; yere serer.': 'ضربة دائرية واسعة أثناء الاندفاع؛ تطرح أرضا.',
       'İki kesiklik seri bitirişi; son kesik yere serer.': 'نهاية سلسلة من ضربتين؛ الأخيرة تطرح أرضا.',
       'Rakibin kılıcını aşağı çarpıp dürter: gardı ezer.': 'يضرب نصل الخصم للأسفل ثم يطعن: يسحق الدفاع.',
-      // Akane
+
       'Kından yatay çekiş kesiği, çapraz iniş, geri dönen kesik; kılıç her seferinde kınına döner.': 'سحب أفقي من الغمد، ثم ضربة مائلة للأسفل، ثم ضربة راجعة؛ ويعود النصل إلى غمده في كل مرة.',
       'Derin çömelişten geniş yatay çekiş; yere serer.': 'سحب أفقي واسع من جثوة عميقة؛ يطرح أرضا.',
       'Atılarak kından çekiş: uzak mesafeyi bir anda kapatır, seriye devam eder.': 'سحب من الغمد مع الاندفاع: يغلق مسافة طويلة في لحظة ويواصل السلسلة.',
@@ -900,7 +900,7 @@
       'Çekiş duruşu: kısa bir an bekler; bu sırada gelen yakın dövüş darbesini yakalar ve kaçınılmaz bir iai kesiğiyle karşılık verir. Boşa giderse açık kalır.': 'وضعية السحب: تنتظر لحظة؛ وأي ضربة قريبة تصل خلالها تلتقطها وترد عليها بضربة iai لا مفر منها. وإن لم يأت شيء تبقى مكشوفة.',
       'Kesa’dan sonra yükselen ve inen iki çekiş kesiği; son kesik yere serer.': 'بعد Kesa، ضربتا سحب صاعدة وهابطة؛ الأخيرة تطرح أرضا.',
       'Tekmeden sonra çömelip rakibin içinden geçen kızıl iai; arkasında belirir.': 'بعد الركلة، ضربة iai قرمزية من وضعية الجثو تعبر الخصم مباشرة؛ ثم تظهر خلفه.',
-      // Aoi
+
       'Tek elle uzun dürtüş, yukarı savrulan kesik ve rüzgâr adımıyla derin atılma dürtüşü.': 'طعنة طويلة بيد واحدة، ثم ضربة صاعدة خاطفة، ثم طعنة اندفاع عميقة بخطوة الريح.',
       'Dönerek geniş yatay kesik; yere serer.': 'ضربة أفقية واسعة مع الدوران؛ تطرح أرضا.',
       'Rüzgâr adımı: çok uzaktan tek hamlede dürter, seriye devam eder.': 'خطوة الريح: يطعن من مسافة بعيدة جدا بحركة واحدة ويواصل السلسلة.',
@@ -909,7 +909,7 @@
       'Geri sıçrar, ardından çok uzağa uzanan dürtüşle geri döner: gardı ezer, yere serer.': 'يقفز للخلف ثم يعود بطعنة طويلة جدا: تسحق الدفاع وتطرح أرضا.',
       'Üç hızlı dürtüş; sonuncusu rüzgârla rakibi savurur.': 'ثلاث طعنات سريعة؛ الأخيرة تقذف الخصم بعيدا مع الريح.',
       'İki kez dönerek çevresini biçen kesik; gardı ezer.': 'يدور مرتين قاطعا كل ما حوله؛ يسحق الدفاع.',
-      // Ren
+
       'Kesik · Dirsek · Diz': 'ضربة · مرفق · ركبة',
       'Tek elle kesik, dirsek darbesi ve uçan diz: kılıçla başlayıp bedenle biter.': 'ضربة بيد واحدة، ثم ضربة مرفق، ثم ركبة طائرة: تبدأ بالسيف وتنتهي بالجسد.',
       'İki elle tepeden ezici iniş; gardı zorlar, yere serer.': 'ضربة ساحقة بكلتا اليدين من الأعلى؛ ترهق الدفاع وتطرح أرضا.',
@@ -919,7 +919,7 @@
       'Topuğu havaya kaldırıp balta gibi indirir: yere serer.': 'يرفع كعبه عاليا ثم يهوي به كالفأس: يطرح أرضا.',
       'Dirsekten sonra kesik ve tepeden ezici iniş; son vuruş yere serer.': 'بعد المرفق، ضربة ثم ضربة ساحقة من الأعلى؛ الأخيرة تطرح أرضا.',
       'Tekmenin ardından dönen topuk tekmesi; yere serer.': 'بعد الركلة، ركلة كعب دائرية؛ تطرح أرضا.',
-      // Kage
+
       'Ters tutuşla kesik, dönen kesik ve gölge adımı: kaybolup öne geçer, dürterek belirir.': 'ضربة بقبضة معكوسة، ثم ضربة دائرية، ثم خطوة الظل: يختفي وينزلق للأمام ويظهر طاعنا.',
       'Sıçrayıp ters tutuşla aşağı saplar; yere serer.': 'يقفز ويطعن للأسفل بقبضة معكوسة؛ يطرح أرضا.',
       'Gölge gibi uzun atılma kesiği; seriye devam eder.': 'ضربة اندفاع طويلة كالظل؛ تواصل السلسلة.',
@@ -928,18 +928,18 @@
       'Ayağının dibine sis bombası atar: yakındakini sersemletir, Kage dumanın içinde geri kaçar.': 'يرمي قنبلة دخان عند قدميه: تربك كل من يقترب بينما يتراجع Kage داخل الدخان.',
       'Üç hızlı ters kesik ve aşağı saplama; sonuncusu yere serer.': 'ثلاث ضربات معكوسة سريعة وطعنة للأسفل؛ الأخيرة تطرح أرضا.',
       'Tekmeden sonra dumanda kaybolur, rakibin arkasında belirip saplar.': 'بعد الركلة يختفي في الدخان ثم يظهر خلف الخصم طاعنا.',
-      // template row names
+
       'Nodachi serisi': 'سلسلة Nodachi', 'Ağır nodachi': 'ضربة Nodachi ثقيلة', 'Kodachi serisi': 'سلسلة Kodachi', 'Ağır kesik': 'ضربة ثقيلة',
       'Tantō dansı': 'رقصة Tantō', 'Çift kesik': 'ضربة مزدوجة', 'Naginata serisi': 'سلسلة Naginata', 'Ağır savuruş': 'أرجحة ثقيلة',
       'Zincir ve orak': 'السلسلة والمنجل', 'Zincir çekişi': 'سحب السلسلة', 'Asa serisi': 'سلسلة العصا', 'Ağır süpürme': 'كنس ثقيل',
       'Yelpaze serisi': 'سلسلة المروحة', 'Rüzgâr dalgası': 'موجة الريح', 'Tantō serisi': 'سلسلة Tantō', 'Ok (basılı tut: güçlü)': 'سهم (اضغط مطولا: رمية قوية)',
       'Geri + AĞIR da ok atar (basılı tut: güçlü atış); ok kalmadıysa tantō ile tepeden iner.': 'خلف + ثقيل يطلق سهما أيضا (اضغط مطولا لرمية قوية)؛ وعند نفاد السهام تهوي من الأعلى بخنجر Tantō.',
-      // combat pop-ups
+
       'KI İPTALİ!': 'إلغاء Ki!', 'HAVAYA!': 'إلى الأعلى!',
     });
 
-    // ================================================================ COUNTER CINEMATIC + COMBO TRIAL (combat feel pass)
-    // js/kaeshi-cine.js STR.kaeshi, js/combo-trial.js STR.trial, js/coach.js combo/counter tips, move list legend
+
+
     {
       const tb = (t, c) => `<i class="tb${c ? ' ' + c : ''}">${t}</i>`;
       merge(EN.STR, {
@@ -996,8 +996,8 @@
       });
     }
 
-    // ================================================================ GRAPHICS QUALITY: the Graphics setting (js/gfx.js)
-    // (Turkish source in i18n.js, block "graphics quality")
+
+
     merge(EN.STR, {
       gfx: {
         title: 'الرسومات',
@@ -1010,8 +1010,8 @@
           custom: 'إعداداتك الخاصة (متقدم).',
         },
         now: (lv) => `الحالي: ${lv}`,
-        // Settings → Graphics → Advanced (game.js gfxAdvBuild, js/gfx.js KNOBS): the switch, the line under it, the hint on
-        // the heaviest rows, one title per knob and the value words (resolution shows percentages, anti-aliasing 2× / 4×)
+
+
         adv: {
           title: 'متقدم',
           note: 'تغيير أي خيار يجعل الاختيار «مخصصة»؛ والضغط على مستوى جاهز يعيد قيمه.',
@@ -1022,8 +1022,8 @@
       },
     });
 
-    // ================================================================ FRAME RATE: Settings → Graphics (js/gfx.js makePacer)
-    // (Turkish source in i18n.js, block "frame rate"; the numbers themselves are not translated)
+
+
     merge(EN.STR, {
       fps: {
         title: 'معدل الإطارات',
@@ -1038,7 +1038,7 @@
       },
     });
 
-    // ================================================================ SETTINGS SCREEN (js/settings.js; Turkish source in i18n.js)
+
     merge(EN.STR, {
       set: {
         title: 'الإعدادات', close: 'إغلاق',
@@ -1048,13 +1048,13 @@
       },
     });
 
-    // ================================================================ LANGUAGE PICKER (js/lang-ui.js; Turkish source in i18n.js)
-    // Language names are not translated: each one is written in its own language (ND.i18n.names).
+
+
     merge(EN.STR, { lang: { title: 'اللغة', change: 'تغيير اللغة', close: 'إغلاق' } });
 
-    // ================================================================ TOUCH HELP PER MOVEMENT MODE
-    // (game.js touchHelp(): the menu's touch help follows the movement mode; Turkish source in i18n.js, block
-    // "touch help per movement mode")
+
+
+
     merge(EN.STR, {
       thelp: {
         title: { float: 'عصا التحكم', fixed: 'عصا تحكم ثابتة', dpad: 'أزرار الاتجاه' },
@@ -1068,10 +1068,10 @@
       },
     });
 
-    // ================================================================ SHARED LABELS (static HTML / move list text that is the same word in Turkish)
+
     merge(EN.PHRASES, { 'Shuriken': 'شوريكن', 'KI': 'KI' });
 
-    // Persistent character journeys.
+
     merge(EN.STR, { menu: { arcadeDesc: 'رحلة من ثمانية نزالات لكل نينجا. تابع مع خصمك التالي، وافتح خاتمة الشخصية وختم الأستاذ.' }, sel: { title: { arcade: 'آركيد · رحلة الشخصية' } },
       journey: {
         start: 'ابدأ الرحلة',
@@ -1088,8 +1088,8 @@
       }
     });
 
-    // ================================================================ PROGRESS / ACCOUNT (Settings → Progress, Hall of Champions;
-    // js/settings.js, js/banzuke.js; Turkish source in i18n.js, block "account and recovery code")
+
+
     merge(EN.STR, {
       set: { tabs: { save: 'التقدم' } },
       acct: {
@@ -1113,8 +1113,8 @@
       lb: { savedLocalAccount: (r) => (r ? `المركز #${r} على هذا الجهاز · لا يمكن الوصول إلى حسابك الآن` : 'تم الحفظ على هذا الجهاز · لا يمكن الوصول إلى حسابك الآن') },
     });
 
-    // ================================================================ PRIVACY (js/privacy.js; Turkish source in i18n.js, block
-    // "privacy"). The policy page itself (privacy.html) is English + Turkish; other languages see the English part.
+
+
     merge(EN.STR, {
       priv: {
         notice: 'تحفظ لعبة Shadow Duel اسمك ونتائجك من أجل لوحات الصدارة عبر الإنترنت.',
@@ -1123,8 +1123,8 @@
       },
     });
 
-    // ================================================================ FIRST-FIGHT RALLY TUTORIAL: js/tutorial.js STR.tutor and
-    // Training → Parry drill (Turkish source in i18n.js, block "rally tutorial")
+
+
     merge(EN.STR, {
       menu: { trainDrill: 'تمرين الصد' },
       tutor: {
@@ -1144,12 +1144,21 @@
         mastered: 'أتقنتها!', masteredSub: 'دافع، رد، كرر',
         warm: (l) => `إحماء: اضغط ${l} ثلاث مرات`,
         nudge: (k) => `اضغط ${k}`, nudgeT: (k) => `انقر ${k}`,
+
+
+        skip: 'تخطَّ',
+        steps: {
+          attack: (b) => `اضرب بـ ${b}`, guard: (b) => `صُدّ النصل بـ ${b}`, counter: (b) => `رُدّ بـ ${b}`,
+          timing: (b, l) => `دورك: ${b} حين تنغلق الحلقة، ثم ${l}`,
+        },
+        ok: { attack: 'رائع!', guard: 'صددتها!', counter: 'رد!', timing: 'ممتاز!' },
+        ready: 'جاهز!', readySub: 'الآن اربح المبارزة',
       },
     });
 
-    // ================================================================ NEW PLAYER: the select screen's one-time greeting
-    // (game.js openSelect), the VS goal line's "?" (arcade.js openVs) and the just-in-time tips (js/coach.js ND.coach.tips;
-    // arguments: key / button chips, lessons: the menu names of Training and Tutorial). Turkish source in i18n.js.
+
+
+
     merge(EN.STR, {
       onb: { selIntro: 'اختر النينجا: لكل واحد رحلته الخاصة', more: 'التفاصيل' },
       tips: {
@@ -1166,7 +1175,7 @@
       },
     });
 
-    // ================================================================ online "play with a friend" (js/online.js: ND.STR.online)
+
     merge(EN.STR, {
       online: {
         title: 'العب مع صديق',
@@ -1239,7 +1248,7 @@
       },
     });
 
-    // ================================================================ ranked duel (js/ranked.js: ND.STR.ranked)
+
     merge(EN.STR, {
       ranked: {
         title: 'مبارزة مصنفة', menuSub: 'خصم عشوائي · نقاط وفئات ومواسم', offline: 'المباريات المصنفة غير متاحة الآن',
@@ -1291,11 +1300,22 @@
         aiNote: 'عندما يقل عدد اللاعبين المتصلين، قد تواجه خصوما يديرهم الذكاء الاصطناعي ويلعبون بأساليب لاعبين حقيقيين.', gotIt: 'فهمت',
         err: { network: 'تعذر الوصول إلى الخادم. تحقق من اتصالك بالإنترنت.', bad_version: 'صدرت نسخة جديدة من اللعبة: أعد تحميل الصفحة.', busy: 'قائمة الانتظار مزدحمة جدا، حاول بعد قليل.',
           rate_limited: 'محاولات كثيرة جدا، انتظر قليلا.', disabled: 'المباريات المصنفة غير متاحة الآن.', banned: 'هذا الحساب لا يمكنه لعب المباريات المصنفة.', other: 'حدث خطأ ما، حاول مجددا.' },
+
+        bg: { ru: 'تصفّح أثناء البحث', stopT: 'إيقاف البحث المصنّف؟', stopS: 'بدء هذا القتال ينهي بحثك.', stopGo: 'أوقف والعب', keep: 'واصل البحث', stopped: 'توقّف البحث المصنّف', chip: 'جارٍ البحث' },
+        card: { findMatch: 'ابحث عن مباراة', searching: 'جارٍ البحث…', resume: 'العودة إلى المباراة',
+          place: (p, n) => `المركز ${p} من ${n}`, placeOnly: (p) => `المركز ${p} في اللوحة`,
+          toBoard: (n) => `مباريات متبقية لدخول لوحة الصدارة: ${n}`, toBoardSoon: 'بضع مباريات أخرى لدخول لوحة الصدارة',
+          invite: 'من أشيغارو إلى شوغون: أول مباراة مصنّفة على بُعد لمسة',
+          guestInvite: 'سجّل الدخول للعب على النقاط · الضيوف يلعبون دون تصنيف', nickInvite: 'اختر لقبًا للعب على النقاط',
+          winRate: (p) => `نسبة الفوز ${p}%`, streakW: (n) => `انتصارات متتالية: ${n}`, streakL: (n) => `هزائم متتالية: ${n}`,
+          peak: (t) => `الأفضل هذا الموسم: ${t}`, shields: (n) => `درع ×${n}`, top: 'أفضل 3 في الموسم', you: 'أنت', empty: 'لا أحد في اللوحة بعد: كن الأول', rating: 'نقطة' },
       },
+
+      upd: { ready: 'إصدار جديد جاهز — انقر للتحديث', refresh: 'صدر إصدار جديد — حدّث الصفحة للعبه', close: 'إغلاق' },
     });
 
-    // ================================================================ LEVEL + SHADOW PASS (js/level.js, js/pass.js)
-    // English: L.en in js/i18n-pass.js; the on-demand languages keep these texts in their own file.
+
+
     merge(EN.STR, {
       pass: {
         k: '影', lv: 'LV',
@@ -1306,7 +1326,7 @@
         free: 'مجاني', bonus: 'الظل', bonusAds: 'كل مكافأة: إعلان واحد', bonusWait: (n) => `بلا إعلانات: تفتح بعد ${pl(n, 'درجة واحدة', 'درجتين', 'درجات', 'درجة')}`,
         claim: 'استلم', claimAll: (n) => `استلم الكل (${n})`, owned: 'تم الاستلام', watch: 'شاهد إعلانا', milestone: 'مجاني', opensAt: (t) => `عند الدرجة ${t}`,
         online: 'يتطلب اتصالا', soon: 'درجات جديدة قريبا', soonXp: 'نقاط XP مستمرة في التراكم', close: 'إغلاق', tabs: { pass: 'التذكرة', profile: 'الملف الشخصي' },
-        rows: { win: 'فوز', loss: 'مشاركة', rounds: 'الجولات', perfect: 'مثالي', rally: 'تبادل', counter: 'مضاد', parry: 'صد', short: 'نزال قصير', boost: 'معزز', daily: 'أول فوز في اليوم', streak: 'أيام متتالية', clear: 'الرحلة', trial: 'تحدي الكومبو', tutorial: 'التعليم' },
+        rows: { win: 'فوز', loss: 'مشاركة', rounds: 'الجولات', perfect: 'مثالي', rally: 'تبادل', counter: 'مضاد', parry: 'صد', short: 'نزال قصير', boost: 'معزز', daily: 'أول فوز في اليوم', streak: 'أيام متتالية', clear: 'الرحلة', trial: 'تحدي الكومبو', tutorial: 'التعليم', first: 'هدية الترحيب' },
         streakN: (n) => `اليوم ${n}`,
         up: 'ارتفع مستواك', got: 'مكافأة جديدة',
         boostName: (n) => `×1.5 XP · ${pl(n, 'نزال واحد', 'نزالان', 'نزالات', 'نزالا')}`, honorName: (n) => `+${n} شرف`,
@@ -1330,8 +1350,8 @@
       },
     });
 
-    // ================================================================ 1.3.2 SHADOW PASS: 30 tiers, fight flair, progress rewards,
-    // the ranked shield, the Profile screen (English: X.en in js/i18n-pass.js; flair: the fight flair's names, js/flair.js ids)
+
+
     merge(EN.STR, {
       pass: {
         kinds2: { pose: 'وضعية النصر', hitfx: 'تأثير الضربة', slash: 'ضربة الرد', aura: 'هالة الكي', ko: 'ضربة الحسم', card: 'بطاقة الاسم', arena: 'شكل الحلبة', music: 'موسيقى القائمة', rkey: 'مفتاح', akey: 'مفتاح', ticket: 'تذكرة', shield: 'درع' },
@@ -1360,6 +1380,8 @@
         shieldUsed: 'استُخدم الدرع: لم تخسر نقاطًا',
         rankedHonor: (n) => `+${n} شرف`,
         variant: 'شكل',
+
+        newTag: 'جديد', newN: (n) => `جديد: ${n}`, headUnlocks: 'النينجا والحلبات', headRewards: 'جوائز مصنفة',
         flair: { pose_tenchi: 'نحو السماء', pose_rei: 'انحناءة الاحترام', pose_hiza: 'زانشين على الركبة', pose_katsugi: 'السيف على الكتف', pose_kissaki: 'أنت التالي', hitfx_kinpaku: 'ضربات ورق الذهب', hitfx_aizome: 'حبر نيلي', hitfx_sakura: 'انفجار الساكورا', hitfx_kitsunebi: 'نار الثعلب', hitfx_raijin: 'شرر رايجين', slash_kin: 'الحد الذهبي', slash_sumi: 'فرشاة سومي', slash_hana: 'ريح البتلات', slash_rai: 'ضربة الرعد', aura_kitsunebi: 'هالة نار الثعلب', aura_raiun: 'هالة العاصفة', aura_hana: 'هالة الزهور', aura_gekko: 'هالة ضوء القمر', ko_enso: 'حسم إنسو', ko_hanafubuki: 'عاصفة البتلات', ko_raiko: 'صاعقة', ko_mikazuki: 'الهلال', card_seigaiha: 'أمواج سيغايها', card_yozakura: 'ساكورا الليل', card_ryu: 'ورنيش التنين', card_tsukiyo: 'صنوبر تحت القمر', card_asanoha: 'ذهب أسانوها', arena_temple_snow: 'المعبد المثلج', arena_rain_moon: 'خيزران تحت القمر', arena_snow_night: 'القمة الثلجية ليلًا', arena_market_rain: 'سوق الليل الماطر', music_haru: 'حديقة الربيع', music_yuki: 'قمر الثلج', music_matsuri: 'ليلة المهرجان', pass1_akane: 'حلة ظل القمر' },
       },
     });
@@ -1367,8 +1389,8 @@
     void dec; void fmtTime; void num;
   };
 
-  // ---------------------------------------------------------------- journey texts (js/journey-text.js reads ND.JOURNEY_COPY)
-  // Same lists, same order and same counts as the `en` entry in js/journey-text.js (ui 17, goals 10, titles 13, endings 13).
+
+
   (ND.JOURNEY_COPY || (ND.JOURNEY_COPY = {}))['ar'] = {
     ui: ['رحلة الشخصية', 'الغريم الأخير', 'إتقان اختياري', 'فز في هذا النزال لتحتفظ بالنجمة.', 'نلت نجمة الإتقان', 'لم تنل النجمة · حاول عند إعادة اللعب', 'نجوم الإتقان', 'أكمل الرحلة وفي رصيدك 6 نجوم من 8 لتنال لقبك وألوان الإرث. تبقى النجوم محفوظة بين مرات الإعادة.', 'الألوان الأصلية', 'ألوان الإرث', 'المظهر', 'اجمع 6 نجوم إتقان وأكمل رحلة هذه الشخصية.', 'رحلتك السابقة ومكافآتك محفوظة. أعد اللعب لتكتشف الطريق الجديد.', 'تحدي Shura: أكمل رحلات 3 شخصيات مختلفة.', 'فز في هذه المبارزة لتفتح', 'اكتملت الرحلة', 'الفصل'],
     goals: ['الصد', 'إصابات مضادة', 'إصابات ثقيلة', 'إصابات بالركل', 'إصابات جوية', 'إصابات بهجوم الاندفاع', 'الضربة الثالثة في الكومبو', 'إصابات بالمقذوفات', 'إصابات بتقنية Ki', 'كسر الدفاع'],

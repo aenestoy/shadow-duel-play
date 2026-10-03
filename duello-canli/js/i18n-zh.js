@@ -1,18 +1,18 @@
-// Shadow Duel — Simplified Chinese catalog for ND.i18n, translated from the English one (js/i18n-en.js).
-// Loaded on demand: js/i18n.js loads this file only when the game runs in this language. Same structure as i18n-en.js.
-// Glossary: guard = 防御 (button 防御; to block = 格挡), parry = 弹反, counter = 反击, posture = 架势 (bar = 架势条),
-//   ki = 气 (bar = 气槽), ki technique = 气技, blade lock = 拼刀, dash = 冲刺, combo = 连击, light / heavy slash = 轻斩 / 重斩,
-//   kick = 踢击, sweep = 扫斩, cross-up = 绕背, dive = 下劈, rally = 对拆 (banner 连环对拆), finisher = 终结技,
-//   launcher = 挑空, juggle = 浮空连击, dummy = 木桩, shuriken = 手里剑, arcade = 街机模式, training = 训练,
-//   tutorial = 教程, ranked = 排位赛, journey = 征途, mastery star = 精通星, Hall of Champions = 冠军殿堂,
-//   shadow (ghost opponent) = 影子, season = 赛季, round = 回合, Monthly Tournament = 月度锦标赛, Dan Trial = 段位试炼,
-//   leaderboard = 排行榜, CPU = 电脑, difficulty Apprentice / Master / Legend = 学徒 / 大师 / 传说, pts = 分.
-//   Shadow Pass = 影之通行证 (bonus track 暗影), level = 等级 (tag LV), tier (pass) = 阶, XP = XP (经验 in prose),
-//   claim = 领取, costume = 服装, title = 称号, badge = 徽章, frame = 边框, blade trail = 刀光, booster = 加成,
-//   placement = 定级赛, rating / points = 积分, journey seal = 征途印.
-//   Fighter names, romaji technique names, Kyu / Dan rank names and weapon names stay in Latin letters.
-// Control changes that ship with this build are written into the text: P pauses (Escape is CrazyGames'
-// fullscreen key), ⌫ goes back, player 2 throws shuriken with I.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 (function (ND) {
   'use strict';
   (ND.I18N_CATALOGS || (ND.I18N_CATALOGS = {}))['zh'] = function (I, EN) {
@@ -21,7 +21,7 @@
     const dec = (x) => I.dec(x);
     const fmtTime = (s) => I.time(s);
 
-    // ================================================================ UI tables (ND.STR)
+
     merge(EN.STR, {
       menu: {
         brand: (nc, na) => `${nc}名战士，${na}座竞技场，还有一位隐藏大师。实时刀剑交锋、拼刀、弹反、破架势、气技与布娃娃物理。`,
@@ -150,7 +150,7 @@
       bz: {
         back: '返回', toMenu: '主菜单', you: '你', youTag: '你', newBest: '新纪录！', seeResult: '查看结果',
         resetIn: '重置倒计时',
-        // time left: days (天) · hours (小时) · minutes (分) · seconds (秒)
+
         left: (ms) => { const t = Math.floor(ms / 1000), d = Math.floor(t / 86400), hh = Math.floor((t % 86400) / 3600), mm = Math.floor((t % 3600) / 60), ss = t % 60; return d ? `${d}天${hh}小时${mm}分` : hh ? `${hh}小时${mm}分` : `${mm}分${ss}秒`; },
         leftShort: (ms) => { const t = Math.floor(ms / 60000), d = Math.floor(t / 1440), hh = Math.floor((t % 1440) / 60), mm = t % 60; return d ? `${d}天${hh}小时` : hh ? `${hh}小时${mm}分` : `${mm}分`; },
         weekName: (m, y) => `${y}年${['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'][m - 1] || m + '月'}`,
@@ -236,7 +236,7 @@
           pending: (n) => `待上传的成绩：${n}`,
           classic: '街机 · 传说榜单',
         },
-        // Monthly Tournament rewards: permanent title (top 3) and Champion colors (1st)
+
         ttl: {
           champ: '月度冠军', finalist: '决赛选手',
           reward: '从2026年10月的锦标赛起，每月前三名将获得永久称号。冠军还能为所用忍者赢得专属冠军配色。当月至少需要5名玩家才会颁发称号。',
@@ -374,10 +374,10 @@
       ],
     });
 
-    // ================================================================ story, fighters, arenas, specials
-    // ---- Fragment B: story text (talk, pairs, endings, roster2 notes), characters, arenas, specials, pop-ups, AI levels, number words
+
+
     merge(EN.STR, {
-      // open = speaks first (opponent), reply = answers (player), boss = said to the final boss
+
       talk: {
         akane: {
           open: ['我的刀是赤红的，我的心是纯粹的。堂堂正正地面对我吧。', '先行礼，再出刀。这才公平。', '这场决斗关乎荣誉。绝无退路。'],
@@ -445,7 +445,7 @@
           boss: 'Shura，天空中无处可藏。我的箭会找到你。',
         },
       },
-      // Special match-ups: lines are spoken in the order written
+
       pairs: {
         'akane|aoi': [['akane', 'Aoi！是时候了结我们未完的决斗了。'], ['aoi', '风总是吹向同一团火，Akane。开始吧。']],
         'kuro|tetsu': [['kuro', '铁壳子。看看里面是不是空的。'], ['tetsu', '就连高山也要向纪律低头，Kuro。']],
@@ -542,22 +542,22 @@
 
     EN.NUMWORDS = ['零', '一', '两', '三', '四', '五', '六', '七', '八', '九', '十', '十一', '十二'];
 
-    // ================================================================ static HTML, hardcoded literals, canvas pop-ups
+
     merge(EN.PHRASES, {
-      // ---------------------------------------------------------------- index.html: <title>, brand, HUD
+
       'Gölge Düellosu': 'Shadow Duel',
       'Duraklat': '暂停',
       'KARŞILIKLI SERİ': '连环对拆',
       'SON DARBE': '最后一击',
       'atlamak için bir tuşa bas': '按任意键跳过',
-      // touch buttons (static fallbacks of data-s="touch.btn.*")
+
       'GARD': '防御',
       'HAFİF': '轻斩',
       'SALDIR': '攻击',
       'AĞIR': '重斩',
       'ATIL': '冲刺',
       'TEKME': '踢',
-      // ---------------------------------------------------------------- main menu
+
       'Sekiz savaşçı, üç arena. Gerçek zamanlı kılıç çarpışması, kılıç kilitlenmesi, savuşturma, denge kırma, Gölge Kesiği ve ragdoll fiziği.': '八名战士，三座竞技场。实时刀剑交锋、拼刀、弹反、破架势、影斩与布娃娃物理。',
       'İki Oyuncu': '双人对战',
       'Aynı klavyede ya da iki gamepad ile kafa kafaya': '同一键盘或两个手柄，正面对决',
@@ -577,7 +577,7 @@
       'Kan efekti': '流血效果',
       'Tuş ipuçları': '按键提示',
       'Yüksek grafik': '高画质',
-      // ---------------------------------------------------------------- controls card
+
       'Kontroller': '操作',
       '1. Oyuncu': '玩家1',
       '2. Oyuncu': '玩家2',
@@ -591,7 +591,7 @@
       'Sağ Shift': '右 Shift',
       'Atılma': '冲刺',
       'Ki tekniği (ki dolu)': '气技（气槽满）',
-      // ---------------------------------------------------------------- select screen
+
       'Ninjanı seç': '选择你的忍者',
       'Hazır': '准备就绪',
       '1. oyuncunun ninjası': '玩家1的忍者',
@@ -608,7 +608,7 @@
       'Güç': '力量',
       'Menzil': '距离',
       'Can': '体力',
-      // ---------------------------------------------------------------- pause / end
+
       'Duraklatıldı': '已暂停',
       'Devam et': '继续',
       'Maçı yeniden başlat': '重新开始比赛',
@@ -620,20 +620,20 @@
       'Verilen hasar': '造成伤害',
       'Savuşturma': '弹反',
       'Ki Saldırısı': '气技攻击',
-      // ---------------------------------------------------------------- training / leaderboard / misc
+
       'Antrenman': '训练',
       'ANTRENMAN': '训练',
       'Sıralama': '排行榜',
       'Tümü': '全部',
       'Ekranı yan çevir': '请横屏',
       'Performans için grafik düşürüldü': '已降低画质以提升流畅度',
-      // hidden boss pushed into ND.CHARS by arcade.js (safety net; EN.CHARS.shura should carry the same)
+
       'Kanlı Usta': '血之大师',
       'Yolunu kanla çizen iblis usta. Uzun nodachi, yıkıcı darbeler, neredeyse kusursuz savuşturma.': '以鲜血开路的恶鬼大师。长野太刀，毁灭性的重击，近乎完美的弹反。',
-      // ---------------------------------------------------------------- HUD tags (fallbacks when STR.hud is missing)
+
       'SEN': '你',
       'KUKLA': '木桩',
-      // ---------------------------------------------------------------- round banners (#bt / #bs)
+
       'Son raund': '最终回合',
       'Kazanan her şeyi alır': '胜者通吃',
       'İlk iki raundu alan kazanır': '先赢两回合者获胜',
@@ -642,13 +642,13 @@
       'Berabere': '平局',
       'Çifte K.O.': '双重 K.O.',
       'Mükemmel': '完美',
-      // blade-lock hint (fallbacks of STR.hud.lockSolo / lockDuo)
+
       'F / K tuşuna hızlıca bas!': '狂按 F / K！',
       'Hafif ya da ağır tuşuna hızlıca bas!': '狂按轻斩或重斩！',
-      // counter / parry prompt labels under the key ring (ctx.fillText in drawPrompts)
+
       'KARŞILIK': '反击',
       'SAVUŞTUR': '弹反',
-      // ---------------------------------------------------------------- canvas pop-ups (fx.text)
+
       'SON VURUŞ!': '终结技！',
       'KİLİTLENDİ!': '拼刀！',
       'İTTİ!': '推开！',
@@ -671,9 +671,9 @@
     });
 
     merge(EN.HTML, {
-      // brand title
+
       'Gölge<br><em>Düel</em><em>losu</em>': 'Shadow<br><em>Du</em><em>el</em>',
-      // tips list (<ul class="tips">)
+
       '<b>Savuşturma:</b> darbe gelmeden hemen önce gard tuşuna bas; rakip sendeler.':
         '<b>弹反：</b>在攻击命中前一刻按防御键，对手会踉跄失衡。',
       '<b>Karşılık (返し技):</b> gard ya da savuşturmanın hemen ardından saldırı tuşu → anında karşı kesik. <b>İleri</b> + hafif = bacağa süpürme, <b>geri</b> + hafif = yanından dönüp arkadan kesme, <b>ağır</b> = güçlü karşı darbe.':
@@ -688,30 +688,30 @@
         '<b>冲刺 + 轻斩</b> = 冲刺斩。<b>空中</b>轻斩 = 空中斩，重斩 = 下劈。重斩能击倒对手；撞到墙上的人会被弹回。',
       '<b>Denge çubuğu</b> dolarsa gard kırılır. Tekme gardı delip dengeyi hızla doldurur.':
         '<b>架势条</b>积满时防御会被打破。踢击能穿透防御，快速积累架势。',
-      // gamepad note (Esc -> Start or P)
+
       'Gamepad: X hafif · Y ağır · B tekme · A zıpla · LB gard · RB shuriken · RT atılma · R3 ki tekniği. Start ya da <kbd>P</kbd> duraklatır. CPU modunda her iki tuş seti de seni yönetir.':
         '手柄：X 轻斩 · Y 重斩 · B 踢击 · A 跳跃 · LB 防御 · RB 手里剑 · RT 冲刺 · R3 气技。Start 或 <kbd>P</kbd> 暂停。对战电脑时，两套按键都可以操控你。',
-      // select / VS hints (Esc -> ⌫)
+
       '<kbd>Enter</kbd> başlatır · <kbd>⌫</kbd> menüye döner': '<kbd>Enter</kbd> 开始 · <kbd>⌫</kbd> 返回',
       '<kbd>Enter</kbd> / <kbd>F</kbd> başlatır · <kbd>⌫</kbd> çıkar': '<kbd>Enter</kbd> / <kbd>F</kbd> 开始 · <kbd>⌫</kbd> 退出',
     });
 
     EN.PATTERNS.push(
-      // HUD round label (#rlabel) and round banner
+
       [/^RAUND (\d+)$/, '第$1回合'],
       [/^(\d+)\. Raund$/, '第$1回合'],
-      // canvas pop-ups built from numbers
+
       [/^(\d+)\. KARŞILIK$/, '反击 ×$1'],
       [/^(\d+) VURUŞLUK SERİ!$/, '$1连对拆！'],
-      // time-up banner sub: `${name} önde`
+
       [/^(.+) önde$/, (m, n) => I.t(n) + '领先'],
-      // end screen title: `${Name} kazandı`
+
       [/^(.+) kazandı$/, (m, n) => I.t(n) + '获胜'],
-      // end screen sub line: `${a} – ${b} · ${round} raund · ${arenaName}`
+
       [/^(\d+) – (\d+) · (\d+) raund · (.+)$/, (m, a, b, r, ar) => `${a} – ${b} · ${r}回合 · ${I.t(ar)}`],
     );
 
-    // ================================================================ added with the portal build (PLAY, ads, coach)
+
     merge(EN.STR, {
       menu: { play: '开玩', playSub: (name, lv) => `${name} 对战电脑 · ${lv}` },
       first: { play: '开玩', sub: '轻点一下，立刻开打', menu: '全部模式' },
@@ -730,21 +730,21 @@
       },
     });
 
-    // ================================================================ VOLUME: sliders on the menu card and in pause (js/volume.js)
+
     merge(EN.STR, {
       vol: {
         title: '音量', master: '总音量', music: '音乐', sfx: '音效', sound: '声音',
         pct: (n) => `${n}%`,
         muted: '声音已关闭。拖动任一滑块即可重新开启。',
-        // Settings > Audio: character / announcer voices switch (js/voice.js) and the courtesy credit under it
+
         voice: '语音',
         uiSfx: '菜单音效',
         credit: '语音：ユーフルカ (youfulca.com) · 効果音ラボ · すぱらんど',
       },
     });
 
-    // ================================================================ TOUCH LAYOUT EDITOR: movement modes + "Customize controls"
-    // (js/touch.js settings rows, js/touch-editor.js; Turkish source in i18n.js, block "touch movement modes + layout editor")
+
+
     merge(EN.STR, {
       tedit: {
         move: '移动方式',
@@ -778,8 +778,8 @@
       },
     });
 
-    // ================================================================ PROGRESSION: honor, rival challenges, moves panel
-    // (arcade.js STR.honor / STR.rival / STR.hint, game.js select screen; rules in js/honor.js)
+
+
     merge(EN.STR, {
       menu: { arcadeDesc: '难度步步攀升，逐一击败对手，最后还有隐藏大师在等你。荣誉的最佳来源。' },
       sel: {
@@ -852,8 +852,8 @@
       },
     });
 
-    // ================================================================ COMBAT: new kits, combos, move list (combat designer)
-    // Akane/Aoi/Ren/Kage identities, combo counter, ki cancel, ND.MOVELIST names/descriptions (read through ND.i18n.t)
+
+
     merge(EN.CHARS, {
       akane: { desc: '居合术高手。刀静候鞘中，每一斩都是拔刀斩；她的拔刀架势能接住来袭的攻击。', weapon: 'Katana（居合）' },
       aoi: { desc: '单手持太刀的风之剑士。突刺距离长，风步一步就能拉近任何距离。', weapon: 'Tachi' },
@@ -863,7 +863,7 @@
     merge(EN.TXT, { kiCancel: '气取消！', launch: '挑空！', iaiCatch: 'IAI GAESHI!' });
     EN.PATTERNS.push([/^(\d+) VURUŞ$/, '$1连击']);
     merge(EN.PHRASES, {
-      // shared rows
+
       'Tekme': '踢击',
       'Tekme: dengeyi hızla doldurur, gardı kırmaya yarar. Ardından AĞIR ile seri bitirişine bağlanır.': '踢击：快速积累架势，有助于破防。接重斩可打出连段收尾。',
       'Shuriken fırlatır; zamanla yeniden dolar.': '投掷手里剑；会随时间补充。',
@@ -883,7 +883,7 @@
       'Atılırken dönerek geniş kesik; yere serer.': '冲刺中旋身大范围斩击；击倒。',
       'İki kesiklik seri bitirişi; son kesik yere serer.': '两斩连段收尾；最后一斩击倒。',
       'Rakibin kılıcını aşağı çarpıp dürter: gardı ezer.': '把对手的刀压下再刺击：压垮防御。',
-      // Akane
+
       'Kından yatay çekiş kesiği, çapraz iniş, geri dönen kesik; kılıç her seferinde kınına döner.': '出鞘横斩、斜劈、回身斩；每次斩完刀都会收回鞘中。',
       'Derin çömelişten geniş yatay çekiş; yere serer.': '深蹲后大范围横向拔刀斩；击倒。',
       'Atılarak kından çekiş: uzak mesafeyi bir anda kapatır, seriye devam eder.': '突进拔刀斩：瞬间拉近远距离，可接连段。',
@@ -892,7 +892,7 @@
       'Çekiş duruşu: kısa bir an bekler; bu sırada gelen yakın dövüş darbesini yakalar ve kaçınılmaz bir iai kesiğiyle karşılık verir. Boşa giderse açık kalır.': '拔刀架势：短暂静候；期间来袭的近身攻击会被接住，并以无法闪避的居合斩回敬。若落空则会露出破绽。',
       'Kesa’dan sonra yükselen ve inen iki çekiş kesiği; son kesik yere serer.': 'Kesa 之后接一上一下两记拔刀斩；最后一斩击倒。',
       'Tekmeden sonra çömelip rakibin içinden geçen kızıl iai; arkasında belirir.': '踢击后俯身使出赤红居合，贯穿对手；在其身后现身。',
-      // Aoi
+
       'Tek elle uzun dürtüş, yukarı savrulan kesik ve rüzgâr adımıyla derin atılma dürtüşü.': '单手长距离突刺、上撩斩，再借风步深入突刺。',
       'Dönerek geniş yatay kesik; yere serer.': '旋身大范围横斩；击倒。',
       'Rüzgâr adımı: çok uzaktan tek hamlede dürter, seriye devam eder.': '风步：从很远处一步突刺，可接连段。',
@@ -901,7 +901,7 @@
       'Geri sıçrar, ardından çok uzağa uzanan dürtüşle geri döner: gardı ezer, yere serer.': '向后跳开，再以超长突刺杀回：压垮防御并击倒。',
       'Üç hızlı dürtüş; sonuncusu rüzgârla rakibi savurur.': '三记快速突刺；最后一记乘风把对手吹飞。',
       'İki kez dönerek çevresini biçen kesik; gardı ezer.': '旋转两圈，斩向四周；压垮防御。',
-      // Ren
+
       'Kesik · Dirsek · Diz': '斩 · 肘 · 膝',
       'Tek elle kesik, dirsek darbesi ve uçan diz: kılıçla başlayıp bedenle biter.': '单手斩、肘击、飞膝：以刀起手，以肉身收尾。',
       'İki elle tepeden ezici iniş; gardı zorlar, yere serer.': '双手从上方猛力劈下；施压防御并击倒。',
@@ -911,7 +911,7 @@
       'Topuğu havaya kaldırıp balta gibi indirir: yere serer.': '高抬脚跟，如斧头般劈下：击倒。',
       'Dirsekten sonra kesik ve tepeden ezici iniş; son vuruş yere serer.': '肘击后接一斩和从上方的猛劈；最后一击击倒。',
       'Tekmenin ardından dönen topuk tekmesi; yere serer.': '踢击后接回旋踵踢；击倒。',
-      // Kage
+
       'Ters tutuşla kesik, dönen kesik ve gölge adımı: kaybolup öne geçer, dürterek belirir.': '反手斩、回旋斩和影步：消失后闪到前方，现身时刺击。',
       'Sıçrayıp ters tutuşla aşağı saplar; yere serer.': '跃起反手向下刺；击倒。',
       'Gölge gibi uzun atılma kesiği; seriye devam eder.': '如影般的长距离冲刺斩；可接连段。',
@@ -920,18 +920,18 @@
       'Ayağının dibine sis bombası atar: yakındakini sersemletir, Kage dumanın içinde geri kaçar.': '向脚下扔出烟雾弹：眩晕附近的对手，Kage则在烟雾中后撤。',
       'Üç hızlı ters kesik ve aşağı saplama; sonuncusu yere serer.': '三记快速反手斩加一记下刺；最后一击击倒。',
       'Tekmeden sonra dumanda kaybolur, rakibin arkasında belirip saplar.': '踢击后消失在烟雾中，出现在对手身后刺击。',
-      // template row names
+
       'Nodachi serisi': 'Nodachi 连段', 'Ağır nodachi': '重 Nodachi', 'Kodachi serisi': 'Kodachi 连段', 'Ağır kesik': '重斩',
       'Tantō dansı': 'Tantō 之舞', 'Çift kesik': '双斩', 'Naginata serisi': 'Naginata 连段', 'Ağır savuruş': '重挥',
       'Zincir ve orak': '锁链与镰刀', 'Zincir çekişi': '锁链拉扯', 'Asa serisi': '棍连段', 'Ağır süpürme': '重扫',
       'Yelpaze serisi': '扇连段', 'Rüzgâr dalgası': '风浪', 'Tantō serisi': 'Tantō 连段', 'Ok (basılı tut: güçlü)': '射箭（按住：强射）',
       'Geri + AĞIR da ok atar (basılı tut: güçlü atış); ok kalmadıysa tantō ile tepeden iner.': '后 + 重斩也能射箭（按住：强力射击）；没有箭时，她会持短刀从上方劈下。',
-      // combat pop-ups
+
       'KI İPTALİ!': '气取消！', 'HAVAYA!': '挑空！',
     });
 
-    // ================================================================ COUNTER CINEMATIC + COMBO TRIAL (combat feel pass)
-    // js/kaeshi-cine.js STR.kaeshi, js/combo-trial.js STR.trial, js/coach.js combo/counter tips, move list legend
+
+
     {
       const tb = (t, c) => `<i class="tb${c ? ' ' + c : ''}">${t}</i>`;
       merge(EN.STR, {
@@ -988,8 +988,8 @@
       });
     }
 
-    // ================================================================ GRAPHICS QUALITY: the Graphics setting (js/gfx.js)
-    // (Turkish source in i18n.js, block "graphics quality")
+
+
     merge(EN.STR, {
       gfx: {
         title: '画质',
@@ -1002,8 +1002,8 @@
           custom: '你自己的设置（高级）。',
         },
         now: (lv) => `当前：${lv}`,
-        // Settings → Graphics → Advanced (game.js gfxAdvBuild, js/gfx.js KNOBS): the switch, the line under it, the hint on
-        // the heaviest rows, one title per knob and the value words (resolution shows percentages, anti-aliasing 2× / 4×)
+
+
         adv: {
           title: '高级',
           note: '修改任意一项都会变为“自定义”；点选预设即可恢复其数值。',
@@ -1014,8 +1014,8 @@
       },
     });
 
-    // ================================================================ FRAME RATE: Settings → Graphics (js/gfx.js makePacer)
-    // (Turkish source in i18n.js, block "frame rate"; the numbers themselves are not translated)
+
+
     merge(EN.STR, {
       fps: {
         title: '帧率',
@@ -1030,7 +1030,7 @@
       },
     });
 
-    // ================================================================ SETTINGS SCREEN (js/settings.js; Turkish source in i18n.js)
+
     merge(EN.STR, {
       set: {
         title: '设置', close: '关闭',
@@ -1040,13 +1040,13 @@
       },
     });
 
-    // ================================================================ LANGUAGE PICKER (js/lang-ui.js; Turkish source in i18n.js)
-    // Language names are not translated: each one is written in its own language (ND.i18n.names).
+
+
     merge(EN.STR, { lang: { title: '语言', change: '更改语言', close: '关闭' } });
 
-    // ================================================================ TOUCH HELP PER MOVEMENT MODE
-    // (game.js touchHelp(): the menu's touch help follows the movement mode; Turkish source in i18n.js, block
-    // "touch help per movement mode")
+
+
+
     merge(EN.STR, {
       thelp: {
         title: { float: '摇杆', fixed: '固定摇杆', dpad: '方向键' },
@@ -1060,10 +1060,10 @@
       },
     });
 
-    // ================================================================ SHARED LABELS (static HTML / move list text that is the same word in Turkish)
+
     merge(EN.PHRASES, { 'Shuriken': '手里剑', 'KI': '气' });
 
-    // Persistent character journeys.
+
     merge(EN.STR, { menu: { arcadeDesc: '每名忍者都有一段八场战斗的征途。继续挑战下一个对手，解锁角色结局和大师印。' }, sel: { title: { arcade: '街机模式 · 角色征途' } },
       journey: {
         start: '开始征途',
@@ -1080,8 +1080,8 @@
       }
     });
 
-    // ================================================================ PROGRESS / ACCOUNT (Settings → Progress, Hall of Champions;
-    // js/settings.js, js/banzuke.js; Turkish source in i18n.js, block "account and recovery code")
+
+
     merge(EN.STR, {
       set: { tabs: { save: '进度' } },
       acct: {
@@ -1105,8 +1105,8 @@
       lb: { savedLocalAccount: (r) => (r ? `本设备第${r}名 · 暂时无法连接你的账号` : '已保存在本设备 · 暂时无法连接你的账号') },
     });
 
-    // ================================================================ PRIVACY (js/privacy.js; Turkish source in i18n.js, block
-    // "privacy"). The policy page itself (privacy.html) is English + Turkish; other languages see the English part.
+
+
     merge(EN.STR, {
       priv: {
         notice: 'Shadow Duel 会保存你的昵称和成绩，用于在线排行榜。',
@@ -1115,8 +1115,8 @@
       },
     });
 
-    // ================================================================ FIRST-FIGHT RALLY TUTORIAL: js/tutorial.js STR.tutor and
-    // Training → Parry drill (Turkish source in i18n.js, block "rally tutorial")
+
+
     merge(EN.STR, {
       menu: { trainDrill: '弹反练习' },
       tutor: {
@@ -1136,12 +1136,21 @@
         mastered: '已掌握！', masteredSub: '防御、反击，循环往复',
         warm: (l) => `热身：按${l}三次`,
         nudge: (k) => `按${k}`, nudgeT: (k) => `点${k}`,
+
+
+        skip: '跳过 ›',
+        steps: {
+          attack: (b) => `按${b}攻击`, guard: (b) => `按${b}挡住刀刃`, counter: (b) => `按${b}反击`,
+          timing: (b, l) => `轮到你：光圈收拢时按${b}，再按${l}`,
+        },
+        ok: { attack: '漂亮！', guard: '格挡成功！', counter: '反击！', timing: '完美！' },
+        ready: '准备好了！', readySub: '现在赢下这场决斗',
       },
     });
 
-    // ================================================================ NEW PLAYER: the select screen's one-time greeting
-    // (game.js openSelect), the VS goal line's "?" (arcade.js openVs) and the just-in-time tips (js/coach.js ND.coach.tips;
-    // arguments: key / button chips, lessons: the menu names of Training and Tutorial). Turkish source in i18n.js.
+
+
+
     merge(EN.STR, {
       onb: { selIntro: '选择你的忍者：每名忍者都有自己的征途', more: '详情' },
       tips: {
@@ -1158,7 +1167,7 @@
       },
     });
 
-    // ================================================================ online "play with a friend" (js/online.js: ND.STR.online)
+
     merge(EN.STR, {
       online: {
         title: '和好友对战',
@@ -1231,7 +1240,7 @@
       },
     });
 
-    // ================================================================ ranked duel (js/ranked.js: ND.STR.ranked)
+
     merge(EN.STR, {
       ranked: {
         title: '排位决斗', menuSub: '随机对手 · 积分、段位与赛季', offline: '排位赛暂时关闭',
@@ -1283,11 +1292,22 @@
         aiNote: '在线玩家较少时，你可能会匹配到模仿真实玩家风格的AI对手。', gotIt: '知道了',
         err: { network: '无法连接服务器。请检查网络连接。', bad_version: '游戏有新版本了：请刷新页面。', busy: '排队人数过多，请稍后再试。',
           rate_limited: '尝试次数过多，请稍等片刻。', disabled: '排位赛暂时关闭。', banned: '此账号无法进行排位赛。', other: '出错了，请再试一次。' },
+
+        bg: { ru: '搜索时浏览菜单', stopT: '停止排位匹配？', stopS: '开始这场战斗会结束匹配。', stopGo: '停止并开始', keep: '继续匹配', stopped: '已停止排位匹配', chip: '匹配中' },
+        card: { findMatch: '寻找对手', searching: '搜索中…', resume: '返回比赛',
+          place: (p, n) => `第${p}名（共${n}人）`, placeOnly: (p) => `排行榜第${p}名`,
+          toBoard: (n) => `再打${n}场即可上榜`, toBoardSoon: '再打几场即可上榜',
+          invite: '从足轻到将军：首场排位赛只差一下点击',
+          guestInvite: '登录即可积分对战 · 游客不计分', nickInvite: '设置昵称即可积分对战',
+          winRate: (p) => `胜率${p}%`, streakW: (n) => `${n}连胜`, streakL: (n) => `${n}连败`,
+          peak: (t) => `本赛季最佳：${t}`, shields: (n) => `护盾 ×${n}`, top: '赛季前三', you: '你', empty: '榜上还没有人：来当第一个', rating: '分' },
       },
+
+      upd: { ready: '新版本已就绪 — 点击更新', refresh: '新版本已发布 — 刷新页面即可游玩', close: '关闭' },
     });
 
-    // ================================================================ LEVEL + SHADOW PASS (js/level.js, js/pass.js)
-    // English: L.en in js/i18n-pass.js; the on-demand languages keep these texts in their own file.
+
+
     merge(EN.STR, {
       pass: {
         k: '影', lv: 'LV',
@@ -1298,7 +1318,7 @@
         free: '免费', bonus: '暗影', bonusAds: '每个奖励：看一段广告', bonusWait: (n) => `免广告：${n}阶后解锁`,
         claim: '领取', claimAll: (n) => `全部领取（${n}）`, owned: '已领取', watch: '看广告', milestone: '免费', opensAt: (t) => `第${t}阶解锁`,
         online: '需要联网', soon: '更多阶段即将推出', soonXp: '你的经验仍在累积', close: '关闭', tabs: { pass: '通行证', profile: '个人资料' },
-        rows: { win: '胜利', loss: '参战', rounds: '回合', perfect: '完美', rally: '对拆', counter: '反击', parry: '弹反', short: '速战速决', boost: '加成', daily: '每日首胜', streak: '连续天数', clear: '征途', trial: '连段挑战', tutorial: '教程' },
+        rows: { win: '胜利', loss: '参战', rounds: '回合', perfect: '完美', rally: '对拆', counter: '反击', parry: '弹反', short: '速战速决', boost: '加成', daily: '每日首胜', streak: '连续天数', clear: '征途', trial: '连段挑战', tutorial: '教程', first: '新手奖励' },
         streakN: (n) => `第${n}天`,
         up: '升级了', got: '新奖励',
         boostName: (n) => `×1.5 XP · ${n}场`, honorName: (n) => `+${n}荣誉`,
@@ -1322,8 +1342,8 @@
       },
     });
 
-    // ================================================================ 1.3.2 SHADOW PASS: 30 tiers, fight flair, progress rewards,
-    // the ranked shield, the Profile screen (English: X.en in js/i18n-pass.js; flair: the fight flair's names, js/flair.js ids)
+
+
     merge(EN.STR, {
       pass: {
         kinds2: { pose: '胜利姿势', hitfx: '打击特效', slash: '反击斩', aura: '气之灵光', ko: 'KO终结', card: '名牌', arena: '场地变体', music: '菜单音乐', rkey: '钥匙', akey: '钥匙', ticket: '券', shield: '护盾' },
@@ -1352,6 +1372,8 @@
         shieldUsed: '护盾已生效：未扣分',
         rankedHonor: (n) => `+${n}荣誉`,
         variant: '变体',
+
+        newTag: '新', newN: (n) => `新内容：${n}`, headUnlocks: '忍者与场地', headRewards: '排位奖励',
         flair: { pose_tenchi: '举刃向天', pose_rei: '行礼', pose_hiza: '跪姿残心', pose_katsugi: '扛刀于肩', pose_kissaki: '下一个就是你', hitfx_kinpaku: '金箔打击', hitfx_aizome: '靛蓝墨', hitfx_sakura: '樱花绽放', hitfx_kitsunebi: '狐火', hitfx_raijin: '雷神火花', slash_kin: '金之刃', slash_sumi: '墨笔', slash_hana: '花瓣之风', slash_rai: '雷斩', aura_kitsunebi: '狐火灵光', aura_raiun: '风暴灵光', aura_hana: '繁花灵光', aura_gekko: '月光灵光', ko_enso: '圆相终结', ko_hanafubuki: '花吹雪', ko_raiko: '落雷', ko_mikazuki: '新月', card_seigaiha: '青海波', card_yozakura: '夜樱', card_ryu: '龙之漆', card_tsukiyo: '月下松林', card_asanoha: '麻叶金纹', arena_temple_snow: '雪中神社', arena_rain_moon: '月下竹林', arena_snow_night: '雪峰之夜', arena_market_rain: '雨夜集市', music_haru: '春之庭', music_yuki: '雪月', music_matsuri: '祭典之夜', pass1_akane: '月影华服' },
       },
     });
@@ -1359,8 +1381,8 @@
     void dec; void fmtTime; void num;
   };
 
-  // ---------------------------------------------------------------- journey texts (js/journey-text.js reads ND.JOURNEY_COPY)
-  // Same lists, same order and same counts as the `en` entry in js/journey-text.js (ui 17, goals 10, titles 13, endings 13).
+
+
   (ND.JOURNEY_COPY || (ND.JOURNEY_COPY = {}))['zh'] = {
     ui: ['角色征途', '最终对手', '可选精通', '赢下这一战才能保住星星。', '获得精通星', '未获得星星 · 重玩时再试', '精通星', '以8颗星中的6颗完成征途，即可赢得称号和传承配色。星星在重玩之间保留。', '原始配色', '传承配色', '外观', '获得6颗精通星并完成该角色的征途。', '你之前的征途和奖励都已保留。重玩即可探索新路线。', 'Shura挑战：完成3名不同角色的征途。', '赢下这场决斗即可解锁', '征途完成', '章节'],
     goals: ['弹反', '反击命中', '重击命中', '踢击命中', '空中命中', '冲刺攻击命中', '连击第三击命中', '飞行道具命中', '气技命中', '破防'],

@@ -1,13 +1,13 @@
-// Shadow Duel — the duel's own words in every language (js/duel*.js, js/props.js): the shouts over the fight, the bind
-// and pick-up prompts, the arena's moments (the context button and what it does). English is the key; one row per
-// phrase, 17 translations in the order of LANGS (English needs none). ND.duel.tr(s) gives the phrase in the language in
-// force (ND.i18n.lang; Turkish too - the duel was written in English), else English. Technique names (MAKI-OTOSHI,
-// KURENAI ISSEN…) stay as they are, as the game's other technique names do.
+
+
+
+
+
 (function (ND) {
   'use strict';
   const LANGS = ['tr', 'es', 'pt', 'ru', 'de', 'fr', 'it', 'pl', 'id', 'vi', 'th', 'hi', 'ar', 'zh', 'zh-TW', 'ja', 'ko'];
   const T = {
-    // ---- shouts over the fight
+
     'DISARMED!': ['SİLAHSIZ!', '¡DESARMADO!', 'DESARMADO!', 'ОБЕЗОРУЖЕН!', 'ENTWAFFNET!', 'DÉSARMÉ !', 'DISARMATO!', 'ROZBROJONY!', 'TERLUCUTI!', 'MẤT KIẾM!', 'ปลดอาวุธ!', 'निहत्था!', 'جُرِّد!', '缴械！', '繳械！', '武器落とし！', '무장 해제!'],
     'SWORD BACK!': ['KILIÇ GERİ!', '¡ESPADA DE VUELTA!', 'ESPADA DE VOLTA!', 'МЕЧ В РУКЕ!', 'SCHWERT ZURÜCK!', 'ÉPÉE REPRISE !', 'SPADA RIPRESA!', 'MIECZ ODZYSKANY!', 'PEDANG KEMBALI!', 'LẤY LẠI KIẾM!', 'ได้ดาบคืน!', 'तलवार वापस!', 'استعاد السيف!', '夺回刀！', '奪回刀！', '刀を取り戻した！', '검 회수!'],
     'CATCH!': ['YAKALADI!', '¡ATRAPADO!', 'AGARROU!', 'ПЕРЕХВАТ!', 'GEFANGEN!', 'SAISI !', 'PRESO!', 'CHWYT!', 'TANGKAP!', 'BẮT ĐƯỢC!', 'จับได้!', 'पकड़ा!', 'إمساك!', '擒住！', '擒住！', 'つかんだ！', '잡았다!'],
@@ -44,7 +44,7 @@
     'SWEEP!': ['SÜPÜR!', '¡BARRIDO!', 'RASTEIRA!', 'ПОДСЕЧКА!', 'FEGER!', 'BALAYAGE !', 'SPAZZATA!', 'PODCIĘCIE!', 'SAPU!', 'QUÉT CHÂN!', 'กวาดขา!', 'टंगड़ी!', 'كنس!', '扫腿！', '掃腿！', '足払い！', '다리 걸기!'],
     'TWIST!': ['BÜK!', '¡GIRA!', 'TORCE!', 'ВЫКРУТ!', 'DREH!', 'TORSION !', 'TORCI!', 'SKRĘT!', 'PUTAR!', 'VẶN!', 'บิด!', 'मरोड़ो!', 'لفّ!', '拧！', '擰！', 'ひねれ！', '비틀어!'],
     'VAULT!': ['ATLA!', '¡SALTA!', 'SALTA!', 'ПРЫЖОК!', 'SPRUNG!', 'SAUTE !', 'SALTA!', 'SKOK!', 'LOMPAT!', 'NHẢY QUA!', 'กระโดดข้าม!', 'छलाँग!', 'اقفز!', '跃过！', '躍過！', '飛び越えろ！', '뛰어넘어!'],
-    // ---- the arena's moments (the name over the one who does it)
+
     'Vault and kick': ['Atla ve tekmele', 'Salto y patada', 'Salto e chute', 'Прыжок и удар ногой', 'Sprung und Tritt', 'Saut et coup de pied', 'Salto e calcio', 'Skok i kopnięcie', 'Lompat dan tendang', 'Nhảy qua và đá', 'กระโดดเตะ', 'छलाँग और लात', 'قفزة وركلة', '跃起踢击', '躍起踢擊', '飛び越え蹴り', '뛰어넘어 차기'],
     'Over the table': ['Masanın üstünden', 'Sobre la mesa', 'Por cima da mesa', 'Через стол', 'Über den Tisch', 'Par-dessus la table', 'Sopra il tavolo', 'Przez stół', 'Melompati meja', 'Vượt qua bàn', 'ข้ามโต๊ะ', 'मेज़ के ऊपर से', 'فوق الطاولة', '越过桌子', '越過桌子', '机を越えて', '탁자를 넘어'],
     'Over the stool': ['Taburenin üstünden', 'Sobre el taburete', 'Por cima do banquinho', 'Через табурет', 'Über den Hocker', 'Par-dessus le tabouret', 'Sopra lo sgabello', 'Przez taboret', 'Melompati bangku', 'Vượt qua ghế đẩu', 'ข้ามม้านั่ง', 'स्टूल के ऊपर से', 'فوق المقعد', '越过凳子', '越過凳子', '腰掛けを越えて', '의자를 넘어'],
@@ -75,7 +75,7 @@
     'Kicked into the jar': ['Küpe tekmelendi', 'Pateado contra la vasija', 'Chutado no jarro', 'Пинком в кувшин', 'In den Krug getreten', 'Envoyé dans la jarre', 'Calciato nella giara', 'Kopnięty w dzban', 'Ditendang ke guci', 'Bị đá vào chum', 'ถูกเตะใส่ไห', 'मटके में लात', 'رُكل نحو الجرة', '被踢进陶罐', '被踢進陶罐', '壺へ蹴り飛ばす', '항아리로 걷어참'],
     'Kicked over the bucket': ['Kovanın üstüne tekmelendi', 'Pateado sobre el cubo', 'Chutado sobre o balde', 'Пинком через ведро', 'Über den Eimer getreten', 'Envoyé par-dessus le seau', 'Calciato sopra il secchio', 'Kopnięty na wiadro', 'Ditendang ke ember', 'Bị đá qua xô', 'ถูกเตะข้ามถังน้ำ', 'बाल्टी पर लात', 'رُكل فوق الدلو', '被踢过水桶', '被踢過水桶', '桶へ蹴り飛ばす', '양동이 너머로 걷어참'],
     'Spare sword from the rack': ['Raftan yedek kılıç', 'Espada de repuesto del soporte', 'Espada reserva do suporte', 'Запасной меч со стойки', 'Ersatzschwert vom Ständer', 'Épée de rechange du râtelier', 'Spada di riserva dalla rastrelliera', 'Zapasowy miecz ze stojaka', 'Pedang cadangan dari rak', 'Kiếm dự phòng trên giá', 'ดาบสำรองจากชั้นวาง', 'रैक से अतिरिक्त तलवार', 'سيف احتياطي من الحامل', '从刀架取备用刀', '從刀架取備用刀', '刀掛けから予備の刀', '거치대의 예비 검'],
-    // ---- the context button
+
     'Something to use is in reach: tap this button.': ['Kullanabileceğin bir şey yakında: bu düğmeye dokun.', 'Hay algo a mano para usar: toca este botón.', 'Há algo para usar por perto: toque neste botão.', 'Рядом есть что использовать: нажми эту кнопку.', 'Etwas Nützliches in Reichweite: tippe auf diese Taste.', 'Un objet est à portée : touche ce bouton.', 'C\'è qualcosa da usare a portata: tocca questo pulsante.', 'Coś do użycia jest w zasięgu: dotknij tego przycisku.', 'Ada yang bisa dipakai di dekatmu: ketuk tombol ini.', 'Có thứ để dùng ở gần: chạm nút này.', 'มีของให้ใช้อยู่ใกล้ ๆ: แตะปุ่มนี้', 'पास में कुछ इस्तेमाल करने लायक है: यह बटन दबाओ।', 'هناك شيء يمكن استخدامه قريبًا: المس هذا الزر.', '附近有可利用的东西：点这个按钮。', '附近有可利用的東西：點這個按鈕。', '使える物が近くにある：このボタンを押そう。', '쓸 수 있는 물건이 근처에 있다: 이 버튼을 눌러.'],
     'Use it': ['Kullan', 'Usar', 'Usar', 'Использовать', 'Benutzen', 'Utiliser', 'Usa', 'Użyj', 'Pakai', 'Dùng', 'ใช้', 'इस्तेमाल करो', 'استخدم', '使用', '使用', '使う', '사용'],
   };

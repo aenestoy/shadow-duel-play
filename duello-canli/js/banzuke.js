@@ -1,15 +1,15 @@
-// Gölge Düellosu — rekabet katmanı (番付 Banzuke): Aylık Turnuva, Dan rütbesi, kural değiştiriciler, Şampiyonlar Salonu
-//   Turnuva dönemi bir UTC takvim ayıdır (leaderboard.js period). Kod içindeki "week" adları eski sürümden kaldı.
-//   Biten ayın ilk 3'ü kalıcı unvan alır (Aylık Şampiyon / Finalist); şampiyon, kullandığı ninjanın Şampiyon renklerini açar.
-//
-//   ND.MODS / ND.mods   — kural değiştirici tablosu + çalışma zamanı (dövüşçü yöntemlerini sarar; fighter.js'e dokunmaz)
-//   ND.banzuke.gen(key) — ay anahtarından (2026-09) TOHUMLU üretilen 8 dövüşlük merdiven (herkes için aynı; Math.random yok)
-//   ND.banzuke.tourney  — turnuva koşusu (arcade gibi bir "koşu denetleyicisi": game.runner)
-//   ND.banzuke.danRun   — Dan sınavı koşusu; ND.banzuke.dan — rütbe durumu (ND.save)
-//   ND.banzuke.ui       — lobi (turnuva / Dan), sonuç ekranı, Şampiyonlar Salonu, menü durumu
-//
-// Koşu denetleyicisi arayüzü (game.js çağırır): mode, run, hudTags(), tick(rdt), onRoundEnd(w), onMatchEnd(w, res) → bool,
-//   primary(), retry(), quit(), abandon(), fight(), onKey(e), noRestart
+
+
+
+
+
+
+
+
+
+
+
+
 (function (ND) {
   'use strict';
   const $ = (id) => document.getElementById(id);
@@ -21,7 +21,7 @@
   const tx = (s) => (ND.i18n ? ND.i18n.t(s) : s);
   const fmtTime = (s) => { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
-  // DOM yardımcısı: h('div', { class, title, … , on: { click } }, ...çocuklar) — metin daima textContent
+
   function h(tag, a, ...kids) {
     const e = document.createElement(tag);
     if (a) for (const k of Object.keys(a)) {
@@ -36,22 +36,22 @@
     add(e, kids);
     return e;
   }
-  // Element.append(null) "null" yazar: boşları atlayarak ekle
+
   function add(e, ...kids) {
     for (const c of kids.flat(2)) { if (c == null || c === false) continue; e.appendChild(typeof c === 'object' ? c : document.createTextNode(String(c))); }
     return e;
   }
 
-  // ================================================================ TOHUMLU RASTGELE (haftalık merdiven için)
+
   function hash32(str) { let x = 0x811c9dc5; for (let i = 0; i < str.length; i++) { x ^= str.charCodeAt(i); x = Math.imul(x, 0x01000193); } return x >>> 0; }
   function mulberry32(a) { return function () { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
   const hex8 = (n) => (n >>> 0).toString(16).padStart(8, '0');
 
-  // ================================================================ KURAL DEĞİŞTİRİCİLER
-  // Her biri var olan sistemleri çarpanla ayarlar; iki taraf için de geçerlidir (ayna hariç: o rakip seçimidir).
-  //   dmgAll: tüm hasar · dmgCounter: karşılık/bitiriş hasarı · dmgNormal: karşılık ve ki tekniği dışı vuruşlar
-  //   post: denge (posture) hasarı · ki: ki kazancı · ammo: shuriken sayısı · roundKi: raund başı ki · hpStart: raund başı can
-  //   winsNeed: maçı almak için gereken raund · mirror: rakip = senin ninjan
+
+
+
+
+
   const MODS = ND.MODS = {
     rally2x: { k: '連', dmgCounter: 2, w: 3 },
     fullKi: { k: '満', roundKi: 100, w: 3 },
@@ -67,7 +67,7 @@
   const baseF = () => ({ dmgAll: 1, dmgCounter: 1, dmgNormal: 1, post: 1, ki: 1, ammo: 1, roundKi: 0, hpStart: 1, winsNeed: 2 });
   const M = ND.mods = {
     on: false, ids: [], f: baseF(), hits: 0,
-    // game.start her maçta çağırır: ids yoksa kapanır (isabet sayacı her maçta sıfırlanır)
+
     set(ids) {
       this.hits = 0;
       this.ids = (Array.isArray(ids) ? ids : []).filter((id) => Object.prototype.hasOwnProperty.call(MODS, id));
@@ -88,7 +88,7 @@
     },
     clear() { this.set(null); },
     winsNeed() { return this.on ? this.f.winsNeed : 2; },
-    // raund başı (fighter.reset'ten sonra): ki, shuriken, can
+
     roundStart(F) {
       if (!this.on) return;
       for (const f of F) {
@@ -98,7 +98,7 @@
       }
     },
   };
-  // Dövüşçü yöntemlerini sar (orijinal davranış değişmez; değiştirici yoksa doğrudan geçer)
+
   if (ND.Fighter && !ND.Fighter.prototype._bzWrapped) {
     const FP = ND.Fighter.prototype, take = FP.takeHit, blk = FP.blocked, gk = FP.gainKi;
     FP._bzWrapped = true;
@@ -123,11 +123,11 @@
     FP.gainKi = function (v) { return gk.call(this, M.on && M.f.ki !== 1 ? v * M.f.ki : v); };
   }
 
-  // ================================================================ DAN RÜTBESİ
-  // r = kazanılan rütbe: 0 rütbesiz, 1 = 10. Kyu … 10 = 1. Kyu, 11 = 1. Dan … 20 = 10. Dan.
-  // DAN[r] = r rütbesini kazandıran sınav: f = dövüşlerin yapay zekâ seviyeleri (0 Çırak … 3 Şura), hp = rakip can çarpanı,
-  //   mods = kural değiştiriciler, boss = son dövüş Şura'ya karşı. (Sunucudaki nd_dan_min_level ile uyumlu: en yüksek seviye ≥ eşik.)
-  // Düşme: 2. Dan ve üstünde (r ≥ 12) art arda 3 başarısız sınav → bir basamak aşağı. Kyu'lar ve 1. Dan düşmez.
+
+
+
+
+
   const DAN = [null,
     { f: [0] }, { f: [0] }, { f: [0], hp: 1.15 },
     { f: [1] }, { f: [1], mods: ['kiRush'] }, { f: [1], hp: 1.15 }, { f: [1, 1] },
@@ -138,7 +138,7 @@
   ];
   const DAN_MAX = 20, DEMOTE_FROM = 12, STRIKES = 3;
   const dsave = () => { const p = ND.save && ND.save.p; if (p && p.bz && p.bz.dan) return p.bz.dan; return (dsave.mem = dsave.mem || { r: 0, best: 0, strikes: 0, tries: 0, passes: 0 }); };
-  const commit = () => { try { if (ND.save) ND.save.commit(); } catch (e) { /* yok */ } };
+  const commit = () => { try { if (ND.save) ND.save.commit(); } catch (e) {           } };
   const dan = {
     TABLE: DAN, MAX: DAN_MAX,
     rank() { return clamp(dsave().r | 0, 0, DAN_MAX); },
@@ -148,7 +148,7 @@
     trial(r = this.rank() + 1) { return DAN[r] || null; },
     name(r) { const t = T(); return t.rank ? t.rank(r) : String(r); },
     short(r) { return LB() ? LB().danShort(r) : ''; },
-    // Sınav sonucu: kazandıysa terfi, kaybettiyse (2. Dan+) hak düşer → 3'te bir basamak iner
+
     result(passed, sum) {
       const d = dsave(), r0 = this.rank();
       d.tries = (d.tries | 0) + 1;
@@ -161,10 +161,10 @@
     },
   };
 
-  // ================================================================ AYLIK TURNUVA: tohumlu merdiven
+
   const TOUR = ND.TOURNEY = { fights: 8, clear: 15000, stage: 1000, levels: [0, 1, 1, 1, 2, 2, 2, 3] };
   const BOSS = 'shura', BOSS_ARENA = 'castle';
-  // Aynı ay anahtarı + aynı kadro → herkes için aynı merdiven (Math.random kullanılmaz)
+
   function gen(key) {
     const rng = mulberry32(hash32('nd-tourney-v1|' + key));
     const pick = (arr) => arr[Math.floor(rng() * arr.length) % arr.length];
@@ -173,12 +173,12 @@
     const hasBoss = ND.CHARS.some((c) => c.id === BOSS);
     const order = pool.slice();
     for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
-    // arenalar: patron arenası (Kale Çatısı) yalnız patron dövüşüne saklı; diğerleri tohumlu sırayla, arka arkaya tekrar yok
+
     const arOrder = arenas.filter((a) => a !== BOSS_ARENA || arenas.length === 1);
     for (let i = arOrder.length - 1; i > 0; i--) { const j = Math.floor(rng() * (i + 1)); [arOrder[i], arOrder[j]] = [arOrder[j], arOrder[i]]; }
     const bag = []; MOD_IDS.forEach((id) => { for (let k = 0; k < MODS[id].w; k++) bag.push(id); });
     const fights = [];
-    let mirrorUsed = false; // ayna merdivende en çok bir kez
+    let mirrorUsed = false;
     for (let i = 0; i < TOUR.fights; i++) {
       const last = i === TOUR.fights - 1;
       const boss = last && hasBoss && rng() < 0.5;
@@ -202,13 +202,13 @@
   const tsave = () => { const p = ND.save && ND.save.p; if (p && p.bz && p.bz.t) return p.bz.t; return (tsave.mem = tsave.mem || {}); };
   const myWeek = (key) => tsave()[key] || null;
 
-  // ================================================================ KOŞU DENETLEYİCİSİ (turnuva + Dan ortak)
+
   const charIdx = (id, def) => { const i = ND.CHARS.findIndex((c) => c.id === id); return i >= 0 ? i : def; };
   const nice = (n) => n[0] + n.slice(1).toLowerCase();
   function makeRunner(mode) {
     const C = {
       mode, run: null, G: null, noRestart: true,
-      // oyun kancaları
+
       hudTags() {
         const R = this.run, F = R && R.fights[R.i], H = (ND.STR && ND.STR.hud) || {};
         if (!F) return [tx(H.you || 'SEN'), H.cpu || 'CPU'];
@@ -229,20 +229,20 @@
         au().gong();
         this.G.start(mode, { c1: R.me, c2: F.oppIdx, arena: F.arena, level: F.level, mods: F.mods, oppHp: F.hp || null });
       },
-      retry() { /* turnuva/Dan: maç yeniden başlatılamaz (deneme hakkı yok) */ },
+      retry() {                                                                },
       primary() {
         const R = this.run; if (!R) return this.G.goMenu();
         if (R.last === 'win' && R.i < R.fights.length - 1) { R.i++; this.openVs(); }
         else this.finish(R.last === 'win');
       },
-      // Bitiş penceresindeki "çık": kazanılmış dövüş varsa sonucu kaydet ve göster
+
       quit() {
         const R = this.run;
         if (R && !R.shown && ((mode === 'tourney' && R.won > 0) || (mode === 'dan' && R.rec))) return this.finish(R.last === 'win' && R.i === R.fights.length - 1);
-        if (R && !R.shown && mode === 'dan' && R.last === 'win') this.record(false); // sınavın ortasında çıkmak = başarısız
+        if (R && !R.shown && mode === 'dan' && R.last === 'win') this.record(false);
         this.leave();
       },
-      // Duraklatma → ana menü: turnuvada kazanılanı sessizce kaydet; Dan sınavını yarıda bırakmak başarısız sayılır
+
       abandon() {
         const R = this.run;
         if (R && !R.shown && ((mode === 'tourney' && R.won > 0) || mode === 'dan')) this.finish(false, true);
@@ -293,7 +293,7 @@
         else if (G.phase === 'ending') { if (pr('light') || pr('up')) ui.resPrimary(); else if (pr('kick')) this.leave(); }
       },
 
-      // VS ekranı (arcade'in #vs düzeni; değiştiriciler #vsMods'ta)
+
       openVs() {
         const R = this.run, G = this.G, F = R.fights[R.i], me = ND.CHARS[R.me], op = ND.CHARS[F.oppIdx], S = T();
         ND.scene.setTheme(F.arena);
@@ -309,7 +309,7 @@
           $('vsn' + n).textContent = ch.name; $('vst' + n).textContent = ch.title + ' · ' + ch.weapon;
           $('vss' + n).style.setProperty('--sc', col.ui);
         };
-        const look = ND.save && ND.save.look ? ND.save.look(me.id) : false; // Legacy / Champion colors
+        const look = ND.save && ND.save.look ? ND.save.look(me.id) : false;
         side(1, me, look); side(2, op, alt && !look);
         const arena = ND.ARENAS.find((a) => a.id === F.arena);
         $('vsStage').textContent = (mode === 'tourney' ? S.t.head : S.d.trialOf(dan.name(R.target))) + ' · ' + S.fightOf(R.i + 1, R.fights.length);
@@ -335,7 +335,7 @@
         });
         setTimeout(() => { if (G.phase === 'vs') $('vsGo').focus(); }, 0);
       },
-      // Koşunun sonucunu BİR KEZ kaydet (yerel rekor / Dan terfisi-hakkı); gösterimden ayrı
+
       record(cleared) {
         const R = this.run; if (!R) return null;
         if (R.rec) return R.rec;
@@ -348,16 +348,16 @@
           R.newBest = !prev || total > (prev.best | 0);
           commit();
           R.rec = { cleared: !!cleared, total, entry: { score: total, char: me.id, time: Math.round(R.time), date: Date.now(), sum } };
-          // Onur (honor.js): turnuvayı bitirme bonusu
+
           if (cleared && ND.honor && ND.HONOR) ND.honor.bonus('tourneyClear', ND.HONOR.tourneyClear);
         } else {
           R.rec = { cleared: !!cleared, out: dan.result(!!cleared, sum) };
-          // Onur: geçilen Dan sınavı (yeni rütbeye göre)
+
           if (R.rec.out.change > 0 && ND.honor && ND.HONOR) ND.honor.bonus('danPass', ND.HONOR.danPass(R.rec.out.to));
         }
         return R.rec;
       },
-      // Koşu sonucu ekranı (sessiz: duraklatmadan menüye dönerken; gösterim yok)
+
       finish(cleared, silent) {
         const R = this.run; if (!R || R.shown) return;
         const o = this.record(cleared);
@@ -402,10 +402,10 @@
     this.openVs();
   };
 
-  // ================================================================ ARAYÜZ
+
   const TICK_MS = 1000;
   const ui = {
-    open: null, // 'lobby-tourney' | 'lobby-dan' | 'hall' | null
+    open: null,
     tab: 'week', charSel: null, tok: 0, timer: 0, resCtl: null, back: null,
 
     modChip(id, full) {
@@ -413,12 +413,12 @@
       return h('span', { class: 'bz-mod', title: d.d }, h('b', { 'aria-hidden': 'true' }, m ? m.k : '?'), h('span', null, d.n), full && d.d ? h('small', null, d.d) : null);
     },
     countdown(ms) { const S = T(); return S.left ? S.left(Math.max(0, ms)) : ''; },
-    // '2026-09' → "September 2026" (the tournament period is a calendar month)
+
     weekLabel(key) { const S = T(), m = /^(\d{4})-(\d{2})$/.exec(key || ''); return m && S.weekName ? S.weekName(+m[2], +m[1]) : key; },
-    // Title tag (Monthly Champion / Finalist) for a leaderboard row; null when the player has none
+
     titleTag(t) { return LB() && LB().titleEl ? LB().titleEl(t) : null; },
 
-    // --- tam ekran katmanı aç/kapat (menü arkada gösteri maçı sürerken)
+
     showLayer(id, openKey, back) {
       const G = ND.game;
       ['bzLobby', 'bzRes', 'hall'].forEach((x) => { const e = $(x); if (e) e.hidden = x !== id; });
@@ -440,19 +440,19 @@
       if (G && G.mode === 'attract') { $('menu').hidden = false; ui.refreshMenu(); const f = was === 'hall' ? $(ui.hallFrom || 'mlb') : was === 'lobby-dan' ? $('mdan') : $('mtour'); setTimeout(() => f && f.focus(), 0); }
       else if (G) G.goMenu();
     },
-    // game.hideOverlays çağırınca durum temizlensin
+
     onHidden() { if (this.open) { clearInterval(this.timer); this.timer = 0; this.open = null; this.back = null; } },
     tickClock() {
       document.querySelectorAll('[data-bz-clock]').forEach((e) => {
         const W = weekNow(); if (!W) return;
         e.textContent = this.countdown(W.end - LB().now());
       });
-      // hafta döndüyse açık lobi/salonu yenile
+
       const W = weekNow();
       if (W && this._wk && W.key !== this._wk) { this._wk = W.key; if (this.open === 'lobby-tourney') this.lobbyTourney(); else if (this.open === 'hall') this.renderHall(); }
     },
 
-    // ---------------------------------------------------- TURNUVA LOBİSİ
+
     lobbyTourney(back, again) {
       const S = T(), W = weekNow(), TG = gen(W.key), box = $('bzLobbyIn');
       this._wk = W.key;
@@ -483,7 +483,7 @@
           h('span', { class: 'g-m' }, f.mods.map((id) => this.modChip(id, false)))));
       });
       const rules = h('p', { class: 'bz-rules' }, S.t.rules(TOUR.fights, fmtNum(TOUR.clear), fmtNum(TOUR.stage)));
-      // what the top 3 win, only where titles can be earned; elsewhere a neutral line (scores stay on this device)
+
       const rewardText = S.ttl ? (LB().titlesEarnable?.() ? S.ttl.reward : S.ttl.local) : '';
       const reward = rewardText ? h('p', { class: 'bz-reward' }, rewardText) : null;
       const acts = h('div', { class: 'sel-actions' },
@@ -491,11 +491,11 @@
         h('button', { class: 'btn', type: 'button', on: { click: () => { au().ui(); this.showHall('week', () => this.lobbyTourney()); } } }, S.hall.title));
       add(box, head, me, list, rules, reward, acts);
       setTimeout(() => { const b = $('bzGo'); if (b && this.open === 'lobby-tourney') b.focus(); }, 0);
-      // sıralamayı arka planda tazele → gelince BİR KEZ yeniden çiz (again = yeniden çizim; tekrar istek yok)
+
       if (!again && rec) LB().hall('week', W.key).then(() => { if (this.open === 'lobby-tourney') this.lobbyTourney(null, true); }, () => {});
     },
 
-    // ---------------------------------------------------- DAN LOBİSİ
+
     lobbyDan(back) {
       const S = T(), box = $('bzLobbyIn'), r = dan.rank(), next = dan.trial(r + 1);
       if (this.open !== 'lobby-dan') this.showLayer('bzLobby', 'lobby-dan', back);
@@ -527,7 +527,7 @@
       setTimeout(() => { const b = $('bzGo'); if (b && this.open === 'lobby-dan') b.focus(); }, 0);
     },
 
-    // ---------------------------------------------------- SONUÇ EKRANI (turnuva / Dan)
+
     showResult(ctl, o) {
       const S = T(), G = ND.game, R = ctl.run, me = ND.CHARS[R.me];
       this.resCtl = ctl;
@@ -576,7 +576,7 @@
       const el = $('bzRes'); el.hidden = false; el.classList.remove('in'); void el.offsetWidth; el.classList.add('in');
       if (lbBox && ND.lbUI && o.entry) {
         ND.lbUI.panel(lbBox, LB().weeklyBoard(R.week), o.entry, {
-          noOpen: true, // salon düğmesi zaten aşağıda
+          noOpen: true,
           open: () => { ctl.run = null; G.runner = null; this.showHall('week', null); },
           onResult: () => ui.refreshMenu(),
         });
@@ -598,14 +598,14 @@
       return false;
     },
 
-    // ---------------------------------------------------- ŞAMPİYONLAR SALONU
+
     TABS: ['week', 'alltime', 'archive', 'chars', 'dan'],
-    // tabs other modules add (js/ranked.js 'ranked'): { label() → { k, n }, render(body, meBox, alive), available() }
+
     ext: {},
     tabs() { return this.TABS.filter((t) => !this.ext[t] || !this.ext[t].available || this.ext[t].available()); },
     showHall(tab, back) {
       const S = T();
-      if (ND.game && ND.game.phase === 'ending') { $('bzRes').hidden = true; ND.game.start('attract'); } // sonuçtan geliyorsa arka planı menüye çevir
+      if (ND.game && ND.game.phase === 'ending') { $('bzRes').hidden = true; ND.game.start('attract'); }
       this.showLayer('hall', 'hall', back);
       if (tab) this.tab = tab;
       if (!this.tabs().includes(this.tab)) this.tab = 'week';
@@ -628,7 +628,7 @@
         h('div', { class: 'hall-me', id: 'hallMe', hidden: true }),
         h('footer', { class: 'hall-foot', id: 'hallFoot' }));
       this.selectTab(this.tab);
-      // sunucu saatini / bağlantıyı tazele, sonra yeniden yükle
+
       LB().refresh().then(() => { if (this.open === 'hall') { LB().hallClear(); this.renderHall(); } });
       setTimeout(() => { const t = document.querySelector('#hallTabs [aria-selected="true"]'); if (t && this.open === 'hall') t.focus(); }, 0);
     },
@@ -645,7 +645,7 @@
       if ((LB().nameLocked || LB().adapter.needsName) && ND.lbUI) f.appendChild(ND.lbUI.nickLine(() => { LB().hallClear(); this.renderHall(); }));
       const pend = LB().pending();
       if (pend) f.appendChild(h('small', { class: 'hall-pend' }, S.hall.pending(pend)));
-      // platform boards (js/platform-boards.js): a guest who must sign in to post gets one button (never a prompt)
+
       const PL = LB().plat, sb = PL && PL.signInButton(() => { LB().hallClear(); if (this.open === 'hall') this.renderHall(); });
       if (sb) {
         const LS = (ND.STR && ND.STR.lb) || {};
@@ -653,7 +653,7 @@
         f.appendChild(sb);
       }
       f.appendChild(h('button', { type: 'button', class: 'mini', on: { click: () => this.openClassic() } }, S.hall.classic));
-      // CrazyGames guest: one small button to keep titles / Champion colors with the CrazyGames account (js/portal-user.js)
+
       const CG = ND.cgAccount, AC = ND.STR && ND.STR.acct;
       if (CG && CG.available && !CG.signedIn && AC && AC.cgSave) {
         f.appendChild(h('button', { type: 'button', class: 'mini hall-cg', on: { click: () => { au().ui(); CG.prompt().then(() => { if (this.open === 'hall') this.renderFoot(); }); } } }, AC.cgSave));
@@ -669,7 +669,7 @@
     async renderHall() {
       const S = T(), body = $('hallBody'), meBox = $('hallMe'); if (!body) return;
       const tok = ++this.tok, W = weekNow();
-      this.plat = !!(LB().plat && LB().plat.hallKey(this.tab)); // a platform board stands behind this tab (until it fails)
+      this.plat = !!(LB().plat && LB().plat.hallKey(this.tab));
       body.textContent = ''; meBox.hidden = true; meBox.textContent = '';
       body.setAttribute('aria-busy', 'true');
       const X = this.ext[this.tab];
@@ -680,10 +680,10 @@
         return;
       }
       const loading = h('p', { class: 'lb-empty' }, S.hall.loading);
-      // sekme başlığı
+
       if (this.tab === 'week') body.appendChild(h('div', { class: 'hall-sub' }, h('b', null, this.weekLabel(W.key)), h('span', null, S.resetIn, ' ', h('b', { 'data-bz-clock': '' }, this.countdown(W.end - LB().now())))));
       else if (S.hall.desc[this.tab]) body.appendChild(h('p', { class: 'hall-sub' }, S.hall.desc[this.tab]));
-      // what the top 3 win (This Month and Champions tabs)
+
       if ((this.tab === 'week' || this.tab === 'archive') && S.ttl && S.ttl.hall && LB().titlesEarnable?.()) body.appendChild(h('p', { class: 'hall-reward' }, S.ttl.hall));
       body.appendChild(loading);
       this.renderFoot();
@@ -794,7 +794,7 @@
     },
     cycleTab(d) { const T = this.tabs(), i = T.indexOf(this.tab); this.selectTab(T[(i + d + T.length) % T.length]); au().ui(); const t = document.querySelector('#hallTabs [aria-selected="true"]'); if (t) t.focus(); },
 
-    // ---------------------------------------------------- klavye / gamepad (game.js input.onKey'den önce)
+
     onKey(e) {
       if (!this.open) return false;
       const ae = document.activeElement;
@@ -823,24 +823,24 @@
       return true;
     },
 
-    // ---------------------------------------------------- MENÜ: "Bu ay: #12 · sıfırlanmaya 3g 4s"
-    // ---------------------------------------------------- MAIN MENU: HALL OF CHAMPIONS CARD (index.html #mlb)
-    // The card lists this month's top 10 itself: #1 large in gold (title, ninja, score), #2-#10 as compact rows; the
-    // CSS shows 10 / 5 / 3 places by screen height. The places are always drawn — empty ones as "—" with a short
-    // "be the first" hint on #1 — so an empty month still reads as a board. Board: the tournament board from the
-    // leaderboard adapter: the live board when online (guests, and signed-in CrazyGames players who can read it; for
-    // them a line says their own scores stay on this device), this device's board otherwise (Poki, offline, local),
-    // labelled so. Never blocks the menu: the last result is drawn at once and a fetch runs at most every 60 s while
-    // the menu is shown. After a month ends (live board) a small line names last month's champion. Names are
-    // user-made: textContent only, cleaned (markup / control characters, 20 characters at most) and passed through
-    // the nickname word filter (leaderboard.js shownName). Clicking opens the full hall (js/banzuke.js showHall).
+
+
+
+
+
+
+
+
+
+
+
     champ: { key: '', t: 0, data: null, last: null, busy: false },
     champCard(force) {
       const el = $('mlb'), L = LB();
       if (!el) return;
       if (!L) { el.hidden = true; return; }
-      // Portal-only builds with the platform's own board (js/platform-boards.js): the card shows the platform's
-      // all-time tournament top 10 (the platforms have no monthly reset); if it cannot be read, this month's local board.
+
+
       const pk = !!(L.plat && L.plat.hallKey('alltime'));
       const W = weekNow(), key = L.mode + (pk ? '|p' : '') + '|' + W.key, C = this.champ;
       if (C.key !== key) { C.key = key; C.t = 0; C.data = null; C.last = null; C.plat = false; }
@@ -878,7 +878,7 @@
           r.me ? h('span', { class: 'ch-me' }, S.youTag) : null,
           h('span', { class: 'ch-sc' }, fmtNum(r.score)));
       }
-      // places 2-10: filled rows, then "—" placeholders (always nine; the CSS hides the ones a short screen has no room for)
+
       for (let p = 2; p <= 10; p++) {
         const q = rows[p - 1];
         list.appendChild(q ? h('li', { class: q.me ? 'me' : null }, h('i', null, String(p)), h('b', null, name(q)), h('span', null, fmtNum(q.score)))
@@ -904,7 +904,7 @@
     },
   };
 
-  // ================================================================ BAŞLAT
+
   const B = ND.banzuke = {
     MODS, gen, dan, tourney, danRun, ui, TOUR, hash32, mulberry32,
     init(G) {
@@ -912,23 +912,23 @@
       const card = (id, fn) => { const e = $(id); if (e) e.onclick = () => { au().ui(); fn(); }; };
       card('mtour', () => ui.lobbyTourney());
       card('mdan', () => ui.lobbyDan());
-      // Hall of Champions card (this month's top 10 on the card): opens the full hall; refreshed while the menu is shown
+
       card('mlb', () => { ui.hallFrom = 'mlb'; ui.showHall(ui.champ.plat ? 'alltime' : 'week', null); });
       const mc = $('mlb');
       if (mc) mc.onkeydown = (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === mc) { e.preventDefault(); e.stopPropagation(); mc.click(); } };
       setInterval(() => { const G = ND.game, m = $('menu'); if (G && G.mode === 'attract' && m && !m.hidden && !document.hidden && !ui.open) ui.champCard(); }, 15000);
-      // Ayarlar satırı: takma ad → salonun altındaki ad formu açık gelir
+
       card('tNick', () => { ui.hallFrom = 'tNick'; ui.showHall('week', null); setTimeout(() => { const b = document.querySelector('#hallFoot .nick-line .mini'); if (b) b.click(); }, 0); });
       if (LB()) LB().onChange(() => { if (!ui.open && ND.game && ND.game.mode === 'attract') ui.refreshMenu(); if (ui.open === 'hall') ui.renderFoot(); });
-      // menü geri sayımı (dakika çözünürlüğü yeterli)
+
       setInterval(() => { if (!document.hidden && ND.game && ND.game.mode === 'attract' && !$('menu').hidden) ui.refreshMenu(); }, 30000);
       ui.refreshMenu();
     },
-    // game.js'ten: açık katmanın tuşları / kolu
+
     onKey(e) { return ui.onKey(e); },
     onPad(st, prev) { return ui.onPad(st, prev); },
     onHidden() { ui.onHidden(); },
-    // HUD / tablo için kısa rütbe etiketi ("3. KYU")
+
     rankTag() { const r = dan.rank(); return r ? upper(dan.name(r)) : ''; },
   };
 })(window.ND);

@@ -1,22 +1,22 @@
-// Gölge Düellosu — kamera, gece tapınak avlusu sahnesi, parçacık efektleri
+
 (function (ND) {
   'use strict';
   const { clamp, lerp, rand } = ND.M;
   const PM = ND.pm;
-  // blood: opt-in (game.js loads the saved choice); off → ink & shadow hits. ND.bloodAllowed() (core.js) gates it per portal.
+
   ND.settings = { blood: false, sound: true };
   const bloodOn = () => !!ND.settings.blood && (!ND.bloodAllowed || ND.bloodAllowed());
-  // Active graphics tier flags (js/gfx.js); without it everything is drawn as on High
+
   const GFX_ALL = { rays: true, motes: 1, weather: 1, reflect: true };
   const gfxF = () => (ND.gfx ? ND.gfx.f : GFX_ALL);
-  // lightFighter: cached gradients (LF_MAX ≥ the brightest light factor, so the flicker fits in globalAlpha ≤ 1)
+
   const LF_MAX = 2;
   let AO_G = null;
-  // Low's lighting picture (lowLightTex): x relative to the fighter's centre, world y, LL.s world units per pixel
-  const LL = { x0: -320, x1: 320, y0: -898, y1: 42, s: 4 }; // the gradients' ends (x −20, 40; y −70, 10) fall on pixel edges
-  // The key light (horizontal gradient around the fighter), the floor shadow (vertical, world y −70 … 10) and the
-  // snow tint composited once, in the order lightFighter fills them: drawn 'source-atop' over the fighter it gives
-  // the same result as the three fills (the gradients are smooth, 4 units per pixel is plenty).
+
+  const LL = { x0: -320, x1: 320, y0: -898, y1: 42, s: 4 };
+
+
+
   function lowLightTex(th) {
     const w = Math.round((LL.x1 - LL.x0) / LL.s), h = Math.round((LL.y1 - LL.y0) / LL.s);
     const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
@@ -31,7 +31,7 @@
     return cv;
   }
   ND.bloodOn = bloodOn;
-  // Ink palette: sumi core, a cold moonlit rim so the ink reads on night arenas, cloth scraps in muted dye colours
+
   const INK = '#07080e', INK_RIM = '198,208,236', INK_RIM_C = 'rgb(198,208,236)', CLOTH = ['#1b1e2b', '#2a2f42', '#3a3346', '#cfc6b2', '#262231'];
   ND.ARENA = 880;
 
@@ -44,7 +44,7 @@
     };
   }
 
-  // Renkli yumuşak ışık lekesi — bir kez çizilip önbelleğe alınır (ucuz drawImage)
+
   const glowCache = {};
   function glowAt(ctx, c, x, y, rx, ry, a) {
     if (!(a > 0)) return;
@@ -57,8 +57,8 @@
     }
     ctx.globalAlpha = Math.min(1, a); ctx.drawImage(g, x - rx, y - ry, rx * 2, ry * 2);
   }
-  // ---- Önbellekli gradyanlar: tam ekran gradyan dolgusu (özellikle yazılım rasterında) pahalı. Dikey gradyanlar
-  // bir kez 1×256'lık şeride çizilir ve gerilerek basılır; renk sabit, yalnız alfa değiştiğinden sonuç aynıdır.
+
+
   function vstrip(stops) {
     const c = document.createElement('canvas'); c.width = 1; c.height = 256;
     const x = c.getContext('2d'), g = x.createLinearGradient(0, 0, 0, 256);
@@ -66,31 +66,31 @@
     x.fillStyle = g; x.fillRect(0, 0, 1, 256);
     return c;
   }
-  // Şeridi ekran uzayında [y0, y1] aralığına gerer; y1'in altı (varsa) düz renkle doldurulur.
-  // Alt sınır tam piksele yuvarlanır → şerit ile düz dolgu arasında kenar yumuşatma dikişi olmaz.
-  // ymax: düz dolgunun alt sınırı (ör. opak zeminin üstü; altı zaten örtülecek)
+
+
+
   function vgrad(ctx, strip, y0, y1, below, ymax) {
     const W = cam.W, yb = Math.round(y1), H = Math.min(cam.H, ymax ?? cam.H);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     if (yb > y0 && yb > 0 && y0 < cam.H) ctx.drawImage(strip, 0, 0, 1, 256, 0, y0, W, yb - y0);
     if (below && yb < H) { ctx.fillStyle = below; ctx.fillRect(0, Math.max(0, yb), W, H - Math.max(0, yb)); }
   }
-  // Opak zeminin (dünya y = −45) ekrandaki üst sınırı; altı her temada opak zeminle örtülür
+
   const floorTop = () => Math.ceil(cam.sy(-45)) + 2;
-  // Temaya bağlı önbellekler (tema nesnesi üzerinde; tema değişince kendiliğinden ayrı)
+
   const tc = (th) => th._c || (th._c = {});
 
-  // Eğik kiriş/direk: (x,y)'den a açısıyla len boyunda, w kalınlığında dikdörtgen (yola ekler)
+
   function beam(ctx, x, y, len, w, a) {
     const c = Math.cos(a), s = Math.sin(a), nx = -s * w / 2, ny = c * w / 2;
     ctx.moveTo(x + nx, y + ny); ctx.lineTo(x + c * len + nx, y + s * len + ny); ctx.lineTo(x + c * len - nx, y + s * len - ny); ctx.lineTo(x - nx, y - ny); ctx.closePath();
   }
 
-  // ------------------------------------------------------------ KAMERA
+
   const cam = ND.cam = {
-    // gyK: zemin çizgisinin ekran yüksekliğine oranı; padX: yakınlaştırmada ek yan pay (dokunmatik kumanda açıkken
-    // dövüşçüler biraz yukarıda ve ortada kalsın, alt köşelerdeki başparmak düğmeleri çoğunlukla zemini örtsün)
-    // topPx (phones, game.js resize): screen y the top of a jumping fighter's head must stay below (the HUD's bottom)
+
+
+
     x: 0, y: -118, z: 1, W: 1280, H: 720, s: 1, ui: 1, shk: 0, shx: 0, shy: 0, gyK: 0.6, padX: 0, topPx: 0,
     get k() { return this.s * this.z; },
     get gy() { return this.H * this.gyK; },
@@ -107,8 +107,8 @@
         const top = Math.min(fa.y, fb.y);
         ty = -118 + Math.min(0, top) * 0.35;
         tz = clamp((this.W / this.s) / (d + 420 + this.padX), 0.55, 1.28);
-        // phones (closer camera): a jump must not carry a head under the HUD. The top of the higher fighter's jump (its
-        // apex, from the rising speed, so the zoom starts early) stays below topPx: zoom out as far as that needs.
+
+
         if (this.topPx > 0) {
           const aa = fa.y + (fa.vy < 0 ? -(fa.vy * fa.vy) / 5000 : 0), ab = fb.y + (fb.vy < 0 ? -(fb.vy * fb.vy) / 5000 : 0);
           const head = Math.min(aa, ab) - 222, span = ty - head, room = this.gy - this.topPx;
@@ -132,22 +132,25 @@
     },
     layer(ctx, f) {
       const k = this.s * (1 + (this.z - 1) * f);
-      const gy = this.gy - this.y * this.k; // zemin çizgisinin ekran y'si
+      const gy = this.gy - this.y * this.k;
       ctx.setTransform(k, 0, 0, k, this.W / 2 - this.x * f * k + this.shx * f, gy + this.shy * f);
     },
   };
 
-  // ------------------------------------------------------------ EFEKTLER
-  // particle colours 'r,g,b' → 'rgb(r,g,b)' made once per colour (no new string per particle per frame)
+
+
   const RGBC = new Map();
   const rgbC = (c) => { let v = RGBC.get(c); if (!v) { v = 'rgb(' + c + ')'; RGBC.set(c, v); } return v; };
-  // brush-stroke outline scratch (fx.drawStroke), reused every call
+
   const STK_T = [], STK_B = [];
-  // particle / floor-stain limits: Low keeps fewer (each stain is an ellipse drawn every frame)
+
   const FX_CAP_LOW = 110;
   const decalCap = () => (ND.gfx && ND.gfx.tier === 'low' ? 140 : 420);
   const fx = ND.fx = {
     parts: [], decals: [], texts: [],
+
+
+    quiet: false,
     clear() { this.parts.length = 0; this.decals.length = 0; this.texts.length = 0; },
     spark(x, y, dir, n = 14, power = 1, color = '255,214,140') {
       for (let i = 0; i < n; i++) {
@@ -165,33 +168,33 @@
         this.parts.push({ k: 'm', x, y, vx: dx * 60 + rand(-60, 60), vy: rand(-80, 20), r: rand(4, 10), life: rand(0.25, 0.5), max: 0.5 });
       }
     },
-    // ---- Ink & shadow hit (default; PEGI 12 / Poki safe): no fluids, no red. A calligraphy stroke tears through the
-    // impact, a sumi splash bursts and scatters droplets that leave faint stains which fade, cut cloth scraps flutter
-    // down, cold sparks fly. Same call signature as blood(), so replays and every caller get it for free.
+
+
+
     ink(x, y, dx, dy, n = 18, power = 1) {
       const ang = Math.atan2(dy, dx), big = clamp((n - 4) / 46, 0, 1), P = this.parts;
       const dir = Math.cos(ang) < 0 ? -1 : 1;
-      // brush stroke: a slanted slash across the cut, longer and fatter for heavy hits / KO
+
       const sl = (70 + 150 * big) * (0.8 + 0.25 * power);
       P.push({ k: 'k', x, y, a: -dir * rand(0.35, 0.75) + (dir < 0 ? Math.PI : 0), len: sl, w: (5 + 9 * big) * (0.8 + 0.2 * power), bend: rand(-0.25, 0.25), life: 0.5 + 0.25 * big, max: 0.5 + 0.25 * big, seed: Math.random() * 1000 });
       if (big > 0.55) P.push({ k: 'k', x: x + rand(-8, 8), y: y + rand(-10, 6), a: ang + rand(-0.3, 0.3), len: sl * 0.62, w: 4 + 5 * big, bend: rand(-0.3, 0.3), life: 0.55, max: 0.55, seed: Math.random() * 1000, delay: 0.05 });
-      // splash: irregular sumi burst with spikes thrown along the hit
+
       const spikes = [];
       for (let i = 0, m = 7 + ((big * 5) | 0); i < m; i++) { const a2 = ang + rand(-1.5, 1.5) * (i % 3 ? 1 : 1.8); spikes.push([a2, rand(0.55, 1.5) * (Math.abs(a2 - ang) < 0.8 ? 1.35 : 0.8), rand(0.24, 0.5), Math.random() < 0.5]); }
       P.push({ k: 'x', x, y, a: ang, r: (9 + 16 * big) * (0.85 + 0.2 * power), spikes, life: 0.42 + 0.2 * big, max: 0.42 + 0.2 * big });
-      // droplets: fly with the blow, fall, leave a faint stain that fades
+
       const nd = Math.round(4 + n * 0.55);
       for (let i = 0; i < nd; i++) {
         const sp = rand(140, 640) * (0.7 + 0.3 * power), a = ang + rand(-0.75, 0.75);
         P.push({ k: 'i', x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - rand(80, 280), r: rand(1.1, 3.2) * (0.8 + 0.4 * big), life: 1.8, max: 1.8 });
       }
-      // cut cloth scraps
+
       const nc = 1 + Math.round(big * 4 + Math.random() * 1.5);
       for (let i = 0; i < nc; i++) {
         const a = ang + rand(-0.9, 0.9), sp = rand(120, 380) * (0.7 + 0.3 * power);
         P.push({ k: 'c', x: x + rand(-6, 6), y: y + rand(-6, 6), vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - rand(120, 260), rot: rand(0, 6.28), vr: rand(-14, 14), w: rand(5, 11) * (0.8 + 0.5 * big), h: rand(2.5, 5.5), c: CLOTH[(Math.random() * CLOTH.length) | 0], ph: rand(0, 6.28), life: rand(1.3, 2.1), max: 2.1 });
       }
-      // cold steel sparks
+
       this.spark(x, y, ang, 5 + Math.round(n / 5), 0.65 + 0.2 * power, '214,224,255');
     },
     dust(x, y, n = 8, spread = 1) {
@@ -211,20 +214,20 @@
     },
     update(dt) {
       const P = this.parts;
-      // Low: at most FX_CAP_LOW live particles (the oldest go first) and fewer floor stains (decalCap)
+
       if (ND.gfx && ND.gfx.tier === 'low' && P.length > FX_CAP_LOW) P.splice(0, P.length - FX_CAP_LOW);
       for (let i = P.length - 1; i >= 0; i--) {
         const p = P[i];
         p.life -= dt;
         if (p.k === 'i') {
           p.vy += 1500 * dt; p.x += p.vx * dt; p.y += p.vy * dt;
-          if (p.y > 0 && p.vy > 0) { // lands: faint stain that fades out
+          if (p.y > 0 && p.vy > 0) {
             this.decals.push({ x: p.x, y: rand(0, 24), rx: p.r * rand(1.8, 3.4) + Math.abs(p.vx) * 0.004, ry: p.r * rand(0.35, 0.65), a: rand(0.28, 0.45), c: p.ic || INK, fade: rand(5, 8), age: 0 });
             while (this.decals.length > decalCap()) this.decals.shift();
             p.life = 0;
           }
-        } else if (p.k === 'F') { if (ND.flair) ND.flair.upd(p, dt); } // a worn flair's particle (js/flair.js)
-        else if (p.k === 'c') { // cloth: drag, flutter, settle on the floor
+        } else if (p.k === 'F') { if (ND.flair) ND.flair.upd(p, dt); }
+        else if (p.k === 'c') {
           p.vx *= 1 - 2.2 * dt; p.vy += 520 * dt; p.vy *= 1 - 1.6 * dt; p.ph += dt * 9;
           p.x += (p.vx + Math.sin(p.ph) * 40) * dt; p.y += p.vy * dt; p.rot += p.vr * dt;
           if (p.y > -2) { p.y = -2; p.vy = 0; p.vx *= 0.8; p.vr *= 0.85; }
@@ -244,7 +247,7 @@
         }
         if (p.life <= 0) P.splice(i, 1);
       }
-      // fading ink stains
+
       const D = this.decals;
       for (let i = D.length - 1; i >= 0; i--) { const d = D[i]; if (d.fade) { d.age += dt; if (d.age >= d.fade) D.splice(i, 1); } }
       for (let i = this.texts.length - 1; i >= 0; i--) {
@@ -256,7 +259,7 @@
       ctx.save();
       const bc = (S.theme && S.theme.blood) || '#4a0a0c', red = bloodOn();
       for (const d of this.decals) {
-        if (!d.c && !red) continue; // blood stains never show in ink mode (e.g. the setting changed mid-fight)
+        if (!d.c && !red) continue;
         ctx.globalAlpha = d.fade ? d.a * clamp(1.4 * (1 - d.age / d.fade), 0, 1) : d.a;
         ctx.fillStyle = d.c || bc;
         ctx.beginPath(); ctx.ellipse(d.x, d.y, d.rx, d.ry, 0, 0, 6.283);
@@ -275,22 +278,22 @@
           ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
           ctx.strokeStyle = '#8e0f12'; ctx.lineWidth = p.r * 1.7; ctx.lineCap = 'round';
           ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x - p.vx * 0.014, p.y - p.vy * 0.014); ctx.stroke();
-        } else if (p.k === 'i') { // ink droplet: rimmed streak
+        } else if (p.k === 'i') {
           ctx.globalCompositeOperation = 'source-over'; ctx.lineCap = 'round';
           const tx = p.x - p.vx * 0.016, ty = p.y - p.vy * 0.016;
-          if (!low) { // Low: no pale rim around the droplet
+          if (!low) {
             ctx.globalAlpha = 0.2; ctx.strokeStyle = p.ir || INK_RIM_C; ctx.lineWidth = p.r * 1.9 + 1;
             ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(tx, ty); ctx.stroke();
           }
           ctx.globalAlpha = 1; ctx.strokeStyle = p.ic || INK; ctx.lineWidth = p.r * 1.9;
           ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(tx, ty); ctx.stroke();
-        } else if (p.k === 'k') { // calligraphy stroke
+        } else if (p.k === 'k') {
           this.drawStroke(ctx, p, low);
-        } else if (p.k === 'x') { // sumi splash
+        } else if (p.k === 'x') {
           this.drawSplash(ctx, p, low);
-        } else if (p.k === 'F') { // a worn flair's particle (js/flair.js)
+        } else if (p.k === 'F') {
           if (ND.flair) { ctx.save(); ND.flair.drw(ctx, p, t, low); ctx.restore(); }
-        } else if (p.k === 'c') { // cloth scrap
+        } else if (p.k === 'c') {
           ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = Math.min(1, t * 3);
           ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.scale(1, 0.35 + 0.65 * Math.abs(Math.cos(p.ph)));
           ctx.fillStyle = p.c; ctx.beginPath();
@@ -320,6 +323,7 @@
           ctx.beginPath(); ctx.ellipse(0, 0, p.size * 0.5, p.size * 0.5, 0, 0, 6.283); ctx.fill();
           ctx.restore();
         } else if (p.k === 'r') {
+          if (this.quiet) continue;
           ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = t;
           ctx.strokeStyle = rgbC(p.c); ctx.lineWidth = 3 * t + 0.5;
           ctx.beginPath(); ctx.arc(p.x, p.y, p.size * (1.15 - t), 0, 6.283); ctx.stroke();
@@ -327,8 +331,8 @@
       }
       ctx.restore();
     },
-    // Tapered brush stroke that is drawn on in the first fifth of its life, then thins and fades (world coords)
-    // low: the ink body only (no moonlit rim, no highlight)
+
+
     drawStroke(ctx, p, low) {
       const age = p.max - p.life - (p.delay || 0);
       if (age < 0) return;
@@ -338,7 +342,7 @@
       const top = STK_T, bot = STK_B; top.length = 0; bot.length = 0;
       for (let i = 0; i <= N; i++) {
         const q = i / N, along = (q - 0.5) * L, off = Math.sin(q * Math.PI) * p.bend * L * 0.25;
-        // dry-brush edge: pressure swells early, frays at the tail
+
         const w = W * Math.pow(Math.sin(Math.PI * Math.min(1, q * 1.15)), 0.6) * (1 - 0.25 * Math.sin(q * 11 + p.seed));
         const cx = p.x + c * along + nx * off, cy = p.y + s * along + ny * off;
         top.push(cx + nx * w, cy + ny * w); bot.push(cx - nx * w * 0.7, cy - ny * w * 0.7);
@@ -353,11 +357,11 @@
       if (!low) { ctx.globalAlpha = 0.5 * fade; ctx.strokeStyle = p.ir || INK_RIM_C; ctx.lineWidth = 2.2; ctx.lineJoin = 'round'; path(); ctx.stroke(); }
       ctx.globalAlpha = 0.95 * fade; ctx.fillStyle = p.ic || INK; path(); ctx.fill();
       if (low) return;
-      // a hair-thin cold highlight along the stroke's spine, like wet ink catching moonlight
+
       ctx.globalAlpha = 0.35 * fade; ctx.strokeStyle = p.ir || INK_RIM_C; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(p.x - c * L * 0.32, p.y - s * L * 0.32); ctx.lineTo(p.x + c * L * 0.2, p.y + s * L * 0.2); ctx.stroke();
     },
-    // Sumi splash: a round core with spikes, bursting out fast and fading
+
     drawSplash(ctx, p, low) {
       const u = 1 - p.life / p.max, e = ND.M.ease.outCubic(Math.min(1, u / 0.35)), a = u < 0.4 ? 1 : 1 - (u - 0.4) / 0.6;
       const R = p.r * (0.45 + 0.75 * e);
@@ -375,6 +379,7 @@
       ctx.globalAlpha = 0.92 * a; ctx.fillStyle = p.ic || INK; path(1); ctx.fill();
     },
     drawTexts(ctx) {
+      if (this.quiet) return;
       for (const t of this.texts) {
         const a = Math.min(1, t.life / t.max * 2.2);
         const x = cam.sx(t.x), y = cam.sy(t.y);
@@ -390,8 +395,8 @@
         ctx.restore();
       }
     },
-    // Match preparation (game.js warmTexts, GPU path): the pictures of pop-up text str in colour at every size of its
-    // pop-in (W(1)) and at the size it rests at (W(2)), through drawTexts with a made-up text (nothing is drawn)
+
+
     warmTexts(ctx, str, color, W) {
       const keep = this.texts, T = { x: 0, y: -200, str, color, life: 1.1, max: 1.1 };
       this.texts = [T];
@@ -406,26 +411,26 @@
   const BUSH = [[-0.7, 0.15, 0.55], [-0.1, -0.2, 0.7], [0.55, 0.05, 0.6], [0.1, 0.25, 0.8]], BUSH_HI = [[-0.2, -0.45, 0.4], [0.45, -0.2, 0.3]];
   const FALL_DASH = [['rgba(60,118,116,.32)', [70, 45], 380, 0], ['rgba(255,255,255,.6)', [36, 80], 520, 6], ['rgba(210,240,236,.45)', [120, 70], 300, 3]];
   const CRATERS = [[-0.3, -0.1, 0.22], [0.25, 0.2, 0.16], [0.05, -0.4, 0.1], [0.35, -0.25, 0.08]];
-  // arena props whose mid / near layer has no animation at all (drawn into the layer cache on every tier)
+
   const MID_STATIC = { castle: 1 }, NEAR_STATIC = { castle: 1 };
-  // Low's backdrop picture (drawBackLow): k = resolution factor, t = redrawn at least this often (s), tol = camera
-  // move that forces a redraw (floor pixels), zoom = zoom change that forces one (ND.scene.bgLow, tunable in the console)
+
+
   const BG_LOW = { k: 0.5, t: 0.2, tol: 2.5, zoom: 0.008 };
-  // Wide layer caches (layerCache): the camera range they cover. zlo..zhi: cam.z (cam.follow keeps 0.55..1.28; the
-  // parry / counter / KO close-ups reach about 1.55); yLo..yHi: cam.y (-118 on the ground, a jump or a launch lifts it by
-  // 0.35 × the fighter's height; the close-ups sit between -130 and -95); zFollow: the largest zoom of cam.follow, whose
-  // x clamp gives how far the camera pans (bands reaching past zFocus may also be centred anywhere in the arena: KO and
-  // counter close-ups are not clamped); shake: cam.shx / shy (screen px). budget: largest total size of the pictures
-  // (bytes, one GPU texture each; a layer that would not fit keeps the sliding cache), maxDim: largest side (px).
+
+
+
+
+
+
   const WIDE = { zlo: 0.55, zhi: 1.6, yLo: -300, yHi: -40, zFollow: 1.28, zFocus: 1.3, shake: 24,
     budget: () => (ND.gfx && ND.gfx.mobile ? 48 : 96) * 1048576, maxDim: 4096 };
-  // releases the pictures of a wide layer cache (their GL textures go 10 s after their last use, gl2d.js sweepImages)
+
   function wideFree(P) {
     for (const b of P.bands) if (b.c) { b.c.width = b.c.height = 0; b.c = null; }
   }
   const CPUFF = [[-150, 4, 110, 18], [-70, -10, 80, 26], [20, -16, 95, 32], [110, -4, 90, 22], [190, 6, 80, 14], [0, 10, 230, 14]];
 
-  // ------------------------------------------------------------ ARENA TEMALARI
+
   const THEMES = ND.THEMES = {
     temple: {
       sky: ['#05070f', '#0f1630', '#262d4c', '#141828'], stars: 1,
@@ -453,7 +458,7 @@
       weather: 'snow', reflect: 0.05, sheen: '255,230,210', key: { from: -1, c: '255,200,160', a: 0.2 },
       lantern: '255,170,90', blood: '#8c0f16', ambience: 'blizzard', wind: -110, prints: true, fgC: '#1c2033', bloom: 0.2, rays: '255,210,170'
     },
-    // --- Yeni arenalar: props → far_/mid_/near_/edge_ çizimleri, floorStyle → floor_, fg → fg_, lamps → lights()
+
     village: {
       sky: ['#07030a', '#1c0a12', '#57190f', '#2a0d08'], stars: 0.15,
       orb: { x: 0.2, y: 0.17, r: 0.045, c0: '#ffc9a0', c1: '#cf5f3b', halo: '255,110,60' },
@@ -498,7 +503,7 @@
     },
   };
 
-  // ------------------------------------------------------------ SAHNE
+
   const S = ND.scene = {
     bgLow: BG_LOW,
     t: 0, wind: 0, flashL: 0, nextBolt: 8, bolt: null, theme: THEMES.temple, themeId: 'temple',
@@ -530,21 +535,21 @@
       this.setTheme('temple');
     },
 
-    // Yeni arenaların sabit (tohumlu) yerleşimleri
+
     initProps() {
       const q = seeded(1234), P = this.P = {};
-      // Yanan köy
+
       P.vMid = []; for (let x = -2300; x < 2300; x += 150 + q() * 130) P.vMid.push({ x, w: 90 + q() * 80, h: 90 + q() * 60, roof: q() < 0.5 ? 0 : 1, burn: q() < 0.55 ? 0.5 + q() * 0.5 : 0, s: q() * 10 });
       P.vNear = []; for (let x = -2000; x < 2000; x += 300 + q() * 200) P.vNear.push({ x, w: 170 + q() * 110, h: 110 + q() * 70, roof: q() < 0.2 ? 2 : q() < 0.5 ? 0 : 1, burn: q() < 0.6 ? 0.6 + q() * 0.4 : 0, s: q() * 10 });
       P.scorch = Array.from({ length: 34 }, () => { const rx = 50 + q() * 180; return { x: (q() - 0.5) * 4800, y: -30 + q() * 330, rx, ry: rx * (0.12 + q() * 0.1) }; });
       P.ash = Array.from({ length: 70 }, () => ({ x: (q() - 0.5) * 3600, y: -38 + q() * 240, s: 1.5 + q() * 2.5, g: q() < 0.5 ? 0 : 1 }));
       P.debris = Array.from({ length: 16 }, () => ({ x: (q() - 0.5) * 4000, y: -30 + q() * 200, l: 40 + q() * 90, a: q() - 0.5 }));
-      // Gece çarşısı
+
       P.sky = []; for (let x = -3000; x < 3000; x += 50 + q() * 90) P.sky.push({ x, w: 50 + q() * 80, h: 30 + q() * 120, win: q() < 0.6 });
       P.mach = []; for (let x = -2400; x < 2400;) { const w = 170 + q() * 80; P.mach.push({ x: x + w / 2, w, h: 270 + q() * 80, s: q() * 10 }); x += w + 6; }
       const NC = [['#26315c', '#e9e2cf'], ['#7c1c1a', '#f0e6d0'], ['#d8cfb8', '#2a1c14'], ['#1d3a2b', '#e9e2cf'], ['#3b1d3a', '#f0e6d0']];
       P.stalls = []; for (let x = -1900; x < 1900; x += 330 + q() * 90) { const c = NC[(q() * NC.length) | 0]; P.stalls.push({ x, w: 190 + q() * 70, col: c[0], mark: c[1], steam: q() < 0.65, s: q() * 10 }); }
-      // Şelale
+
       const FX = -20;
       P.cliff = []; for (let x = -2800; x <= 2800; x += 50) { const d = Math.abs(x - FX); P.cliff.push([x, d < 230 ? -380 : -410 - 160 * Math.min(1, (d - 230) / 500) - 40 * Math.sin(x * 0.0035) + (q() - 0.5) * 26 + Math.max(0, d - 1500) * 0.25]); }
       const cy = (x) => P.cliff[clamp(Math.round((x + 2800) / 50), 0, P.cliff.length - 1)][1];
@@ -569,7 +574,7 @@
       for (let i = 0; i < 60; i++) { const r = (q() * 5) | 0, x = (q() - 0.5) * 5000, y0 = rowsY[r], y1 = rowsY[r + 1]; P.cracks.push([[x, y0], [x + (q() - 0.5) * 30 * (1 + r), (y0 + y1) / 2], [x + (q() - 0.5) * 50 * (1 + r), y1]]); }
       P.puddles = Array.from({ length: 12 }, () => { const rx = 40 + q() * 110; return { x: (q() - 0.5) * 3600, y: -10 + q() * 200, rx, ry: rx * 0.14 }; });
       P.moss = Array.from({ length: 40 }, () => ({ x: (q() - 0.5) * 5000, y: -42 + q() * 16, rx: 20 + q() * 70, ry: 3 + q() * 5 }));
-      // Kale çatısı
+
       const towns = P.towns = Array.from({ length: 16 }, () => [(q() - 0.5) * 3600, q()]);
       P.city = []; for (let i = 0; i < 480; i++) { const T = towns[(q() * towns.length) | 0], d = clamp(T[1] + (q() - 0.5) * 0.25, 0, 1); P.city.push({ x: T[0] + (q() - 0.5) * (160 + 500 * d), y: -232 + d * d * 125, s: 1.6 + d * 3, c: q() < 0.7 ? 0 : q() < 0.6 ? 1 : 2, g: q() < 0.5 ? 0 : 1 }); }
       P.turrets = [{ x: -1250, w: 150, b: -40, n: 3 }, { x: -620, w: 110, b: -30, n: 2 }, { x: 760, w: 130, b: -40, n: 3 }, { x: 1500, w: 100, b: -20, n: 2 }];
@@ -579,9 +584,9 @@
 
     setTheme(id) {
       this.themeId = THEMES[id] ? id : 'temple';
-      // an arena variant worn as flair (js/flair.js: the same arena in other weather / light; wind stays the arena's)
+
       this.theme = (ND.flair && ND.flair.theme(this.themeId)) || THEMES[this.themeId];
-      // yalnız etkin temanın önbellek tuvalleri bellekte kalır
+
       for (const k in THEMES) {
         const C = THEMES[k]._c;
         if (!C || THEMES[k] === this.theme) continue;
@@ -606,31 +611,31 @@
       const p = { x: cam.x + rand(-1500, 1500), y: anywhere ? rand(-760, 60) : rand(-900, -760), a: rand(0, 6), va: rand(-3, 3), p: rand(0, 6), front };
       if (w === 'rain') { p.vy = rand(1300, 1700); p.vx = this.wind * 1.4; p.len = rand(18, 34); p.y = anywhere ? rand(-800, 0) : rand(-950, -800); }
       else if (w === 'snow') { p.vy = rand(40, 95) * (front ? 1.4 : 1); p.vx = rand(-20, 20); p.r = front ? rand(2.2, 4.2) : rand(1, 2.4); }
-      else if (w === 'embers') { // yükselen közler
+      else if (w === 'embers') {
         if (!anywhere) p.y = rand(0, 60);
         p.vy = -rand(40, 130); p.vx = rand(-30, 30); p.r = front ? rand(1.4, 2.8) : rand(0.8, 1.8); p.l = 0; p.lt = rand(2.5, 7); p.g = Math.random() < 0.5 ? 0 : 1;
-      } else if (w === 'spray') { // şelale serpintisi
+      } else if (w === 'spray') {
         p.y = rand(-600, 30); p.vy = -rand(5, 40); p.vx = rand(-30, 30); p.r = front ? rand(1.5, 3.4) : rand(0.8, 2); p.l = 0; p.lt = rand(2, 5);
-      } else if (w === 'gust') { // rüzgâr çizgileri + savrulan yapraklar
+      } else if (w === 'gust') {
         p.leaf = Math.random() < 0.3; p.vx = this.wind * (p.leaf ? rand(1.5, 2.3) : rand(3.5, 6)); p.vy = rand(-30, 50); p.len = rand(40, 150); p.r = rand(2, 3.5);
         p.y = rand(-750, 30); if (!anywhere) p.x = cam.x + (this.wind < 0 ? 1 : -1) * rand(1300, 1650);
       } else { p.vy = rand(30, 70); p.vx = rand(-40, 10); p.r = rand(2.2, 4); }
       return p;
     },
 
-    // Karda ayak izi
+
     footprint(x, dir, big) {
       if (!this.theme.prints) return;
       fx.decals.push({ x: x + rand(-3, 3), y: rand(3, 16), rx: big ? 12 : 7.5, ry: big ? 3 : 2.2, a: 0.45, c: '#7d86a3' });
       while (fx.decals.length > decalCap()) fx.decals.shift();
     },
 
-    // cam.ui: the screen's own scale (side-of-screen texts); cam.s may be larger on a phone (game.js resize: the camera
-    // stands closer there, PHONE_ZOOM)
+
+
     resize(W, H) { cam.W = W; cam.H = H; cam.s = cam.ui = Math.min(H / 720, W / 700); },
 
-    // The scene clock t and the wind are fight state: fighters breathe on t (their pose, so their hit boxes) and cloth
-    // blows with the wind. advance() is that part alone (game.tick simOnly); update() adds weather and lightning.
+
+
     advance(dt) {
       this.t += dt;
       const th = this.theme, DM = ND.DM || Math;
@@ -667,7 +672,7 @@
       }
       for (let i = this.splashes.length - 1; i >= 0; i--) { this.splashes[i].life -= dt; if (this.splashes[i].life <= 0) this.splashes.splice(i, 1); }
       if (this.splashes.length > 120) this.splashes.splice(0, this.splashes.length - 120);
-      // şimşek
+
       this.flashL = Math.max(0, this.flashL - dt * 3.2);
       if (th.lightning) {
         this.nextBolt -= dt;
@@ -685,8 +690,8 @@
       }
     },
 
-    // Gök: dikey gradyan + ay halesi bir kez önbellek tuvaline çizilir (gradyan yatayda sabit olduğundan tuval,
-    // halenin paralaksı kadar tam piksel kaydırılarak basılır). Yıldızlar, ay diski, bulutlar canlı çizilir.
+
+
     skyCache() {
       const th = this.theme, W = cam.W, H = cam.H, C = tc(th), o = th.orb;
       const M = Math.ceil(0.02 * cam.s * 1100) + 2;
@@ -694,7 +699,7 @@
       if (C.sky && C.skyW === W && C.skyH === H && C.skyLow === low) return C.sky;
       const c = C.sky || document.createElement('canvas');
       c.width = W + 2 * M; c.height = H; C.skyW = W; C.skyH = H; C.skyM = M; C.skyLow = low;
-      // opaque (the gradient covers it): copying it to the screen needs no blending
+
       const x = c.getContext('2d', { alpha: false }), g = x.createLinearGradient(0, 0, 0, H);
       g.addColorStop(0, th.sky[0]); g.addColorStop(0.45, th.sky[1]); g.addColorStop(0.62, th.sky[2]); g.addColorStop(1, th.sky[3]);
       x.fillStyle = g; x.fillRect(0, 0, c.width, H);
@@ -704,12 +709,12 @@
         halo.addColorStop(0, `rgba(${o.halo},.35)`); halo.addColorStop(0.3, `rgba(${o.halo},.1)`); halo.addColorStop(1, `rgba(${o.halo},0)`);
         x.fillStyle = halo; x.fillRect(mx - mr * 6 - 1, my - mr * 6 - 1, mr * 12 + 2, mr * 12 + 2);
       }
-      // Medium / Low: the stars are baked in at their average brightness (no twinkle; they move with the halo's parallax)
+
       if (low && th.stars) this.drawStars(x, M, 0, null);
       return (C.sky = c);
     },
-    // Kabarık bulut kalıbı: CPUFF elipslerinin birleşimi (yarı saydam renkte tek yol olarak çizilmeli; ayrı ayrı
-    // çizilse örtüşmeler koyulaşır). Ölçek (u) ya da renk değişince yeniden çizilir.
+
+
     puffSprite(pass, v, u, col) {
       const C = tc(this.theme), A = C.puff || (C.puff = []), key = pass * 4 + v;
       let s = A[key];
@@ -722,12 +727,12 @@
       x.fill();
       return (A[key] = s);
     },
-    // Stars: ox = x offset of the target (sky cache margin), sh = halo parallax shift, t = time (null: baked into the
-    // sky cache: average brightness, no camera parallax of their own)
+
+
     drawStars(ctx, ox, sh, t) {
       const W = cam.W, H = cam.H, th = this.theme, o = th.orb, my = H * o?.y, mr = H * o?.r;
       ctx.fillStyle = '#dfe6ff';
-      // yıldızlar eskiden halenin altında kalıyordu: hale önbellekte olduğundan örtme payı alfaya yansıtılır
+
       const hx = W * o?.x - sh, hr0 = mr * 0.8, hr1 = mr * 2.36, hr2 = mr * 6, cx = t == null ? 0 : cam.x;
       for (const s of this.stars) {
         let a = (t == null ? 0.35 : 0.35 + 0.35 * Math.sin(t * 1.3 + s.p)) * th.stars;
@@ -745,7 +750,7 @@
       const W = cam.W, H = cam.H, t = this.t, th = this.theme, o = th.orb;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       const sc = this.skyCache(), M = tc(th).skyM;
-      const sh = Math.round(clamp(cam.x * 0.02 * cam.s, -M + 1, M - 1)); // halenin paralaksı (tam piksel)
+      const sh = Math.round(clamp(cam.x * 0.02 * cam.s, -M + 1, M - 1));
       ctx.drawImage(sc, M + sh, 0, W, H, 0, 0, W, H);
       const mx = W * o?.x - cam.x * 0.02 * cam.s, my = H * o?.y, mr = H * o?.r;
       if (th.stars && !this.stillTier()) this.drawStars(ctx, 0, sh, t);
@@ -758,7 +763,7 @@
           for (const [a, b, c] of CRATERS) { ctx.beginPath(); ctx.arc(mx + a * mr, my + b * mr, c * mr, 0, 6.283); ctx.fill(); }
         }
       }
-      // yangın ufku: titreyen turuncu gök ışıması (şerit en parlak halinde; titreşim globalAlpha ile)
+
       if (th.skyGlow) {
         const C = tc(th), gy = cam.gy - cam.y * cam.k, ff = this.fireF(1.3) / 1.1;
         if (!C.glow) { C.glowB = `rgba(${th.skyGlow},${0.6 * 1.1})`; C.glow = vstrip([[0, `rgba(${th.skyGlow},0)`], [0.7, `rgba(${th.skyGlow},${0.22 * 1.1})`], [1, C.glowB]]); }
@@ -768,12 +773,12 @@
       }
       const heavy = th.weather === 'rain', cn = th.cloudN || (heavy ? 10 : 6), cv = th.cloudV || (heavy ? 30 : 8), k = th.cloudK || (heavy ? 2.2 : 1), cy0 = th.cloudY || 0.1;
       for (let pass = th.cloudHi ? 0 : 1; pass < 2; pass++) {
-        ctx.fillStyle = pass ? th.cloud : th.cloudHi; // pass 0: bulut kenarı ışığı
+        ctx.fillStyle = pass ? th.cloud : th.cloudHi;
         const oy = pass ? 0 : -5 * cam.s;
         for (let i = 0; i < cn; i++) {
           const cx = ((i * 380 + t * cv - cam.x * 0.05 * cam.s) % (W + 800) + W + 800) % (W + 800) - 400;
           const cy = H * (cy0 + (i % 3) * 0.08) + oy;
-          if (th.cloudPuff) { // kümelenmiş, kabarık bulut (yarı saydam birleşik şekil → ölçeğe göre önbellekli kalıp)
+          if (th.cloudPuff) {
             const u = cam.s * k * (0.8 + (i % 4) * 0.15), sp = this.puffSprite(pass, i % 4, u, ctx.fillStyle);
             ctx.drawImage(sp, cx - 262 * u - 2, cy - 50 * u - 2);
             continue;
@@ -791,10 +796,10 @@
       }
     },
 
-    // Sırt: iki durak aynı renkse düz dolgu (gradyan gereksiz); yol yalnız görünen aralıkta ve opak zeminin
-    // (dünya y = −45'in altı her temada opak zeminle örtülür) biraz altına kadar kurulur
-    // Uzak sırt: durağan olduğundan katman önbelleğinden basılır (yalnız sırt tepesi ile opak zeminin üstü arası
-    // bant saklanır). Önbelleğe çizim: iki durak aynıysa düz renk, yol yalnız önbellek genişliği kadar.
+
+
+
+
     drawRidge(ctx, pts, f, col, base) {
       if (pts._top === undefined) { pts._top = 1e9; for (const p of pts) if (p[1] < pts._top) pts._top = p[1]; }
       const top = pts._top;
@@ -811,8 +816,8 @@
       }, top + base - 4, floorTop());
     },
 
-    // part: 'body' (static, cacheable) | 'lights' (the two flickering windows only) | undefined (both). The windows
-    // sit inside their storey's wall and nothing else overlaps them, so drawing them last gives the same picture.
+
+
     drawPagoda(ctx, x, base, col = '#10152a', part) {
       if (part === 'lights') {
         let y = base;
@@ -845,8 +850,8 @@
       for (let j = 0; j < 6; j++) ctx.fillRect(x - 7, y - 14 - j * 9, 14, 3);
     },
 
-    // Ağaç: opak renkli elips kümesi. Her elips ayrı doldurulur (opak renkte birleşimle aynı görüntü; GPU'da çok
-    // alt yollu tek yol yazılım maskesine düştüğü için pahalı). Elips parametreleri ağaç başına bir kez hesaplanır.
+
+
     drawTree(ctx, tr) {
       let E = tr._e;
       if (!E) {
@@ -884,8 +889,8 @@
       ctx.fillRect(x - 118, -300, 4, 300); ctx.fillRect(x + 100, -300, 4, 300);
     },
 
-    // still: Low's cached grove — the stalks stand at their resting lean (the arena's base wind, no swaying) and the
-    // visible range is the cache canvas, not the screen
+
+
     drawBambooGrove(ctx, still) {
       const [cr, cg, cb] = this.theme.bambooC, C = tc(this.theme), wind = still ? this.theme.wind : this.wind, t = still ? 0 : this.t;
       const wk = 1 + Math.abs(wind) / 200;
@@ -893,18 +898,18 @@
       let v = this.view(0.55);
       if (still) { const m = ctx.getTransform(); v = { x0: -m.e / m.a, x1: (ctx.canvas.width - m.e) / m.a }; }
       for (const b of this.bamboo) {
-        if (b.x + 110 < v.x0 || b.x - 110 > v.x1) continue; // ekran dışı sap (salınım + yaprak payı)
+        if (b.x + 110 < v.x0 || b.x - 110 > v.x1) continue;
         const sway = still ? wind * 0.03 : Math.sin(t * 0.6 * wk + b.p) * 8 * wk + wind * 0.03;
         const d = (b.shade * 14) | 0;
         ctx.strokeStyle = C.bam[d * 2];
         ctx.lineWidth = b.w;
-        // sap: eğri yerine 6 düz parça (kalın eğri kontur GPU'da pahalı, düz çizgi hızlı yol). Sapma < 0.1 birim.
-        // Ara eklemler yuvarlak uçla örtülür (opak renk → dikiş yok); en üst parça düz uçla biter (eskisi gibi).
+
+
         let px = b.x, py = 20;
         if (ctx.isGL) {
-          // WebGL2 renderer: the same six pieces as one stroke with round joins (the bend at each joint is far below
-          // the curve tolerance, so a round join covers what the two round ends covered; the colour is opaque). The
-          // foot of the stalk (y 20) is behind the floor, so its butt end is never seen. One path instead of six.
+
+
+
           const lj = ctx.lineJoin;
           ctx.lineCap = 'butt'; ctx.lineJoin = 'round';
           ctx.beginPath(); ctx.moveTo(px, py);
@@ -929,7 +934,7 @@
           const k = y / b.h, xx = b.x + sway * k * k;
           ctx.fillRect(xx - b.w * 0.65, -y, b.w * 1.3, 2.5);
         }
-        // yapraklar tek tek (opak renk; GPU'da çok alt yollu tek yol pahalı)
+
         for (let j = 0; j < 5; j++) {
           const k = 0.55 + j * 0.1, xx = b.x + sway * k * k, yy = -b.h * k, dd = j % 2 ? 1 : -1;
           ctx.beginPath();
@@ -945,8 +950,8 @@
       const lc = this.theme.lantern;
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
-      // halo + floor pool: gradients made once per theme and moved to the lantern; the flicker (fl ≤ 1) scales the
-      // stop alphas linearly, i.e. globalAlpha (same pixels as rebuilding them every frame)
+
+
       const C = tc(this.theme);
       if (!C.lanG || C.lanC !== lc) {
         C.lanC = lc;
@@ -971,8 +976,8 @@
       ctx.fillRect(x - 9, -106, 18, 20);
     },
     lanternFlicker(x) { return 0.85 + 0.15 * Math.sin(this.t * 13 + x) * Math.sin(this.t * 7.3 + x * 0.3); },
-    // Işık kaynakları (dünya koordinatları) — dövüşçü aydınlatması için
-    // (karede birkaç kez çağrılır: aynı an + tema için sonuç yeniden kullanılır, çöp üretmez)
+
+
     lights() {
       const th = this.theme, LC = this._lc || (this._lc = { t: NaN, th: null, a: [] });
       if (LC.t === this.t && LC.th === th) return LC.a;
@@ -988,7 +993,7 @@
       return a;
     },
 
-    // noSplash: rain splashes left out (Low draws them live over its cached backdrop)
+
     drawFloor(ctx, noSplash) {
       const A = ND.ARENA, th = this.theme;
       if (th.wallStyle === 'river') this.drawRiver(ctx);
@@ -996,7 +1001,7 @@
         ctx.fillStyle = th.wall; ctx.fillRect(-3000, -70, 6000, 30);
         ctx.fillStyle = th.wallHi || 'rgba(255,255,255,.05)'; ctx.fillRect(-3000, -72, 6000, 4);
       }
-      // zemin gradyanı (dünya y −45 → 420) önbellekli şeritten; üst kenar kesirli kalır, altı düz renk
+
       const C = tc(th);
       C.floor = C.floor || vstrip([[0, th.floor[0]], [0.25, th.floor[1]], [1, th.floor[2]]]);
       vgrad(ctx, C.floor, cam.sy(-45), cam.sy(420), th.floor[2]);
@@ -1014,7 +1019,7 @@
       if (th.weather === 'rain' && !noSplash) this.drawSplashes(ctx);
       if (th.fence) for (const s of [-1, 1]) {
         ctx.fillStyle = th.fence;
-        if (th.fenceStyle === 'broken') { // yanmış, kırık çit
+        if (th.fenceStyle === 'broken') {
           ctx.beginPath();
           for (let i = 0; i < 9; i++) {
             if (i % 4 === 2) continue;
@@ -1036,7 +1041,7 @@
       }
     },
 
-    drawSplashes(ctx) { // yağmur sıçramaları (dünya koordinatları)
+    drawSplashes(ctx) {
       ctx.strokeStyle = 'rgba(190,210,230,.25)'; ctx.lineWidth = 1;
       for (const s of this.splashes) {
         const k = 1 - s.life / 0.25;
@@ -1044,7 +1049,7 @@
       }
     },
 
-    // Taş döşeme derzleri / kar dalgaları (eski arenalar)
+
     floorJoints(ctx) {
       const th = this.theme;
       ctx.strokeStyle = th.joint; ctx.lineWidth = 1.5;
@@ -1058,7 +1063,7 @@
         let y = -45, step = 9;
         while (y < 700) { ctx.moveTo(-3000, y); ctx.lineTo(3000, y); y += step; step *= 1.35; }
       } else {
-        // kar dalgaları
+
         for (let i = 0; i < 7; i++) {
           const y = -30 + i * i * 9;
           ctx.moveTo(-3000, y);
@@ -1073,14 +1078,14 @@
       if (this.lowTier()) { this.drawBackLow(ctx); return; }
       this.drawBackLayers(ctx, false);
     },
-    // Low: the whole backdrop (sky → floor, lanterns, plus the front fog and the vignette) is one picture at half the
-    // canvas resolution, copied to the screen in a single scaled draw. It is redrawn only when the camera has moved
-    // (more than ~2.5 px on the floor), zoomed, on a lightning flash, or every 0.2 s (BG_LOW) so lanterns, clouds and
-    // fires keep moving at a lower rate. Floor stains and rain splashes stay live on top (full resolution).
-    // On a phone this replaces 8–10 large blended fills per frame with one copy (the backdrop was about half of a Low frame).
-    // With the WebGL2 renderer the picture is a kept GPU surface (gl2d.js ctx.surface): redrawing it renders into its
-    // texture on the GPU, nothing is uploaded (its static layers are wide layer caches, uploaded once per fight). Canvas
-    // 2D (and a frame the renderer refused) draws it into a canvas as before.
+
+
+
+
+
+
+
+
     drawBackLow(ctx) {
       const W = cam.W, H = cam.H, B = this._bgl || (this._bgl = { c: null, sf: null });
       const P = BG_LOW, bw = Math.max(1, Math.round(W * P.k)), bh = Math.max(1, Math.round(H * P.k));
@@ -1090,8 +1095,8 @@
         B.gpu !== gpu || (gpu && !ctx.surfaceOk(B.sf));
       const moved = Math.abs(cam.x - B.x) > tol || Math.abs(cam.y - B.y) > tol || Math.abs(cam.z / B.z - 1) > P.zoom ||
         Math.abs(cam.shx - B.shx) > P.tol || Math.abs(cam.shy - B.shy) > P.tol;
-      // While the camera keeps moving the picture is redrawn every third frame; in between the previous one is moved
-      // with the floor (the far layers are then off by up to two frames of camera motion, a few pixels).
+
+
       const frame = (B.frame = (B.frame || 0) + 1);
       const stale = must || !(Math.abs(this.t - B.t) < P.t) || (moved && frame - B.built >= 3);
       if (stale) {
@@ -1100,7 +1105,7 @@
         else {
           const c = B.c || (B.c = document.createElement('canvas'));
           if (c.width !== bw || c.height !== bh) { c.width = bw; c.height = bh; B.x2 = null; }
-          // (Canvas 2D, as before: under the WebGL2 hooks a CPU canvas, whose copy never waits for the GPU)
+
           x = B.x2 || (B.x2 = c.getContext('2d', ND.glHooked ? { alpha: false, willReadFrequently: true } : { alpha: false }));
         }
         const sv = { W, H, s: cam.s, shx: cam.shx, shy: cam.shy }, kx = bw / W;
@@ -1114,7 +1119,7 @@
         this.cacheDraws = (this.cacheDraws || 0) + 1;
       }
       if (stale || !moved) ctx.setTransform(1, 0, 0, 1, 0, 0);
-      else { // the old picture, scaled and shifted so its floor (world layer) lines up with the current camera
+      else {
         const k0 = cam.s * B.z, k = cam.k, r = k / k0, gy = cam.gy;
         ctx.setTransform(r, 0, 0, r, W / 2 - (W / 2 + B.shx) * r + (B.x - cam.x) * k + cam.shx, gy - (gy + B.shy) * r + (B.y - cam.y) * k + cam.shy);
       }
@@ -1124,7 +1129,7 @@
       fx.drawDecals(ctx);
       PM('backLow');
     },
-    // still: drawn into Low's backdrop (no floor stains / rain splashes: those are drawn live)
+
     drawBackLayers(ctx, still) {
       const th = this.theme, pr = th.props, C = tc(th);
       this.drawSky(ctx);
@@ -1135,16 +1140,16 @@
       if (th.ridgeB) this.drawRidge(ctx, this.ridgeB, 0.14, th.ridgeB, -60);
       if (pr && this['far_' + pr]) this['far_' + pr](ctx);
       PM('far');
-      // Mid layer: the trees, the pagoda body and the castle walls never move, so they are drawn once into a layer
-      // cache (layerCache) and only shifted afterwards; the pagoda's flickering windows are drawn live on top.
+
+
       const midC = !!(th.trees || th.pagoda || MID_STATIC[pr]);
       if (midC) this.layerCache(ctx, 'mid', 0.28, this._midFn || (this._midFn = (x) => this.midStatic(x)), -900, floorTop());
       cam.layer(ctx, 0.28);
       if (th.pagoda) this.drawPagoda(ctx, 420, -40, undefined, 'lights');
       if (pr && this['mid_' + pr] && !MID_STATIC[pr]) { ctx.save(); this['mid_' + pr](ctx); ctx.restore(); }
       PM('mid');
-      // Near layer: bamboo / pines sway, so they stay live on High. On Medium and Low the sway stops and the whole
-      // layer (grove + torii) comes from a layer cache too; the castle's gables never move and are cached on every tier.
+
+
       if (NEAR_STATIC[pr] || ((th.near || th.torii) && this.stillTier())) {
         this.layerCache(ctx, 'near', 0.55, this._nearFn || (this._nearFn = (x) => this.nearLayer(x, true)), -1200, floorTop());
       } else {
@@ -1168,13 +1173,13 @@
       PM('edge+decals');
     },
 
-    // Low tier active (the backdrop is one cached picture, fighters are placed from part pictures, one cached light)
+
     lowTier() { return !!(ND.gfx && ND.gfx.tier === 'low'); },
-    // Medium and Low (js/gfx.js `still`): the near layer's foliage stands still (layer cache), the stars are baked
-    // into the sky picture
+
+
     stillTier() { return !!(ND.gfx && ND.gfx.f && ND.gfx.f.still); },
-    // Static part of the mid layer (layer 0.28), drawn into the 'mid' layer cache; x has the layer transform.
-    // Trees outside the cache's width are skipped.
+
+
     midStatic(x) {
       const th = this.theme, pr = th.props, m = x.getTransform(), lx0 = -m.e / m.a - 160, lx1 = (x.canvas.width - m.e) / m.a + 160;
       x.fillStyle = th.mid;
@@ -1183,8 +1188,8 @@
       if (th.pagoda) this.drawPagoda(x, 420, -40, undefined, 'body');
       if (MID_STATIC[pr]) { x.save(); this['mid_' + pr](x); x.restore(); }
     },
-    // Near layer (layer 0.55): bamboo grove or pines, torii, arena props. still: the Low / cached version (no sway;
-    // stalks outside the cache's width are skipped by the grove itself through view()).
+
+
     nearLayer(ctx, still) {
       const th = this.theme, pr = th.props, C = tc(th), t = still ? 0 : this.t;
       if (th.near === 'bamboo') this.drawBambooGrove(ctx, still);
@@ -1201,15 +1206,15 @@
       if (pr && this['near_' + pr]) { ctx.save(); this['near_' + pr](ctx); ctx.restore(); }
     },
 
-    // Ay/güneşten süzülen hacimsel ışık huzmeleri
+
     drawRays(ctx) {
       const th = this.theme;
       if (!th.rays || !th.orb || !gfxF().rays) return;
       const W = cam.W, H = cam.H, ox = W * th.orb.x - cam.x * 0.02 * cam.s, oy = H * th.orb.y;
       ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalCompositeOperation = 'lighter';
-      // The shimmer scales the stops' alpha (a, 0.4a, 0): drawn as fixed stops (1, 0.4, 0) under globalAlpha a, the
-      // same picture (alpha interpolates linearly) with one gradient colour ramp for the whole fight instead of six
-      // new ones every frame (the WebGL2 renderer builds each new ramp on the processor).
+
+
+
       const C = tc(th), S = C.rayS || (C.rayS = [`rgba(${th.rays},1)`, `rgba(${th.rays},0.4)`, `rgba(${th.rays},0)`]), A0 = ctx.globalAlpha;
       for (let i = 0; i < 6; i++) {
         const base = (th.orb.x > 0.5 ? Math.PI * 0.62 : Math.PI * 0.38) + (i - 2.5) * 0.09 + Math.sin(this.t * 0.13 + i * 1.7) * 0.03;
@@ -1231,7 +1236,7 @@
       cam.world(ctx);
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
       ctx.fillStyle = tc(th).moteC || (tc(th).moteC = `rgb(${th.motes})`);
-      // Medium draws every other mote
+
       const M = this.motes, step = share >= 1 ? 1 : Math.round(1 / share);
       for (let i = 0; i < M.length; i += step) {
         const m = M[i];
@@ -1242,13 +1247,13 @@
       ctx.restore();
     },
 
-    // Hava parçacıkları tek tek çizilir: ekrana yayılmış yüzlerce alt yollu tek bir yol GPU rasterında büyük bir
-    // yazılım maskesine düşüyordu (≈15 kat pahalı). Görünmeyenler atlanır. (Seyrek üst üste binmelerde yarı saydam
-    // parçacıklar artık birleşim yerine üst üste harmanlanır — pratikte fark edilmez.)
+
+
+
     drawWeather(ctx, front) {
       cam.world(ctx);
       const th = this.theme, v = this.view(1), X0 = v.x0 - 40, X1 = v.x1 + 40, Y0 = v.y0 - 40, Y1 = v.y1 + 40;
-      // Low draws every other particle (the simulation still moves them all)
+
       const P = this.parts, st = gfxF().weather || 1;
       if (th.weather === 'rain') {
         ctx.strokeStyle = front ? 'rgba(190,205,225,.42)' : 'rgba(160,180,205,.22)'; ctx.lineWidth = front ? 1.4 : 1;
@@ -1267,7 +1272,7 @@
         }
         return;
       }
-      if (th.weather === 'embers') { // hale + çekirdek, iki titreşim grubu
+      if (th.weather === 'embers') {
         ctx.save(); ctx.globalCompositeOperation = 'lighter';
         for (let g = 0; g < 2; g++) {
           const fl = 0.7 + 0.3 * Math.sin(this.t * (7 + g * 5) + g * 2);
@@ -1316,7 +1321,7 @@
       const low = st > 1;
       for (let i = 0; i < P.length; i += st) { const p = P[i];
         if (p.front !== front || p.x < X0 || p.x > X1 || p.y < Y0 || p.y > Y1) continue;
-        if (low) { // Low: one rotated ellipse, the flutter squashes its height (no save / transform / restore)
+        if (low) {
           ctx.beginPath(); ctx.ellipse(p.x, p.y, p.r * 1.6, p.r * (Math.abs(Math.sin(p.a * 1.7)) * 0.8 + 0.2), p.a, 0, 6.283); ctx.fill();
           continue;
         }
@@ -1342,10 +1347,10 @@
       }
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       if (!this.lowTier()) { this.drawFrontStill(ctx, true); return; }
-      // Low: fog and vignette are part of its backdrop picture (drawBackLow); the lightning flash stays live
+
       if (th.weather === 'rain' && this.flashL > 0) { ctx.fillStyle = `rgba(210,225,255,${this.flashL * 0.18})`; ctx.fillRect(0, 0, cam.W, cam.H); }
     },
-    // ground fog drifting over the floor, lightning flash (flash), vignette (screen space)
+
     drawFrontStill(ctx, flash) {
       const th = this.theme, W = cam.W, H = cam.H, t = this.t;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -1355,7 +1360,7 @@
         ctx.beginPath(); ctx.ellipse(x, cam.sy(10), 420 * cam.s, 36 * cam.s, 0, 0, 6.283); ctx.fill();
       }
       if (flash && th.weather === 'rain' && this.flashL > 0) { ctx.fillStyle = `rgba(210,225,255,${this.flashL * 0.18})`; ctx.fillRect(0, 0, W, H); }
-      // vinyet: tam çözünürlükte bir kez çizilip önbellekten 1:1 basılır (tam ekran radyal gradyan her karede pahalı)
+
       const C = tc(th);
       if (!C.vig || C.vigW !== W || C.vigH !== H) {
         const c = C.vig || document.createElement('canvas'); c.width = W; c.height = H; C.vigW = W; C.vigH = H;
@@ -1366,36 +1371,36 @@
       ctx.drawImage(C.vig, 0, 0);
     },
 
-    // ================================================= YENİ ARENALAR
-    // Katmanın ekranda görünen bölgesi (katman koordinatlarında)
+
+
     view(f) {
       const k = cam.s * (1 + (cam.z - 1) * f), tx = cam.W / 2 - cam.x * f * k + cam.shx * f, ty = cam.gy - cam.y * cam.k + cam.shy * f;
       return { x0: -tx / k, x1: (cam.W - tx) / k, y0: -ty / k, y1: (cam.H - ty) / k, k };
     },
-    // Static parallax layer (ridges, far roofs, the mid layer's trees and walls, Medium / Low's still near layer, the
-    // waterfall cliffs), drawn from a wide layer cache: the layer is drawn once per fight (per arena, canvas size, camera
-    // scale and quality) into a few pictures, one per band of camera zoom (a band spans at most gfx `lband` in layer
-    // scale; it is drawn at the band's largest scale), each wide and tall enough for everything the camera can show of
-    // the layer inside that band (WIDE: pans, jumps and the phone camera's jump zoom-out, close-ups, shake). Every
-    // frame the band of the current zoom is placed with a transform: the GPU pans and scales it, so a moving or zooming
-    // camera costs no drawing and no texture upload. A view outside every band (rare: a counter punch-in past WIDE.zhi)
-    // or a layer too big for WIDE.budget uses the sliding cache (layerSlide) instead; wideMiss counts those frames.
-    // ly0: top of the layer's content (layer units); ybot: lowest screen row needed (the top of the opaque floor).
+
+
+
+
+
+
+
+
+
     layerCache(ctx, key, f, draw, ly0 = -1e5, ybot = cam.H) {
       const W = cam.W, H = cam.H, k = cam.s * (1 + (cam.z - 1) * f);
       const tx = W / 2 - cam.x * f * k + cam.shx * f, ty = cam.gy - cam.y * cam.k + cam.shy * f;
       const Y0 = Math.max(0, k * ly0 + ty), Y1 = Math.min(H, ybot);
       if (Y1 <= Y0) return;
       const P = this.widePlan(key, f, ly0, draw);
-      if (!P.off && !this.wideOff) { // (wideOff: tests draw the sliding cache instead, to compare the two)
-        // the view in layer units
+      if (!P.off && !this.wideOff) {
+
         const vx0 = -tx / k, vx1 = (W - tx) / k, vy0 = (Y0 - ty) / k, vy1 = (Y1 - ty) / k, up = 1 + P.up;
-        for (const b of P.bands) { // (bands by scale: the first that is not stretched and holds the view)
-          const e = 0.5 / b.kr; // (half a texel: the content top is met exactly, up to rounding)
+        for (const b of P.bands) {
+          const e = 0.5 / b.kr;
           if (k > b.kr * up || vx0 < b.x0 - e || vx1 > b.x1 + e || vy0 < b.y0 - e || vy1 > b.y1 + e) continue;
           if (!b.c) this.wideBuild(P, b);
           const kr = b.kr, r = k / kr;
-          // only the visible part of the picture (whole texels, one more around for the filter)
+
           const sx = Math.max(0, Math.floor((vx0 - b.x0) * kr) - 1), sy = Math.max(0, Math.floor((vy0 - b.y0) * kr) - 1);
           const sw = Math.min(b.w, Math.ceil((vx1 - b.x0) * kr) + 1) - sx, sh = Math.min(b.h, Math.ceil((vy1 - b.y0) * kr) + 1) - sy;
           ctx.setTransform(r, 0, 0, r, b.x0 * k + tx, b.y0 * k + ty);
@@ -1407,18 +1412,18 @@
       }
       this.layerSlide(ctx, key, f, draw, ly0, ybot);
     },
-    // The bands of one layer (made again when the canvas size, the camera scale or ground line, or the quality changes).
-    // Each band [za, zb] of cam.z: scale kr = the layer's scale at zb; rectangle (layer units) = the union of the views
-    // over za..zb (sampled), camera x within ±X (cam.follow's pan limit at its closest zoom; bands reaching the
-    // close-ups: the whole arena), cam.y within WIDE.yLo..yHi, shake; rows from the content top (or the highest view)
-    // down to the lowest floor line.
+
+
+
+
+
     widePlan(key, f, ly0, draw) {
       const C = tc(this.theme), F = gfxF(), q = ND.gfx ? ND.gfx.tier : '';
       const W = cam.W, H = cam.H, s = cam.s, gy = cam.gy, ratio = F.lband || 1.2;
       let P = C['w:' + key];
       if (P && P.W === W && P.H === H && P.s === s && P.gy === gy && P.q === q && P.ly0 === ly0 && P.f === f) { P.draw = draw; return P; }
       if (P) wideFree(P);
-      // (pictures made for another canvas size or quality are dropped at once)
+
       for (const n in C) { const o = C[n]; if (o && o.bands && (o.W !== W || o.H !== H || o.q !== q || o.s !== s)) { wideFree(o); delete C[n]; } }
       P = C['w:' + key] = { key, W, H, s, gy, q, ly0, f, draw, up: F.ltol || 0.015, bands: [], bytes: 0, off: false };
       const Sh = WIDE.shake, A = ND.ARENA, Xf = Math.min(A, Math.max(0, A + 120 - W / (2 * s * WIDE.zFollow)));
@@ -1426,7 +1431,7 @@
       for (let guard = 0; guard < 12; guard++) {
         const ka = 1 + (za - 1) * f;
         let zb = f > 0 ? 1 + (ratio * ka - 1) / f : WIDE.zhi;
-        if (zb > WIDE.zhi - 0.05) zb = WIDE.zhi; // no thin band at the top
+        if (zb > WIDE.zhi - 0.05) zb = WIDE.zhi;
         const kr = s * (1 + (zb - 1) * f), X = zb > WIDE.zFocus ? A : Xf;
         let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
         for (let i = 0; i <= 8; i++) {
@@ -1439,26 +1444,26 @@
             y1 = Math.max(y1, (fl - ty + Sh * f) / k);
           }
         }
-        const m = 2 / kr; // two texels around
+        const m = 2 / kr;
         x0 -= m; x1 += m; y0 = Math.max(ly0, y0 - m); y1 += m;
         const w = Math.ceil((x1 - x0) * kr), h = Math.ceil((y1 - y0) * kr);
         if (h > 0 && w > 0) { P.bands.push({ za, zb, kr, x0, x1, y0, y1, w, h, c: null }); P.bytes += w * h * 4; }
         if (zb >= WIDE.zhi) break;
         za = zb;
       }
-      // memory: this layer with the other wide layers of this arena at this size must stay within the budget
+
       let used = 0;
       for (const n in C) { const o = C[n]; if (o && o.bands && o !== P && !o.off && o.W === W && o.H === H) used += o.bytes; }
       if (!P.bands.length || used + P.bytes > WIDE.budget() || P.bands.some((b) => b.w > WIDE.maxDim || b.h > WIDE.maxDim)) { P.off = true; P.bands.length = 0; }
       return P;
     },
-    // draws one band's picture (at fight start: game.js prepareMatch → warmLayers; otherwise when first needed)
+
     wideBuild(P, b) {
       const c = document.createElement('canvas');
       c.width = b.w; c.height = b.h;
-      c.__glKeep = true; // (its texture stays while the canvas does, gl2d.js sweepImages)
-      // (WebGL2 renderer: a processor canvas, copied into its texture once, never waiting for the GPU; no second
-      // copy of it in GPU memory)
+      c.__glKeep = true;
+
+
       const x = c.getContext('2d', ND.glHooked ? { willReadFrequently: true } : undefined);
       x.setTransform(b.kr, 0, 0, b.kr, -b.x0 * b.kr, -b.y0 * b.kr);
       x.globalAlpha = 1; x.globalCompositeOperation = 'source-over';
@@ -1467,8 +1472,8 @@
       this.cacheDraws = (this.cacheDraws || 0) + 1;
       this.wideBuilds = (this.wideBuilds || 0) + 1;
     },
-    // Fight preparation: draws the bands of this arena's wide layer caches that are not drawn yet, for about `ms`
-    // milliseconds; true when all are done (the layers are known after the first drawBack of the preparation).
+
+
     warmLayers(ms = 12) {
       const C = tc(this.theme), t0 = performance.now();
       for (const n in C) {
@@ -1483,8 +1488,8 @@
       this.widePrime = true;
       return true;
     },
-    // After warmLayers, the next WebGL2 frame (the preparation's last one) places every band picture once, invisibly
-    // (1 px, alpha 0): all of them become textures while the loading card is up, none in the middle of the fight.
+
+
     primeWide(ctx) {
       this.widePrime = false;
       const C = tc(this.theme), a = ctx.globalAlpha;
@@ -1492,8 +1497,8 @@
       for (const n in C) { const P = C[n]; if (P && P.bands && !P.off) for (const b of P.bands) if (b.c) ctx.drawImage(b.c, 0, 0, 1, 1, 0, 0, 1, 1); }
       ctx.globalAlpha = a;
     },
-    // What the wide layer caches of this arena hold (tests, scripts/hitch-check.mjs): pictures, bytes, layers that
-    // use the sliding cache instead
+
+
     wideInfo() {
       const C = tc(this.theme), o = { layers: 0, bands: 0, built: 0, bytes: 0, off: [], list: [] };
       for (const n in C) {
@@ -1506,14 +1511,14 @@
       o.misses = this.wideMiss || 0; o.draws = this.wideBuilds || 0; o.slides = this.slideDraws || 0; o.last = this.wideLast || null;
       return o;
     },
-    // Sliding layer cache (the fallback of layerCache): the static part of the layer drawn at screen resolution with
-    // a margin, then only shifted while the camera moves (1:1 when it stands still). Drawn again when the scale changes
-    // by more than gfx `ltol`, the margin runs out, or the canvas / theme changes.
-    // Paralaks katmanı önbelleği: katmanın durağan kısmı ekran çözünürlüğünde (kenar paylı) bir kez çizilir, kamera
-    // kaydıkça yalnız ötelenerek basılır (kamera durunca birebir). Ölçek %1.5'ten çok değişir, pay aşılır ya da
-    // tuval/tema değişirse yeniden çizilir.
-    // ly0: içeriğin katman uzayındaki üst sınırı; ybot: gereken en alt ekran satırı (ör. opak zeminin üstü) —
-    // önbellek yalnız bu yatay bandı tutar (bellek).
+
+
+
+
+
+
+
+
     layerSlide(ctx, key, f, draw, ly0 = -1e5, ybot = cam.H) {
       const W = cam.W, H = cam.H, C = tc(this.theme), k = cam.s * (1 + (cam.z - 1) * f);
       const tx = W / 2 - cam.x * f * k + cam.shx * f, ty = cam.gy - cam.y * cam.k + cam.shy * f;
@@ -1521,17 +1526,17 @@
       if (Y1 <= Y0) return;
       let L = C[key], r = L ? k / L.k : 0;
       const ox = L ? tx - (L.tx - L.x0) * r : 0, oy = L ? ty - (L.ty - L.y0) * r : 0;
-      // scale change allowed before a redraw: 1.5% on High, 6% on Medium / Low (js/gfx.js `ltol`: during a camera zoom
-      // the layer is stretched a little longer instead of being drawn and uploaded again every few frames)
+
+
       const q = ND.gfx ? ND.gfx.tier : '', rt = (ND.gfx && ND.gfx.f && ND.gfx.f.ltol) || 0.015;
       if (!L || L.W !== W || L.H !== H || L.q !== q || Math.abs(r - 1) > rt || ox > 0 || ox + L.c.width * r < W || oy > Y0 || oy + L.h * r < Y1) {
         const M = Math.ceil(W * 0.12), MY = Math.ceil(H * 0.12);
         const x0 = -M, y0 = Math.max(-MY, Math.floor(k * ly0 + ty) - 2), y1 = Math.min(H + MY, Math.ceil(Y1) + MY);
         if (!L) L = C[key] = { c: document.createElement('canvas') };
         const c = L.c, x = c.getContext('2d'), cw = W + 2 * M, ch = y1 - y0;
-        // The canvas height only grows (a canvas of a new size becomes a new texture in WebGL, a stall on phones; the
-        // camera changes the needed height all the time): rows below ch stay empty and the drawing is clipped to ch
-        // rows, as the canvas edge did before.
+
+
+
         if (c.width !== cw || c.height < ch) { c.width = cw; c.height = ch + (c.height && c.height < ch ? Math.ceil(ch * 0.1) : 0); }
         else { x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, c.width, c.height); }
         const clip = c.height > ch;
@@ -1551,7 +1556,7 @@
     },
     fireF(x) { const t = this.t; return clamp(0.8 + 0.12 * Math.sin(t * 11 + x) + 0.08 * Math.sin(t * 23.7 + x * 1.7) + 0.06 * Math.sin(t * 5.3 + x * 0.3), 0.55, 1.1); },
 
-    // ---------------- ateş ve duman
+
     drawFlames(ctx, cx, by, w, h, seed) {
       const t = this.t, n = Math.max(3, Math.round(w / 24)), lean = this.wind * 0.0016, fl = this.fireF(cx + seed);
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
@@ -1583,11 +1588,11 @@
       ctx.globalAlpha = 1;
     },
 
-    // ---------------- YANAN KÖY
+
     drawHouse(ctx, o, col) {
       const { x, w, h } = o;
       ctx.fillStyle = col;
-      if (o.roof === 2) { // yıkık ev: direkler, eğik kiriş, enkaz
+      if (o.roof === 2) {
         ctx.beginPath();
         beam(ctx, x - w * 0.45, 10, h * 0.9, 10, -Math.PI / 2); beam(ctx, x, 10, h * 0.55, 10, -Math.PI / 2 + 0.1); beam(ctx, x + w * 0.4, 10, h * 1.1, 10, -Math.PI / 2 - 0.05);
         beam(ctx, x - w * 0.55, -h * 0.55, w * 1.1, 12, -0.28);
@@ -1597,17 +1602,17 @@
       }
       ctx.fillRect(x - w / 2, -h, w, h + 10);
       ctx.beginPath();
-      if (o.roof === 0) { // saz çatı
+      if (o.roof === 0) {
         const top = -h - w * 0.5;
         ctx.moveTo(x - w / 2 - 16, -h + 6); ctx.quadraticCurveTo(x - w * 0.42, -h - w * 0.3, x - w * 0.14, top); ctx.lineTo(x + w * 0.14, top); ctx.quadraticCurveTo(x + w * 0.42, -h - w * 0.3, x + w / 2 + 16, -h + 6);
-      } else { // kiremit çatı, kalkık saçak
+      } else {
         const top = -h - w * 0.3;
         ctx.moveTo(x - w / 2 - 26, -h - 8); ctx.quadraticCurveTo(x - w * 0.36, -h + 2, x - w * 0.3, top); ctx.lineTo(x + w * 0.3, top); ctx.quadraticCurveTo(x + w * 0.36, -h + 2, x + w / 2 + 26, -h - 8); ctx.lineTo(x + w / 2 + 18, -h + 5); ctx.lineTo(x - w / 2 - 18, -h + 5);
       }
       ctx.closePath(); ctx.fill();
       const fl = this.fireF(x);
-      if (o.burn) { ctx.strokeStyle = `rgba(255,120,40,${0.4 * fl})`; ctx.lineWidth = 2.5; ctx.stroke(); } // ateş kenar ışığı
-      // içeriden ateşle aydınlanan şoji pencereler
+      if (o.burn) { ctx.strokeStyle = `rgba(255,120,40,${0.4 * fl})`; ctx.lineWidth = 2.5; ctx.stroke(); }
+
       const ww = w * 0.16, wh = h * 0.34, wy = -h * 0.86;
       ctx.fillStyle = `rgba(255,${(120 + 60 * fl) | 0},50,${(o.burn ? 0.75 : 0.28) * fl})`;
       ctx.fillRect(x - w * 0.3, wy, ww, wh); ctx.fillRect(x + w * 0.14, wy, ww, wh);
@@ -1618,12 +1623,12 @@
       const v = this.view(f);
       const vis = (o, m) => o.x > v.x0 - m && o.x < v.x1 + m;
       for (const o of L) if (o.burn && vis(o, 500)) this.drawSmoke(ctx, o.x, o.roof === 2 ? -o.h * 0.6 : -o.h - 40, s, o.s, '24,10,10');
-      // alevler çatının arkasından yükselir (taban gizli, ev silueti ışığa karşı)
+
       for (const o of L) if (o.burn && o.roof !== 2 && vis(o, o.w)) this.drawFlames(ctx, o.x, -o.h - o.w * (o.roof === 0 ? 0.12 : 0.06), o.w * 0.95 * o.burn, (60 + o.w * 0.8) * o.burn * s, o.s);
       for (const o of L) if (vis(o, o.w)) this.drawHouse(ctx, o, col);
       for (const o of L) if (o.burn && o.roof === 2 && vis(o, o.w)) this.drawFlames(ctx, o.x, -o.h * 0.1, o.w * 0.8 * o.burn, (40 + o.w * 0.6) * o.burn * s, o.s);
     },
-    far_village(ctx) { // ufukta uzak yangınların ışıması
+    far_village(ctx) {
       cam.layer(ctx, 0.14);
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
       for (let i = 0; i < 7; i++) { const x = -2100 + i * 700 + Math.sin(i * 2.7) * 200; glowAt(ctx, '255,80,25', x, -120, 380 + (i % 3) * 120, 150, 0.28 * this.fireF(x)); }
@@ -1631,7 +1636,7 @@
     },
     mid_village(ctx) { this.villageRow(ctx, this.P.vMid, 0.28, '#13070a', 0.8); },
     near_village(ctx) { this.villageRow(ctx, this.P.vNear, 0.55, '#0b0406', 1.15); },
-    edge_village(ctx) { // arena kenarında yanan kiriş yığınları (ışık kaynağı)
+    edge_village(ctx) {
       const A9 = ND.ARENA - 90;
       for (const s of [-1, 1]) {
         const x = s * A9, fl = this.fireF(x);
@@ -1644,9 +1649,9 @@
         ctx.fillStyle = `rgba(255,120,40,${0.55 * fl})`; ctx.beginPath(); beam(ctx, x - 88, 9, 170, 2, -0.08); beam(ctx, x - 68, 6, 140, 2, -0.5); ctx.fill();
       }
     },
-    floor_ash(ctx) { // is lekeleri, kömür kirişler, sönmekte olan közler
+    floor_ash(ctx) {
       const P = this.P, t = this.t, C = tc(this.theme), v = this.view(1);
-      // ateş yansıması: şerit en parlak halinde, titreşim globalAlpha ile
+
       C.ash = C.ash || vstrip([[0, `rgba(255,90,30,${0.16 * 1.1})`], [1, 'rgba(255,90,30,0)']]);
       ctx.globalAlpha = this.fireF(2) / 1.1;
       ctx.drawImage(C.ash, 0, 0, 1, 256, Math.max(-3000, v.x0 - 8), -45, Math.min(3000, v.x1 + 8) - Math.max(-3000, v.x0 - 8), 205);
@@ -1665,17 +1670,17 @@
       }
       ctx.restore();
     },
-    fg_posts(ctx) { // ön planda kömürleşmiş direkler, ateş tarafında kızıl kenar
+    fg_posts(ctx) {
       const v = this.view(1.45), fl = this.fireF(3);
-      // direkler ayrı ayrı (ekran boyu tek yol GPU'da yazılım maskesine düşüyordu; direkler birbirine değmez)
+
       ctx.fillStyle = this.theme.fgC;
       for (const b of this.fgBamboo) { if (b.x < v.x0 - 400 || b.x > v.x1 + 400) continue; ctx.beginPath(); beam(ctx, b.x, v.y1 + 60, 1800, b.w * 1.25, -Math.PI / 2 + ((b.p % 3) - 1) * 0.1); ctx.fill(); }
       ctx.fillStyle = `rgba(255,110,40,${0.22 * fl})`;
       for (const b of this.fgBamboo) { if (b.x < v.x0 - 400 || b.x > v.x1 + 400) continue; ctx.beginPath(); beam(ctx, b.x + b.w * 0.55, v.y1 + 60, 1800, 3, -Math.PI / 2 + ((b.p % 3) - 1) * 0.1); ctx.fill(); }
     },
 
-    // ---------------- GECE ÇARŞISI
-    // Kâğıt fener (chōchin): (x,y) asılma noktası, r yarıçap, ang salınım açısı
+
+
     drawChochin(ctx, x, y, r, ang, fl) {
       const h = r * 1.3, cy = r * 0.5 + h;
       ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
@@ -1691,7 +1696,7 @@
       if (r > 13) { ctx.fillStyle = 'rgba(25,6,4,.7)'; ctx.fillRect(-r * 0.12, cy - h * 0.5, r * 0.24, h * 0.42); ctx.fillRect(-r * 0.3, cy + h * 0.02, r * 0.6, r * 0.14); ctx.fillRect(-r * 0.12, cy + h * 0.15, r * 0.24, h * 0.3); }
       ctx.restore();
     },
-    // Fener dizisi: L = [x0,y0,x1,y1,...]; önce ışımalar, sonra gövdeler
+
     lanternRow(ctx, L, r, ga) {
       const t = this.t;
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
@@ -1699,15 +1704,15 @@
       ctx.restore();
       for (let i = 0; i < L.length; i += 2) this.drawChochin(ctx, L[i], L[i + 1], r, Math.sin(t * 1.5 + L[i] * 0.02) * 0.08 + this.wind * 0.0003, this.lanternFlicker(L[i]));
     },
-    // Far rooftops never move: drawn into a layer cache; only the pagoda's windows flicker live on top
+
     far_market(ctx) {
       this.layerCache(ctx, 'farMk', 0.14, this._fmFn || (this._fmFn = (x) => this.farMarketStatic(x)), -900, floorTop());
       cam.layer(ctx, 0.14);
       ctx.save(); ctx.translate(-760, -300); ctx.scale(0.75, 0.75); this.drawPagoda(ctx, 0, 0, this.theme.skyline, 'lights'); ctx.restore();
     },
-    farMarketStatic(ctx) { // uzak çatılar + pagoda silueti (x: layer transform of the cache; range = cache width)
+    farMarketStatic(ctx) {
       const th = this.theme, S = this.P.sky, m = ctx.getTransform(), v = { x0: -m.e / m.a, x1: (ctx.canvas.width - m.e) / m.a };
-      // binalar tek tek (opak renk: birleşimle aynı; ekran boyu tek yol GPU'da yazılım maskesine düşüyordu)
+
       ctx.fillStyle = th.skyline;
       for (const b of S) {
         if (b.x < v.x0 - 150 || b.x > v.x1 + 150) continue;
@@ -1719,7 +1724,7 @@
       ctx.fillStyle = 'rgba(255,190,120,.45)';
       for (const b of S) { if (!b.win || b.x < v.x0 - 150 || b.x > v.x1 + 150) continue; const y = -300 - b.h; ctx.fillRect(b.x - b.w * 0.3, y + 14, 5, 7); ctx.fillRect(b.x + b.w * 0.1, y + 30, 5, 7); }
     },
-    mid_market(ctx) { // iki katlı machiya sırası, ışıklı kafesler
+    mid_market(ctx) {
       const th = this.theme, v = this.view(0.28), t = this.t, lamps = [];
       for (const b of this.P.mach) {
         if (b.x + b.w < v.x0 || b.x - b.w > v.x1) continue;
@@ -1739,7 +1744,7 @@
       }
       this.lanternRow(ctx, lamps, 9, 0.4);
     },
-    near_market(ctx) { // yatai tezgâhları: noren perdeler, buhar, fenerler
+    near_market(ctx) {
       const v = this.view(0.55), t = this.t, lamps = [];
       for (const st of this.P.stalls) {
         const { x, w } = st, x0 = x - w / 2;
@@ -1777,7 +1782,7 @@
       }
       this.lanternRow(ctx, lamps, 15, 0.45);
     },
-    edge_market(ctx) { // direkler, arena üstünde fener halatı, fıçılar
+    edge_market(ctx) {
       const A9 = ND.ARENA - 90, ry = (x) => -408 + 78 * (1 - (x / A9) * (x / A9));
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
       for (const L of this.lights()) glowAt(ctx, L.c, L.x, 14, 300, 46, 0.3 * L.f);
@@ -1798,7 +1803,7 @@
         ctx.strokeStyle = '#1a0f08'; ctx.lineWidth = 3; ctx.strokeRect(x + s * 60 - 34, -60, 68, 66);
       }
     },
-    floor_wood(ctx) { // perspektifli ahşap tahtalar
+    floor_wood(ctx) {
       const th = this.theme, v = this.view(1), vx = cam.x, vy = -260, px = (X, y) => vx + (X - vx) * (y - vy) / (700 - vy);
       const rows = []; let y = -45, st = 10; while (y < 700) { rows.push(y); y += st; st *= 1.3; } rows.push(760);
       ctx.fillStyle = 'rgba(255,210,160,.035)'; ctx.beginPath();
@@ -1816,7 +1821,7 @@
       for (let i = 0; i < rows.length - 1; i++) { const yy = rows[i] + (rows[i + 1] - rows[i]) * 0.45; ctx.moveTo(-3000, yy); ctx.lineTo(3000, yy); }
       ctx.stroke();
     },
-    fg_chochin(ctx) { // ekranın üstünde, flu büyük fener dizisi
+    fg_chochin(ctx) {
       const v = this.view(1.45), H = v.y1 - v.y0, SP = 720, top = v.y0 + H * 0.02, sag = H * 0.07, r = H * 0.045;
       const ry = (x) => { const u = ((x % SP) + SP) % SP / SP * 2 - 1; return top + sag * (1 - u * u); };
       ctx.strokeStyle = this.theme.fgC; ctx.lineWidth = 3; ctx.beginPath();
@@ -1827,24 +1832,24 @@
       this.lanternRow(ctx, L, r, 0.35);
     },
 
-    // ---------------- ŞELALE
-    // Uçurumun durağan kısmı (kaya yüzü, güneş ışıması, katmanlar, sarmaşık, çalı, çimen, ağaçlar) — katman önbelleğine çizilir
+
+
     fallsStatic(ctx) {
       const P = this.P, FX = -20, FW = 230;
       const g = ctx.createLinearGradient(0, -620, 0, 0); g.addColorStop(0, '#4f7462'); g.addColorStop(0.5, '#34503f'); g.addColorStop(1, '#1d2e27');
       ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(-2800, 60);
       for (const p of P.cliff) ctx.lineTo(p[0], p[1]);
       ctx.lineTo(2800, 60); ctx.closePath(); ctx.fill();
-      // güneşin vurduğu uçurum yüzü
+
       ctx.save(); ctx.globalCompositeOperation = 'lighter'; glowAt(ctx, '255,235,190', 420, -330, 700, 260, 0.12); ctx.restore();
       ctx.strokeStyle = 'rgba(18,32,26,.45)'; ctx.lineWidth = 3; ctx.beginPath();
       for (const s of P.strata) { ctx.moveTo(s.x, s.y); ctx.quadraticCurveTo(s.x + s.l * 0.5, s.y + s.d, s.x + s.l, s.y + s.d * 0.3); }
       ctx.stroke();
-      // sarmaşıklar (önbellekte sabit duruşta; eski ±4 birimlik salınım bu katmanda piksel altıydı) ve çalılıklar
+
       ctx.strokeStyle = '#3f6a3d'; ctx.lineWidth = 3; ctx.beginPath();
       for (const vn of P.vines) { ctx.moveTo(vn.x, vn.y); ctx.quadraticCurveTo(vn.x + Math.sin(vn.x) * 4 + 6, vn.y + vn.l * 0.5, vn.x + 2, vn.y + vn.l); }
       ctx.stroke();
-      for (let pass = 0; pass < 2; pass++) { // çalı kümeleri + güneşli üst yüz
+      for (let pass = 0; pass < 2; pass++) {
         ctx.fillStyle = pass ? 'rgba(125,170,95,.35)' : '#2f5134'; ctx.beginPath();
         for (const b of P.bushes) for (const [a, c, k] of pass ? BUSH_HI : BUSH) { const rx = b.r * k; ctx.moveTo(b.x + a * b.r + rx, b.y + c * b.r); ctx.ellipse(b.x + a * b.r, b.y + c * b.r, rx, rx * 0.62, 0, 0, 6.283); }
         ctx.fill();
@@ -1856,20 +1861,20 @@
       ctx.fillStyle = '#2d5038';
       for (const tr of P.ftrees) { ctx.save(); ctx.translate(0, tr.y); this.drawTree(ctx, tr); ctx.restore(); }
     },
-    mid_falls(ctx) { // uçurum, akan su, taban sisi
+    mid_falls(ctx) {
       const P = this.P, t = this.t, FX = -20, FW = 230, top = P.cliffY(FX) + 2, FB = 50;
       this.layerCache(ctx, 'falls', 0.28, this._fallsFn || (this._fallsFn = (c) => this.fallsStatic(c)), -780, floorTop());
       cam.layer(ctx, 0.28);
-      // ana şelale: tabana doğru genişleyen, kenarları dalgalı su perdesi
+
       const ex = (y, sd) => { const k = (y - top) / -top; return FX + sd * (FW + FB * k * k + Math.sin(y * 0.035 + t * 2.2 * sd) * 3 * k); };
-      // Su perdesi ekran pikseline hizalı küçük bir tuvalde çizilir: akış çizgileri ve taban parlaması gövdeye
-      // kırpma (clip) yerine 'source-atop' ile sınırlanır (GPU'da kırpılmış her çizim yeniden maske üretiyordu).
+
+
       const v = this.view(0.28), vk = v.k, vtx = -v.x0 * vk, vty = -v.y0 * vk;
       const sx0 = Math.max(0, Math.floor(vk * (FX - FW - FB - 12) + vtx)), sx1 = Math.min(cam.W, Math.ceil(vk * (FX + FW + FB + 12) + vtx));
       const sy0 = Math.max(0, Math.floor(vk * (top - 8) + vty)), sy1 = Math.min(cam.H, Math.ceil(vk * 24 + vty));
       if (sx1 > sx0 && sy1 > sy0) {
-        // (WebGL2 renderer: an offscreen layer of the frame, gl2d.js ctx.layer, drawn on the GPU; a canvas would be a
-        // texture upload of the whole curtain every frame)
+
+
         const fw = sx1 - sx0, fh = sy1 - sy0, L = ctx.isGL && ctx.layer ? ctx.layer(fw, fh, 'falls') : null;
         let fc = null, f;
         if (L) f = L.ctx;
@@ -1903,13 +1908,13 @@
       }
       ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.beginPath(); ctx.ellipse(FX, top + 3, FW + 4, 6, 0, 0, 6.283); ctx.fill();
       ctx.fillStyle = 'rgba(40,70,64,.35)'; ctx.beginPath(); ctx.ellipse(FX, top + 12, FW - 10, 4, 0, 0, 6.283); ctx.fill();
-      // yan küçük şelale
+
       const sx = 700, sy = P.cliffY(sx) + 8;
       ctx.fillStyle = 'rgba(200,232,228,.85)'; ctx.fillRect(sx - 14, sy, 28, -sy + 20);
       ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 3; ctx.setLineDash([30, 50]); ctx.lineDashOffset = -t * 420; ctx.beginPath();
       for (let x = sx - 10; x < sx + 12; x += 7) { ctx.moveTo(x, sy + ((((x * 13) % 40) + 40) % 40)); ctx.lineTo(x, 20); }
       ctx.stroke(); ctx.setLineDash([]);
-      // taban sisi (derenin üstünde görünür)
+
       glowAt(ctx, '238,248,246', FX, -150, (FW + FB) * 1.9, 190, 0.5);
       ctx.fillStyle = 'rgb(244,250,249)';
       for (let i = 0; i < 8; i++) {
@@ -1919,7 +1924,7 @@
       }
       ctx.globalAlpha = 1;
     },
-    drawRock(ctx, r, c, m) { // yosunlu kaya
+    drawRock(ctx, r, c, m) {
       const p = r.pts, n = p.length;
       ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(p[0][0], p[0][1]); ctx.lineTo(p[1][0], p[1][1]);
       for (let i = 1; i < n - 2; i++) ctx.quadraticCurveTo(p[i][0], p[i][1], (p[i][0] + p[i + 1][0]) / 2, (p[i][1] + p[i + 1][1]) / 2);
@@ -1931,7 +1936,7 @@
       ctx.fillStyle = 'rgba(255,250,225,.08)'; ctx.fillRect(r.x + r.w * 0.2, -r.h * 1.3, r.w, r.h * 1.4 + 40);
       ctx.restore();
     },
-    // Yakın kayalar + ağaçlar durağan → katman önbelleği (kaya başına kırpma GPU'da pahalıydı)
+
     near_falls(ctx) {
       this.layerCache(ctx, 'nfalls', 0.55, this._nfFn || (this._nfFn = (x) => {
         const P = this.P, m = x.getTransform(), lx0 = -m.e / m.a, lx1 = (x.canvas.width - m.e) / m.a;
@@ -1941,7 +1946,7 @@
       }), -440, floorTop());
     },
     edge_falls(ctx) { for (const r of this.P.eRocks) this.drawRock(ctx, r, '#34443d', '#557d45'); },
-    drawRiver(ctx) { // arka kenarda akan dere
+    drawRiver(ctx) {
       const t = this.t, C = tc(this.theme), v = this.view(1);
       C.river = C.river || vstrip([[0, '#79a6a0'], [1, '#2e5553']]);
       ctx.drawImage(C.river, 0, 0, 1, 256, Math.max(-3000, v.x0 - 8), -122, Math.min(3000, v.x1 + 8) - Math.max(-3000, v.x0 - 8), 82);
@@ -1951,7 +1956,7 @@
         ctx.beginPath(); ctx.moveTo(-3000, -114 + i * 15); ctx.lineTo(3000, -114 + i * 15); ctx.stroke();
       }
       ctx.setLineDash([]);
-      // şelalenin döküldüğü yerde köpük (orta katmandaki şelaleye hizalı)
+
       const k28 = cam.s * (1 + (cam.z - 1) * 0.28), wx = cam.x + (-cam.x * 0.28 * k28 + cam.shx * 0.28 - 20 * k28 - cam.shx) / cam.k, ww = 280 * k28 / cam.k;
       glowAt(ctx, '240,250,248', wx, -112, ww * 1.4, 46, 0.85); ctx.globalAlpha = 1;
       ctx.fillStyle = 'rgba(245,252,250,.6)'; ctx.beginPath();
@@ -1959,7 +1964,7 @@
       ctx.fill();
       ctx.fillStyle = 'rgba(24,44,38,.55)'; ctx.fillRect(-3000, -124, 6000, 4);
     },
-    floor_rock(ctx) { // ıslak kaya plakaları, yosun, su birikintileri
+    floor_rock(ctx) {
       const P = this.P, t = this.t;
       ctx.fillStyle = 'rgba(80,112,62,.5)'; ctx.beginPath();
       for (const m of P.moss) { ctx.moveTo(m.x + m.rx, m.y); ctx.ellipse(m.x, m.y, m.rx, m.ry, 0, 0, 6.283); }
@@ -1985,7 +1990,7 @@
       }
       ctx.fill();
     },
-    fg_foliage(ctx) { // üstten sarkan dal + köşelerde eğrelti otları
+    fg_foliage(ctx) {
       const v = this.view(1.45), t = this.t, H = v.y1 - v.y0, bx = -900, by = v.y0 - 20, sw = Math.sin(t * 0.8) * 8;
       ctx.fillStyle = ctx.strokeStyle = this.theme.fgC; ctx.lineCap = 'round';
       if (bx + 500 > v.x0) {
@@ -2001,16 +2006,16 @@
       for (const fx0 of [760, -1600, 1700]) if (fx0 > v.x0 - 400 && fx0 < v.x1 + 400) this.drawFern(ctx, fx0, v.y1 + 10, H * 0.32);
     },
 
-    // ---------------- KALE ÇATISI
-    far_castle(ctx) { // çok aşağıda uzanan şehir ışıkları
+
+    far_castle(ctx) {
       const t = this.t, P = this.P;
       cam.layer(ctx, 0.1);
-      // dikey gradyanlar önbellekli şeritten (−240→0 gradyanı; dolgu −236'dan başlar, 0'ın altı düz renk)
+
       const C = tc(this.theme), v = this.view(0.1), X0 = Math.max(-4000, v.x0 - 8), XW = Math.min(4000, v.x1 + 8) - X0;
       C.cg = C.cg || vstrip([[0, '#0d1224'], [1, '#05060d']]);
       C.hz = C.hz || vstrip([[0, 'rgba(50,60,95,0)'], [0.5, 'rgba(70,80,120,.4)'], [1, 'rgba(50,60,95,0)']]);
       ctx.drawImage(C.cg, 0, 256 * 4 / 240, 1, 256 * 236 / 240, X0, -236, XW, 236);
-      ctx.fillStyle = '#05060d'; ctx.fillRect(X0, -2, XW, 166); // birleşim dikişi olmasın diye 2 birim bindirme
+      ctx.fillStyle = '#05060d'; ctx.fillRect(X0, -2, XW, 166);
       ctx.drawImage(C.hz, 0, 0, 1, 256, X0, -290, XW, 100);
       ctx.strokeStyle = 'rgba(140,150,190,.18)'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(-3000, -150); ctx.bezierCurveTo(-1200, -230, 400, -120, 3000, -200); ctx.stroke();
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
@@ -2022,7 +2027,7 @@
       for (const T of this.P.towns) glowAt(ctx, '255,150,80', T[0], -232 + T[1] * T[1] * 125, 160 + 300 * T[1], 30 + 40 * T[1], 0.22);
       ctx.restore();
     },
-    drawTurret(ctx, T) { // yagura: eğimli taş kaide + kat kat kalkık çatılar
+    drawTurret(ctx, T) {
       const { x, w } = T; let y = T.b - 100, ww = w;
       ctx.fillStyle = '#0a0d19'; ctx.beginPath(); ctx.moveTo(x - w * 0.8, T.b + 40); ctx.quadraticCurveTo(x - w * 0.62, T.b - 30, x - w * 0.55, y); ctx.lineTo(x + w * 0.55, y); ctx.quadraticCurveTo(x + w * 0.62, T.b - 30, x + w * 0.8, T.b + 40); ctx.fill();
       for (let i = 0; i < T.n; i++) {
@@ -2034,7 +2039,7 @@
         y -= h + 24; ww *= 0.74;
       }
     },
-    drawBPine(ctx, x, y, h) { // kara çam: yassı bulut katmanları
+    drawBPine(ctx, x, y, h) {
       ctx.fillStyle = ctx.strokeStyle = '#070912'; ctx.lineWidth = h * 0.08; ctx.lineCap = 'round';
       ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + h * 0.25, y - h * 0.45, x - h * 0.05, y - h * 0.85);
       ctx.moveTo(x + h * 0.08, y - h * 0.4); ctx.lineTo(x + h * 0.4, y - h * 0.5); ctx.moveTo(x + h * 0.05, y - h * 0.62); ctx.lineTo(x - h * 0.3, y - h * 0.7); ctx.stroke();
@@ -2044,18 +2049,18 @@
       }
       ctx.fill();
     },
-    mid_castle(ctx) { // dış sur, yagura kuleleri, çamlar (drawn into the 'mid' layer cache: range = the cache canvas)
+    mid_castle(ctx) {
       const m = ctx.getTransform(), v = { x0: -m.e / m.a, x1: (ctx.canvas.width - m.e) / m.a }, P = this.P;
       for (const p of P.cpines) if (p.x > v.x0 - 200 && p.x < v.x1 + 200) this.drawBPine(ctx, p.x, -60, p.h);
       for (const T of P.turrets) {
         if (T.x < v.x0 - T.w * 3 || T.x > v.x1 + T.w * 3) continue;
-        ctx.fillStyle = '#0a0d1a'; ctx.fillRect(T.x - T.w * 2.6, -112, T.w * 5.2, 140); // kuleye bağlanan sur (dobei)
+        ctx.fillStyle = '#0a0d1a'; ctx.fillRect(T.x - T.w * 2.6, -112, T.w * 5.2, 140);
         ctx.fillStyle = '#1e2439'; ctx.fillRect(T.x - T.w * 2.6, -126, T.w * 5.2, 14);
         ctx.fillStyle = '#080a14'; ctx.fillRect(T.x - T.w * 2.7, -132, T.w * 5.4, 7);
         this.drawTurret(ctx, T);
       }
     },
-    near_castle(ctx) { // yan tarafta komşu çatı alınları (chidori hafu) — 'near' layer cache: range = the cache canvas
+    near_castle(ctx) {
       const m = ctx.getTransform(), v = { x0: -m.e / m.a, x1: (ctx.canvas.width - m.e) / m.a };
       for (const G of this.P.gables) {
         const { x, w, top } = G;
@@ -2072,7 +2077,7 @@
         ctx.strokeStyle = 'rgba(180,190,230,.28)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x, top); ctx.quadraticCurveTo(x + w * 0.45, -300, x + w * 0.95, -286); ctx.stroke();
       }
     },
-    drawShachi(ctx) { // altın shachihoko (baş +x yönüne bakar)
+    drawShachi(ctx) {
       const g = ctx.createLinearGradient(-20, -190, 40, 0);
       g.addColorStop(0, '#f6dc8c'); g.addColorStop(0.5, '#b88a32'); g.addColorStop(1, '#5e4214');
       ctx.fillStyle = g; ctx.beginPath();
@@ -2086,7 +2091,7 @@
       ctx.fillStyle = '#2a1a06'; ctx.beginPath(); ctx.arc(36, -30, 3.5, 0, 6.283); ctx.fill();
       ctx.strokeStyle = 'rgba(255,248,220,.55)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(48, -8); ctx.quadraticCurveTo(54, -40, 28, -54); ctx.quadraticCurveTo(8, -72, 18, -110); ctx.stroke();
     },
-    edge_castle(ctx) { // mahya uçlarında onigawara + shachihoko, içe bakar
+    edge_castle(ctx) {
       for (const s of [-1, 1]) {
         const x = s * (ND.ARENA + 60);
         ctx.fillStyle = '#161a28'; ctx.beginPath();
@@ -2095,12 +2100,12 @@
         ctx.save(); ctx.translate(x, -120); ctx.scale(-s * 1.05, 1.05); this.drawShachi(ctx); ctx.restore();
       }
     },
-    floor_tiles(ctx) { // kavisli kiremit sıraları + mahya
+    floor_tiles(ctx) {
       const v = this.view(1), vx = cam.x, vy = -260, SP = 78, px = (X, y) => vx + (X - vx) * (y - vy) / (700 - vy);
       const rows = []; let y = -45, st = 16; while (y < 760) { rows.push(y); y += st; st *= 1.3; }
       const sc0 = (-45 - vy) / (700 - vy), Xa = Math.floor((vx + (v.x0 - 60 - vx) / sc0) / SP) * SP, Xb = vx + (v.x1 + 60 - vx) / sc0;
-      // (GPU: ekran boyu çok alt yollu tek yol yazılım maskesine düşüyordu; çizgiler birbirine değmediğinden tek tek
-      // çizmek/doldurmak aynı görüntüyü verir. Yatay 1 birimlik çizgiler eşdeğer ince dikdörtgenler.)
+
+
       ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(0,0,0,.3)';
       for (let X = Xa; X < Xb; X += SP) { ctx.beginPath(); ctx.moveTo(px(X + 8, -45), -45); ctx.lineTo(X + 8, 700); ctx.stroke(); }
       ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(175,190,230,.13)';
@@ -2114,15 +2119,15 @@
         if (r < 2.5) continue;
         for (let X = Xa2; X < Xb2; X += SP) { const a = px(X + 2, y0); ctx.beginPath(); ctx.moveTo(a + r, y0); ctx.ellipse(a, y0 + d * 0.3, r, d, 0, 0, 3.1416); ctx.fill(); }
       }
-      // mahya (çatı sırtı) — arka kenar, ay ışığı üst çizgisi
+
       ctx.fillStyle = '#141827'; ctx.fillRect(-3000, -98, 6000, 56);
       ctx.fillStyle = '#262c40'; ctx.fillRect(-3000, -104, 6000, 12);
       ctx.fillStyle = 'rgba(200,210,240,.28)'; ctx.fillRect(-3000, -105, 6000, 2);
-      ctx.fillStyle = 'rgba(0,0,0,.4)'; // 1.5 kalınlıklı dikey çizgiler = ince dikdörtgenler
+      ctx.fillStyle = 'rgba(0,0,0,.4)';
       for (let x = Math.floor(v.x0 / 30) * 30; x < v.x1; x += 30) ctx.fillRect(x - 0.75, -90, 1.5, 44);
       ctx.fillStyle = '#0b0d16'; ctx.fillRect(-3000, -48, 6000, 5);
     },
-    fg_banners(ctx) { // rüzgârda çırpınan sancaklar ve flamalar
+    fg_banners(ctx) {
       const v = this.view(1.45), t = this.t, dir = this.wind < 0 ? -1 : 1, H = v.y1 - v.y0, wk = Math.min(1.6, Math.abs(this.wind) / 250);
       for (const bx of [-620, 760, 1600]) {
         if (bx < v.x0 - 450 || bx > v.x1 + 450) continue;
@@ -2144,18 +2149,18 @@
       }
     },
 
-    // Dövüşçü katmanının üzerine ışık (source-atop ile, dünya dönüşümü ayarlı bağlamda)
+
     lightFighter(c, f, x0, y0, x1, y1) {
       const th = this.theme;
       c.globalCompositeOperation = 'source-atop';
-      // Gradients are made once per light / theme and reused (no new gradient objects every frame). The lantern
-      // flicker scales the stop alphas linearly, so it is applied as globalAlpha on stops made at LF_MAX × the base:
-      // same pixels as building the gradient with 0.42·f / 0.12·f each frame.
+
+
+
       const C = tc(th), A0 = c.globalAlpha;
       for (const L of this.lights()) {
         const d = Math.abs(L.x - f.x);
         if (d > 520) continue;
-        // lights() reuses its objects across themes: the gradient is kept on the light with what it was made for
+
         let g = L._g;
         if (!g || L._gt !== th || L._gc !== L.c || L._gx !== L.x || L._gy !== L.y) {
           g = L._g = c.createRadialGradient(L.x, L.y, 10, L.x, L.y, 520);
@@ -2167,15 +2172,15 @@
       }
       c.globalAlpha = A0;
       const k = th.key, cx = (x0 + x1) / 2;
-      if (this.lowTier()) { // Low: key light + floor shadow + snow tint as one small cached picture (same pixels, one draw)
+      if (this.lowTier()) {
         const T = C.lowLight || (C.lowLight = lowLightTex(th));
         const u0 = (x0 - cx - LL.x0) / LL.s, u1 = (x1 - cx - LL.x0) / LL.s, v0 = (y0 - LL.y0) / LL.s, v1 = (y1 - LL.y0) / LL.s;
         const cu0 = Math.max(0, u0), cu1 = Math.min(T.width, u1), cv0 = Math.max(0, v0), cv1 = Math.min(T.height, v1);
         if (cu1 > cu0 && cv1 > cv0) c.drawImage(T, cu0, cv0, cu1 - cu0, cv1 - cv0, cx + LL.x0 + cu0 * LL.s, LL.y0 + cv0 * LL.s, (cu1 - cu0) * LL.s, (cv1 - cv0) * LL.s);
-        // (lightning and snow never share an arena, so the flash after the snow tint is the same as before it)
+
         if (this.flashL > 0) { c.fillStyle = `rgba(215,228,255,${this.flashL * 0.55})`; c.fillRect(x0, y0, x1 - x0, y1 - y0); }
       } else {
-      // key light: one gradient per theme, moved to the fighter's centre
+
       let kg = C.keyG;
       if (!kg) { kg = C.keyG = c.createLinearGradient(k.from * 40, 0, -k.from * 20, 0); kg.addColorStop(0, `rgba(${k.c},${k.a})`); kg.addColorStop(1, `rgba(${k.c},0)`); }
       c.save(); c.translate(cx, 0);

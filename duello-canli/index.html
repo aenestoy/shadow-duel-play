@@ -3,10 +3,9 @@
 <head>
 <meta charset="utf-8">
     <meta name="robots" content="noindex, nofollow" /><script>window.__duelSpeedDefault=0.9</script>
-    <script>(function(){try{var l=location;if(!/[?&]st=/.test(l.search))history.replaceState(null,"",l.pathname+(l.search?l.search+"&":"?")+"st=0"+l.hash)}catch(e){}})();</script>
-    <meta name="robots" content="noindex, nofollow" />
     <script>(function(){try{var l=location,q=l.search,a=["st=0"].filter(function(x){return !new RegExp("[?&]"+x.split("=")[0]+"=").test(q)});if(a.length)history.replaceState(null,"",l.pathname+(q?q+"&":"?")+a.join("&")+l.hash)}catch(e){}})();</script>
-<script type="module" crossorigin src="./assets/index-kUdXeJA5.js"></script>
+<meta name="nd-version" content="1.5.0">
+<script type="module" async crossorigin src="./assets/index--6i-VtGz.js"></script>
 <link rel="stylesheet" crossorigin href="./assets/index-QEQwL5px.css">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Shadow Duel</title>
@@ -41,14 +40,49 @@
 })();
 </script>
 <!-- Fonts ship with the game (no external requests): fonts/fonts.css is written by scripts/font-subset.mjs -->
+<!-- Load time: the first screen's fonts are asked for while the scripts load (the menu is not laid out before the
+     first frame, see .nd-ready below, so nothing else asks for them yet and they would arrive only after it showed).
+     Right after the page's first paint, not before it: fonts asked for earlier hold that first paint back (~0.1 s).
+     Latin subsets only: a language that needs others gets them with it (js/i18n.js loadFonts, fonts/lang/). -->
+<script>
+try { (function (F) {
+  if (!F || !F.load) return;
+  var go = function () { [['600 16px Oswald', 'A'], ['400 16px "Source Sans 3"', 'A'], ['700 16px "Noto Serif JP"', '影']].forEach(function (f) { F.load(f[0], f[1]).catch(function () {}); }); };
+  if (window.requestAnimationFrame) requestAnimationFrame(function () { setTimeout(go, 0); }); else go();
+})(document.fonts); } catch (e) { /* no font loading API */ }
+</script>
+<!-- Load time: only English's catalog is in the page; js/i18n.js fetches another language's file when it reaches it
+     (the device language, a saved choice, ?lang=). That file is asked for here already, for the device language, so a
+     Spanish or Russian player does not wait for it after the other scripts. The same choice as js/i18n.js deviceLang /
+     langOf, and the same address as its fileOf (the ?v= is its LAZY_V). A saved choice that differs only wastes this hint. -->
+<script>
+try { (function (list) {
+  var A = { be: 'ru', kk: 'ru', uk: 'ru', uz: 'ru', ms: 'id', 'in': 'id' }, S = ' en tr es pt ru de fr it pl id vi th hi ar ja ko ';
+  for (var i = 0; i < list.length; i++) {
+    var raw = String(list[i] || '').replace(/_/g, '-').toLowerCase(), c = raw.slice(0, 2), l = null;
+    if (/^zh\b/.test(raw)) l = /-hans\b/.test(raw) ? 'zh' : /-(hant|tw|hk|mo)\b/.test(raw) ? 'zh-tw' : 'zh';
+    else if (/^yue\b/.test(raw)) l = 'zh-tw';
+    else if (S.indexOf(' ' + (A[c] || c) + ' ') >= 0) l = A[c] || c;
+    if (!l) continue;
+    if (l === 'en' || l === 'tr' || /[?&]lang=/.test(location.search)) return;
+    var k = document.createElement('link'); k.rel = 'preload'; k.as = 'script'; k.href = 'js/i18n-' + l + '.js?v=langs-1';
+    document.head.appendChild(k); return;
+  }
+})((navigator.languages && navigator.languages.length ? Array.prototype.slice.call(navigator.languages) : []).concat(navigator.language || [])); } catch (e) { /* only a hint */ }
+</script>
 <!-- Portal SDK bridge (module, bundled by Vite): publishes window.NDPortal; js/core.js wraps it as ND.portal -->
 <style>
   /* 1.3.2 load time: until the game's first frame (js/game.js adds .nd-ready, the menu then in the player's language),
      the menu's raw Turkish markup is not shown (it also pulled the latin-ext fonts in while the scripts were loading);
-     a quiet mark stands in. A safety: the menu shows by itself after 12 s whatever happens. */
-  html:not(.nd-ready) #menu, html:not(.nd-ready) #first { visibility: hidden; animation: ndShow 0s 12s forwards; }
+     a quiet mark stands in. A safety: the menu shows by itself after 12 s whatever happens.
+     content-visibility (load time): the hidden menu is not laid out either until then. Before, the browser laid it out
+     while the scripts were still loading (in fallback fonts: ~0.2 s of a computer's first 0.5 s, ~0.5 s on a 4x slower
+     phone), again each time a web font arrived (four more passes) and for each size the start-up code read; and its
+     raw Turkish text pulled in the latin-ext fonts (78 KB) an English player never uses. A script that reads a size
+     inside the menu still gets the right answer (the browser lays that part out on demand). */
+  html:not(.nd-ready) #menu, html:not(.nd-ready) #first { visibility: hidden; content-visibility: hidden; animation: ndShow 0s 12s forwards; }
   html:not(.nd-ready) body::before { content: '影'; position: fixed; inset: 0; z-index: 2000; display: grid; place-items: center; color: #d9b36c; font: 700 54px/1 serif; opacity: .5; pointer-events: none; animation: ndPulse 1.2s ease-in-out infinite alternate, ndGone 0s 12s forwards; }
-  @keyframes ndShow { to { visibility: visible; } }
+  @keyframes ndShow { to { visibility: visible; content-visibility: visible; } }
   @keyframes ndPulse { from { opacity: .25; } to { opacity: .6; } }
   @keyframes ndGone { to { visibility: hidden; } }
   #matchLoading { position: absolute; inset: 0; z-index: 1000; display: grid; place-items: center; background: #0c0d15; color: #ebe6da; }
@@ -225,6 +259,11 @@
   .brand h1 { margin: 0; font: 700 clamp(46px, 7.4vw, 92px)/.92 var(--display); letter-spacing: 0.01em; text-transform: uppercase; text-wrap: balance; }
   .brand h1 em { font-style: normal; color: var(--akane); }
   .brand h1 em + em { color: var(--aoi); }
+  /* Turkish and Russian titles (GÖLGE DÜELLOSU, ДУЭЛЬ ТЕНЕЙ): the dots over Ö / Ü and the breve over Й stand above the capitals; at the tight .9 line height the second
+     line's marks ran into the first line (a red mark beside the G, a blue one under the Ь). A little more room between the lines, only
+     where the title has them (every other language's title has no marks above its capitals). */
+  .brand h1:lang(tr), .first-wrap h1:lang(tr) { line-height: 1.06; }
+  .brand h1:lang(ru), .first-wrap h1:lang(ru) { line-height: 1.16; } /* (the breve stands higher than the dots) */
   .brand p { margin: 14px 0 0; max-width: 46ch; color: var(--muted); font-size: 16px; }
   .modes { display: grid; gap: 10px; margin-top: 30px; max-width: 460px; }
   .mode { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 16px; text-align: left; padding: 14px 18px; background: rgba(255,255,255,.035); border: 1px solid var(--line); border-radius: 2px; cursor: pointer; transition: background .15s, border-color .15s, transform .15s; }
@@ -1632,9 +1671,10 @@
      ~400 px high, 3 at ~375 px high (the rows beyond are hidden here, not in the script). */
   .mode.champ { position: relative; overflow: hidden; grid-template-columns: minmax(0, 1fr); gap: 5px; align-content: start; padding-right: 58px; background: linear-gradient(100deg, rgba(217,179,108,.17), rgba(217,179,108,.03) 72%); border-color: rgba(217,179,108,.5); }
   .mode.champ .mk { position: absolute; grid-area: auto; right: 14px; top: 50%; transform: translateY(-50%); writing-mode: vertical-rl; white-space: nowrap; letter-spacing: .12em; font-size: 32px; pointer-events: none; }
-  .champ .ch-head { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+  /* (a label that does not fit beside the title goes onto its own line instead of ending in "…": tr, fr, it, pl on a phone held upright) */
+  .champ .ch-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; min-width: 0; }
   .champ .ch-head strong { flex: none; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .champ .ch-lab { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 11px/1.2 var(--display); letter-spacing: .16em; text-transform: uppercase; color: var(--gold); }
+  .champ .ch-lab { flex: 0 1 auto; min-width: min(100%, max-content); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 11px/1.2 var(--display); letter-spacing: .16em; text-transform: uppercase; color: var(--gold); }
   .champ .ch-top { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 34px; padding: 2px 12px 2px 10px; border: 1px solid rgba(217,179,108,.6); background: linear-gradient(90deg, rgba(217,179,108,.18), rgba(217,179,108,.04) 80%); }
   .champ .ch-pl { flex: none; font: 700 18px/1 var(--jp); color: var(--gold); }
   .champ .ch-n { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 700 25px/1.15 var(--display); letter-spacing: .05em; color: var(--gold-hi); text-shadow: 0 0 16px rgba(241,214,156,.35); }
@@ -1827,7 +1867,23 @@
   /* rally tutorial (js/tutorial.js) tip box: on touch right under the HUD bars, so the fighters' heads, the prompt beside
      them and the PARRY! pop-up stay in view; a missed step turns its frame red */
   #app.touch #coach[data-tutor] { top: max(60px, 14.5%); bottom: auto; padding: 6px 12px; }
+  /* (a long step line wraps instead of running under the SKIP button at the left) */
+  #app.touch.tutor-on #coach[data-tutor] { box-sizing: border-box; white-space: normal; max-width: calc(100% - 2 * var(--tsk, 135px)); width: max-content; text-align: left; }
   #coach.warn { border-color: #ff9b7a; }
+  /* a journey loss in fights 1–3: one tip for the retry (js/arcade.js lossTip) */
+  #endTip { margin: -4px auto 10px; max-width: 520px; padding: 6px 12px; border: 1px solid rgba(150,210,255,.4); background: rgba(150,210,255,.07); font: 500 14px/1.35 var(--body); color: var(--text); }
+  #endTip b { margin-right: 8px; font: 600 11px/1 var(--display); letter-spacing: .2em; color: #96d2ff; }
+  #endTip kbd, #endTip .tb { font-size: .85em; }
+  #coach.good { border-color: #9dffb0; } #coach.good b { color: #9dffb0; font-size: 18px; }
+  /* short first-fight tutorial (js/tutorial.js): the warm-up's blow count beside the line, the SKIP button (in the HUD
+     under the left bars, where the journey goal line is; that line steps aside while the lesson runs) */
+  #coach em { font: 600 .8em/1 var(--display); font-style: normal; color: var(--gold); letter-spacing: .06em; }
+  #tutSkip { grid-column: 1 / -1; justify-self: start; margin-top: -8px; min-width: 76px; min-height: 34px; padding: 6px 14px; border: 1px solid rgba(241,214,156,.55); border-radius: 18px; background: rgba(8,9,16,.78); color: #f1d69c; font: 600 14px/1 var(--display); letter-spacing: .1em; text-transform: uppercase; cursor: pointer; pointer-events: auto; }
+  #tutSkip:hover, #tutSkip:focus-visible { background: rgba(30,26,18,.92); border-color: #f1d69c; }
+  #tutSkip:active { transform: scale(.95); }
+  #tutSkip[hidden] { display: none; }
+  #app.touch #tutSkip { min-height: 38px; font-size: 15px; }
+  #app.tutor-on #journeyGoal { display: none; }
   .journey-panel { border: 1px solid #665433; background: #11121c; padding: 14px; font-family: var(--body); }
   .journey-heading { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; color: var(--gold); }
   .journey-heading span, .journey-panel p { font-size: 13px; line-height: 1.5; }
@@ -1929,6 +1985,7 @@
       <div class="ki-row"><div class="ki" id="kb2"><i id="k2"></i></div>KI</div>
     </div>
     <div id="journeyGoal" data-i18n-skip aria-live="polite" hidden></div>
+    <button id="tutSkip" type="button" tabindex="-1" hidden data-i18n-skip></button>
   </div>
   <!-- Touch pad: a stick (floating or fixed) or d-pad buttons for movement, the action buttons. touch.js places every
        control (default layout or the player's own, made in the layout editor, js/touch-editor.js); input.js handles the
@@ -2265,6 +2322,7 @@
       <div class="bigk" aria-hidden="true" id="endK">勝利</div>
       <p class="title" id="endTitle">Akane kazandı</p>
       <p class="sub" id="endSub"></p>
+      <p class="endtip" id="endTip" hidden data-i18n-skip></p>
       <div class="stats" id="endStats"></div>
       <div class="sbd" id="endScore" hidden></div>
       <div class="hn" id="endHonor" hidden aria-live="polite"></div>
@@ -2391,11 +2449,7 @@
 <script  src="js/touch-editor.js"></script>
 <script  src="js/volume.js"></script>
 <script  src="js/i18n-en.js?v=comfort-1"></script>
-<script  src="js/i18n-es.js?v=comfort-1"></script>
-<script  src="js/i18n-pt.js?v=comfort-1"></script>
-<script  src="js/i18n-ru.js?v=comfort-1"></script>
-<script  src="js/i18n-de.js?v=comfort-1"></script>
-<script  src="js/i18n-fr.js?v=comfort-1"></script>
+<!-- (the other languages' catalogs come on demand: js/i18n.js LAZY, preloaded in <head> for the device language) -->
 <script  src="js/i18n-pass.js"></script>
 <script  src="js/i18n.js?v=comfort-1"></script>
 <script  src="js/lang-ui.js"></script>
@@ -2409,10 +2463,14 @@
      them on. Left out of every shipped build (vite.config.ts stripProps); only the props test build keeps them. -->
 <script  data-props src="js/props.js"></script>
 <script  data-props src="js/props-art.js"></script>
+<script  data-props src="js/props-test.js"></script>
 <!-- voices: fighters and announcer, files in voice/ (docs/SES-PLANI.md); ?voice=off silences, ?voice=log logs -->
 <script  src="js/voice.js?v=sfx-1"></script>
 <!-- the sound pass of 2026-09-30: menu clicks / hover / back, guard, jump, ki ready, result stings, ranked cues (js/sfx.js) -->
 <script  src="js/sfx.js?v=sfx-1"></script>
+<!-- living menus (1.4): menu ninjas, screen transitions, button presses, reward moments, counting numbers, drifting
+     petals (js/ui-alive.js; ?motion=off / reduced motion: still) -->
+<script  src="js/ui-alive.js"></script>
 <!-- duel prototype (branch claude/sd-duel, docs/SHADOW-DUEL-DUELLO.md): type="text/plain" tags are never fetched or run;
      only an address with ?duel=1 turns them into scripts (the loader under them), so the game is unchanged without it -->
 <script  data-duel type="text/plain" src="js/duel.js"></script>
@@ -2442,6 +2500,9 @@
 <script  data-online src="js/rank-emblem.js"></script>
 <script  data-online src="js/ranked.js"></script>
 <script  data-online src="js/pass-net.js"></script>
-<div id="wipTag" style="position:fixed;left:6px;bottom:6px;z-index:2147483647;font:600 11px/1.3 system-ui,sans-serif;color:#ffd27a;background:rgba(0,0,0,.6);padding:3px 7px;border-radius:4px;pointer-events:none;max-width:70vw">WIP 17:54 — WIP 10: blade lock and bind keep the two faces a head-width apart (Tora's helmet no longer over Akane's face)</div>
+<!-- 1.4: "new version ready" note on the bare main menu (js/update-note.js; every build: version.json next to this page,
+     on CrazyGames the studio server's answer) -->
+<script  src="js/update-note.js"></script>
+<div id="wipTag" style="position:fixed;left:6px;bottom:6px;z-index:2147483647;font:600 11px/1.3 system-ui,sans-serif;color:#ffd27a;background:rgba(0,0,0,.6);padding:3px 7px;border-radius:4px;pointer-events:none;max-width:70vw">WIP 23:45 — WIP 11: Kage's ki appears behind the opponent; double-tap toward a close opponent rolls past him</div>
 </body>
 </html>

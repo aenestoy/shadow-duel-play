@@ -1,24 +1,24 @@
-// Shadow Duel — DUEL PROTOTYPE moves (?duel=1 only; js/duel.js). Every attack is built around one clear DIRECTION
-// (the attacker's point of view; its sword-hand side, the right, is the side turned to the camera, "near"):
-//   kesaR  kesa-giri from the right shoulder down to the left hip      side +1 (near)  down
-//   kesaL  gyaku-kesa from the left shoulder down to the right hip     side −1 (far)   down
-//   kiriR  kiri-age rising from the right hip to the left shoulder     side +1         up
-//   kiriL  gyaku kiri-age rising from the left hip                     side −1         up
-//   yokoR  yoko (horizontal) from the right                            side +1         level
-//   yokoL  yoko from the left (backhand)                               side −1         level
-//   shomen vertical cut down the centre                                side 0          down
-//   kiriV  vertical rising cut                                         side 0          up
-//   tsuki  thrust                                                      side 0          thrust
-// Each direction is three poses: W the wind-up, loaded on the starting side (blade and shoulders cocked there), S the
-// strike (the blow crossing the target), F the follow-through on the other side. a.z3 is the matching body turn for
-// the drawing (js/duel-depth.js): [time, shoulder twist, hip twist, blade depth (+ in front of the body, − behind),
-// blade length factor (1 = seen side-on, small = pointing at / away from the camera)]. a.dz3.side tells the defender
-// which side the blow lands on (js/duel.js threat: the attacker's near side is the defender's far side).
-// Frame data (fight seconds at speed 1; ch.spd scales them, Kuro 0.8 → ×1.25): every variant of one button keeps its
-// button's class, so the game stays learnable — see FRAME below and docs/SHADOW-DUEL-DUELLO.md.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 (function (ND) {
   'use strict';
-  const FLAG = (() => { try { return !/[?&]duel=0(&|$)/.test(location.search || ''); } catch (e) { return true; } })(); // (the duel is the fight; ?duel=0: the old fight everywhere)
+  const FLAG = (() => { try { return !/[?&]duel=0(&|$)/.test(location.search || ''); } catch (e) { return true; } })();
   if (!FLAG || !ND.duel) return;
   const Math = ND.DM || globalThis.Math;
   const PO = ND.POSES, pose = ND.pose, ATK = ND.ATK, fx = ND.fx, au = ND.audio, cam = ND.cam, D = ND.duel, E = ND.M.ease;
@@ -26,7 +26,7 @@
   const mk = pose.mk;
   const eo = E.outCubic, eq = E.outQuart, es = E.inOutSine, ei = E.inOut, eqd = E.inQuad;
 
-  // ------------------------------------------------------------------ direction templates (arms: front hand + blade)
+
   const ARM = {
     kesaR: [{ ax: -2, ay: -50, sw: -2.45, hd: -0.12 }, { ax: 46, ay: 12, sw: 0.6 }, { ax: 20, ay: 42, sw: 2.2 }],
     kesaL: [{ ax: -16, ay: -42, sw: -2.95, hd: 0.06 }, { ax: 44, ay: 16, sw: 0.8 }, { ax: 32, ay: 38, sw: 1.62 }],
@@ -38,11 +38,11 @@
     kiriV: [{ ax: 30, ay: 42, sw: 1.35 }, { ax: 46, ay: -22, sw: -0.9 }, { ax: 20, ay: -50, sw: -1.85, hd: -0.2 }],
     tsuki: [{ ax: 2, ay: 18, sw: -0.06 }, { ax: 58, ay: 0, sw: -0.08 }, { ax: 54, ay: 2, sw: -0.06 }],
   };
-  // the swing between W and S of a horizontal cut passes the camera: an extra key (blade short, hands at the hip front)
+
   const MID = { yokoR: { ax: 22, ay: 20, sw: 1.45 }, yokoL: { ax: 20, ay: 14, sw: -1.6 } };
   const SIDE = { kesaR: 1, kesaL: -1, kiriR: 1, kiriL: -1, yokoR: 1, yokoL: -1, shomen: 0, kiriV: 0, tsuki: 0 };
   const VERT = { kesaR: 'down', kesaL: 'down', kiriR: 'up', kiriL: 'up', yokoR: 'level', yokoL: 'level', shomen: 'down', kiriV: 'up', tsuki: 'thrust' };
-  // body turn for the drawing at W, S, F: [shoulder twist, hip twist, blade depth, blade length]
+
   const Z3 = {
     kesaR: [[0.85, 0.35, 1, 0.85], [0, -0.1, 0.5, 1], [-0.75, -0.4, -1, 0.8]],
     kesaL: [[-0.9, -0.35, -1, 0.8], [0, 0.1, 0.4, 1], [0.7, 0.4, 1, 0.85]],
@@ -56,7 +56,7 @@
   };
   const ZMID = { yokoR: [0.55, 0.2, 1, 0.3], yokoL: [-0.55, -0.2, -1, 0.3] };
   const REST = [0, 0, 1, 1];
-  // body (hips, lean, feet) at W, S, F
+
   const BODY = {
     std: [{ hx: -6, hy: -80, lean: 0.04, f1x: 22, f2x: -30 }, { hx: 16, hy: -72, lean: 0.42, hd: 0.15, f1x: 56, f2x: -24 }, { hx: 14, hy: -72, lean: 0.36, hd: 0.15, f1x: 56, f2x: -24 }],
     low: [{ hx: -4, hy: -66, lean: 0.36, f1x: 30, f2x: -34 }, { hx: 18, hy: -60, lean: 0.5, hd: 0.2, f1x: 64, f2x: -30 }, { hx: 16, hy: -62, lean: 0.44, hd: 0.18, f1x: 64, f2x: -30 }],
@@ -70,14 +70,14 @@
   };
   const reg = (name, d) => { d.keys = d.keys.map(([t, p, e]) => [t, typeof p === 'string' ? PO[p] || PO.stance : p, e]); d.dur = d.keys[d.keys.length - 1][0]; ATK[name] = d; return d; };
   const P = (name, o) => (PO[name] = mk(o));
-  // three poses of a direction on a body, with per-pose extras: names <id>W, <id>M (horizontal cuts), <id>S, <id>F
+
   function poses3(id, dir, body, x) {
     const B = BODY[body] || body, A = ARM[dir];
     for (let i = 0; i < 3; i++) P(id + 'WSF'[i], Object.assign({}, B[i], A[i], x && x[i]));
     if (MID[dir]) P(id + 'M', Object.assign({}, B[0], { hx: (B[0].hx + B[1].hx) / 2, hy: (B[0].hy + B[1].hy) / 2, lean: (B[0].lean + B[1].lean) / 2, f1x: B[1].f1x, f2x: B[1].f2x }, MID[dir], x && x[3]));
     return id;
   }
-  // z3 track for a cut with W at tw, S at ts, F at tf, rest at te
+
   const z3Cut = (dir, tw, ts, tf, te, k = 1) => {
     const Z = Z3[dir], S = (v) => [v[0] * k, v[1] * k, v[2], v[3]];
     const L = [[0, ...REST], [tw, ...S(Z[0])]];
@@ -85,15 +85,15 @@
     L.push([ts, ...S(Z[1])], [tf, ...S(Z[2])], [te, ...REST]);
     return L;
   };
-  // the move list (training video, docs): id → { name, fighter, button, when }
+
   const LIST = D.LIST = [];
   const note = (id, who, name, button, when) => LIST.push({ id, who, name, button, when });
 
-  // ------------------------------------------------------------------ armed cuts: light / heavy classes
-  // L: wind-up reached at 0.08 and HELD to 0.105 (the eye needs it to read the side), strike 0.15, hits 0.11–0.19,
-  //    done 0.46 (the kit's light1: hits 0.13–0.22; Akane's 0.08–0.15): the same class of speed and risk
-  // H: wind-up 0.2 held to 0.33, strike 0.42, hits 0.37–0.47, done 0.9 (heavy: 0.40–0.50, Akane 0.36–0.46)
-  // (o.t with 4 numbers [W, S, F, end] is widened the same way: W +0.015, held 0.025, the rest +0.025 / +0.03)
+
+
+
+
+
   function light(name, dir, body, o = {}, x) {
     const id = poses3('dz_' + name, dir, body, x), m = MID[dir];
     let t = o.t || [0.065, 0.125, 0.21, 0.42];
@@ -118,7 +118,7 @@
     const keys = [[t[0], id + 'W', es], [t[1], id + 'W']];
     if (m) keys.push([(t[1] + t[2]) / 2, id + 'M', eqd]);
     keys.push([t[2], id + 'S', eq], [t[3], id + 'F', eo], [t[4], o.end || 'stance', ei]);
-    // (the wind-up is held from t0 to t1: the track holds W too, the horizontal cut's pass-the-camera key after it)
+
     const z = z3Cut(dir, t[1], t[2], t[3], t[4]);
     z.splice(1, 0, [t[0], ...z[1].slice(1)]);
     return reg(name, Object.assign({
@@ -128,19 +128,19 @@
     }, o.a));
   }
 
-  // --- the main set (both fighters; Akane's start from the scabbard: sheath [0, …] keeps the blade in it)
-  // Kuro: the light string draws a big X — kesa from the right, gyaku-kesa back from the left, shōmen down the middle
+
+
   light('d_kesaR', 'kesaR', 'std'); note('d_kesaR', 'kuro', 'Kesa-giri (R)', 'LIGHT', 'string 1');
   light('d_kesaL', 'kesaL', 'std', { t: [0.07, 0.13, 0.22, 0.44] }); note('d_kesaL', 'both', 'Gyaku-kesa (L)', 'LIGHT', 'string 2 (Kuro) / 3 (Akane)');
   light('d_shomen', 'shomen', 'std', { t: [0.09, 0.16, 0.25, 0.56], a: { dmg: 13, post: 20, kb: 480, stun: 0.48, chain: null } }); note('d_shomen', 'kuro', 'Shomen (down the centre)', 'LIGHT', 'string 3');
-  // Akane: the iai string — nukitsuke from the scabbard at the left hip, kesa from the right, gyaku-kesa, thrust
+
   light('ak_dNuki', 'yokoL', 'std', { t: [0.05, 0.12, 0.2, 0.42], end: 'ak_stance', a: { sheath: [0, 0.045] } }, [{ ax: -6, ay: 30, sw: 2.95 }, null, null, { ax: 26, ay: 30, sw: 1.35 }]);
   note('ak_dNuki', 'akane', 'Nukitsuke (L, from the scabbard)', 'LIGHT', 'string 1');
   light('ak_dKesa', 'kesaR', 'std', { t: [0.07, 0.13, 0.22, 0.46], end: 'ak_stance' }); note('ak_dKesa', 'akane', 'Kesa-giri (R)', 'LIGHT', 'string 2');
   light('d_tsukiL3', 'tsuki', 'lunge', { t: [0.09, 0.16, 0.26, 0.58], a: { dmg: 13, post: 20, kb: 500, stun: 0.48, chain: null, lunge: [0.1, 0.2, 560] } }); note('d_tsukiL3', 'akane', 'Tsuki (thrust)', 'LIGHT', 'string 3');
   light('ak_dKiri', 'kiriL', 'rise', { t: [0.07, 0.13, 0.22, 0.5], end: 'ak_stance', a: { sheath: [0, 0.07], knock: true, kb: 240, chain: null } }, [{ ax: -6, ay: 34, sw: 2.95 }]);
   note('ak_dKiri', 'akane', 'Gyaku kiri-age (L, rising from the scabbard)', '← + LIGHT', 'always');
-  // command normals
+
   light('d_tsuki', 'tsuki', 'lunge', { t: [0.07, 0.14, 0.24, 0.46], a: { lunge: [0.04, 0.16, 560], reach: 250, kb: 260 } }); note('d_tsuki', 'both', 'Tsuki (thrust)', '→ + LIGHT', 'always');
   light('d_suneR', 'yokoR', 'low', { t: [0.07, 0.13, 0.22, 0.5], a: { trip: true, knock: true, dmg: 8, post: 16, kb: 220, stun: 0.4, chain: null } }, [{ ay: 30, sw: 2.6 }, { ay: 34, sw: 0.45 }, { ay: 28, sw: -2.7 }, { ay: 34, sw: 1.7 }]);
   note('d_suneR', 'kuro', 'Sune-gari (low, R)', '← + LIGHT', 'always');
@@ -150,7 +150,7 @@
   heavy('d_kesaH', 'kesaL', 'heavy', { a: { gcrush: 1.4, dmg: 18, post: 38 } }); note('d_kesaH', 'kuro', 'Gyaku-kesa heavy (L, guard crush)', '← + HEAVY', 'always');
   light('d_dashR', 'yokoR', 'lunge', { t: [0.05, 0.12, 0.22, 0.44], a: { lunge: [0, 0.14, 560], kb: 320, stun: 0.42, dmg: 11, chain: null } }); note('d_dashR', 'both', 'Running yoko (R)', 'dash + LIGHT', 'always');
 
-  // --- situation variants (the same buttons; js/duel.js D.sit decides)
+
   light('d_kote', 'shomen', 'small', { t: [0.055, 0.11, 0.19, 0.4], a: { dmg: 8, kb: 200, lunge: [0.05, 0.12, 120] } }, [{ ax: 14, ay: -38, sw: -1.55 }, { ax: 40, ay: 6, sw: 0.45 }, { ax: 36, ay: 22, sw: 0.85 }]);
   note('d_kote', 'both', 'Kote-uchi (wrist cut, short)', 'LIGHT', 'opponent very close');
   light('d_tobikomi', 'tsuki', 'lunge', { t: [0.08, 0.15, 0.26, 0.5], a: { lunge: [0.03, 0.17, 820], reach: 290, dmg: 10, kb: 300 } }, [{ hy: -70, lean: 0.3 }, { hx: 40, f1x: 104 }]);
@@ -177,7 +177,7 @@
   note('d_taiatari', 'both', 'Tai-atari (shoulder check)', 'HEAVY', 'opponent very close');
   heavy('d_nagare', 'kesaL', 'lunge', { t: [0.14, 0.22, 0.32, 0.46, 0.84], a: { lunge: [0.12, 0.34, 620], dmg: 20 } });
   note('d_nagare', 'both', 'Nagare-giri (running gyaku-kesa)', 'HEAVY', 'opponent far');
-  // kicks with the sword in hand
+
   P('dz_hizaA', { hx: 2, hy: -84, lean: 0.06, hd: 0.08, ax: 30, ay: 10, sw: -0.9, f1x: 16, f1y: -34, f2x: -24 });
   P('dz_hizaB', { hx: 16, hy: -94, lean: -0.08, hd: 0.0, ax: 34, ay: 18, sw: -0.6, f1x: 30, f1y: -64, f2x: -14, f2y: -6 });
   reg('d_hiza', { keys: [[0.08, 'dz_hizaA', es], [0.14, 'dz_hizaB', eq], [0.22, 'dz_hizaB'], [0.44, 'stance', ei]],
@@ -197,8 +197,8 @@
     dz3: { side: 0, v: 'low', dir: 'sweep' }, z3: [[0, ...REST], [0.1, 0.3, 0.4, 1, 1], [0.18, -0.4, -0.6, 1, 1], [0.52, ...REST]] });
   note('d_ashibarai', 'both', 'Ashi-barai (foot sweep)', 'KICK', 'opponent unarmed');
 
-  // --- input combos (← → = back then forward, quickly; → ← the other way)
-  // Akane
+
+
   light('ak_tsubame1', 'kesaR', 'std', { t: [0.07, 0.13, 0.17, 0.2] });
   P('dz_tsubSa', mk(Object.assign({}, BODY.rise[1], ARM.kiriL[1]))); P('dz_tsubFa', mk(Object.assign({}, BODY.rise[2], ARM.kiriL[2])));
   reg('ak_tsubame', { keys: [[0.07, 'dz_ak_tsubame1W', es], [0.13, 'dz_ak_tsubame1S', eq], [0.19, 'dz_ak_tsubame1F', eo], [0.27, 'dz_tsubSa', eq], [0.35, 'dz_tsubFa', eo], [0.62, 'ak_stance', ei]],
@@ -222,7 +222,7 @@
     disarm: true, kiCost: D.T.disarmKi, dz3: { side: 1, v: 'up', dir: 'kiriR' },
     z3: [[0, ...REST], [0.12, 0.8, 0.3, 1, 0.9], [0.2, 0.8, 0.3, 1, 0.9], [0.27, 0, 0, 0.4, 1], [0.36, -0.6, -0.3, -1, 0.85], [0.7, ...REST]] });
   note('ak_maki', 'akane', 'Maki-otoshi (wraps the blade and flings it: DISARM, 50 ki)', '← → + HEAVY', 'combo');
-  // Kuro
+
   light('kr_kuruma', 'yokoR', 'spin', { t: [0.1, 0.2, 0.3, 0.58], a: { spin: [0.08, 0.24, 1], zone: [160, 50, 120], dmg: 11, kb: 340, stun: 0.45, chain: null, lunge: [0.1, 0.24, 300] } });
   note('kr_kuruma', 'kuro', 'Kuruma-giri (spinning wheel cut, R)', '← → + LIGHT', 'combo');
   light('kr_nagi', 'yokoL', 'back', { t: [0.1, 0.18, 0.28, 0.6], a: { trip: true, knock: true, dmg: 9, kb: 220, stun: 0.45, chain: null, lunge: [0, 0.09, -320], lunge2: [0.12, 0.2, 440] } }, [{ ay: 30 }, { ay: 36, sw: 0.4 }, { ay: 30 }, { ay: 30 }]);
@@ -237,18 +237,18 @@
     z3: [[0, ...REST], [0.16, 0.15, 0, 0.3, 0.85], [0.33, 0, 0, 0.5, 1], [0.8, ...REST]] });
   note('kr_uchi', 'kuro', 'Uchi-otoshi (smashes the blade down: DISARM, 50 ki)', '← → + HEAVY', 'combo');
 
-  // ------------------------------------------------------------------ bind / disarm choreography poses (js/duel.js)
+
   P('dz_makiA', { hx: 4, hy: -70, lean: 0.34, hd: 0.15, ax: 40, ay: 18, sw: 0.6, f1x: 44, f2x: -34 });
   P('dz_makiB', { hx: 12, hy: -82, lean: 0.12, hd: -0.05, ax: 44, ay: -36, sw: -1.1, f1x: 50, f2x: -30 });
   P('dz_makiC', { hx: 8, hy: -84, lean: 0.04, hd: -0.12, ax: 20, ay: -50, sw: -1.9, f1x: 50, f2x: -30 });
   P('dz_bindPress', { hx: -2, hy: -72, lean: 0.34, hd: 0.2, ax: 34, ay: -4, sw: -0.55, f1x: 40, f2x: -36 });
   P('dz_flung', { hx: -16, hy: -80, lean: -0.38, hd: -0.32, ax: -8, ay: -46, sw: -2.2, grip: 0, gx: -26, gy: -22, f1x: 16, f2x: -38 });
 
-  // ------------------------------------------------------------------ UNARMED (both fighters; fists, kicks, elbows)
-  // front hand = the near hand (ax/ay; sw = the fist's direction), back hand = the far hand (grip 0: gx/gy)
+
+
   const U = (name, o) => P(name, Object.assign({ grip: 0 }, o));
   U('ua_stance', { hx: -2, hy: -78, lean: 0.14, hd: 0.08, ax: 24, ay: -12, sw: -0.35, gx: 16, gy: -6, f1x: 24, f2x: -28 });
-  U('ua_guard', { hx: -6, hy: -76, lean: 0.06, hd: 0.18, ax: 20, ay: -16, sw: -1.25, gx: 12, gy: -12, f1x: 20, f2x: -32 }); // (fists at the chin, not over the head: 2026-10-03)
+  U('ua_guard', { hx: -6, hy: -76, lean: 0.06, hd: 0.18, ax: 20, ay: -16, sw: -1.25, gx: 12, gy: -12, f1x: 20, f2x: -32 });
   U('ua_jabA', { hx: 0, hy: -78, lean: 0.18, hd: 0.1, ax: 18, ay: -8, sw: -0.3, gx: 14, gy: -8, f1x: 26, f2x: -28 });
   U('ua_jabB', { hx: 10, hy: -76, lean: 0.32, hd: 0.12, ax: 56, ay: -14, sw: -0.22, gx: 14, gy: -10, f1x: 42, f2x: -26 });
   U('ua_crossA', { hx: -2, hy: -78, lean: 0.1, hd: 0.08, ax: 22, ay: -16, sw: -0.4, gx: 2, gy: -2, f1x: 26, f2x: -30 });
@@ -277,8 +277,8 @@
   U('ua_airB', { hx: -6, hy: -86, lean: -0.3, hd: 0.1, ax: 16, ay: -24, sw: -1.0, gx: 0, gy: -14, f1x: 80, f1y: -40, f2x: -18, f2y: -30 });
   U('ua_stompA', { hx: 0, hy: -90, lean: 0.1, hd: 0.2, ax: 22, ay: -12, sw: -0.6, gx: 12, gy: -10, f1x: 18, f1y: -36, f2x: -14, f2y: -26 });
   U('ua_stompB', { hx: 0, hy: -84, lean: 0.25, hd: 0.3, ax: 20, ay: -8, sw: -0.5, gx: 10, gy: -6, f1x: 26, f1y: 12, f2x: -16, f2y: -20 });
-  // empty hands against a blade: never a forearm into the edge - the body leaves the cut's line (js/duel.js evade):
-  // under a high cut (duck), back from a level one (sway), the front foot lifted out of a low one (slip)
+
+
   U('ua_duck', { hx: -6, hy: -52, lean: 0.62, hd: 0.4, ax: 18, ay: -12, sw: -1.2, gx: 10, gy: -8, f1x: 30, f2x: -36 });
   U('ua_sway', { hx: -24, hy: -72, lean: -0.5, hd: -0.25, ax: 22, ay: -14, sw: -1.25, gx: 12, gy: -10, f1x: 30, f2x: -44 });
   U('ua_slip', { hx: -14, hy: -84, lean: 0.12, hd: 0.06, ax: 22, ay: -14, sw: -1.2, gx: 12, gy: -10, f1x: 6, f1y: -24, f2x: -34 });
@@ -292,7 +292,7 @@
 
   const ua = (name, o) => reg(name, Object.assign({ kind: 'kick', parry: true, limbR: 11 }, o));
   const UZ = (a, b, c) => [[0, ...REST], ...a.map((k) => [k[0], k[1], k[2], 1, 1]), [b, ...REST]];
-  // L class (unarmed): hits from 0.07 (faster than a blade), shorter reach, smaller damage
+
   ua('ua_jab', { keys: [[0.05, 'ua_jabA', es], [0.1, 'ua_jabB', eq], [0.16, 'ua_jabB'], [0.34, 'ua_stance', ei]], active: [0.07, 0.13], dmg: 6, post: 9, kb: 180, stun: 0.3,
     limb: 'haF', chain: [0.13, 0.34], lunge: [0.04, 0.1, 220], sw: 0.05, pw: 0.5, z3: UZ([[0.05, 0.25, 0.1], [0.1, -0.45, -0.2]], 0.34) });
   ua('ua_cross', { keys: [[0.06, 'ua_crossA', es], [0.12, 'ua_crossB', eq], [0.18, 'ua_crossB'], [0.38, 'ua_stance', ei]], active: [0.08, 0.15], dmg: 7, post: 11, kb: 220, stun: 0.34,
@@ -305,12 +305,12 @@
     limb: 'haF', spin: [0.0, 0.12, 1], lunge: [0.04, 0.14, 240], sw: 0.08, pw: 0.7, z3: UZ([[0.06, -0.8, -0.3], [0.14, 0.4, 0.2]], 0.44) });
   ua('ua_lunge', { keys: [[0.06, 'ua_lungeA', es], [0.13, 'ua_lungeB', eq], [0.22, 'ua_lungeB'], [0.46, 'ua_stance', ei]], active: [0.09, 0.16], dmg: 7, post: 12, kb: 300, stun: 0.4,
     limb: 'haF', limbR: 12, chain: [0.18, 0.46], lunge: [0.03, 0.14, 700], sw: 0.05, pw: 0.7, z3: UZ([[0.06, 0.3, 0.2], [0.13, -0.5, -0.3]], 0.46) });
-  // H class (unarmed): hits from ~0.28, knock-downs
+
   ua('ua_palm', { keys: [[0.16, 'ua_palmA', es], [0.26, 'ua_palmA'], [0.32, 'ua_palmB', eq], [0.42, 'ua_palmB'], [0.68, 'ua_stance', ei]], active: [0.28, 0.36], dmg: 14, post: 34, kb: 540, stun: 0.6,
     knock: true, limb: 'haF', limbR: 16, lunge: [0.26, 0.36, 560], glint: undefined, sw: 0.27, pw: 1.1, z3: UZ([[0.16, 0.5, 0.3], [0.32, -0.2, -0.1]], 0.68) });
   ua('ua_spinKick', { keys: [[0.14, 'ua_spinA', es], [0.26, 'ua_spinB', eq], [0.34, 'ua_spinB'], [0.64, 'ua_stance', ei]], active: [0.22, 0.31], dmg: 13, post: 30, kb: 480, stun: 0.6,
     knock: true, limb: 'ftF', limbR: 14, spin: [0.03, 0.2, 1], lunge: [0.16, 0.28, 300], sw: 0.2, pw: 1, z3: UZ([[0.14, -0.9, -0.6], [0.26, 0.2, 0.2]], 0.64) });
-  // K class (unarmed)
+
   ua('ua_front', { keys: [[0.1, 'ua_frontA', es], [0.17, 'ua_frontB', eq], [0.26, 'ua_frontB'], [0.48, 'ua_stance', ei]], active: [0.12, 0.22], dmg: 7, post: 30, kb: 480, stun: 0.44,
     limb: 'ftF', limbR: 12, chain: [0.24, 0.48], lunge: [0.08, 0.16, 160], parry: undefined, z3: UZ([[0.1, 0.2, 0.3], [0.17, 0.0, -0.2]], 0.48) });
   ua('ua_knee', { keys: [[0.07, 'ua_kneeA', es], [0.13, 'ua_kneeB', eq], [0.2, 'ua_kneeB'], [0.42, 'ua_stance', ei]], active: [0.09, 0.16], dmg: 8, post: 22, kb: 360, stun: 0.42,
@@ -319,7 +319,7 @@
     limb: 'ftF', limbR: 14, lunge: [0.1, 0.2, 160], parry: undefined, z3: UZ([[0.12, 0.6, 0.5], [0.21, -0.5, -0.6]], 0.56) });
   ua('ua_sweep', { keys: [[0.1, 'ua_sweepA', es], [0.19, 'ua_sweepB', eq], [0.27, 'ua_sweepB'], [0.52, 'ua_stance', ei]], active: [0.14, 0.23], dmg: 6, post: 20, kb: 160, stun: 0.5,
     knock: true, trip: true, limb: 'ftF', limbR: 15, lunge: [0.08, 0.16, 180], parry: undefined, z3: UZ([[0.1, 0.4, 0.4], [0.19, -0.5, -0.7]], 0.52) });
-  // air / stomp / flying knee / ki
+
   ua('ua_air', { keys: [[0.06, 'ua_airA', es], [0.12, 'ua_airB', eq], [0.36, 'fall']], active: [0.08, 0.2], dmg: 8, post: 12, kb: 260, stun: 0.4, air: true, limb: 'ftF', limbR: 13, parry: undefined });
   ua('ua_stomp', { keys: [[0.06, 'ua_stompA', es], [0.14, 'ua_stompB', eq], [0.6, 'ua_stompB']], active: [0.08, 0.6], dmg: 9, post: 24, kb: 300, stun: 0.5, knock: true, air: true, limb: 'ftF', limbR: 16, parry: undefined,
     tick(f, dt, t) { if (t > 0.06 && !f.onGround) f.vy = Math.max(f.vy, 1100); if (t > 0.1 && f.onGround) { f.st = 0.6; } } });
@@ -330,7 +330,7 @@
     knock: true, limb: 'sh', limbR: 22, lunge: [0.2, 0.3, 700], z3: [[0, ...REST], [0.12, -0.6, -0.3, 1, 1], [0.27, -0.9, -0.4, 1, 1], [0.62, ...REST]] });
   ua('ua_ki', { keys: [[0.16, 'ua_kiA', es], [0.28, 'ua_kiA'], [0.34, 'ua_palmB', eq], [0.5, 'ua_palmB'], [0.8, 'ua_stance', ei]], active: [0.3, 0.42], dmg: 22, post: 60, kb: 640, stun: 0.6,
     knock: true, special: true, limb: 'haF', limbR: 20, lunge: [0.28, 0.42, 1400], glint: [0.1, 0.28], sw: 0.29, pw: 1.5, parry: undefined, kanji: '鉄山靠' });
-  // unarmed counters (after a parry or block; numbers of their logical move, see fighter.js kaeshiVariant)
+
   const uc = (name, base, o) => ua(name, Object.assign({}, o, { counter: true, kb: (ATK[base] || {}).kb || 240, stun: (ATK[base] || {}).stun || 0.4 }));
   uc('ua_cRip', 'riposte', { keys: [[0.05, 'ua_palmA', eo], [0.11, 'ua_palmB', eq], [0.2, 'ua_palmB'], [0.4, 'ua_stance', ei]], active: [0.07, 0.15], dmg: 10, post: 16, limb: 'haF', limbR: 16, lunge: [0.05, 0.13, 320] });
   uc('ua_cSweep', 'sweep', { keys: [[0.05, 'ua_sweepA', eo], [0.13, 'ua_sweepB', eq], [0.22, 'ua_sweepB'], [0.48, 'ua_stance', ei]], active: [0.08, 0.18], dmg: 8, post: 18, knock: true, trip: true, limb: 'ftF', limbR: 15, lunge: [0.05, 0.14, 300] });
@@ -346,8 +346,8 @@
       ua_palm: 'Teisho (palm strike)', ua_spinKick: 'Ushiro-mawashi (spinning back kick)', ua_front: 'Mae-geri (front kick)', ua_knee: 'Hiza-geri (knee)', ua_round: 'Mawashi-geri (roundhouse)',
       ua_sweep: 'Ashi-barai (low sweep)', ua_air: 'Tobi-geri (flying kick)', ua_stomp: 'Fumikomi (stomp)', ua_flyknee: 'Tobi-hiza (flying knee)', ua_ram: 'Tetsuzan-ko (shoulder ram)', ua_ki: 'Ki palm (unarmed ki)' })[n], 'UNARMED', '');
 
-  // ------------------------------------------------------------------ move choice
-  // armed kits: logical move → this duel's move (null: the fighter's own kit move stays)
+
+
   const KIT = {
     akane: { light1: 'ak_dNuki', light2: 'ak_dKesa', light3: 'd_tsukiL3', heavy: 'd_men', fLight: 'd_tsuki', bLight: 'ak_dKiri', fHeavy: 'd_kiriUp', dash: 'd_dashR' },
     kuro: { light1: 'd_kesaR', light2: 'd_kesaL', light3: 'd_shomen', heavy: 'd_men', fLight: 'd_tsuki', bLight: 'd_suneR', fHeavy: 'd_kiriUp', bHeavy: 'd_kesaH', dash: 'd_dashR' },
@@ -356,7 +356,7 @@
     akane: { bfL: 'ak_tsubame', fbL: 'ak_kage', bfH: 'ak_maki', fbH: 'ak_ryusei' },
     kuro: { bfL: 'kr_kuruma', fbL: 'kr_nagi', bfH: 'kr_uchi', fbH: 'kr_iwa' },
   };
-  // situation → move, first match wins (openers only: a string keeps its own steps)
+
   const SIT = {
     light1: [['oAir', 'd_antiL'], ['oWall', 'd_wallL'], ['close', 'd_kote'], ['oUnarmed', 'd_oikomi'], ['oGuard', 'd_doL'], ['far', 'd_tobikomi']],
     heavy: [['oBroken', 'd_kabuto'], ['oAir', 'd_antiH'], ['meWall', 'd_kaiten'], ['close', 'd_taiatari'], ['far', 'd_nagare']],
@@ -395,7 +395,7 @@
     }
     if (opener && SIT[n === 'light1' ? 'light1' : n]) {
       const S = D.sit(f), L = SIT[n];
-      if (n === 'kick' && id === 'akane' && S.close && S.oGuard) return 'ak_bl'; // her pommel strike into a close guard
+      if (n === 'kick' && id === 'akane' && S.close && S.oGuard) return 'ak_bl';
       for (const [k, m] of L) if (S[k]) return m;
     }
     const K = KIT[id];

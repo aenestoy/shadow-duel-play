@@ -9,3 +9,4 @@
 2026-10-03 17:07  d12889b9  WIP 8: the duel runs one notch slower (speed 0.9; compare with ?speed=1 or ?speed=0.85)
 2026-10-03 17:33  416d630d  WIP 9: all 13 ninjas in the duel (Mai, Tora added); speed 0.9 here (?speed=1 to compare)
 2026-10-03 17:54  9c4a1aa3  WIP 10: blade lock and bind keep the two faces a head-width apart (Tora's helmet no longer over Akane's face)
+2026-10-03 23:45  4e2cd55f  WIP 11: Kage's ki appears behind the opponent; double-tap toward a close opponent rolls past him

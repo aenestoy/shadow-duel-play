@@ -1,20 +1,20 @@
-// Shadow Duel — Indonesian catalog for ND.i18n, translated from the English one (js/i18n-en.js).
-// Loaded on demand: js/i18n.js loads this file only when the game runs in this language. Same structure as i18n-en.js.
-// Informal "kamu" throughout; words chosen so Malay players understand them too.
-// Glossary: guard = bertahan / jaga (button JAGA), guard break = pertahanan hancur, parry = tangkis / tangkisan,
-//   counter = serangan balik / serang balik, posture = kuda-kuda, ki technique = teknik ki, blade lock = adu pedang,
-//   dash = lesat / melesat (button LESAT), combo = kombo, light / heavy slash = tebasan ringan / berat,
-//   kick = tendangan (button TENDANG), rally = saling balas, launcher = pelontar, dive = tukikan, dummy = boneka,
-//   arcade = Arkade, training = Latihan, tutorial = Tutorial, ranked = Ranked (laga ranked), journey = perjalanan,
-//   mastery star = bintang keahlian, Hall of Champions = Aula Juara, shadow (ghost opponent) = bayangan,
-//   season = musim, round = ronde, fight = laga, leaderboard = papan peringkat, Dan rank = pangkat,
-//   trial = ujian (Ujian Dan), tournament = turnamen, damage = damage, HP = HP, pts = poin
-//   Shadow Pass = Pass Bayangan, level = level (tag LV), tier = tier, placement = penempatan, claim = ambil,
-//   reward = hadiah, costume = kostum, title = gelar, badge = lencana, frame = bingkai, blade trail = jejak pedang,
-//   booster = penguat, streak = beruntun, journey seal = segel perjalanan, AI opponent = lawan AI
-//   touch buttons: SERANG · RINGAN · BERAT · TENDANG · JAGA · LESAT · SHUR. · KI · LOMPAT
-// Control changes that ship with this build are written into the text: P pauses (Escape is
-// CrazyGames' fullscreen key), ⌫ goes back, player 2 throws shuriken with I.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 (function (ND) {
   'use strict';
   (ND.I18N_CATALOGS || (ND.I18N_CATALOGS = {}))['id'] = function (I, EN) {
@@ -23,7 +23,7 @@
     const dec = (x) => I.dec(x);
     const fmtTime = (s) => I.time(s);
 
-    // ================================================================ UI tables (ND.STR)
+
     merge(EN.STR, {
       menu: {
         brand: (nc, na) => `${nc} petarung, ${na} arena, dan satu master rahasia. Duel pedang langsung, adu pedang, tangkisan, kuda-kuda hancur, teknik ki, dan fisika ragdoll.`,
@@ -152,7 +152,7 @@
       bz: {
         back: 'Kembali', toMenu: 'Menu utama', you: 'Kamu', youTag: 'kamu', newBest: 'Rekor baru!', seeResult: 'Lihat hasil',
         resetIn: 'Reset dalam',
-        // time left: hari (h) · jam (j) · menit (m) · detik (d)
+
         left: (ms) => { const t = Math.floor(ms / 1000), d = Math.floor(t / 86400), hh = Math.floor((t % 86400) / 3600), mm = Math.floor((t % 3600) / 60), ss = t % 60; return d ? `${d}h ${hh}j ${mm}m` : hh ? `${hh}j ${mm}m` : `${mm}m ${ss}d`; },
         leftShort: (ms) => { const t = Math.floor(ms / 60000), d = Math.floor(t / 1440), hh = Math.floor((t % 1440) / 60), mm = t % 60; return d ? `${d}h ${hh}j` : hh ? `${hh}j ${mm}m` : `${mm}m`; },
         weekName: (m, y) => `${['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'][m - 1] || m} ${y}`,
@@ -238,7 +238,7 @@
           pending: (n) => `Kiriman yang menunggu: ${n}`,
           classic: 'Papan Arkade · Legenda',
         },
-        // Monthly Tournament rewards: permanent title (top 3) and Champion colors (1st)
+
         ttl: {
           champ: 'Juara Bulanan', finalist: 'Finalis',
           reward: 'Mulai turnamen Oktober 2026, 3 besar tiap bulan mendapat gelar permanen. Sang juara juga memenangkan warna Juara eksklusif untuk ninja yang dipakainya. Gelar butuh minimal 5 pemain di bulan itu.',
@@ -376,10 +376,10 @@
       ],
     });
 
-    // ================================================================ story, fighters, arenas, specials
-    // ---- Fragment B: story text (talk, pairs, endings, roster2 notes), characters, arenas, specials, pop-ups, AI levels, number words
+
+
     merge(EN.STR, {
-      // open = speaks first (opponent), reply = answers (player), boss = said to the final boss
+
       talk: {
         akane: {
           open: ['Pedangku merah, niatku suci. Hadapi aku dengan terhormat.', 'Aku membungkuk dulu, baru menyerang. Itu baru adil.', 'Duel ini demi kehormatan kita. Tak ada jalan mundur.'],
@@ -447,7 +447,7 @@
           boss: 'Shura, tak ada tempat bersembunyi di langit. Panahku akan menemukanmu.',
         },
       },
-      // Special match-ups: lines are spoken in the order written
+
       pairs: {
         'akane|aoi': [['akane', 'Aoi! Saatnya menuntaskan duel kita yang belum selesai.'], ['aoi', 'Angin selalu bertiup ke api yang sama, Akane. Mulailah.']],
         'kuro|tetsu': [['kuro', 'Cangkang besi. Mari lihat apakah isinya kosong.'], ['tetsu', 'Bahkan gunung tunduk pada disiplin, Kuro.']],
@@ -544,22 +544,22 @@
 
     EN.NUMWORDS = ['Nol', 'Satu', 'Dua', 'Tiga', 'Empat', 'Lima', 'Enam', 'Tujuh', 'Delapan', 'Sembilan', 'Sepuluh', 'Sebelas', 'Dua belas'];
 
-    // ================================================================ static HTML, hardcoded literals, canvas pop-ups
+
     merge(EN.PHRASES, {
-      // ---------------------------------------------------------------- index.html: <title>, brand, HUD
+
       'Gölge Düellosu': 'Shadow Duel',
       'Duraklat': 'Jeda',
       'KARŞILIKLI SERİ': 'SALING BALAS',
       'SON DARBE': 'TEBASAN AKHIR',
       'atlamak için bir tuşa bas': 'tekan tombol apa saja untuk lewati',
-      // touch buttons (static fallbacks of data-s="touch.btn.*")
+
       'GARD': 'JAGA',
       'HAFİF': 'RINGAN',
       'SALDIR': 'SERANG',
       'AĞIR': 'BERAT',
       'ATIL': 'LESAT',
       'TEKME': 'TENDANG',
-      // ---------------------------------------------------------------- main menu
+
       'Sekiz savaşçı, üç arena. Gerçek zamanlı kılıç çarpışması, kılıç kilitlenmesi, savuşturma, denge kırma, Gölge Kesiği ve ragdoll fiziği.': 'Delapan petarung, tiga arena. Duel pedang langsung, adu pedang, tangkisan, kuda-kuda hancur, Tebasan Bayangan, dan fisika ragdoll.',
       'İki Oyuncu': 'Dua Pemain',
       'Aynı klavyede ya da iki gamepad ile kafa kafaya': 'Satu lawan satu di satu keyboard atau dua gamepad',
@@ -579,7 +579,7 @@
       'Kan efekti': 'Darah',
       'Tuş ipuçları': 'Petunjuk tombol',
       'Yüksek grafik': 'Grafis tinggi',
-      // ---------------------------------------------------------------- controls card
+
       'Kontroller': 'Kontrol',
       '1. Oyuncu': 'Pemain 1',
       '2. Oyuncu': 'Pemain 2',
@@ -593,7 +593,7 @@
       'Sağ Shift': 'Shift kanan',
       'Atılma': 'Lesat',
       'Ki tekniği (ki dolu)': 'Teknik ki (ki penuh)',
-      // ---------------------------------------------------------------- select screen
+
       'Ninjanı seç': 'Pilih ninjamu',
       'Hazır': 'Siap',
       '1. oyuncunun ninjası': 'Ninja pemain 1',
@@ -610,7 +610,7 @@
       'Güç': 'Kekuatan',
       'Menzil': 'Jangkauan',
       'Can': 'Daya tahan',
-      // ---------------------------------------------------------------- pause / end
+
       'Duraklatıldı': 'Dijeda',
       'Devam et': 'Lanjut',
       'Maçı yeniden başlat': 'Ulang laga',
@@ -622,20 +622,20 @@
       'Verilen hasar': 'Damage diberikan',
       'Savuşturma': 'Tangkisan',
       'Ki Saldırısı': 'Serangan ki',
-      // ---------------------------------------------------------------- training / leaderboard / misc
+
       'Antrenman': 'Latihan',
       'ANTRENMAN': 'LATIHAN',
       'Sıralama': 'Peringkat',
       'Tümü': 'Semua',
       'Ekranı yan çevir': 'Putar layarmu ke samping',
       'Performans için grafik düşürüldü': 'Grafis diturunkan demi performa',
-      // hidden boss pushed into ND.CHARS by arcade.js (safety net; EN.CHARS.shura should carry the same)
+
       'Kanlı Usta': 'Master Darah',
       'Yolunu kanla çizen iblis usta. Uzun nodachi, yıkıcı darbeler, neredeyse kusursuz savuşturma.': 'Master iblis yang mengukir jalannya dengan darah. Nodachi panjang, pukulan menghancurkan, tangkisan nyaris sempurna.',
-      // ---------------------------------------------------------------- HUD tags (fallbacks when STR.hud is missing)
+
       'SEN': 'KAMU',
       'KUKLA': 'BONEKA',
-      // ---------------------------------------------------------------- round banners (#bt / #bs)
+
       'Son raund': 'Ronde terakhir',
       'Kazanan her şeyi alır': 'Pemenang ambil semua',
       'İlk iki raundu alan kazanır': 'Menang dua ronde duluan, dia juaranya',
@@ -644,13 +644,13 @@
       'Berabere': 'Seri',
       'Çifte K.O.': 'K.O. Ganda',
       'Mükemmel': 'Sempurna',
-      // blade-lock hint (fallbacks of STR.hud.lockSolo / lockDuo)
+
       'F / K tuşuna hızlıca bas!': 'Tekan F / K cepat!',
       'Hafif ya da ağır tuşuna hızlıca bas!': 'Tekan ringan/berat cepat!',
-      // counter / parry prompt labels under the key ring (ctx.fillText in drawPrompts)
+
       'KARŞILIK': 'BALAS',
       'SAVUŞTUR': 'TANGKIS',
-      // ---------------------------------------------------------------- canvas pop-ups (fx.text)
+
       'SON VURUŞ!': 'PENGHABISAN!',
       'KİLİTLENDİ!': 'ADU PEDANG!',
       'İTTİ!': 'DORONG!',
@@ -673,9 +673,9 @@
     });
 
     merge(EN.HTML, {
-      // brand title
+
       'Gölge<br><em>Düel</em><em>losu</em>': 'Shadow<br><em>Du</em><em>el</em>',
-      // tips list (<ul class="tips">)
+
       '<b>Savuşturma:</b> darbe gelmeden hemen önce gard tuşuna bas; rakip sendeler.':
         '<b>Tangkis:</b> tekan jaga tepat sebelum serangan kena; lawanmu akan terhuyung.',
       '<b>Karşılık (返し技):</b> gard ya da savuşturmanın hemen ardından saldırı tuşu → anında karşı kesik. <b>İleri</b> + hafif = bacağa süpürme, <b>geri</b> + hafif = yanından dönüp arkadan kesme, <b>ağır</b> = güçlü karşı darbe.':
@@ -690,30 +690,30 @@
         '<b>Lesat + ringan</b> = tebasan lesat. <b>Di udara</b> ringan = tebasan udara, berat = tukikan. Tebasan berat menjatuhkan lawan; siapa pun yang terbanting ke dinding akan memantul.',
       '<b>Denge çubuğu</b> dolarsa gard kırılır. Tekme gardı delip dengeyi hızla doldurur.':
         'Saat <b>bar kuda-kuda</b> penuh, pertahanan hancur. Tendangan menembus pertahanan dan cepat mengisi kuda-kuda.',
-      // gamepad note (Esc -> Start or P)
+
       'Gamepad: X hafif · Y ağır · B tekme · A zıpla · LB gard · RB shuriken · RT atılma · R3 ki tekniği. Start ya da <kbd>P</kbd> duraklatır. CPU modunda her iki tuş seti de seni yönetir.':
         'Gamepad: X ringan · Y berat · B tendang · A lompat · LB jaga · RB shuriken · RT lesat · R3 teknik ki. Start atau <kbd>P</kbd> untuk jeda. Di mode CPU, kedua set tombol mengendalikanmu.',
-      // select / VS hints (Esc -> ⌫)
+
       '<kbd>Enter</kbd> başlatır · <kbd>⌫</kbd> menüye döner': '<kbd>Enter</kbd> mulai · <kbd>⌫</kbd> kembali',
       '<kbd>Enter</kbd> / <kbd>F</kbd> başlatır · <kbd>⌫</kbd> çıkar': '<kbd>Enter</kbd> / <kbd>F</kbd> mulai · <kbd>⌫</kbd> keluar',
     });
 
     EN.PATTERNS.push(
-      // HUD round label (#rlabel) and round banner
+
       [/^RAUND (\d+)$/, 'RONDE $1'],
       [/^(\d+)\. Raund$/, 'Ronde $1'],
-      // canvas pop-ups built from numbers
+
       [/^(\d+)\. KARŞILIK$/, 'BALASAN ×$1'],
       [/^(\d+) VURUŞLUK SERİ!$/, '$1 BALASAN BERUNTUN!'],
-      // time-up banner sub: `${name} önde`
+
       [/^(.+) önde$/, (m, n) => I.t(n) + ' unggul'],
-      // end screen title: `${Name} kazandı`
+
       [/^(.+) kazandı$/, (m, n) => I.t(n) + ' menang'],
-      // end screen sub line: `${a} – ${b} · ${round} raund · ${arenaName}`
+
       [/^(\d+) – (\d+) · (\d+) raund · (.+)$/, (m, a, b, r, ar) => `${a} – ${b} · ${r} ronde · ${I.t(ar)}`],
     );
 
-    // ================================================================ added with the portal build (PLAY, ads, coach)
+
     merge(EN.STR, {
       menu: { play: 'Main', playSub: (name, lv) => `${name} lawan CPU · ${lv}` },
       first: { play: 'Main', sub: 'Sekali ketuk, langsung bertarung', menu: 'Semua mode' },
@@ -732,21 +732,21 @@
       },
     });
 
-    // ================================================================ VOLUME: sliders on the menu card and in pause (js/volume.js)
+
     merge(EN.STR, {
       vol: {
         title: 'Volume', master: 'Utama', music: 'Musik', sfx: 'Efek', sound: 'Suara',
         pct: (n) => `${n}%`,
         muted: 'Suara mati. Geser salah satu pengatur untuk menyalakannya lagi.',
-        // Settings > Audio: character / announcer voices switch (js/voice.js) and the courtesy credit under it
+
         voice: 'Suara karakter',
         uiSfx: 'Suara menu',
         credit: 'Suara: ユーフルカ (youfulca.com) · 効果音ラボ · すぱらんど',
       },
     });
 
-    // ================================================================ TOUCH LAYOUT EDITOR: movement modes + "Customize controls"
-    // (js/touch.js settings rows, js/touch-editor.js; Turkish source in i18n.js, block "touch movement modes + layout editor")
+
+
     merge(EN.STR, {
       tedit: {
         move: 'Gerakan',
@@ -780,8 +780,8 @@
       },
     });
 
-    // ================================================================ PROGRESSION: honor, rival challenges, moves panel
-    // (arcade.js STR.honor / STR.rival / STR.hint, game.js select screen; rules in js/honor.js)
+
+
     merge(EN.STR, {
       menu: { arcadeDesc: 'Kalahkan para rival satu per satu sementara tingkat kesulitan naik, dengan master rahasia menunggu di akhir. Sumber kehormatan terbesar.' },
       sel: {
@@ -854,8 +854,8 @@
       },
     });
 
-    // ================================================================ COMBAT: new kits, combos, move list (combat designer)
-    // Akane/Aoi/Ren/Kage identities, combo counter, ki cancel, ND.MOVELIST names/descriptions (read through ND.i18n.t)
+
+
     merge(EN.CHARS, {
       akane: { desc: 'Master iaijutsu. Pedang menunggu di sarungnya dan setiap tebasan adalah cabutan; kuda-kuda cabutnya menangkap serangan yang datang.', weapon: 'Katana (iai)' },
       aoi: { desc: 'Pendekar tachi satu tangan yang selincah angin. Tusukan berjangkauan jauh dan langkah angin menutup jarak dalam satu gerakan.', weapon: 'Tachi' },
@@ -865,7 +865,7 @@
     merge(EN.TXT, { kiCancel: 'BATAL KI!', launch: 'LONTAR!', iaiCatch: 'IAI GAESHI!' });
     EN.PATTERNS.push([/^(\d+) VURUŞ$/, '$1 SERANGAN']);
     merge(EN.PHRASES, {
-      // shared rows
+
       'Tekme': 'Tendangan',
       'Tekme: dengeyi hızla doldurur, gardı kırmaya yarar. Ardından AĞIR ile seri bitirişine bağlanır.': 'Tendangan: cepat mengisi kuda-kuda dan membantu menghancurkan pertahanan. Lanjutkan dengan BERAT untuk akhir rangkaian.',
       'Shuriken fırlatır; zamanla yeniden dolar.': 'Melempar shuriken; terisi lagi seiring waktu.',
@@ -885,7 +885,7 @@
       'Atılırken dönerek geniş kesik; yere serer.': 'Tebasan berputar yang lebar dari lesatan; menjatuhkan lawan.',
       'İki kesiklik seri bitirişi; son kesik yere serer.': 'Akhir rangkaian dua tebasan; tebasan terakhir menjatuhkan lawan.',
       'Rakibin kılıcını aşağı çarpıp dürter: gardı ezer.': 'Memukul pedang lawan ke bawah lalu menusuk: menghancurkan pertahanan.',
-      // Akane
+
       'Kından yatay çekiş kesiği, çapraz iniş, geri dönen kesik; kılıç her seferinde kınına döner.': 'Tebasan cabut mendatar dari sarung, tebasan turun menyilang, dan tebasan balik; pedang selalu kembali ke sarungnya.',
       'Derin çömelişten geniş yatay çekiş; yere serer.': 'Cabutan mendatar yang lebar dari posisi jongkok dalam; menjatuhkan lawan.',
       'Atılarak kından çekiş: uzak mesafeyi bir anda kapatır, seriye devam eder.': 'Cabutan sambil melesat dari sarung: menutup jarak jauh seketika dan melanjutkan rangkaian.',
@@ -894,7 +894,7 @@
       'Çekiş duruşu: kısa bir an bekler; bu sırada gelen yakın dövüş darbesini yakalar ve kaçınılmaz bir iai kesiğiyle karşılık verir. Boşa giderse açık kalır.': 'Kuda-kuda cabut: menunggu sesaat; serangan jarak dekat yang datang saat itu ditangkap dan dibalas dengan tebasan iai yang tak terhindarkan. Jika tak ada serangan, dia terbuka.',
       'Kesa’dan sonra yükselen ve inen iki çekiş kesiği; son kesik yere serer.': 'Setelah Kesa, tebasan cabut naik dan turun; tebasan terakhir menjatuhkan lawan.',
       'Tekmeden sonra çömelip rakibin içinden geçen kızıl iai; arkasında belirir.': 'Setelah tendangan, iai merah sambil merunduk yang menembus lawan; dia muncul di belakangnya.',
-      // Aoi
+
       'Tek elle uzun dürtüş, yukarı savrulan kesik ve rüzgâr adımıyla derin atılma dürtüşü.': 'Tusukan panjang satu tangan, tebasan naik yang menyentak, dan tusukan terjang yang dalam dengan langkah angin.',
       'Dönerek geniş yatay kesik; yere serer.': 'Tebasan mendatar yang lebar sambil berputar; menjatuhkan lawan.',
       'Rüzgâr adımı: çok uzaktan tek hamlede dürter, seriye devam eder.': 'Langkah angin: menusuk dari jauh sekali dalam satu gerakan dan melanjutkan rangkaian.',
@@ -903,7 +903,7 @@
       'Geri sıçrar, ardından çok uzağa uzanan dürtüşle geri döner: gardı ezer, yere serer.': 'Meloncat mundur, lalu kembali dengan tusukan yang sangat panjang: menghancurkan pertahanan dan menjatuhkan lawan.',
       'Üç hızlı dürtüş; sonuncusu rüzgârla rakibi savurur.': 'Tiga tusukan cepat; yang terakhir menghempaskan lawan dengan angin.',
       'İki kez dönerek çevresini biçen kesik; gardı ezer.': 'Berputar dua kali, menebas ke sekeliling; menghancurkan pertahanan.',
-      // Ren
+
       'Kesik · Dirsek · Diz': 'Tebas · Siku · Lutut',
       'Tek elle kesik, dirsek darbesi ve uçan diz: kılıçla başlayıp bedenle biter.': 'Tebasan satu tangan, hantaman siku, dan lutut terbang: dimulai dengan pedang, diakhiri dengan tubuh.',
       'İki elle tepeden ezici iniş; gardı zorlar, yere serer.': 'Hantaman dua tangan yang meremukkan dari atas; menekan pertahanan dan menjatuhkan lawan.',
@@ -913,7 +913,7 @@
       'Topuğu havaya kaldırıp balta gibi indirir: yere serer.': 'Mengangkat tumit tinggi lalu menjatuhkannya seperti kapak: menjatuhkan lawan.',
       'Dirsekten sonra kesik ve tepeden ezici iniş; son vuruş yere serer.': 'Setelah siku, tebasan dan hantaman meremukkan dari atas; serangan terakhir menjatuhkan lawan.',
       'Tekmenin ardından dönen topuk tekmesi; yere serer.': 'Setelah tendangan, tendangan tumit berputar; menjatuhkan lawan.',
-      // Kage
+
       'Ters tutuşla kesik, dönen kesik ve gölge adımı: kaybolup öne geçer, dürterek belirir.': 'Tebasan genggaman terbalik, tebasan berputar, dan langkah bayangan: menghilang, menyelinap maju, lalu muncul sambil menusuk.',
       'Sıçrayıp ters tutuşla aşağı saplar; yere serer.': 'Meloncat dan menikam ke bawah dengan genggaman terbalik; menjatuhkan lawan.',
       'Gölge gibi uzun atılma kesiği; seriye devam eder.': 'Tebasan lesat panjang bagai bayangan; melanjutkan rangkaian.',
@@ -922,18 +922,18 @@
       'Ayağının dibine sis bombası atar: yakındakini sersemletir, Kage dumanın içinde geri kaçar.': 'Melempar bom asap ke kaki: membuat pusing siapa pun di dekatnya sementara Kage menyelinap mundur di dalam asap.',
       'Üç hızlı ters kesik ve aşağı saplama; sonuncusu yere serer.': 'Tiga tebasan terbalik yang cepat dan tikaman ke bawah; yang terakhir menjatuhkan lawan.',
       'Tekmeden sonra dumanda kaybolur, rakibin arkasında belirip saplar.': 'Setelah tendangan, menghilang dalam asap lalu muncul di belakang lawan sambil menikam.',
-      // template row names
+
       'Nodachi serisi': 'Rangkaian nodachi', 'Ağır nodachi': 'Nodachi berat', 'Kodachi serisi': 'Rangkaian kodachi', 'Ağır kesik': 'Tebasan berat',
       'Tantō dansı': 'Tarian tantō', 'Çift kesik': 'Tebasan kembar', 'Naginata serisi': 'Rangkaian naginata', 'Ağır savuruş': 'Ayunan berat',
       'Zincir ve orak': 'Rantai dan sabit', 'Zincir çekişi': 'Tarikan rantai', 'Asa serisi': 'Rangkaian tongkat', 'Ağır süpürme': 'Sapuan berat',
       'Yelpaze serisi': 'Rangkaian kipas', 'Rüzgâr dalgası': 'Gelombang angin', 'Tantō serisi': 'Rangkaian tantō', 'Ok (basılı tut: güçlü)': 'Panah (tahan: tembakan kuat)',
       'Geri + AĞIR da ok atar (basılı tut: güçlü atış); ok kalmadıysa tantō ile tepeden iner.': 'Mundur + BERAT juga menembakkan panah (tahan untuk tembakan kuat); jika panah habis, dia turun dari atas dengan tantō.',
-      // combat pop-ups
+
       'KI İPTALİ!': 'BATAL KI!', 'HAVAYA!': 'LONTAR!',
     });
 
-    // ================================================================ COUNTER CINEMATIC + COMBO TRIAL (combat feel pass)
-    // js/kaeshi-cine.js STR.kaeshi, js/combo-trial.js STR.trial, js/coach.js combo/counter tips, move list legend
+
+
     {
       const tb = (t, c) => `<i class="tb${c ? ' ' + c : ''}">${t}</i>`;
       merge(EN.STR, {
@@ -990,8 +990,8 @@
       });
     }
 
-    // ================================================================ GRAPHICS QUALITY: the Graphics setting (js/gfx.js)
-    // (Turkish source in i18n.js, block "graphics quality")
+
+
     merge(EN.STR, {
       gfx: {
         title: 'Grafis',
@@ -1004,8 +1004,8 @@
           custom: 'Pengaturanmu sendiri (Lanjutan).',
         },
         now: (lv) => `Sekarang: ${lv}`,
-        // Settings → Graphics → Advanced (game.js gfxAdvBuild, js/gfx.js KNOBS): the switch, the line under it, the hint on
-        // the heaviest rows, one title per knob and the value words (resolution shows percentages, anti-aliasing 2× / 4×)
+
+
         adv: {
           title: 'Lanjutan',
           note: 'Mengubah salah satunya membuat pilihan jadi "Kustom"; menekan preset mengembalikan nilainya.',
@@ -1016,8 +1016,8 @@
       },
     });
 
-    // ================================================================ FRAME RATE: Settings → Graphics (js/gfx.js makePacer)
-    // (Turkish source in i18n.js, block "frame rate"; the numbers themselves are not translated)
+
+
     merge(EN.STR, {
       fps: {
         title: 'Laju frame',
@@ -1032,7 +1032,7 @@
       },
     });
 
-    // ================================================================ SETTINGS SCREEN (js/settings.js; Turkish source in i18n.js)
+
     merge(EN.STR, {
       set: {
         title: 'Pengaturan', close: 'Tutup',
@@ -1042,13 +1042,13 @@
       },
     });
 
-    // ================================================================ LANGUAGE PICKER (js/lang-ui.js; Turkish source in i18n.js)
-    // Language names are not translated: each one is written in its own language (ND.i18n.names).
+
+
     merge(EN.STR, { lang: { title: 'Bahasa', change: 'Ganti bahasa', close: 'Tutup' } });
 
-    // ================================================================ TOUCH HELP PER MOVEMENT MODE
-    // (game.js touchHelp(): the menu's touch help follows the movement mode; Turkish source in i18n.js, block
-    // "touch help per movement mode")
+
+
+
     merge(EN.STR, {
       thelp: {
         title: { float: 'Joystik', fixed: 'Joystik tetap', dpad: 'D-pad' },
@@ -1062,10 +1062,10 @@
       },
     });
 
-    // ================================================================ SHARED LABELS (static HTML / move list text that is the same word in Turkish)
+
     merge(EN.PHRASES, { 'Shuriken': 'Shuriken', 'KI': 'KI' });
 
-    // Persistent character journeys.
+
     merge(EN.STR, { menu: { arcadeDesc: 'Perjalanan delapan laga untuk tiap ninja. Lanjutkan ke rival berikutnya, buka akhir cerita karakter dan Segel Master.' }, sel: { title: { arcade: 'Arkade · Perjalanan karakter' } },
       journey: {
         start: 'Mulai perjalanan',
@@ -1082,8 +1082,8 @@
       }
     });
 
-    // ================================================================ PROGRESS / ACCOUNT (Settings → Progress, Hall of Champions;
-    // js/settings.js, js/banzuke.js; Turkish source in i18n.js, block "account and recovery code")
+
+
     merge(EN.STR, {
       set: { tabs: { save: 'Progres' } },
       acct: {
@@ -1107,8 +1107,8 @@
       lb: { savedLocalAccount: (r) => (r ? `#${r} di perangkat ini · akunmu tidak bisa dihubungi saat ini` : 'Tersimpan di perangkat ini · akunmu tidak bisa dihubungi saat ini') },
     });
 
-    // ================================================================ PRIVACY (js/privacy.js; Turkish source in i18n.js, block
-    // "privacy"). The policy page itself (privacy.html) is English + Turkish; other languages see the English part.
+
+
     merge(EN.STR, {
       priv: {
         notice: 'Shadow Duel menyimpan nama dan skormu untuk papan peringkat online.',
@@ -1117,8 +1117,8 @@
       },
     });
 
-    // ================================================================ FIRST-FIGHT RALLY TUTORIAL: js/tutorial.js STR.tutor and
-    // Training → Parry drill (Turkish source in i18n.js, block "rally tutorial")
+
+
     merge(EN.STR, {
       menu: { trainDrill: 'Latihan tangkis' },
       tutor: {
@@ -1138,12 +1138,21 @@
         mastered: 'DIKUASAI!', masteredSub: 'Bertahan, balas, ulangi',
         warm: (l) => `Pemanasan: tekan ${l} tiga kali`,
         nudge: (k) => `Tekan ${k}`, nudgeT: (k) => `Ketuk ${k}`,
+
+
+        skip: 'Lewati ›',
+        steps: {
+          attack: (b) => `Serang dengan ${b}`, guard: (b) => `Tangkis pedang dengan ${b}`, counter: (b) => `Balas dengan ${b}`,
+          timing: (b, l) => `Giliranmu: ${b} saat cincin menutup, lalu ${l}`,
+        },
+        ok: { attack: 'BAGUS!', guard: 'TERTANGKIS!', counter: 'BALASAN!', timing: 'SEMPURNA!' },
+        ready: 'SIAP!', readySub: 'Sekarang menangkan duelnya',
       },
     });
 
-    // ================================================================ NEW PLAYER: the select screen's one-time greeting
-    // (game.js openSelect), the VS goal line's "?" (arcade.js openVs) and the just-in-time tips (js/coach.js ND.coach.tips;
-    // arguments: key / button chips, lessons: the menu names of Training and Tutorial). Turkish source in i18n.js.
+
+
+
     merge(EN.STR, {
       onb: { selIntro: 'Pilih ninjamu: masing-masing punya perjalanannya sendiri', more: 'Detail' },
       tips: {
@@ -1160,7 +1169,7 @@
       },
     });
 
-    // ================================================================ online "play with a friend" (js/online.js: ND.STR.online)
+
     merge(EN.STR, {
       online: {
         title: 'Main dengan teman',
@@ -1233,7 +1242,7 @@
       },
     });
 
-    // ================================================================ ranked duel (js/ranked.js: ND.STR.ranked)
+
     merge(EN.STR, {
       ranked: {
         title: 'Duel ranked', menuSub: 'Lawan acak · poin, tier, dan musim', offline: 'Ranked sedang offline',
@@ -1285,11 +1294,22 @@
         aiNote: 'Saat pemain online sedikit, kamu mungkin dipertemukan dengan lawan AI yang bermain dengan gaya pemain sungguhan.', gotIt: 'Mengerti',
         err: { network: 'Tidak bisa menghubungi server. Periksa koneksi internetmu.', bad_version: 'Versi baru game sudah keluar: muat ulang halaman.', busy: 'Antrean sangat penuh, coba lagi sebentar lagi.',
           rate_limited: 'Terlalu banyak percobaan, tunggu sebentar.', disabled: 'Ranked sedang offline.', banned: 'Akun ini tidak bisa bermain ranked.', other: 'Terjadi kesalahan, coba lagi.' },
+
+        bg: { ru: 'Jelajahi sambil mencari', stopT: 'Hentikan pencarian peringkat?', stopS: 'Memulai laga ini mengakhiri pencarianmu.', stopGo: 'Hentikan dan main', keep: 'Terus mencari', stopped: 'Pencarian peringkat dihentikan', chip: 'Mencari' },
+        card: { findMatch: 'Cari lawan', searching: 'Mencari…', resume: 'Kembali ke laga',
+          place: (p, n) => `#${p} dari ${n} di papan`, placeOnly: (p) => `#${p} di papan`,
+          toBoard: (n) => `${n} laga lagi untuk masuk papan peringkat`, toBoardSoon: 'Beberapa laga lagi untuk masuk papan peringkat',
+          invite: 'Dari Ashigaru ke Shōgun: laga peringkat pertamamu tinggal satu ketukan',
+          guestInvite: 'Masuk untuk bermain demi poin · tamu bermain tanpa poin', nickInvite: 'Pilih nama panggilan untuk bermain demi poin',
+          winRate: (p) => `${p}% menang`, streakW: (n) => `${n} kemenangan beruntun`, streakL: (n) => `${n} kekalahan beruntun`,
+          peak: (t) => `Terbaik musim ini: ${t}`, shields: (n) => `Perisai ×${n}`, top: 'Top 3 musim ini', you: 'Kamu', empty: 'Belum ada di papan: jadilah yang pertama', rating: 'poin' },
       },
+
+      upd: { ready: 'Versi baru siap — ketuk untuk memperbarui', refresh: 'Versi baru tersedia — muat ulang halaman untuk memainkannya', close: 'Tutup' },
     });
 
-    // ================================================================ LEVEL + SHADOW PASS (js/level.js, js/pass.js)
-    // English: L.en in js/i18n-pass.js; the on-demand languages keep these texts in their own file.
+
+
     merge(EN.STR, {
       pass: {
         k: '影', lv: 'LV',
@@ -1300,7 +1320,7 @@
         free: 'Gratis', bonus: 'Bayangan', bonusAds: 'Tiap hadiah: satu iklan', bonusWait: (n) => `Tanpa iklan: terbuka ${n} tier kemudian`,
         claim: 'Ambil', claimAll: (n) => `Ambil semua (${n})`, owned: 'Diambil', watch: 'Tonton iklan', milestone: 'Gratis', opensAt: (t) => `Di tier ${t}`,
         online: 'Perlu online', soon: 'Tier baru segera hadir', soonXp: 'XP-mu terus dihitung', close: 'Tutup', tabs: { pass: 'Pass', profile: 'Profil' },
-        rows: { win: 'Menang', loss: 'Bermain', rounds: 'Ronde', perfect: 'Sempurna', rally: 'Saling balas', counter: 'Serangan balik', parry: 'Tangkisan', short: 'Laga singkat', boost: 'Penguat', daily: 'Menang pertama hari ini', streak: 'Beruntun', clear: 'Perjalanan', trial: 'Tantangan kombo', tutorial: 'Tutorial' },
+        rows: { win: 'Menang', loss: 'Bermain', rounds: 'Ronde', perfect: 'Sempurna', rally: 'Saling balas', counter: 'Serangan balik', parry: 'Tangkisan', short: 'Laga singkat', boost: 'Penguat', daily: 'Menang pertama hari ini', streak: 'Beruntun', clear: 'Perjalanan', trial: 'Tantangan kombo', tutorial: 'Tutorial', first: 'Bonus sambutan' },
         streakN: (n) => `hari ke-${n}`,
         up: 'Naik level', got: 'Hadiah baru',
         boostName: (n) => `×1,5 XP · ${n} laga`, honorName: (n) => `+${n} kehormatan`,
@@ -1324,8 +1344,8 @@
       },
     });
 
-    // ================================================================ 1.3.2 SHADOW PASS: 30 tiers, fight flair, progress rewards,
-    // the ranked shield, the Profile screen (English: X.en in js/i18n-pass.js; flair: the fight flair's names, js/flair.js ids)
+
+
     merge(EN.STR, {
       pass: {
         kinds2: { pose: 'Pose kemenangan', hitfx: 'Efek pukulan', slash: 'Tebasan balasan', aura: 'Aura ki', ko: 'Penutup KO', card: 'Kartu nama', arena: 'Varian arena', music: 'Musik menu', rkey: 'Kunci', akey: 'Kunci', ticket: 'Tiket', shield: 'Perisai' },
@@ -1354,6 +1374,8 @@
         shieldUsed: 'Perisai terpakai: poin aman',
         rankedHonor: (n) => `+${n} kehormatan`,
         variant: 'Varian',
+
+        newTag: 'BARU', newN: (n) => `Baru: ${n}`, headUnlocks: 'Ninja dan arena', headRewards: 'Hadiah ranked',
         flair: { pose_tenchi: 'Angkat ke Langit', pose_rei: 'Hormat Rei', pose_hiza: 'Zanshin Berlutut', pose_katsugi: 'Pedang di Bahu', pose_kissaki: 'Giliranmu Berikutnya', hitfx_kinpaku: 'Pukulan Daun Emas', hitfx_aizome: 'Tinta Nila', hitfx_sakura: 'Ledakan Sakura', hitfx_kitsunebi: 'Api Rubah', hitfx_raijin: 'Percikan Raijin', slash_kin: 'Tebasan Emas', slash_sumi: 'Kuas Sumi', slash_hana: 'Angin Kelopak', slash_rai: 'Tebasan Guntur', aura_kitsunebi: 'Aura Api Rubah', aura_raiun: 'Aura Badai', aura_hana: 'Aura Bunga', aura_gekko: 'Aura Cahaya Bulan', ko_enso: 'Penutup Ensō', ko_hanafubuki: 'Badai Kelopak', ko_raiko: 'Sambaran Petir', ko_mikazuki: 'Bulan Sabit', card_seigaiha: 'Ombak Seigaiha', card_yozakura: 'Sakura Malam', card_ryu: 'Pernis Naga', card_tsukiyo: 'Pinus di Bawah Bulan', card_asanoha: 'Emas Asanoha', arena_temple_snow: 'Kuil Bersalju', arena_rain_moon: 'Bambu di Bawah Bulan', arena_snow_night: 'Puncak Salju di Malam Hari', arena_market_rain: 'Pasar Malam Hujan', music_haru: 'Taman Musim Semi', music_yuki: 'Bulan Salju', music_matsuri: 'Malam Festival', pass1_akane: 'Busana Bayang Bulan' },
       },
     });
@@ -1361,8 +1383,8 @@
     void dec; void fmtTime; void num;
   };
 
-  // ---------------------------------------------------------------- journey texts (js/journey-text.js reads ND.JOURNEY_COPY)
-  // Same lists, same order and same counts as the `en` entry in js/journey-text.js (ui 17, goals 10, titles 13, endings 13).
+
+
   (ND.JOURNEY_COPY || (ND.JOURNEY_COPY = {}))['id'] = {
     ui: ['Perjalanan karakter', 'Rival terakhir', 'Keahlian opsional', 'Menangkan laga ini untuk mempertahankan bintangnya.', 'Bintang keahlian didapat', 'Bintang tidak didapat · Coba saat main ulang', 'Bintang keahlian', 'Selesaikan perjalanan dengan 6 dari 8 bintang untuk mendapat gelar dan warna Warisan. Bintang tetap tersimpan saat main ulang.', 'Warna asli', 'Warna Warisan', 'Tampilan', 'Raih 6 bintang keahlian dan selesaikan perjalanan karakter ini.', 'Perjalanan dan hadiahmu sebelumnya tetap tersimpan. Main ulang untuk menjelajahi rute baru.', 'Tantangan Shura: selesaikan perjalanan 3 karakter berbeda.', 'Menangkan duel ini untuk membuka', 'Perjalanan selesai', 'Bab'],
     goals: ['Tangkisan', 'Serangan balik kena', 'Serangan berat kena', 'Tendangan kena', 'Serangan udara kena', 'Serangan lesat kena', 'Serangan kombo ke-3', 'Proyektil kena', 'Teknik ki kena', 'Pertahanan dihancurkan'],

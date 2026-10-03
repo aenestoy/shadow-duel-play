@@ -1,44 +1,44 @@
-// Gölge Düellosu — girdi: klavye, gamepad, dokunmatik → sanal kumanda
+
 (function (ND) {
   'use strict';
-  // Input buffers (press age, parry window, double tap) run on the game's simulation clock when it exists
-  // (ND.simClock, advanced 1/120 s per fixed step in game.js), so they behave the same at every refresh rate;
-  // before the game loop starts (or in tools without it) they fall back to real time.
+
+
+
   const now = () => (typeof ND.simClock === 'number' ? ND.simClock : performance.now() / 1000);
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 
-  // mask (first-fight tutorial, js/tutorial.js): { action: true } hides those actions from the fighter: a masked press
-  // is not buffered and a masked key does not read as held. Presses from the tutorial itself (src 'tut') pass.
-  // clear() keeps it, so a pause or a tab switch during the tutorial does not unmask anything.
-  // maskAlias (the tutorial's touch helper, set only while it waits long for one button on a touch screen): a masked
-  // press from a touch source ('t…') counts as a press of that button, so a tap anywhere on the pad does it.
-  // lastSrc: where the latest real press came from ('k…' keyboard, 'g…' gamepad, 't…' touch), for button prompts.
-  //
-  // Input frames (online play): one tick of a controller is one integer. Bit i (ACTS[i]) = that action is held, bit
-  // 10 + i = it was freshly pressed since the previous frame (a press let go before the tick still counts). Everything a
-  // fighter reads from its controller follows from that sequence: held() and axis(), the press times behind has() /
-  // take() / since() (a press is stamped with the simulation clock of the tick boundary it arrives at, as a key press
-  // between two frames always was) and the double-tap dash. So a FrameCtrl fed the same frames, tick by tick, is the
-  // same controller, and a remote player's frames can be injected one tick at a time. frame() only reads a device
-  // controller (keyboard, pads, touch): local play is unchanged.
-  //
-  // Tap to parry on keyboard and gamepad (the touch pad's rule, see GUARD_MIN below, on the simulation clock): a GUARD
-  // key / button let go sooner than guardHold() after it went down keeps reading as held until then (gx), so an early
-  // tap in the parry window still parries, exactly as if the key had been held that long. Holding longer is unchanged.
-  // A fresh press of a direction, jump or dodge ends it at once (the newest intent wins: walking away is not delayed).
-  // gx is let go only at a tick boundary (step(): game.tick before the clock moves, and frame()), so the held bit a
-  // frame records is what the fight reads in that tick and a FrameCtrl replays it bit for bit.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   const ACTS = ['left', 'right', 'up', 'guard', 'light', 'heavy', 'kick', 'throw', 'dodge', 'special'];
   const BIT = {}; ACTS.forEach((a, i) => (BIT[a] = 1 << i));
-  const GUARD_MIN = 180; // ms: the shortest tap hold (touch and keys)
-  // the parry window of the fighter this controller drives (ND.parryWin: level, Mai's fans) + one 60 Hz frame (a press
-  // counts from the simulation step before it), never less than GUARD_MIN; in seconds
+  const GUARD_MIN = 180;
+
+
   const guardHold = (c) => {
-    // (c.owner: an online match's device controller, which drives no fighter directly: its player's fighter)
+
     const F = ND.game && ND.game.F, f = c.owner || (F && (F[1] && F[1].ctrl === c ? F[1] : F[0]));
     return Math.max(GUARD_MIN / 1000, f && ND.parryWin ? ND.parryWin(f) + 0.017 : 0);
   };
-  // keyboard ('k' + key code) and gamepad ('g' + pad index) presses; not touch (its own hold), the CPU, the tutorial
+
   const keyOrPad = (src) => src.length > 1 && ((src[0] === 'k' && src[1] >= 'A' && src[1] <= 'Z') || (src[0] === 'g' && src[1] >= '0' && src[1] <= '9'));
   const ENDS_GX = { left: 1, right: 1, up: 1, dodge: 1 };
   class Ctrl {
@@ -46,9 +46,9 @@
     clear() {
       this.srcs = {}; this.buf = {};
       this.lastTap = { left: -9, right: -9 }; this.tapDir = 0;
-      this.edges = 0; // fresh presses since the last frame() (bit per ACTS index)
-      this.gT = null; this.gx = null; // the last live GUARD press (sim clock), the tap hold's end (see above)
-      this.swQ = null; this.dashT = null; // a swipe dash's second tap, waiting for the next tick (swipe below); last double tap
+      this.edges = 0;
+      this.gT = null; this.gx = null;
+      this.swQ = null; this.dashT = null;
     }
     press(a, src = 'k') {
       const s = this.srcs[a] || (this.srcs[a] = new Set());
@@ -66,29 +66,29 @@
       if (a === 'guard') this.gT = now();
       else if (ENDS_GX[a]) this.gx = null;
     }
-    // tick boundary: a tap hold that has run out lets go; a swipe dash's second tap arrives
+
     step() {
       if (this.gx != null && now() >= this.gx) this.gx = null;
       const q = this.swQ;
       if (q && now() > q.t) {
         this.swQ = null;
-        // (not when that direction was hidden meanwhile, or a dash already came from this gesture)
+
         if (!(this.mask && this.mask[q.a]) && !(this.dashT != null && this.dashT >= q.t)) { this.edges |= BIT[q.a]; this.buffer(q.a); }
       }
     }
-    // Swipe to dash (the touch pad's quick sideways flick, see SW below): exactly a double tap of that direction. If it
-    // was not pressed just before (the flick started on the empty movement area), a first tap now; the second one at
-    // the next tick boundary (step), never in the same tick as the first, so an input frame (frame()) records two
-    // presses in two ticks like any double tap and a FrameCtrl fed those frames dashes on the same step.
+
+
+
+
     swipe(a, src) {
       if ((this.mask && this.mask[a]) || this.noTap) return false;
-      if (this.dashT != null && this.dashT === this.lastTap[a] && now() - this.dashT < 0.24) return true; // its own taps already dashed
+      if (this.dashT != null && this.dashT === this.lastTap[a] && now() - this.dashT < 0.24) return true;
       if (!(now() - this.lastTap[a] < 0.24)) { this.press(a, src); this.release(a, src); }
       this.swQ = { a, t: now() };
       return true;
     }
     guardHold() { return guardHold(this); }
-    // a fresh press of a: its time in the buffer, the double-tap dash, the press listener
+
     buffer(a) {
       const t = now();
       this.buf[a] = t;
@@ -97,7 +97,7 @@
         this.lastTap[a] = t;
       }
       if (a === 'dodge') this.tapDir = 0;
-      if (this.onPress) { try { this.onPress(a, t); } catch (e) { /* listener (combo trial) must never break input */ } }
+      if (this.onPress) { try { this.onPress(a, t); } catch (e) {                                                     } }
     }
     release(a, src = 'k') {
       const s = this.srcs[a];
@@ -116,7 +116,7 @@
     has(a, win = 0.2) { const t = this.buf[a]; return t != null && now() - t <= win; }
     take(a, win = 0.2) { if (this.has(a, win)) { this.buf[a] = null; return true; } return false; }
     since(a) { const t = this.buf[a]; return t == null ? 99 : now() - t; }
-    // This tick's input frame (see above); clears the fresh-press bits. Call once per simulation tick.
+
     frame() {
       this.step();
       let v = this.edges << 10;
@@ -125,7 +125,7 @@
       return v;
     }
   }
-  // A controller driven only by input frames (a remote player, a replayed recording): applyFrame(v) before each tick.
+
   class FrameCtrl extends Ctrl {
     clear() { super.clear(); this.hm = 0; }
     held(a) { return (this.hm & (BIT[a] || 0)) !== 0; }
@@ -143,15 +143,15 @@
     },
     p2: {
       ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'guard',
-      // P is pause (Escape is reserved by CrazyGames for fullscreen), so player 2's shuriken sits on I, between U and O
+
       KeyK: 'light', KeyL: 'heavy', KeyO: 'kick', KeyI: 'throw', ShiftRight: 'dodge', KeyU: 'special', Numpad3: 'special',
       Numpad1: 'light', Numpad2: 'heavy', Numpad4: 'kick', Numpad5: 'throw', Numpad0: 'dodge',
     },
   };
 
-  // ---------------------------------------------------------------- dokunmatik algılama
-  // capable: cihaz dokunmayı destekliyor; active: dokunmatik arayüz (sanal kumanda, dokunmatik metinler) açık.
-  // Dokunulunca açılır, klavye/gamepad kullanılınca kapanır. Test: adreste #touch / #notouch ya da ND.forceTouch.
+
+
+
   const mm = (q) => { try { return window.matchMedia(q).matches; } catch (e) { return false; } };
   const UA = navigator.userAgent || '';
   const touch = ND.touch = {
@@ -164,11 +164,11 @@
       this.coarse = mm('(pointer: coarse)');
       this.capable = this.coarse || 'ontouchstart' in window || (navigator.maxTouchPoints || 0) > 0;
       if (forced === true) this.capable = true;
-      // Start with the touch UI only when the main pointer is a finger (phone, tablet). A laptop with a touch screen
-      // but a mouse/trackpad as main pointer starts with the keyboard UI; its first real touch switches (init below).
+
+
       this.set(forced != null ? forced : this.coarse, true);
     },
-    // ND.forceTouch = true/false konsoldan; null → otomatik
+
     force(v) { ND.forceTouch = v; this.detect(); },
     set(v, init) {
       v = !!v;
@@ -180,17 +180,17 @@
       this.swapTexts();
       this.notify();
     },
-    notify() { for (const fn of this.fns) { try { fn(this.active); } catch (e) { /* yok say */ } } },
+    notify() { for (const fn of this.fns) { try { fn(this.active); } catch (e) {               } } },
     onChange(fn) { this.fns.push(fn); },
-    // Klavye/gamepad var mı (iki oyunculu mod için)
+
     hasPad() {
-      try { const l = navigator.getGamepads ? navigator.getGamepads() : []; for (const g of l) if (g && g.connected) return true; } catch (e) { /* yok */ }
+      try { const l = navigator.getGamepads ? navigator.getGamepads() : []; for (const g of l) if (g && g.connected) return true; } catch (e) {           }
       return false;
     },
-    // İki oyunculu mod yalnızca dokunmatikteyken klavye/gamepad ister
+
     twoPlayerOk() { return !this.active || this.kb || this.pad || this.hasPad(); },
-    // Klavye ↔ dokunmatik metin takası: data-t = dokunmatik metnin ND.STR yolu, data-tk = klavye metninin yolu
-    // (yoksa öğenin özgün HTML'i). Değerler yalnızca metin tablosundan gelir.
+
+
     swapTexts() {
       const STR = ND.STR, get = (p) => (STR && p ? p.split('.').reduce((o, k) => (o ? o[k] : undefined), STR) : undefined);
       document.querySelectorAll('[data-t]').forEach((el) => {
@@ -201,18 +201,18 @@
     },
   };
 
-  // telefon/tablet (performans kararları için): birincil işaretçi kaba ya da mobil tarayıcı / iPadOS
+
   touch.mobile = mm('(pointer: coarse)') || /Android|iPhone|iPad|iPod|Mobile/i.test(UA) || (/Macintosh/.test(UA) && (navigator.maxTouchPoints || 0) > 1);
-  // zayıf cihaz: az bellek ya da az çekirdek (tarayıcı bildirmiyorsa güçlü say)
+
   touch.lowEnd = touch.mobile && ((navigator.deviceMemory || 8) <= 4 || (navigator.hardwareConcurrency || 8) <= 4);
 
-  // Typing into a field (nickname) must never drive a fighter or be swallowed
+
   const editable = (t) => !!(t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName || '')));
-  // Browser/OS shortcuts (Ctrl+R, Ctrl+W, Cmd+Q, Alt+Tab...) are left alone: not game keys, no preventDefault
+
   const shortcut = (e) => e.ctrlKey || e.metaKey || e.altKey;
 
-  // Some virtual keyboards and automation tools send key events with an empty e.code: rebuild it from e.key
-  // (first listener, capture phase) so every handler in the game can rely on physical codes.
+
+
   const KEY2CODE = { ' ': 'Space', Spacebar: 'Space', Esc: 'Escape', Escape: 'Escape', Backspace: 'Backspace', Enter: 'Enter', Tab: 'Tab',
     ArrowLeft: 'ArrowLeft', ArrowRight: 'ArrowRight', ArrowUp: 'ArrowUp', ArrowDown: 'ArrowDown', Left: 'ArrowLeft', Right: 'ArrowRight', Up: 'ArrowUp', Down: 'ArrowDown', Shift: 'ShiftLeft' };
   const fixCode = (e) => {
@@ -220,25 +220,25 @@
     let c = KEY2CODE[e.key];
     if (!c && /^[a-z]$/i.test(e.key)) c = 'Key' + e.key.toUpperCase();
     else if (!c && /^\d$/.test(e.key)) c = 'Digit' + e.key;
-    if (c) { try { Object.defineProperty(e, 'code', { value: c }); } catch (err) { /* read-only in this browser */ } }
+    if (c) { try { Object.defineProperty(e, 'code', { value: c }); } catch (err) {                                 } }
   };
   window.addEventListener('keydown', fixCode, true);
   window.addEventListener('keyup', fixCode, true);
 
   const input = ND.input = {
     p1: new Ctrl(), p2: new Ctrl(),
-    solo: false,            // CPU modunda tüm tuşlar 1. oyuncuya gider
+    solo: false,
     enabled: true,
-    onKey: null,            // oyun: menü/duraklat tuşları
-    onPause: null,          // oyun: duraklat / devam (P, gamepad Start)
+    onKey: null,
+    onPause: null,
     pads: {},
-    adLocked: false,        // reklam sürerken tüm girişler kilitli (ND.portal.onAd)
+    adLocked: false,
     KEYMAP,
-    // Escape is CrazyGames' fullscreen key: never use it there. Elsewhere it stays as a silent alias.
+
     escAllowed: ND.portalName !== 'crazygames',
-    // Pause toggle: P everywhere (Escape only where allowed). Not while typing.
+
     isPause(e) { return !!e && !e.repeat && !editable(e.target) && !shortcut(e) && (e.code === 'KeyP' || (input.escAllowed && e.code === 'Escape')); },
-    // Back / quit on menus: Backspace (Escape only where allowed). Not while typing.
+
     isBack(e) { return !!e && !e.repeat && !editable(e.target) && !shortcut(e) && (e.code === 'Backspace' || (input.escAllowed && e.code === 'Escape')); },
     isEditable: editable,
 
@@ -251,7 +251,7 @@
     init() {
       touch.detect();
       window.addEventListener('keydown', (e) => {
-        // gerçek klavye kullanımı → dokunmatik arayüzü kapat (değiştirici tuşlar tek başına sayılmaz)
+
         if (e.isTrusted && !e.repeat && !/^(Shift|Control|Alt|Meta)/.test(e.key || '') && e.key !== 'Unidentified') {
           const first = !touch.kb;
           touch.kb = true;
@@ -261,11 +261,11 @@
         if (input.adLocked) { if (!shortcut(e) && !editable(e.target)) e.preventDefault(); return; }
         if (input.onKey && input.onKey(e)) { e.preventDefault(); return; }
         if (editable(e.target) || shortcut(e)) return;
-        // P / Start: pause toggle (the game decides when pausing makes sense)
+
         if (e.code === 'KeyP' && input.onPause) { e.preventDefault(); if (!e.repeat) input.onPause(e); return; }
         const r = input.route(e.code);
         if (!r) {
-          // Space would scroll the portal page around the iframe; keep it for focused buttons
+
           if (e.code === 'Space' && (e.target === document.body || e.target === document.documentElement)) e.preventDefault();
           return;
         }
@@ -277,17 +277,17 @@
         if (r) r[0].release(r[1], 'k' + e.code);
       });
       window.addEventListener('blur', () => { input.p1.clear(); input.p2.clear(); input.touchReset(); });
-      // Ads: lock every input (keys, pads, touch) and drop whatever was held
+
       if (ND.portal) ND.portal.onAd((ph) => input.lockForAd(ph === 'start'));
       initLayout();
-      // ilk dokunuşta dokunmatik arayüze geç
+
       const onTouch = () => { if (!touch.active) { touch.capable = true; touch.set(true); } };
       window.addEventListener('touchstart', onTouch, { passive: true, capture: true });
       window.addEventListener('pointerdown', (e) => { if (e.pointerType === 'touch') onTouch(); }, { passive: true, capture: true });
       window.addEventListener('gamepadconnected', () => { touch.pad = true; touch.notify(); });
-      // iOS: çift dokunma yakınlaştırması / kıstırma / uzun basma menüsü oyunu bölmesin
+
       document.addEventListener('gesturestart', (e) => e.preventDefault());
-      // uzun basınca tuvalde "resmi indir" vb. menü açılmasın (yalnız dokunmatik arayüzde)
+
       const app = document.getElementById('app');
       if (app) app.addEventListener('contextmenu', (e) => { if (touch.active) e.preventDefault(); });
       const tc = document.getElementById('touch');
@@ -301,9 +301,9 @@
       initDpad();
     },
 
-    // Tüm dokunmatik basışları bırak (kumanda gizlenince / sekme arka plana geçince)
+
     touchReset() { if (stick) stick.reset(); if (acts) acts.reset(); if (dpad) dpad.reset(); },
-    // Controls moved (resize, rotation) while fingers may be down: keep the presses, measure the boxes on the next touch
+
     touchRelayout() { if (acts) acts.relayout(); if (dpad) dpad.relayout(); if (stick) stick.relayout(); },
 
     lockForAd(on) {
@@ -314,13 +314,13 @@
       if (app) app.classList.toggle('ad-lock', !!on);
     },
 
-    // ---- key labels for hints: physical code -> what the player's keyboard shows (AZERTY: KeyW -> 'Z')
+
     keyLabel(code) { return keyLabel(code); },
     onLayout(fn) { layoutFns.push(fn); },
-    // Rewrite <kbd> letters inside root (they are written as QWERTY physical keys: <kbd>W</kbd> = KeyW)
+
     relabel(root) { relabel(root || document); },
 
-    // Gamepad: 1. kol → 1. oyuncu, 2. kol → 2. oyuncu
+
     pollPads() {
       if (!navigator.getGamepads) return;
       let list;
@@ -339,7 +339,7 @@
         const prev = input.pads[gp.index] || {};
         const id = 'g' + gp.index;
         let any = false;
-        // Start (9): pause toggle, handled apart from the fighter's actions
+
         const ps = input.padStart || (input.padStart = {}), start = b(9), prevStart = !!ps[gp.index];
         ps[gp.index] = start;
         if (input.adLocked) { input.pads[gp.index] = {}; continue; }
@@ -359,43 +359,43 @@
     },
   };
 
-  // Touch preferences (js/touch.js keeps and saves them): assist = input conveniences, haptic = vibration on press
+
   const pref = (k, def) => { const P = ND.touchPrefs; return P && typeof P[k] === 'boolean' ? P[k] : def; };
-  // kısa dokunsal geri bildirim (Android); çerçeve henüz etkileşim almadıysa (gömülü iframe vb.) hiç çağırma.
-  // iOS Safari'de navigator.vibrate yok: hiç denenmez. Ayarlardan kapatılabilir.
+
+
   const buzz = () => {
     if (!pref('haptic', true)) return;
     try {
       const ua = navigator.userActivation;
-      // (not while an event pattern plays: ND.haptics, js/haptics.js; this would cut it off)
-      if (typeof navigator.vibrate === 'function' && (!ua || ua.hasBeenActive) && !(ND.haptics && ND.haptics.busy())) navigator.vibrate(7);
-    } catch (e) { /* yok */ }
-  };
-  const wake = () => { try { ND.audio.init(); } catch (e) { /* yok */ } };
 
-  // ---------------------------------------------------------------- TOUCH PAD (touch.js places every control, the editor moves them)
-  // Movement: a stick ('float': the base jumps to where the thumb lands inside its zone; 'fixed': the base stays put)
-  // or d-pad buttons ◀ ▶ ▲ ▼. Both press the same logical keys as the keyboard (left / right / up / guard), so every
-  // direction-dependent move (forward/back + attack, forward + HEAVY launcher, double-tap dash, dash direction) works
-  // the same in every mode. Buttons: each finger (pointerId) is tracked on its own → multi-touch (hold guard + attack).
-  // Handlers only read what was measured at the first touch; nothing here lays the page out per move.
+      if (typeof navigator.vibrate === 'function' && (!ua || ua.hasBeenActive) && !(ND.haptics && ND.haptics.busy())) navigator.vibrate(7);
+    } catch (e) {           }
+  };
+  const wake = () => { try { ND.audio.init(); } catch (e) {           } };
+
+
+
+
+
+
+
   const T_PREF = () => ND.touchPrefs || {};
-  // Easy assist, tap to parry: a parry needs guard pressed shortly before the blow AND still held when it lands. A
-  // thumb tap often lifts first. So a short GUARD tap is held for at least the parry window (real time here; keys and
-  // pads get the same rule on the simulation clock, Ctrl above). The window itself is not changed: same timing as
-  // holding the key. guardMin(): the player's window in this fight (Apprentice 0.2 s, Mai's fans up to 0.28 s:
-  // ND.parryWin, fighter.js) plus one 60 Hz frame, never less than GUARD_MIN. With a fixed 180 ms a tap early in a
-  // wider window lifted the guard before the blow and the tap was hit instead of parrying.
+
+
+
+
+
+
   const guardMin = () => guardHold(input.p1) * 1000;
-  // D-pad "tap to step": a quick tap on ◀ / ▶ walks for at least STEP_MS (one short step, same walk speed as holding)
+
   const STEP_MS = 170;
 
-  // ---------------------------------------------------------------- swipe to dash
-  // A quick sideways flick on the movement side of the pad (the stick zone, the d-pad, and in the d-pad / fixed stick
-  // modes the empty movement area around them, #tSwipe) dashes that way, like a double tap of ◀ / ▶ (Ctrl.swipe, the
-  // very same presses). A flick: the finger goes down, travels at least SW.px sideways (SW.ratio times more than up or
-  // down), at SW.v px/ms or faster, and lifts within SW.ms of touching down. Walking (the thumb stays down), a short
-  // step, a slow drag and an up / down flick (jump, guard) never do. CSS pixels, real time (it is a hand gesture).
+
+
+
+
+
+
   const SW = { ms: 230, px: 48, v: 0.4, ratio: 2 };
   const swStart = (e) => ({ x: e.clientX, y: e.clientY, t: performance.now() });
   function swEnd(s, e) {
@@ -405,7 +405,7 @@
     return input.p1.swipe(dx > 0 ? 'right' : 'left', 'tw') ? Math.sign(dx) : 0;
   }
   input.SW = SW;
-  // the empty movement area (d-pad and fixed-stick modes; touch.js places it): swipes only, it never walks
+
   function initSwipeZone() {
     const z = document.getElementById('tSwipe');
     if (!z) return;
@@ -413,7 +413,7 @@
     z.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       live.set(e.pointerId, swStart(e));
-      try { z.setPointerCapture(e.pointerId); } catch (_) { /* yok */ }
+      try { z.setPointerCapture(e.pointerId); } catch (_) {           }
       wake();
     });
     z.addEventListener('pointerup', (e) => { const s = live.get(e.pointerId); live.delete(e.pointerId); if (s) swEnd(s, e); wake(); });
@@ -422,9 +422,9 @@
     z.addEventListener('lostpointercapture', drop);
   }
 
-  // ---------------------------------------------------------------- sanal yön çubuğu
-  // Yukarı = zıpla, aşağı = gard, yana hızlıca iki kez it = atılma (Ctrl'ün çift dokunma algısı). Yüzen çubukta parmak
-  // çok uzaklaşırsa taban onu izler; sabit çubukta taban yerinde kalır.
+
+
+
   let stick = null;
   function initStick() {
     const zone = document.getElementById('tStick'), base = document.getElementById('tBase'), knob = document.getElementById('tKnob');
@@ -437,8 +437,8 @@
       if (on) { input.p1.press(a, 'ts'); if (a === 'up' || a === 'guard') buzz(); } else input.p1.release(a, 'ts');
       base.classList.toggle('d-' + a, on);
     };
-    // zone-relative centre of the base; the rest spot comes from touch.js (zone._nd)
-    // base diameter from touch.js (the pad may still be hidden, where offsetWidth reads 0)
+
+
     const bd = () => (zone._nd && zone._nd.d) || base.offsetWidth;
     const place = () => { const h = bd() / 2; base.style.translate = `${(S.cx - h).toFixed(1)}px ${(S.cy - h).toFixed(1)}px`; };
     const rest = () => { const g = zone._nd; if (g) { S.cx = g.rx; S.cy = g.ry; place(); } };
@@ -449,8 +449,8 @@
       const kd = d > R ? R / d : 1;
       knob.style.transform = `translate(${(dx * kd).toFixed(1)}px, ${(dy * kd).toFixed(1)}px)`;
       const vx = dx / R, vy = dy / R, ax = Math.abs(vx), ay = Math.abs(vy), D = S.dirs;
-      // eşik + gecikme payı (histerezis); köşegenler 8 yönlü çalışır. Kolay yardım: zıplama ve gard için çubuk daha
-      // belirgin itilmeli (yürürken başparmak biraz kayınca kazara zıplamasın / gard almasın). Yalnız girdi eşiği.
+
+
       const easy = pref('assist', true), vOn = easy ? 0.76 : 0.62, vk = easy ? 0.8 : 0.6;
       setDir('right', D.right ? vx > 0.25 : vx > 0.4 && ax > ay * 0.5);
       setDir('left', D.left ? vx < -0.25 : vx < -0.4 && ax > ay * 0.5);
@@ -469,7 +469,7 @@
       e.preventDefault();
       if (S.id != null) return;
       S.id = e.pointerId;
-      try { zone.setPointerCapture(e.pointerId); } catch (_) { /* yok */ }
+      try { zone.setPointerCapture(e.pointerId); } catch (_) {           }
       const r = S.r = zone.getBoundingClientRect(), h = bd() / 2, g = zone._nd || {};
       S.fixed = !!g.fixed;
       if (S.fixed) { S.cx = g.rx; S.cy = g.ry; } else {
@@ -477,7 +477,7 @@
         S.cy = clamp(e.clientY - r.top, h, Math.max(h, r.height - h));
       }
       place(); base.classList.add('live');
-      S.sw = swStart(e); // a quick sideways flick dashes (SW)
+      S.sw = swStart(e);
       move(e); wake();
     });
     zone.addEventListener('pointermove', (e) => { if (e.pointerId === S.id) move(e); });
@@ -488,15 +488,15 @@
     rest();
   }
 
-  // ---------------------------------------------------------------- button groups (action buttons, d-pad)
-  // Each button catches its own first touch (a hit margin around it makes it forgiving) and keeps the finger
-  // (pointer capture); the group's handler then picks the nearest button of the group from boxes measured once per
-  // gesture, so a finger can slide from one button to another (GUARD → ATTACK = counter; ▶ → ▲ = jump forward).
+
+
+
+
   function group(boxId, onDown, onMove, onUp) {
     const box = document.getElementById(boxId);
     if (!box) return null;
     const G = { box, ptr: new Map(), rects: null };
-    // hidden buttons (display: none) have no box: they can't be picked
+
     G.measure = () => (G.rects = [...box.querySelectorAll('button')].map((b) => {
       const r = b.getBoundingClientRect();
       return { b, x: r.left + r.width / 2, y: r.top + r.height / 2, rad: r.width / 2 };
@@ -508,7 +508,7 @@
       e.preventDefault();
       if (G.ptr.size === 0 || !G.rects || G.stale) { G.stale = false; G.measure(); }
       wake();
-      try { b.setPointerCapture(e.pointerId); } catch (_) { /* yok */ }
+      try { b.setPointerCapture(e.pointerId); } catch (_) {           }
       onDown(e);
     });
     box.addEventListener('pointermove', (e) => { if (G.ptr.has(e.pointerId)) onMove(e); });
@@ -519,8 +519,8 @@
     return G;
   }
 
-  // ---------------------------------------------------------------- aksiyon düğmeleri
-  // İlk dokunuş en yakın düğmeye bağışlayıcı bir yarıçapla gider; parmak kaydırılınca başka düğmeye geçer.
+
+
   let acts = null;
   function initActs() {
     const A = acts = group('tActs', (e) => {
@@ -534,9 +534,9 @@
     }, (e) => { const b = A.ptr.get(e.pointerId); A.ptr.delete(e.pointerId); off(b, e.pointerId); });
     if (!A) return;
     A.rep = new Map();
-    // Easy assist, hold to chain: while ATTACK stays held it is pressed again every 0.15 s (a quick human mash), after a
-    // first 0.26 s so a normal tap never counts twice. The fighter's own chain windows decide what comes out, exactly
-    // as when a keyboard player mashes F: nothing about the rules changes, only how often the thumb has to tap.
+
+
+
     const REP_FIRST = 260, REP_EVERY = 150;
     const stopRep = (id) => { const t = A.rep.get(id); if (t) { clearTimeout(t); A.rep.delete(id); } };
     const startRep = (b, id) => {
@@ -579,13 +579,13 @@
     };
   }
 
-  // ---------------------------------------------------------------- d-pad ◀ ▶ ▲ ▼
-  // Hold to walk / guard, ▲ jumps. A finger between two buttons presses both (▶ + ▲ = jump forward). Two quick taps
-  // on ◀ or ▶ dash (the same double-tap rule as the keyboard). With "tap to step" a quick tap still walks one short
-  // step (STEP_MS); with easy assist a quick ▼ tap lasts long enough to parry (GUARD_MIN).
+
+
+
+
   let dpad = null;
   function initDpad() {
-    const sw = new Map(); // finger → where / when it went down (swipe to dash, SW)
+    const sw = new Map();
     const P = dpad = group('tDpad', (e) => { sw.set(e.pointerId, swStart(e)); P.ptr.set(e.pointerId, pickDirs(e.clientX, e.clientY, true)); sync(); },
       (e) => { const n = pickDirs(e.clientX, e.clientY, false); if (n !== P.ptr.get(e.pointerId)) { P.ptr.set(e.pointerId, n); sync(); } },
       (e) => { P.ptr.delete(e.pointerId); sync(); const s = sw.get(e.pointerId); sw.delete(e.pointerId); if (s && e.type === 'pointerup') swEnd(s, e); });
@@ -593,8 +593,8 @@
     const DIRS = ['left', 'right', 'up', 'guard'];
     const st = {};
     for (const a of DIRS) st[a] = { on: false, t0: 0, timer: 0 };
-    // the directions under one finger, as a sorted key ('right+up'): nearest button, plus a neighbour when the finger
-    // sits between the two
+
+
     const pickDirs = (x, y, first) => {
       const list = [];
       for (const q of P.rects || P.measure()) list.push({ a: q.b.dataset.dir, d: Math.hypot(x - q.x, y - q.y) / q.rad });
@@ -602,14 +602,14 @@
       const a = list[0], b = list[1];
       if (!a) return '';
       const opp = b && ((a.a === 'left' && b.a === 'right') || (a.a === 'right' && b.a === 'left') || (a.a === 'up' && b.a === 'guard') || (a.a === 'guard' && b.a === 'up'));
-      // between two neighbours (about as close to both): both
+
       if (b && !opp && a.d <= 1.65 && b.d <= 1.65 && b.d <= a.d * 1.3) return [a.a, b.a].sort().join('+');
       return a.d <= (first ? 1.4 : 1.25) ? a.a : '';
     };
     const btn = (a) => P.box.querySelector(`[data-dir="${a}"]`);
     const down = (a) => {
       const s = st[a];
-      if (s.timer) { clearTimeout(s.timer); s.timer = 0; input.p1.release(a, 'td'); } // a new tap during a step: a new press
+      if (s.timer) { clearTimeout(s.timer); s.timer = 0; input.p1.release(a, 'td'); }
       if (input.adLocked) return;
       s.on = true; s.t0 = performance.now();
       input.p1.press(a, 'td'); buzz();
@@ -623,7 +623,7 @@
       const done = () => { s.timer = 0; input.p1.release(a, 'td'); const b = btn(a); if (b) b.classList.remove('on'); };
       if (left > 0) s.timer = setTimeout(done, left); else done();
     };
-    // union of every finger on the pad → press what was added, release what was lifted
+
     const sync = () => {
       const want = new Set();
       for (const k of P.ptr.values()) if (k) k.split('+').forEach((a) => want.add(a));
@@ -640,17 +640,17 @@
     };
   }
 
-  // ---------------------------------------------------------------- klavye düzeni (AZERTY / QWERTZ etiketleri)
-  // Bindings are physical (e.code), so they already work on any layout; only the labels in hints differ.
-  // Sources, best first: keys the player actually pressed (e.code -> e.key), the Keyboard Map API
-  // (Chromium; often blocked inside cross-origin iframes), then a guess from the browser language.
+
+
+
+
   const layout = {}, learned = {}, layoutFns = [];
   const GUESS = {
     azerty: { KeyQ: 'A', KeyA: 'Q', KeyW: 'Z', KeyZ: 'W', KeyM: ',', Semicolon: 'M' },
     qwertz: { KeyY: 'Z', KeyZ: 'Y' },
   };
   const SPECIAL = { ShiftLeft: 'Shift', ShiftRight: 'Shift', Space: 'Space', Enter: 'Enter', Backspace: '⌫', Escape: 'Esc', ArrowLeft: '←', ArrowRight: '→', ArrowUp: '↑', ArrowDown: '↓' };
-  const fireLayout = () => { for (const fn of layoutFns) { try { fn(); } catch (e) { /* yok say */ } } relabel(document); };
+  const fireLayout = () => { for (const fn of layoutFns) { try { fn(); } catch (e) {               } } relabel(document); };
   function keyLabel(code) {
     if (!code) return '';
     if (learned[code]) return learned[code];
@@ -666,7 +666,7 @@
     const k = e.key.toUpperCase();
     if (!/^\p{L}$/u.test(k) || learned[e.code] === k) return;
     learned[e.code] = k;
-    // A letter that differs from its QWERTY name tells us the layout: apply the matching guess for the rest
+
     if (k !== e.code.slice(3)) {
       const az = (e.code === 'KeyQ' && k === 'A') || (e.code === 'KeyW' && k === 'Z') || (e.code === 'KeyA' && k === 'Q') || (e.code === 'KeyZ' && k === 'W');
       const qz = (e.code === 'KeyY' && k === 'Z') || (e.code === 'KeyZ' && k === 'Y');
@@ -677,21 +677,21 @@
   }
   function initLayout() {
     let first = '';
-    try { first = String((navigator.languages && navigator.languages[0]) || navigator.language || '').toLowerCase(); } catch (e) { /* yok */ }
-    // French (France/Belgium) keyboards are AZERTY, German-area ones QWERTZ; a real key press or the Keyboard Map overrides this
+    try { first = String((navigator.languages && navigator.languages[0]) || navigator.language || '').toLowerCase(); } catch (e) {           }
+
     if (/^fr(-(fr|be))?$/.test(first)) Object.assign(layout, GUESS.azerty);
     else if (/^(de|cs|hu|sk|sl|hr)(-|$)/.test(first)) Object.assign(layout, GUESS.qwertz);
     try {
       const kb = navigator.keyboard;
       if (kb && kb.getLayoutMap) kb.getLayoutMap().then((map) => {
-        for (const c in layout) delete layout[c]; // the real map beats the language guess
+        for (const c in layout) delete layout[c];
         map.forEach((key, code) => { if (/^Key[A-Z]$/.test(code) && typeof key === 'string' && key.length === 1) { const v = key.toUpperCase(); if (v !== code.slice(3)) layout[code] = v; } });
         fireLayout();
-      }).catch(() => { /* blocked in iframes without allow="keyboard-map" */ });
-    } catch (e) { /* yok */ }
+      }).catch(() => {                                                       });
+    } catch (e) {           }
     if (Object.keys(layout).length) fireLayout();
   }
-  // <kbd>W</kbd> -> <kbd>Z</kbd> on AZERTY. The QWERTY name is kept in data-code so relabelling is repeatable.
+
   function relabel(root) {
     if (!root || !root.querySelectorAll) return;
     root.querySelectorAll('kbd').forEach((el) => {

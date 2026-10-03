@@ -1,51 +1,51 @@
-// Shadow Duel — rank emblems (階級紋): one crest per ranked tier, drawn in code as inline SVG (no image files, crisp at
-// any size; this file ~30 KB, ~10 KB gzipped). Review sheet: `node tools/rank-emblem-sheet.mjs` (PNG in tools/out/).
-//
-// USE
-//   ND.rankEmblem(tier, opts) → '<svg …>' string
-//     tier: 0..15 (0 = Ashigaru III … 14 = Daimyō I, 15 = Shōgun; the same index as ranked.js tierInfo),
-//           'placement' (placements still to play) or 'locked' / null (ranked not open / unranked).
-//     opts: size  px, default 48 (width = height). The detail level follows it: < 36 px "small" (no kanji, bold
-//                 shapes, bigger division marks), < 96 px "mid" (kanji, main details), else "large" (all details).
-//                 Below 72 px a two-kanji tier shows only its first kanji, larger (足 浪 旗 大 将).
-//           glow  soft halo of the tier colour behind the crest (default: size ≥ 40). No CSS filter, cheap.
-//           anim  slow shine sweep on Samurai and up, halo pulse on Shōgun (default true; always off under
-//                 prefers-reduced-motion and below 36 px).
-//           lod   'small' | 'mid' | 'large' to force a detail level.
-//           placed, of   placement progress (e.g. 2 of 5): dots under the placement crest (72 px and up).
-//           title aria-label / tooltip (default: the tier name, e.g. "Samurai II").
-//           cls   extra class on the <svg>.
-//   ND.rankEmblem.el(tier, opts)   → the same as an SVGElement (append it directly).
-//   ND.rankEmblem.tierName(tier)   → "Samurai II" / "Placement" / "Unranked".
-//   ND.rankEmblem.demo(parent?)    → shows every emblem at 24 / 48 / 160 px in an overlay (click to close); for
-//                                    checking by eye in the running game: ND.rankEmblem.demo() in the console.
-//   Every <svg> has class "rke" (inline-block, vertical-align middle) and data-tier.
-//   Loaded with data-online (index.html), like ranked.js: the offline portal builds do not have it, so call it as
-//   `ND.rankEmblem && ND.rankEmblem(...)` from code that also runs there (game.js, the menu).
-//
-// WHERE IT GOES (suggested sizes)
-//   - ranked home: the player's crest big above the rating, 96–128 px (mid/large); next tier preview 40 px.
-//   - queue / "opponent found": both crests 48–64 px.
-//   - blind pick and VS name plates: 40–56 px beside the name.
-//   - result screen: the rank-up / rank-down moment at 160–220 px (old crest out, new crest in; anim on).
-//   - leaderboard rows and any list: 20–24 px left of the name (small: no kanji, the shape and marks carry it).
-//   - menu "Ranked duel" button: a 24–28 px seal of the player's crest (or 'locked' / 'placement').
-//   - profile / name plates: 24–32 px.
-//   - the "Derece sistemi" (ranking) explainer: the whole ladder in a row at 48–64 px, one crest per tier
-//     (tiers 2, 5, 8, 11, 14, 15 = each tier's top division, or 0, 3, 6, 9, 12, 15 = each tier's entry).
-//
-// DESIGN (each tier a different silhouette, more precious up the ladder; colours = ranked.js TCOL)
-//   Ashigaru 足軽  iron jingasa (the foot soldier's round hat seen from above): plain disc, ridge ring, rivets.
-//   Rōnin    浪人  worn steel mokkō tsuba (four-lobed sword guard) with a chipped edge and a crack.
-//   Samurai  侍    black-lacquer tsuba with a gold rim over two crossed katana.
-//   Hatamoto 旗本  vermilion sashimono war banner on a gold crossbar, spear-tip finial, swallow-tail hem.
-//   Daimyō   大名  purple-lacquer kikkō (hexagon) mon under a gold castle roof, hanging wisteria at the sides.
-//   Shōgun   将軍  gold sunburst crest with kabuto horns (kuwagata) and a red sun jewel; glow pulse.
-//   Divisions III / II / I = 1 / 2 / 3 diamond marks (hishi) on the lower edge; Shōgun has none.
-//   Placement = an open ensō brush circle with 試 (trial); locked = a slate disc with a padlock.
-//
-// The kanji use the game's --jp font stack. The font file is a subset: after adding this file run
-// `npm run fonts -w games/06-shadow-duel` once so 足浪人侍旗大将軍試 are in it (else a system serif draws them).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 (function (ND) {
   'use strict';
   if (!ND) return;
@@ -58,7 +58,7 @@
   const GOLD = '#d9b36c', GOLD_HI = '#f6dfa6', GOLD_DK = '#7d5d24';
   const JP = "'Noto Serif JP','Yu Mincho','YuMincho','Hiragino Mincho ProN','Noto Serif CJK JP','Source Han Serif',serif";
 
-  // ------------------------------------------------------------------ small helpers
+
   const n1 = (v) => Math.round(v * 10) / 10;
   function rgb(h) { if (h.length === 4) h = '#' + h[1] + h[1] + h[2] + h[2] + h[3] + h[3]; const x = parseInt(h.slice(1), 16); return [x >> 16, (x >> 8) & 255, x & 255]; }
   function mix(a, b, t) {
@@ -72,10 +72,10 @@
     stops.map((s) => `<stop offset="${s[0]}" stop-color="${s[1]}"${s[2] != null ? ` stop-opacity="${s[2]}"` : ''}/>`).join('') + '</linearGradient>';
   const rad = (id, stops, cx, cy, r) => `<radialGradient id="${id}" cx="${cx}" cy="${cy}" r="${r}">` +
     stops.map((s) => `<stop offset="${s[0]}" stop-color="${s[1]}"${s[2] != null ? ` stop-opacity="${s[2]}"` : ''}/>`).join('') + '</radialGradient>';
-  // metal: light top-left → colour → dark bottom
+
   const metal = (id, c, k) => lin(id, [[0, mix(c, '#ffffff', 0.55 * (k || 1))], [0.45, c], [1, mix(c, '#000000', 0.5)]], 0.35, 1);
   const goldG = (id) => lin(id, [[0, GOLD_HI], [0.5, GOLD], [1, GOLD_DK]], 0.3, 1);
-  // vertical kanji: chars stacked; engraved = dark text with a light lip, else light text with a dark drop
+
   function kanji(s, cx, cy, fs, fill, under) {
     const ch = [...s], step = fs * 1.02, y0 = cy - (step * (ch.length - 1)) / 2;
     const off = fs * 0.06;
@@ -85,15 +85,15 @@
     }).join('');
   }
 
-  // the tier's kanji: the full name (2 stacked) from 72 px, below that only its first, bigger (two at ~8 px are mud)
+
   const kj = (x, t, cx, cy, fs2, fs1, fill, under) => (x.one ? kanji(KANJI[t][0], cx, cy, fs1, fill, under) : kanji(KANJI[t], cx, cy, fs2, fill, under));
 
-  // ------------------------------------------------------------------ the tiers
-  // each returns { back, body, sil } in a 100×100 box: back = behind the body, sil = the outline shapes for the shine
-  // mask (white), body = everything else. ctx: c (colour), L (0 small, 1 mid, 2 large), ow (ink outline), id()
+
+
+
   const T = [];
 
-  // 0 Ashigaru — iron jingasa seen from above
+
   T[0] = (x) => {
     const g = x.id(), g2 = x.id(), cy = 46;
     let s = `<defs>${rad(g, [[0, mix(x.c, '#fff', 0.45)], [0.55, x.c], [1, mix(x.c, '#000', 0.55)]], 0.38, 0.3, 0.8)}` +
@@ -116,7 +116,7 @@
     return { body: s, sil: circ(50, cy, 34) };
   };
 
-  // 1 Rōnin — worn steel mokkō tsuba (four lobes), a chip out of the upper right lobe and a crack
+
   function mokko(R, k, cy, chip) {
     const pts = [];
     for (let i = 0; i < 144; i++) {
@@ -133,7 +133,7 @@
     s += path(out, `fill="url(#${g})" stroke="${INK}" stroke-width="${x.ow}" stroke-linejoin="round"`);
     s += path(mokko(31.5, 0.24, cy, 0), `fill="none" stroke="${mix(x.c, '#000', 0.55)}" stroke-width="${x.L === 0 ? 3.2 : x.L === 2 ? 1.4 : 1.9}"`);
     if (x.L === 0) {
-      // the blade slot (nakago-ana) and the two side holes tell "sword guard" without the kanji
+
       s += path('M47.5 33 L52.5 33 L51.8 59 L48.2 59 Z', `fill="${INK}"`);
       s += path('M30 40 Q25 46 30 52 Q33 46 30 40Z', `fill="${INK}"`) + path('M70 40 Q75 46 70 52 Q67 46 70 40Z', `fill="${INK}"`);
     } else {
@@ -147,9 +147,9 @@
     return { body: s, sil: path(out) };
   };
 
-  // 2 Samurai — black lacquer tsuba with a gold rim over two crossed katana
+
   function katana(x, ang, gb) {
-    // local: pointing up from the centre, handle down
+
     const t = `transform="translate(50 46) rotate(${ang})"`, w = x.L === 0 ? 1.45 : 1;
     let s = `<g ${t}>`;
     s += path(`M${-3 * w} 14 L${-3 * w} -36 Q${-2.6 * w} -46 ${2 * w} -52.5 Q${3.2 * w} -44 ${3.2 * w} -36 L${3.2 * w} 14 Z`,
@@ -176,7 +176,7 @@
     return { back, body: s, sil };
   };
 
-  // 3 Hatamoto — sashimono war banner: gold crossbar, spear-tip finial, vermilion cloth with a swallow-tail hem
+
   T[3] = (x) => {
     const gc = x.id(), gg = x.id(), sm = x.L === 0;
     const L = sm ? 25 : 27, R = 100 - L, hem = sm ? 86 : 87, notch = sm ? 74 : 75;
@@ -184,7 +184,7 @@
     let s = `<defs>${lin(gc, [[0, mix(x.c, '#fff', 0.25)], [0.55, x.c], [1, mix(x.c, '#000', 0.45)]], 0.25, 1)}${goldG(gg)}</defs>`;
     let back = '';
     if (!sm) {
-      // cords from the bar ends with tassels
+
       back += path('M19 13 Q16 26 20 38', `fill="none" stroke="${INK}" stroke-width="${x.ow + 1.6}" stroke-linecap="round"`) +
         path('M81 13 Q84 26 80 38', `fill="none" stroke="${INK}" stroke-width="${x.ow + 1.6}" stroke-linecap="round"`) +
         path('M19 13 Q16 26 20 38', `fill="none" stroke="${GOLD}" stroke-width="1.6" stroke-linecap="round"`) +
@@ -194,7 +194,7 @@
     }
     s += path(cloth, `fill="url(#${gc})" stroke="${INK}" stroke-width="${x.ow}" stroke-linejoin="round"`);
     if (x.L === 2) for (let i = 1; i < 5; i++) s += path(`M${L + i * (R - L) / 5} 16 V${hem - 4 - (i === 2 || i === 3 ? 9 : 4)}`, `stroke="#000" stroke-width="3" opacity=".07"`);
-    // finial and crossbar on top of the cloth
+
     s += path(sm ? 'M50 0.5 L56 8 L50 13 L44 8 Z' : 'M50 0.5 L54.5 7.5 L50 12 L45.5 7.5 Z', `fill="url(#${gg})" stroke="${INK}" stroke-width="${x.ow}" stroke-linejoin="round"`);
     s += `<rect x="${sm ? 14 : 17}" y="${sm ? 8.5 : 9.5}" width="${sm ? 72 : 66}" height="${sm ? 7 : 5}" rx="2.5" fill="url(#${gg})" stroke="${INK}" stroke-width="${x.ow}"/>`;
     if (sm) {
@@ -202,7 +202,7 @@
     } else {
       s += circ(19, 12, 3.4, `fill="url(#${gg})" stroke="${INK}" stroke-width="${x.ow * 0.8}"`) + circ(81, 12, 3.4, `fill="url(#${gg})" stroke="${INK}" stroke-width="${x.ow * 0.8}"`);
       s += path(`M${L + 3.5} 17 H${R - 3.5} V${hem - 5.5} L50 ${notch - 4.4} L${L + 3.5} ${hem - 5.5} Z`, `fill="none" stroke="${GOLD}" stroke-width="${x.L === 2 ? 1 : 1.3}"`);
-      // a small mon at the top of the cloth: three stars (mitsuboshi) in a ring
+
       s += circ(50, 25.5, 5.2, `fill="none" stroke="${GOLD_HI}" stroke-width="1.3"`);
       if (x.L === 2) s += circ(47.6, 27, 1.3, `fill="${GOLD_HI}"`) + circ(52.4, 27, 1.3, `fill="${GOLD_HI}"`) + circ(50, 23, 1.3, `fill="${GOLD_HI}"`);
       else s += circ(50, 25.5, 2, `fill="${GOLD_HI}"`);
@@ -211,14 +211,14 @@
     return { back, body: s, sil: path(cloth) };
   };
 
-  // 4 Daimyō — purple lacquer kikkō mon, gold castle roof crown, wisteria hanging at the sides
+
   function hexa(R, cx, cy) { const p = []; for (let i = 0; i < 6; i++) { const a = (i / 6) * Math.PI * 2; p.push([cx + Math.cos(a) * R, cy + Math.sin(a) * R]); } return poly(p); }
   T[4] = (x) => {
     const gh = x.id(), gg = x.id(), sm = x.L === 0, cy = sm ? 52 : 53, R = sm ? 35 : 33.5;
     const lav = mix(x.c, '#fff', 0.42);
     let s = `<defs>${rad(gh, [[0, mix(x.c, '#fff', 0.15)], [0.6, mix(x.c, '#000', 0.25)], [1, mix(x.c, '#000', 0.62)]], 0.42, 0.32, 0.85)}${goldG(gg)}</defs>`;
     let back = '';
-    // wisteria racemes: bead chains hanging from the eaves, shrinking downward
+
     const beads = sm ? [[12, 26, 4.6], [11.5, 35, 3.9], [13, 43, 3.1]] : [[12.5, 25, 3.5], [11.6, 31.4, 3.2], [11.6, 37.4, 2.9], [12.4, 42.8, 2.5], [13.8, 47.6, 2.1], [15.4, 51.6, 1.7]];
     for (const side of [1, -1]) {
       const X = (v) => (side > 0 ? v : 100 - v);
@@ -231,8 +231,8 @@
     s += path(hx, `fill="url(#${gh})" stroke="${INK}" stroke-width="${x.ow}" stroke-linejoin="round"`);
     s += path(hexa(R - (sm ? 4.5 : 4), 50, cy), `fill="none" stroke="${GOLD}" stroke-width="${sm ? 3.2 : x.L === 2 ? 1.6 : 2}" stroke-linejoin="round"`);
     if (x.L === 2) s += path(hexa(R - 7, 50, cy), `fill="none" stroke="${GOLD}" stroke-width=".6" opacity=".7" stroke-linejoin="round"`);
-    // castle roof: upturned eaves, ridge, shachihoko fins at the ridge ends
-    // castle roof: two tiers of upturned eaves, shachihoko fins at the ridge ends
+
+
     const roof = sm ? 'M10 21 Q22 23 30 20 L36 9 L64 9 L70 20 Q78 23 90 21 Q82 15 72 13 L66 5 L34 5 L28 13 Q18 15 10 21Z'
       : 'M11 22.5 Q21 24.5 31 21.5 L69 21.5 Q79 24.5 89 22.5 Q81 17 70 15.5 L30 15.5 Q19 17 11 22.5Z';
     const roof2 = 'M25 16 Q33 17 38.5 14 L61.5 14 Q67 17 75 16 Q68 11 61.5 9.5 L57.5 6 L42.5 6 L38.5 9.5 Q32 11 25 16Z';
@@ -249,7 +249,7 @@
     return { back, body: s, sil: path(hx) + path(roof) + (sm ? '' : path(roof2)) };
   };
 
-  // 5 Shōgun — gold sunburst, kabuto horns (kuwagata) and a red sun jewel over a crimson lacquer crest
+
   T[5] = (x) => {
     const gr = x.id(), gg = x.id(), gd = x.id(), gj = x.id(), sm = x.L === 0, cy = 56;
     const n = sm ? 12 : 16, pts = [];
@@ -262,7 +262,7 @@
       `${rad(gd, [[0, '#5a1414'], [1, '#160505']], 0.4, 0.3, 0.9)}${rad(gj, [[0, '#ff8a6a'], [0.6, '#d8382a'], [1, '#7a120c']], 0.35, 0.3, 0.8)}</defs>`;
     let back = s + path(sun, `fill="url(#${gr})" stroke="${INK}" stroke-width="${x.ow}" stroke-linejoin="round"`);
     if (x.L === 2) for (let i = 0; i < n * 2; i += 2) { const p = pts[i]; back += path(`M${n1(50 + (p[0] - 50) * 0.66)} ${n1(cy + (p[1] - cy) * 0.66)} L${n1(50 + (p[0] - 50) * 0.94)} ${n1(cy + (p[1] - cy) * 0.94)}`, `stroke="#a8761a" stroke-width=".8"`); }
-    // horns
+
     const hornL = sm ? 'M46 38 C33 31 21 18 11 0.5 C29 7 43 17 52 31Z' : 'M46 38 C34 30 22 18 12.5 1.5 C29.5 9 43.5 18 52 31Z';
     const hornR = hornL.replace(/(-?\d+(?:\.\d+)?) (-?\d+(?:\.\d+)?)/g, (m, a, b) => n1(100 - +a) + ' ' + b);
     back += path(hornL, `fill="url(#${gg})" stroke="${INK}" stroke-width="${x.ow}" stroke-linejoin="round"`) + path(hornR, `fill="url(#${gg})" stroke="${INK}" stroke-width="${x.ow}" stroke-linejoin="round"`);
@@ -275,13 +275,13 @@
       if (x.L === 2) for (let i = 0; i < 20; i++) { const a = (i / 20) * Math.PI * 2; body += circ(50 + Math.cos(a) * (r - 2.2), cy + Math.sin(a) * (r - 2.2), 0.7, `fill="#fff3c4"`); }
       body += kj(x, 5, 50, cy + 0.5, 15.5, 23, `url(#${gg})`, '#000');
     }
-    // the red sun jewel (maedate) between the horns
+
     body += circ(50, sm ? 30 : 29, sm ? 6.4 : 5, `fill="url(#${gj})" stroke="${INK}" stroke-width="${x.ow}"`);
     if (!sm) body += circ(50, 29, 6.6, `fill="none" stroke="${x.c}" stroke-width="1"`);
     return { back, body, sil: path(sun) + path(hornL) + path(hornR) };
   };
 
-  // placement — an open ensō (brush circle) with 試 and optional progress dots
+
   function placement(x, o) {
     const c = '#c9b48a', r = 33, a0 = -1.05, a1 = a0 + Math.PI * 1.78;
     const P = (a, rr) => n1(50 + Math.cos(a) * (rr || r)) + ' ' + n1(50 + Math.sin(a) * (rr || r));
@@ -298,7 +298,7 @@
     }
     return s;
   }
-  // locked — a slate disc with a padlock
+
   function locked(x) {
     const g = x.id(), gl = x.id(), lc = '#8e95a3';
     let s = `<defs>${rad(g, [[0, '#353a46'], [1, '#14171e']], 0.4, 0.3, 0.9)}${lin(gl, [[0, '#b9bfcb'], [1, '#6c7381']])}</defs>`;
@@ -312,7 +312,7 @@
     return s;
   }
 
-  // division marks: III = 1, II = 2, I = 3 diamonds on the lower edge
+
   function marks(x, d, c) {
     const k = 4 - d, w = x.L === 0 ? 20 : 12.5, h = x.L === 0 ? 24 : 16, gap = x.L === 0 ? -1 : 1.5, y = x.L === 0 ? 86 : 88.5;
     const fill = mix(c, '#ffffff', 0.55);
@@ -326,7 +326,7 @@
     return s;
   }
 
-  // ------------------------------------------------------------------ the public function
+
   let seq = 0, cssDone = false;
   function css() {
     if (cssDone || typeof document === 'undefined' || !document.head) return;
@@ -354,7 +354,7 @@
     const L = o.lod === 'small' ? 0 : o.lod === 'mid' ? 1 : o.lod === 'large' ? 2 : size < 36 ? 0 : size < 96 ? 1 : 2;
     const uid = 'rke' + (++seq).toString(36);
     let k = 0;
-    // ink outline: about 1.1–1.3 px on screen, never thinner than 1.5 units at large sizes
+
     const x = { L, ow: n1(L === 0 ? Math.max(4.2, 110 / size) : Math.max(1.5, 125 / size)), id: () => uid + '_' + (k++), one: size < 72 && o.lod !== 'large' };
     const glow = o.glow != null ? !!o.glow : size >= 40;
     const anim = o.anim !== false && L > 0;

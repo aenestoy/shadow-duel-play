@@ -1,21 +1,21 @@
-// Shadow Duel — WebGL2 fight renderer, the default wherever WebGL2 works (game.js: ?renderer=canvas forces Canvas 2D,
-// ?renderer=gl forces this renderer). The Canvas 2D path stays as the fallback.
-// One frame = the game's normal drawing code (game.renderScene / renderReplay) run against a GL2D context (gl2d.js),
-// then four render passes:
-//   1. layers  — the two lit fighter layers and their cast-shadow silhouettes (one atlas, multisampled, resolved)
-//   2. scene   — sky, arena, weather, reflections, the layers, effects, texts (multisampled, resolved)
-//   3. glow    — High bloom input at 1/8 size: the same 1/4 bright pass (colour⁴ with 8-bit steps) and 2×2
-//                halving as the Canvas path, blurred horizontally with its taps (black outside the picture)
-//   4. present — scene + vertical blur of the glow × theme strength, film grain overlay (7%), straight into the
-//                visible WebGL canvas (no copy back to Canvas 2D, drawing buffer not preserved)
-// Medium: passes 3–4 are the light glow of game.postLite (1/4 bright pass halved to 1/8 and 1/16, stretched and
-// added; no grain); Low: the resolved scene is copied to the screen as it is (no glow, no grain).
-// Context loss: frames fall back to Canvas 2D until the context is restored (all GL objects are rebuilt, then the
-// self-check runs again). A context that never comes back simply leaves the game on Canvas 2D.
-// Startup self-check (selfCheck): one tiny frame through the same passes as a fight frame, read back; a device whose
-// driver gets any of it wrong keeps Canvas 2D. opts.auto (the default renderer, not forced by ?renderer=gl): software
-// WebGL (failIfMajorPerformanceCaveat) is refused, and a renderer that keeps refusing frames (every refused frame is
-// drawn twice: recorded, then redrawn with Canvas 2D) is switched off for the session.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 window.ND = window.ND || {};
 (function (ND) {
   'use strict';
@@ -24,30 +24,30 @@ window.ND = window.ND || {};
     const canvas = opts.canvas || document.createElement('canvas');
     let gl = null;
     try {
-      // (alpha: false, so premultipliedAlpha has nothing to act on; iOS Safari has WebGL2 from iOS 15, Apple GPUs
-      // report MAX_SAMPLES 4 — gl2d.js clamps the multisampling to what the device offers)
+
+
       gl = canvas.getContext('webgl2', { alpha: false, antialias: false, depth: false, stencil: false, premultipliedAlpha: true,
         preserveDrawingBuffer: false, powerPreference: 'high-performance', desynchronized: false, failIfMajorPerformanceCaveat: !!opts.auto });
     } catch (e) { gl = null; }
     if (!gl) return null;
-    // (1.3.2) a software WebGL that failIfMajorPerformanceCaveat let through (SwiftShader, llvmpipe, Microsoft Basic
-    // Render: browsers without a usable GPU, portal checkers): every frame read back on the main thread, which kept it
-    // busy all the time behind the menu (Playgama measured the first load at 4.4 s). Auto mode refuses it: Canvas 2D.
+
+
+
     if (opts.auto) {
       let name = '';
       try { const x = gl.getExtension('WEBGL_debug_renderer_info'); name = String(gl.getParameter(x ? x.UNMASKED_RENDERER_WEBGL : gl.RENDERER) || ''); } catch (e) { name = ''; }
-      if (/SwiftShader|llvmpipe|softpipe|Software|Basic Render/i.test(name)) { try { const l = gl.getExtension('WEBGL_lose_context'); if (l) l.loseContext(); } catch (e) { /* gone */ } return null; }
+      if (/SwiftShader|llvmpipe|softpipe|Software|Basic Render/i.test(name)) { try { const l = gl.getExtension('WEBGL_lose_context'); if (l) l.loseContext(); } catch (e) {            } return null; }
     }
     const R = ND.createGL2D(gl, { samples: opts.samples, textAtlas: opts.textAtlas });
     const E = R.exec;
     let lost = false, error = '', checked = false, lastReason = '', frames = 0, fallbacks = 0, streak = 0;
-    // auto mode: this many refused frames in a row (~3 s at 60 fps) switch the renderer off for the session
+
     const MAX_STREAK = opts.auto ? 180 : Infinity;
     const refuse = (why) => { lastReason = why; fallbacks++; if (++streak >= MAX_STREAK && !error) error = 'switched off: ' + streak + ' frames in a row fell back (' + why + ')'; return false; };
     let glowProg = null, finalProg = null, grainTex = null, glowTex = null, glowFb = null, glowW = 0, glowH = 0, GU = {}, FU = {};
-    const M = 10; // black margin of the glow picture (texels), as the Canvas blur
+    const M = 10;
     const taps = (opts.glowTaps || []).map((t) => t.slice());
-    // Canvas taps are [offset, running-mean alpha]; convert to plain normalised weights
+
     const W8 = (() => {
       const out = []; let rest = 1;
       for (let i = taps.length - 1; i >= 0; i--) { const a = taps[i][1]; out.unshift([taps[i][0], rest * a]); rest *= 1 - a; }
@@ -90,11 +90,11 @@ window.ND = window.ND || {};
         o = vec4(s, 1.0);
       }`;
     };
-    // small: the vertical taps were already applied at the glow picture's own size (vblurFS, opts.smallBlur): one
-    // bilinear read here instead of one per tap for every screen pixel
+
+
     const finalFS = (small) => {
       let sum = '';
-      // a tap o rows further down the picture is o texels lower in GL orientation
+
       if (small) sum = 'g=texture(u_glow, vec2(gx, gy) / u_gs).rgb;';
       else for (const [o, w] of W8) sum += `g+=${w.toFixed(9)}*texture(u_glow, vec2(gx, gy - (${o.toFixed(9)})) / u_gs).rgb;`;
       return `#version 300 es
@@ -121,7 +121,7 @@ window.ND = window.ND || {};
         o = vec4(mix(c, ov, u_grainA), 1.0);
       }`;
     };
-    // High, small blur: the vertical taps of finalFS applied to the glow picture itself (same size, texel centres)
+
     const vblurFS = () => {
       let sum = '';
       for (const [o, w] of W8) sum += `g+=${w.toFixed(9)}*texture(u_glow, vec2(p.x, p.y - (${o.toFixed(9)})) / u_gs).rgb;`;
@@ -135,8 +135,8 @@ window.ND = window.ND || {};
         o = vec4(g, 1.0);
       }`;
     };
-    // Medium (game.postLite): the same 1/4 bright pass, halved twice by bilinear copies (1/8, 1/16, each stored as
-    // 8-bit), then the 1/16 picture stretched over the screen and added ('lighter' × theme strength). No grain.
+
+
     const liteFS = `#version 300 es
       precision highp float; precision highp int;
       uniform sampler2D u_scene; uniform vec2 u_size; uniform ivec2 u_q; uniform ivec2 u_e8; uniform ivec2 u_e16;
@@ -188,7 +188,7 @@ window.ND = window.ND || {};
       glow2Tex = null; glow2Fb = null;
       GU = {}; for (const k of ['u_scene', 'u_size', 'u_q', 'u_e', 'u_H']) GU[k] = gl.getUniformLocation(glowProg, k);
       FU = {}; for (const k of ['u_scene', 'u_glow', 'u_grain', 'u_size', 'u_gs', 'u_e', 'u_bloom', 'u_off', 'u_grainA']) FU[k] = gl.getUniformLocation(finalProg, k);
-      // grain: the same 128×128 picture as the Canvas pattern, rows top to bottom
+
       const g = opts.grain;
       grainTex = E.tex2d(128, 128, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, gl.NEAREST, null);
       if (g) { gl.bindTexture(gl.TEXTURE_2D, grainTex); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, g); }
@@ -207,7 +207,7 @@ window.ND = window.ND || {};
       if (!api.selfCheck()) console.info('[ND.gl] WebGL2 self-check failed after a context restore; drawing with Canvas 2D', error);
     });
     function glowTarget(w, h, small) {
-      if (small && !glow2Tex && glowTex && glowW === w && glowH === h) glowW = 0; // (the second picture is still missing)
+      if (small && !glow2Tex && glowTex && glowW === w && glowH === h) glowW = 0;
       if (glowTex && glowW === w && glowH === h) return;
       if (glowTex) { gl.deleteTexture(glowTex); gl.deleteFramebuffer(glowFb); }
       if (glow2Tex) { gl.deleteTexture(glow2Tex); gl.deleteFramebuffer(glow2Fb); glow2Tex = glow2Fb = null; }
@@ -231,7 +231,7 @@ window.ND = window.ND || {};
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       liteW = w; liteH = h;
     }
-    // p.mode: 2 High (glow + grain), 1 Medium (light glow), 0 Low (the scene as it is)
+
     function post(scene, W, H, p) {
       gl.disable(gl.BLEND); gl.disable(gl.DEPTH_TEST); gl.disable(gl.STENCIL_TEST); gl.disable(gl.SCISSOR_TEST);
       gl.colorMask(true, true, true, true);
@@ -262,13 +262,13 @@ window.ND = window.ND || {};
       const gw = ew + 2 * M, gh = eh + 2 * M;
       const small = !!p.smallBlur;
       glowTarget(gw, gh, small);
-      // pass 3: glow
+
       gl.bindFramebuffer(gl.FRAMEBUFFER, glowFb); gl.viewport(0, 0, gw, gh);
       gl.useProgram(glowProg);
       gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, scene);
       gl.uniform1i(GU.u_scene, 0); gl.uniform2f(GU.u_size, W, H); gl.uniform2i(GU.u_q, bw, bh); gl.uniform2i(GU.u_e, ew, eh); gl.uniform1i(GU.u_H, gh);
       E.quad();
-      // pass 3b (small blur): the vertical taps on the glow picture itself
+
       if (small) {
         gl.bindFramebuffer(gl.FRAMEBUFFER, glow2Fb);
         gl.useProgram(vblurProg);
@@ -276,7 +276,7 @@ window.ND = window.ND || {};
         gl.uniform1i(VU.u_glow, 0); gl.uniform2f(VU.u_gs, gw, gh);
         E.quad();
       }
-      // pass 4: present
+
       const FP = small ? SU : FU;
       gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, W, H);
       gl.useProgram(small ? smallProg : finalProg);
@@ -289,11 +289,11 @@ window.ND = window.ND || {};
       gl.uniform1f(FP.u_bloom, p.bloom); gl.uniform2i(FP.u_off, p.grainX | 0, p.grainY | 0); gl.uniform1f(FP.u_grainA, p.grain === false ? 0 : 0.07);
       E.quad();
     }
-    // GPU timing (only while profiling): a timer query around each frame's GL work when the browser offers
-    // EXT_disjoint_timer_query_webgl2, and a fence per frame (how many frames later the GPU had finished it; a GPU
-    // that falls behind shows up here even without timer queries). Results arrive a few frames late: gpuDrain().
-    // Two queries per frame (they cannot nest): the recorded passes (layers, kept pictures, scene: E.run) and the post
-    // passes (glow, present).
+
+
+
+
+
     let frameId = 0, tqx, tq = null, tq2 = null;
     const queries = [], fences = [], gpuDone = [];
     function gpuPoll() {
@@ -316,7 +316,7 @@ window.ND = window.ND || {};
     function gpuBegin() {
       if (tqx === undefined) tqx = gl.getExtension('EXT_disjoint_timer_query_webgl2') || null;
       gpuPoll();
-      // (a frame that threw between gpuBegin and gpuEnd left its query running: dropped)
+
       if (tq) { gl.endQuery(tqx.TIME_ELAPSED_EXT); gl.deleteQuery(tq); if (tq2) gl.deleteQuery(tq2); tq = tq2 = null; }
       if (tqx && queries.length < 8) { tq = gl.createQuery(); gl.beginQuery(tqx.TIME_ELAPSED_EXT, tq); }
     }
@@ -330,14 +330,14 @@ window.ND = window.ND || {};
       if (fences.length < 8) { const f = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0); if (f) fences.push({ s: f, id: frameId, t: performance.now() }); }
     }
     function gpuReset() {
-      if (tq) { try { gl.endQuery(tqx.TIME_ELAPSED_EXT); } catch (e) { /* not active */ } gl.deleteQuery(tq); if (tq2) gl.deleteQuery(tq2); }
+      if (tq) { try { gl.endQuery(tqx.TIME_ELAPSED_EXT); } catch (e) {                  } gl.deleteQuery(tq); if (tq2) gl.deleteQuery(tq2); }
       for (const q of queries) { gl.deleteQuery(q.q); if (q.q2) gl.deleteQuery(q.q2); }
       for (const f of fences) gl.deleteSync(f.s);
       queries.length = fences.length = gpuDone.length = 0; tq = tq2 = null;
     }
-    // (the extension object must be taken while the context is alive: a lost context hands out no extensions)
+
     let loseX = null, settleFence = null;
-    // frames submitted whose GPU work has not finished (api.queueLimit > 0 only): api.queued()
+
     const inflight = [];
     function queued() {
       while (inflight.length && gl.getSyncParameter(inflight[0], gl.SYNC_STATUS) === gl.SIGNALED) gl.deleteSync(inflight.shift());
@@ -349,12 +349,12 @@ window.ND = window.ND || {};
       get ready() { return !lost && !error && !gl.isContextLost() && E.ready; },
       get error() { return error; },
       get lastReason() { return lastReason; },
-      // main context for a W×H frame (the canvas backing size)
+
       begin(W, H) {
         if (canvas.width !== W || canvas.height !== H) { canvas.width = W; canvas.height = H; }
         return R.begin(W, H);
       },
-      // p: { bloom, grainX, grainY, grain }. false = nothing was shown (the caller draws this frame with Canvas 2D)
+
       end(p) {
         const rec = R.finish();
         if (R.unsupported) return refuse(R.unsupported);
@@ -372,7 +372,7 @@ window.ND = window.ND || {};
           if (!checked) { const code = gl.getError(); if (code !== gl.NO_ERROR) throw Error('GL error ' + code); checked = true; }
           frames++; streak = 0;
           api.last = Object.assign({}, rec, R.stats);
-          // what the GPU drew this frame (perf.js report): multisampled passes (size × samples) and the post passes
+
           const T = E.targets, pm = p.mode == null ? 2 : p.mode;
           api.last.targets = [T[0] && R.stats.passes > 1 ? [T[0].w, T[0].h, T[0].samples] : null, T[1] ? [T[1].w, T[1].h, T[1].samples] : null];
           api.last.postPasses = pm === 2 ? (p.smallBlur ? 3 : 2) : pm === 1 ? 2 : 1;
@@ -383,12 +383,12 @@ window.ND = window.ND || {};
         }
       },
       fail(e) { refuse(String(e && e.message || e)); },
-      // Startup self-check: a 64×32 frame with a solid fill, a self-intersecting (stencil) fill, a gradient, a lit
-      // layer placed with drawImage and a Canvas 2D picture, through the High passes (glow and grain at 0, so the
-      // result is exact), read back pixel by pixel. false (and the renderer is off: ready false) on any mismatch.
+
+
+
       selfCheck() {
         if (error) return false;
-        if (lost || gl.isContextLost()) return true; // judged again when the context comes back
+        if (lost || gl.isContextLost()) return true;
         try {
           const W = 64, H = 32, c = api.begin(W, H);
           c.setTransform(1, 0, 0, 1, 0, 0);
@@ -421,8 +421,8 @@ window.ND = window.ND || {};
           return false;
         }
       },
-      // frees the context (the game keeps Canvas 2D for the session)
-      dispose() { error = error || 'disposed'; try { loseExt()?.loseContext(); } catch (e) { /* nothing to free */ } canvas.remove?.(); },
+
+      dispose() { error = error || 'disposed'; try { loseExt()?.loseContext(); } catch (e) {                       } canvas.remove?.(); },
       info() {
         const dbg = gl.getExtension('WEBGL_debug_renderer_info');
         return {
@@ -433,10 +433,10 @@ window.ND = window.ND || {};
       },
       status() { return { ready: api.ready, error, lastReason, frames, fallbacks, streak, samples: E.samples, auto: !!opts.auto }; },
       setSamples(n) { E.setSamples(n); },
-      // true once the GPU has finished everything submitted so far (a fence polled once per call; match preparation
-      // waits for it behind the loading screen, so the first fight frames do not queue behind the part pictures'
-      // uploads and the first draws with every shader)
-      // GPU path (game.js ?gpuq): at most this many frames may wait for the GPU; the caller skips drawing while more do
+
+
+
+
       queueLimit: 0,
       queued() { if (lost || gl.isContextLost()) { inflight.length = 0; return 0; } return queued(); },
       settle() {
@@ -446,16 +446,16 @@ window.ND = window.ND || {};
         gl.deleteSync(settleFence); settleFence = null;
         return true;
       },
-      // multisampling of the layer pass alone (null: as the scene)
+
       setLayerSamples(n) { E.setLayerSamples(n); },
-      // per-frame timings and upload causes (render-check page, ?perf=1): api.prof after each end()
+
       profile(on, o) { R.profile(on, o); if (!on) gpuReset(); },
-      // finished GPU measurements since the last call: [{ id, gpuMs, sceneMs, postMs } | { id, lag, lagMs }] (id =
-      // prof.frameId; gpuMs -1: disturbed measurement; sceneMs: layers + kept pictures + scene, postMs: glow + present)
+
+
       gpuDrain() { if (!gl.isContextLost()) gpuPoll(); return gpuDone.splice(0, gpuDone.length); },
       get gpuTimer() { return !!tqx; },
       get prof() { return R.prof; },
-      // test hook: simulate a lost context (WEBGL_lose_context)
+
       loseContext() { const x = loseExt(); if (x) x.loseContext(); return !!x; },
       restoreContext() { const x = loseExt(); if (x) x.restoreContext(); return !!x; },
     };

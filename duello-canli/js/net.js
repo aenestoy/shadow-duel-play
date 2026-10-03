@@ -1,67 +1,67 @@
-// Shadow Duel — online match loop: rollback netcode (docs/SHADOW-DUEL-ONLINE.md, phase 1 "play with a friend")
-//
-// No server and no connection code here: js/online.js owns the room, the peer connection and the screens. It starts a
-// match with ND.net.begin({...}), hands every input packet it receives to ND.net.receive(buf), tells the measured round
-// trip with ND.net.setRtt(ms) and calls ND.net.keepalive() a few times a second (also while this tab is hidden).
-// game.advance hands the online match's frames to ND.net.frame(rdt).
-//
-// Model (GGPO style):
-//  - The fight advances in numbered steps (1/120 s, game.tick). Step t reads one input frame per player (js/input.js).
-//  - Local input delay D (2..4 steps, from the round trip; +1 on a slow device): the frame sampled while step t runs
-//    is used for step t + D on both devices. The steps before that are never guessed.
-//  - The other player's frame for a step not received yet is predicted: the keys they last held, no fresh press.
-//  - A received frame that differs from the prediction rolls back: the saved state (one every 2 steps) at or before
-//    that step is restored and the steps up to now are re-simulated quietly (game.resim) with the right inputs.
-//  - Never more than maxRoll steps ahead of the other player's last received frame (10; 6 on a slow device): past that
-//    the step waits (a short hitch instead of a longer, costlier rollback).
-//  - Time sync ("frame advantage"): each side reports how far ahead of the other it runs; the one ahead drops a step
-//    now and then until both run level.
-//  - Desync check: every 60 steps the fingerprint (game.hashState) of the confirmed state goes to the other side and is
-//    compared there. A mismatch ends the match ("out of sync", not counted).
-//  - Input digests (ranked, js/ranked.js): three running FNV-1a sums over every confirmed step's input frames in 1P / 2P
-//    order (1P's keys, 2P's keys, both), so both devices get the same three numbers for the same match; kept every 60
-//    confirmed steps for the ranked checkpoints, and in the result. The whole input log (both players, run-length packed)
-//    is kept for the server's audit when it asks (net.inputLog()).
-//  - Connection: no packet for 1 s (or waiting that long for the other side, or its tab in the background) → "Waiting
-//    for your friend…", nothing moves; 10 s → the match ends. No pause in an online match.
-//
-// PRESENTATION that the fight step triggers must survive a rollback (a rolled-back step can show or sound something
-// that then never happened, and a re-simulated step must not repeat what was already shown):
-//  - Sound effects (ND.audio hits, clangs, whooshes, the KO drum...) play at once, when their step is first computed
-//    (a delay would be felt). Each is remembered by step and by its order in the step (e.g. step 812 'clang#1'). When
-//    a rollback recomputes that step, the same sound is recognised and not played again; a sound the corrected step
-//    no longer makes is faded out within 40 ms (its nodes are cut); a new one is played then.
-//  - Everything else the step triggers — banners, the announcer and fighter voices, music changes, the sword-lock hint,
-//    the rally counter, the KO replay's screen changes and the match result — goes through ND.presGate (game.js,
-//    voice.js) and is shown only once its step is confirmed by both players' inputs (at most a few steps later, e.g.
-//    ~20–80 ms). A step re-simulated after it was confirmed and shown does not show it again.
-//  - Particles, decals and the camera simply carry on from what was shown (game.resim keeps them); the KO replay's
-//    pictures are taken for re-simulated steps too (game.js recPut), so the replay shows the confirmed fight.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 (function (ND) {
   'use strict';
   const G = ND.game, au = ND.audio;
   if (!G || !G.saveState || !ND.FrameCtrl) return;
   const STEP = G.STEP;
-  const HASH_EVERY = 60;        // steps between desync fingerprints (0.5 s)
+  const HASH_EVERY = 60;
   const ROLL_MAX = 10, ROLL_WEAK = 6;
-  const MAX_STEPS = 8;          // steps in one display frame at most (catch-up after a slow frame)
+  const MAX_STEPS = 8;
   const WAIT_MS = 1000, DROP_MS = 10000;
-  // A player turning the phone upright (the turn-your-phone hint), leaving the tab or fullscreen asks for a pause:
-  // both sides stop at the same step (PAUSE_LEAD after the later of the two), wait up to PAUSE_MS for that player,
-  // then count 3-2-1 (RESUME_MS) and go on. A plain packet stall keeps the 10 s rule.
+
+
+
   const PAUSE_LEAD = 24, PAUSE_MS = 60000, RESUME_MS = 1800;
-  const MAX_SEND = 64;          // input frames in one packet at most
-  const SND_KEEP = 2;           // steps of sound memory kept behind the confirmed step
+  const MAX_SEND = 64;
+  const SND_KEEP = 2;
   const now = () => performance.now();
-  // FNV-1a (32 bit) over a 20-bit input frame (3 bytes)
+
   const fnv = (h, x) => { h = Math.imul(h ^ ((x >> 16) & 255), 16777619); h = Math.imul(h ^ ((x >> 8) & 255), 16777619); return Math.imul(h ^ (x & 255), 16777619) >>> 0; };
   const FNV0 = 2166136261;
   const hex8 = (n) => (n >>> 0).toString(16).padStart(8, '0');
 
-  // ---------------------------------------------------------------- packets (binary, ~30–60 bytes)
-  // [u8 1][u8 match][u32 first][u8 count][u32 ack][u32 frame][i16 advantage×16][u8 flags][hash?: u32 step, u32, u32]
-  // [count × 3 bytes: input frames of steps first … first+count-1]. ack = the next of the receiver's frames the sender
-  // needs; frame = the sender's current step. flags: 1 = the sender's tab is hidden, 2 = a fingerprint follows.
+
+
+
+
   const PK_INPUT = 1;
   function encode(p) {
     const n = p.inputs.length, hb = p.hash ? 12 : 0;
@@ -94,18 +94,18 @@
     return p;
   }
 
-  // ---------------------------------------------------------------- session
+
   let S = null;
 
-  // Presentation gate (see PRESENTATION above): outside a step (menus, match start) it simply runs.
+
   function presGate(fn) {
     if (!S || !S.inStep) { try { fn(); } catch (e) { console.warn('[net] presentation', e); } return; }
-    if (S.cur < S.flushed) return; // a confirmed step computed again: already shown
+    if (S.cur < S.flushed) return;
     const list = S.pending.get(S.cur);
     if (list) list.push(fn);
   }
 
-  // Sound effects: remembered per step (see PRESENTATION). Wrapped once; outside an online step they are untouched.
+
   const AU_FX = ['noise', 'tone', 'sample', 'swoosh', 'clang', 'parry', 'cut', 'thud', 'step', 'whistle', 'tick', 'gong', 'taiko', 'ko', 'whoosh',
     'hit', 'synthHit', 'block', 'swing', 'kShing', 'kDraw', 'kHit'];
   let depth = 0, curEv = null;
@@ -116,7 +116,7 @@
       const orig = au[name];
       if (typeof orig !== 'function') continue;
       au[name] = function () {
-        // (nested calls — clang → tone — belong to the outer one; G.presPart: the step's picture/sound-only part)
+
         if (!S || !S.inStep || depth > 0 || G.presPart || S.cur < S.sndFloor) return orig.apply(this, arguments);
         const c = S.counts, key = name + '#' + (c[name] = (c[name] || 0) + 1);
         let list = S.snd.get(S.cur);
@@ -125,7 +125,7 @@
         const ev = { key, nodes: [], seen: true };
         list.push(ev);
         const q = au.quiet;
-        if (G.simOnly) au.quiet = S.quiet0; // a sound the corrected step makes and the predicted one did not: play it now
+        if (G.simOnly) au.quiet = S.quiet0;
         depth++; curEv = ev;
         try { return orig.apply(this, arguments); } finally { depth--; curEv = null; au.quiet = q; }
       };
@@ -138,15 +138,15 @@
     if (!c) return;
     const t = c.currentTime;
     for (const g of e.nodes) {
-      try { const p = g.gain; p.cancelScheduledValues(t); p.setValueAtTime(p.value, t); p.linearRampToValueAtTime(0, t + 0.04); } catch (err) { /* already gone */ }
+      try { const p = g.gain; p.cancelScheduledValues(t); p.setValueAtTime(p.value, t); p.linearRampToValueAtTime(0, t + 0.04); } catch (err) {                    }
     }
   }
 
   const net = ND.net = {
     active: false,
     encode, decode,
-    /** Start a match. o: { side 0|1, seed, chars: [c1, c2], arena, match (0..255), delay?, rtt?,
-     *  send(ArrayBuffer) (unreliable channel), sendCtl(obj) (reliable), onEnd(result), onStatus(kind, info) } */
+
+
     begin(o) {
       this.stop();
       wrapAudio();
@@ -169,15 +169,15 @@
       };
       for (let i = 0; i < D; i++) S.L[i] = 0;
       G.newMatch('online', { c1: o.chars[0], c2: o.chars[1], arena: o.arena, seed: o.seed, side: S.side, ctrls: S.ctrls, looks: o.looks || null });
-      // test hook (scripts/ranked-check.mjs): both pages shorten every fighter's life the same way for quick KOs (the
-      // fight stays identical on both); never set in play
+
+
       const T = window.__ndNetTest;
       if (T && T.hp > 0 && T.hp < 1) for (const f of G.F) { f.maxHp = Math.max(1, Math.round(f.maxHp * T.hp)); f.hp = f.ghost = f.maxHp; }
       ND.presGate = presGate;
       this.active = true;
       return S;
     },
-    /** The other side is ready to start (reliable 'go' message of this match). */
+
     peerReady(m) { if (S && (m & 255) === S.m) S.peerGo = true; },
     receive(buf) {
       if (!S) return;
@@ -190,14 +190,14 @@
     },
     setRtt(ms) { if (S && ms > 0) S.rtt = ms; },
     setHidden(h) { if (S) S.bg = !!h; },
-    /** A few times a second (also in a hidden tab): keeps the other side informed. */
+
     keepalive() { if (S && S.goSent) this.sendInputs(); },
-    // this match's session (tests, the online screens)
+
     session() { return S; },
-    // an online match stands still, waiting for the other player (game.js draws it less often meanwhile)
+
     isWaiting() { return !!(S && !S.finished && (S.waitSince || (S.pause.at >= 0 && S.frame >= S.pause.at))); },
 
-    // ---------------------------------------------------------------- one display frame
+
     frame() {
       if (!S) return 0;
       const t0 = now();
@@ -216,14 +216,14 @@
       S.acc += dt;
       let n = Math.floor(S.acc / STEP + 0.2);
       if (n > 0) S.acc -= n * STEP;
-      // time sync: ahead of the other side by a step or more → drop one step (at most one every 0.2 s)
+
       if (n > 0 && (S.myAdv - S.peerAdv) / 2 >= 1 && t0 - S.lastSkip > 200) { n--; S.lastSkip = t0; S.st.skips++; }
       if (n > MAX_STEPS) { n = MAX_STEPS; S.acc = Math.min(S.acc, STEP); }
       G.inBatch = true;
       try {
         for (let i = 0; i < n; i++) {
-          if (S.pause.at >= 0 && S.frame >= S.pause.at) { S.acc = 0; break; } // the agreed pause step
-          if (S.frame >= S.rRecv + S.maxRoll) { // too far ahead: this step waits
+          if (S.pause.at >= 0 && S.frame >= S.pause.at) { S.acc = 0; break; }
+          if (S.frame >= S.rRecv + S.maxRoll) {
             if (!S.stallSince) S.stallSince = t0;
             S.st.stalls++;
             S.acc = Math.min(S.acc + (n - i) * STEP, 3 * STEP);
@@ -239,7 +239,7 @@
       return 1;
     },
 
-    // received packets: acks, the other side's frame and advantage, input frames, fingerprints; rollback if needed
+
     process() {
       if (!S.queue.length) return;
       const q = S.queue, old = S.rRecv;
@@ -249,7 +249,7 @@
         if (p.ack > S.peerAck) S.peerAck = Math.min(p.ack, S.nextLocal);
         if (p.frame >= S.peerFrame) {
           S.peerFrame = p.frame; S.peerAdv = p.adv; S.peerBg = p.bg;
-          // where the other side is now: its step then, plus half a round trip and the time since the packet came
+
           const est = p.frame + ((now() - p.at) / 1000 + S.rtt / 2000) / STEP;
           S.myAdv += (S.frame - est - S.myAdv) * 0.1;
         }
@@ -260,7 +260,7 @@
         if (p.hash) S.peerHash.set(p.hash[0], p.hash[1]);
       }
       while (S.R[S.rRecv] !== undefined) S.rRecv++;
-      if (S.finished) return; // (the result stands: the steps after it are not corrected any more)
+      if (S.finished) return;
       const lim = Math.min(S.rRecv, S.frame);
       for (let t = old; t < lim; t++) if (S.used[t] !== S.R[t]) { this.rollback(t); break; }
     },
@@ -286,17 +286,17 @@
       }, (i) => this.leave(s + i));
       S.inStep = false;
       S.st.rollMs += now() - r0;
-      // the rally counter is a HUD of the current state: refresh it when the corrected state has another count
+
       if (G.rally && G.rally.turns && G.rally.turns.join() !== turns && G.rallyHud) G.rallyHud();
     },
 
-    // one new step, shown
+
     step() {
       const t = S.frame;
       if (S.nextLocal <= t + S.D) {
         const I = ND.input, v = I.adLocked ? 0 : I.p1.frame();
         S.L[S.nextLocal++] = v;
-        while (S.nextLocal <= t + S.D) S.L[S.nextLocal++] = v & 0x3ff; // (the delay just grew: the same keys held)
+        while (S.nextLocal <= t + S.D) S.L[S.nextLocal++] = v & 0x3ff;
       }
       const c0 = now();
       if (this.needSave(t)) this.saveCost(this.save(t));
@@ -306,12 +306,12 @@
       S.frame = t + 1;
       S.st.stepMs += now() - c0;
     },
-    // A rollback restores the saved state at or before the first step whose remote input is still unknown (rRecv), so
-    // only even steps from rRecv - 1 on are saved: a step whose inputs are all known already (the other side's frames
-    // arrived before they were needed, the aim of the input delay) never needs its state again. (Saving is the main
-    // cost of rollback netcode: a deep copy of the fight, ~17 KB of objects, 60 times a second.)
+
+
+
+
     needSave(t) { return !(t & 1) && t >= S.rRecv - 1; },
-    // the state before step t (even steps), kept for a rollback to it; returns the ms it took
+
     save(t) {
       const c0 = now();
       S.saves.set(t, G.saveState());
@@ -343,7 +343,7 @@
       for (let i = a.length - 1; i >= 0; i--) if (!a[i].seen) { cancelSound(a[i]); a.splice(i, 1); S.st.soundsCancelled++; }
     },
 
-    // steps whose inputs are all known now: show what they triggered, finalise fingerprints, free old memory
+
     flush() {
       if (!S) return;
       const lim = Math.min(S.rRecv, S.frame);
@@ -358,7 +358,7 @@
       while (S.sndFloor < lim - SND_KEEP) S.snd.delete(S.sndFloor++);
       const keep = lim - (lim & 1);
       for (const k of S.saves.keys()) if (k < keep) S.saves.delete(k);
-      // fingerprints of confirmed states
+
       while (S.hashNext <= lim && S.hashAt.has(S.hashNext)) {
         const h = S.hashNext, x = S.hashAt.get(h);
         S.finalH.push([h, x]); S.finalMap.set(h, x); S.myFinal = [h, x];
@@ -375,7 +375,7 @@
       }
     },
 
-    // step t is confirmed: its two input frames go into the digests (1P / 2P order, the same on both devices)
+
     digest(t) {
       const a = S.side === 0 ? S.L[t] : S.R[t], b = S.side === 0 ? S.R[t] : S.L[t], x = (a | 0) & 0xfffff, y = (b | 0) & 0xfffff, d = S.dig;
       d[0] = fnv(d[0], x); d[1] = fnv(d[1], y); d[2] = fnv(fnv(d[2], x), y);
@@ -384,17 +384,17 @@
         if (S.digAt.size > 64) S.digAt.delete(S.digAt.keys().next().value);
       }
     },
-    /** The confirmed fingerprint of step h (a multiple of 60), if this device still has it */
+
     finalAt(h) { return S ? S.finalMap.get(h) || null : null; },
-    /** Input digests of the confirmed steps so far: { step (steps covered), dig: [1P, 2P, both] (hex) } */
+
     digests() { return S ? { step: S.flushed, dig: S.dig.map(hex8) } : null; },
-    /** A checkpoint for the ranked server: the last confirmed 60th step, its fingerprint and the input digests up to it */
+
     checkpoint() {
       if (!S || !S.myFinal) return null;
       const h = S.myFinal[0], d = S.digAt.get(h);
       return { step: h, hash: S.myFinal[1], dig: d || null, wins: G.wins.slice() };
     },
-    /** The match's input frames of both players in 1P / 2P order, run-length packed: "L1:v,n;v,n…|v,n;…" (base 36) */
+
     inputLog() {
       if (!S) return '';
       const n = S.flushed, pack = (arr) => {
@@ -411,11 +411,11 @@
       const first = Math.min(S.peerAck, S.nextLocal), n = Math.min(S.nextLocal - first, MAX_SEND);
       const buf = encode({ m: S.m, first, inputs: S.L.slice(first, first + n), ack: S.rRecv, frame: S.frame, adv: S.myAdv, bg: S.bg, hash: S.myFinal });
       S.st.packetsOut++;
-      try { S.o.send(buf); } catch (e) { /* channel closed: online.js notices */ }
+      try { S.o.send(buf); } catch (e) {                                         }
     },
 
-    // ---------------------------------------------------------------- the agreed pause (see PAUSE_LEAD)
-    /** This device's player is away (why: 'turn' = phone upright / fullscreen left, 'away' = tab hidden) or back (null). */
+
+
     setAway(why) {
       if (!S || !S.goSent || S.finished) return;
       why = why || null;
@@ -434,18 +434,18 @@
       this.pauseAt(at | 0);
     },
     peerResume(m) { if (S && (m & 255) === S.m) S.pause.peer = null; },
-    // both devices stop at the earlier of the steps asked (a device already past it stops where it is)
+
     pauseAt(at) {
       const P = S.pause;
       if (P.at < 0) { P.at = at; P.since = 0; P.resumeAt = 0; S.st.pauses++; } else P.at = Math.min(P.at, at);
     },
-    // true while the match stands still for an agreed pause (and its count-down)
+
     paused(t0) {
       const P = S.pause;
       if (P.at < 0) return false;
       const away = !!(P.mine || P.peer);
       if (S.frame < P.at) {
-        // still on the way to the pause step (a player whose tab is hidden gets there when back); no 10 s rule meanwhile
+
         if (away) this.status('pause', { left: PAUSE_MS, mine: P.mine, peer: P.peer });
         return false;
       }
@@ -467,7 +467,7 @@
     isPaused() { return !!(S && S.pause.at >= 0 && S.frame >= S.pause.at); },
 
     waiting(t0) {
-      if (S.pause.at >= 0) { S.stallSince = 0; S.waitSince = 0; return false; } // an agreed pause is on its way: its own rules
+      if (S.pause.at >= 0) { S.stallSince = 0; S.waitSince = 0; return false; }
       if (S.frame < S.rRecv + S.maxRoll) S.stallSince = 0;
       const silent = t0 - S.lastRecv > WAIT_MS, stalled = S.stallSince && t0 - S.stallSince > WAIT_MS;
       if (silent || stalled || S.peerBg) {
@@ -482,14 +482,14 @@
     },
     status(kind, info) { try { if (S && S.o.onStatus) S.o.onStatus(kind, info || {}); } catch (e) { console.warn('[net] status', e); } },
 
-    // input delay from the round trip: ~60 % of the one-way time in steps, 2..4 (+1 on a slow device); moves one step
-    // at a time
+
+
     adjustDelay() {
       const oneWay = S.rtt / 2000 / STEP;
       const want = Math.max(2, Math.min(4, Math.round(oneWay * 0.6))) + (S.weak ? 1 : 0);
       if (want > S.D) S.D++; else if (want < S.D) S.D--;
     },
-    // a slow device (saving the fight state is the main rollback cost): shorter window, one more step of delay
+
     saveCost(ms) {
       if (S.weak || S.frame < 40) return;
       S.saveMs.push(ms);
@@ -499,10 +499,10 @@
       if (avg > 0.45) { S.weak = true; S.maxRoll = ROLL_WEAK; }
     },
 
-    // the match ended with this confirmed step (game.matchEnd → presGate)
+
     matchEnded(winner) { this.end('ko', winner); },
-    // reason: 'ko' | 'drop' (the other side is gone; winner = this side) | 'desync' | 'left' (the other side left) |
-    // 'pause' (an agreed pause ran out: winner = the player who was there, -1 when both were away) | 'away'
+
+
     end(reason, winner) {
       if (!S || S.finished) return;
       S.finished = true;

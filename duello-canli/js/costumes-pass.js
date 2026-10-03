@@ -1,15 +1,15 @@
-// Shadow Duel — the Shadow Pass Season 1 final reward: a drawn costume for Akane (ND.COSTUMES.pass1_akane).
-// Same system as the ranked champion costumes (js/costumes.js has the layers and the kit; js/costumes-champion.js the
-// examples). Akane because every player has her: she is unlocked from the start and the new player's first fight
-// (PLAY → her journey, fight 1) is hers.
-//
-// 月影 Tsukikage, "Moonshadow Regalia": Akane as the moon shrine's iai master at the night festival. A midnight-violet
-// kimono strewn with silver crescents, a deep violet hakama hemmed in silver, her crimson obi and tasuki under a silver
-// brocade band with a jewelled cord, a big crimson bow at the back, and a silver crescent crown with swaying chains and
-// a crimson camellia in her low-tied hair. She keeps her bare face, her hair and her sheathed katana. (A sheer stole was
-// tried and dropped: at product size it read as a board or a second scabbard, not cloth.) The Season Champion costume
-// (white kimono, stiff crimson kataginu wings, gold) is day and court; this one is night and moon.
-// Drawing only: nothing here changes the fight. Wear it with ND.costumePal(palette, 'pass1_akane') (ND.passCostume).
+
+
+
+
+
+
+
+
+
+
+
+
 (function (ND) {
   'use strict';
   const K = ND._costumeKit;
@@ -22,7 +22,7 @@
     crimson: '#d6263a', crimsonDk: '#7a0c18', crimsonHi: '#ff5a66',
     jewel: '#9b6cff',
   };
-  // a small crescent moon (r = radius), opening to the upper right
+
   function moon(ctx, x, y, r, col, rot = -0.5) {
     ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
     ctx.beginPath(); ctx.arc(0, 0, r, 0.35, TAU - 0.35, false); ctx.arc(r * 0.42, 0, r * 0.78, TAU - 0.62, 0.62, true); ctx.closePath();
@@ -37,8 +37,9 @@
       rim: 'rgba(206,194,255,.62)', rimDim: 'rgba(140,120,205,.32)',
     },
     back(ctx, j) {
-      const F = torso(j), s2 = sway(1.7, 4);
-      // the big crimson obi bow (bunko) at the back of the waist, its two loops and long tails
+
+      const F = torso(j), d = F.d, s2 = sway(1.7, 4);
+
       const bx = F.x(9, -15), by = F.y(9, -15), ang = Math.atan2(F.uy, F.ux);
       ctx.save(); ctx.translate(bx, by); ctx.rotate(ang);
       for (const [ox, oy, rx, ry, rt] of [[6, -8 * d, 7, 4.2, -0.5 * d], [-6, -8 * d, 7, 4.2, 0.5 * d]]) {
@@ -53,17 +54,17 @@
     },
     body(ctx, j) {
       const F = torso(j);
-      // the layered collar: white inner, crimson, then the silver edge of the kimono
+
       [['#f4f1ea', 2.2], [C.crimson, 1.6], [C.silver, 1]].forEach(([col, lw], i) => {
         ctx.strokeStyle = col; ctx.lineWidth = lw; ctx.beginPath();
         ctx.moveTo(F.x(56 - i * 0.6, -1 + i * 2.4), F.y(56 - i * 0.6, -1 + i * 2.4)); ctx.lineTo(F.x(28 - i, 13 + i * 0.4), F.y(28 - i, 13 + i * 0.4)); ctx.stroke();
       });
-      // silver crescents strewn on the kimono and the moon crest on the chest
+
       for (const [u, n, r, rot] of [[46, -6, 2.4, -0.4], [34, -9, 1.8, -0.9], [24, 2, 2, -0.2], [40, 4, 1.6, 0.3]]) moon(ctx, F.x(u, n), F.y(u, n), r, 'rgba(217,222,240,.75)', rot);
       ctx.beginPath(); ctx.arc(F.x(43, 7), F.y(43, 7), 4.6, 0, TAU); fillStroke(ctx, '#1a1230', 1);
       ctx.strokeStyle = C.silver; ctx.lineWidth = 0.9; ctx.stroke();
       moon(ctx, F.x(43, 7), F.y(43, 7), 3.2, C.silverHi, -0.6);
-      // the silver brocade band over the obi, a crimson cord and a violet jewel at the front
+
       poly(ctx, F, [[13.5, -13.6], [13.5, 15.2], [8.5, 15.6], [8.5, -14]]);
       fillStroke(ctx, grad(ctx, F.x(13.5, 0), F.y(13.5, 0), F.x(8.5, 0), F.y(8.5, 0), [[0, C.silverHi], [0.5, C.silver], [1, C.silverDk]]), 1.1);
       ctx.strokeStyle = 'rgba(120,100,170,.6)'; ctx.lineWidth = 0.7; ctx.beginPath();
@@ -76,14 +77,14 @@
     head(ctx, j) {
       ctx.save(); headFrame(ctx, j);
       const s = sway(2.6, 1.4);
-      // the silver crescent crown: a moon standing behind the crown of the head, horns up, a violet jewel below it
+
       ctx.save(); ctx.translate(-R * 0.3, -R * 1.36); ctx.rotate(-Math.PI / 2 - 0.3);
       const mr = R * 0.6;
       ctx.beginPath(); ctx.arc(0, 0, mr, 0.4, TAU - 0.4, false); ctx.arc(mr * 0.4, 0, mr * 0.65, TAU - 0.64, 0.64, true); ctx.closePath();
       fillStroke(ctx, grad(ctx, -mr, 0, mr, 0, [[0, C.silverHi], [0.6, C.silver], [1, C.silverDk]]), 0.8);
       ctx.restore();
       ctx.beginPath(); ctx.arc(-R * 0.36, -R * 0.96, 2, 0, TAU); fillStroke(ctx, C.jewel, 0.7);
-      // the bira-bira comb at the back of the hair: a silver bar with three swaying chains ending in little moons
+
       ctx.strokeStyle = LINE; ctx.lineWidth = 2.6; ctx.beginPath(); ctx.moveTo(-R * 1.16, -R * 0.62); ctx.lineTo(-R * 0.8, -R * 0.9); ctx.stroke();
       ctx.strokeStyle = C.silver; ctx.lineWidth = 1.4; ctx.stroke();
       for (let i = 0; i < 3; i++) {
@@ -91,7 +92,7 @@
         ctx.strokeStyle = 'rgba(217,222,240,.7)'; ctx.lineWidth = 0.5; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
         ctx.beginPath(); ctx.arc(x1, y1 + 0.8, 0.95, 0, TAU); ctx.fillStyle = C.silverHi; ctx.fill();
       }
-      // a crimson camellia above the ear
+
       ctx.save(); ctx.translate(-R * 0.78, -R * 0.62);
       for (let i = 0; i < 5; i++) { const a = i * TAU / 5; ctx.beginPath(); ctx.ellipse(Math.cos(a) * 1.8, Math.sin(a) * 1.8, 2.1, 1.5, a, 0, TAU); fillStroke(ctx, i % 2 ? C.crimson : C.crimsonHi, 0.5); }
       ctx.fillStyle = '#ffd36a'; ctx.beginPath(); ctx.arc(0, 0, 1, 0, TAU); ctx.fill();
@@ -100,13 +101,13 @@
     },
     hem(ctx, j) {
       const F = torso(j), s = sway(2.2, 1.2);
-      // the obi's tassel cords (fusa) hanging at the front
+
       ctx.strokeStyle = C.silver; ctx.lineWidth = 1.1; ctx.beginPath();
       ctx.moveTo(F.x(9, 14), F.y(9, 14)); ctx.lineTo(F.x(-12, 17 + s), F.y(-12, 17 + s)); ctx.stroke();
       const tx = F.x(-12, 17 + s), ty = F.y(-12, 17 + s);
       ctx.beginPath(); ctx.moveTo(tx - 1.8, ty); ctx.lineTo(tx + 1.8, ty); ctx.lineTo(tx + 2.4 + s * 0.3, ty + 9); ctx.lineTo(tx - 2.4 + s * 0.3, ty + 9); ctx.closePath();
       fillStroke(ctx, C.jewel, 0.7);
-      // the silver hem of the hakama at the near ankle and a crescent on the near leg
+
       const k = j.knF, f = j.ftF;
       if (k && f) {
         const dx = f.x - k.x, dy = f.y - k.y, l = Math.hypot(dx, dy) || 1, nx = -dy / l * 9.5, ny = dx / l * 9.5;
@@ -120,6 +121,6 @@
     },
   };
   ND.COSTUMES.pass1_akane = pass1_akane;
-  // the palette of a fighter wearing the Season 1 pass costume (null: this fighter has none)
+
   ND.passCostume = (ch, base) => (ch && ND.COSTUMES['pass1_' + ch.id] && ND.costumePal ? ND.costumePal(base || ch.col, 'pass1_' + ch.id) : null);
 })(window.ND);

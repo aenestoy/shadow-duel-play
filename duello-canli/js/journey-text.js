@@ -1,6 +1,6 @@
-// Journey copy is independent of the legacy endings, which remain available to existing saves.
-// The seven first languages are here; the languages loaded on demand (js/i18n-<code>.js) bring their own copy in the
-// same shape as ND.JOURNEY_COPY[code] (ui, goals, titles, endings), read when that language is on.
+
+
+
 (function (ND) {
   'use strict';
   const keys = ['route', 'rival', 'optional', 'win', 'earned', 'missed', 'mastery', 'reward', 'classic', 'legacy', 'colors', 'locked', 'old', 'shura', 'duel', 'clear', 'stage'];
@@ -59,7 +59,7 @@
     return out;
   };
   for (const [lang, c] of Object.entries(copy)) catalogs[lang] = build(c);
-  // an on-demand language's copy (ND.JOURNEY_COPY), built the first time it is asked for
+
   const late = (lang) => {
     const c = ND.JOURNEY_COPY && ND.JOURNEY_COPY[lang];
     if (!c || !Array.isArray(c.ui)) return null;

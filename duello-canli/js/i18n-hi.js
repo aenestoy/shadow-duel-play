@@ -1,16 +1,16 @@
-// Shadow Duel — Hindi catalog for ND.i18n, translated from the English one (js/i18n-en.js).
-// Loaded on demand: js/i18n.js loads this file only when the game runs in this language. Same structure as i18n-en.js.
-// Casual "तुम" throughout; everyday Hindi with the English gaming loanwords Indian players use; no nukta; Western digits.
-// Glossary: guard = गार्ड, parry = पैरी, counter = काउंटर, posture = संतुलन (posture bar = संतुलन बार),
-//   ki technique = Ki तकनीक (Ki stays Latin), blade lock = तलवार लॉक, dash = डैश, combo = कॉम्बो, chain/string = सीरीज,
-//   light / heavy slash = हल्का / भारी वार, kick = किक, launcher = लॉन्चर, rally = रैली, finisher = फिनिशर,
-//   arcade = आर्केड, training = ट्रेनिंग, tutorial = ट्यूटोरियल, ranked = रैंक्ड, journey = सफर,
-//   mastery star = महारत सितारा, Hall of Champions = चैंपियंस हॉल, shadow (ghost opponent) = परछाईं, season = सीजन,
-//   round = राउंड, fighter = योद्धा, opponent = विरोधी, rival = राइवल, dummy = डमी, honor = सम्मान,
-//   Dan trial = Dan परीक्षा, tournament = टूर्नामेंट, points = अंक, STRIKE! = मारो!,
-//   tier = टियर, placement = प्लेसमेंट, Shadow Pass = परछाईं पास, level = लेवल, reward = इनाम, claim = लो,
-//   costume = कॉस्ट्यूम, title = खिताब, badge = बैज, frame = फ्रेम, blade trail = तलवार की लकीर, booster = बूस्टर,
-//   streak = सिलसिला, seal = मुहर (Menkyo / Kaiden / Sakura / Yami / Ronin stay in Latin)
+
+
+
+
+
+
+
+
+
+
+
+
+
 (function (ND) {
   'use strict';
   (ND.I18N_CATALOGS || (ND.I18N_CATALOGS = {}))['hi'] = function (I, EN) {
@@ -19,7 +19,7 @@
     const dec = (x) => I.dec(x);
     const fmtTime = (s) => I.time(s);
 
-    // ================================================================ UI tables (ND.STR)
+
     merge(EN.STR, {
       menu: {
         brand: (nc, na) => `${nc} योद्धा, ${na} एरीना और एक छिपा उस्ताद। रियल-टाइम तलवारबाजी, तलवार लॉक, पैरी, संतुलन तोड़ना, Ki तकनीकें और रैगडॉल फिजिक्स।`,
@@ -148,7 +148,7 @@
       bz: {
         back: 'वापस', toMenu: 'मुख्य मेनू', you: 'तुम', youTag: 'तुम', newBest: 'नया बेस्ट!', seeResult: 'नतीजा देखो',
         resetIn: 'रीसेट होने में',
-        // time left: days (दि) · hours (घं) · minutes (मि) · seconds (से)
+
         left: (ms) => { const t = Math.floor(ms / 1000), d = Math.floor(t / 86400), hh = Math.floor((t % 86400) / 3600), mm = Math.floor((t % 3600) / 60), ss = t % 60; return d ? `${d}दि ${hh}घं ${mm}मि` : hh ? `${hh}घं ${mm}मि` : `${mm}मि ${ss}से`; },
         leftShort: (ms) => { const t = Math.floor(ms / 60000), d = Math.floor(t / 1440), hh = Math.floor((t % 1440) / 60), mm = t % 60; return d ? `${d}दि ${hh}घं` : hh ? `${hh}घं ${mm}मि` : `${mm}मि`; },
         weekName: (m, y) => `${['जनवरी', 'फरवरी', 'मार्च', 'अप्रैल', 'मई', 'जून', 'जुलाई', 'अगस्त', 'सितंबर', 'अक्टूबर', 'नवंबर', 'दिसंबर'][m - 1] || m} ${y}`,
@@ -234,7 +234,7 @@
           pending: (n) => `भेजने के लिए बाकी: ${n}`,
           classic: 'आर्केड · लीजेंड बोर्ड',
         },
-        // Monthly Tournament rewards: permanent title (top 3) and Champion colors (1st)
+
         ttl: {
           champ: 'मासिक चैंपियन', finalist: 'फाइनलिस्ट',
           reward: 'अक्टूबर 2026 के टूर्नामेंट से, हर महीने के टॉप 3 को हमेशा के लिए एक खिताब मिलता है। चैंपियन को अपने जीतने वाले निंजा के लिए खास चैंपियन रंग भी मिलते हैं। खिताब के लिए उस महीने कम से कम 5 खिलाड़ी चाहिए।',
@@ -372,10 +372,10 @@
       ],
     });
 
-    // ================================================================ story, fighters, arenas, specials
-    // ---- Fragment B: story text (talk, pairs, endings, roster2 notes), characters, arenas, specials, pop-ups, AI levels, number words
+
+
     merge(EN.STR, {
-      // open = speaks first (opponent), reply = answers (player), boss = said to the final boss
+
       talk: {
         akane: {
           open: ['मेरी तलवार लाल है, मेरा इरादा साफ। इज्जत से मेरा सामना करो।', 'पहले मैं सिर झुकाती हूँ, फिर वार करती हूँ। यही इंसाफ है।', 'यह मुकाबला हमारी इज्जत का है। पीछे हटने का सवाल ही नहीं।'],
@@ -443,7 +443,7 @@
           boss: 'Shura, आसमान में छिपने की कोई जगह नहीं। मेरा तीर तुम्हें ढूँढ लेगा।',
         },
       },
-      // Special match-ups: lines are spoken in the order written
+
       pairs: {
         'akane|aoi': [['akane', 'Aoi! अधूरा मुकाबला पूरा करने का वक्त आ गया।'], ['aoi', 'हवा हमेशा उसी आग की ओर बहती है, Akane। शुरू करो।']],
         'kuro|tetsu': [['kuro', 'लोहे का खोल। देखें अंदर से खोखला है या नहीं।'], ['tetsu', 'पहाड़ भी अनुशासन के आगे झुकता है, Kuro।']],
@@ -540,22 +540,22 @@
 
     EN.NUMWORDS = ['शून्य', 'एक', 'दो', 'तीन', 'चार', 'पाँच', 'छह', 'सात', 'आठ', 'नौ', 'दस', 'ग्यारह', 'बारह'];
 
-    // ================================================================ static HTML, hardcoded literals, canvas pop-ups
+
     merge(EN.PHRASES, {
-      // ---------------------------------------------------------------- index.html: <title>, brand, HUD
+
       'Gölge Düellosu': 'Shadow Duel',
       'Duraklat': 'पॉज',
       'KARŞILIKLI SERİ': 'रैली',
       'SON DARBE': 'आखिरी वार',
       'atlamak için bir tuşa bas': 'छोड़ने के लिए कोई भी बटन दबाओ',
-      // touch buttons (static fallbacks of data-s="touch.btn.*")
+
       'GARD': 'गार्ड',
       'HAFİF': 'हल्का',
       'SALDIR': 'हमला',
       'AĞIR': 'भारी',
       'ATIL': 'डैश',
       'TEKME': 'किक',
-      // ---------------------------------------------------------------- main menu
+
       'Sekiz savaşçı, üç arena. Gerçek zamanlı kılıç çarpışması, kılıç kilitlenmesi, savuşturma, denge kırma, Gölge Kesiği ve ragdoll fiziği.': 'आठ योद्धा, तीन एरीना। रियल-टाइम तलवारबाजी, तलवार लॉक, पैरी, संतुलन तोड़ना, परछाईं वार और रैगडॉल फिजिक्स।',
       'İki Oyuncu': 'दो खिलाड़ी',
       'Aynı klavyede ya da iki gamepad ile kafa kafaya': 'एक कीबोर्ड या दो गेमपैड पर आमने-सामने',
@@ -575,7 +575,7 @@
       'Kan efekti': 'खून',
       'Tuş ipuçları': 'बटन हिंट',
       'Yüksek grafik': 'हाई ग्राफिक्स',
-      // ---------------------------------------------------------------- controls card
+
       'Kontroller': 'कंट्रोल',
       '1. Oyuncu': 'खिलाड़ी 1',
       '2. Oyuncu': 'खिलाड़ी 2',
@@ -589,7 +589,7 @@
       'Sağ Shift': 'दायाँ Shift',
       'Atılma': 'डैश',
       'Ki tekniği (ki dolu)': 'Ki तकनीक (पूरा Ki)',
-      // ---------------------------------------------------------------- select screen
+
       'Ninjanı seç': 'अपना निंजा चुनो',
       'Hazır': 'तैयार',
       '1. oyuncunun ninjası': 'खिलाड़ी 1 का निंजा',
@@ -606,7 +606,7 @@
       'Güç': 'ताकत',
       'Menzil': 'पहुँच',
       'Can': 'हेल्थ',
-      // ---------------------------------------------------------------- pause / end
+
       'Duraklatıldı': 'पॉज',
       'Devam et': 'जारी रखो',
       'Maçı yeniden başlat': 'मैच फिर शुरू',
@@ -618,20 +618,20 @@
       'Verilen hasar': 'दिया गया डैमेज',
       'Savuşturma': 'पैरी',
       'Ki Saldırısı': 'Ki हमले',
-      // ---------------------------------------------------------------- training / leaderboard / misc
+
       'Antrenman': 'ट्रेनिंग',
       'ANTRENMAN': 'ट्रेनिंग',
       'Sıralama': 'लीडरबोर्ड',
       'Tümü': 'सभी',
       'Ekranı yan çevir': 'स्क्रीन आड़ी करो',
       'Performans için grafik düşürüldü': 'परफॉर्मेंस के लिए ग्राफिक्स कम किए गए',
-      // hidden boss pushed into ND.CHARS by arcade.js (safety net; EN.CHARS.shura should carry the same)
+
       'Kanlı Usta': 'खूनी उस्ताद',
       'Yolunu kanla çizen iblis usta. Uzun nodachi, yıkıcı darbeler, neredeyse kusursuz savuşturma.': 'एक राक्षसी उस्ताद जो अपना रास्ता खून से बनाता है। लंबी nodachi, कुचल देने वाले वार, लगभग बेदाग पैरी।',
-      // ---------------------------------------------------------------- HUD tags (fallbacks when STR.hud is missing)
+
       'SEN': 'तुम',
       'KUKLA': 'डमी',
-      // ---------------------------------------------------------------- round banners (#bt / #bs)
+
       'Son raund': 'आखिरी राउंड',
       'Kazanan her şeyi alır': 'जीतने वाला सब ले जाएगा',
       'İlk iki raundu alan kazanır': 'पहले दो राउंड जीतने वाला जीतेगा',
@@ -640,13 +640,13 @@
       'Berabere': 'ड्रॉ',
       'Çifte K.O.': 'डबल K.O.',
       'Mükemmel': 'परफेक्ट',
-      // blade-lock hint (fallbacks of STR.hud.lockSolo / lockDuo)
+
       'F / K tuşuna hızlıca bas!': 'F / K तेजी से दबाओ!',
       'Hafif ya da ağır tuşuna hızlıca bas!': 'हल्का या भारी तेजी से दबाओ!',
-      // counter / parry prompt labels under the key ring (ctx.fillText in drawPrompts)
+
       'KARŞILIK': 'काउंटर',
       'SAVUŞTUR': 'पैरी',
-      // ---------------------------------------------------------------- canvas pop-ups (fx.text)
+
       'SON VURUŞ!': 'फिनिशर!',
       'KİLİTLENDİ!': 'तलवार लॉक!',
       'İTTİ!': 'धक्का!',
@@ -669,9 +669,9 @@
     });
 
     merge(EN.HTML, {
-      // brand title (the game name stays "Shadow Duel" in every language)
+
       'Gölge<br><em>Düel</em><em>losu</em>': 'Shadow<br><em>Du</em><em>el</em>',
-      // tips list (<ul class="tips">)
+
       '<b>Savuşturma:</b> darbe gelmeden hemen önce gard tuşuna bas; rakip sendeler.':
         '<b>पैरी:</b> वार लगने से ठीक पहले गार्ड दबाओ; विरोधी लड़खड़ा जाता है।',
       '<b>Karşılık (返し技):</b> gard ya da savuşturmanın hemen ardından saldırı tuşu → anında karşı kesik. <b>İleri</b> + hafif = bacağa süpürme, <b>geri</b> + hafif = yanından dönüp arkadan kesme, <b>ağır</b> = güçlü karşı darbe.':
@@ -686,30 +686,30 @@
         '<b>डैश + हल्का</b> = डैश वार। <b>हवा में</b> हल्का = हवाई वार, भारी = गोता। भारी वार गिरा देता है; दीवार से टकराने वाला वापस उछलता है।',
       '<b>Denge çubuğu</b> dolarsa gard kırılır. Tekme gardı delip dengeyi hızla doldurur.':
         '<b>संतुलन बार</b> भरते ही गार्ड टूट जाता है। किक गार्ड को भेदकर संतुलन तेजी से भरती है।',
-      // gamepad note (Esc -> Start or P)
+
       'Gamepad: X hafif · Y ağır · B tekme · A zıpla · LB gard · RB shuriken · RT atılma · R3 ki tekniği. Start ya da <kbd>P</kbd> duraklatır. CPU modunda her iki tuş seti de seni yönetir.':
         'गेमपैड: X हल्का · Y भारी · B किक · A जंप · LB गार्ड · RB शुरिकेन · RT डैश · R3 Ki तकनीक। Start या <kbd>P</kbd> से पॉज। CPU मोड में दोनों बटन सेट तुम्हें ही चलाते हैं।',
-      // select / VS hints (Esc -> ⌫)
+
       '<kbd>Enter</kbd> başlatır · <kbd>⌫</kbd> menüye döner': '<kbd>Enter</kbd> शुरू · <kbd>⌫</kbd> वापस',
       '<kbd>Enter</kbd> / <kbd>F</kbd> başlatır · <kbd>⌫</kbd> çıkar': '<kbd>Enter</kbd> / <kbd>F</kbd> शुरू · <kbd>⌫</kbd> छोड़ो',
     });
 
     EN.PATTERNS.push(
-      // HUD round label (#rlabel) and round banner
+
       [/^RAUND (\d+)$/, 'राउंड $1'],
       [/^(\d+)\. Raund$/, 'राउंड $1'],
-      // canvas pop-ups built from numbers
+
       [/^(\d+)\. KARŞILIK$/, 'काउंटर ×$1'],
       [/^(\d+) VURUŞLUK SERİ!$/, '$1-हिट रैली!'],
-      // time-up banner sub: `${name} önde`
+
       [/^(.+) önde$/, (m, n) => I.t(n) + ' आगे'],
-      // end screen title: `${Name} kazandı`
+
       [/^(.+) kazandı$/, (m, n) => I.t(n) + ' की जीत'],
-      // end screen sub line: `${a} – ${b} · ${round} raund · ${arenaName}`
+
       [/^(\d+) – (\d+) · (\d+) raund · (.+)$/, (m, a, b, r, ar) => `${a} – ${b} · ${r} राउंड · ${I.t(ar)}`],
     );
 
-    // ================================================================ added with the portal build (PLAY, ads, coach)
+
     merge(EN.STR, {
       menu: { play: 'खेलो', playSub: (name, lv) => `${name} बनाम CPU · ${lv}` },
       first: { play: 'खेलो', sub: 'एक टैप और लड़ाई शुरू', menu: 'सभी मोड' },
@@ -728,21 +728,21 @@
       },
     });
 
-    // ================================================================ VOLUME: sliders on the menu card and in pause (js/volume.js)
+
     merge(EN.STR, {
       vol: {
         title: 'वॉल्यूम', master: 'मास्टर', music: 'संगीत', sfx: 'इफेक्ट', sound: 'आवाज',
         pct: (n) => `${n}%`,
         muted: 'आवाज बंद है। चालू करने के लिए कोई स्लाइडर खिसकाओ।',
-        // Settings > Audio: character / announcer voices switch (js/voice.js) and the courtesy credit under it
+
         voice: 'आवाजें',
         uiSfx: 'मेनू की आवाजें',
         credit: 'आवाजें: ユーフルカ (youfulca.com) · 効果音ラボ · すぱらんど',
       },
     });
 
-    // ================================================================ TOUCH LAYOUT EDITOR: movement modes + "Customize controls"
-    // (js/touch.js settings rows, js/touch-editor.js; Turkish source in i18n.js, block "touch movement modes + layout editor")
+
+
     merge(EN.STR, {
       tedit: {
         move: 'मूवमेंट',
@@ -776,8 +776,8 @@
       },
     });
 
-    // ================================================================ PROGRESSION: honor, rival challenges, moves panel
-    // (arcade.js STR.honor / STR.rival / STR.hint, game.js select screen; rules in js/honor.js)
+
+
     merge(EN.STR, {
       menu: { arcadeDesc: 'मुश्किल बढ़ती जाएगी: एक-एक करके राइवल को हराओ, आखिर में एक छिपा उस्ताद इंतजार कर रहा है। सम्मान कमाने का सबसे बड़ा जरिया।' },
       sel: {
@@ -850,8 +850,8 @@
       },
     });
 
-    // ================================================================ COMBAT: new kits, combos, move list (combat designer)
-    // Akane/Aoi/Ren/Kage identities, combo counter, ki cancel, ND.MOVELIST names/descriptions (read through ND.i18n.t)
+
+
     merge(EN.CHARS, {
       akane: { desc: 'Iaijutsu उस्ताद। तलवार म्यान में इंतजार करती है और हर वार म्यान से खींचते ही लगता है; उसकी म्यान मुद्रा आते वार पकड़ लेती है।', weapon: 'Katana (iai)' },
       aoi: { desc: 'हवा का एक-हाथ वाला tachi तलवारबाज। दूर तक पहुँचते घोंप और हवा के कदम किसी भी दूरी को एक चाल में पाट देते हैं।', weapon: 'Tachi' },
@@ -861,7 +861,7 @@
     merge(EN.TXT, { kiCancel: 'Ki कैंसल!', launch: 'उछाल!', iaiCatch: 'IAI GAESHI!' });
     EN.PATTERNS.push([/^(\d+) VURUŞ$/, '$1 हिट']);
     merge(EN.PHRASES, {
-      // shared rows
+
       'Tekme': 'किक',
       'Tekme: dengeyi hızla doldurur, gardı kırmaya yarar. Ardından AĞIR ile seri bitirişine bağlanır.': 'किक: संतुलन तेजी से भरती है और गार्ड तोड़ने में मदद करती है। उसके बाद भारी से सीरीज खत्म करो।',
       'Shuriken fırlatır; zamanla yeniden dolar.': 'शुरिकेन फेंकता है; वे समय के साथ फिर भरते हैं।',
@@ -881,7 +881,7 @@
       'Atılırken dönerek geniş kesik; yere serer.': 'डैश से घूमकर चौड़ा वार; गिरा देता है।',
       'İki kesiklik seri bitirişi; son kesik yere serer.': 'दो वारों का सीरीज फिनिशर; आखिरी वार गिरा देता है।',
       'Rakibin kılıcını aşağı çarpıp dürter: gardı ezer.': 'विरोधी की तलवार नीचे मारकर घोंपता है: गार्ड कुचलता है।',
-      // Akane
+
       'Kından yatay çekiş kesiği, çapraz iniş, geri dönen kesik; kılıç her seferinde kınına döner.': 'म्यान से खींचकर आड़ा वार, तिरछा नीचे वार और लौटता वार; हर बार तलवार वापस म्यान में जाती है।',
       'Derin çömelişten geniş yatay çekiş; yere serer.': 'गहरे झुककर म्यान से चौड़ा आड़ा वार; गिरा देता है।',
       'Atılarak kından çekiş: uzak mesafeyi bir anda kapatır, seriye devam eder.': 'डैश करते हुए म्यान से वार: लंबी दूरी पल में पाटता है और सीरीज जारी रखता है।',
@@ -890,7 +890,7 @@
       'Çekiş duruşu: kısa bir an bekler; bu sırada gelen yakın dövüş darbesini yakalar ve kaçınılmaz bir iai kesiğiyle karşılık verir. Boşa giderse açık kalır.': 'म्यान मुद्रा: एक पल रुकती है; इस बीच आया पास का वार पकड़कर अचूक iai वार से जवाब देती है। कुछ न आए तो वह खुली रह जाती है।',
       'Kesa’dan sonra yükselen ve inen iki çekiş kesiği; son kesik yere serer.': 'Kesa के बाद म्यान से ऊपर और नीचे जाते दो वार; आखिरी वार गिरा देता है।',
       'Tekmeden sonra çömelip rakibin içinden geçen kızıl iai; arkasında belirir.': 'किक के बाद झुककर लाल iai जो विरोधी के आर-पार निकल जाता है; वह उसके पीछे प्रकट होती है।',
-      // Aoi
+
       'Tek elle uzun dürtüş, yukarı savrulan kesik ve rüzgâr adımıyla derin atılma dürtüşü.': 'एक हाथ से लंबा घोंप, ऊपर झटकता वार और हवा के कदम पर गहरा लपकता घोंप।',
       'Dönerek geniş yatay kesik; yere serer.': 'घूमकर चौड़ा आड़ा वार; गिरा देता है।',
       'Rüzgâr adımı: çok uzaktan tek hamlede dürter, seriye devam eder.': 'हवा का कदम: बहुत दूर से एक चाल में घोंपता है और सीरीज जारी रखता है।',
@@ -899,7 +899,7 @@
       'Geri sıçrar, ardından çok uzağa uzanan dürtüşle geri döner: gardı ezer, yere serer.': 'पीछे उछलता है, फिर बहुत लंबे घोंप के साथ लौटता है: गार्ड कुचलता है और गिरा देता है।',
       'Üç hızlı dürtüş; sonuncusu rüzgârla rakibi savurur.': 'तीन तेज घोंप; आखिरी वाला हवा से विरोधी को उड़ा देता है।',
       'İki kez dönerek çevresini biçen kesik; gardı ezer.': 'दो बार घूमकर चारों ओर काटता है; गार्ड कुचलता है।',
-      // Ren
+
       'Kesik · Dirsek · Diz': 'वार · कोहनी · घुटना',
       'Tek elle kesik, dirsek darbesi ve uçan diz: kılıçla başlayıp bedenle biter.': 'एक हाथ से वार, कोहनी का वार और उड़ता घुटना: तलवार से शुरू, शरीर से खत्म।',
       'İki elle tepeden ezici iniş; gardı zorlar, yere serer.': 'दोनों हाथों से ऊपर से कुचलने वाला वार; गार्ड पर जोर डालता है और गिरा देता है।',
@@ -909,7 +909,7 @@
       'Topuğu havaya kaldırıp balta gibi indirir: yere serer.': 'एड़ी ऊपर उठाकर कुल्हाड़ी की तरह नीचे लाता है: गिरा देता है।',
       'Dirsekten sonra kesik ve tepeden ezici iniş; son vuruş yere serer.': 'कोहनी के बाद एक वार और ऊपर से कुचलने वाला वार; आखिरी वार गिरा देता है।',
       'Tekmenin ardından dönen topuk tekmesi; yere serer.': 'किक के बाद घूमती एड़ी की किक; गिरा देती है।',
-      // Kage
+
       'Ters tutuşla kesik, dönen kesik ve gölge adımı: kaybolup öne geçer, dürterek belirir.': 'उल्टी पकड़ से वार, घूमता वार और परछाईं कदम: गायब होकर आगे निकलता है और घोंपते हुए प्रकट होता है।',
       'Sıçrayıp ters tutuşla aşağı saplar; yere serer.': 'उछलकर उल्टी पकड़ से नीचे घोंपता है; गिरा देता है।',
       'Gölge gibi uzun atılma kesiği; seriye devam eder.': 'परछाईं जैसा लंबा डैश वार; सीरीज जारी रखता है।',
@@ -918,18 +918,18 @@
       'Ayağının dibine sis bombası atar: yakındakini sersemletir, Kage dumanın içinde geri kaçar.': 'पैरों के पास धुएँ का बम फेंकता है: पास वाले को चकरा देता है, और Kage धुएँ में पीछे खिसक जाता है।',
       'Üç hızlı ters kesik ve aşağı saplama; sonuncusu yere serer.': 'तीन तेज उल्टे वार और नीचे घोंप; आखिरी वाला गिरा देता है।',
       'Tekmeden sonra dumanda kaybolur, rakibin arkasında belirip saplar.': 'किक के बाद धुएँ में गायब होकर विरोधी के पीछे प्रकट होता है और घोंपता है।',
-      // template row names
+
       'Nodachi serisi': 'Nodachi सीरीज', 'Ağır nodachi': 'भारी nodachi', 'Kodachi serisi': 'Kodachi सीरीज', 'Ağır kesik': 'भारी वार',
       'Tantō dansı': 'Tantō डांस', 'Çift kesik': 'दोहरा वार', 'Naginata serisi': 'Naginata सीरीज', 'Ağır savuruş': 'भारी घुमाव',
       'Zincir ve orak': 'जंजीर और हंसिया', 'Zincir çekişi': 'जंजीर खिंचाव', 'Asa serisi': 'लाठी सीरीज', 'Ağır süpürme': 'भारी स्वीप',
       'Yelpaze serisi': 'पंखा सीरीज', 'Rüzgâr dalgası': 'हवा की लहर', 'Tantō serisi': 'Tantō सीरीज', 'Ok (basılı tut: güçlü)': 'तीर (दबाए रखो: पावर)',
       'Geri + AĞIR da ok atar (basılı tut: güçlü atış); ok kalmadıysa tantō ile tepeden iner.': 'पीछे + भारी से भी तीर चलता है (पावर शॉट के लिए दबाए रखो); तीर खत्म हों तो वह tantō के साथ ऊपर से गिरती है।',
-      // combat pop-ups
+
       'KI İPTALİ!': 'Ki कैंसल!', 'HAVAYA!': 'उछाल!',
     });
 
-    // ================================================================ COUNTER CINEMATIC + COMBO TRIAL (combat feel pass)
-    // js/kaeshi-cine.js STR.kaeshi, js/combo-trial.js STR.trial, js/coach.js combo/counter tips, move list legend
+
+
     {
       const tb = (t, c) => `<i class="tb${c ? ' ' + c : ''}">${t}</i>`;
       merge(EN.STR, {
@@ -986,8 +986,8 @@
       });
     }
 
-    // ================================================================ GRAPHICS QUALITY: the Graphics setting (js/gfx.js)
-    // (Turkish source in i18n.js, block "graphics quality")
+
+
     merge(EN.STR, {
       gfx: {
         title: 'ग्राफिक्स',
@@ -1000,8 +1000,8 @@
           custom: 'तुम्हारी अपनी सेटिंग्स (एडवांस्ड)।',
         },
         now: (lv) => `अभी: ${lv}`,
-        // Settings → Graphics → Advanced (game.js gfxAdvBuild, js/gfx.js KNOBS): the switch, the line under it, the hint on
-        // the heaviest rows, one title per knob and the value words (resolution shows percentages, anti-aliasing 2× / 4×)
+
+
         adv: {
           title: 'एडवांस्ड',
           note: 'कोई एक बदलो तो चुनाव "कस्टम" हो जाता है; कोई प्रीसेट दबाओ तो उसकी वैल्यू लौट आती हैं।',
@@ -1012,8 +1012,8 @@
       },
     });
 
-    // ================================================================ FRAME RATE: Settings → Graphics (js/gfx.js makePacer)
-    // (Turkish source in i18n.js, block "frame rate"; the numbers themselves are not translated)
+
+
     merge(EN.STR, {
       fps: {
         title: 'फ्रेम रेट',
@@ -1028,7 +1028,7 @@
       },
     });
 
-    // ================================================================ SETTINGS SCREEN (js/settings.js; Turkish source in i18n.js)
+
     merge(EN.STR, {
       set: {
         title: 'सेटिंग्स', close: 'बंद',
@@ -1038,13 +1038,13 @@
       },
     });
 
-    // ================================================================ LANGUAGE PICKER (js/lang-ui.js; Turkish source in i18n.js)
-    // Language names are not translated: each one is written in its own language (ND.i18n.names).
+
+
     merge(EN.STR, { lang: { title: 'भाषा', change: 'भाषा बदलो', close: 'बंद' } });
 
-    // ================================================================ TOUCH HELP PER MOVEMENT MODE
-    // (game.js touchHelp(): the menu's touch help follows the movement mode; Turkish source in i18n.js, block
-    // "touch help per movement mode")
+
+
+
     merge(EN.STR, {
       thelp: {
         title: { float: 'जॉयस्टिक', fixed: 'फिक्स्ड जॉयस्टिक', dpad: 'D-पैड' },
@@ -1058,10 +1058,10 @@
       },
     });
 
-    // ================================================================ SHARED LABELS (static HTML / move list text that is the same word in Turkish)
+
     merge(EN.PHRASES, { 'Shuriken': 'शुरिकेन', 'KI': 'KI' });
 
-    // Persistent character journeys.
+
     merge(EN.STR, { menu: { arcadeDesc: 'हर निंजा के लिए आठ लड़ाइयों का सफर। अगले राइवल से आगे बढ़ो, किरदार का अंत और उस्ताद मुहर अनलॉक करो।' }, sel: { title: { arcade: 'आर्केड · किरदार का सफर' } },
       journey: {
         start: 'सफर शुरू',
@@ -1078,8 +1078,8 @@
       },
     });
 
-    // ================================================================ PROGRESS / ACCOUNT (Settings → Progress, Hall of Champions;
-    // js/settings.js, js/banzuke.js; Turkish source in i18n.js, block "account and recovery code")
+
+
     merge(EN.STR, {
       set: { tabs: { save: 'प्रगति' } },
       acct: {
@@ -1103,8 +1103,8 @@
       lb: { savedLocalAccount: (r) => (r ? `इस डिवाइस पर #${r} · अभी तुम्हारे अकाउंट तक नहीं पहुँच पा रहे` : 'इस डिवाइस पर सेव · अभी तुम्हारे अकाउंट तक नहीं पहुँच पा रहे') },
     });
 
-    // ================================================================ PRIVACY (js/privacy.js; Turkish source in i18n.js, block
-    // "privacy"). The policy page itself (privacy.html) is English + Turkish; other languages see the English part.
+
+
     merge(EN.STR, {
       priv: {
         notice: 'Shadow Duel ऑनलाइन लीडरबोर्ड के लिए तुम्हारा निकनेम और स्कोर सेव करता है।',
@@ -1113,8 +1113,8 @@
       },
     });
 
-    // ================================================================ FIRST-FIGHT RALLY TUTORIAL: js/tutorial.js STR.tutor and
-    // Training → Parry drill (Turkish source in i18n.js, block "rally tutorial")
+
+
     merge(EN.STR, {
       menu: { trainDrill: 'पैरी अभ्यास' },
       tutor: {
@@ -1134,12 +1134,21 @@
         mastered: 'महारत!', masteredSub: 'बचाव, काउंटर, फिर से',
         warm: (l) => `वार्म-अप: ${l} तीन बार मारो`,
         nudge: (k) => `${k} दबाओ`, nudgeT: (k) => `${k} टैप करो`,
+
+
+        skip: 'छोड़ें ›',
+        steps: {
+          attack: (b) => `${b} से वार करो`, guard: (b) => `${b} से तलवार रोको`, counter: (b) => `${b} से पलटवार करो`,
+          timing: (b, l) => `तुम्हारी बारी: रिंग बंद होते ही ${b}, फिर ${l}`,
+        },
+        ok: { attack: 'बढ़िया!', guard: 'रोक लिया!', counter: 'पलटवार!', timing: 'परफेक्ट!' },
+        ready: 'तैयार!', readySub: 'अब द्वंद्व जीतो',
       },
     });
 
-    // ================================================================ NEW PLAYER: the select screen's one-time greeting
-    // (game.js openSelect), the VS goal line's "?" (arcade.js openVs) and the just-in-time tips (js/coach.js ND.coach.tips;
-    // arguments: key / button chips, lessons: the menu names of Training and Tutorial). Turkish source in i18n.js.
+
+
+
     merge(EN.STR, {
       onb: { selIntro: 'अपना निंजा चुनो: हर एक का अपना सफर है', more: 'विवरण' },
       tips: {
@@ -1156,7 +1165,7 @@
       },
     });
 
-    // ================================================================ online "play with a friend" (js/online.js: ND.STR.online)
+
     merge(EN.STR, {
       online: {
         title: 'दोस्त के साथ खेलो',
@@ -1229,7 +1238,7 @@
       },
     });
 
-    // ================================================================ ranked duel (js/ranked.js: ND.STR.ranked)
+
     merge(EN.STR, {
       ranked: {
         title: 'रैंक्ड मुकाबला', menuSub: 'रैंडम विरोधी · अंक, टियर और सीजन', offline: 'रैंक्ड अभी बंद है',
@@ -1281,11 +1290,22 @@
         aiNote: 'जब कम खिलाड़ी ऑनलाइन हों, तो असली खिलाड़ियों के अंदाज में खेलने वाले AI विरोधी से मुकाबला हो सकता है।', gotIt: 'ठीक है',
         err: { network: 'सर्वर तक नहीं पहुँच सके। अपना इंटरनेट कनेक्शन जाँचो।', bad_version: 'गेम का नया वर्जन आ गया है: पेज रीलोड करो।', busy: 'कतार बहुत भरी है, थोड़ी देर में फिर कोशिश करो।',
           rate_limited: 'बहुत ज्यादा कोशिशें, थोड़ा रुको।', disabled: 'रैंक्ड अभी बंद है।', banned: 'यह अकाउंट रैंक्ड नहीं खेल सकता।', other: 'कुछ गड़बड़ हो गई, फिर कोशिश करो।' },
+
+        bg: { ru: 'खोजते हुए मेनू देखें', stopT: 'रैंक्ड खोज रोकें?', stopS: 'यह लड़ाई शुरू करने से आपकी खोज रुक जाएगी।', stopGo: 'रोकें और खेलें', keep: 'खोज जारी रखें', stopped: 'रैंक्ड खोज रुक गई', chip: 'खोज रहे हैं' },
+        card: { findMatch: 'मैच खोजें', searching: 'खोज रहे हैं…', resume: 'मैच पर लौटें',
+          place: (p, n) => `${n} में से #${p}`, placeOnly: (p) => `बोर्ड पर #${p}`,
+          toBoard: (n) => `लीडरबोर्ड में आने के लिए ${n} और मैच`, toBoardSoon: 'लीडरबोर्ड में आने के लिए कुछ और मैच',
+          invite: 'आशिगारू से शोगुन तक: आपका पहला रैंक्ड मैच बस एक टैप दूर',
+          guestInvite: 'अंकों के लिए खेलने हेतु साइन इन करें · मेहमान बिना अंकों के खेलते हैं', nickInvite: 'अंकों के लिए खेलने हेतु उपनाम चुनें',
+          winRate: (p) => `${p}% जीत`, streakW: (n) => `लगातार ${n} जीत`, streakL: (n) => `लगातार ${n} हार`,
+          peak: (t) => `सीज़न का सर्वश्रेष्ठ: ${t}`, shields: (n) => `ढाल ×${n}`, top: 'सीज़न के टॉप 3', you: 'आप', empty: 'बोर्ड पर अभी कोई नहीं: पहले बनें', rating: 'अंक' },
       },
+
+      upd: { ready: 'नया संस्करण तैयार — अपडेट के लिए टैप करें', refresh: 'नया संस्करण आ गया — खेलने के लिए पेज रीफ़्रेश करें', close: 'बंद करें' },
     });
 
-    // ================================================================ LEVEL + SHADOW PASS (js/level.js, js/pass.js)
-    // English: L.en in js/i18n-pass.js; the on-demand languages keep these texts in their own file.
+
+
     merge(EN.STR, {
       pass: {
         k: '影', lv: 'LV',
@@ -1296,7 +1316,7 @@
         free: 'फ्री', bonus: 'परछाईं', bonusAds: 'हर इनाम: एक ऐड', bonusWait: (n) => `बिना ऐड: ${n} टियर बाद खुलेगा`,
         claim: 'लो', claimAll: (n) => `सब लो (${n})`, owned: 'ले लिया', watch: 'ऐड देखो', milestone: 'फ्री', opensAt: (t) => `टियर ${t} पर`,
         online: 'ऑनलाइन जरूरी', soon: 'नए टियर जल्द आ रहे हैं', soonXp: 'तुम्हारा XP जुड़ता रहेगा', close: 'बंद', tabs: { pass: 'पास', profile: 'प्रोफाइल' },
-        rows: { win: 'जीत', loss: 'खेला', rounds: 'राउंड', perfect: 'परफेक्ट', rally: 'रैली', counter: 'काउंटर', parry: 'पैरी', short: 'छोटी लड़ाई', boost: 'बूस्टर', daily: 'आज की पहली जीत', streak: 'सिलसिला', clear: 'सफर', trial: 'कॉम्बो अभ्यास', tutorial: 'ट्यूटोरियल' },
+        rows: { win: 'जीत', loss: 'खेला', rounds: 'राउंड', perfect: 'परफेक्ट', rally: 'रैली', counter: 'काउंटर', parry: 'पैरी', short: 'छोटी लड़ाई', boost: 'बूस्टर', daily: 'आज की पहली जीत', streak: 'सिलसिला', clear: 'सफर', trial: 'कॉम्बो अभ्यास', tutorial: 'ट्यूटोरियल', first: 'स्वागत बोनस' },
         streakN: (n) => `दिन ${n}`,
         up: 'लेवल अप', got: 'नया इनाम',
         boostName: (n) => `×1.5 XP · ${n} लड़ाइयाँ`, honorName: (n) => `+${n} सम्मान`,
@@ -1320,8 +1340,8 @@
       },
     });
 
-    // ================================================================ 1.3.2 SHADOW PASS: 30 tiers, fight flair, progress rewards,
-    // the ranked shield, the Profile screen (English: X.en in js/i18n-pass.js; flair: the fight flair's names, js/flair.js ids)
+
+
     merge(EN.STR, {
       pass: {
         kinds2: { pose: 'जीत का पोज़', hitfx: 'वार इफ़ेक्ट', slash: 'जवाबी वार', aura: 'की आभा', ko: 'KO फ़िनिश', card: 'नाम कार्ड', arena: 'अखाड़े का रूप', music: 'मेनू संगीत', rkey: 'चाबी', akey: 'चाबी', ticket: 'टिकट', shield: 'ढाल' },
@@ -1350,6 +1370,8 @@
         shieldUsed: 'ढाल लगी: अंक नहीं घटे',
         rankedHonor: (n) => `+${n} सम्मान`,
         variant: 'रूप',
+
+        newTag: 'नया', newN: (n) => `नए: ${n}`, headUnlocks: 'निंजा और अखाड़े', headRewards: 'रैंक्ड इनाम',
         flair: { pose_tenchi: 'आकाश की ओर', pose_rei: 'रेई प्रणाम', pose_hiza: 'घुटने पर ज़ानशिन', pose_katsugi: 'कंधे पर तलवार', pose_kissaki: 'अगला तू है', hitfx_kinpaku: 'सोने के वर्क वाला वार', hitfx_aizome: 'नील स्याही', hitfx_sakura: 'साकुरा विस्फोट', hitfx_kitsunebi: 'लोमड़ी की आग', hitfx_raijin: 'राइजिन की चिंगारियाँ', slash_kin: 'सुनहरी धार', slash_sumi: 'सुमी ब्रश', slash_hana: 'पंखुड़ियों की हवा', slash_rai: 'बिजली का वार', aura_kitsunebi: 'लोमड़ी-आग आभा', aura_raiun: 'तूफ़ानी आभा', aura_hana: 'फूलों की आभा', aura_gekko: 'चाँदनी आभा', ko_enso: 'एन्सो फ़िनिश', ko_hanafubuki: 'पंखुड़ियों का तूफ़ान', ko_raiko: 'बिजली गिरी', ko_mikazuki: 'अर्धचंद्र', card_seigaiha: 'सेइगाइहा लहरें', card_yozakura: 'रात की साकुरा', card_ryu: 'ड्रैगन लाह', card_tsukiyo: 'चाँदनी में चीड़', card_asanoha: 'आसानोहा सोना', arena_temple_snow: 'बर्फ़ीला मंदिर', arena_rain_moon: 'चाँदनी में बाँस', arena_snow_night: 'रात की बर्फ़ीली चोटी', arena_market_rain: 'बारिश में रात का बाज़ार', music_haru: 'वसंत का बाग़', music_yuki: 'बर्फ़ीला चाँद', music_matsuri: 'उत्सव की रात', pass1_akane: 'चंद्रछाया परिधान' },
       },
     });
@@ -1357,8 +1379,8 @@
     void dec; void fmtTime; void num;
   };
 
-  // ---------------------------------------------------------------- journey texts (js/journey-text.js reads ND.JOURNEY_COPY)
-  // Same lists, same order and same counts as the `en` entry in js/journey-text.js (ui 17, goals 10, titles 13, endings 13).
+
+
   (ND.JOURNEY_COPY || (ND.JOURNEY_COPY = {}))['hi'] = {
     ui: ['किरदार का सफर', 'आखिरी राइवल', 'वैकल्पिक महारत', 'सितारा पाने के लिए यह लड़ाई जीतो।', 'महारत सितारा मिला', 'सितारा नहीं मिला · दोबारा खेलते समय कोशिश करो', 'महारत सितारे', '8 में से 6 सितारों के साथ सफर पूरा करो और अपना खिताब और विरासत रंग पाओ। सितारे दोबारा खेलने पर भी बने रहते हैं।', 'असली रंग', 'विरासत रंग', 'रूप', '6 महारत सितारे कमाओ और इस किरदार का सफर पूरा करो।', 'तुम्हारा पिछला सफर और इनाम सुरक्षित हैं। नया रास्ता देखने के लिए फिर से खेलो।', 'Shura चुनौती: 3 अलग किरदारों का सफर पूरा करो।', 'अनलॉक करने के लिए यह मुकाबला जीतो', 'सफर पूरा', 'अध्याय'],
     goals: ['पैरी', 'काउंटर हिट', 'भारी हिट', 'किक हिट', 'हवाई हिट', 'डैश हमला हिट', 'तीसरा कॉम्बो हिट', 'फेंके हथियार से हिट', 'Ki तकनीक हिट', 'गार्ड तोड़े'],

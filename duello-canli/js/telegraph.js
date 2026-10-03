@@ -1,37 +1,37 @@
-// Shadow Duel — attack telegraph (ND.telegraph): the opponent's blow, read from its real timing.
-//   glint  a small, short twinkle on the part that will hit (blade tip, staff end, fan edge, chain weight, foot, the
-//          throwing / drawing hand), for a fighter whose opponent is a human player on this device (the CPU in a solo
-//          fight, both players in local 2P, only the other player online). It grows over LEAD seconds and is brightest on
-//          the first step of the move's hit window (ND.ATK[..].active / .hits[0] of the move actually running, variants
-//          included; the release of a thrown or shot projectile), then fades within FADE. A hint, not a flash: only the
-//          opening blow of a string (not its follow-ups), at most one every GAP seconds per attacker, small and half
-//          transparent (a little bigger on phones).
-//   ring   Easy assist on a touch screen (ND.touchPrefs.assist): a small ring over the player that shrinks and closes
-//          in the middle of the parry window, while the centre is lit exactly while a GUARD press parries: from the
-//          player's own window (ND.parryWin: level, Mai's fans) less one 60 Hz frame before the blow, up to the blow.
-//          Only for blows a guard can parry (blade and chain; not kicks, projectiles, feints), not during the rally
-//          tutorial (it has its own ring) or when the hint prompt already shows SAVUŞTUR for that blow.
-// The time to the blow counts simulation steps (1/120 s) as game.js runs them: hit-stop and slow motion included, the
-// frame rate plays no part (scripts/telegraph-check.mjs measures it against real parries at 60 / 90 / 120 Hz).
-// Drawing: a few lines and arcs in screen space, fixed colour strings, no gradients, nothing allocated per frame (the
-// WebGL2 renderer replays these Canvas calls).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 (function (ND) {
   'use strict';
   const STEP = 1 / 120;
-  const LEAD = 0.2;    // s before the blow the glint starts
-  const FADE = 0.045;  // s after the blow starts it fades out
-  const GAP = 0.7;     // s: at most one glint per attacker in this time (simulation clock)
-  const RING = 0.34;   // s the ring takes to close (it closes in the middle of the parry window)
-  const MARGIN = 1 / 60; // the lit centre starts one 60 Hz frame inside the window (a blade may touch a step late)
+  const LEAD = 0.2;
+  const FADE = 0.045;
+  const GAP = 0.7;
+  const RING = 0.34;
+  const MARGIN = 1 / 60;
   const NO_TELL = { feint: 1, stance: 1 };
   const PROJ = { throw: 1, shoot: 1, gust: 1 };
-  // defender states from which a GUARD press guards at once (fighter.js: move / guard / block / parry / recoil /
-  // zanshin all turn a held guard into 'guard'); mid-attack, in the air, hurt, dodging… a press would come too late
+
+
   const READY = { move: 1, guard: 1, block: 1, parry: 1, recoil: 1, zanshin: 1 };
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 
-  // seconds of simulation until `game` seconds of fight time have passed (hit-stop first, then the slow motion that
-  // is left, then normal speed), as game.update advances it
+
+
   function realLeft(G, g) {
     let t = 0;
     const hs = Math.max(0, G.hitstopT || 0);
@@ -45,10 +45,10 @@
     }
     return t + g;
   }
-  // whole steps until fight time `g` has passed at normal speed (the step on which st crosses the window start)
+
   const stepsLeft = (sec) => Math.max(0, Math.ceil(sec / STEP - 1e-6)) * STEP;
 
-  // what the telegraph shows for attacker `a` against defender `d` (scratch object, reused)
+
   const P = { on: false, u: 0, glint: 0, x: 0, y: 0, ring: false, lit: false, frac: 0, win: 0, kind: '' };
   function probe(a, d, G) {
     P.on = false; P.glint = 0; P.ring = false; P.lit = false;
@@ -69,15 +69,15 @@
     else return P;
     P.x = px; P.y = py; P.kind = A.kind;
     if (a.st < w0) {
-      // before the blow: real seconds to the step on which it starts
+
       const u = realLeft(G, stepsLeft((w0 - a.st) / sp));
       P.u = u;
       if (u <= LEAD) {
         P.on = true;
         const k = 1 - u / LEAD;
-        P.glint = 0.2 + 0.65 * k * k; // (up to 0.85: the blow's own first step is the brightest)
+        P.glint = 0.2 + 0.65 * k * k;
       }
-      // the ring (parryable blows, a defender able to guard): lit while a press still parries, closed mid-window
+
       if (!PROJ[A.kind] && (A.kind !== 'kick' || A.parry) && READY[d.state] && d.onGround && !d.locked) {
         const win = ND.parryWin ? ND.parryWin(d) : 0.17, mid = win / 2;
         P.win = win;
@@ -89,7 +89,7 @@
       }
       return P;
     }
-    // the blow has started: the flash fades
+
     const e = (a.st - w0) / sp;
     if (e > FADE || a.st > w1 + FADE * sp) return P;
     const q = e / FADE;
@@ -97,7 +97,7 @@
     return P;
   }
 
-  // ---------------------------------------------------------------- drawing (screen space)
+
   const GLINT_HI = '#fff6dc', GLINT_CORE = '#ffffff', RING_OPEN = '#96d2ff', RING_LIT = '#e8f6ff', RING_BG = 'rgba(8,9,16,.7)';
   function drawGlint(ctx, cam, G, big) {
     const x = cam.sx(P.x), y = cam.sy(P.y), px = G.pxr || 1;
@@ -129,17 +129,17 @@
     ctx.globalAlpha = 1;
   }
 
-  // which glints are shown: decided once when a glint starts (per attacker), kept until it ends
+
   const EP = [{ on: false, show: false, t: -9 }, { on: false, show: false, t: -9 }];
   function glintShown(i, a, on) {
     const e = EP[i], now = ND.simClock || 0;
     if (!on) { e.on = false; return false; }
     if (!e.on) {
       e.on = true;
-      // the opener of a string only (chainN 0), and not again within GAP (a flurry of blows is one hint)
+
       e.show = !(a.chainN > 0) && (now - e.t >= GAP || now < e.t);
       if (e.show) e.t = now;
-      if (ND.telegraph) ND.telegraph.count[e.show ? 0 : 1]++; // (glints shown / left out: tests, tuning)
+      if (ND.telegraph) ND.telegraph.count[e.show ? 0 : 1]++;
     }
     return e.show;
   }
@@ -147,12 +147,12 @@
   const T = ND.telegraph = {
     LEAD, FADE, GAP, RING, MARGIN, probe,
     count: [0, 0],
-    // Easy assist ring for the player on a touch screen
+
     ringFor(f, G) {
       const P0 = ND.touchPrefs;
       if (!(ND.touch && ND.touch.active) || !P0 || P0.assist === false) return false;
-      if (f !== (G.local ? G.local() : G.F[0]) || !G.isHuman(f) || (ND.tutor && ND.tutor.on)) return false; // (online guest: 2P)
-      // the hint prompt (Settings: hints) already draws SAVUŞTUR over this blow (game.js drawPrompts)
+      if (f !== (G.local ? G.local() : G.F[0]) || !G.isHuman(f) || (ND.tutor && ND.tutor.on)) return false;
+
       const o = f.opp;
       if (ND.settings && ND.settings.hints && o && o.atk && (o.atk.counter || (G.mode === 'train' && o.atk.kind === 'blade'))) return false;
       return true;

@@ -1,33 +1,33 @@
-// Shadow Duel — reward catalog: costumes, titles and badges that come from the server, not from a game update
-// (docs/SHADOW-DUEL-ONLINE.md "Ödül kataloğu"; supabase/ranked.sql nd_rewards, nd_reward_catalog, nd_reward_owned).
-//
-// What the server sends (RPC nd_reward_catalog, every active entry):
-//   { id, kind: 'costume' | 'title' | 'badge', names: { en, tr, es, … any of ND.i18n.supported }, data }
-//   costume data: { v: 1, base?: 'col' | 'alt' | 'champ', pal?: { cloth: '#rrggbb', … }, ninjas?: ['akane', …],
-//                   atlas?: { url, w?, h?, parts: { head: { x, y, w, h, bone: ['neck', 'head'], ox, oy, s, rot }, … } },
-//                   builtin?: 'champion', placeholder?: true }
-//     builtin: a costume drawn by the game itself (js/costumes.js: new shapes, a helmet, armour, a coat…); its drawing
-//            ships with a game update, so only the ids this build knows are kept (ND.COSTUME_IDS, the allow-list)
-//     pal: a recolour of the fighter's palette (the same keys as js/characters.js; any key left out keeps the base's)
-//     atlas: new part art: one picture (PNG / WebP), only from our own Supabase project's public storage
-//            (<SUPABASE_URL>/storage/v1/object/public/…); each part is a rectangle of it drawn along a bone of the
-//            skeleton (from joint → to joint), offset (ox, oy) in the bone's frame, scale s, extra turn rot. Loaded
-//            when first needed and cut into one small picture per part (baked); until then, or if it fails, the
-//            fighter is drawn with the palette alone.
-//   title / badge data: { v: 1, color?: '#rrggbb', icon?: one or two characters }
-// Rules: every entry is checked and clamped; a broken one (wrong kind, no name, bad colour, a picture from elsewhere…)
-// is left out, never an error. The last good catalog is kept on this device and used at once on the next launch; the
-// server is read at boot without waiting (the game never waits for it) and again when the Hall or the ranked screen
-// opens. Automated browsers read it too (tests use the mock server).
-// Who owns what comes with the ranked profile (nd_rank_me: owned) and is cached per player on this device.
-// Not in the offline portal builds (index.html data-online; vite.config.ts leaves this file out).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 (function (ND) {
   'use strict';
   const LS = 'golge-duellosu-rewards', LS_OWN = 'golge-duellosu-rewards-own';
   const LANGS = ['en', 'tr', 'es', 'pt', 'ru', 'de', 'fr', 'it', 'pl', 'id', 'vi', 'th', 'hi', 'ar', 'zh', 'zh-TW', 'ja', 'ko'];
   const KINDS = ['costume', 'title', 'badge'];
   const HEX = /^#[0-9a-f]{6}$/i, RGBA = /^rgba\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*(0|1|0?\.\d{1,3})\s*\)$/i;
-  // palette keys a costume may set (js/characters.js pal / champPal) → colour kind
+
   const PAL = { cloth: HEX, clothHi: HEX, clothDark: HEX, wrap: HEX, wrapDark: HEX, accent: HEX, accentDark: HEX, ui: HEX, skin: HEX,
     hakama: HEX, hakamaDark: HEX, haori: HEX, armor: HEX, mask: HEX, glove: HEX, tabi: HEX, rim: RGBA, rimDim: RGBA };
   const JOINTS = ['hip', 'neck', 'sh', 'head', 'elF', 'haF', 'elB', 'haB', 'knF', 'ftF', 'knB', 'ftB'];
@@ -40,10 +40,10 @@
   const storagePrefix = /^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(base) ? base + '/storage/v1/object/public/' : '';
   const store = {
     get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
-    set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* storage blocked */ } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch (e) {                       } },
   };
 
-  // ---------------------------------------------------------------- checking one entry
+
   function cleanNames(n) {
     if (!isObj(n)) return null;
     const out = {};
@@ -64,7 +64,7 @@
     }
     return Object.keys(out).length ? out : null;
   }
-  // an atlas picture only from our own project's public storage; parts only along known bones
+
   function cleanAtlas(a) {
     if (!isObj(a) || typeof a.url !== 'string' || !storagePrefix) return null;
     const url = a.url.trim();
@@ -89,11 +89,11 @@
     const names = cleanNames(e.names);
     if (!names) return null;
     const d = isObj(e.data) ? e.data : {};
-    if (own(d, 'v') && d.v !== 1) return null; // a later format this build does not know
+    if (own(d, 'v') && d.v !== 1) return null;
     const out = { id: e.id, kind: e.kind, names };
     if (e.kind === 'costume') {
       const pal = cleanPal(d.pal), atlas = cleanAtlas(d.atlas);
-      const ids = Array.isArray(ND.COSTUME_IDS) ? ND.COSTUME_IDS : [];  // (a family id such as 'champion' too)
+      const ids = Array.isArray(ND.COSTUME_IDS) ? ND.COSTUME_IDS : [];
       const builtin = typeof d.builtin === 'string' && ids.includes(d.builtin) ? d.builtin : null;
       if (!pal && !atlas && !builtin) return null;
       out.base = d.base === 'alt' || d.base === 'champ' ? d.base : 'col';
@@ -118,30 +118,30 @@
     return out;
   }
 
-  // ---------------------------------------------------------------- state
+
   let list = [], byId = new Map(), src = 'none', loadedAt = 0, fetching = null;
-  let owned = { pid: null, ids: [] };
+  let owned = { pid: null, ids: [] }, ownKnown = false;
   const fns = new Set();
-  // costume palettes per fighter + entry (cleared on every new list); declared before boot() below calls setList
+
   const palCache = new Map();
-  const emit = () => fns.forEach((f) => { try { f(); } catch (e) { /* a listener */ } });
+  const emit = () => fns.forEach((f) => { try { f(); } catch (e) {                  } });
   function setList(l, from) {
     list = l; byId = new Map(l.map((e) => [e.id, e])); src = from;
     palCache.clear();
     emit();
   }
-  // the copy kept on this device
+
   (function boot() {
     let c = null;
     try { c = JSON.parse(store.get(LS) || 'null'); } catch (e) { c = null; }
     const l = c && cleanList(c.list);
     if (l) setList(l, 'device');
-    try { const o = JSON.parse(store.get(LS_OWN) || 'null'); if (o && Array.isArray(o.ids)) owned = { pid: o.pid ?? null, ids: o.ids.filter((x) => typeof x === 'string').slice(0, 200) }; } catch (e) { /* none */ }
+    try { const o = JSON.parse(store.get(LS_OWN) || 'null'); if (o && Array.isArray(o.ids)) { owned = { pid: o.pid ?? null, ids: o.ids.filter((x) => typeof x === 'string').slice(0, 200) }; ownKnown = true; } } catch (e) {            }
   })();
 
   const LB = () => ND.leaderboard;
   const adapter = () => { const L = LB(); const a = L && L.adapter; return a && a.name === 'supabase' && typeof a.rpc === 'function' ? a : null; };
-  // read the server's catalog (never throws; the game never waits for it)
+
   function refresh() {
     if (fetching) return fetching;
     fetching = (async () => {
@@ -162,7 +162,7 @@
     return fetching;
   }
 
-  // ---------------------------------------------------------------- names in the chosen language
+
   const lang = () => (ND.i18n && typeof ND.i18n.lang === 'string' ? ND.i18n.lang : 'tr');
   function nameOf(e) {
     if (typeof e === 'string') e = byId.get(e);
@@ -171,14 +171,14 @@
     return n[l] || n.en || n.tr || e.id;
   }
 
-  // ---------------------------------------------------------------- costumes: palette + atlas
+
   function palette(ch, id) {
     const e = byId.get(id);
     if (!ch || !e || e.kind !== 'costume' || (e.ninjas && !e.ninjas.includes(ch.id))) return null;
     const k = ch.id + '|' + id;
     let p = palCache.get(k);
     if (p) return p;
-    // a drawn costume for this fighter (a family such as 'champion' draws each fighter's own; none yet: nothing)
+
     const key = e.builtin && ND.costumeKey ? ND.costumeKey(e.builtin, ch.id) : null;
     if (e.builtin && !key && !e.pal && !e.atlas) return null;
     const basePal = ND.palOf ? ND.palOf(ch, e.base === 'champ' ? 'champ' : e.base === 'alt') : ch.col;
@@ -188,12 +188,12 @@
     else if (K && K.pal && K.pal.hood) p.hood = Object.assign({}, K.pal.hood);
     else if (basePal.hood && !(e.pal && e.pal.hood)) p.hood = basePal.hood;
     if (e.atlas) Object.defineProperty(p, 'atlas', { value: atlasFor(e), enumerable: false });
-    // a drawn costume (js/costumes.js): skeleton.js draws its parts over the fighter
+
     if (key) Object.defineProperty(p, 'costume', { value: key, enumerable: false });
     palCache.set(k, p);
     return p;
   }
-  // the atlas picture: loaded once, then each part cut into its own canvas (baked); state 'wait' | 'ok' | 'fail'
+
   const atlases = new Map();
   function atlasFor(e) {
     let A = atlases.get(e.id);
@@ -227,7 +227,7 @@
       img.src = A.url;
     } catch (e) { A.state = 'fail'; }
   }
-  // drawn after the fighter (js/fighter.js draw): each baked part along its bone. Never throws.
+
   ND.skinOverlay = function (ctx, j, col) {
     const A = col && col.atlas;
     if (!A) return;
@@ -246,10 +246,15 @@
     } catch (e) { A.state = 'fail'; }
   };
 
-  // ---------------------------------------------------------------- ownership
+
   function setOwned(pid, ids) {
     const clean = Array.isArray(ids) ? ids.filter((x) => typeof x === 'string' && /^[a-z0-9_]{3,40}$/.test(x)).slice(0, 200) : [];
+
+
+    const prev = owned, known = ownKnown && String(prev.pid) === String(pid ?? null);
     owned = { pid: pid ?? null, ids: clean };
+    ownKnown = true;
+    if (known && ND.pass && ND.pass.markNew) { const add = clean.filter((x) => !prev.ids.includes(x)); if (add.length) ND.pass.markNew(add.map((x) => 'rw:' + x)); }
     store.set(LS_OWN, JSON.stringify(owned));
     palCache.clear();
     emit();
@@ -267,20 +272,20 @@
     owns,
     setOwned,
     owned: () => owned.ids.filter((id) => byId.has(id) && owns(id)),
-    // costumes this player owns that fit this ninja (the select screen's appearance slots)
+
     costumesFor(ninja) {
       const ch = ND.CHARS ? ND.CHARS.find((c) => c.id === ninja) : null;
       return list.filter((e) => e.kind === 'costume' && owns(e.id) && (!e.ninjas || e.ninjas.includes(ninja)) && (!ch || !!palette(ch, e.id)));
     },
-    // a title / badge to show: { name, color, icon } | null
+
     title(id) { const e = byId.get(id); return e && e.kind !== 'costume' ? { id: e.id, name: nameOf(e), color: e.color, icon: e.icon } : null; },
     state: () => ({ src, entries: list.length, loadedAt, owned: owned.ids.slice(), atlases: [...atlases.values()].map((a) => a.state) }),
   };
-  // the appearance value of a catalog costume ('rw:<id>', js/characters.js ND.palOf; js/arcade.js looks)
+
   R.LOOK = 'rw:';
 
   if (!(ND.platform || {}).allowNetwork) return;
-  // boot: read the server without waiting (after the leaderboard knows its server)
+
   setTimeout(() => { refresh(); }, 0);
   if (ND.i18n && ND.i18n.onChange) ND.i18n.onChange(() => emit());
 })(window.ND);

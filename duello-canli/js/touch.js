@@ -1,63 +1,63 @@
-// Shadow Duel — touch controls: player preferences, where every control sits, their settings panel, fullscreen and
-// the portrait hint. The pad itself (stick, d-pad, buttons, multi-touch) lives in input.js; the layout editor in
-// touch-editor.js. This file decides how the pad looks and behaves:
-//   layout  'full' (default: ATTACK, HEAVY, DASH, GUARD, KICK, SHURIKEN, KI) | 'simple' (no KICK, SHURIKEN)
-//   lpick   the layout was picked by the player (Settings → Controls, or saved from the layout editor). Until
-//           2026-09-29 'simple' was the default and every save stored it, picked or not: such a save (layout 'simple',
-//           no lpick) is read as 'full' once, so the KICK and SHURIKEN buttons come back (iPhone report, 2026-09-29).
-//   size    's' | 'm' | 'l'  global scale of every control (--tb, the base button diameter)
-//   left    left-handed: the default positions mirrored (movement on the right, buttons on the left)
-//   move    'float' stick appears where the thumb lands | 'fixed' stick stays where it was put | 'dpad' ◀ ▶ ▲ ▼ buttons
-//           (new players start on 'dpad' + dtap, see NEW_DEF; saves from before keep 'float')
-//   dtap    d-pad only: a quick tap on ◀ / ▶ is one short step (double tap still dashes)
-//   assist  input conveniences only (hold ATTACK to keep chaining, steadier stick): same rules, fair scores
-//   haptic  short vibration on press where the browser supports it
-//   op      opacity of every control (each control also has its own, multiplied)
-//   snap    layout editor: snap to grid
-//   lay     custom layouts made in the editor, one per screen shape ('phone' wide landscape, 'tablet', 'portrait'):
-//           { v: 1, it: { id: { x, y, s, o, h } } }  x / y = centre as a fraction of the play area, s = diameter in
-//           --tb units, o = own opacity, h = hidden. No saved layout for a shape → the default for that shape.
-//           The pause button (id 'pause') is part of the layout too; layouts saved before it existed simply use its
-//           default spot. It can't be hidden and it doesn't flip with the hands (the top right stays the top right).
-// Looks to compare on a phone (URL flags, not saved): ?dpad=b (lacquer cross, default) | a (ink ring) and
-// ?pausepos=corner (top right under the health bars, default) | top (under the timer).
-// Saved with the other settings (ND.save, key "touch"). Texts: ND.STR.touch.opt and ND.STR.tedit
-// (Turkish in i18n.js, English in i18n-en.js).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 (function (ND) {
   'use strict';
   const $ = (id) => document.getElementById(id);
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
   const num = (v) => typeof v === 'number' && isFinite(v);
 
-  // ---------------------------------------------------------------- controls
+
   const ACTS = ['light', 'heavy', 'dodge', 'guard', 'kick', 'throw', 'special'];
   const DPAD = ['dl', 'dr', 'du', 'dd'];
   const IDS = ACTS.concat(['stick'], DPAD, ['pause']);
-  // reference diameter (--tb units) of each control: its size slider reads 100 % ("M") there
+
   const BASE = { light: 1.3, heavy: 1, dodge: 0.85, guard: 1, kick: 1, throw: 0.85, special: 0.95, stick: 2.3, dl: 0.95, dr: 0.95, du: 0.95, dd: 0.95, pause: 0.56 };
-  // controls that are always on screen (no Hide switch)
+
   const KEEP = { stick: 1, pause: 1 };
-  // looks under comparison (URL flags): d-pad 'a' ink ring | 'b' lacquer cross; pause 'corner' | 'top'
+
   const flag = (k, ok, def) => { try { const v = ND.qs && ND.qs.get(k); return ok.includes(v) ? v : def; } catch (e) { return def; } };
   const DLOOK = flag('dpad', ['a', 'b'], 'b');
   const PPOS = flag('pausepos', ['corner', 'top'], 'corner');
   const RMIN = 0.7, RMAX = 1.5, OMIN = 0.2;
 
-  // Default and preset positions, right-handed, in --tb units: [side, x, y, diameter]. side 'R': x from the right
-  // edge, 'L': x from the left edge; y from the bottom. Low arc on the right, the top of the screen stays free.
+
+
   const MOVE_L = {
     stick: ['L', 1.42, 1.35, 2.3],
     dl: ['L', 0.63, 1.5, 0.95], dr: ['L', 2.47, 1.5, 0.95], du: ['L', 1.55, 2.42, 0.95], dd: ['L', 1.55, 0.58, 0.95],
   };
   const PRESETS = {
-    // (full: SHURIKEN sits low, between DASH and KICK, so it stays under the fighters' feet with the closer phone camera)
+
     right: {
       full: { light: ['R', 0.95, 0.9, 1.3], heavy: ['R', 2.4, 0.62, 1], dodge: ['R', 3.65, 0.52, 0.85], guard: ['R', 0.8, 2.25, 1],
         kick: ['R', 2.05, 1.85, 1], throw: ['R', 3.2, 1.35, 0.85], special: ['R', 4.45, 1.25, 0.95] },
       simple: { light: ['R', 0.98, 0.95, 1.45], heavy: ['R', 2.47, 0.68, 1.05], guard: ['R', 0.88, 2.52, 1.15], special: ['R', 2.25, 1.98, 1.02],
         dodge: ['R', 3.72, 0.58, 0.9], kick: ['R', 2.05, 1.85, 1], throw: ['R', 3.25, 1.6, 0.85] },
     },
-    // GUARD under the left thumb, next to the movement control; the attacks keep the right thumb
+
     split: {
       full: { light: ['R', 0.95, 0.9, 1.3], heavy: ['R', 2.4, 0.62, 1], dodge: ['R', 3.65, 0.52, 0.85], special: ['R', 0.8, 2.25, 1],
         kick: ['R', 2.05, 1.85, 1], throw: ['R', 3.25, 1.6, 0.85], guard: ['L', 3.75, 0.8, 1.1] },
@@ -66,7 +66,7 @@
     },
   };
 
-  // ---------------------------------------------------------------- preferences
+
   const DEF = { layout: 'full', lpick: false, size: 'm', left: false, assist: true, haptic: true, move: 'float', dtap: false, op: 1, snap: true, lay: {} };
   const OK = { layout: ['simple', 'full'], size: ['s', 'm', 'l'], move: ['float', 'fixed', 'dpad'] };
   const BOOLS = ['left', 'assist', 'haptic', 'dtap', 'snap', 'lpick'];
@@ -74,8 +74,8 @@
   const T = () => (ND.STR && ND.STR.touch && ND.STR.touch.opt) || {};
   const E = () => (ND.STR && ND.STR.tedit) || {};
 
-  // A saved layout, checked: unknown ids dropped, numbers kept in range. Positions are clamped into the screen
-  // again every time they are used (resolve), so a layout made on another screen still fits.
+
+
   function cleanLayout(L) {
     if (!L || typeof L !== 'object' || !L.it || typeof L.it !== 'object') return null;
     const it = {};
@@ -93,19 +93,19 @@
     }
     return n ? { v: 1, m: L.m === true, it } : null;
   }
-  // New players (2026-09-28): the d-pad with "tap to step" instead of the stick (a quick tap on ◀ / ▶ is one short
-  // step, so spacing is easy). Only a save that has no touch choice yet AND has not finished a fight gets it, and the
-  // choice is stored at once (it must not flip back after the first fight). A player with a saved touch choice keeps
-  // it; a returning player without one (a save from before, fights played) keeps the stick they know.
+
+
+
+
   const NEW_DEF = { move: 'dpad', dtap: true };
   function newPlayer() {
     try { const p = ND.save && ND.save.p; return !!p && !p.fought; } catch (e) { return false; }
   }
-  // KICK and SHURIKEN shown in every saved layout (the Full layout's buttons)
+
   function showAll(p) { for (const k of SHAPES) { const L = p.lay[k]; if (L) for (const id of ['kick', 'throw']) if (L.it[id]) L.it[id].h = false; } }
   function read() {
     let s = null;
-    try { s = ND.save ? ND.save.settings().touch : null; } catch (e) { /* storage blocked */ }
+    try { s = ND.save ? ND.save.settings().touch : null; } catch (e) {                       }
     const p = Object.assign({}, DEF, { lay: {} });
     if (!(s && typeof s === 'object') && newPlayer()) { Object.assign(p, NEW_DEF); p.fresh = true; }
     if (s && typeof s === 'object') {
@@ -113,7 +113,7 @@
       for (const k of BOOLS) if (typeof s[k] === 'boolean') p[k] = s[k];
       if (num(s.op)) p.op = clamp(s.op, OMIN, 1);
       if (s.lay && typeof s.lay === 'object') for (const k of SHAPES) { const L = cleanLayout(s.lay[k]); if (L) p.lay[k] = L; }
-      // the old default, never picked: the full set of buttons (saved layouts show KICK and SHURIKEN again), stored at once
+
       if (p.layout === 'simple' && !p.lpick) { p.layout = 'full'; showAll(p); p.fresh = true; }
     }
     return p;
@@ -126,19 +126,19 @@
       s.touch = JSON.parse(JSON.stringify(prefs));
       delete s.touch.fresh;
       ND.save.saveSettings(s);
-    } catch (e) { /* storage blocked: the choice lasts this session */ }
+    } catch (e) {                                                      }
   }
-  // the new player's default (see NEW_DEF) and a save moved off the old Simple default are kept from now on
+
   if (prefs.fresh) { delete prefs.fresh; save(); }
 
-  // ---------------------------------------------------------------- screen measures
-  // --tb follows the screen height like the CSS used to (clamp(56px, 16vh, 76px) for M); it is set in px on #app so the
-  // stylesheet and this file always agree.
+
+
+
   const TB = { s: [48, 0.135, 64], m: [56, 0.16, 76], l: [62, 0.185, 88] };
   const tbPx = (size, vh) => { const t = TB[size] || TB.m; return Math.round(clamp(vh * t[1], t[0], t[2])); };
   let probe = null;
   function insets() {
-    // notch / rounded-corner margins (env(safe-area-inset-*)) read through a hidden probe
+
     try {
       if (!probe) {
         probe = document.createElement('div');
@@ -149,7 +149,7 @@
       return { l: parseFloat(cs.paddingLeft) || 0, r: parseFloat(cs.paddingRight) || 0 };
     } catch (e) { return { l: 0, r: 0 }; }
   }
-  // The play area (#app, already inside the top/bottom safe areas) and what depends on it
+
   function measure() {
     const app = $('app');
     const W = (app && app.clientWidth) || window.innerWidth || 800, H = (app && app.clientHeight) || window.innerHeight || 450;
@@ -157,8 +157,8 @@
     return { W, H, sl: ins.l, sr: ins.r, vh: window.innerHeight || H, shape: a >= 1.55 ? 'phone' : a >= 1 ? 'tablet' : 'portrait' };
   }
 
-  // ---------------------------------------------------------------- geometry
-  // Every control as pixels in the play area: { id: { cx, cy, d, o, h } }
+
+
   function presetPx(name, layout, left, S, tb) {
     const P = PRESETS[name === 'left' ? 'right' : name] || PRESETS.right;
     const src = Object.assign({}, MOVE_L, P[layout] || P.simple);
@@ -166,7 +166,7 @@
     for (const id of IDS) {
       const q = src[id];
       if (!q) continue;
-      // mirrored (left hand): the same distances from the other edge, each edge with its own notch margin
+
       const side = (left || name === 'left') === (q[0] === 'R') ? 'L' : 'R';
       const cx = side === 'R' ? S.W - S.sr - 6 - q[1] * tb : S.sl + 6 + q[1] * tb;
       const cy = S.H - 6 - q[2] * tb;
@@ -174,10 +174,10 @@
     }
     return out;
   }
-  // Pause button's default spot. Its top edge follows where the HUD ends, estimated from the same CSS rules as
-  // index.html (#hud, .clock; compact rules at max-height 500px), so it doesn't depend on the HUD being on screen.
-  //   corner: top right, just under the second player's health / ki bars (thumbs never go there, nothing covered)
-  //   top:    centre, just under the timer (the combo counter moves down to make room, index.html)
+
+
+
+
   function pauseDefault(S, tb) {
     const d = BASE.pause * tb, short = S.vh <= 500, W = S.W;
     if (PPOS === 'top') {
@@ -197,10 +197,10 @@
     q.cy = b.y1 < b.y0 ? S.H / 2 : clamp(q.cy, b.y0, b.y1);
     return q;
   }
-  // which controls are on screen together: the buttons plus the stick or the d-pad
+
   const liveIds = (move) => ACTS.concat(move === 'dpad' ? DPAD : ['stick'], ['pause']);
   const hits = (a, b, pad = 2) => Math.hypot(a.cx - b.cx, a.cy - b.cy) < (a.d + b.d) / 2 + pad;
-  // Nearest spot for q where it overlaps none of `others` and stays on screen (spiral search); null if there is none
+
   function freeSpot(q, others, S, tb) {
     const b = box(q, S), ok = (x, y) => x >= b.x0 && x <= b.x1 && y >= b.y0 && y <= b.y1 && !others.some((o) => hits({ cx: x, cy: y, d: q.d }, o));
     if (ok(q.cx, q.cy)) return { cx: q.cx, cy: q.cy };
@@ -210,16 +210,16 @@
       let best = null, bd = Infinity;
       for (let i = 0; i < n; i++) {
         const a = (i / n) * Math.PI * 2, x = q.cx + Math.cos(a) * r, y = q.cy + Math.sin(a) * r;
-        // prefer spots lower on the screen (thumbs rest low) when two are as close
+
         if (ok(x, y)) { const d = -y * 0.001; if (d < bd) { bd = d; best = { cx: x, cy: y }; } }
       }
       if (best) return best;
     }
     return null;
   }
-  // Pixel layout for a set of preferences on screen S. Custom layout for this screen shape when there is one, the
-  // default otherwise; every control clamped into the safe area, overlaps (after a size change or a smaller screen)
-  // pushed to the nearest free spot.
+
+
+
   function resolve(P, S) {
     P = P || prefs; S = S || measure();
     const tb = tbPx(P.size, S.vh);
@@ -243,15 +243,15 @@
       placed.push(q);
     }
   }
-  // pixels → a layout to save (fractions of the play area)
+
   function toLayout(items, S, tb, mirrored) {
     const it = {}, r4 = (v) => Math.round(v * 1e4) / 1e4;
     for (const id of IDS) { const q = items[id]; if (q) it[id] = { x: r4(q.cx / S.W), y: r4(q.cy / S.H), s: r4(q.d / tb), o: r4(q.o), h: !!q.h && !KEEP[id] }; }
     return { v: 1, m: !!mirrored, it };
   }
 
-  // ---------------------------------------------------------------- look of the pad
-  // DOM writes only here (preference change, resize, rotation): the pad never moves per frame.
+
+
   let geo = null;
   function place(el, q, tb) {
     if (!el) return;
@@ -259,9 +259,9 @@
     el.style.translate = `${(q.cx - q.d / 2).toFixed(1)}px ${(q.cy - q.d / 2).toFixed(1)}px`;
     el.style.setProperty('--r', (q.d / tb).toFixed(3));
   }
-  // Where the stick listens: 'fixed' → a square around the base; 'float' → the base's side of the screen, from a
-  // little above it down to the bottom (buttons placed inside it sit on top and win their touches). The zone starts
-  // below the pause button when they share a column, so a thumb landing high never pauses the fight by accident.
+
+
+
   function stickZone(move, st, S, pz) {
     let x, y, w, h;
     if (move === 'fixed') {
@@ -278,8 +278,8 @@
     }
     return { x, y, w, h };
   }
-  // The d-pad drawn as one piece (ink ring 'a' / lacquer cross 'b') behind its buttons, while they still sit around a
-  // common centre (the default, or moved together in the editor). Buttons dragged apart stand alone: null.
+
+
   function dpadRing(items, tb) {
     const q = {};
     let n = 0;
@@ -291,14 +291,14 @@
     let rMin = Infinity, rMax = 0, ext = 0;
     for (const id in q) {
       const b = q[id], dx = b.cx - cx, dy = b.cy - cy, r = Math.hypot(dx, dy);
-      // each button on its own side of the centre, close to its axis
+
       const along = id === 'dl' ? -dx : id === 'dr' ? dx : id === 'du' ? -dy : dy;
       const across = id === 'dl' || id === 'dr' ? Math.abs(dy) : Math.abs(dx);
       if (along < b.d * 0.3 || across > along * 0.45) return null;
       rMin = Math.min(rMin, r); rMax = Math.max(rMax, r); ext = Math.max(ext, r + b.d / 2);
     }
     const aw = avg('d');
-    // a regular cross only: arms of similar length, buttons not far from the centre
+
     if (rMax > rMin * 1.5 || rMax - aw / 2 > tb * 1.1) return null;
     return { cx, cy, d: ext * 2 + 4, aw, o: avg('o') };
   }
@@ -312,7 +312,7 @@
     pad.style.setProperty('--op', prefs.op);
     pad.dataset.move = prefs.move;
     pad.dataset.dlook = DLOOK;
-    // pause: its own spot on touch screens (movable in the editor), the default spot with keyboard / gamepad
+
     const pb = $('pauseBtn');
     if (pb) {
       const pz = items.pause, pd = pauseDefault(S, tb), px = (v) => v.toFixed(1) + 'px';
@@ -320,7 +320,7 @@
       pb.style.setProperty('--pp', px(pz.d)); pb.style.setProperty('--ppx', px(pz.cx - pz.d / 2)); pb.style.setProperty('--ppy', px(pz.cy - pz.d / 2));
       pb.style.setProperty('--o', pz.o);
     }
-    // the d-pad's one-piece backing (placed like the buttons; hidden when they stand apart)
+
     const ring = $('tDring'), R = prefs.move === 'dpad' ? dpadRing(items, tb) : null;
     if (ring) {
       ring.hidden = !R;
@@ -346,8 +346,8 @@
       b.style.setProperty('--o', q.o);
       place(b, q, tb);
     }
-    // stick: 'float' → a zone on its side of the screen (the base rests at its spot, jumps to the thumb);
-    // 'fixed' → a zone around the base, which never moves
+
+
     const zone = $('tStick'), base = $('tBase'), st = items.stick;
     if (zone && base) {
       const { x, y, w, h } = stickZone(prefs.move, st, S, items.pause);
@@ -358,8 +358,8 @@
       base.style.setProperty('--o', st.o);
       base.style.setProperty('--r', (st.d / tb).toFixed(3));
     }
-    // swipe-to-dash area of the d-pad and fixed-stick modes (input.js SW): where a floating stick would listen, around the
-    // d-pad's centre (or the fixed stick); the d-pad buttons and the fixed stick sit on top of it and keep their touches
+
+
     const sz = $('tSwipe');
     if (sz) {
       const dc = prefs.move === 'dpad' ? dpadRing(items, tb) : null, c = dc ? { cx: dc.cx, cy: dc.cy, d: st.d } : st;
@@ -373,11 +373,11 @@
     if (pad) { pad.classList.toggle('simple', prefs.layout === 'simple'); pad.classList.toggle('full', prefs.layout === 'full'); }
     if (app) { app.dataset.tsize = prefs.size; app.classList.toggle('t-left', isLeft()); }
     layoutPad();
-    // fingers still down belong to the old layout: let them go (the button boxes are measured again). A plain resize
-    // (browser bars sliding in and out) keeps them: the next touch measures the new boxes.
+
+
     try {
       if (ND.input) { if (!keepFingers && ND.input.touchReset) ND.input.touchReset(); else if (ND.input.touchRelayout) ND.input.touchRelayout(); }
-    } catch (e) { /* yok */ }
+    } catch (e) {           }
     refresh();
   }
   let rsz = 0;
@@ -385,26 +385,26 @@
   window.addEventListener('resize', onResize, { passive: true });
   window.addEventListener('orientationchange', onResize, { passive: true });
 
-  // ---------------------------------------------------------------- keeping options and saved layouts coherent
+
   function eachLayout(fn) { for (const k of SHAPES) if (prefs.lay[k]) fn(prefs.lay[k]); }
-  // Simple / Full on a custom layout: shows or hides KICK and SHURIKEN (resolve moves them if they land on a button)
+
   function setLayout(v) {
     prefs.layout = v;
     eachLayout((L) => ['kick', 'throw'].forEach((id) => { if (L.it[id]) L.it[id].h = v === 'simple'; }));
   }
-  // Left-handed: the mirror image of whatever layout is in use. Each saved layout remembers whether it is mirrored
-  // (m), so switching hands flips only the layouts that are the other way round; the defaults mirror themselves.
+
+
   function setLeft(v) {
     v = !!v;
     prefs.left = v;
     eachLayout((L) => { if (!!L.m === v) return; L.m = v; for (const id in L.it) if (id !== 'pause') L.it[id].x = Math.round((1 - L.it[id].x) * 1e4) / 1e4; });
   }
-  // the hand shown in the settings: the current screen's saved layout, else the preference
+
   function isLeft() { const L = prefs.lay[measure().shape]; return L ? !!L.m : !!prefs.left; }
 
-  // ---------------------------------------------------------------- fullscreen
-  // Only on our own pages: CrazyGames, Poki and Yandex run the game in their own frame and offer fullscreen
-  // themselves (CrazyGames keeps Escape for it). iPhone Safari has no element fullscreen, so the button stays hidden.
+
+
+
   const doc = document, root = doc.documentElement;
   const fsEnabled = () => !!(doc.fullscreenEnabled || doc.webkitFullscreenEnabled);
   const fsElement = () => doc.fullscreenElement || doc.webkitFullscreenElement || null;
@@ -415,14 +415,14 @@
       const req = root.requestFullscreen || root.webkitRequestFullscreen;
       if (!req) return;
       const p = req.call(root, { navigationUI: 'hide' });
-      // phones: once fullscreen, ask to stay in landscape (Android Chrome allows it only in fullscreen)
-      const lock = () => { try { const o = screen.orientation; if (o && o.lock && ND.touch && ND.touch.active) o.lock('landscape').catch(() => {}); } catch (e) { /* yok */ } };
+
+      const lock = () => { try { const o = screen.orientation; if (o && o.lock && ND.touch && ND.touch.active) o.lock('landscape').catch(() => {}); } catch (e) {           } };
       if (p && p.then) p.then(lock).catch(() => {}); else lock();
-    } catch (e) { /* refused: nothing to do */ }
+    } catch (e) {                              }
   }
   ['fullscreenchange', 'webkitfullscreenchange'].forEach((ev) => doc.addEventListener(ev, () => refresh()));
 
-  // ---------------------------------------------------------------- settings rows (Settings panel → Controls tab, js/settings.js)
+
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const canVibrate = () => typeof navigator.vibrate === 'function';
   function build(box, withNote) {
@@ -448,14 +448,14 @@
       else if (k === 'layout') { setLayout(b.dataset.v); prefs.lpick = true; }
       else prefs[k] = b.dataset.v;
       save(); apply();
-      try { if (ND.audio && ND.audio.ready) ND.audio.ui(); } catch (err) { /* yok */ }
+      try { if (ND.audio && ND.audio.ready) ND.audio.ui(); } catch (err) {           }
     }));
     const fs = box.querySelector('[data-fs]');
     if (fs) fs.onclick = (e) => { e.stopPropagation(); toggleFullscreen(); };
     const ed = box.querySelector('[data-tedit]');
     if (ed) ed.onclick = (e) => { e.stopPropagation(); if (ND.touchEditor) ND.touchEditor.open(); };
   }
-  // pressed states + fullscreen label on every panel
+
   function refresh() {
     const O = T(), left = isLeft();
     document.querySelectorAll('.tset').forEach((box) => {
@@ -471,17 +471,17 @@
     });
     menuFs(O);
   }
-  // The main menu's fullscreen button: a small round icon in the top row (next to Settings and the language globe),
-  // four corner brackets pointing out (enter) or in (exit). Only where fsAllowed(): our own pages with a working
-  // Fullscreen API — never on a portal (CrazyGames forbids custom fullscreen buttons and provides its own; Yandex and
-  // Playgama run the game full screen in their own frames), never on iPhone Safari (no element fullscreen).
+
+
+
+
   const FS_IN = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg>';
   const FS_OUT = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5"/></svg>';
   function menuFs(O) {
     const row = $('menuTop');
     if (!row) return;
     let b = $('menuFs');
-    // (iPhone: Safari there has no element fullscreen; said outright, whatever a browser there reports)
+
     const iphone = /iPhone|iPod/.test(navigator.userAgent || '');
     if (!fsAllowed() || iphone) { if (b) b.hidden = true; return; }
     if (!b) {
@@ -489,7 +489,7 @@
       b.type = 'button'; b.id = 'menuFs'; b.className = 'fs-btn';
       b.onclick = (e) => { e.stopPropagation(); toggleFullscreen(); };
     }
-    if (row.lastElementChild !== b) row.appendChild(b); // (the corner: after Settings and the language globe)
+    if (row.lastElementChild !== b) row.appendChild(b);
     const on = !!fsElement(), t = on ? O.exitFullscreen || 'Exit fullscreen' : O.fullscreen || 'Fullscreen';
     b.hidden = false;
     if (b._on !== on) { b.innerHTML = on ? FS_OUT : FS_IN; b._on = on; }
@@ -497,8 +497,8 @@
   }
   function buildAll() { build($('setTset'), true); refresh(); }
 
-  // ---------------------------------------------------------------- move list: where kick / shuriken went
-  // In the simple layout the move list still shows KICK and SHURIKEN moves; one line says where those buttons are.
+
+
   function hookMoves() {
     const tr = ND.training;
     if (!tr || typeof tr.movesHtml !== 'function' || tr.movesHtml._touch) return;
@@ -506,7 +506,7 @@
     const wrapped = function (...args) {
       let html = orig.apply(this, args);
       if (!(ND.touch && ND.touch.active)) return html;
-      // move descriptions name the keyboard's LIGHT / HAFİF button: on touch that button is ATTACK / SALDIR
+
       const TB = (ND.STR && ND.STR.touch && ND.STR.touch.btn) || {};
       if (TB.light) html = html.replace(/(^|[^A-Za-zÇĞİÖŞÜçğıöşü])(LIGHT|HAFİF)(?![A-Za-zÇĞİÖŞÜçğıöşü])/g, (m, a) => a + TB.light);
       const note = T().fullNote;
@@ -517,22 +517,22 @@
     tr.movesHtml = wrapped;
   }
 
-  // ---------------------------------------------------------------- start (DOM is there: scripts sit at the end of <body>)
+
   ND.touchUI = {
     prefs, apply, refresh, rebuild: buildAll, toggleFullscreen, fsAllowed, save,
-    // for the layout editor (touch-editor.js)
+
     IDS, ACTS, DPAD, BASE, KEEP, RMIN, RMAX, OMIN, DLOOK, PPOS, measure, tbPx, resolve, presetPx, keepIn, freeSpot, hits, liveIds, toLayout, setLeft, stickZone, dpadRing,
     geo: () => geo,
   };
   apply();
-  // texts come from ND.STR, which i18n translates after this file runs: build once everything has loaded
+
   const start = () => {
     buildAll(); hookMoves();
     if (ND.i18n && ND.i18n.onChange) ND.i18n.onChange(buildAll);
-    // portrait hint during a fight: a way out without turning the phone
+
     const rm = $('rotMenu'), bm = $('bMenu');
     if (rm && bm) rm.onclick = () => bm.click();
-    // the first layout ran before the fonts / final size: measure again once everything is in place
+
     apply(true);
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else setTimeout(start, 0);

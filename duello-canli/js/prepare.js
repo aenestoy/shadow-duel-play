@@ -1,4 +1,4 @@
-// Cooperative match preparation. One bounded job per display frame; no fake countdown or network dependency.
+
 (function (ND) {
   'use strict';
   let panel;
@@ -19,7 +19,7 @@
       return {
         step() {
           if (cancelled) return;
-          // A false result means the job has more work; it will resume on the next frame.
+
           try { if (jobs[index]() !== false) index++; }
           catch (error) { console.warn('[ND.prepare] warm-up failed; using live drawing', error); index++; }
           bar.value = index / jobs.length;

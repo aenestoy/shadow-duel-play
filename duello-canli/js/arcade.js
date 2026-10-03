@@ -1,4 +1,4 @@
-// Gölge Düellosu — Arcade merdiveni, gizli son patron, kilit açma/ilerleme (ND.save), antrenman + eğitim, metin tablosu (ND.STR)
+
 (function (ND) {
   'use strict';
   const $ = (id) => document.getElementById(id);
@@ -8,7 +8,7 @@
   const fmtTime = (s) => { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
   const fmtNum = (n) => { if (ND.i18n) return ND.i18n.num(n); try { return Math.round(n).toLocaleString('tr-TR'); } catch (e) { return String(Math.round(n)); } };
 
-  // ================================================================ METİNLER (çeviri için tek tablo)
+
   const STR = ND.STR = {
     menu: {
       brand: (nc, na) => `${nc} savaşçı, ${na} arena ve gizli bir usta. Gerçek zamanlı kılıç çarpışması, kılıç kilitlenmesi, savuşturma, denge kırma, ki teknikleri ve ragdoll fiziği.`,
@@ -19,22 +19,22 @@
       trainDesc: 'Kuklayla serbest çalış ya da adım adım öğren',
       trainFree: 'Serbest',
       trainTut: 'Eğitim',
-      trainDrill: 'Savuşturma dersi', // Training → the first-fight rally tutorial again (js/tutorial.js)
+      trainDrill: 'Savuşturma dersi',
       watchShort: 'Rastgele iki ninja, Efsane yapay zekâ',
       specialKey: 'Ki tekniği (ki dolu)',
       play: 'Oyna',
       playSub: (name, lv) => `${name} ile CPU’ya karşı · ${lv}`,
       single: 'Tek Maç', singleDesc: 'CPU’ya karşı ya da iki oyuncu',
     },
-    // İlk açılış: tek büyük OYNA düğmesi (menü sonraki açılışlarda)
+
     first: { play: 'Oyna', sub: 'Tek tıkla dövüşe gir', menu: 'Tüm modlar' },
-    // Ödüllü reklam teklifleri (yalnız reklam ağı olan portallarda görünür)
+
     ads: {
       cont: 'Kaldığın yerden devam', contSub: 'Reklam izle · cezasız tekrar',
       trial: (name) => `${name} ile bir dövüş dene`, trialSub: 'Reklam izle',
       fail: 'Şu an reklam yok, biraz sonra yeniden dene',
     },
-    // İlk dövüşte üç kısa ipucu (l: hafif tuşu/düğmesi, g: gard tuşu/düğmesi — HTML)
+
     coach: {
       attack: (l) => `${l} ile saldır`,
       guard: (l, g) => `${g} basılı tut: gard`,
@@ -69,7 +69,7 @@
       boss: 'Arcade’de son patronu yen',
       arena: 'Arcade’de bu arenada bir dövüş kazan',
     },
-    // Onur (誉): tek ilerleme kaynağı (honor.js kuralları)
+
     honor: {
       name: 'Onur', k: '誉',
       plus: (n) => `+${fmtNum(n)}`,
@@ -83,11 +83,11 @@
       all: 'Tüm ninjalar açık',
       bonus: { arcadeClear: 'Arcade bitirildi', tourneyClear: 'Turnuva fethedildi', danPass: 'Dan sınavı geçildi', rivalWin: 'Meydan okuma kazanıldı', tutorial: 'Eğitim tamamlandı' },
       bonusToast: (n, what) => `+${fmtNum(n)} onur · ${what}`,
-      // Onur Yolu paneli
+
       road: 'Onur Yolu',
       roadSub: 'Onur tek oyunculu her modda kazanılır. Eşiğe ulaşınca o ninja sana meydan okur; düelloyu kazanırsan ninja senin.',
       earnHead: 'Onur nereden gelir',
-      // H = ND.HONOR (sayılar kurallardan gelir)
+
       earn: (H) => [
         ['CPU’ya karşı', `Galibiyet: Çırak ${H.win[0]} · Usta ${H.win[1]} · Efsane ${H.win[2]}`],
         ['Arcade', `Galibiyet zorluğa göre · Şura ${H.win[3]} · bitirince +${H.arcadeClear}`],
@@ -101,7 +101,7 @@
       castle: 'Arcade’de Şura’yı yen',
       you: (n) => `Onurun: ${fmtNum(n)}`,
     },
-    // Meydan okuma: kilitli ninjayla düello (kazanınca açılır)
+
     rival: {
       k: '挑',
       stage: 'Meydan okuma',
@@ -120,7 +120,7 @@
       retry: 'Yeniden meydan oku',
       reveal: 'Yeni ninja',
       toastReady: (name) => `${name} sana meydan okuyor!`,
-      // rakibin açılış sözü (oyuncu kendi cevap havuzundan yanıt verir)
+
       lines: {
         hana: 'Onurunu duydum, çarşıda herkes senden söz ediyor! Dansıma ayak uydurursan seninle gelirim!',
         tetsu: 'Adın kulağıma geldi. Beni yenersen naginatam senin safında savaşır.',
@@ -171,7 +171,7 @@
       fightPts: 'Dövüş puanları',
       bonus: 'Bitiriş bonusu',
     },
-    // Puan sistemi (tek oyunculu: CPU + Arcade)
+
     score: {
       hud: 'PUAN',
       rows: { hit: 'Vuruş', combo: 'Kombo', counter: 'Karşılık', defense: 'Savunma', pressure: 'Baskı', special: 'Ki tekniği', round: 'Galibiyet', perfect: 'Mükemmel', hp: 'Kalan can', time: 'Süre bonusu' },
@@ -185,7 +185,7 @@
       lossCpu: 'Yenilgi · tabloya yalnız galibiyetler girer',
       cpuBoardHint: 'Efsane zorlukta kazanılan maçlar sıralamaya girer',
     },
-    // Sıralama tablosu
+
     lb: {
       menu: 'Sıralama',
       menuDesc: 'Arcade ve Efsane rekorları',
@@ -204,11 +204,11 @@
       savedOnline: (r) => `Çevrimiçi sıralama: #${r}`,
       savedOnlineNoRank: 'Çevrimiçi tabloya kaydedildi',
       savedOnlineAll: (r) => `Çevrimiçi tüm zamanlar sıralaması: #${r}`,
-      // platform tabloları (Yandex / Playgama paketleri, js/platform-boards.js): misafir giriş yapınca gönderilir
+
       platSignIn: 'Giriş yap, skorların çevrimiçi tabloya girsin',
       platPending: 'Skor bu cihazda saklandı · giriş yapınca çevrimiçi tabloya gönderilir',
       savedOnlineGap: (r, g) => `Çevrimiçi sıralama: #${r} · ilk 10’a ${g} puan`,
-      // çevrimiçi gönderim olmadıysa neden (skor her durumda yerel tabloda)
+
       reason: {
         needName: 'Çevrimiçi tabloya girmek için bir takma ad seç',
         offline: 'Bağlantı yok — skor saklandı, bağlanınca gönderilecek',
@@ -227,21 +227,21 @@
       nickAskOnline: 'Çevrimiçi tablo için takma ad:',
       savedLocal: (r) => (r ? `Yerel tabloda #${r}` : 'Yerel tabloya kaydedildi'),
       rejected: 'Skorun kaydedilemedi — yalnızca yerel tabloda',
-      // CrazyGames hesabıyla girmiş oyuncu: skor bu cihazda (çevrimiçi hesap sıralaması henüz yok)
+
       savedLocalAccount: (r) => (r ? `Bu cihazda #${r} · hesabına şu an ulaşılamıyor` : 'Bu cihaza kaydedildi · hesabına şu an ulaşılamıyor'),
       quota: 'Çevrimiçi tablo dolu — skor yalnızca yerel tabloda',
       open: 'Sıralama',
       keys: '<kbd>←</kbd> <kbd>→</kbd> tablo · <kbd>↑</kbd> <kbd>↓</kbd> ninja · <kbd>⌫</kbd> geri',
       k: '番付',
     },
-    // Rekabet katmanı (番付): Aylık Turnuva, Dan Sınavı, Şampiyonlar Salonu (banzuke.js)
+
     bz: {
       back: 'Geri', toMenu: 'Ana menü', you: 'Sen', youTag: 'sen', newBest: 'Yeni rekor!', seeResult: 'Sonucu gör',
       resetIn: 'Sıfırlanmaya',
-      // kalan süre: gün (g) · saat (s) · dakika (d) · saniye (sn)
+
       left: (ms) => { const t = Math.floor(ms / 1000), d = Math.floor(t / 86400), hh = Math.floor((t % 86400) / 3600), mm = Math.floor((t % 3600) / 60), ss = t % 60; return d ? `${d}g ${hh}s ${mm}d` : hh ? `${hh}s ${mm}d` : `${mm}d ${ss}sn`; },
       leftShort: (ms) => { const t = Math.floor(ms / 60000), d = Math.floor(t / 1440), hh = Math.floor((t % 1440) / 60), mm = t % 60; return d ? `${d}g ${hh}s` : hh ? `${hh}s ${mm}d` : `${mm}d`; },
-      // turnuva dönemi = takvim ayı: weekName(ay 1–12, yıl) → "Eylül 2026"
+
       weekName: (m, y) => `${['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'][m - 1] || m} ${y}`,
       monthName: (m) => ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'][m - 1] || String(m),
       rank: (r) => (r <= 0 ? 'Rütbesiz' : r <= 10 ? `${11 - r}. Kyu` : `${r - 10}. Dan`),
@@ -250,7 +250,7 @@
       mirrorOpp: 'Ayna · senin ninjan',
       suddenSub: 'Tek raund · ilk düşen kaybeder',
       rows: { fights: 'Galibiyet', time: 'Süre', fightPts: 'Dövüş puanları', stage: 'Basamak bonusu', clear: 'Bitiriş bonusu', total: 'Turnuva puanı', weekBest: 'Bu ayki en iyin' },
-      // Kural değiştiriciler (n: ad, d: açıklama)
+
       mods: {
         rally2x: { n: 'Seri Ateşi', d: 'Karşılık vuruşlarının hasarı ×2' },
         fullKi: { n: 'Dolu Ki', d: 'Her raunda dolu ki ile başlanır' },
@@ -326,7 +326,7 @@
         pending: (n) => `${n} kayıt gönderilmeyi bekliyor`,
         classic: 'Arcade · Efsane tabloları',
       },
-      // Aylık turnuva ödülleri: kalıcı unvan (ilk 3) ve Şampiyon renkleri (1.) — leaderboard.js / banzuke.js / arcade.js
+
       ttl: {
         champ: 'Aylık Şampiyon', finalist: 'Finalist',
         reward: 'Ekim 2026 turnuvasından itibaren her ayın ilk 3’ü kalıcı bir unvan kazanır. Şampiyon, kullandığı ninjanın özel Şampiyon renklerini de kazanır. Unvan için o ay en az 5 oyuncu gerekir.',
@@ -355,7 +355,7 @@
       kiFull: 'ki dolu',
       counterTip: 'Karşı koyma',
     },
-    // Hareket listesi (P1 tuşları)
+
     moves: [
       ['<kbd>A</kbd><kbd>D</kbd>', 'Yürü', 'iki kez dokun: atılma'],
       ['<kbd>W</kbd>', 'Zıpla', ''],
@@ -376,9 +376,9 @@
       ['Seri', 'Karşılıklı seri', 'karşılığı karşıla, yeniden karşılık ver; kendi 3. karşılığın bitiriş'],
       ['<kbd>F</kbd>/<kbd>G</kbd>!!', 'Kılıç kilidi', 'kilitte hızlıca bas, rakibi it'],
     ],
-    // Dokunmatik arayüz metinleri (ND.touch.active iken klavye metinlerinin yerine geçer). Düğme adı SALDIR (btn.light),
-    // kilit ipucu, yardım, not, dokunmatik hareket listesi (movesTouch) ve ders metinleri (lessonsTouch) i18n.js'te
-    // (touchSource): basit dokunmatik düzenle birlikte orada yazıldı; buradaki eski sürümleri kaldırıldı.
+
+
+
     touch: {
       btn: { heavy: 'AĞIR', kick: 'TEKME', guard: 'GARD', dodge: 'ATIL', throw: 'SHUR.', special: 'KI', up: 'ZIPLA', down: 'GARD', stick: 'Yön çubuğu' },
       replaySkip: 'atlamak için dokun',
@@ -392,7 +392,7 @@
       keysHelp: '',
     },
     moveSpecialTouch: '<i class="tb ki">KI</i>',
-    // Hareket listesi etiketleri (ND.MOVELIST[..].tags → görünen ad)
+
     moveTags: {
       normal: 'Temel', command: 'Komut', string: 'Seri', launcher: 'Fırlatıcı', juggle: 'Havada', air: 'Hava', dash: 'Atılma',
       strike: 'Darbe', counter: 'Karşılık', catch: 'Yakalama', feint: 'Aldatma', guardCrush: 'Gard ezer', knockdown: 'Yere serer',
@@ -409,7 +409,7 @@
       { id: 'rally', t: 'Karşılıklı seri', d: 'Kukla da karşılık veriyor. Onun vuruşunu savuşturup karşılık ver. O da savuşturup vurunca yeniden karşılık ver: kendi 2× serini yap.' },
       { id: 'special', t: 'Ki tekniği', d: 'Ki barın dolu. <kbd>E</kbd> ile {sp} kullan.' },
     ],
-    // Dövüş öncesi karşılıklı sözler: open = önce konuşan, reply = cevap, boss = son patrona
+
     talk: {
       akane: {
         open: ['Kılıcım kızıl, niyetim temiz. Onurunla karşıma çık.', 'Önce selam veririm, sonra keserim. Adil olan budur.', 'Bu düello şerefimiz için. Geri çekilmek yok.'],
@@ -457,7 +457,7 @@
         boss: 'Aynadaki iblis… İkimizden biri fazla.',
       },
     },
-    // Özel eşleşmeler: sıra sabittir (ilk satır önce söylenir), taraf konuşana göre belirlenir
+
     pairs: {
       'akane|aoi': [['akane', 'Aoi! Yarım kalan düellomuzu bitirme zamanı.'], ['aoi', 'Rüzgâr hep aynı ateşe eser, Akane. Başla.']],
       'kuro|tetsu': [['kuro', 'Demir kabuk. İçi boş mu, bakalım.'], ['tetsu', 'Dağ bile disipline boyun eğer, Kuro.']],
@@ -480,23 +480,23 @@
     },
   };
 
-  // Veri özniteliklerini metin tablosundan doldur: data-s="menu.arcade"
+
   STR.apply = (root = document) => {
     root.querySelectorAll('[data-s]').forEach((el) => {
       const v = el.dataset.s.split('.').reduce((o, k) => (o ? o[k] : undefined), STR);
       if (typeof v === 'string') el.textContent = v;
     });
-    // data-sh: tablodaki (güvenilir) HTML'i olduğu gibi yerleştir
+
     root.querySelectorAll('[data-sh]').forEach((el) => {
       const v = el.dataset.sh.split('.').reduce((o, k) => (o ? o[k] : undefined), STR);
       if (typeof v === 'string') el.innerHTML = v;
     });
   };
-  // Dokunmatik arayüz açıkken dokunmatik metni, değilse klavye metnini döndür
+
   const touchOn = () => !!(ND.touch && ND.touch.active);
   STR.pickT = (kb, tch) => (touchOn() && tch != null ? tch : kb);
-  // ND.MOVELIST girdisi → HTML. input: 'Shift › F', '→ + F', { kb, touch } ya da hazır HTML (< içeren, güvenilir tablo).
-  // Klavyede tuşlar <kbd>, dokunmatikte düğme adı; tanınmayan sözcükler çeviriden geçer.
+
+
   const KEY_BTN = { F: 'light', G: 'heavy', R: 'kick', T: 'throw', S: 'guard', SHIFT: 'dodge', E: 'special', W: 'up' };
   function fmtInput(inp) {
     if (inp && typeof inp === 'object') inp = touchOn() && inp.touch != null ? inp.touch : inp.kb;
@@ -516,7 +516,7 @@
     }).join('');
   }
 
-  // ================================================================ GİZLİ SON PATRON
+
   const rim = 'rgba(232,86,96,.5)', rimDim = 'rgba(150,40,52,.32)';
   if (!ND.CHARS.some((c) => c.id === 'shura')) {
     ND.CHARS.push({
@@ -531,17 +531,17 @@
   }
   const BOSS = 'shura';
 
-  // ================================================================ KAYIT (tek kalıcılık modülü)
-  // Tüm localStorage erişimi burada; ileride bir platform SDK'sı ile değiştirilebilir.
+
+
   const KEY = 'golge-duellosu', PKEY = 'golge-duellosu-progress';
   const mem = {};
   const ls = (() => { try { const s = window.localStorage, k = '__nd_probe'; s.setItem(k, '1'); s.removeItem(k); return s; } catch (e) { return null; } })();
-  const rawGet = (k) => { try { if (ls) { const v = ls.getItem(k); if (v != null) return v; } } catch (e) { /* yok */ } return k in mem ? mem[k] : null; };
-  const rawSet = (k, v) => { mem[k] = v; try { if (ls) ls.setItem(k, v); } catch (e) { /* kota/erişim yok */ } };
+  const rawGet = (k) => { try { if (ls) { const v = ls.getItem(k); if (v != null) return v; } } catch (e) {           } return k in mem ? mem[k] : null; };
+  const rawSet = (k, v) => { mem[k] = v; try { if (ls) ls.setItem(k, v); } catch (e) {                       } };
   const readJSON = (k, def) => { try { const s = rawGet(k); const v = s ? JSON.parse(s) : null; return v && typeof v === 'object' ? v : def; } catch (e) { return def; } };
-  // Portal copy of the progress (CrazyGames data module follows a signed-in player across devices; 1 MB total).
-  // localStorage stays the working copy; the portal copy is written a moment after each commit and read once at boot.
-  // Yandex: player data. Playgama: Bridge storage (cloud where the host has it; moderation checks saves go through it).
+
+
+
   const PORTAL_SAVE = { crazygames: 1, yandex: 1, playgama: 1 };
   const MIRROR_MAX = 400000;
   let mirrorT = 0;
@@ -549,21 +549,21 @@
     const P = ND.portal;
     if (!P || !PORTAL_SAVE[P.name] || !P.sdk || typeof v !== 'string' || v.length > MIRROR_MAX || ND.NEWPLAYER) return;
     clearTimeout(mirrorT);
-    mirrorT = setTimeout(() => { try { P.save(k, v); } catch (e) { /* yok */ } }, 500);
+    mirrorT = setTimeout(() => { try { P.save(k, v); } catch (e) {           } }, 500);
   };
 
   const START_CHARS = ['akane', 'aoi', 'kuro', 'yuki'];
   const START_ARENAS = ['temple', 'rain', 'snow'];
-  // Honor opens rival challenges. Three distinct journeys open Shura's challenge; one clear opens the castle.
+
   const HONOR = ND.HONOR;
   const J = ND.JOURNEY;
   const BOSS_ARENA = 'castle';
   const bossArena = () => (ND.ARENAS.some((a) => a.id === BOSS_ARENA) ? BOSS_ARENA : ND.ARENAS[ND.ARENAS.length - 1].id);
 
-  // SCORE_V: puan modeli sürümü. 2 = tek puan modeli (ND.score); eski ölçekteki rekorlar sıfırlanır (farklı ölçek)
+
   const SCORE_V = 2;
   const journeyNumber = (v, hi = 1e9) => typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.min(hi, Math.floor(v))) : 0;
-  // Persist stable IDs only: roster order and live fighter objects must never enter a save.
+
   function cleanJourney(r, id) {
     if (!r || typeof r !== 'object' || !Array.isArray(r.fights) || r.fights.length !== 8) return null;
     const validChar = (x) => ND.CHARS.some((c) => c.id === x), seen = new Set();
@@ -591,7 +591,7 @@
     for (const ch of ND.CHARS) {
       const r = value && value.runs && cleanJourney(value.runs[ch.id], ch.id);
       if (r) runs[ch.id] = r;
-      // Existing earned endings remain earned when upgrading an older profile.
+
       if ((value && value.cleared && value.cleared[ch.id]) || (bestBy && bestBy[ch.id] > 0) || (r && r.done)) cleared[ch.id] = true;
       stars[ch.id] = J.mask(value && value.stars && value.stars[ch.id]);
       if (cleared[ch.id] && J.count(stars[ch.id]) >= J.masteryNeed && value && value.mastered && value.mastered[ch.id] === true) {
@@ -605,59 +605,61 @@
     const d = { v: 1, chars: START_CHARS.slice(), arenas: START_ARENAS.slice(), wins: 0, clears: 0, bossWins: 0, best: 0, bestBy: {}, bestTime: 0, tutorial: false, lessons: [],
       scoreV: SCORE_V, cpuBest: {}, lb: { name: '', boards: {}, last: {}, out: [], champ: [], champSeen: [], champUse: {}, title: null }, bz: { t: {}, dan: { r: 0, best: 0, strikes: 0, tries: 0, passes: 0 } },
       hon: { t: 0, f: {} }, journey: { runs: {}, cleared: {}, stars: {}, mastered: {}, looks: {} }, trials: {}, coached: false,
-      // new player (2026-09-28): fought = a fight was played to its end (until then PLAY goes straight into journey
-      // fight 1, game.js playJourney); selIntro = the select screen's "choose your ninja" highlight was shown;
-      // tips = just-in-time tips (js/coach.js ND.coach.tips): journey fights with tips so far, tips already shown
+
+
+
       fought: false, selIntro: false, tips: { n: 0, seen: {} } };
     if (!p || typeof p !== 'object') return d;
     const o = Object.assign(d, p);
-    // Saves from before the coach moved to the journey: anyone past the first screen has already had it.
+
     if (typeof p.coached !== 'boolean') o.coached = !!p.firstDone;
-    // Saves from before the new-player path: a player past the first screen keeps the usual flow (select, VS), sees no
-    // select highlight and gets no tips (a player past the first fight's coach already knows the basics)
+
+
     if (typeof p.fought !== 'boolean') o.fought = !!(p.firstDone || p.coached || p.wins > 0);
     if (typeof p.selIntro !== 'boolean') o.selIntro = !!p.firstDone;
     const tp = p.tips && typeof p.tips === 'object' && !Array.isArray(p.tips) ? p.tips : null, TIPS = ['ki', 'gbreak', 'posture', 'dash', 'shuriken', 'heavy', 'lessons', 'controls'];
     o.tips = { n: tp ? Math.max(0, Math.min(999, Math.floor(+tp.n) || 0)) : o.coached ? 999 : 0, seen: {} };
     if (tp && tp.seen && typeof tp.seen === 'object') for (const k of TIPS) if (tp.seen[k]) o.tips.seen[k] = 1;
-    for (const k of ['chars', 'arenas', 'lessons']) if (!Array.isArray(o[k])) o[k] = d[k].slice();
+
+    const D0 = { chars: START_CHARS, arenas: START_ARENAS, lessons: [] };
+    for (const k of ['chars', 'arenas', 'lessons']) if (!Array.isArray(o[k])) o[k] = D0[k].slice();
     START_CHARS.forEach((c) => { if (!o.chars.includes(c)) o.chars.push(c); });
     START_ARENAS.forEach((a) => { if (!o.arenas.includes(a)) o.arenas.push(a); });
     if (!o.bestBy || typeof o.bestBy !== 'object') o.bestBy = {};
-    if (p.scoreV !== SCORE_V) { o.best = 0; o.bestBy = {}; o.bestTime = 0; o.scoreV = SCORE_V; } // eski kayıt: yeni ölçekle karşılaştırılamaz
+    if (p.scoreV !== SCORE_V) { o.best = 0; o.bestBy = {}; o.bestTime = 0; o.scoreV = SCORE_V; }
     if (!o.cpuBest || typeof o.cpuBest !== 'object') o.cpuBest = {};
     o.journey = normalizeJourneys(p.journey, p.bestBy);
-    // combo trials cleared per ninja (combo-trial.js): { ninja: ['chain', …] }
+
     const tr = p.trials && typeof p.trials === 'object' && !Array.isArray(p.trials) ? p.trials : {};
     o.trials = {};
     for (const id of Object.keys(tr)) if (ND.CHARS.some((c) => c.id === id) && Array.isArray(tr[id])) o.trials[id] = [...new Set(tr[id].filter((t) => typeof t === 'string' && /^[a-z0-9_]{1,16}$/.test(t)))].slice(0, 20);
-    // yerel sıralama tablosu (leaderboard.js 'local' bağdaştırıcısı): { name, boards: { pano: [ {n,s,c,t,d,v} ] }, last }
+
     if (!o.lb || typeof o.lb !== 'object') o.lb = { name: '', boards: {}, last: {} };
     if (typeof o.lb.name !== 'string') o.lb.name = '';
     if (!o.lb.boards || typeof o.lb.boards !== 'object') o.lb.boards = {};
     if (!o.lb.last || typeof o.lb.last !== 'object') o.lb.last = {};
-    if (!Array.isArray(o.lb.out)) o.lb.out = []; // çevrimiçi gönderilmeyi bekleyen skorlar (leaderboard.js giden kutusu)
-    // Aylık turnuva: kendi unvanım ve Şampiyon renkleri açık ninjalar (leaderboard.js yalnız sunucu cevabından yazar),
-    // duyurusu yapılmış olanlar, hangi ninjada Şampiyon renklerinin seçili olduğu
+    if (!Array.isArray(o.lb.out)) o.lb.out = [];
+
+
     const cids = (a) => (Array.isArray(a) ? [...new Set(a.filter((x) => ND.CHARS.some((c) => c.id === x)))] : []);
     o.lb.champ = cids(o.lb.champ); o.lb.champSeen = cids(o.lb.champSeen);
     if (!o.lb.champUse || typeof o.lb.champUse !== 'object' || Array.isArray(o.lb.champUse)) o.lb.champUse = {};
     for (const k of Object.keys(o.lb.champUse)) if (o.lb.champUse[k] !== true || !ND.CHARS.some((c) => c.id === k)) delete o.lb.champUse[k];
-    // catalog costumes worn (js/rewards.js): ninja → reward id
+
     if (!o.lb.rwUse || typeof o.lb.rwUse !== 'object' || Array.isArray(o.lb.rwUse)) o.lb.rwUse = {};
     for (const k of Object.keys(o.lb.rwUse)) if (typeof o.lb.rwUse[k] !== 'string' || !/^[a-z0-9_]{3,40}$/.test(o.lb.rwUse[k]) || !ND.CHARS.some((c) => c.id === k)) delete o.lb.rwUse[k];
     if (o.lb.title != null && (typeof o.lb.title !== 'object' || ![1, 2, 3].includes(o.lb.title.place))) o.lb.title = null;
-    // rekabet katmanı (banzuke.js): { t: { '2026-W39': { best, char, att, won, date } }, dan: { r, best, strikes, tries, passes } }
+
     if (!o.bz || typeof o.bz !== 'object') o.bz = {};
     if (!o.bz.t || typeof o.bz.t !== 'object') o.bz.t = {};
-    // turnuva dönemleri: ay ('2026-09'); eski haftalık kayıtlar ('2026-W39') da korunur. En çok 60 dönem.
+
     const wkRe = /^\d{4}-(W\d{2}|0[1-9]|1[0-2])$/, tk = Object.keys(o.bz.t).filter((k) => wkRe.test(k)).sort();
     Object.keys(o.bz.t).forEach((k) => { if (!wkRe.test(k) || tk.indexOf(k) < tk.length - 60 || !o.bz.t[k] || typeof o.bz.t[k] !== 'object') delete o.bz.t[k]; });
     const dn = o.bz.dan && typeof o.bz.dan === 'object' ? o.bz.dan : {};
     const di = (v, hi) => (typeof v === 'number' && isFinite(v) ? Math.max(0, Math.min(hi, Math.round(v))) : 0);
     o.bz.dan = { r: di(dn.r, 20), best: Math.max(di(dn.best, 20), di(dn.r, 20)), strikes: di(dn.strikes, 2), tries: di(dn.tries, 1e7), passes: di(dn.passes, 1e7) };
-    // Onur: { t: toplam (harcanmaz), f: { ninja: kaybedilen meydan okuma } }. Onurdan önceki kayıt bir kez çevrilir:
-    // eski kurallarla hak edilmiş ninjalar açılır (hiçbir şey geri alınmaz), yapılanlar bugünkü değerlerle onura sayılır.
+
+
     if (!p.hon || typeof p.hon !== 'object') {
       if (HONOR) {
         for (const id in HONOR.OLD_WINS) if (o.wins >= HONOR.OLD_WINS[id] && ND.CHARS.some((c) => c.id === id) && !o.chars.includes(id)) o.chars.push(id);
@@ -669,24 +671,24 @@
     h.t = typeof h.t === 'number' && isFinite(h.t) ? Math.max(0, Math.min(1e7, Math.round(h.t))) : 0;
     if (!h.f || typeof h.f !== 'object') h.f = {};
     for (const k of Object.keys(h.f)) { const v = h.f[k]; if (!HONOR || (!HONOR.rival(k) && k !== BOSS) || typeof v !== 'number' || v <= 0) delete h.f[k]; else h.f[k] = Math.min(99, Math.round(v)); }
-    // rival challenges opened early by a Shadow Pass rival key (js/pass.js): ninja ids
+
     h.k = Array.isArray(h.k) ? [...new Set(h.k.filter((k) => HONOR && HONOR.rival(k)))] : [];
-    // eşiği geçilmiş arenalar her zaman açık (kendini onaran kural)
+
     if (HONOR) for (const a of HONOR.ARENAS) if (h.t >= a.need && !o.arenas.includes(a.id) && ND.ARENAS.some((x) => x.id === a.id)) o.arenas.push(a.id);
     return o;
   }
 
   const save = ND.save = {
     available: !!ls,
-    // --- ayarlar (ses, müzik, seçimler…)
+
     settings() { return readJSON(KEY, {}); },
     saveSettings(o) { rawSet(KEY, JSON.stringify(o || {})); },
-    // --- ilerleme
+
     _p: null,
     get p() {
       if (!this._p) {
         this._p = normalize(readJSON(PKEY, null));
-        // eski kayıt onura çevrildi: bir kez yerelde yaz (zaman damgası aynı kalır, portal kopyası daha yeniyse o kazanır)
+
         if (this._p.hon.mig) { delete this._p.hon.mig; rawSet(PKEY, JSON.stringify(this._p)); }
       }
       return this._p;
@@ -697,10 +699,10 @@
       try { return fn(); }
       finally { this._batch--; if (!this._batch && this._dirty) { this._dirty = false; this.commit(); } }
     },
-    // Boot: adopt the portal copy when it is newer (another device), otherwise upload ours
+
     syncPortal() {
       const P = ND.portal;
-      if (!P || !P.ready || ND.NEWPLAYER) return; // ?newplayer=1 (core.js): the portal's copy of the real save stays untouched
+      if (!P || !P.ready || ND.NEWPLAYER) return;
       P.ready.then(() => (P.sdk && PORTAL_SAVE[P.name] ? P.load(PKEY) : undefined)).then((remote) => {
         if (!P.sdk || !PORTAL_SAVE[P.name]) return;
         let r = null;
@@ -710,7 +712,7 @@
           if (ND.arcade && ND.arcade.G) ND.arcade.refreshMenu();
           if (ND.game && ND.game.onSaveAdopted) ND.game.onSaveAdopted();
         } else if (!r) this.commit();
-      }).catch(() => { /* portal save unavailable: local only */ });
+      }).catch(() => {                                           });
     },
     reset() { this._p = normalize(null); this.commit(); },
     unlockAll() { this.p.chars = ND.CHARS.map((c) => c.id); this.p.arenas = ND.ARENAS.map((a) => a.id); this.commit(); },
@@ -718,10 +720,10 @@
     isArenaUnlocked(id) { return this.p.arenas.includes(id); },
     useLegacy(id) { return !!(this.p.journey.mastered[id] && this.p.journey.looks[id]); },
     toggleLegacy(id) { if (!this.p.journey.mastered[id]) return; this.p.journey.looks[id] = !this.useLegacy(id); this.commit(); },
-    // Şampiyon renkleri: bu ninjayla bir Aylık Turnuva kazanılmış mı (sunucunun cevabı, yerelde önbellek)
+
     champOk(id) { const c = this.p.lb.champ; return Array.isArray(c) && c.includes(id); },
-    // Görünüş: false = asıl renkler, true = Miras renkleri (yolculuk ustalığı), 'champ' = Şampiyon renkleri,
-    // 'rw:<id>' = sunucudaki ödül kataloğundan sahip olunan bir kostüm (js/rewards.js; yalnız çevrimiçi derlemede)
+
+
     rwOk(id, rid) { const R = ND.rewards; return !!R && R.owns(rid) && R.costumesFor(id).some((e) => e.id === rid); },
     look(id) {
       const w = this.p.lb.rwUse && this.p.lb.rwUse[id];
@@ -750,9 +752,9 @@
       list.push(id); this.commit();
       return { kind, id };
     },
-    // --- onur (honor.js): toplam, meydan okumalar, arena eşikleri
+
     get honor() { return this.p.hon.t; },
-    // Onur ekle → yeni açılan meydan okumalar ({kind:'ready'}) ve arenalar ({kind:'arena'})
+
     addHonor(n) {
       n = Math.max(0, Math.round(n || 0));
       if (!n || !HONOR) return [];
@@ -763,7 +765,7 @@
       this.commit();
       return ev;
     },
-    // Bir ninjanın meydan okuma durumu (kilitli sıradaki ninjalar); kuralda yoksa null
+
     rivalInfo(id) {
       if (id === BOSS) {
         const have = this.distinctClears();
@@ -775,9 +777,9 @@
       const t = this.p.hon.t, fails = this.p.hon.f[id] | 0;
       return { id, r, need: r.need, have: t, ready: t >= r.need || (this.p.hon.k || []).includes(id), unlocked: this.isCharUnlocked(id), fails, hp: HONOR.rivalHp(r, fails), key: (this.p.hon.k || []).includes(id) };
     },
-    // Shadow Pass keys (js/pass.js): a rival key opens the next locked ninja's Rival Challenge now (one not open by honor
-    // yet); an arena key opens the next arena still locked behind honor. → the event ({ kind: 'ready' | 'arena', id }) or
-    // null when there is nothing left to open (the pass pays honor instead)
+
+
+
     keyRival() {
       if (!HONOR) return null;
       const r = HONOR.RIVALS.find((x) => ND.CHARS.some((c) => c.id === x.id) && !this.isCharUnlocked(x.id) && !this.rivalInfo(x.id).ready);
@@ -790,7 +792,7 @@
       const a = HONOR.ARENAS.find((x) => ND.ARENAS.some((y) => y.id === x.id) && !this.isArenaUnlocked(x.id));
       return a ? this.unlock('arena', a.id) : null;
     },
-    // Sıradaki kilitli rakip (sırayla); hepsi açıksa null
+
     nextRival() { if (!HONOR) return null; const r = HONOR.RIVALS.find((x) => !this.isCharUnlocked(x.id) && ND.CHARS.some((c) => c.id === x.id)); return r ? this.rivalInfo(r.id) : null; },
     readyRivals() { return HONOR ? [this.rivalInfo(BOSS), ...HONOR.RIVALS.map((r) => this.rivalInfo(r.id))].filter((x) => x && x.ready && !x.unlocked) : []; },
     rivalLost(id) { const f = this.p.hon.f; f[id] = Math.min(99, (f[id] | 0) + 1); this.commit(); },
@@ -806,17 +808,17 @@
       const a = HONOR && HONOR.ARENAS.find((x) => x.id === id);
       return a ? STR.hint.arenaHonor(this.p.hon.t, a.need) : STR.hint.arena;
     },
-    // Arcade dövüşü kazanıldı (sayaç; açılışlar artık onurla)
+
     recordWin() {
       this.p.wins++;
       this.commit();
       return [];
     },
-    // Completing an authored route opens the castle; legacy routes retain their Shura reward.
+
     recordClear(charId, score, time, legacy = false) {
       const p = this.p, ev = [];
       p.clears++; p.bossWins++;
-      // Existing routes keep their promised reward. New journeys earn a separate challenge.
+
       if (legacy) ev.push(this.unlock('char', BOSS));
       ev.push(this.unlock('arena', bossArena()));
       const newBest = score > (p.best || 0);
@@ -826,22 +828,22 @@
       this.commit();
       return { ev: ev.filter(Boolean), newBest };
     },
-    // CPU maçı: zorluk başına kişisel rekor
+
     recordCpu(level, score) {
       const p = this.p, k = String(level), prev = p.cpuBest[k] || 0;
       const newBest = score > prev;
       if (newBest) { p.cpuBest[k] = Math.round(score); this.commit(); }
       return { newBest, best: Math.max(prev, score), prev };
     },
-    // yerel sıralama verisi (leaderboard.js yazar, sonra commit())
+
     get lb() { return this.p.lb; },
-    // Eğitim: her ders ilk kez bitince sessizce onur, eğitimin tamamı bir kez bonus
+
     lessonDone(id) { if (!this.p.lessons.includes(id)) { this.p.lessons.push(id); this.commit(); if (HONOR) toastEvents(this.addHonor(HONOR.lesson)); } },
     tutorialDone() { if (!this.p.tutorial) { this.p.tutorial = true; this.commit(); if (HONOR) honor.bonus('tutorial', HONOR.tutorial); } },
   };
 
-  // ================================================================ BİLDİRİM (toast)
-  // Kuyruklu: aynı anda en çok TOAST_MAX bildirim görünür, her yenisi TOAST_GAP ms arayla alt alta girer
+
+
   const TOAST_MAX = 3, TOAST_GAP = 700, TOAST_LIFE = 3400;
   const toastQ = [];
   let toastBusy = false;
@@ -861,11 +863,11 @@
     setTimeout(() => { el.remove(); pumpToasts(); }, TOAST_LIFE + 450);
   }
   ND.toast = (text, kanji, color) => {
-    if (toastQ.some((q) => q[0] === text)) return; // aynı bildirim kuyrukta zaten var
+    if (toastQ.some((q) => q[0] === text)) return;
     toastQ.push([text, kanji, color]); pumpToasts();
   };
   function toastEvents(ev) {
-    // sıralama/aralık kuyrukta; burada yalnızca kısa bir ilk gecikme
+
     setTimeout(() => ev.forEach((e) => {
       if (e.kind === 'char') { const ch = ND.CHARS.find((c) => c.id === e.id); if (ch) ND.toast(STR.toast.newChar(ch.name), ch.kanji, ch.col.ui); }
       else if (e.kind === 'ready') { const ch = ND.CHARS.find((c) => c.id === e.id); if (ch) ND.toast(STR.rival.toastReady(ch.name), STR.rival.k, ch.col.ui); }
@@ -874,12 +876,12 @@
   }
   ND.toastEvents = toastEvents;
 
-  // ================================================================ ONUR (誉): kazanma + ekranlar
-  // Kurallar honor.js'te (ND.HONOR). game.js her tek oyunculu maçın sonunda award() çağırır; koşu bonusları
-  // (Arcade/turnuva bitirme, Dan sınavı, meydan okuma, eğitim) bonus() ile gelir.
+
+
+
   const honor = ND.honor = {
     last: null,
-    // Maç sonu: c = { mode, won, level, roundsWon, parries, counters, rallies, perfects } → { total, rows, ev }
+
     award(c) {
       if (!HONOR) return null;
       const cur = c.mode === 'arcade' && ND.arcade && ND.arcade.run && ND.arcade.run.cur;
@@ -892,7 +894,7 @@
       toastEvents(r.ev);
       return r;
     },
-    // Koşu bonusu. row: true → son maç dökümüne satır olarak eklenir (bildirim yerine)
+
     bonus(key, n, row) {
       if (!HONOR || !(n > 0)) return [];
       const ev = save.addHonor(n);
@@ -901,7 +903,7 @@
       toastEvents(ev);
       return ev;
     },
-    // Sıradaki hedef: { kind: 'ready'|'next'|'all', ri, ch, pct, left }
+
     goal() {
       if (!HONOR) return { kind: 'all', pct: 1, left: 0 };
       const rd = save.readyRivals()[0];
@@ -910,14 +912,14 @@
       if (!nx) return { kind: 'all', pct: 1, left: 0 };
       return { kind: 'next', ri: nx, ch: ND.CHARS.find((c) => c.id === nx.id), pct: this.pct(nx.id), left: nx.need - nx.have };
     },
-    // Bir rakibin çubuğu: bir önceki eşikten bu eşiğe
+
     pct(id) {
       if (id === BOSS) return Math.min(1, save.distinctClears() / J.shuraNeed);
       const i = HONOR.RIVALS.findIndex((r) => r.id === id), r = HONOR.RIVALS[i], from = i > 0 ? HONOR.RIVALS[i - 1].need : 0, t = save.honor;
       return Math.max(0, Math.min(1, (t - from) / Math.max(1, r.need - from)));
     },
     bar(pct) { return `<i class="hbar" style="--p:${(pct * 100).toFixed(1)}%"></i>`; },
-    // Maç sonu dökümü (#endHonor). r null → gizle. o.challenge: hazır meydan okuma için düğme göster
+
     render(box, r, o = {}) {
       if (!box) return;
       box.textContent = ''; box.hidden = !r;
@@ -941,7 +943,7 @@
       const go = box.querySelector('[data-rival]');
       if (go) go.onclick = () => rival.offer(go.dataset.rival);
     },
-    // Ana menü şeridi (#mhonor): sıradaki ninja ve kalan onur, ya da hazır meydan okuma
+
     refreshStrip() {
       const el = $('mhonor'); if (!el) return;
       el.hidden = !HONOR;
@@ -955,7 +957,7 @@
       const kj = g.ch ? `<b class="k" style="${g.kind === 'ready' ? 'color:' + g.ch.col.ui : ''}">${esc(g.ch.kanji)}</b>` : `<b class="k">${esc(S.k)}</b>`;
       el.innerHTML = `${kj}<span class="hs"><small>${esc(S.total(save.honor))}</small>${txt}</span>`;
     },
-    // Onur Yolu paneli (#honorOv): rakipler, arenalar, onur kaynakları
+
     showRoad() {
       const ov = $('honorOv'); if (!ov || !HONOR) return;
       const S = STR.honor, t = save.honor;
@@ -990,7 +992,7 @@
     get roadOpen() { const ov = $('honorOv'); return !!ov && !ov.hidden; },
   };
 
-  // Yeni ninja tanıtımı (#reveal): kısa tam ekran kart; dokunuş / tuş kapatır
+
   function reveal(ch) {
     const el = $('reveal'); if (!el || !ch) return;
     el.style.setProperty('--rc', ch.col.ui);
@@ -1005,19 +1007,19 @@
   reveal.close = () => { const el = $('reveal'); if (el && !el.hidden) { el.hidden = true; clearTimeout(reveal.t); return true; } return false; };
   ND.reveal = reveal;
 
-  // ================================================================ ARCADE
-  // Arcade toplamı = kazanılan dövüşlerin maç puanları (ND.score, zorluk çarpanı dahil) + bitiriş bonusu
-  //                  + tek kredi bonusu (hiç tekrar yoksa) − tekrar başına ceza; kaybedilen denemenin puanı sayılmaz
+
+
+
   const AS = ND.ARCADE_SCORE = { clear: 10000, noRetry: 5000, retry: 2000 };
   const arcadeTotal = (R) => Math.max(0, R.score + AS.clear + (R.retries ? 0 : AS.noRetry) - R.retries * AS.retry);
 
 
   const arcade = ND.arcade = {
-    run: null, G: null, mode: 'arcade', // koşu denetleyicisi (game.runner): banzuke.js'teki turnuva/Dan da aynı arayüzü kullanır
+    run: null, G: null, mode: 'arcade',
 
     init(G) {
       this.G = G;
-      // VS ekranı paylaşılır: düğmeler o an etkin koşuya (arcade / turnuva / Dan) gider
+
       $('vsGo').onclick = () => (G.runner || this).fight();
       $('vsQuit').onclick = () => (G.runner || this).quit();
       $('edMenu').onclick = () => this.quit();
@@ -1040,7 +1042,7 @@
 
     refreshSelect() {
       const G = this.G; if (!G || G.phase !== 'select') return;
-      // a locked ninja previewed on the select screen (game.js lockInfo): its texts, no colors, the journey it will have
+
       const shown = (i) => (G.selShown ? G.selShown(i) : G.sel.c[i]), peek = shown(0) !== G.sel.c[0];
       for (let n = 1; n <= 2; n++) {
         const ch = ND.CHARS[shown(n - 1)], done = save.p.journey.cleared[ch.id];
@@ -1057,8 +1059,8 @@
       const selected = ND.CHARS[shown(0)], T = J.text(), profile = save.p.journey;
       const look = $('journeyLook'), panel = $('journeyPanel');
       if (look) {
-        // Appearance slots: Original · Legacy (journey mastery) · Champion (won a Monthly Tournament with this ninja).
-        // In the tournament a locked Champion slot says how to earn it (only where it can be earned: online scores).
+
+
         const id = selected.id, TT = (STR.bz && STR.bz.ttl) || {}, now = save.look(id), opts = save.lookOptions(id);
         const champLocked = !save.champOk(id) && G.selMode === 'tourney' && !!ND.leaderboard?.titlesEarnable?.();
         look.hidden = peek || G.selMode === 'watch' || G.selMode === '2p' || (opts.length < 2 && !champLocked);
@@ -1079,11 +1081,11 @@
           slot('champ', TT.colors || 'Champion', true);
           const how = document.createElement('small'); how.className = 'look-how'; how.textContent = TT.how || ''; look.appendChild(how);
         }
-        // costumes from the server's reward catalog this player owns (js/rewards.js; the name in the chosen language)
+
         for (const v of opts) if (typeof v === 'string' && v.startsWith('rw:')) slot(v, ND.rewards.name(v.slice(3)));
       }
       if (panel) panel.hidden = G.selMode !== 'arcade';
-      // journey layout (index.html #select.journey): the ninja and its journey side by side where the screen is short
+
       if ($('select')) $('select').classList.toggle('journey', !!panel && !panel.hidden);
       if (G.selMode !== 'arcade') return;
       const ch = ND.CHARS[shown(0)], R = save.p.journey.runs[ch.id], S = STR.journey;
@@ -1111,8 +1113,8 @@
       save.commit();
     },
 
-    // Each character keeps a separate route. Replaying a completed route is an explicit ending-screen action.
-    // direct: straight into the fight, no VS screen (the new player's first fight: quickStart)
+
+
     begin(ci, replay = false, direct = false) {
       const me = ND.CHARS[ci];
       const saved = save.p.journey.runs[me.id];
@@ -1130,9 +1132,9 @@
       if (direct) return this.fight();
       this.openVs();
     },
-    // A new save's PLAY (game.js playJourney, until the first fight is played to its end): this ninja's journey
-    // fight 1 at once, in its own arena, without the select and VS screens. It is the journey's own fight 1: the run,
-    // checkpoint, score, honor and star count as usual, and the rally tutorial starts in it (fight()).
+
+
+
     quickStart(ci) {
       ND.funnel?.step('direct');
       this.begin(ci, false, true);
@@ -1162,12 +1164,12 @@
       $('vsStage').textContent = R.version === J.version ? (F.boss ? J.text().rival : J.text().stage + ' ' + (R.i + 1) + ' / 8') + ' · ' + J.text().titles[me.id] : F.boss ? STR.vs.boss : STR.vs.stage(R.i + 1, R.fights.length);
       $('vsArena').innerHTML = arena ? `<b>${esc(arena.kanji)}</b>${esc(arena.name)}` : '';
       $('vsLevel').textContent = (ND.AI_LEVELS[F.ai ?? F.level] || ND.AI_LEVELS[1]).name + (F.hp > 1 && STR.bz && STR.bz.hpBonus ? ' · ' + STR.bz.hpBonus(Math.round((F.hp - 1) * 100)) : '');
-      $('vsQuit').textContent = STR.vs.quit; // VS ekranı turnuva/Dan ile paylaşılır
+      $('vsQuit').textContent = STR.vs.quit;
       const vm = $('vsMods'); if (vm) vm.hidden = true;
       const objective = $('journeyVs');
       if (objective) {
-        // one short line ("☆ Parry: 1"); the full sentence ("Optional mastery · … — win to keep the star") behind "?"
-        // (and in its title). Chapter 1, the learning fight, shows none (the journey panel on the select screen has it).
+
+
         const T = J.text(), show = !!F.goal && R.i > 0;
         objective.hidden = !show; objective.textContent = ''; objective.classList.remove('open');
         if (show) {
@@ -1197,7 +1199,7 @@
       setTimeout(() => { if (G.phase === 'vs') $('vsGo').focus(); }, 0);
     },
 
-    // Karşılıklı sözler: rakip önce konuşur, sen cevap verirsin
+
     talk(opId, meId, boss) {
       const T = STR.talk, tOp = T[opId] || T.akane, tMe = T[meId] || T.akane;
       if (boss) return [['r', opId, pick(tOp.open)], ['l', meId, tMe.boss || pick(tMe.reply)]];
@@ -1217,9 +1219,9 @@
       this.checkpoint();
       ND.audio.gong();
       this.G.start('arcade', { c1: R.me, c2: F.opp, arena: F.arena, level: F.level, ai: F.ai, oppHp: F.hp || null });
-      // The very first journey fight of a new save starts with the rally tutorial (js/tutorial.js: defend → counter →
-      // defend → counter, three passes); when it is mastered it marks the save as coached and hands over to the coach's
-      // attack / combo tips. Quitting before that shows it again on the next try. Without tutorial.js: the five-tip coach.
+
+
+
       if (R.i === 0 && !save.p.coached) {
         if (ND.tutor) { if (!ND.tutor.on) ND.tutor.start(this.G, { first: true }); }
         else if (ND.coach) { save.p.coached = true; save.commit(); ND.coach.start(); }
@@ -1246,7 +1248,7 @@
       if (el.textContent !== text) { el.textContent = text; el.classList.toggle('earned', ready); }
     },
     retry() { const R = this.run; if (!R) return; if (R.last === 'win') return this.primary(); R.needsRetry = true; this.fight(); },
-    // the rally tutorial ran inside this fight (js/tutorial.js): its time and hits do not count for the journey
+
     tutorReset() {
       const R = this.run; if (!R || !R.cur) return;
       R.time = Math.max(0, (R.time || 0) - (R.cur.t || 0));
@@ -1266,8 +1268,8 @@
     tick(rdt) {
       const R = this.run, G = this.G;
       if (!R || G.mode !== 'arcade' || !R.cur) return;
-      // Some reflected projectiles increment parries without changing the fighter's animation.
-      // Only update DOM when the counter changes, not every frame.
+
+
       if (R.cur.metrics && R.cur.metrics.parry !== (G.F[0].parries || 0)) { R.cur.metrics.parry = G.F[0].parries || 0; this.refreshGoal(); }
       if (G.phase === 'intro' || G.phase === 'fight' || G.phase === 'ko' || G.phase === 'timeup') { R.time += rdt; R.cur.t += rdt; }
     },
@@ -1280,8 +1282,8 @@
       else if (w) R.cur.lost++;
     },
 
-    // true döner: normal bitiş penceresini arcade kendisi yönetir
-    // res: ND.score.matchEnd() sonucu (tek puan modeli; zorluk çarpanı dahil maç puanı)
+
+
     onMatchEnd(w, res) {
       const R = this.run, G = this.G; if (!R) return false;
       const F = R.fights[R.i], f1 = G.F[0], cur = R.cur || { t: 60, lost: 0, perfect: 0 };
@@ -1294,8 +1296,8 @@
       if (won) {
         const pts = res ? res.total : 0;
         R.score += pts; R.won++; R.perfect += cur.perfect;
-        // studio play statistics: how far players get in the journey (src/studio-stats.ts; once per install)
-        try { if (ND.studioStats) ND.studioStats.event('journey_win_' + (R.i + 1)); } catch (e) { /* never breaks the game */ }
+
+        try { if (ND.studioStats) ND.studioStats.event('journey_win_' + (R.i + 1)); } catch (e) {                             }
         R.fightPts = R.fightPts || []; R.fightPts[R.i] = pts;
         R.honor = (R.honor || 0) + (honor.last ? honor.last.total : 0);
         R.needsRetry = false;
@@ -1319,7 +1321,8 @@
         $('endTitle').textContent = E.lossTitle;
         $('endSub').textContent = E.lossSub(nice(w ? w.ch.name : ND.CHARS[F.opp].name));
         $('bRematch').textContent = E.retry;
-        // Rewarded: continue from here without the retry penalty (once per run, only where ads exist)
+        this.lossTip(G, R);
+
         const bc = $('bContinue'), A = STR.ads || {};
         if (bc && ND.ads && ND.ads.rewardedAvailable() && !R.contUsed) {
           bc.hidden = false;
@@ -1341,7 +1344,20 @@
       return false;
     },
 
-    // Bitiş penceresindeki birincil düğme
+
+
+
+    lossTip(G, R) {
+      const el = $('endTip'), f1 = G.F && G.F[0], s = (G.stats && G.stats[0]) || {};
+      if (!el || !ND.coach || !ND.coach.text || !R || R.i > 2) return;
+      const step = !(f1 && f1.parries) && !s.parries ? 'parry' : !s.counters ? 'counter' : 'combo';
+      const html = ND.coach.text(step), head = (STR.tips && STR.tips.head) || '';
+      if (!html) return;
+      el.innerHTML = (head ? '<b>' + esc(head) + '</b>' : '') + html;
+      el.hidden = false;
+    },
+
+
     primary() {
       const R = this.run; if (!R) return this.G.goMenu();
       if (R.last === 'win') { R.i++; R.last = null; R.cur = null; if (R.i >= R.fights.length) return this.showEnding(); this.openVs(); }
@@ -1374,7 +1390,7 @@
       const me = ND.CHARS[R.me], final = arcadeTotal(R), res = { newBest: !!R.newBest };
       $('end').hidden = true;
       G.showStage('ending', ['edPv', null], R.me, null);
-      G.pv[0].pvPose = (ND.flair && ND.flair.pvPose(0)) || 'victory'; // (a worn victory pose, js/flair.js)
+      G.pv[0].pvPose = (ND.flair && ND.flair.pvPose(0)) || 'victory';
       ND.music.setMode('menu');
       const S = STR.ending, lines = R.version === J.version ? [J.text().endings[me.id]] : STR.endings[me.id] || STR.endings.def;
       $('edK').textContent = me.kanji; $('edK').style.color = me.col.ui;
@@ -1394,12 +1410,12 @@
       $('edStats').innerHTML = rows.map((r) => cell(r[0], esc(r[1]))).join('') +
         cell(S.rows.score, fmtNum(final) + (res.newBest ? `<em>${esc(S.newBest)}</em>` : ''), 'sc') + cell(S.rows.best, fmtNum(save.p.best)) +
         (HONOR ? cell(STR.honor.head, esc(STR.honor.plus(R.honor || 0)) + `<em>${esc(STR.honor.total(save.honor))}</em>`, 'hn') : '');
-      // Sıralama: otomatik gönder (yerelde takma ad yoksa tek dokunuşla sorulur), sonra sırayı göster
+
       if ($('edRank')) $('edRank').hidden = true;
       if (ND.lbUI && !R.ranked) {
         R.ranked = true; this.checkpoint();
         const back = () => { const e = $('ending'); if (e) e.hidden = false; setTimeout(() => $('edMenu').focus(), 0); };
-        // maç özeti: sunucu makullük denetimi için (süre, dövüş, raund, isabet)
+
         const sum = { dur: R.time, fights: R.fights.length, won: R.won, rounds: R.rounds || 0, rw: R.rw || 0, hits: R.hits || 0, lvl: 3, mode: 'arcade' };
         ND.lbUI.panel($('edRank'), 'arcade', { score: final, char: me.id, time: Math.round(R.time), date: Date.now(), sum }, { back, onOpen: () => { $('ending').hidden = true; } });
       }
@@ -1431,12 +1447,12 @@
     },
   };
 
-  // ================================================================ MEYDAN OKUMA (挑): kilitli ninjayla düello
-  // Onur eşiğine ulaşınca açılır; kazanınca ninja kalıcı olarak açılır. Kaybetmek bir şey kaybettirmez, yalnız
-  // bir sonraki denemede rakibin canı biraz düşer (honor.js rivalHp). Koşu denetleyicisi arayüzü (game.runner).
+
+
+
   const rival = ND.rival = {
     mode: 'rival', run: null, G: null, target: null,
-    // Menüden / bitiş ekranından / Onur Yolu'ndan: ninjanı seç, sonra düello
+
     offer(id) {
       const ri = save.rivalInfo(id);
       if (!ri || ri.unlocked || !ri.ready || !this.G) return;
@@ -1499,7 +1515,7 @@
     },
     tick() {},
     onRoundEnd() {},
-    // true → game.js normal bitiş penceresini göstermez
+
     onMatchEnd(w, res) {
       const R = this.run, G = this.G; if (!R) return false;
       const won = w === G.F[0], ch = ND.CHARS[R.opp], S = STR.rival;
@@ -1528,7 +1544,7 @@
       if (G.showScore) G.showScore(res, { lost: !won });
       return false;
     },
-    // Bitiş penceresindeki birincil düğme: kazandıysan yeni ninjayla seçim ekranı, kaybettiysen yeniden dene
+
     primary() {
       const R = this.run, G = this.G; if (!R) return G.goMenu();
       if (R.last === 'win') { const k = R.opp; this.abandon(); G.sel.c[0] = k; G.openSelect('cpu'); return; }
@@ -1557,8 +1573,8 @@
     return w[n] || String(n);
   }
 
-  // ================================================================ ANTRENMAN + EĞİTİM
-  // Kukla davranışları için saldırgan ama savunmasız bir yapay zekâ ayarı
+
+
   const ATTACK_LV = { parry: 0, guard: 0.08, dodge: 0.04, aggr: 0.8, combo: 0.5, smart: 0.25, counter: 0, rally: 0, react: 0.3, tick: [0.3, 0.55], read: 0 };
 
   class Dummy {
@@ -1586,7 +1602,7 @@
     }
   }
 
-  // Savuşturma dersinde kukla daha çok okunaklı ağır kesik atar, seri baskıyı azaltır (hafif kesiği tepkiyle savuşturmak zordur)
+
   const LESSON_AI = { parry: { heavy: 0.6, combo: 0.15, aggr: 0.6 } };
   const LESSON_BEH = { walk: 'idle', combo: 'idle', heavy: 'idle', gbreak: 'guard', block: 'attack', parry: 'attack', counter: 'attack', rally: 'counter', special: 'idle' };
 
@@ -1596,12 +1612,12 @@
 
     init(G) {
       this.G = G;
-      try { this.panel = window.innerWidth >= 900; } catch (e) { /* yok */ }
-      // oyun kancalarını sar (orijinal davranışı bozmadan)
+      try { this.panel = window.innerWidth >= 900; } catch (e) {           }
+
       const wrap = (name, fn) => {
         const orig = G[name];
         if (typeof orig !== 'function') return;
-        G[name] = function (...args) { const r = orig.apply(this, args); try { fn(args, r); } catch (e) { /* yok say */ } return r; };
+        G[name] = function (...args) { const r = orig.apply(this, args); try { fn(args, r); } catch (e) {               } return r; };
       };
       wrap('onCounter', ([f]) => { if (G.mode === 'train' && f === G.F[0]) this.ev.counter = true; });
       wrap('onSpecial', ([f]) => { if (G.mode === 'train' && f === G.F[0]) this.ev.special = true; });
@@ -1613,13 +1629,13 @@
       $('trReset').onclick = (e) => { this.reset(); e.currentTarget.blur(); };
       $('trHide').onclick = (e) => { this.togglePanel(); e.currentTarget.blur(); };
       $('trShow').onclick = (e) => { this.togglePanel(); e.currentTarget.blur(); };
-      // dokunmatik ↔ klavye geçişinde açık ekranların metinlerini yenile
+
       if (ND.touch) ND.touch.onChange(() => this.retext());
-      // language switched (menu or pause dialog): texts built here and an open training screen follow at once
+
       if (ND.i18n && ND.i18n.onChange) ND.i18n.onChange(() => { this.labels(); if (this.G.mode === 'train') $('trTitle').textContent = this.tut ? STR.train.tutTitle : STR.train.title; this.retext(); if (this.G.mode === 'train') this.refresh(); });
     },
 
-    // Dummy behaviour buttons and the key help line, in the current language
+
     labels() {
       const box = $('trBeh');
       box.innerHTML = Object.keys(STR.train.beh).map((k, i) => `<button class="seg" data-beh="${k}" title="${i + 1}">${esc(STR.train.beh[k])}</button>`).join('');
@@ -1638,11 +1654,11 @@
 
     begin(c1, c2, arena, tut) {
       this.tut = !!tut; this.lesson = 0; this.finished = false;
-      // panel dar ekranda dövüşçünün üstünü kapatır: kullanıcı elle açıp kapatmadıysa genişliğe göre karar ver
-      // dokunmatikte panel sol başparmak bölgesini kapatmasın: varsayılan kapalı
-      if (!this.panelUser) { try { this.panel = window.innerWidth >= 900 && !(ND.touch && ND.touch.active); } catch (e) { /* yok */ } }
+
+
+      if (!this.panelUser) { try { this.panel = window.innerWidth >= 900 && !(ND.touch && ND.touch.active); } catch (e) {           } }
       if (this.tut) {
-        // ilk tamamlanmamış dersten başla
+
         const L = STR.lessons, done = save.p.lessons;
         const k = L.findIndex((l) => !done.includes(l.id));
         this.lesson = k < 0 ? 0 : k;
@@ -1667,8 +1683,8 @@
       const sp = ND.SPECIALS?.[ch.id];
       return sp && sp.name ? { kanji: sp.kanji || '', name: sp.name, desc: sp.desc || '', tip: sp.tip || '' } : STR.train.specialFallback;
     },
-    // Hareket listesi satırları (<dt>/<dd>): ND.MOVELIST[ch.id] varsa ondan (dövüş tarafının listesi), yoksa genel liste
-    // + ki tekniği + ninjaya özel notlar. Antrenman paneli ve seçim ekranındaki Hareketler paneli ortak kullanır.
+
+
     movesHtml(ch) {
       const sp = this.special(ch), tr = (s) => (ND.i18n ? ND.i18n.t(String(s)) : String(s));
       const ML = ND.MOVELIST && Array.isArray(ND.MOVELIST[ch.id]) && ND.MOVELIST[ch.id].length ? ND.MOVELIST[ch.id] : null;
@@ -1682,12 +1698,12 @@
       } else {
         rows = STR.pickT(STR.moves, STR.movesTouch).map((m) => `<dt>${m[0]}</dt><dd><b>${esc(m[1])}</b>${m[2] ? '<small>' + esc(m[2]) + '</small>' : ''}</dd>`);
       }
-      // ki tekniği: liste kendisi içermiyorsa ekle
+
       if (!ML || !ML.some((m) => m && Array.isArray(m.tags) && m.tags.some((t) => /^(ki|special|özel)$/i.test(String(t))))) {
         rows.push(`<dt>${STR.pickT('<kbd>E</kbd>', STR.moveSpecialTouch)}</dt><dd class="sp"><b><span class="k">${esc(sp.kanji)}</span> ${esc(sp.name)}</b><small>${esc(STR.train.kiFull)} · ${esc(sp.desc)}</small>` +
           (sp.tip ? `<small class="tip">${esc(STR.train.counterTip)}: ${esc(sp.tip)}</small>` : '') + '</dd>');
       }
-      // ninjaya özel notlar (roster2.js: STR.roster2.notes)
+
       const notes = !ML && STR.roster2 && STR.roster2.notes && STR.roster2.notes[ch.id];
       if (Array.isArray(notes)) notes.forEach((t) => rows.push(`<dt><span class="k">${esc(ch.kanji)}</span></dt><dd class="nt"><small>${esc(t)}</small></dd>`));
       return rows.join('');
@@ -1706,7 +1722,7 @@
       G.startRound();
       if (this.dummy) this.setDummy(this.dummy.beh);
     },
-    // kukla davranışı + (eğitimdeyse) derse özel yapay zekâ ayarı
+
     setDummy(beh) {
       if (!this.dummy) return;
       this.dummy.set(beh);
@@ -1778,7 +1794,7 @@
         case 'combo': ok = f1.state === 'atk' && f1.atkName === 'light3' && f1.hitDone; break;
         case 'heavy': ok = f1.state === 'atk' && f1.atkName === 'heavy' && f1.hitDone; break;
         case 'gbreak': ok = f2.state === 'gbreak'; prog = Math.min(1, f2.posture / 100); break;
-        case 'block': ok = f1.state === 'block' || f1.state === 'parry'; break; // tam zamanında basan oyuncu savuşturur: o da gard sayılır
+        case 'block': ok = f1.state === 'block' || f1.state === 'parry'; break;
         case 'parry': ok = f1.state === 'parry'; break;
         case 'counter': ok = !!this.ev.counter; break;
         case 'rally': { const turns = G.rally.turns ? G.rally.turns[0] : 0; prog = Math.min(1, turns / 2); ok = turns >= 2; break; }
@@ -1812,8 +1828,8 @@
     },
   };
 
-  // Owner test shortcut: opening the game with #unlock-all (or #hepsi) unlocks every fighter and arena.
-  // Only on the local portal (localhost, the claude.ai test link, own site) - never on CrazyGames/Poki/Yandex.
+
+
   const testUnlock = () => {
     try {
       if (ND.portalName !== 'local' || !/^#(unlock-all|hepsi)$/i.test(location.hash || '')) return;
@@ -1821,7 +1837,7 @@
       save.unlockAll();
       if (ND.arcade && ND.arcade.G) ND.arcade.refreshMenu();
       if (ND.toast) ND.toast('Test: all fighters and arenas unlocked', '忍');
-    } catch (e) { /* storage unavailable */ }
+    } catch (e) {                           }
   };
   window.addEventListener('hashchange', testUnlock);
   window.addEventListener('load', testUnlock);

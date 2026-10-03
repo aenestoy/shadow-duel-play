@@ -1,9 +1,9 @@
-// Gölge Düellosu — üretken müzik: koto (Karplus-Strong), shakuhachi, taiko; Japon "in" dizisi
+
 (function (ND) {
   'use strict';
   const au = ND.audio;
-  const SCALE = [0, 1, 5, 7, 8];           // miyako-bushi (in-sen) — Re tabanlı
-  const BASE = 146.83;                     // D3
+  const SCALE = [0, 1, 5, 7, 8];
+  const BASE = 146.83;
 
   const mu = ND.music = {
     ready: false, enabled: true, mode: 'off', nextMode: 'off', tempo: 66, step: 0, nextT: 0, timer: null,
@@ -12,22 +12,22 @@
     init() {
       if (this.ready || !au.ready) return;
       const c = au.ctx;
-      // bus level = on/off switch × music slider (ND.audio.vol.music); the reverb send is taken after it
+
       this.bus = c.createGain(); this.bus.gain.value = this.level();
-      // duck: a second gain after the level, only for short dips under the announcer (js/voice.js → duck()); the
-      // reverb send is taken after it, so the music's tail dips too
+
+
       this.duckG = c.createGain(); this.bus.connect(this.duckG);
       this.duckG.connect(au.master);
       const send = c.createGain(); send.gain.value = 0.45; this.duckG.connect(send); send.connect(au.rev);
-      // koto örneklerini önceden üret (2,5 oktav)
+
       for (let i = 0; i < 13; i++) {
         const oct = Math.floor(i / 5), deg = SCALE[i % 5];
         this.kotoBufs.push(this.ks(BASE * Math.pow(2, (oct * 12 + deg) / 12), 2.2));
       }
       this.ready = true;
       this.nextT = c.currentTime + 0.1;
-      // notes are scheduled 0.35 s ahead, checked every 60 ms: a slow frame or a busy moment of up to ~0.3 s on the
-      // main thread no longer leaves a gap in the music (it was 0.15 s / 30 ms), and half the wake-ups
+
+
       this.timer = setInterval(() => this.schedule(), 60);
     },
 
@@ -36,9 +36,9 @@
       this.enabled = v;
       if (this.bus) au.ramp(this.bus.gain, this.level(), 0.3);
     },
-    // music slider moved (ND.audio.setVolume): short glide, no clicks
+
     applyVolume() { if (this.bus) au.ramp(this.bus.gain, this.level(), 0.04); },
-    // Dip the music by `db` for `sec` seconds (announcer lines), then glide back. A new dip restarts the hold.
+
     duck(db, sec) {
       if (!this.duckG || !au.ctx) return;
       const g = this.duckG.gain, t = au.ctx.currentTime;
@@ -49,7 +49,7 @@
 
     freq(i) { const oct = Math.floor(i / 5), deg = SCALE[((i % 5) + 5) % 5]; return BASE * Math.pow(2, (oct * 12 + deg) / 12); },
 
-    // Karplus-Strong telli çalgı sentezi
+
     ks(f, dur) {
       const c = au.ctx, sr = c.sampleRate, len = (sr * dur) | 0, N = Math.max(2, Math.round(sr / f));
       const buf = c.createBuffer(1, len, sr), out = buf.getChannelData(0), ring = new Float32Array(N);
@@ -89,7 +89,7 @@
       const g = c.createGain(), g2 = c.createGain(); g2.gain.value = 0.08;
       g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.22 * vel, t + 0.25);
       g.gain.setValueAtTime(0.22 * vel, t + dur * 0.7); g.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.5);
-      // nefes
+
       const n = c.createBufferSource(); n.buffer = au.noiseBuf;
       const bf = c.createBiquadFilter(); bf.type = 'bandpass'; bf.frequency.value = f * 2; bf.Q.value = 3;
       const ng = c.createGain(); ng.gain.setValueAtTime(0.0001, t); ng.gain.exponentialRampToValueAtTime(0.06 * vel, t + 0.12); ng.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.4);
@@ -100,7 +100,7 @@
 
     drum(t, kind, vel = 1) {
       const c = au.ctx;
-      if (kind === 'o') { // odaiko
+      if (kind === 'o') {
         const o = c.createOscillator(); o.frequency.setValueAtTime(120, t); o.frequency.exponentialRampToValueAtTime(48, t + 0.3);
         const g = c.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.9 * vel, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.7);
         o.connect(g); g.connect(this.bus); o.start(t); o.stop(t + 0.75);
@@ -109,7 +109,7 @@
       const f = c.createBiquadFilter();
       const g = c.createGain();
       if (kind === 'o') { f.type = 'lowpass'; f.frequency.value = 500; g.gain.setValueAtTime(0.4 * vel, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.15); }
-      else { // shime-daiko: kısa, gergin
+      else {
         f.type = 'bandpass'; f.frequency.value = 900; f.Q.value = 1.5;
         g.gain.setValueAtTime(0.35 * vel, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.07);
         const o = c.createOscillator(); o.frequency.setValueAtTime(420, t); o.frequency.exponentialRampToValueAtTime(260, t + 0.06);
@@ -119,7 +119,7 @@
       n.connect(f); f.connect(g); g.connect(this.bus); n.start(t, Math.random()); n.stop(t + 0.2);
     },
 
-    // Rastgele yürüyüşle dizi içinde melodi
+
     stepWalk(lo, hi) {
       const r = Math.random();
       this.walk += r < 0.4 ? 1 : r < 0.8 ? -1 : r < 0.9 ? 2 : -2;
@@ -127,13 +127,13 @@
       return this.walk;
     },
 
-    // Hidden tab or running ad: schedule nothing (the master gain is down anyway), keep the clock moving
+
     schedule() {
       if (!this.ready || this.mode === 'off' || document.hidden || au.adMuted) { if (this.ready) this.nextT = Math.max(this.nextT, au.ctx.currentTime + 0.05); return; }
       const c = au.ctx;
       while (this.nextT < c.currentTime + 0.35) {
         this.play(this.nextT, this.step);
-        const spb = 60 / this.tempo / 4; // 16'lık
+        const spb = 60 / this.tempo / 4;
         this.nextT += spb;
         this.step++;
         if (this.step % 16 === 0 && this.nextMode !== this.mode) { this.mode = this.nextMode; this.step = 0; }
@@ -142,7 +142,7 @@
 
     play(t, s) {
       const m = this.mode, bar = Math.floor(s / 16), b16 = s % 16;
-      if (m === 'menu' && ND.flair && ND.flair.menuPlay(this, t, s)) return; // a worn menu music variant (js/flair.js)
+      if (m === 'menu' && ND.flair && ND.flair.menuPlay(this, t, s)) return;
       if (m === 'menu') {
         this.tempo = 64;
         if (b16 % 4 === 0 && Math.random() < 0.55) this.koto(t, this.stepWalk(3, 11), 0.6 + Math.random() * 0.3, Math.random() * 0.6 - 0.3);
@@ -151,12 +151,12 @@
       } else if (m === 'fight' || m === 'final') {
         const fin = m === 'final';
         this.tempo = fin ? 116 : 98;
-        // taiko
+
         const ost = fin ? [1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 1] : [1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0];
         if (ost[b16]) this.drum(t, 'o', b16 === 0 ? 1 : 0.7);
         if (b16 % 2 === 0 || (fin && Math.random() < 0.35)) this.drum(t, 's', b16 % 4 === 0 ? 0.8 : 0.4);
         if (bar % 4 === 3 && b16 >= 12) this.drum(t, 's', 0.5 + (b16 - 12) * 0.12);
-        // koto ostinato
+
         const pat = [0, 2, 3, 2, 5, 3, 2, 1];
         if (b16 % 2 === 0) {
           const k = pat[(b16 / 2) | 0] + (bar % 4 === 2 ? 1 : 0) + (fin ? 3 : 0);

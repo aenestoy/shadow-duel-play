@@ -1,17 +1,17 @@
-// Shadow Duel — Korean catalog for ND.i18n, translated from the English one (js/i18n-en.js).
-// Loaded on demand: js/i18n.js loads this file only when the game runs in this language. Same structure as i18n-en.js.
-// Glossary: guard = 가드, parry = 패링, counter = 반격, posture = 자세 (posture bar = 자세 게이지, posture broken = 자세 붕괴!),
-//   ki = 기 (ki bar = 기 게이지), ki technique = 필살기 (touch button 필살), blade lock = 칼날 겨루기, dash = 대시,
-//   combo = 콤보, string/chain = 연계, rally = 랠리, finisher = 피니시, launcher = 띄우기, light / heavy slash = 약베기 / 강베기
-//   (buttons 공격 · 강공격, keyboard light/heavy = 약공격 / 강공격), kick = 발차기, sweep = 다리 후리기, shuriken = 수리검,
-//   dummy = 허수아비, arcade = 아케이드, training = 훈련, tutorial = 튜토리얼, ranked = 랭크전, unranked = 일반전,
-//   placement = 배치고사, journey = 여정, mastery star = 숙련의 별, Master seal = 고수의 인장, Hall of Champions = 챔피언의 전당,
-//   shadow (ghost opponent) = 그림자, season = 시즌, round = 라운드, honor = 명예, rival challenge = 라이벌 도전,
-//   Dan trial = Dan 심사, leaderboard = 순위표, AI levels = 견습생 / 고수 / 전설 / Shura.
-//   tier (ranked) = 티어, rating = 레이팅, Shadow Pass = 그림자 패스, pass tier = 단계, level = 레벨, claim = 받기,
-//   equip = 장착, title = 칭호, badge = 배지, frame = 프레임, blade trail = 칼날 궤적, XP booster = XP 부스터,
-//   costume = 코스튬, journey seal = 여정 인장, Menkyo / Kaiden / Ronin / Yami stay in Latin letters.
-//   Instructions use the polite ~하세요 / ~합니다 style. Names, romaji terms, Kyu/Dan and Japanese weapon names stay in Latin letters.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 (function (ND) {
   'use strict';
   (ND.I18N_CATALOGS || (ND.I18N_CATALOGS = {}))['ko'] = function (I, EN) {
@@ -20,7 +20,7 @@
     const dec = (x) => I.dec(x);
     const fmtTime = (s) => I.time(s);
 
-    // ================================================================ UI tables (ND.STR)
+
     merge(EN.STR, {
       menu: {
         brand: (nc, na) => `${nc} 명의 전사, ${na} 곳의 아레나, 그리고 숨겨진 고수. 실시간 칼날 격돌, 칼날 겨루기, 패링, 자세 붕괴, 필살기, 래그돌 물리까지.`,
@@ -149,7 +149,7 @@
       bz: {
         back: '뒤로', toMenu: '메인 메뉴', you: '나', youTag: '나', newBest: '최고 기록 경신!', seeResult: '결과 보기',
         resetIn: '초기화까지',
-        // time left: days (일) · hours (시간) · minutes (분) · seconds (초)
+
         left: (ms) => { const t = Math.floor(ms / 1000), d = Math.floor(t / 86400), hh = Math.floor((t % 86400) / 3600), mm = Math.floor((t % 3600) / 60), ss = t % 60; return d ? `${d}일 ${hh}시간 ${mm}분` : hh ? `${hh}시간 ${mm}분` : `${mm}분 ${ss}초`; },
         leftShort: (ms) => { const t = Math.floor(ms / 60000), d = Math.floor(t / 1440), hh = Math.floor((t % 1440) / 60), mm = t % 60; return d ? `${d}일 ${hh}시간` : hh ? `${hh}시간 ${mm}분` : `${mm}분`; },
         weekName: (m, y) => `${y}년 ${['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'][m - 1] || m}`,
@@ -235,7 +235,7 @@
           pending: (n) => `전송 대기 중인 기록: ${n}`,
           classic: '아케이드 · 전설 순위표',
         },
-        // Monthly Tournament rewards: permanent title (top 3) and Champion colors (1st)
+
         ttl: {
           champ: '월간 챔피언', finalist: '입상자',
           reward: '2026년 10월 토너먼트부터 매달 톱 3는 영구 칭호를 받습니다. 챔피언은 사용한 닌자의 전용 챔피언 색상도 얻습니다. 칭호는 그달 참가자가 5명 이상일 때만 주어집니다.',
@@ -373,10 +373,10 @@
       ],
     });
 
-    // ================================================================ story, fighters, arenas, specials
-    // ---- Fragment B: story text (talk, pairs, endings, roster2 notes), characters, arenas, specials, pop-ups, AI levels, number words
+
+
     merge(EN.STR, {
-      // open = speaks first (opponent), reply = answers (player), boss = said to the final boss
+
       talk: {
         akane: {
           open: ['내 칼날은 붉고, 내 뜻은 순수하다. 명예롭게 맞서라.', '먼저 예를 갖추고, 그다음에 벤다. 그것이 공정함이다.', '이 결투는 명예를 위한 것. 물러설 곳은 없다.'],
@@ -444,7 +444,7 @@
           boss: 'Shura, 하늘에는 숨을 곳이 없어. 내 화살이 너를 찾아낼 거야.',
         },
       },
-      // Special match-ups: lines are spoken in the order written
+
       pairs: {
         'akane|aoi': [['akane', 'Aoi! 끝내지 못한 결투를 마무리할 때다.'], ['aoi', '바람은 언제나 같은 불을 향해 분다, Akane. 시작하지.']],
         'kuro|tetsu': [['kuro', '쇠 껍데기라. 속이 비었는지 보자.'], ['tetsu', '산조차 규율 앞에서는 고개를 숙인다, Kuro.']],
@@ -541,22 +541,22 @@
 
     EN.NUMWORDS = ['영', '한', '두', '세', '네', '다섯', '여섯', '일곱', '여덟', '아홉', '열', '열한', '열두'];
 
-    // ================================================================ static HTML, hardcoded literals, canvas pop-ups
+
     merge(EN.PHRASES, {
-      // ---------------------------------------------------------------- index.html: <title>, brand, HUD
+
       'Gölge Düellosu': 'Shadow Duel',
       'Duraklat': '일시정지',
       'KARŞILIKLI SERİ': '랠리',
       'SON DARBE': '최후의 일격',
       'atlamak için bir tuşa bas': '아무 키나 눌러 건너뛰기',
-      // touch buttons (static fallbacks of data-s="touch.btn.*")
+
       'GARD': '가드',
       'HAFİF': '약공격',
       'SALDIR': '공격',
       'AĞIR': '강공격',
       'ATIL': '대시',
       'TEKME': '발차기',
-      // ---------------------------------------------------------------- main menu
+
       'Sekiz savaşçı, üç arena. Gerçek zamanlı kılıç çarpışması, kılıç kilitlenmesi, savuşturma, denge kırma, Gölge Kesiği ve ragdoll fiziği.': '여덟 명의 전사, 세 곳의 아레나. 실시간 칼날 격돌, 칼날 겨루기, 패링, 자세 붕괴, 그림자 베기, 래그돌 물리까지.',
       'İki Oyuncu': '2인 대전',
       'Aynı klavyede ya da iki gamepad ile kafa kafaya': '키보드 하나 또는 게임패드 두 개로 맞대결',
@@ -576,7 +576,7 @@
       'Kan efekti': '피 효과',
       'Tuş ipuçları': '키 힌트',
       'Yüksek grafik': '고품질 그래픽',
-      // ---------------------------------------------------------------- controls card
+
       'Kontroller': '조작법',
       '1. Oyuncu': '1P',
       '2. Oyuncu': '2P',
@@ -590,7 +590,7 @@
       'Sağ Shift': '오른쪽 Shift',
       'Atılma': '대시',
       'Ki tekniği (ki dolu)': '필살기 (기 가득)',
-      // ---------------------------------------------------------------- select screen
+
       'Ninjanı seç': '닌자 선택',
       'Hazır': '준비 완료',
       '1. oyuncunun ninjası': '1P의 닌자',
@@ -607,7 +607,7 @@
       'Güç': '파워',
       'Menzil': '사거리',
       'Can': '체력',
-      // ---------------------------------------------------------------- pause / end
+
       'Duraklatıldı': '일시정지',
       'Devam et': '계속하기',
       'Maçı yeniden başlat': '매치 재시작',
@@ -619,20 +619,20 @@
       'Verilen hasar': '입힌 피해',
       'Savuşturma': '패링',
       'Ki Saldırısı': '필살기',
-      // ---------------------------------------------------------------- training / leaderboard / misc
+
       'Antrenman': '훈련',
       'ANTRENMAN': '훈련',
       'Sıralama': '순위표',
       'Tümü': '전체',
       'Ekranı yan çevir': '화면을 가로로 돌려 주세요',
       'Performans için grafik düşürüldü': '성능을 위해 그래픽을 낮췄습니다',
-      // hidden boss pushed into ND.CHARS by arcade.js (safety net; EN.CHARS.shura should carry the same)
+
       'Kanlı Usta': '피의 고수',
       'Yolunu kanla çizen iblis usta. Uzun nodachi, yıkıcı darbeler, neredeyse kusursuz savuşturma.': '피로 길을 새긴 악귀 고수. 긴 nodachi, 짓뭉개는 일격, 거의 완벽한 패링.',
-      // ---------------------------------------------------------------- HUD tags (fallbacks when STR.hud is missing)
+
       'SEN': '나',
       'KUKLA': '허수아비',
-      // ---------------------------------------------------------------- round banners (#bt / #bs)
+
       'Son raund': '마지막 라운드',
       'Kazanan her şeyi alır': '승자가 모든 것을 갖는다',
       'İlk iki raundu alan kazanır': '2라운드 선승',
@@ -641,13 +641,13 @@
       'Berabere': '무승부',
       'Çifte K.O.': '더블 K.O.',
       'Mükemmel': '퍼펙트',
-      // blade-lock hint (fallbacks of STR.hud.lockSolo / lockDuo)
+
       'F / K tuşuna hızlıca bas!': 'F / K 연타!',
       'Hafif ya da ağır tuşuna hızlıca bas!': '약·강공격 연타!',
-      // counter / parry prompt labels under the key ring (ctx.fillText in drawPrompts)
+
       'KARŞILIK': '반격',
       'SAVUŞTUR': '패링',
-      // ---------------------------------------------------------------- canvas pop-ups (fx.text)
+
       'SON VURUŞ!': '피니시!',
       'KİLİTLENDİ!': '칼날 겨루기!',
       'İTTİ!': '밀쳐냄!',
@@ -670,9 +670,9 @@
     });
 
     merge(EN.HTML, {
-      // brand title
+
       'Gölge<br><em>Düel</em><em>losu</em>': 'Shadow<br><em>Du</em><em>el</em>',
-      // tips list (<ul class="tips">)
+
       '<b>Savuşturma:</b> darbe gelmeden hemen önce gard tuşuna bas; rakip sendeler.':
         '<b>패링:</b> 공격이 닿기 직전에 가드를 누르세요. 상대가 휘청입니다.',
       '<b>Karşılık (返し技):</b> gard ya da savuşturmanın hemen ardından saldırı tuşu → anında karşı kesik. <b>İleri</b> + hafif = bacağa süpürme, <b>geri</b> + hafif = yanından dönüp arkadan kesme, <b>ağır</b> = güçlü karşı darbe.':
@@ -687,30 +687,30 @@
         '<b>대시 + 약공격</b> = 대시 베기. <b>공중</b> 약공격 = 공중 베기, 강공격 = 급강하. 강베기는 상대를 넘어뜨리고, 벽에 부딪힌 상대는 튕겨 나옵니다.',
       '<b>Denge çubuğu</b> dolarsa gard kırılır. Tekme gardı delip dengeyi hızla doldurur.':
         '<b>자세 게이지</b>가 가득 차면 가드가 무너집니다. 발차기는 가드를 뚫고 자세 게이지를 빠르게 채웁니다.',
-      // gamepad note (Esc -> Start or P)
+
       'Gamepad: X hafif · Y ağır · B tekme · A zıpla · LB gard · RB shuriken · RT atılma · R3 ki tekniği. Start ya da <kbd>P</kbd> duraklatır. CPU modunda her iki tuş seti de seni yönetir.':
         '게임패드: X 약공격 · Y 강공격 · B 발차기 · A 점프 · LB 가드 · RB 수리검 · RT 대시 · R3 필살기. Start 또는 <kbd>P</kbd>로 일시정지. CPU 모드에서는 두 키 세트 모두 내 캐릭터를 조작합니다.',
-      // select / VS hints (Esc -> ⌫)
+
       '<kbd>Enter</kbd> başlatır · <kbd>⌫</kbd> menüye döner': '<kbd>Enter</kbd> 시작 · <kbd>⌫</kbd> 뒤로',
       '<kbd>Enter</kbd> / <kbd>F</kbd> başlatır · <kbd>⌫</kbd> çıkar': '<kbd>Enter</kbd> / <kbd>F</kbd> 시작 · <kbd>⌫</kbd> 나가기',
     });
 
     EN.PATTERNS.push(
-      // HUD round label (#rlabel) and round banner
+
       [/^RAUND (\d+)$/, '라운드 $1'],
       [/^(\d+)\. Raund$/, '라운드 $1'],
-      // canvas pop-ups built from numbers
+
       [/^(\d+)\. KARŞILIK$/, '반격 ×$1'],
       [/^(\d+) VURUŞLUK SERİ!$/, '$1연타 랠리!'],
-      // time-up banner sub: `${name} önde`
+
       [/^(.+) önde$/, (m, n) => I.t(n) + ' 우세'],
-      // end screen title: `${Name} kazandı`
+
       [/^(.+) kazandı$/, (m, n) => I.t(n) + ' 승리'],
-      // end screen sub line: `${a} – ${b} · ${round} raund · ${arenaName}`
+
       [/^(\d+) – (\d+) · (\d+) raund · (.+)$/, (m, a, b, r, ar) => `${a} – ${b} · ${r}라운드 · ${I.t(ar)}`],
     );
 
-    // ================================================================ added with the portal build (PLAY, ads, coach)
+
     merge(EN.STR, {
       menu: { play: '플레이', playSub: (name, lv) => `${name} vs CPU · ${lv}` },
       first: { play: '플레이', sub: '탭 한 번으로 바로 대전', menu: '모든 모드' },
@@ -729,21 +729,21 @@
       },
     });
 
-    // ================================================================ VOLUME: sliders on the menu card and in pause (js/volume.js)
+
     merge(EN.STR, {
       vol: {
         title: '음량', master: '전체', music: '음악', sfx: '효과음', sound: '사운드',
         pct: (n) => `${n}%`,
         muted: '소리가 꺼져 있습니다. 슬라이더를 움직이면 다시 켜집니다.',
-        // Settings > Audio: character / announcer voices switch (js/voice.js) and the courtesy credit under it
+
         voice: '음성',
         uiSfx: '메뉴 효과음',
         credit: '음성: ユーフルカ (youfulca.com) · 効果音ラボ · すぱらんど',
       },
     });
 
-    // ================================================================ TOUCH LAYOUT EDITOR: movement modes + "Customize controls"
-    // (js/touch.js settings rows, js/touch-editor.js; Turkish source in i18n.js, block "touch movement modes + layout editor")
+
+
     merge(EN.STR, {
       tedit: {
         move: '이동',
@@ -777,8 +777,8 @@
       },
     });
 
-    // ================================================================ PROGRESSION: honor, rival challenges, moves panel
-    // (arcade.js STR.honor / STR.rival / STR.hint, game.js select screen; rules in js/honor.js)
+
+
     merge(EN.STR, {
       menu: { arcadeDesc: '점점 강해지는 라이벌을 하나씩 쓰러뜨리세요. 끝에는 숨겨진 고수가 기다립니다. 명예를 가장 많이 얻는 곳입니다.' },
       sel: {
@@ -851,8 +851,8 @@
       },
     });
 
-    // ================================================================ COMBAT: new kits, combos, move list (combat designer)
-    // Akane/Aoi/Ren/Kage identities, combo counter, ki cancel, ND.MOVELIST names/descriptions (read through ND.i18n.t)
+
+
     merge(EN.CHARS, {
       akane: { desc: '발도술 달인. 칼은 칼집에서 기다리고 모든 베기가 발도입니다. 발도 자세로 날아오는 공격을 받아칩니다.', weapon: 'Katana (iai)' },
       aoi: { desc: '한 손으로 tachi를 쓰는 바람의 검객. 긴 찌르기와 바람의 걸음으로 한 번에 거리를 좁힙니다.', weapon: 'Tachi' },
@@ -862,7 +862,7 @@
     merge(EN.TXT, { kiCancel: '기 캔슬!', launch: '띄우기!', iaiCatch: 'IAI GAESHI!' });
     EN.PATTERNS.push([/^(\d+) VURUŞ$/, '$1 히트']);
     merge(EN.PHRASES, {
-      // shared rows
+
       'Tekme': '발차기',
       'Tekme: dengeyi hızla doldurur, gardı kırmaya yarar. Ardından AĞIR ile seri bitirişine bağlanır.': '발차기: 자세 게이지를 빠르게 채워 가드를 무너뜨리는 데 유용합니다. 이어서 강공격으로 연계 마무리.',
       'Shuriken fırlatır; zamanla yeniden dolar.': '수리검을 던집니다. 시간이 지나면 다시 찹니다.',
@@ -882,7 +882,7 @@
       'Atılırken dönerek geniş kesik; yere serer.': '대시하며 회전해 넓게 벱니다. 상대를 넘어뜨립니다.',
       'İki kesiklik seri bitirişi; son kesik yere serer.': '두 번 베는 연계 마무리. 마지막 베기는 상대를 넘어뜨립니다.',
       'Rakibin kılıcını aşağı çarpıp dürter: gardı ezer.': '상대의 칼을 쳐 내리고 찌릅니다. 가드를 짓뭉갭니다.',
-      // Akane
+
       'Kından yatay çekiş kesiği, çapraz iniş, geri dönen kesik; kılıç her seferinde kınına döner.': '칼집에서 가로로 뽑아 베고, 비스듬히 내려 베고, 되돌려 벱니다. 칼은 매번 칼집으로 돌아갑니다.',
       'Derin çömelişten geniş yatay çekiş; yere serer.': '깊이 웅크린 자세에서 넓게 가로 발도. 상대를 넘어뜨립니다.',
       'Atılarak kından çekiş: uzak mesafeyi bir anda kapatır, seriye devam eder.': '돌진 발도: 먼 거리를 순식간에 좁히고 연계로 이어집니다.',
@@ -891,7 +891,7 @@
       'Çekiş duruşu: kısa bir an bekler; bu sırada gelen yakın dövüş darbesini yakalar ve kaçınılmaz bir iai kesiğiyle karşılık verir. Boşa giderse açık kalır.': '발도 자세: 잠시 기다리다가 그사이 들어온 근접 공격을 받아 내고 피할 수 없는 발도 베기로 반격합니다. 아무것도 오지 않으면 빈틈을 드러냅니다.',
       'Kesa’dan sonra yükselen ve inen iki çekiş kesiği; son kesik yere serer.': 'Kesa 다음, 올려 베고 내려 베는 두 번의 발도. 마지막 베기는 상대를 넘어뜨립니다.',
       'Tekmeden sonra çömelip rakibin içinden geçen kızıl iai; arkasında belirir.': '발차기 후 웅크려 상대를 꿰뚫고 지나가는 붉은 발도. 상대 뒤에 나타납니다.',
-      // Aoi
+
       'Tek elle uzun dürtüş, yukarı savrulan kesik ve rüzgâr adımıyla derin atılma dürtüşü.': '한 손으로 길게 찌르고, 위로 튕겨 베고, 바람의 걸음으로 깊이 돌진하며 찌릅니다.',
       'Dönerek geniş yatay kesik; yere serer.': '회전하며 넓게 가로 베기. 상대를 넘어뜨립니다.',
       'Rüzgâr adımı: çok uzaktan tek hamlede dürter, seriye devam eder.': '바람의 걸음: 아주 먼 곳에서 한 번에 찌르고 연계로 이어집니다.',
@@ -900,7 +900,7 @@
       'Geri sıçrar, ardından çok uzağa uzanan dürtüşle geri döner: gardı ezer, yere serer.': '뒤로 뛰었다가 아주 긴 찌르기로 돌아옵니다. 가드를 짓뭉개고 상대를 넘어뜨립니다.',
       'Üç hızlı dürtüş; sonuncusu rüzgârla rakibi savurur.': '빠른 찌르기 세 번. 마지막 찌르기는 바람으로 상대를 날려 버립니다.',
       'İki kez dönerek çevresini biçen kesik; gardı ezer.': '두 번 회전하며 주변을 베어 냅니다. 가드를 짓뭉갭니다.',
-      // Ren
+
       'Kesik · Dirsek · Diz': '베기 · 팔꿈치 · 무릎',
       'Tek elle kesik, dirsek darbesi ve uçan diz: kılıçla başlayıp bedenle biter.': '한 손 베기, 팔꿈치 치기, 날아 무릎 차기. 칼로 시작해 몸으로 끝납니다.',
       'İki elle tepeden ezici iniş; gardı zorlar, yere serer.': '두 손으로 위에서 짓뭉개는 내려치기. 가드를 압박하고 상대를 넘어뜨립니다.',
@@ -910,7 +910,7 @@
       'Topuğu havaya kaldırıp balta gibi indirir: yere serer.': '발뒤꿈치를 높이 들어 도끼처럼 내리찍습니다. 상대를 넘어뜨립니다.',
       'Dirsekten sonra kesik ve tepeden ezici iniş; son vuruş yere serer.': '팔꿈치 다음 베기와 위에서 짓뭉개는 내려치기. 마지막 타격은 상대를 넘어뜨립니다.',
       'Tekmenin ardından dönen topuk tekmesi; yere serer.': '발차기 후 돌려 차는 뒤꿈치 차기. 상대를 넘어뜨립니다.',
-      // Kage
+
       'Ters tutuşla kesik, dönen kesik ve gölge adımı: kaybolup öne geçer, dürterek belirir.': '역수 베기, 회전 베기, 그림자 걸음. 사라졌다가 앞으로 빠져나가 찌르며 나타납니다.',
       'Sıçrayıp ters tutuşla aşağı saplar; yere serer.': '뛰어올라 역수로 아래를 찌릅니다. 상대를 넘어뜨립니다.',
       'Gölge gibi uzun atılma kesiği; seriye devam eder.': '그림자처럼 길게 돌진하며 벱니다. 연계로 이어집니다.',
@@ -919,18 +919,18 @@
       'Ayağının dibine sis bombası atar: yakındakini sersemletir, Kage dumanın içinde geri kaçar.': '발밑에 연막탄을 던집니다. 가까운 상대를 기절시키고, Kage는 연기 속으로 물러납니다.',
       'Üç hızlı ters kesik ve aşağı saplama; sonuncusu yere serer.': '빠른 역수 베기 세 번과 아래 찌르기. 마지막 타격은 상대를 넘어뜨립니다.',
       'Tekmeden sonra dumanda kaybolur, rakibin arkasında belirip saplar.': '발차기 후 연기 속으로 사라졌다가 상대 뒤에 나타나 찌릅니다.',
-      // template row names
+
       'Nodachi serisi': 'Nodachi 연계', 'Ağır nodachi': 'Nodachi 강공격', 'Kodachi serisi': 'Kodachi 연계', 'Ağır kesik': '강베기',
       'Tantō dansı': 'Tantō 춤', 'Çift kesik': '이중 베기', 'Naginata serisi': 'Naginata 연계', 'Ağır savuruş': '강하게 휘두르기',
       'Zincir ve orak': '사슬과 낫', 'Zincir çekişi': '사슬 당기기', 'Asa serisi': '봉 연계', 'Ağır süpürme': '강 후리기',
       'Yelpaze serisi': '부채 연계', 'Rüzgâr dalgası': '바람의 파동', 'Tantō serisi': 'Tantō 연계', 'Ok (basılı tut: güçlü)': '화살 (누르고 있기: 강한 사격)',
       'Geri + AĞIR da ok atar (basılı tut: güçlü atış); ok kalmadıysa tantō ile tepeden iner.': '뒤 + 강공격으로도 화살을 쏩니다 (누르고 있으면 강한 사격). 화살이 없으면 tantō로 위에서 내려찍습니다.',
-      // combat pop-ups
+
       'KI İPTALİ!': '기 캔슬!', 'HAVAYA!': '띄우기!',
     });
 
-    // ================================================================ COUNTER CINEMATIC + COMBO TRIAL (combat feel pass)
-    // js/kaeshi-cine.js STR.kaeshi, js/combo-trial.js STR.trial, js/coach.js combo/counter tips, move list legend
+
+
     {
       const tb = (t, c) => `<i class="tb${c ? ' ' + c : ''}">${t}</i>`;
       merge(EN.STR, {
@@ -987,8 +987,8 @@
       });
     }
 
-    // ================================================================ GRAPHICS QUALITY: the Graphics setting (js/gfx.js)
-    // (Turkish source in i18n.js, block "graphics quality")
+
+
     merge(EN.STR, {
       gfx: {
         title: '그래픽',
@@ -1001,8 +1001,8 @@
           custom: '내 설정 (고급).',
         },
         now: (lv) => `현재: ${lv}`,
-        // Settings → Graphics → Advanced (game.js gfxAdvBuild, js/gfx.js KNOBS): the switch, the line under it, the hint on
-        // the heaviest rows, one title per knob and the value words (resolution shows percentages, anti-aliasing 2× / 4×)
+
+
         adv: {
           title: '고급',
           note: '하나를 바꾸면 "사용자 지정"이 됩니다. 프리셋을 누르면 그 값으로 돌아갑니다.',
@@ -1013,8 +1013,8 @@
       },
     });
 
-    // ================================================================ FRAME RATE: Settings → Graphics (js/gfx.js makePacer)
-    // (Turkish source in i18n.js, block "frame rate"; the numbers themselves are not translated)
+
+
     merge(EN.STR, {
       fps: {
         title: '프레임 레이트',
@@ -1029,7 +1029,7 @@
       },
     });
 
-    // ================================================================ SETTINGS SCREEN (js/settings.js; Turkish source in i18n.js)
+
     merge(EN.STR, {
       set: {
         title: '설정', close: '닫기',
@@ -1039,13 +1039,13 @@
       },
     });
 
-    // ================================================================ LANGUAGE PICKER (js/lang-ui.js; Turkish source in i18n.js)
-    // Language names are not translated: each one is written in its own language (ND.i18n.names).
+
+
     merge(EN.STR, { lang: { title: '언어', change: '언어 변경', close: '닫기' } });
 
-    // ================================================================ TOUCH HELP PER MOVEMENT MODE
-    // (game.js touchHelp(): the menu's touch help follows the movement mode; Turkish source in i18n.js, block
-    // "touch help per movement mode")
+
+
+
     merge(EN.STR, {
       thelp: {
         title: { float: '조이스틱', fixed: '고정 조이스틱', dpad: '방향 패드' },
@@ -1059,10 +1059,10 @@
       },
     });
 
-    // ================================================================ SHARED LABELS (static HTML / move list text that is the same word in Turkish)
+
     merge(EN.PHRASES, { 'Shuriken': '수리검', 'KI': '기' });
 
-    // Persistent character journeys.
+
     merge(EN.STR, { menu: { arcadeDesc: '닌자마다 8번의 대전으로 이루어진 여정. 다음 라이벌부터 이어서 하고, 캐릭터 엔딩과 고수의 인장을 얻으세요.' }, sel: { title: { arcade: '아케이드 · 캐릭터 여정' } },
       journey: {
         start: '여정 시작',
@@ -1079,8 +1079,8 @@
       }
     });
 
-    // ================================================================ PROGRESS / ACCOUNT (Settings → Progress, Hall of Champions;
-    // js/settings.js, js/banzuke.js; Turkish source in i18n.js, block "account and recovery code")
+
+
     merge(EN.STR, {
       set: { tabs: { save: '진행 상황' } },
       acct: {
@@ -1104,8 +1104,8 @@
       lb: { savedLocalAccount: (r) => (r ? `이 기기 ${r}위 · 지금은 계정에 연결할 수 없습니다` : '이 기기에 저장됨 · 지금은 계정에 연결할 수 없습니다') },
     });
 
-    // ================================================================ PRIVACY (js/privacy.js; Turkish source in i18n.js, block
-    // "privacy"). The policy page itself (privacy.html) is English + Turkish; other languages see the English part.
+
+
     merge(EN.STR, {
       priv: {
         notice: 'Shadow Duel은 온라인 순위표를 위해 닉네임과 점수를 저장합니다.',
@@ -1114,8 +1114,8 @@
       },
     });
 
-    // ================================================================ FIRST-FIGHT RALLY TUTORIAL: js/tutorial.js STR.tutor and
-    // Training → Parry drill (Turkish source in i18n.js, block "rally tutorial")
+
+
     merge(EN.STR, {
       menu: { trainDrill: '패링 연습' },
       tutor: {
@@ -1135,12 +1135,21 @@
         mastered: '마스터!', masteredSub: '막고, 반격하고, 반복',
         warm: (l) => `준비 운동: ${l} 세 번 치기`,
         nudge: (k) => `${k} 누르기`, nudgeT: (k) => `${k} 탭`,
+
+
+        skip: '건너뛰기 ›',
+        steps: {
+          attack: (b) => `${b} 공격`, guard: (b) => `${b} 칼날 막기`, counter: (b) => `${b} 반격`,
+          timing: (b, l) => `당신 차례: 고리가 좁혀질 때 ${b}, 그다음 ${l}`,
+        },
+        ok: { attack: '좋아요!', guard: '받아쳤다!', counter: '반격!', timing: '완벽!' },
+        ready: '준비 완료!', readySub: '이제 결투에서 이기세요',
       },
     });
 
-    // ================================================================ NEW PLAYER: the select screen's one-time greeting
-    // (game.js openSelect), the VS goal line's "?" (arcade.js openVs) and the just-in-time tips (js/coach.js ND.coach.tips;
-    // arguments: key / button chips, lessons: the menu names of Training and Tutorial). Turkish source in i18n.js.
+
+
+
     merge(EN.STR, {
       onb: { selIntro: '닌자를 고르세요. 닌자마다 고유한 여정이 있습니다', more: '자세히' },
       tips: {
@@ -1157,7 +1166,7 @@
       },
     });
 
-    // ================================================================ online "play with a friend" (js/online.js: ND.STR.online)
+
     merge(EN.STR, {
       online: {
         title: '친구와 대전',
@@ -1230,7 +1239,7 @@
       },
     });
 
-    // ================================================================ ranked duel (js/ranked.js: ND.STR.ranked)
+
     merge(EN.STR, {
       ranked: {
         title: '랭크전', menuSub: '무작위 상대 · 점수, 티어, 시즌', offline: '지금은 랭크전을 이용할 수 없습니다',
@@ -1282,11 +1291,22 @@
         aiNote: '접속한 플레이어가 적을 때는 실제 플레이어의 스타일로 싸우는 AI 상대와 매칭될 수 있습니다.', gotIt: '확인',
         err: { network: '서버에 연결할 수 없습니다. 인터넷 연결을 확인하세요.', bad_version: '게임의 새 버전이 나왔습니다. 페이지를 새로고침하세요.', busy: '대기열이 꽉 찼습니다. 잠시 후 다시 시도하세요.',
           rate_limited: '시도가 너무 많습니다. 잠시 기다리세요.', disabled: '지금은 랭크전을 이용할 수 없습니다.', banned: '이 계정은 랭크전을 할 수 없습니다.', other: '문제가 발생했습니다. 다시 시도하세요.' },
+
+        bg: { ru: '찾는 동안 메뉴 보기', stopT: '랭크 매칭을 멈출까요?', stopS: '이 경기를 시작하면 매칭이 끝납니다.', stopGo: '멈추고 플레이', keep: '계속 찾기', stopped: '랭크 매칭을 멈췄어요', chip: '찾는 중' },
+        card: { findMatch: '매치 찾기', searching: '찾는 중…', resume: '경기로 돌아가기',
+          place: (p, n) => `${n}명 중 ${p}위`, placeOnly: (p) => `순위 ${p}위`,
+          toBoard: (n) => `리더보드 진입까지 ${n}경기`, toBoardSoon: '리더보드 진입까지 몇 경기 더',
+          invite: '아시가루에서 쇼군까지: 첫 랭크 경기는 탭 한 번이면 시작',
+          guestInvite: '로그인하면 점수를 걸고 플레이 · 게스트는 점수 없음', nickInvite: '점수를 걸고 하려면 닉네임을 정하세요',
+          winRate: (p) => `승률 ${p}%`, streakW: (n) => `${n}연승 중`, streakL: (n) => `${n}연패 중`,
+          peak: (t) => `이번 시즌 최고: ${t}`, shields: (n) => `방패 ×${n}`, top: '시즌 TOP 3', you: '나', empty: '아직 아무도 없어요: 첫 주인공이 되세요', rating: '점' },
       },
+
+      upd: { ready: '새 버전 준비 완료 — 탭하여 업데이트', refresh: '새 버전이 나왔어요 — 페이지를 새로고침하세요', close: '닫기' },
     });
 
-    // ================================================================ LEVEL + SHADOW PASS (js/level.js, js/pass.js)
-    // English: L.en in js/i18n-pass.js; the on-demand languages keep these texts in their own file.
+
+
     merge(EN.STR, {
       pass: {
         k: '影', lv: 'LV',
@@ -1297,7 +1317,7 @@
         free: '무료', bonus: '그림자', bonusAds: '보상마다 광고 1회', bonusWait: (n) => `광고 없이: ${n}단계 뒤에 열림`,
         claim: '받기', claimAll: (n) => `모두 받기 (${n})`, owned: '받음', watch: '광고 보기', milestone: '무료', opensAt: (t) => `${t}단계에서`,
         online: '온라인 필요', soon: '새 단계 곧 추가', soonXp: 'XP는 계속 쌓입니다', close: '닫기', tabs: { pass: '패스', profile: '프로필' },
-        rows: { win: '승리', loss: '참가', rounds: '라운드', perfect: '퍼펙트', rally: '랠리', counter: '반격', parry: '패링', short: '빠른 승부', boost: '부스터', daily: '오늘의 첫 승리', streak: '연속 플레이', clear: '여정', trial: '콤보 도전', tutorial: '튜토리얼' },
+        rows: { win: '승리', loss: '참가', rounds: '라운드', perfect: '퍼펙트', rally: '랠리', counter: '반격', parry: '패링', short: '빠른 승부', boost: '부스터', daily: '오늘의 첫 승리', streak: '연속 플레이', clear: '여정', trial: '콤보 도전', tutorial: '튜토리얼', first: '환영 보너스' },
         streakN: (n) => `${n}일째`,
         up: '레벨 업', got: '새 보상',
         boostName: (n) => `XP ×1.5 · ${n}판`, honorName: (n) => `명예 +${n}`,
@@ -1321,8 +1341,8 @@
       },
     });
 
-    // ================================================================ 1.3.2 SHADOW PASS: 30 tiers, fight flair, progress rewards,
-    // the ranked shield, the Profile screen (English: X.en in js/i18n-pass.js; flair: the fight flair's names, js/flair.js ids)
+
+
     merge(EN.STR, {
       pass: {
         kinds2: { pose: '승리 포즈', hitfx: '타격 효과', slash: '반격 베기', aura: '기 오라', ko: 'KO 피니시', card: '이름 카드', arena: '경기장 변형', music: '메뉴 음악', rkey: '열쇠', akey: '열쇠', ticket: '티켓', shield: '방패' },
@@ -1351,6 +1371,8 @@
         shieldUsed: '방패 발동: 점수 유지',
         rankedHonor: (n) => `명예 +${n}`,
         variant: '변형',
+
+        newTag: '신규', newN: (n) => `새 항목 ${n}개`, headUnlocks: '닌자와 경기장', headRewards: '랭크 보상',
         flair: { pose_tenchi: '하늘을 향해', pose_rei: '예의 인사', pose_hiza: '무릎 꿇은 잔심', pose_katsugi: '어깨에 걸친 칼', pose_kissaki: '다음은 너다', hitfx_kinpaku: '금박 타격', hitfx_aizome: '쪽빛 먹', hitfx_sakura: '벚꽃 폭발', hitfx_kitsunebi: '여우불', hitfx_raijin: '라이진의 불꽃', slash_kin: '황금 칼날', slash_sumi: '수묵 붓', slash_hana: '꽃잎 바람', slash_rai: '천둥 베기', aura_kitsunebi: '여우불 오라', aura_raiun: '폭풍 오라', aura_hana: '꽃 오라', aura_gekko: '달빛 오라', ko_enso: '원상 피니시', ko_hanafubuki: '꽃보라', ko_raiko: '낙뢰', ko_mikazuki: '초승달', card_seigaiha: '세이가이하 물결', card_yozakura: '밤 벚꽃', card_ryu: '용의 옻칠', card_tsukiyo: '달빛 소나무', card_asanoha: '아사노하 금빛', arena_temple_snow: '눈 내리는 사원', arena_rain_moon: '달빛 대나무숲', arena_snow_night: '밤의 설산', arena_market_rain: '비 내리는 야시장', music_haru: '봄의 정원', music_yuki: '눈의 달', music_matsuri: '축제의 밤', pass1_akane: '월영 의상' },
       },
     });
@@ -1358,8 +1380,8 @@
     void dec; void fmtTime; void num;
   };
 
-  // ---------------------------------------------------------------- journey texts (js/journey-text.js reads ND.JOURNEY_COPY)
-  // Same lists, same order and same counts as the `en` entry in js/journey-text.js (ui 17, goals 10, titles 13, endings 13).
+
+
   (ND.JOURNEY_COPY || (ND.JOURNEY_COPY = {}))['ko'] = {
     ui: ['캐릭터 여정', '최종 라이벌', '선택 숙련 과제', '이 대전에서 이겨야 별을 지킵니다.', '숙련의 별 획득', '별 미획득 · 다시 플레이할 때 도전하세요', '숙련의 별', '별 8개 중 6개를 모아 여정을 마치면 칭호와 유산 색상을 얻습니다. 별은 다시 플레이해도 유지됩니다.', '기본 색상', '유산 색상', '외형', '숙련의 별 6개를 모으고 이 캐릭터의 여정을 마치세요.', '이전 여정과 보상은 그대로 남아 있습니다. 다시 플레이해 새 경로를 탐험하세요.', 'Shura 도전: 서로 다른 캐릭터 3명의 여정을 완료하세요.', '이 결투에서 이기면 해금', '여정 완료', '챕터'],
     goals: ['패링', '반격 적중', '강공격 적중', '발차기 적중', '공중 공격 적중', '대시 공격 적중', '콤보 3타 적중', '투사체 적중', '필살기 적중', '가드 붕괴'],

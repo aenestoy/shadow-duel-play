@@ -1,9 +1,9 @@
-// Gölge Düellosu — karaktere özel ki teknikleri: saldırı tanımları, özel efektler, sesler, mermiler
+
 (function (ND) {
   'use strict';
-  const Math = ND.DM || globalThis.Math; // ki techniques and projectiles: deterministic math (ND.DM, core.js)
+  const Math = ND.DM || globalThis.Math;
   const { clamp, rand, ease, segSeg } = ND.M;
-  // rand (Math.random) is for particles and sound only; anything that changes the fight draws from ND.rng (core.js)
+
   const srand = (a, b) => ND.rng.range(a, b);
   const PO = ND.POSES, ATK = ND.ATK, fx = ND.fx, au = ND.audio, cam = ND.cam;
   const TAU = Math.PI * 2, PARRY_WIN = 0.17;
@@ -15,9 +15,9 @@
     return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`;
   };
 
-  // ------------------------------------------------------------ ÖZEL EFEKT LİSTESİ (dünya koordinatı)
-  // game.js: update(gdt) her kare, draw(ctx) fx.draw sonrası, clear() raund başında.
-  // Çağrılmazsa fighter.js yedek olarak step/render yapar.
+
+
+
   const SFX = ND.specialFx = {
     list: [], hooked: false, drawHooked: false,
     add(o) { o.t = 0; this.list.push(o); if (this.list.length > 500) this.list.shift(); return o; },
@@ -37,11 +37,11 @@
     clear() { this.list.length = 0; },
   };
 
-  // ------------------------------------------------------------ CACHED GRADIENTS
-  // Specials stay on screen for many frames, so their soft glows are not rebuilt every frame: each gradient is made
-  // once per kind (and colour) around the origin and moved into place with translate / scale. Alpha that used to
-  // sit in the colour stops (fading with the effect) is applied as globalAlpha instead: same pixels.
-  // cgrad(ctx, kind, col, make): make(ctx, col) builds it the first time (module-level functions, no closures).
+
+
+
+
+
   const GRADS = new Map();
   function cgrad(ctx, kind, col, make) {
     let m = GRADS.get(kind);
@@ -51,18 +51,18 @@
     return g;
   }
   function stops(g, a) { for (let i = 0; i < a.length; i += 2) g.addColorStop(a[i], a[i + 1]); return g; }
-  // unit-radius glow ring (glow()), scaled to the ring's radius
+
   const mkGlow = (ctx, col) => stops(ctx.createRadialGradient(0, 0, 0, 0, 0, 1), [0, `rgba(${col},1)`, 0.4, `rgba(${col},.35)`, 1, `rgba(${col},0)`]);
-  // wind blade halo and tornado haze at full strength (the projectile's alpha goes to globalAlpha), shock wave
+
   const mkWind = (ctx, col) => stops(ctx.createRadialGradient(0, 0, 0, 0, 0, 80), [0, `rgba(${col},0.35)`, 1, `rgba(${col},0)`]);
   const mkShock = (ctx, col) => stops(ctx.createRadialGradient(0, 0, 0, 0, 0, 60), [0, `rgba(${col},.9)`, 0.5, `rgba(${col},.25)`, 1, `rgba(${col},0)`]);
   const mkTornado = (ctx, col) => stops(ctx.createRadialGradient(0, -110, 10, 0, -110, 140), [0, `rgba(${col},0.22)`, 1, `rgba(${col},0)`]);
-  // fighter auras, centred on the origin (drawn translated to the fighter's chest)
+
   const mkTetsu = (ctx) => stops(ctx.createRadialGradient(0, 0, 10, 0, 0, 110), [0, 'rgba(255,205,110,.9)', 0.5, 'rgba(255,170,60,.25)', 1, 'rgba(255,150,40,0)']);
   const mkRen = (ctx) => stops(ctx.createRadialGradient(0, 0, 8, 0, 0, 105), [0, 'rgba(255,120,40,.9)', 0.5, 'rgba(220,60,20,.25)', 1, 'rgba(200,40,10,0)']);
   const mkJin = (ctx) => stops(ctx.createRadialGradient(0, 0, 10, 0, 0, 120), [0, 'rgba(255,220,130,.9)', 0.5, 'rgba(255,190,80,.22)', 1, 'rgba(255,170,60,0)']);
 
-  // --- parçacık: k = petal | ember | flake | rock | smoke | leaf | streak | spark
+
   function partUpd(dt) {
     this.vy += this.g * dt;
     if (this.drag) { const k = Math.exp(-this.drag * dt); this.vx *= k; this.vy *= k; }
@@ -122,7 +122,7 @@
   }
   const burst = (n, fn) => { for (let i = 0; i < n; i++) part(fn(i)); };
 
-  // Hilal (kesik izi) çokgeni: yarıçap r, orta açı mid, yarım açıklık span, kalınlık w (uçlarda incelir)
+
   function crescent(ctx, r, mid, span, w) {
     const N = 20;
     ctx.beginPath();
@@ -133,7 +133,7 @@
     }
     ctx.closePath();
   }
-  // Havada kalan kesik yayı efekti
+
   function slashArc(o) {
     return SFX.add(Object.assign({
       life: 0.45, r: 90, mid: 0, span: 1.1, w: 22, sx: 1, sy: 1, rotA: 0, col: '255,255,255', core: '255,255,255', grow: 0.15,
@@ -149,7 +149,7 @@
       },
     }, o));
   }
-  // Yumuşak ışıma halkası
+
   function glow(x, y, r, col, life = 0.3, a0 = 0.8) {
     return SFX.add({
       x, y, r, col, life,
@@ -163,7 +163,7 @@
       },
     });
   }
-  // Dövüşçüye bağlı, teknik sürdükçe yaşayan efekt
+
   function attach(f, o) {
     const serial = f.serial, atk = f.atk;
     return SFX.add(Object.assign({
@@ -178,7 +178,7 @@
   }
   const bladeTip = (f) => f.j.tip || { x: f.x + f.dir * 80, y: f.y - 100 };
 
-  // ------------------------------------------------------------ SESLER
+
   const snd = {
     ring(freq, pan, g = 0.06, dur = 1.2, delay = 0) {
       [1, 2.71, 5.2].forEach((r, i) => au.tone({ freq: freq * r, dur: dur * (1 - i * 0.25), gain: g / (i + 1), send: 0.6, pan, delay, type: i ? 'sine' : 'triangle' }));
@@ -249,13 +249,13 @@
     },
   };
 
-  // ------------------------------------------------------------ YARDIMCILAR
-  // Rakibe istenen mesafeye kadar sür (çok vuruşlu teknikler)
+
+
   function chase(f, o, want, maxV) {
     const gap = (o.x - f.x) * f.dir;
     f.vx = f.dir * clamp((gap - want) * 9, -120, maxV); f.drive = true;
   }
-  // Mermi gard darbesi (bloklandı): denge hasarı, gerekirse denge kırılır
+
   function guardHit(t, post, pdir, x, y) {
     const pan = cam.pan(x);
     t.posture += post; t.sinceHit = 0; t.gainKi(3);
@@ -269,7 +269,7 @@
   }
   const perfectGuard = (t) => t.ctrl.since('guard') <= (ND.parryWin ? ND.parryWin(t) : PARRY_WIN);
 
-  // ------------------------------------------------------------ MERMİ GÖRÜNÜMLERİ (tekrar için de: rot >= 1000)
+
   function drawWind(ctx, p) {
     const s = Math.sign(p.vx) || 1, ph = p.rot % 1000, col = p.col || '150,210,255', A = p.alpha ?? 1;
     ctx.save(); ctx.translate(p.x, p.y); ctx.scale(s, 1 + Math.sin(ph * 2) * 0.04);
@@ -285,7 +285,7 @@
     ctx.translate(-50, 0);
     ctx.globalAlpha = A * 0.8; ctx.fillStyle = `rgb(${col})`; crescent(ctx, 70, 0, 1.12, 24); ctx.fill();
     ctx.globalAlpha = A; ctx.fillStyle = '#f2fbff'; crescent(ctx, 70, 0, 1.02, 8); ctx.fill();
-    // rüzgâr çizgileri
+
     ctx.strokeStyle = `rgba(${col},${0.5 * A})`; ctx.lineWidth = 1.6; ctx.lineCap = 'round';
     for (let i = 0; i < 4; i++) {
       const yy = -45 + i * 30 + Math.sin(ph * 3 + i) * 4, len = 40 + ((i * 37 + ph * 60) % 50);
@@ -310,7 +310,7 @@
   }
   ND.projSkins = { 1: drawWind, 2: drawShock };
 
-  // ------------------------------------------------------------ RÜZGÂR BIÇAĞI (Aoi)
+
   const A_WIND = { dmg: 21, post: 30, kb: 420, stun: 0.5, kind: 'blade', knock: true, special: true };
   class WindBlade {
     constructor(owner, x, y, dir) {
@@ -347,7 +347,7 @@
         if (r.d > h[4] + 6) continue;
         if (t.guardingFrom(this.owner, this.x - s * 60)) {
           if (perfectGuard(t) || t.ch.reflect) {
-            // tam zamanında gard: bıçağı sahibine geri yansıt
+
             this.owner = t; this.vx = -this.vx * 1.05; this.t = Math.min(this.t, 0.35); this.col = rgbOf(t.col.accent, this.col);
             fx.ring(this.x, this.y, '220,240,255', 110); fx.spark(this.x, this.y, this.vx > 0 ? 0 : Math.PI, 16);
             fx.text(t.x, -200, 'YANSITMA!', '#ffe3a1'); au.parry(pan); hitstop(0.1); t.gainKi(14);
@@ -359,7 +359,7 @@
           return;
         }
         const own = this.owner, dmg = Math.round(A_WIND.dmg * (own.ch.dmg || 1));
-        own.gainKi((ND.scaleDmg ? ND.scaleDmg(dmg, A_WIND) : dmg) * 1.6); // ki ölçekli hasardan (fighter.js ND.DMG)
+        own.gainKi((ND.scaleDmg ? ND.scaleDmg(dmg, A_WIND) : dmg) * 1.6);
         fx.text(r.x, r.y - 34, '風の刃', '#ffd27a');
         glow(r.x, r.y, 80, this.col, 0.3);
         burst(14, () => ({ k: 'leaf', x: r.x, y: r.y, vx: s * rand(100, 520), vy: rand(-340, 80), g: 500, drag: 1.5, flut: 7, life: rand(0.6, 1.1), sz: rand(3, 6), c: this.col }));
@@ -372,7 +372,7 @@
     draw(ctx) { drawWind(ctx, this); }
   }
 
-  // ------------------------------------------------------------ ŞOK DALGASI (Kuro)
+
   const A_SHOCK = { dmg: 10, post: 40, kb: 280, stun: 0.5, kind: 'kick', knock: true, special: true };
   function spike(x, h, col, s) {
     return SFX.add({
@@ -410,7 +410,7 @@
       if (this.t > this.life || Math.abs(this.x) > ND.ARENA + 20) { this.dead = true; return; }
       if (this.hitDone) return;
       const o = this.owner.opp;
-      if (!o || o.dead || o.isInv() || !o.onGround || o.y < -45 || Math.abs(o.x - this.x) > 36) return; // zıplayan kurtulur
+      if (!o || o.dead || o.isInv() || !o.onGround || o.y < -45 || Math.abs(o.x - this.x) > 36) return;
       this.hitDone = true;
       const pan = cam.pan(this.x);
       if (o.guardingFrom(this.owner, this.x - s * 40)) {
@@ -433,11 +433,11 @@
   }
   ND.WindBlade = WindBlade; ND.Shockwave = Shockwave;
 
-  // ------------------------------------------------------------ TEKNİKLER
+
   const E = ease;
   const DEF = {};
 
-  // --- AKANE: Kurenai Issen (紅一閃) — kızıl iai geçişi + havada kalan alev hilali
+
   DEF.sp_akane = {
     keys: [[0.26, 'iai1', E.inOutSine], [0.3, 'iai1'], [0.42, 'iai2', E.outQuart], [0.64, 'iai2'], [0.8, 'sp_akEnd', E.outCubic], [1.0, 'stance', E.inOut]],
     active: [0.3, 0.45], dmg: 27, post: 65, kb: 380, stun: 0.6, lunge: [0.3, 0.43, 1950], sw: 0.3, pw: 1.7, kind: 'blade', knock: true,
@@ -445,7 +445,7 @@
     ev: [
       [0.01, (f) => {
         snd.akaneDraw(f.pan);
-        // kın ağzında kızıl kıvılcımlar toplanır
+
         burst(16, () => { const a = rand(0, TAU), r = rand(50, 90); return { k: 'ember', x: f.x + Math.cos(a) * r, y: f.y - 70 + Math.sin(a) * r * 0.7, vx: -Math.cos(a) * r * 3, vy: -Math.sin(a) * r * 2.1, drag: 3, life: 0.3, sz: rand(1.2, 2.2), c: '255,90,60', fadeIn: true }; });
       }],
       [0.3, (f) => { f.mem.x0 = f.x; snd.akaneDash(f.pan); glow(f.x, f.y - 80, 70, '255,80,60', 0.25); }],
@@ -453,7 +453,7 @@
         const x0 = f.mem.x0 ?? f.x, x1 = f.x, d = Math.abs(x1 - x0);
         if (d < 80) return;
         const mx = (x0 + x1) / 2, s = Math.sign(x1 - x0);
-        // yarım ay biçimli kızıl iz: yatay, basık
+
         slashArc({ x: mx, y: f.y - 150, r: d / 2 + 30, mid: Math.PI / 2, span: 1.25, w: 34, sx: 1, sy: 0.42, rotA: -0.06 * s, col: '255,60,45', core: '255,235,220', life: 0.75, grow: 0.06 });
         slashArc({ x: mx, y: f.y - 150, r: d / 2 + 30, mid: Math.PI / 2, span: 1.1, w: 10, sx: 1, sy: 0.42, rotA: -0.06 * s, col: '255,180,120', core: '255,255,255', life: 0.35, grow: 0.12 });
         for (let i = 0; i < 26; i++) {
@@ -477,7 +477,7 @@
     },
   };
 
-  // --- AOI: Kaze no Ha (風の刃) — ileri uçan rüzgâr bıçağı
+
   DEF.sp_aoi = {
     keys: [[0.2, 'sp_kzA', E.inOutSine], [0.27, 'sp_kzA'], [0.35, 'sp_kzB', E.outQuart], [0.45, 'sp_kzC', E.outCubic], [0.62, 'sp_kzC'], [0.86, 'stance', E.inOut]],
     active: [0.31, 0.37], hits: [], dmg: A_WIND.dmg, post: 44, kb: 420, stun: 0.5, sw: 0.29, pw: 1.5, kind: 'blade', knock: true,
@@ -497,7 +497,7 @@
     ],
   };
 
-  // --- KURO: Yama Kudaki (山砕き) — sıçrayıp yeri yaran nodachi + yer şok dalgası
+
   DEF.sp_kuro = {
     keys: [[0.2, 'sp_ykA', E.inOutSine], [0.25, 'sp_ykA'], [0.38, 'sp_ykB', E.outCubic], [0.44, 'sp_ykB'], [0.52, 'sp_ykC', E.inCubic], [0.78, 'sp_ykC'], [1.04, 'stance', E.inOut]],
     active: [0.45, 0.56], dmg: 16, post: 50, kb: 360, stun: 0.6, sw: 0.44, pw: 1.8, kind: 'blade', knock: true,
@@ -534,7 +534,7 @@
     },
   };
 
-  // --- YUKI: Fubuki (吹雪) — beş vuruşluk kar fırtınası serisi
+
   const yukiHitT = [0.18, 0.26, 0.34, 0.42, 0.54];
   DEF.sp_yuki = {
     keys: [[0.12, 'sp_fbA', E.inOutSine], [0.18, 'sp_fb1', E.outQuart], [0.26, 'sp_fb2', E.outQuart], [0.34, 'sp_fb3', E.outQuart], [0.42, 'sp_fb4', E.outQuart], [0.47, 'sp_fbA', E.inOutSine], [0.54, 'sp_fb5', E.outQuart], [0.72, 'sp_fb5'], [0.92, 'stance', E.inOut]],
@@ -554,7 +554,7 @@
       if (last) { snd.snowFinal(f.pan); glow(tp.x, tp.y, 110, '190,225,255', 0.35); cam.punch(5); }
     }])),
     tick(f, dt, t, o) {
-      if (t > 0.03 && t < 0.56) chase(f, o, 68, t < 0.16 ? 1500 : 560); // kar fırtınasıyla atılış
+      if (t > 0.03 && t < 0.56) chase(f, o, 68, t < 0.16 ? 1500 : 560);
       if (Math.random() < dt * 40) part({ k: 'flake', x: f.x + rand(-60, 60), y: f.y - rand(20, 170), vx: -f.dir * rand(60, 200), vy: rand(-30, 60), drag: 1, flut: 4, life: rand(0.5, 0.9), sz: rand(1.5, 3), c: '225,238,255', vr: 4 });
     },
     onHit(f, o, x, y) {
@@ -563,7 +563,7 @@
     },
   };
 
-  // --- HANA: Hanafubuki (花吹雪) — ikiz tantō ile dönen kiraz kasırgası
+
   const hanaT0 = 0.2, hanaHalf = 0.07, hanaN = 8, hanaT1 = hanaT0 + hanaN * hanaHalf;
   const hanaKeys = [[0.16, 'sp_hfW', E.inOutSine]];
   for (let i = 0; i <= hanaN; i++) hanaKeys.push([hanaT0 + i * hanaHalf, i % 2 ? 'sp_hfA2' : 'sp_hfA', E.inOutSine]);
@@ -617,7 +617,7 @@
     });
   }
 
-  // --- TETSU: Tetsu no Uzu (鉄の渦) — süper zırhlı 360° naginata girdabı
+
   const tzT0 = 0.32, tzT1 = 0.8;
   DEF.sp_tetsu = {
     keys: [[0.26, 'sp_tzW', E.inOutSine], [tzT0, 'sp_tzA', E.outQuart], [tzT1, 'sp_tzA'], [0.9, 'sp_tzEnd', E.outCubic], [1.08, 'sp_tzEnd'], [1.3, 'stance', E.inOut]],
@@ -665,14 +665,14 @@
           ctx.beginPath(); ctx.ellipse(cx, cy + i * 6, rx, ry, 0, a0, a0 + 2.2); ctx.stroke();
           ctx.globalAlpha = 0.5; ctx.beginPath(); ctx.ellipse(cx, cy + i * 6, rx, ry, 0, a0 + Math.PI, a0 + Math.PI + 1.4); ctx.stroke(); ctx.globalAlpha = 1;
         }
-        // yerde toz halkası
+
         ctx.strokeStyle = `rgba(200,190,170,${0.18 * k})`; ctx.lineWidth = 10;
         ctx.beginPath(); ctx.ellipse(cx, -2, 150 + Math.sin(this.t * 9) * 10, 12, 0, 0, TAU); ctx.stroke();
       },
     });
   }
 
-  // --- REN: Oni no Ikari (鬼の怒り) — gard kıran omuz hücumu + fırlatan yükselen kesik
+
   const RUSH = { dmg: 6, post: 30, kb: 90, stun: 0.8, kind: 'kick', special: true, kanji: '鬼' };
   const renT0 = 0.22, renT1 = 0.62;
   DEF.sp_ren = {
@@ -691,7 +691,7 @@
     tick(f, dt, t, o) {
       const m = f.mem;
       if (t >= renT0 && t < renT1 && !m.hit) {
-        f.vx = f.dir * 900; f.drive = true; f.gaitFeet(dt); // koşan ayaklar
+        f.vx = f.dir * 900; f.drive = true; f.gaitFeet(dt);
         if (Math.random() < dt * 70) part({ k: 'ember', x: f.x - f.dir * rand(0, 40), y: f.y - rand(30, 150), vx: -f.dir * rand(100, 300), vy: rand(-160, -20), g: -80, drag: 2, life: rand(0.3, 0.6), sz: rand(1.5, 3), c: Math.random() < 0.5 ? '255,120,40' : '255,190,80' });
         if (Math.random() < dt * 30) f.addGhost(0.25);
         const gap = (o.x - f.x) * f.dir;
@@ -705,7 +705,7 @@
     fx.ring(x, y, '255,150,60', 120); glow(x, y, 110, '255,110,40', 0.3);
     burst(20, () => ({ k: 'ember', x, y, vx: f.dir * rand(0, 500), vy: rand(-400, 100), g: 400, drag: 1.5, life: rand(0.4, 0.8), sz: rand(1.5, 3), c: '255,150,60' }));
     if (o.guardingFrom(f) && perfectGuard(o)) {
-      // tam zamanlı gard: hücum savuşturulur (Ren sendeler)
+
       f.blocked(Object.assign({}, a, RUSH), x, y, false);
       return;
     }
@@ -733,14 +733,14 @@
         ctx.save(); ctx.translate(f.x, f.y - 95);
         ctx.fillStyle = cgrad(ctx, 'ren', '', mkRen); ctx.beginPath(); ctx.ellipse(0, 0, 75, 110, 0, 0, TAU); ctx.fill();
         ctx.restore();
-        // maske gözleri
+
         const h = f.j.head;
         if (h) { ctx.globalAlpha = k * pul; ctx.fillStyle = '#ffcf6a'; ctx.beginPath(); ctx.arc(h.x + f.dir * 6, h.y - 2, 2.2, 0, TAU); ctx.fill(); ctx.globalAlpha = 0.4 * k; ctx.beginPath(); ctx.arc(h.x + f.dir * 6, h.y - 2, 7, 0, TAU); ctx.fill(); }
       },
     });
   }
 
-  // --- KAGE: Kage Bunshin (影分身) — dumanla kaybol, gölge klonu bırak, arkadan kes
+
   DEF.sp_kage = {
     keys: [[0.16, 'sp_kbSeal', E.inOutSine], [0.3, 'sp_kbSeal'], [0.36, 'sp_kbLow', E.outCubic], [0.46, 'sp_kbLow'], [0.54, 'sp_kbSlash', E.outQuart], [0.7, 'sp_kbSlash'], [0.95, 'stance', E.inOut]],
     active: [0.5, 0.58], zone: [128, 12, 120], dmg: 25, post: 60, kb: 360, stun: 0.6, knock: true, inv: [0.2, 0.44],
@@ -755,7 +755,7 @@
         snd.poof(f.pan); f.hidden = true; f.trail.length = 0; f.ghosts.length = 0;
       }],
       [0.36, (f, a, o) => {
-        // rakibin arkasına geç (duvar varsa sığabildiği yere)
+
         const side = Math.sign(o.x - f.x) || f.dir, A = ND.ARENA - 12;
         let nx = o.x + side * 82;
         if (Math.abs(nx) > A) nx = clamp(nx, -A, A);
@@ -768,7 +768,7 @@
       if (t > 0.4 && t < 0.55) chase(f, o, 70, 300);
     },
     onHit(f, o, x, y) {
-      if (o.dir !== (f.x > o.x ? 1 : -1)) fx.text(o.x, -180, 'ARKADAN!', '#ffd27a'); // sırtı dönükken yakalandı
+      if (o.dir !== (f.x > o.x ? 1 : -1)) fx.text(o.x, -180, 'ARKADAN!', '#ffd27a');
       glow(x, y, 100, rgbOf(f.col.accent), 0.3);
       burst(14, () => ({ k: 'smoke', x, y, vx: f.dir * rand(40, 260), vy: rand(-160, 40), drag: 2.5, life: rand(0.5, 0.9), sz: rand(6, 12), grow: 1.2, c: '22,26,30', a: 0.55 }));
     },
@@ -793,7 +793,7 @@
         if (a <= 0) return;
         ctx.globalAlpha = a;
         if (ND.drawNinja) ND.drawNinja(ctx, j, col, { wpn, acc });
-        // gölge tonu + kenar ışıması
+
         ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = a * (0.25 + 0.15 * Math.sin(this.t * 20));
         ctx.strokeStyle = `rgb(${ac})`; ctx.lineCap = 'round';
         const seg = (p, q, w) => { ctx.lineWidth = w; ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); ctx.stroke(); };
@@ -804,11 +804,11 @@
     });
   }
 
-  // --- SHURA: Ashura Rasetsu (阿修羅) — kükreme + kızıl dumanda kaybolup önde/arkada belirerek üç ağır kesik
-  // Her kesik, belireceği noktada kızıl bir parıltıyla önceden haber verilir; herhangi bir kesiği savuşturmak
-  // tekniği bitirir (Şura sendeler). Gard tutar ama dengeye ağır hasar verir. Son kesik havaya fırlatır.
+
+
+
   const SH_COL = '225,24,48', SH_HOT = '255,120,110';
-  // Shura's cached gradients (see "CACHED GRADIENTS"): ground mark, unit-radius spark halo, aura
+
   const mkShMark = (ctx) => stops(ctx.createRadialGradient(0, 0, 0, 0, 0, 70), [0, `rgba(${SH_COL},.9)`, 1, `rgba(${SH_COL},0)`]);
   const mkShSpark = (ctx) => stops(ctx.createRadialGradient(0, 0, 0, 0, 0, 1), [0, `rgba(${SH_COL},.6)`, 1, `rgba(${SH_COL},0)`]);
   const mkShAura = (ctx) => stops(ctx.createRadialGradient(0, 0, 8, 0, 0, 115), [0, `rgba(${SH_COL},.9)`, 0.5, 'rgba(160,10,30,.25)', 1, 'rgba(120,0,20,0)']);
@@ -818,7 +818,7 @@
     let t = shRoar;
     for (let i = 0; i < 3; i++) {
       const V = t, A = V + shHide, H0 = A + shWind, H1 = H0 + shAct[i];
-      shCuts.push({ V, A, H: [H0, H1], side: i === 1 ? -1 : 1 }); // side: 1 = Şura'nın başladığı taraf (ön), -1 = arka
+      shCuts.push({ V, A, H: [H0, H1], side: i === 1 ? -1 : 1 });
       t = H1 + shRec;
     }
   }
@@ -846,20 +846,20 @@
     ])),
     tick(f, dt, t, o) {
       const m = f.mem;
-      // rakip düştüyse (KO) teknik sessizce biter: görünür ol, kalan olayları atla
+
       if (o.dead && !m.over) { m.over = true; shuraShow(f); f.evI = f.atk.ev.length; if (f.st < shEndT) f.st = shEndT; return; }
-      // kükreme: ekran titrer
+
       if (t < shRoar) { if (Math.random() < dt * 20) cam.punch(4 + 6 * (1 - t / shRoar)); f.vx = 0; f.drive = true; }
       const cut = shCuts.find((c) => t >= c.V && t < c.H[1] + shRec);
       if (f.hidden) {
-        // güvenlik ağı: gizlenme penceresi dışında asla görünmez kalma
+
         if (!cut || t >= cut.A + 0.01) shuraShow(f);
         f.vx = 0; f.drive = true;
         return;
       }
       if (cut && t >= cut.A && t < cut.H[1]) {
-        chase(f, o, 86, t < cut.H[0] ? 320 : 180); // belirip üstüne yürüyerek kes
-        if (t >= cut.H[0]) f.addGhost(0.32);       // kızıl art görüntüler
+        chase(f, o, 86, t < cut.H[0] ? 320 : 180);
+        if (t >= cut.H[0]) f.addGhost(0.32);
       }
     },
     onHit(f, o, x, y) {
@@ -895,7 +895,7 @@
     if (!f.hidden) return;
     f.hidden = false; f.inv = 0; f.prevBlade = null;
   }
-  // Kükreme: ekran sarsıntısı, kızıl aura, şok halkası
+
   function shuraRoar(f) {
     f.mem.side0 = Math.sign(f.x - f.opp.x) || -f.dir;
     shuraSnd.roar(f.pan); cam.punch(14);
@@ -906,11 +906,11 @@
     burst(28, () => { const a = rand(-Math.PI, 0), sp = rand(200, 620); return { k: 'streak', x: h.x, y: h.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.7, life: rand(0.22, 0.4), sz: rand(1.2, 2.2), c: SH_HOT, add: true, rot: 0, vr: 0 }; });
     shuraAura(f);
   }
-  // Kızıl dumanda kaybol → hedef noktayı sabitle ve orada parıltıyla haber ver
+
   function shuraVanish(f, o, i) {
     const c = shCuts[i], A = ND.ARENA - 14, d = 96;
     let side = (f.mem.side0 || -f.dir) * c.side;
-    // duvar: istenen taraf sığmıyorsa diğer tarafa geç
+
     if (Math.abs(o.x + side * d) > A) side = -side;
     const nx = clamp(o.x + side * d, -A, A);
     shuraEcho(f);
@@ -946,7 +946,7 @@
     burst(12, () => ({ k: 'ember', x: x + rand(-30, 30), y: y - rand(20, 160), vx: rand(-90, 90), vy: rand(-150, -20), drag: 2, life: rand(0.3, 0.7), sz: rand(1, 2.2), c: '255,50,60' }));
     fx.ring(x, y - 90, SH_COL, appear ? 70 : 90);
   }
-  // Kaybolduğu yerde kısa ömürlü kızıl siluet
+
   function shuraEcho(f) {
     const j = ND.cloneJ(f.j);
     if (!j.hip || !j.neck || !j.head) return;
@@ -965,7 +965,7 @@
       },
     });
   }
-  // Belirme noktasında haber veren kızıl parıltı: büyür, kesik anında zirve yapar
+
   function shuraMark(f, c, x) {
     attach(f, {
       out: 0.12, x, until: c.H[0] + 0.02,
@@ -973,14 +973,14 @@
         const k = this.k(), T = c.H[0] - c.V, u = clamp((f.st - c.V) / T, 0, 1) * k || 0;
         const y = -112, pul = 0.8 + 0.2 * Math.sin(this.t * 40);
         ctx.globalCompositeOperation = 'lighter';
-        // yerde kızıl leke ve ince ışık sütunu
+
         ctx.globalAlpha = 0.5 * u * k;
         ctx.save(); ctx.translate(this.x, -2);
         ctx.fillStyle = cgrad(ctx, 'shMark', '', mkShMark); ctx.beginPath(); ctx.ellipse(0, 0, 70, 10, 0, 0, TAU); ctx.fill();
         ctx.restore();
         ctx.globalAlpha = 0.22 * u * k; ctx.fillStyle = `rgb(${SH_COL})`;
         ctx.fillRect(this.x - 1.5, -210, 3, 208);
-        // dört köşeli parıltı
+
         const s = (10 + 34 * u * u) * pul;
         ctx.globalAlpha = Math.min(1, 0.35 + 0.65 * u) * k;
         ctx.translate(this.x, y); ctx.rotate(this.t * 2 * (f.dir || 1));
@@ -997,7 +997,7 @@
       },
     });
   }
-  // Üç hayalet kol + kılıç: Ashura'nın altı kolu kesikle birlikte savrulur
+
   function shuraArms(f, i) {
     const dir = f.dir, sh = f.j.sh ? { x: f.j.sh.x, y: f.j.sh.y } : { x: f.x, y: f.y - 140 };
     const a0 = [-2.3, 2.6, 1.9][i], a1 = [1.0, -0.1, -1.4][i], blade = (f.ch.blade || 110) + 10;
@@ -1042,11 +1042,11 @@
     });
   }
 
-  // ================================================================ YENİ KADRO: TORA · JIN · MAI · TSUBAME
-  // Normal hareket setleri (ND.MOVES ile eşlenir), silah görsel durumları (ND.wpnState), mermiler (ok, taş, rüzgâr,
-  // kasırga) ve dört ki tekniği. fighter.js'teki genel kancaları kullanır: kind 'whip' (zincir ağırlığı), wpath,
-  // pull, hold (şarj), blunt, arc (senaryolu sıçrayış), roll (gövde dönüşü), proj (özel fırlatma).
-  // Oyuncuya görünen yeni efekt yazıları tek tabloda (çeviri için): ND.TXT
+
+
+
+
+
   const TX = ND.TXT = Object.assign({
     gbreak: 'DENGE KIRILDI!', cut: 'KESİLDİ!', reflect: 'YANSITMA!', parry: 'SAVUŞTURMA!', caught: 'YAKALANDI!',
     swallowHit: '燕!', vajraHit: '金剛!', whirlHit: '旋風の舞',
@@ -1056,7 +1056,7 @@
   const snd2 = {
     chain(pan, g = 1) { for (let i = 0; i < 4; i++) au.noise({ type: 'bandpass', f0: rand(2600, 4400), q: 6, dur: 0.035, gain: 0.07 * g, send: 0.2, pan, delay: i * rand(0.02, 0.045) }); },
     chainThrow(pan) { au.noise({ type: 'bandpass', f0: 900, f1: 2600, q: 1.2, dur: 0.22, gain: 0.25, attack: 0.03, send: 0.2, pan }); snd2.chain(pan, 1.2); },
-    // (ND.audio.bo.swing: the staff's own whoosh, varied each time; false = the old one below)
+
     staff(pan, p = 1) { if (au.bo?.swing?.(pan, p)) return; au.noise({ type: 'bandpass', f0: 240, f1: 900, q: 0.9, dur: 0.24, gain: 0.3 * p, attack: 0.06, send: 0.2, pan }); },
     fan(pan) { au.noise({ type: 'highpass', f0: 2400, dur: 0.06, gain: 0.1, send: 0.15, pan }); au.noise({ type: 'bandpass', f0: 1200, f1: 3000, q: 1.5, dur: 0.1, gain: 0.07, send: 0.2, pan, delay: 0.02 }); },
     gust(pan) { au.noise({ type: 'bandpass', f0: 500, f1: 2200, q: 0.8, dur: 0.45, gain: 0.4, attack: 0.04, send: 0.4, pan }); },
@@ -1067,7 +1067,7 @@
     wind(pan) { au.noise({ type: 'bandpass', f0: 300, f1: 1200, q: 1.6, dur: 1.2, gain: 0.3, attack: 0.2, send: 0.6, pan }); },
   };
 
-  // --- zincir yolları (dünya koordinatı, WP'ye yazar). T = [çıkış başı, varış, geri dönüş başı, bitiş]
+
   function pathLine(f, t, T, R, yy, out) {
     if (t < T[0] || t > T[3]) return null;
     const hb = f.j.haB, ex = f.x + f.dir * R, ey = f.y + yy;
@@ -1076,7 +1076,7 @@
     else { const u = ei((t - T[2]) / (T[3] - T[2])); out.x = ex + (hb.x - ex) * u; out.y = ey + (hb.y - ey) * u; }
     return out;
   }
-  // omuz çevresinde yay (a0 → a1, yerel açı: 0 = ileri, -π/2 = yukarı)
+
   function pathArc(f, t, T, R, a0, a1, out) {
     if (t < T[0] || t > T[3]) return null;
     const sh = f.j.sh;
@@ -1089,16 +1089,16 @@
     }
     return out;
   }
-  // yakalanan rakip: ağırlık onun gövdesinde kalır (çekilirken zincir gergin)
+
   function pathCaught(f, t, t0, t1, out) {
     const o = f.mem.caught;
     if (!o || o.dead || t < t0 || t > t1 || !o.j.neck) return null;
     out.x = o.j.neck.x * 0.6 + o.j.hip.x * 0.4; out.y = o.j.neck.y * 0.6 + o.j.hip.y * 0.4; return out;
   }
-  // savuruş öncesi ağırlığı elin çevresinde döndürme
+
   function pathTwirl(f, t, r, w, out) { const hb = f.j.haB; out.x = hb.x + Math.cos(t * w) * r * f.dir; out.y = hb.y - 10 + Math.sin(t * w) * r * 0.8; return out; }
 
-  // --- silah görsel durumu (her kare, fighter.solve sonrası)
+
   ND.wpnState = {
     kusarigama(f, j, dt) {
       const C = f.chain; if (!C || !j.pom || !j.haB) return;
@@ -1132,7 +1132,7 @@
     },
   };
 
-  // --- hafif gard darbesi (ok/kasırga): denge hasarı, gerekirse denge kırılır
+
   function chip(t, post, pdir, x, y) {
     const pan = cam.pan(x);
     t.posture += post * (t.ch.guardMul || 1); t.sinceHit = 0; t.gainKi(2);
@@ -1144,10 +1144,10 @@
   }
   const isPerfect = (t) => perfectGuard(t) || !!t.ch.reflect;
 
-  // ------------------------------------------------------------ OK (Tsubame)
+
   const A_ARROW = { dmg: 8, post: 10, kb: 160, stun: 0.34, kind: 'arrow' };
   class Arrow {
-    // opt: { g: yerçekimi, wait: gecikme (yağmur), rain: yukarıdan (her gard tutar), ret: dönüş hakkı, noHit: yalnız görsel, glow }
+
     constructor(owner, x, y, dx, dy, spd, a, opt = {}) {
       this.owner = owner; this.x = x; this.y = y; this.vx = dx * spd; this.vy = dy * spd; this.a = a || A_ARROW;
       this.g = opt.g ?? 260; this.wait = opt.wait || 0; this.rain = !!opt.rain; this.ret = opt.ret || 0; this.noHit = !!opt.noHit;
@@ -1160,7 +1160,7 @@
       this.falling = true; this.vx *= -0.22; this.vy = -360; this.spin = (ND.rng.next() < 0.5 ? -1 : 1) * 14; this.glow = 0; this.ret = 0;
     }
     turn() {
-      // kırlangıç dönüşü: rakibi geçtiyse U çizip arkadan gelir
+
       const o = this.owner.opp;
       this.ret = 0; this.vx = -this.vx * 1.04;
       if (o && o.j.neck) this.vy = clamp(((o.y - 112) - this.y) * 2.2, -500, 500);
@@ -1207,7 +1207,7 @@
         const guard = this.rain ? g : t.guardingFrom(this.owner, this.x - s * 60);
         if (guard) {
           if (isPerfect(t)) {
-            // tam zamanlı gard oku savuşturur; yalnız yansıtan (Mai'nin yelpazesi) sahibine geri yollar
+
             const refl = !this.rain && t.ch.reflect;
             if (refl) { this.owner = t; this.col = t.col; this.vx = -this.vx * 1.05; this.vy = -this.vy * 0.4 - 30; this.ret = 0; }
             else this.deflect();
@@ -1243,7 +1243,7 @@
     ctx.restore();
   }
 
-  // ------------------------------------------------------------ RÜZGÂR (Mai'nin ağır saldırısı): iter, mermileri savurur
+
   const A_GUST = { dmg: 6, post: 18, kb: 640, stun: 0.42, kind: 'gust', blunt: true };
   class Gust {
     constructor(owner, x, y, dir) {
@@ -1291,7 +1291,7 @@
     ctx.restore();
   }
 
-  // ------------------------------------------------------------ KASIRGA (Mai'nin ki tekniği)
+
   const A_TORN = { dmg: 4, post: 10, kb: 0, stun: 0.46, kind: 'blade', special: true };
   const A_TORN_LAST = { dmg: 9, post: 22, kb: 160, stun: 0.6, kind: 'blade', special: true, knock: true, lift: 1.9 };
   class Tornado {
@@ -1314,7 +1314,7 @@
       const o = this.owner.opp;
       if (!o || o.dead || this.hits >= 5) return;
       const dx = this.x - o.x, s = Math.sign(this.vx) || 1;
-      // emme: yakındaki rakibi girdabın merkezine çeker (gard tutan direnir)
+
       if (Math.abs(dx) < 170 && o.onGround && !o.isInv() && o.state !== 'guard' && o.state !== 'block' && o.state !== 'parry') o.x += Math.sign(dx) * Math.min(Math.abs(dx), 130 * dt);
       if (this.t < this.next || Math.abs(dx) > 66 || o.isInv() || o.y < -110) return;
       this.next = this.t + 0.15;
@@ -1360,13 +1360,13 @@
   }
   ND.projSkins[3] = drawArrowP; ND.projSkins[4] = drawStone; ND.projSkins[5] = drawGust; ND.projSkins[6] = drawTornado;
   ND.Arrow = Arrow; ND.Gust = Gust; ND.Tornado = Tornado;
-  // özel fırlatmalar (a.proj): Jin'in taşı
+
   const A_STONE = { dmg: 6, kb: 150, stun: 0.26, post: 10, kind: 'shuriken', blunt: true };
   ND.PROJ = {
     stone(f) { snd2.stone(f.pan); return new ND.Shuriken(f, f.j.haB.x, f.j.haB.y, f.dir, { skin: 4, v: 980, a: A_STONE }); },
   };
 
-  // ------------------------------------------------------------ TORA: kusarigama hareketleri
+
   DEF.tr_l1 = {
     keys: [[0.1, 'tr_w1a', E.inOutSine], [0.2, 'tr_w1b', E.outQuart], [0.4, 'tr_w1b'], [0.56, 'tr_stance', E.inOut]],
     active: [0.13, 0.3], dmg: 8, post: 12, kb: 170, stun: 0.38, chain: [0.3, 0.56], next: 'light2', sw: 0.12, pw: 0.7, kind: 'whip', reach: 300,
@@ -1405,7 +1405,7 @@
     onHit(f, o) { fx.text(o.x, -200, TX.caught, '#ffd27a'); snd2.chain(f.pan, 1.6); },
   };
 
-  // ------------------------------------------------------------ JIN: bō hareketleri (künt: ch.blunt)
+
   DEF.jn_l1 = {
     keys: [[0.1, 'jn_t1a', E.inOutSine], [0.18, 'jn_t1b', E.outQuart], [0.3, 'jn_t1b'], [0.5, 'jn_stance', E.inOut]],
     active: [0.13, 0.22], dmg: 8, post: 14, kb: 260, stun: 0.36, lunge: [0.1, 0.19, 240], chain: [0.21, 0.5], next: 'light2', sw: 0.1, pw: 0.8, kind: 'blade', thrust: true, reach: 270,
@@ -1434,7 +1434,7 @@
   };
   DEF.jn_throw = { keys: [[0.12, 't1a', E.inOutSine], [0.2, 't1b', E.outQuart], [0.44, 'jn_stance']], release: 0.17, kind: 'throw', proj: 'stone' };
 
-  // ------------------------------------------------------------ MAI: tessen hareketleri
+
   DEF.mi_l1 = {
     keys: [[0.07, 'mi_l1a', E.inOutSine], [0.15, 'mi_l1b', E.outQuart], [0.24, 'mi_l1b'], [0.4, 'mi_stance', E.inOut]],
     active: [0.09, 0.17], dmg: 7, post: 12, kb: 210, stun: 0.34, lunge: [0.07, 0.16, 320], chain: [0.17, 0.4], next: 'light2', sw: 0.07, pw: 0.7, kind: 'blade',
@@ -1458,7 +1458,7 @@
     ev: [[0.28, (f) => { const g = game(); if (g.projs) g.projs.push(new Gust(f, f.x + f.dir * 60, f.y - 104, f.dir)); snd2.gust(f.pan); fx.dust(f.x + f.dir * 30, 0, 6, 1); }]],
   };
 
-  // ------------------------------------------------------------ TSUBAME: yay atışları (şarjlı ağır atış, ters takla atışı)
+
   function tsLoose(f) {
     if (f.ammo <= 0 || f.mem.shot) return;
     f.ammo--; f.mem.shot = true;
@@ -1499,11 +1499,11 @@
     },
   };
 
-  // ND.MOVES: mantıksal hareket adı → karaktere özel tanım (fighter.startAtk)
+
   ND.MOVES = {
     tora(f, n) {
       const gap = Math.abs(f.opp.x - f.x);
-      // yakında orak, orta mesafede zincir
+
       if (n === 'light1') return gap < 125 ? 'tr_s1' : 'tr_l1';
       if (n === 'light2') return gap < 125 ? 'tr_s2' : 'tr_l2';
       if (n === 'light3') return gap < 125 ? 'tr_l3' : 'tr_hook';
@@ -1519,8 +1519,8 @@
     },
   };
 
-  // ------------------------------------------------------------ KI TEKNİKLERİ
-  // --- TORA: Kusari Tatsumaki (鎖竜巻) — başın üstünde dönen zincir kasırgası; yakalanan rakip çekilip orakla havaya
+
+
   const trS0 = 0.14, trS1 = 0.82;
   DEF.sp_tora = {
     keys: [[trS0, 'tr_spin', E.inOutSine], [0.48, 'tr_spin2', E.inOutSine], [trS1, 'tr_spin', E.inOutSine], [0.9, 'tr_yank', E.outCubic], [0.98, 'tr_yank'], [1.06, 'tr_rise', E.outQuart], [1.22, 'tr_rise'], [1.46, 'tr_stance', E.inOut]],
@@ -1574,7 +1574,7 @@
     });
   }
 
-  // --- JIN: Kongō Rinbu (金剛輪舞) — elmas çark gibi dönen asa: dört darbe + yükselen fırlatma
+
   const jnT0 = 0.14, jnT1 = 0.68;
   const jnKeys = [[jnT0, 'jn_spA', E.inOutSine]];
   for (let i = 1; i <= 6; i++) jnKeys.push([jnT0 + i * 0.09, i % 2 ? 'jn_spB' : 'jn_spA', E.linear]);
@@ -1626,7 +1626,7 @@
           ctx.strokeStyle = `rgba(255,${215 - i * 30},${130 - i * 40},${(0.42 - i * 0.12) * k})`; ctx.lineWidth = 6 - i * 2;
           ctx.beginPath(); ctx.ellipse(cx, cy, rx, 20, 0, a0, a0 + 2.4); ctx.stroke();
         }
-        // elmas (vajra) parıltıları
+
         ctx.fillStyle = `rgba(255,240,200,${0.8 * k})`;
         for (let i = 0; i < 4; i++) {
           const a = ph * 0.7 + (i * TAU) / 4, x = cx + Math.cos(a) * 150, y = cy + Math.sin(a) * 18, s = 5 + 2 * Math.sin(ph + i);
@@ -1636,7 +1636,7 @@
     });
   }
 
-  // --- MAI: Senpū no Mai (旋風の舞) — dönerek kasırga doğurur; kasırga ilerler, çeker, keser, savurur
+
   const miT0 = 0.12, miT1 = 0.5;
   const miKeys = [[miT0, 'mi_spA', E.inOutSine]];
   for (let i = 1; i <= 4; i++) miKeys.push([miT0 + i * 0.095, i % 2 ? 'mi_spB' : 'mi_spA', E.inOutSine]);
@@ -1660,7 +1660,7 @@
     },
   };
 
-  // --- TSUBAME: Tsubame Gaeshi (燕返し) — geri sıçrayıp ok yağmuru, ardından geri dönen kırlangıç oku
+
   const tsH0 = 0.08, tsH1 = 0.46;
   DEF.sp_tsubame = {
     keys: [[0.08, 'ts_nock', E.outCubic], [0.18, 'ts_aimUp', E.outCubic], [0.24, 'ts_aimUp'], [0.3, 'ts_aimUpL', E.outCubic], [0.46, 'land', E.inOutSine], [0.54, 'ts_nock', E.outCubic], [0.68, 'ts_aim', E.inOutSine], [0.74, 'ts_aim'], [0.8, 'ts_loose', E.outCubic], [1.02, 'ts_stance', E.inOut]],
@@ -1719,8 +1719,8 @@
     slashArc({ x: A.x + f.dir * 40, y: A.y, r: 60, mid: f.dir > 0 ? 0 : Math.PI, span: 1, w: 12, col: '170,235,255', core: '255,255,255', life: 0.25 });
   }
 
-  // ------------------------------------------------------------ KAYIT
-  // fighter.js ile aynı biçim: anahtar karelerde poz adı → poz nesnesi, dur = son kare zamanı
+
+
   for (const k in DEF) {
     const a = DEF[k];
     a.keys = a.keys.map(([t, p, e]) => [t, PO[p] || PO.stance, e]);
@@ -1728,15 +1728,15 @@
     ATK[k] = a;
   }
 
-  // ================================================================ KAESHI-WAZA: SİLAHA ÖZEL KARŞILIK SETLERİ
-  // fighter.js katana ailesini ve genel kancaları (defl/slide/react/zan/spin/rollT, ND.KAESHI) tanımlar; burada
-  // bō, tessen, kusarigama, ikiz tantō, naginata ve nodachi setleri. Her varyant tabanın sayısal değerlerini
-  // (ND.kaeshiVariant) alır: aktif pencereler, hasar, itme, atılma aynı → savuşturma istemi ve denge değişmez.
+
+
+
+
   const KA = ND.KAESHI, kv = ND.kaeshiVariant;
   if (KA && kv) {
     const KD = {};
     const kAcc = (f) => rgbOf(f.col.accent, '255,236,200');
-    // kesik yayı (havada kalan hilal, omuz merkezli, yarıçap ≈ kol + silah): k = h yatay | d çapraz iniş | u yükselen | v dikey yarma
+
     const kArc = (k, big) => (f) => {
       const d = f.dir, sh = f.j.sh || { x: f.x, y: f.y - 125 }, R = Math.min(190, (f.wpn.blade || 96) + 55) * (big ? 1.12 : 1);
       const o = { x: sh.x, y: sh.y, r: R, span: 1.05, w: big ? 24 : 18, col: kAcc(f), core: '255,248,230', life: big ? 0.38 : 0.3, sx: d, sy: 1, rotA: 0, mid: 0.25, grow: 0.08 };
@@ -1745,7 +1745,7 @@
       else if (k === 'v') { o.mid = 0.15; o.span = 1.3; o.y -= 10; }
       slashArc(o);
     };
-    // yere çakma şoku (bitirişin son vuruşu)
+
     const kShock = (f) => {
       const x = clamp(f.j.tip.x, -ND.ARENA, ND.ARENA);
       fx.dust(x, 0, 12, 1.5); fx.ring(x, -4, '255,236,190', 110); fx.spark(x, -3, -Math.PI / 2, 22, 1.2);
@@ -1754,8 +1754,8 @@
     const petals = (f, n) => burst(n, () => ({ k: 'petal', x: f.x + rand(-50, 60) * f.dir, y: f.y - rand(60, 150), vx: rand(-160, 160), vy: rand(-120, 20), g: 120, drag: 1.5, flut: 7, life: rand(0.4, 0.8), sz: rand(3, 4.5), c: kAcc(f) }));
     const finEv = (arcs, extra) => [[0.08, kArc(arcs[0])], [0.2, kArc(arcs[1])], [0.33, kArc(arcs[2], true)]].concat(extra || []).sort((a, b) => a[0] - b[0]);
 
-    // --- zincir ağırlığı yolları (kusarigama)
-    // rakibin kılıcına sarılma: T = [atış, varış, bırakış, dönüş]; sarılıyken ağırlık kılıç üzerinde küçük daireler çizer
+
+
     function pathWrap(f, t, T, out) {
       if (t < T[0] || t > T[3]) return null;
       const o = f.opp, hb = f.j.haB, oj = o && o.j;
@@ -1765,7 +1765,7 @@
       else { const u = ei((t - T[2]) / (T[3] - T[2])); out.x = tx + (hb.x - tx) * u; out.y = ty + (hb.y - ty) * u; }
       return out;
     }
-    // ayak bileklerine dolanma (harai)
+
     function pathAnkle(f, t, T, out) {
       if (t < T[0] || t > T[3]) return null;
       const o = f.opp, hb = f.j.haB, tx = (o ? o.x : f.x + f.dir * 120) - f.dir * 8, ty = -10;
@@ -1774,7 +1774,7 @@
       else { const u = ei((t - T[2]) / (T[3] - T[2])); out.x = tx + (hb.x - tx) * u; out.y = ty + (hb.y - ty) * u; }
       return out;
     }
-    // ağırlık baş üstünde döner, rakibin kılıcına iner ve onu yere çakar
+
     function pathSmash(f, t, out) {
       if (t > 0.2) return null;
       const o = f.opp, hb = f.j.haB;
@@ -1786,7 +1786,7 @@
     }
     const twirl = (t0, t1, r, w) => (f, t, out) => (t >= t0 && t <= t1 ? pathTwirl(f, t, r, w, out) : null);
 
-    // ---------------------------------------------------------------- BŌ (Jin): savur-sapla, diğer uçla vur
+
     KD.jc_rip1 = kv('riposte', { keys: [[0.05, 'jc_defl', E.outCubic], [0.13, 'jc_tip', E.inOutSine], [0.22, 'jc_tipF', E.outCubic], [0.4, 'jn_stance', E.inOut]],
       defl: 0.04, slide: [0, 0.05, 0.4, 0.9, 'P'], react: 'rx_high', hurt: 'rx_high', zan: [0.24, 'jc_zan', 0.16], ev: [[0.06, (f) => snd2.staff(f.pan, 1)]] });
     KD.jc_rip2 = kv('riposte', { keys: [[0.05, 'jc_low', E.outCubic], [0.14, 'jc_smash', E.inOutSine], [0.22, 'jc_smashF', E.outCubic], [0.4, 'jn_stance', E.inOut]],
@@ -1800,7 +1800,7 @@
     KD.jc_fin = kv('finisher', { keys: [[0.05, 'jc_f1a', E.outCubic], [0.12, 'jc_f1b', E.outCubic], [0.24, 'jc_f2', E.inOutSine], [0.3, 'jc_f3a', E.outCubic], [0.38, 'jc_f3b', E.inQuad], [0.52, 'jc_f3b'], [0.76, 'jn_stance', E.inOut]],
       zan: [0.54, 'jc_zan', 0.22], ev: finEv(['h', 'u', 'v'], [[0.38, kShock], [0.13, (f) => snd2.staff(f.pan, 1)], [0.27, (f) => snd2.staff(f.pan, 1.2)]]) });
 
-    // ---------------------------------------------------------------- TESSEN (Mai): yelpazeyi açıp sapla, diğeriyle kes
+
     KD.mc_rip1 = kv('riposte', { keys: [[0.05, 'mc_rDefl', E.outCubic], [0.13, 'mc_rCut', E.inOutSine], [0.22, 'mc_rFol', E.outCubic], [0.4, 'mi_stance', E.inOut]],
       fan: (f, t) => (t < 0.06 ? 0 : 1), fanB: 1, defl: 0.04, slide: [0, 0.05, 0.3, 0.95, 'BF'], react: 'rx_high', hurt: 'rx_high', zan: [0.24, 'mc_zan', 0.16] });
     KD.mc_rip2 = kv('riposte', { keys: [[0.05, 'mc_r2Defl', E.outCubic], [0.09, 'mc_r2Up', E.outCubic], [0.15, 'mc_r2Str', E.inQuad], [0.24, 'mc_r2Str'], [0.4, 'mi_stance', E.inOut]],
@@ -1814,7 +1814,7 @@
     KD.mc_fin = kv('finisher', { keys: [[0.05, 'mc_f1a', E.outCubic], [0.12, 'mc_f1b', E.outCubic], [0.24, 'mc_f2', E.inOutSine], [0.3, 'mc_f3a', E.outCubic], [0.38, 'mc_f3b', E.inQuad], [0.52, 'mc_f3b'], [0.76, 'mi_stance', E.inOut]],
       fan: 1, fanB: 1, spin: [0.13, 0.2, 1], zan: [0.54, 'mc_zan', 0.22], ev: finEv(['h', 'h', 'v'], [[0.14, (f) => petals(f, 10)], [0.38, (f) => petals(f, 14)]]) });
 
-    // ---------------------------------------------------------------- KUSARIGAMA (Tora): zinciri kılıca dola, çek, orakla kes
+
     KD.kc_rip1 = kv('riposte', { keys: [[0.04, 'kc_throw', E.outCubic], [0.075, 'kc_yank', E.outCubic], [0.15, 'kc_cut', E.inOutSine], [0.24, 'kc_fol', E.outCubic], [0.4, 'tr_stance', E.inOut]],
       wpath: (f, t, o) => pathWrap(f, t, [0, 0.035, 0.075, 0.13], o), defl: 0.035, wrap: true, react: 'rx_over', zan: [0.24, 'kc_zan', 0.16],
       ev: [[0.075, (f) => snd2.chain(f.pan, 1.3)]] });
@@ -1830,7 +1830,7 @@
       wpath: (f, t, o) => pathWrap(f, t, [0, 0.04, 0.09, 0.15], o) || (t > 0.22 && t < 0.4 ? pathTwirl(f, t, 36, 28, o) : null),
       zan: [0.54, 'kc_zan', 0.22], ev: finEv(['h', 'u', 'v'], [[0.04, (f) => snd2.chainThrow(f.pan)], [0.24, (f) => snd2.chain(f.pan, 1.2)]]) });
 
-    // ---------------------------------------------------------------- İKİZ TANTŌ (Hana): ters bıçakla yakala, diğeriyle sapla
+
     KD.tc_rip1 = kv('riposte', { keys: [[0.05, 'tc_catch', E.outCubic], [0.13, 'tc_stab', E.outCubic], [0.22, 'tc_fol', E.outCubic], [0.4, 'stance', E.inOut]],
       thrust: true, defl: 0.045, slide: [0, 0.05, 0.2, 0.8, 'B'], react: 'rx_high', hurt: 'rx_high', zan: [0.24, 'tc_zan', 0.16] });
     KD.tc_rip2 = kv('riposte', { keys: [[0.05, 'tc_up', E.outCubic], [0.14, 'tc_down', E.inOutSine], [0.24, 'tc_down'], [0.4, 'stance', E.inOut]],
@@ -1843,10 +1843,10 @@
       defl: 0.07, ground: true, react: 'rx_low', zan: [0.32, 'tc_zan', 0.18] });
     KD.tc_fin = kv('finisher', { keys: [[0.05, 'tc_up', E.outCubic], [0.12, 'tc_f1', E.inOutSine], [0.21, 'tc_f2', E.inOutSine], [0.3, 'tc_f3a', E.outCubic], [0.39, 'tc_f3b', E.inOutSine], [0.52, 'tc_f3b'], [0.76, 'stance', E.inOut]],
       spin: [0.13, 0.2, 1], zan: [0.54, 'tc_zan', 0.22], ev: finEv(['d', 'u', 'u']),
-      // kısa tantōlar: seri doruğunda (yüksek hızda atılma kısalır) rakibe sokularak kapanır
+
       tick(f, dt, t, o) { if (t > 0.02 && t < 0.36) chase(f, o, 72, 520); } });
 
-    // ---------------------------------------------------------------- NAGINATA (Tetsu): sapla karşıla, ağızla süpür
+
     KD.nc_rip1 = kv('riposte', { keys: [[0.05, 'nc_shaft', E.outCubic], [0.14, 'nc_sweep', E.inOutSine], [0.23, 'nc_fol', E.outCubic], [0.4, 'stance', E.inOut]],
       defl: 0.04, slide: [0, 0.05, 0.05, 0.35], react: 'rx_high', hurt: 'rx_high', zan: [0.25, 'nc_zan', 0.16] });
     KD.nc_rip2 = kv('riposte', { keys: [[0.05, 'nc_butt', E.outCubic], [0.14, 'nc_rise', E.inOutSine], [0.23, 'nc_rFol', E.outCubic], [0.4, 'stance', E.inOut]],
@@ -1860,18 +1860,18 @@
     KD.nc_fin = kv('finisher', { keys: [[0.05, 'nc_f1a', E.outCubic], [0.12, 'nc_f1b', E.outCubic], [0.24, 'nc_f2', E.inOutSine], [0.3, 'nc_f3a', E.outCubic], [0.38, 'nc_f3b', E.inQuad], [0.52, 'nc_f3b'], [0.76, 'stance', E.inOut]],
       zan: [0.54, 'nc_zan', 0.22], ev: finEv(['h', 'u', 'v'], [[0.38, kShock]]) });
 
-    // ---------------------------------------------------------------- NODACHI (Kuro, Shura): katana seti, ağır kayma ve büyük yay
+
     for (const k of ['riposte', 'riposte2', 'riposte3', 'riposte4']) {
       const b = ATK[k], S = b.slide;
       KD['nd_' + k] = kv(k, { keys: b.keys, hurt: b.hurt, slide: S && [S[0], S[1] + 0.02, Math.max(0.1, S[2] - 0.1), Math.min(1, S[3] + 0.15)],
         ev: [[b.active[0], kArc(k === 'riposte2' ? 'u' : k === 'riposte3' || k === 'riposte4' ? 'h' : 'd', true)]] });
     }
 
-    // ---------------------------------------------------------------- SECOND CHOREOGRAPHY for the one-variant families
-    // A reply must never look like the one before it, so harai / nuki / uchiotoshi get a second body for bō, tessen,
-    // kusarigama, twin tantō and naginata: the katana's second variant (sweep2: beat down → kneeling rising cut,
-    // mawari2: pirouette → high cut from behind, kaeshiHeavy2: beat down → leap → men) re-posed for the weapon's grip
-    // (own off hand, own stance and zanshin). Numbers always come from the logical move (kaeshiVariant).
+
+
+
+
+
     const FAMG = {
       bo: { st: 'jn_stance', o: { grip: 1 }, zan: 'jc_zan', snd: (f) => snd2.staff(f.pan, 0.9) },
       tessen: { st: 'mi_stance', o: { grip: 0, gx: -26, gy: -26 }, zan: 'mc_zan', x: { fan: 1, fanB: 1 }, snd: (f) => { snd2.fan(f.pan); petals(f, 6); } },
@@ -1897,13 +1897,13 @@
       KD[p + '_nuki2'] = refit('mawari2', 'mawari', fam, 'side', ch);
       KD[p + '_otoshi2'] = refit('kaeshiHeavy2', 'kaeshiHeavy', fam, 'up');
     }
-    // which parry deflection each family reply flows out of (fighter.js KAESHI.pick, ATK[..].fd)
+
     for (const [k, d] of [['jc_rip1', 'up'], ['jc_rip2', 'down'], ['jc_harai', 'side'], ['jc_nuki', 'up'], ['jc_otoshi', 'down'],
       ['mc_rip1', 'up'], ['mc_rip2', 'down'], ['mc_harai', 'side'], ['mc_nuki', 'up'], ['mc_otoshi', 'down'],
       ['kc_rip1', 'side'], ['kc_rip2', 'down'], ['kc_harai', 'side'], ['kc_nuki', 'up'], ['kc_otoshi', 'down'],
       ['tc_rip1', 'side'], ['tc_rip2', 'up'], ['tc_harai', 'side'], ['tc_nuki', 'up'], ['tc_otoshi', 'down'],
       ['nc_rip1', 'up'], ['nc_rip2', 'down'], ['nc_harai', 'side'], ['nc_nuki', 'up'], ['nc_otoshi', 'down']]) KD[k].fd = d;
-    // katana bitirişine de kesik yayları
+
     ATK.finisher.ev = finEv(['u', 'd', 'v'], [[0.38, kShock]]);
 
     for (const k in KD) {
@@ -1919,12 +1919,12 @@
       bo: fam2('jc'), tessen: fam2('mc'), kusarigama: fam2('kc'), twin: fam2('tc'), naginata: fam2('nc'),
     });
 
-    // --- parry deflections (fighter.js ND.DEFL) for the weapons that do not parry like a sword: deltas on each
-    // fighter's own guard. bō: the staff goes up flat over the head / the rear end sweeps the blade off / the
-    // front end beats it down; tessen: the rear fan sweeps up / the front fan beats down / both fans open out in a
-    // turn; kusarigama: the chain pulled taut overhead / the sickle hooks it down / the weight bats it aside; twin
-    // tantō: a cross block / the reverse blade presses it down / the front blade flicks it out; naginata: the shaft
-    // lifts it / the pole beats it down / the butt end (ishizuki) knocks it off line.
+
+
+
+
+
+
     const DF = ND.DEFL;
     if (DF) {
       const dv = DF.mk, K = DF.K, as = (id, v) => Object.assign({}, v, { id });
@@ -1969,10 +1969,10 @@
       });
     }
 
-    // --- temas/zanshin sesleri (kind: clang | ground | whiff | wrap | zan); bilinmeyen tür katana sesine düşer
+
     const K0 = KA.snd.katana;
     const tok = (pan, p = 1) => { au.tone({ freq: 310, freq1: 170, dur: 0.1, gain: 0.3 * p, type: 'triangle', send: 0.2, pan }); au.noise({ type: 'bandpass', f0: 950, q: 2, dur: 0.06, gain: 0.26 * p, send: 0.15, pan }); };
-    // the staff's knock: wood (ND.audio.bo.block; a light ring when it meets a blade), the old triangle tok in 'old'
+
     const knock = (f, pan, p = 1) => au.bo?.block?.(p, pan, !!(f && f.opp && f.opp.ch && !f.opp.ch.blunt)) || tok(pan, p);
     Object.assign(KA.snd, {
       bo(f, k, pan) {
@@ -2024,14 +2024,14 @@
   
     shura: { atk: 'sp_shura', name: 'Ashura Rasetsu', kanji: '阿修羅', desc: 'Kükreyip kızıl dumana karışır; rakibin önünde ve arkasında belirerek üç ağır nodachi kesiği indirir, sonuncusu havaya fırlatır.', tip: 'Kızıl parıltıyı izle: kesiği savuşturmak tekniği bitirir; gard dengeyi ezer', range: [50, 600] },
   };
-  // ================================================================ COMBOS: COMMAND NORMALS, STRINGS, LAUNCHERS, JUGGLES
-  // Logical move names (fighter.startAtk → ND.MOVES): light1-3, heavy, kick, throw, dash + the combo layer:
-  //   fLight / bLight / fHeavy / bHeavy  → direction held (forward / back) + light / heavy from neutral
-  //   dashHeavy                          → forward dash (double-tap forward or dodge) + heavy
-  //   str1 (L, L, H) · str2 (K, H)       → string enders, unique per fighter
-  //   fHeavy is the launcher; after a hit: light / heavy → chase (leaping air slash) → heavy → chaseEnd (spike)
-  // Routes (which press in a move's chain window leads where) are in ROUTES; fighter.route() reads them.
-  // Rules (windows, scaling, juggle limits) live in ND.COMBO (fighter.js).
+
+
+
+
+
+
+
+
   {
     const eo = E.outCubic, eq = E.outQuart, es = E.inOutSine, ei2 = E.inOut, eqd = E.inQuad;
     const reg = (name, d) => {
@@ -2044,8 +2044,8 @@
     const puff = (f, x, y, n = 12) => burst(n, () => { const a = rand(0, TAU), sp = rand(40, 200); return { k: 'smoke', x: x + rand(-16, 16), y: y - rand(10, 150), vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.5 - 30, drag: 3, life: rand(0.45, 0.8), sz: rand(9, 16), grow: 1.3, c: Math.random() < 0.7 ? '26,30,34' : '48,56,60', a: 0.7 }; });
     const windLine = (f, n = 8) => burst(n, () => ({ k: 'streak', x: f.x + f.dir * rand(0, 90), y: f.y - rand(50, 150), vx: f.dir * rand(300, 700), vy: rand(-40, 40), life: 0.22, sz: 1.2, c: '200,230,255', add: true, rot: 0, vr: 0 }));
 
-    // ---------------------------------------------------------------- generic air follow-up (every fighter)
-    // chase: leaps to the launched opponent (steered for 0.2 s) and slashes; chaseEnd: downward slash that spikes
+
+
     const A_CHASE = reg('chase', {
       keys: [[0.1, 'jump', eo], [0.17, 'as1a', eo], [0.24, 'as1b', eq], [0.46, 'fall']],
       active: [0.17, 0.27], dmg: 8, post: 10, kb: 140, stun: 0.4, sw: 0.16, pw: 1, kind: 'blade', air: true, chain: [0.22, 0.46],
@@ -2066,9 +2066,9 @@
     });
     void A_CHASE;
 
-    // ---------------------------------------------------------------- weapon-family templates
-    // Poses come from each family's kaeshi set (skeleton.js): fl = advancing thrust, bl = low sweep, up = rising cut
-    // (launcher), bh = leaping overhead, dh = spinning cut, s1 = two-cut ender, s2 = beat-down + thrust (guard crush)
+
+
+
     const FAM = {
       katana: { fl: ['ks_makiA', 'ks_tsuki'], bl: ['ks_h2Beat', 'ks_h2Kneel', 'ks_h2Cut'], up: ['ks_uraA', 'ks_uraB', 'ks_uraC'], bh: ['ks_o2Raise', 'ks_o2Up', 'ks_o2Men'], dh: ['ks_n2Spin', 'ks_n2Cut'], s1: ['ks_f1a', 'ks_f1b', 'ks_f3a', 'ks_f3b'], s2: ['ks_oRaise', 'ks_oDrop', 'ks_oThrust'] },
       kodachi: { fl: ['kd_in2', 'kd_stab'], bl: ['ks_hBeat', 'ks_hDip', 'ks_hCut'], up: ['kd_in', 'ks_uraB', 'ks_uraC'], bh: ['ks_o2Raise', 'ks_o2Up', 'ks_o2Men'], dh: ['ks_nPivot', 'ks_nCutF'], s1: ['kd_in', 'kd_cut', 'ks_f3a', 'ks_f3b'], s2: ['ks_oRaise', 'ks_oDrop', 'kd_stab'] },
@@ -2078,7 +2078,7 @@
       tessen: { fl: ['mc_r2Up', 'mc_r2Str'], bl: ['mc_r2Defl', 'mc_hSpin', 'mc_hCut'], up: ['mc_oDown', 'mc_oRise', 'mc_f1b'], bh: ['mc_oUp', 'mc_f3a', 'mc_f3b'], dh: ['mc_nSpin', 'mc_nCut'], s1: ['mc_f1a', 'mc_f1b', 'mc_f3a', 'mc_f3b'], s2: ['mc_oUp', 'mc_oDown', 'mc_oRise'], fan: 1 },
       kusarigama: { fl: ['kc_hook', 'kc_cut'], bl: ['kc_hThrow', 'kc_hPull', 'kc_hCut'], up: ['kc_pull', 'kc_rise', 'kc_rise'], bh: ['kc_oSw', 'kc_f3a', 'kc_f3b'], dh: ['kc_nCh', 'kc_nCut'], s1: ['kc_f1a', 'kc_f1b', 'kc_f3a', 'kc_f3b'], s2: ['kc_oSw', 'kc_oDown', 'kc_oRise'] },
     };
-    // registers <p>_fl, _bl, _up, _bh, _dh, _s1, _s2 for one family and stance pose
+
     function famKit(p, F, st, x) {
       x = x || {};
       const fan = F.fan ? { fan: 1, fanB: 1 } : null, blunt = x.blunt ? { blunt: true } : null;
@@ -2087,7 +2087,7 @@
         active: [0.1, 0.18], dmg: 9, post: 14, kb: 260, stun: 0.38, lunge: [0.04, 0.16, 560], chain: [0.2, 0.46], sw: 0.08, pw: 1, kind: 'blade', thrust: true, reach: 250 }));
       reg(p + '_bl', mk({ keys: [[0.06, F.bl[0], eo], [0.12, F.bl[1], es], [0.2, F.bl[2], eo], [0.3, F.bl[2]], [0.54, st, ei2]],
         active: [0.13, 0.22], dmg: 8, post: 16, kb: 220, stun: 0.4, knock: true, trip: true, lunge: [0, 0.08, -300], lunge2: [0.1, 0.19, 360], sw: 0.11, pw: 0.9, kind: 'blade' }));
-      // long poles and fans reach past (or fall short of) a point-blank opponent: their launcher hits as a zone
+
       reg(p + '_up', mk({ keys: [[0.1, F.up[0], es], [0.2, F.up[1], eq], [0.3, F.up[2]], [0.62, st, ei2]], zone: x.upZone || undefined,
         active: [0.13, 0.27], dmg: 10, post: 20, kb: 80, stun: 0.5, launch: true, lunge: [0.1, 0.24, 320], chain: [0.28, 0.62], sw: 0.12, pw: 1.2, kind: 'blade', sc: true }));
       reg(p + '_bh', mk({ keys: [[0.16, F.bh[0], es], [0.3, F.bh[1], eo], [0.38, F.bh[2], eqd], [0.5, F.bh[2]], [0.86, st, ei2]],
@@ -2109,10 +2109,10 @@
     famKit('fb', FAM.bo, 'jn_stance', { blunt: true, upZone: [150, 10, 150] });
     famKit('fm', FAM.tessen, 'mi_stance', { upZone: [135, 10, 150] });
     famKit('fc', FAM.kusarigama, 'tr_stance', { upZone: [135, 10, 150] });
-    // fallbacks for any fighter without a kit
+
     for (const k of ['fl', 'bl', 'up', 'bh', 'dh', 's1', 's2']) ATK[{ fl: 'fLight', bl: 'bLight', up: 'fHeavy', bh: 'bHeavy', dh: 'dashHeavy', s1: 'str1', s2: 'str2' }[k]] = ATK['fk_' + k];
 
-    // ---------------------------------------------------------------- AKANE: iaijutsu (every cut is a draw from the hip)
+
     reg('ak_l1', { keys: [[0.06, 'ak_stance'], [0.11, 'ak_l1b', eq], [0.2, 'ak_l1c', eo], [0.42, 'ak_stance', ei2]], sheath: [0, 0.06],
       active: [0.08, 0.15], dmg: 9, post: 13, kb: 230, stun: 0.34, lunge: [0.05, 0.13, 300], chain: [0.16, 0.42], sw: 0.06, pw: 1, kind: 'blade' });
     reg('ak_l2', { keys: [[0.08, 'ak_l2a', es], [0.17, 'ak_l2b', eq], [0.28, 'ak_l2b'], [0.5, 'ak_stance', ei2]],
@@ -2127,14 +2127,14 @@
       active: [0.09, 0.15], dmg: 5, post: 16, kb: 200, stun: 0.5, lunge: [0.07, 0.13, 320], chain: [0.15, 0.4], kind: 'kick', limb: 'pom', limbR: 12 });
     reg('ak_up', { keys: [[0.12, 'ak_hA', es], [0.2, 'ak_hA'], [0.28, 'ak_upB', eq], [0.4, 'ak_upB'], [0.66, 'ak_stance', ei2]], sheath: [0, 0.21],
       active: [0.22, 0.3], dmg: 10, post: 20, kb: 70, stun: 0.5, launch: true, lunge: [0.18, 0.28, 300], chain: [0.3, 0.66], sw: 0.21, pw: 1.3, kind: 'blade', sc: true });
-    // IAI NO KAMAE: draw stance. A melee blow inside the catch window is caught (fighter.tryCatch) → ak_catchCut
+
     reg('ak_catch', { keys: [[0.08, 'ak_catch', eo], [0.62, 'ak_catch'], [0.8, 'ak_stance', ei2]], sheath: [0, 0.8],
       active: [0.06, 0.58], kind: 'stance', catch: [0.06, 0.58], catchInto: 'ak_catchCut', glint: [0.08, 0.45],
       ev: [[0.06, (f) => { au.tone({ freq: 1800, freq1: 1700, dur: 0.5, gain: 0.02, send: 0.6, pan: f.pan }); glow(f.x, f.y - 70, 60, rgbOf(f.col.accent), 0.4, 0.4); }]] });
     reg('ak_catchCut', { keys: [[0.04, 'ak_hB', eq], [0.14, 'ak_hC', eo], [0.2, 'ak_hC'], [0.36, 'chiburi', eo], [0.62, 'ak_stance', ei2]],
       active: [0.03, 0.1], dmg: 16, post: 30, kb: 420, stun: 0.55, lunge: [0, 0.06, 600], sw: 0.01, pw: 1.4, kind: 'blade', trail: '255,70,55',
       ev: [[0.035, (f, a, o) => {
-        // the reply always lands unless the opponent is already untouchable (it answers a committed blow)
+
         if (f.hitDone || !o || o.isInv() || Math.abs(o.x - f.x) > 280) return;
         const x = (f.x + o.x) / 2, y = o.y - 105;
         f.landHit(a, 'body', x, y);
@@ -2151,7 +2151,7 @@
         if (d > 60) slashArc({ x: (x0 + f.x) / 2, y: f.y - 120, r: d / 2 + 20, mid: Math.PI / 2, span: 1.2, w: 22, sx: 1, sy: 0.4, col: '255,60,45', core: '255,235,220', life: 0.5, grow: 0.06 });
       }]] });
 
-    // ---------------------------------------------------------------- AOI: kaze-ryū (one-handed tachi, reach and wind steps)
+
     reg('ao_l1', { keys: [[0.06, 'ao_l1a', eo], [0.13, 'ao_l1b', eq], [0.22, 'ao_l1b'], [0.42, 'ao_stance', ei2]],
       active: [0.09, 0.16], dmg: 8, post: 12, kb: 230, stun: 0.34, lunge: [0.07, 0.15, 320], chain: [0.17, 0.42], sw: 0.07, pw: 0.9, kind: 'blade', thrust: true, reach: 260 });
     reg('ao_l2', { keys: [[0.08, 'ao_l2a', es], [0.16, 'ao_l2b', eq], [0.26, 'ao_l2b'], [0.46, 'ao_stance', ei2]],
@@ -2181,7 +2181,7 @@
       spin: [0.04, 0.22, 2], lunge: [0.04, 0.24, 420], sw: 0.08, pw: 1.2, kind: 'blade', sc: true,
       ev: [[0.12, (f) => slashArc({ x: f.x, y: f.y - 100, r: 110, mid: f.dir > 0 ? 0 : Math.PI, span: 2.6, w: 16, sy: 0.45, col: '170,215,255', core: '240,250,255', life: 0.3 })]] });
 
-    // ---------------------------------------------------------------- REN: brawler (elbow, knee, shoulder, head, heel)
+
     reg('rn_l1', { keys: [[0.09, 'rn_l1a', es], [0.17, 'rn_l1b', eq], [0.28, 'rn_l1b'], [0.46, 'rn_stance', ei2]],
       active: [0.11, 0.2], dmg: 9, post: 15, kb: 240, stun: 0.36, lunge: [0.09, 0.18, 260], chain: [0.2, 0.46], sw: 0.1, pw: 0.95, kind: 'blade' });
     reg('rn_l2', { keys: [[0.07, 'rn_elbA', eo], [0.13, 'rn_elbB', eq], [0.24, 'rn_elbB'], [0.44, 'rn_stance', ei2]],
@@ -2208,7 +2208,7 @@
     reg('rn_s2', { keys: [[0.08, 'k1a', eo], [0.2, 'k1b', es], [0.3, 'k1b'], [0.56, 'rn_stance', ei2]],
       active: [0.14, 0.26], dmg: 8, post: 16, gcrush: 1.2, kb: 520, stun: 0.5, knock: true, spin: [0.02, 0.16, 1], lunge: [0.06, 0.2, 320], kind: 'kick', limb: 'ftF', limbR: 14, sc: true });
 
-    // ---------------------------------------------------------------- KAGE: reverse-grip ninjatō, shadow steps, feints, smoke
+
     const kageSmoke = (f, x) => { puff(f, x, f.y, 14); fx.ring(x, f.y - 90, rgbOf(f.col.accent), 60); snd.poof && snd.poof(f.pan); };
     reg('kg_l1', { keys: [[0.07, 'kg_l1a', eo], [0.14, 'kg_l1b', eq], [0.24, 'kg_l1b'], [0.42, 'kg_stance', ei2]],
       active: [0.09, 0.17], dmg: 8, post: 12, kb: 220, stun: 0.34, lunge: [0.07, 0.16, 300], chain: [0.17, 0.42], sw: 0.07, pw: 0.9, kind: 'blade' });
@@ -2221,15 +2221,15 @@
       active: [0.33, 0.43], dmg: 22, post: 40, kb: 400, stun: 0.6, knock: true, lunge: [0.24, 0.4, 460], glint: [0.1, 0.3], sw: 0.31, pw: 1.5, kind: 'blade', thrust: true, sc: true });
     reg('kg_fl', { keys: [[0.05, 'kg_l3a', eo], [0.12, 'kg_l1b', eq], [0.22, 'kg_l1b'], [0.44, 'kg_stance', ei2]],
       active: [0.08, 0.16], dmg: 9, post: 13, kb: 260, stun: 0.38, lunge: [0.02, 0.14, 860], chain: [0.18, 0.44], sw: 0.07, pw: 1, kind: 'blade', tick: ghostTick(0.02, 0.14, 0.34) });
-    // ITSUWARI: a feint — a glinting wind-up with no blade, then a smoke step back; the chain window follows at once
+
     reg('kg_bl', { keys: [[0.07, 'kg_fA', eo], [0.13, 'kg_fA'], [0.2, 'dodgeB', eo], [0.3, 'kg_stance', ei2]],
       active: [0.09, 0.11], kind: 'feint', glint: [0.02, 0.12], hide: [0.13, 0.19], inv: [0.12, 0.2], chain: [0.19, 0.34], sw: 0.08, pw: 0.6,
       ev: [[0.13, (f) => {
         kageSmoke(f, f.x);
         const A = ND.ARENA - 12; f.x = clamp(f.x - f.dir * 90, -A, A); f.vx = 0; f.prevBlade = null;
       }], [0.19, (f) => puff(f, f.x, f.y, 6)]] });
-    // the short reverse-grip blade passed over an opponent more than ~70 px away (a light hit's push-back), so the
-    // launcher that the listed string needs never connected: like the long weapons it hits as a zone in front
+
+
     reg('kg_up', { keys: [[0.1, 'kg_upA', es], [0.2, 'kg_upB', eq], [0.32, 'kg_upB'], [0.6, 'kg_stance', ei2]], zone: [110, 10, 150],
       active: [0.12, 0.23], dmg: 9, post: 18, kb: 60, stun: 0.5, launch: true, lunge: [0.09, 0.21, 340], chain: [0.25, 0.6], sw: 0.11, pw: 1.2, kind: 'blade', sc: true });
     reg('kg_bh', { keys: [[0.08, 'kg_smA', eo], [0.16, 'kg_smA'], [0.26, 'dodgeB', eo], [0.4, 'dodgeB'], [0.6, 'kg_stance', ei2]],
@@ -2238,7 +2238,7 @@
     reg('kg_s1', { keys: [[0.05, 'kg_l1a', eo], [0.1, 'kg_l1b', eq], [0.15, 'kg_l2a', eo], [0.22, 'kg_l2b', es], [0.3, 'kg_hA', eo], [0.38, 'kg_hB', eqd], [0.48, 'kg_hB'], [0.74, 'kg_stance', ei2]],
       active: [0.07, 0.11], hits: [[0.07, 0.11], [0.17, 0.22], [0.34, 0.4]], spin: [0.14, 0.22, 1], dmg: 6, post: 10, kb: 120, stun: 0.42, knockLast: true, lastHit: { dmg: 10, kb: 420, post: 18 },
       lunge: [0.04, 0.36, 260], sw: 0.06, pw: 1, kind: 'blade', sc: true });
-    // USHIRO-KAGE: vanish in smoke and reappear behind the opponent, stabbing
+
     reg('kg_s2', { keys: [[0.06, 'kg_l3a', eo], [0.2, 'kg_l3a'], [0.26, 'kg_l1b', eq], [0.36, 'kg_l1b'], [0.6, 'kg_stance', ei2]],
       active: [0.22, 0.3], hide: [0.08, 0.2], inv: [0.06, 0.22], dmg: 12, post: 22, kb: 420, stun: 0.5, knock: true, sw: 0.21, pw: 1.2, kind: 'blade', sc: true,
       ev: [[0.08, (f) => kageSmoke(f, f.x)], [0.19, (f, a, o) => {
@@ -2248,7 +2248,7 @@
         kageSmoke(f, f.x);
       }]] });
 
-    // ---------------------------------------------------------------- KITS: logical name → move per fighter
+
     const fam = (p) => ({ fLight: p + '_fl', bLight: p + '_bl', fHeavy: p + '_up', bHeavy: p + '_bh', dashHeavy: p + '_dh', str1: p + '_s1', str2: p + '_s2' });
     const KITS = ND.KITS = {
       akane: { light1: 'ak_l1', light2: 'ak_l2', light3: 'ak_l3', heavy: 'ak_heavy', dash: 'ak_fl', fLight: 'ak_fl', bLight: 'ak_bl', fHeavy: 'ak_up', bHeavy: 'ak_catch', dashHeavy: 'ak_up', str1: 'ak_s1', str2: 'ak_s2' },
@@ -2256,12 +2256,12 @@
       ren: { light1: 'rn_l1', light2: 'rn_l2', light3: 'rn_l3', heavy: 'rn_heavy', dash: 'rn_fl', fLight: 'rn_fl', bLight: 'rn_bl', fHeavy: 'rn_up', bHeavy: 'rn_bh', dashHeavy: 'rn_up', str1: 'rn_s1', str2: 'rn_s2' },
       kage: { light1: 'kg_l1', light2: 'kg_l2', light3: 'kg_l3', heavy: 'kg_heavy', dash: 'kg_fl', fLight: 'kg_fl', bLight: 'kg_bl', fHeavy: 'kg_up', bHeavy: 'kg_bh', dashHeavy: 'kg_up', str1: 'kg_s1', str2: 'kg_s2' },
       kuro: fam('fk'), yuki: fam('fd'), hana: fam('ft'), tetsu: fam('fn'), tora: fam('fc'), jin: fam('fb'), mai: fam('fm'), tsubame: fam('fs'),
-      // Shura: nodachi strings plus the oni brawler's body blows (same mask, darker)
+
       shura: Object.assign(fam('fk'), { fLight: 'rn_fl', bLight: 'rn_bl', bHeavy: 'rn_bh', str2: 'rn_s2' }),
     };
-    // ND.MOVES: kit first, then the fighter's existing table/function (Tora's chain/sickle switch, Tsubame's bow …)
+
     const M0 = ND.MOVES || {};
-    // per-fighter exceptions: Tsubame's back + heavy is a retreating bow shot while arrows last
+
     const OVR = { tsubame: (f, n) => (n === 'bHeavy' ? (f.ammo > 0 ? 'ts_shot' : 'fs_bh') : null) };
     ND.MOVES = {};
     for (const id of Object.keys(KITS).concat(Object.keys(M0))) {
@@ -2269,10 +2269,10 @@
       const K = KITS[id] || {}, old = M0[id], ov = OVR[id];
       ND.MOVES[id] = (f, n) => (ov && ov(f, n)) || K[n] || (typeof old === 'function' ? old(f, n) : old && old[n]) || null;
     }
-    // (Tora keeps the sickle/chain choice for light1-3, Tsubame the bow on heavy, Jin and Mai their tables: their kits
-    // hold only the combo layer, so those names fall through to the old table)
 
-    // ---------------------------------------------------------------- ROUTES (string / target combo graph; acyclic)
+
+
+
     const R0 = {
       light1: { light: 'light2', heavy: 'heavy', kick: 'kick', fHeavy: 'fHeavy' },
       light2: { light: 'light3', heavy: 'str1', kick: 'kick', fHeavy: 'fHeavy' },
@@ -2284,18 +2284,18 @@
       chase: { light: 'chaseEnd', heavy: 'chaseEnd' },
     };
     const ROUTES = ND.ROUTES = {
-      // Ren's body blows only flow on from a landed hit (on block they would crush guards too fast)
+
       ren: { fLight: { hit: true, light: 'light2', heavy: 'heavy' }, bLight: { hit: true, light: 'light2', heavy: 'heavy' } },
       shura: { fLight: { hit: true, light: 'light2', heavy: 'heavy' }, bLight: { hit: true, light: 'light2', heavy: 'heavy' } },
-      // Kage's feint flows straight into the shadow step or the heavy (no hit needed: nothing was thrown)
+
       kage: { bLight: { light: 'light3', heavy: 'heavy', fHeavy: 'fHeavy' } },
-      // Akane's pommel strike opens the draw: tsuka-ate → kesa → Kurenai Renga
+
       akane: { bLight: { light: 'light2', heavy: 'str1' } },
     };
     ND.routesFor = (f, name) => { const O = ROUTES[f.ch.id]; return (O && O[name]) || R0[name] || null; };
     ND.ROUTES_BASE = R0;
 
-    // ---------------------------------------------------------------- COMBO NAMES (shown when the ender lands as hit 3+)
+
     const CN = ND.COMBO_NAMES = {
       akane: { str1: 'KURENAI RENGA', str2: 'HIGANBANA', chaseEnd: 'AKANE OTOSHI' },
       aoi: { str1: 'FUJIN RENZUKI', str2: 'KAMAITACHI', chaseEnd: 'TSUMUJI OTOSHI' },
@@ -2311,7 +2311,7 @@
       tsubame: { str1: 'KAESHI BANE', str2: 'HAYABUSA', chaseEnd: 'TSUBAME OTOSHI' },
       shura: { str1: 'ASHURA RENGEKI', str2: 'RASETSU GURUMA', chaseEnd: 'JIGOKU OTOSHI' },
     };
-    // light3: the basic string's own finisher, so mashing LIGHT alone also ends in a named combo
+
     const L3 = { akane: 'SANDAN IAI', aoi: 'HAYATE SANREN', kuro: 'SANDAN GIRI', yuki: 'KITSUNE SANREN', hana: 'HANA SANREN', tetsu: 'SANDAN BARAI',
       ren: 'TOBI HIZA', kage: 'KAGE FUMI', tora: 'KUSARI SANREN', jin: 'ASA SANREN', mai: 'OGI SANREN', tsubame: 'TSUBAME SANREN', shura: 'SHURA SANDAN' };
     for (const id in L3) if (CN[id]) CN[id].light3 = L3[id];
@@ -2319,21 +2319,21 @@
 
     Object.assign(ND.TXT, { kiCancel: 'KI İPTALİ!', launch: 'HAVAYA!', iaiCatch: 'IAI GAESHI!' });
 
-    // ---------------------------------------------------------------- MOVE LIST (training screen)
-    // ND.MOVELIST[id] = [{ name, input, keys, desc, tags }]
-    //   input: keyboard (player 1) as printed: → / ← = toward / away from the opponent, F light, G heavy, R kick,
-    //          T shuriken, W jump, S guard, E ki, Shift dodge; ", " separates the presses of a string
-    //   keys:  the same as tokens for touch/pad rendering: one array per press, e.g. [['fwd', 'heavy'], ['light']]
-    //   desc / name: Turkish source text; the getters return the current language (ND.i18n.t)
-    //   tags:  normal · command · string · launcher · juggle · air · dash · strike · counter · catch · feint ·
-    //          guardCrush · knockdown · kiCancel · special · throw
+
+
+
+
+
+
+
+
     const tr = (s) => (ND.i18n && ND.i18n.t ? ND.i18n.t(s) : s);
     const ent = (name, input, keys, desc, tags) => ({ get name() { return tr(name); }, nameTr: name, input, keys, get desc() { return tr(desc); }, descTr: desc, tags });
     const K = { L: ['light'], H: ['heavy'], K: ['kick'], T: ['throw'], FL: ['fwd', 'light'], BL: ['back', 'light'], FH: ['fwd', 'heavy'], BH: ['back', 'heavy'], U: ['up'] };
     const IN = { chain: 'F, F, F', heavy: 'G', kick: 'R', throw: 'T', fl: '→ + F', bl: '← + F', fh: '→ + G', bh: '← + G', dash: '→ → + F', dashH: '→ → + G',
       s1: 'F, F, G', s2: 'F, R, G', s3: 'F, F, → + G, F, G', air: 'W, F', plunge: 'W, G', counter: 'S › F', special: 'E' };
     const KY = { chain: [K.L, K.L, K.L], s1: [K.L, K.L, K.H], s2: [K.L, K.K, K.H], s3: [K.L, K.L, K.FH, K.L, K.H], dash: [['fwd'], ['fwd', 'light']], dashH: [['fwd'], ['fwd', 'heavy']] };
-    // descriptions shared by every fighter
+
     const D0 = {
       kick: 'Tekme: dengeyi hızla doldurur, gardı kırmaya yarar. Ardından AĞIR ile seri bitirişine bağlanır.',
       throw: 'Shuriken fırlatır; zamanla yeniden dolar.',
@@ -2343,7 +2343,7 @@
       counter: 'Gard ya da savuşturmanın ardından ekranda VUR! çıkar: altındaki çubuk bitmeden HAFİF’e bas. Yalnız HAFİF: Suriage. İleri + HAFİF: Harai (yere serer). Geri + HAFİF: Nuki (arkaya geçer). AĞIR: Uchiotoshi. Kendi üçüncü karşılığın seri bitirişidir; savuşturulursa zincir devam eder.',
       special: 'Ki barı doluyken karakterin ki tekniği. Ki doluyken seri bitirişleri ve fırlatıcı isabet ettiği an E ile tekniğe bağlanır.',
     };
-    // family-template descriptions (fighters without a hand-made kit)
+
     const DT = {
       fl: 'İleri atılarak dürter; hafif seriye devam eder.',
       bl: 'Yarım adım geri çekilip bacaklara alçak süpürme; yere serer.',
@@ -2451,21 +2451,21 @@
       const L = ND.MOVELIST.tsubame, i = L.findIndex((r) => r.nameTr === 'Hiki-ya');
       if (i >= 0) L[i] = ent('Hiki-ya', IN.bh, [K.BH], 'Geri + AĞIR da ok atar (basılı tut: güçlü atış); ok kalmadıysa tantō ile tepeden iner.', ['command']);
     }
-    // Tsubame's bow shot and Mai's wind wave are projectiles: the fighter's own blade never makes contact, so there is
-    // no ki cancel from them (the common heavy row says there is)
+
+
     for (const [id, nm] of [['tsubame', 'Ok (basılı tut: güçlü)'], ['mai', 'Rüzgâr dalgası']]) {
       const r = ND.MOVELIST[id].find((m) => m.nameTr === nm);
       if (r) r.tags = r.tags.filter((t) => t !== 'kiCancel');
     }
-    // Shura's command normals are the oni's body blows: fix the rows that the template wrote as blade moves
+
     {
       const L = ND.MOVELIST.shura, d = { 'Kata-ate': 'Omuz hücumu: öne atılıp omuzla çarpar, dengeyi sarsar. İsabet ederse seriye devam eder.', 'Zutsuki': 'Kafa atar: kısa menzil, uzun sersemletme. İsabet ederse seriye devam eder.', 'Kakato-otoshi': 'Topuğu havaya kaldırıp balta gibi indirir: yere serer.' };
       for (let i = 0; i < L.length; i++) if (d[L[i].nameTr]) { const r = L[i]; L[i] = ent(r.nameTr, r.input, r.keys, d[r.nameTr], r.tags.concat(['strike'])); }
       const s2 = L.findIndex((r) => r.nameTr === CN.shura.str2);
       if (s2 >= 0) L[s2] = ent(CN.shura.str2, IN.s2, KY.s2, 'Tekmenin ardından dönen topuk tekmesi; yere serer.', ['string', 'strike', 'knockdown', 'kiCancel']);
     }
-    // First row of every list: how to read the notation (→ is "toward the opponent", not "the right arrow"),
-    // with its own touch wording (stick + buttons)
+
+
     {
       const LEG = {
         name: 'Nasıl okunur',

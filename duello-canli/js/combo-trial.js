@@ -1,13 +1,13 @@
-// Shadow Duel — Training: combo trial (ND.comboTrial)
-//
-// For the selected fighter, 4–5 combos step by step, easiest first. Every step shows its inputs as key caps
-// (keyboard: the real keys, the direction key toward the dummy is the live one — D or A) or as the touch buttons
-// (stick ▶, ATTACK / HEAVY / KICK). A step lights up when its move lands; a broken attempt says why:
-// too early (the press expired before the chain window opened), too late (after the move ended), wrong button,
-// missing direction, or a whiff. A clear is celebrated and the next combo comes up.
-// Open: the "Combo trial" button in the training panel, or C. The dummy stands still while it is open.
-// Moves are checked by their logical names (light1, str1, fHeavy…), so every fighter's kit works the same.
-// Texts: ND.STR.trial (Turkish source in i18n.js, English in i18n-en.js). Cleared trials: ND.save.p.trials (see load).
+
+
+
+
+
+
+
+
+
+
 (function (ND) {
   'use strict';
   const $ = (id) => document.getElementById(id);
@@ -15,7 +15,7 @@
   const STR = () => (ND.STR && ND.STR.trial) || {};
   const LS = 'nd.trials';
 
-  // combo definitions (logical moves); kick: needs the KICK button (touch: Full layout only)
+
   const TRIALS = [
     { id: 'chain', steps: ['light1', 'light2', 'light3'] },
     { id: 's1', steps: ['light1', 'light2', 'str1'] },
@@ -23,7 +23,7 @@
     { id: 'launch', steps: ['fHeavy', 'chase', 'chaseEnd'] },
     { id: 's3', steps: ['light1', 'light2', 'fHeavy', 'chase', 'chaseEnd'] },
   ];
-  // logical move → [direction (1 toward, -1 away, 0 none), button]
+
   const INP = {
     light1: [0, 'light'], light2: [0, 'light'], light3: [0, 'light'], str1: [0, 'heavy'], str2: [0, 'heavy'], kick: [0, 'kick'],
     fHeavy: [1, 'heavy'], bHeavy: [-1, 'heavy'], fLight: [1, 'light'], bLight: [-1, 'light'], heavy: [0, 'heavy'], chase: [0, 'light'], chaseEnd: [0, 'heavy'],
@@ -39,14 +39,14 @@
     G() { return ND.game; },
     f() { return ND.game.F[0]; },
     touch() { return !!(ND.touch && ND.touch.active); },
-    // trials this fighter / control scheme can do (simple touch layout has no KICK button)
+
     build() {
       const simple = this.touch() && (!ND.touchPrefs || ND.touchPrefs.layout !== 'full');
       this.list = TRIALS.filter((t) => !(t.kick && simple));
     },
-    // Cleared trials live in the progress save (ND.save.p.trials), so they follow a CrazyGames / Yandex account through
-    // the portal's data module like journeys and honor do. Older builds kept them in localStorage nd.trials: merged
-    // in once (nothing cleared is lost), then that key is removed.
+
+
+
     load() {
       const S = ND.save, p = S && S.p;
       let old = null;
@@ -60,18 +60,18 @@
           for (const t of old[id]) if (typeof t === 'string' && /^[a-z0-9_]{1,16}$/.test(t) && !c.includes(t)) c.push(t);
         }
         S.commit();
-        try { localStorage.removeItem(LS); } catch (e) { /* storage blocked */ }
+        try { localStorage.removeItem(LS); } catch (e) {                       }
       }
       this.done = p.trials;
     },
     save() {
       const S = ND.save;
       if (S && S.p) { S.p.trials = this.done; S.commit(); return; }
-      try { localStorage.setItem(LS, JSON.stringify(this.done)); } catch (e) { /* storage blocked */ }
+      try { localStorage.setItem(LS, JSON.stringify(this.done)); } catch (e) {                       }
     },
     cleared(id) { const c = this.done[this.f().ch.id]; return !!(c && c.includes(id)); },
 
-    // ---------------------------------------------------------------- input chips
+
     btnChip(b) {
       if (this.touch()) { const TB = (ND.STR && ND.STR.touch && ND.STR.touch.btn) || {}; return `<i class="tb ${TCLS[b] || ''}">${esc(TB[b] || b)}</i>`; }
       return `<kbd>${esc(ND.input.keyLabel ? ND.input.keyLabel(CODE[b]) : CODE[b].slice(3))}</kbd>`;
@@ -89,7 +89,7 @@
       return nm || (S.names && S.names[T.id]) || T.id;
     },
 
-    // ---------------------------------------------------------------- open / close / move between trials
+
     toggle() { if (this.open) this.close(); else this.start(0); },
     canOpen() { const G = this.G(), tr = ND.training; return G && G.mode === 'train' && !(tr && tr.tut && !tr.finished); },
     start(i) {
@@ -110,16 +110,16 @@
     },
     go(d) { if (!this.open) return; this.i = (this.i + d + this.list.length) % this.list.length; this.reposition(); this.reset(); this.say(null); this.render(); },
     reset() { this.step = 0; this.lit = []; this.stepSer = -1; this.status = 'go'; this.endT = 0; this.presses.length = 0; },
-    // both fighters back to the middle, close enough for the first step
+
     reposition() {
       const G = this.G(), [a, b] = G.F;
       if (G.mode !== 'train') return;
       G.startRound(); if (ND.training.dummy) ND.training.setDummy('idle');
-      a.x = -58; b.x = 58; a.dir = 1; b.dir = -1; // in reach of every fighter's first hit (Ren's is the shortest)
+      a.x = -58; b.x = 58; a.dir = 1; b.dir = -1;
     },
     say(txt, kind) { this.msg = txt; this.msgKind = kind || ''; this.msgT = 0; this.render(); },
 
-    // ---------------------------------------------------------------- tracking
+
     onPress(a, t) {
       if (a !== 'light' && a !== 'heavy' && a !== 'kick') return;
       const f = this.f();
@@ -127,7 +127,7 @@
       this.presses.push({ a, t, ser: f.serial, atk: !!atk, st: f.st, chain: atk && atk.chain, spd: f.ch.spd * f.aspd, hs: this.G().hitstopT || 0 });
       if (this.presses.length > 24) this.presses.shift();
     },
-    // why did the chain not continue from the move with serial ser into `want`?
+
     breakReason(ser, want) {
       const p = INP[want] || [0, 'light'], mine = this.presses.filter((q) => q.ser === ser);
       const buf = ND.COMBO ? ND.COMBO.buf : 0.3;
@@ -154,7 +154,7 @@
       if (this.status === 'clear') return;
       const chained = f.chainN > 0;
       if (this.step > 0 && chained) {
-        // the previous step must have landed
+
         if (!this.lit[this.step - 1]) return this.fail(['miss'], want);
         if (name === want) { this.step++; this.stepSer = f.serial; return; }
         const w = INP[want], g = INP[name];
@@ -162,13 +162,13 @@
         return this.fail(['wrong', g ? g[1] : 'light', w ? w[1] : 'light'], want);
       }
       if (this.step > 0 && !chained) {
-        // a fresh opener: the string broke before this press
+
         const r = this.breakReason(this.stepSer, want);
         this.fail(r, want);
       }
       if (name === T.steps[0]) {
         this.step = 1; this.lit = []; this.stepSer = f.serial; this.endT = 0;
-        if (this.msgKind === 'hint') this.say(null); // e.g. G then → a moment later: the opener became → + G after all
+        if (this.msgKind === 'hint') this.say(null);
         return;
       }
       const w0 = INP[T.steps[0]], g0 = INP[name];
@@ -202,14 +202,14 @@
         return;
       }
       if (f.state === 'atk' && f.serial !== this.ser) { this.ser = f.serial; this.onStart(f); this.render(); }
-      // the current step lands → it lights up
+
       if (this.step > 0 && f.state === 'atk' && f.serial === this.stepSer && f.mem.landed != null && !this.lit[this.step - 1]) {
         this.lit[this.step - 1] = true;
         if (this.step === T.steps.length) { this.clear(); return; }
         if (ND.audio && ND.audio.ready) ND.audio.tick(0);
         this.render();
       }
-      // the move ended and nothing followed
+
       if (this.step > 0 && f.state !== 'atk') {
         this.endT += rdt;
         const lim = (ND.LENIENT ? ND.LENIENT.late : 0.2) + 0.2;
@@ -218,11 +218,11 @@
           this.fail(this.lit[this.step - 1] ? this.breakReason(this.stepSer, want) : ['miss'], want);
         }
       } else this.endT = 0;
-      // keep the direction chips true to the side the dummy is on
+
       if (this.dirSeen !== f.dir) { this.dirSeen = f.dir; this.render(); }
     },
 
-    // ---------------------------------------------------------------- panel
+
     ensureEl() {
       if (this.el) return this.el;
       if (!$('ctrialCss')) {
@@ -248,7 +248,7 @@
           '#trCombo[aria-pressed="true"]{border-color:var(--gold-hi);color:var(--gold-hi)}',
           '@media (max-height:540px){#ctrial{top:calc(env(safe-area-inset-top,0px) + 92px);padding:5px 10px 6px;gap:3px;width:min(440px,calc(100% - 330px))}#ctrial .ct-desc{display:none}#ctrial .ct-head b{font-size:14px}}',
           '@media (max-height:540px) and (max-width:700px){#ctrial{width:calc(100% - 24px)}}',
-          // phones: over the floor between the stick and the buttons (like the lesson tip), clear of the pause button and the fighters
+
           '#app.touch #touch:not([hidden]) ~ #ctrial{top:auto;bottom:max(6px,env(safe-area-inset-bottom,0px));left:calc(var(--sl,0px) + var(--tb,56px) * 2.7);right:calc(var(--sr,0px) + var(--tb,56px) * 4.4);width:auto;max-width:520px;margin:0 auto;transform:none}',
           '#app.touch #ctrial .ct-head span{display:none}',
         ].join('\n');
@@ -288,24 +288,24 @@
       const b = $('trCombo'); if (b) b.setAttribute('aria-pressed', 'true');
     },
 
-    // ---------------------------------------------------------------- hooks into the training screen (arcade.js)
+
     init() {
       const tr = ND.training;
       if (!tr || tr._ct) return;
       tr._ct = true;
       const wrap = (name, fn) => { const o = tr[name]; if (typeof o !== 'function') return; tr[name] = function (...a) { const r = o.apply(this, a); try { fn(r, a); } catch (e) { console.warn('[trial]', e); } return r; }; };
-      // panel button
+
       wrap('onStart', () => { this.button(); if (this.open && !this.canOpen()) this.close(); });
       wrap('hide', () => { if (this.open) this.close(); });
       wrap('retext', () => { this.button(); if (this.open) { this.build(); this.i = Math.min(this.i, this.list.length - 1); this.render(); } });
-      // C opens/closes the trial
+
       const ok = tr.onKey;
       tr.onKey = function (e) {
         const G = ND.game;
         if (G && G.mode === 'train' && !G.paused && !e.repeat && e.code === 'KeyC') { trial.toggle(); return true; }
         return ok.call(this, e);
       };
-      // the dummy must stay still while a trial is open
+
       wrap('setBeh', () => { if (this.open && tr.dummy && tr.dummy.beh !== 'idle') this.close(); });
       if (ND.i18n && ND.i18n.onChange) ND.i18n.onChange(() => { this.button(); this.render(); });
     },
@@ -325,7 +325,7 @@
     },
   };
 
-  // training.init runs from game.js after every script has loaded
+
   const boot = () => { if (ND.training && ND.training.G) trial.init(); else setTimeout(boot, 50); };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else setTimeout(boot, 0);
 })(window.ND);

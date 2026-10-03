@@ -1,11 +1,11 @@
-// Gölge Düellosu — çekirdek: matematik yardımcıları + sentez ses motoru
+
 window.ND = window.ND || {};
 
-// ---------------------------------------------------------------- ?newplayer=1: a brand-new player on this page load
-// For trying the new-player path on a device that already has a save (the owner's phone): the page runs on throwaway
-// storage kept in memory, so it starts as a new save and the real one is neither read nor written. Every file (and
-// the portal layer's local adapter) reaches storage through window.localStorage, which is replaced here, before any
-// other script runs; the portal's cloud copy is not read or written either (arcade.js save: ND.NEWPLAYER).
+
+
+
+
+
 (function () {
   let on = false;
   try { on = /[?&]newplayer=1(&|$)/.test(location.search || ''); } catch (e) { on = false; }
@@ -19,24 +19,24 @@ window.ND = window.ND || {};
     key: (i) => { const k = [...mem.keys()][i]; return k === undefined ? null : k; },
     get length() { return mem.size; },
   };
-  try { Object.defineProperty(window, 'localStorage', { configurable: true, enumerable: true, get: () => store }); } catch (e) { /* the browser refused: storage stays as it is */ }
+  try { Object.defineProperty(window, 'localStorage', { configurable: true, enumerable: true, get: () => store }); } catch (e) {                                                   }
   window.ND.NEWPLAYER = (() => { try { return window.localStorage === store; } catch (e) { return false; } })();
 })();
 
-// ---------------------------------------------------------------- DETERMINISTIC MATH (ND.DM)
-// Online play (rollback netcode) needs every device to compute the fight bit for bit the same. + - * / and sqrt are
-// exact IEEE-754 operations in every JavaScript engine, but Math.sin, cos, atan2, exp, pow... are not specified to the
-// last bit: V8 (Chrome, Android), SpiderMonkey (Firefox) and JavaScriptCore (Safari, iPhone: the system libm) may round
-// differently, and one different bit grows into a different fight within seconds. ND.DM is a copy of Math whose
-// transcendental functions are computed here with plain arithmetic (the fdlibm algorithms, error < 1 ulp), so they give
-// the same bits everywhere. The simulation files shadow Math with it (`const Math = ND.DM || globalThis.Math;` at the
-// top of their scope); Math.random and every exact function (floor, abs, min, sqrt...) stay the engine's own.
-// window.ND = { DM_NATIVE: true } before this file (tests only) keeps the engine's functions, to measure the difference.
+
+
+
+
+
+
+
+
+
 (function (ND) {
   'use strict';
   const N = Math, DM = {};
   for (const k of Object.getOwnPropertyNames(N)) DM[k] = N[k];
-  DM.random = function random() { return N.random(); }; // stays live: tools may swap Math.random after load
+  DM.random = function random() { return N.random(); };
   if (ND.DM_NATIVE) { ND.DM = DM; return; }
   const F = new Float64Array(1), U = new Uint32Array(F.buffer);
   const LE = new Uint8Array(new Uint16Array([1]).buffer)[0] === 1, IH = LE ? 1 : 0, IL = LE ? 0 : 1;
@@ -46,8 +46,8 @@ window.ND = window.ND || {};
   const withHi = (x, h) => { F[0] = x; U[IH] = h; return F[0]; };
   const zeroLo = (x) => { F[0] = x; U[IL] = 0; return F[0]; };
 
-  // --- sin / cos (k_sin.c, k_cos.c, e_rem_pio2.c; huge arguments use the medium reduction too: less accurate there,
-  // still plain arithmetic, so still the same everywhere)
+
+
   const S1 = -1.66666666666666324348e-01, S2 = 8.33333333332248946124e-03, S3 = -1.98412698298579493134e-04,
     S4 = 2.75573137070700676789e-06, S5 = -2.50507602534068634195e-08, S6 = 1.58969099521155010221e-10;
   function kSin(x, y, iy) {
@@ -76,10 +76,10 @@ window.ND = window.ND || {};
     PIO2_2 = 6.07710050630396597660e-11, PIO2_2T = 2.02226624879595063154e-21, PIO2_3 = 2.02226624871116645580e-21,
     PIO2_3T = 8.47842766036889956997e-32;
   const Y = [0, 0];
-  // x = n·π/2 + (Y[0] + Y[1]); returns n (only n mod 4 is used)
+
   function remPio2(x) {
     const hx = hi(x), ix = hx & 0x7fffffff;
-    if (ix < 0x4002d97c) { // |x| < 3π/4
+    if (ix < 0x4002d97c) {
       let z;
       if (hx > 0) {
         z = x - PIO2_1;
@@ -135,7 +135,7 @@ window.ND = window.ND || {};
   };
   DM.tan = function tan(x) { x = +x; return DM.sin(x) / DM.cos(x); };
 
-  // --- atan / atan2 (s_atan.c, e_atan2.c)
+
   const ATHI = [4.63647609000806093515e-01, 7.85398163397448278999e-01, 9.82793723247329054082e-01, 1.57079632679489655800e+00];
   const ATLO = [2.26987774529616870924e-17, 3.06161699786838301793e-17, 1.39033110312309984516e-17, 6.12323399573676603587e-17];
   const AT = [3.33333333333329318027e-01, -1.99999999998764832476e-01, 1.42857142725034663711e-01, -1.11111104054623557880e-01,
@@ -145,11 +145,11 @@ window.ND = window.ND || {};
     x = +x;
     const hx = hi(x), ix = hx & 0x7fffffff;
     let id;
-    if (ix >= 0x44100000) { // |x| >= 2^66
+    if (ix >= 0x44100000) {
       if (x !== x) return x + x;
       return hx > 0 ? ATHI[3] + ATLO[3] : -ATHI[3] - ATLO[3];
     }
-    if (ix < 0x3fdc0000) { // |x| < 0.4375
+    if (ix < 0x3fdc0000) {
       if (ix < 0x3e200000) return x;
       id = -1;
     } else {
@@ -170,14 +170,14 @@ window.ND = window.ND || {};
     y = +y; x = +x;
     if (x !== x || y !== y) return x + y;
     const hx = hi(x), ix = hx & 0x7fffffff, lx = lo(x), hy = hi(y), iy = hy & 0x7fffffff, ly = lo(y);
-    if (hx === 0x3ff00000 && lx === 0) return DM.atan(y); // x = 1
+    if (hx === 0x3ff00000 && lx === 0) return DM.atan(y);
     const m = ((hy >> 31) & 1) | ((hx >> 30) & 2);
-    if ((iy | ly) === 0) { // y = ±0
+    if ((iy | ly) === 0) {
       if (m < 2) return y;
       return m === 2 ? PI : -PI;
     }
-    if ((ix | lx) === 0) return hy < 0 ? -PI_2 : PI_2; // x = ±0
-    if (ix === 0x7ff00000) { // x = ±∞
+    if ((ix | lx) === 0) return hy < 0 ? -PI_2 : PI_2;
+    if (ix === 0x7ff00000) {
       if (iy === 0x7ff00000) return m === 0 ? PI_4 : m === 1 ? -PI_4 : m === 2 ? 3 * PI_4 : -3 * PI_4;
       return m === 0 ? 0 : m === 1 ? -0 : m === 2 ? PI : -PI;
     }
@@ -195,7 +195,7 @@ window.ND = window.ND || {};
     }
   };
 
-  // --- asin / acos (e_asin.c, e_acos.c)
+
   const pS0 = 1.66666666666666657415e-01, pS1 = -3.25565818622400915405e-01, pS2 = 2.01212532134862925881e-01,
     pS3 = -4.00555345006794114027e-02, pS4 = 7.91534994289814532176e-04, pS5 = 3.47933107596021167570e-05,
     qS1 = -2.40339491173441421878e+00, qS2 = 2.02094576023350569471e+00, qS3 = -6.88283971605453293030e-01, qS4 = 7.70381505559019352791e-02;
@@ -243,7 +243,7 @@ window.ND = window.ND || {};
     return 2 * (df + w);
   };
 
-  // --- exp / log (e_exp.c, e_log.c)
+
   const LN2_HI = 6.93147180369123816490e-01, LN2_LO = 1.90821492927058770002e-10;
   const P1 = 1.66666666666666019037e-01, P2 = -2.77777777770155933842e-03, P3 = 6.61375632143793436117e-05,
     P4 = -1.65339022054652515390e-06, P5 = 4.13813679705723846039e-08, TWOM1000 = 9.33263618503218878990e-302;
@@ -253,12 +253,12 @@ window.ND = window.ND || {};
     const xsb = (hx >>> 31) & 1;
     hx &= 0x7fffffff;
     let k = 0, hv = 0, lv = 0;
-    if (hx >= 0x40862e42) { // |x| >= 709.78
+    if (hx >= 0x40862e42) {
       if (hx >= 0x7ff00000) { if (x !== x) return x + x; return xsb === 0 ? x : 0; }
       if (x > 7.09782712893383973096e+02) return Infinity;
       if (x < -7.45133219101941108420e+02) return 0;
     }
-    if (hx > 0x3fd62e42) { // |x| > 0.5 ln2
+    if (hx > 0x3fd62e42) {
       if (hx < 0x3ff0a2b2) { hv = x - (xsb ? -LN2_HI : LN2_HI); lv = xsb ? -LN2_LO : LN2_LO; k = 1 - xsb - xsb; }
       else { k = (1.44269504088896338700e+00 * x + (xsb ? -0.5 : 0.5)) | 0; hv = x - k * LN2_HI; lv = k * LN2_LO; }
       x = hv - lv;
@@ -274,7 +274,7 @@ window.ND = window.ND || {};
   DM.log = function log(x) {
     x = +x;
     let hx = hi(x), k = 0;
-    if (hx < 0x00100000) { // x < 2^-1022
+    if (hx < 0x00100000) {
       if (((hx & 0x7fffffff) | lo(x)) === 0) return -Infinity;
       if (hx < 0) return NaN;
       k -= 54; x *= 1.80143985094819840000e+16; hx = hi(x);
@@ -283,10 +283,10 @@ window.ND = window.ND || {};
     k += (hx >> 20) - 1023;
     hx &= 0x000fffff;
     let i = (hx + 0x95f64) & 0x100000;
-    x = withHi(x, hx | (i ^ 0x3ff00000)); // x or x/2 in [√2/2, √2)
+    x = withHi(x, hx | (i ^ 0x3ff00000));
     k += i >> 20;
     const f = x - 1, dk = k;
-    if ((0x000fffff & (2 + hx)) < 3) { // |f| < 2^-20
+    if ((0x000fffff & (2 + hx)) < 3) {
       if (f === 0) return k === 0 ? 0 : dk * LN2_HI + dk * LN2_LO;
       const R = f * f * (0.5 - 0.33333333333333333 * f);
       return k === 0 ? f - R : dk * LN2_HI - ((R - dk * LN2_LO) - f);
@@ -302,7 +302,7 @@ window.ND = window.ND || {};
     }
     return k === 0 ? f - s * (f - R) : dk * LN2_HI - ((s * (f - R) - dk * LN2_LO) - f);
   };
-  // pow (e_pow.c)
+
   const BP = [1, 1.5], DP_H = [0, 5.84962487220764160156e-01], DP_L = [0, 1.35003920212974897128e-08];
   const L1 = 5.99999999999994648725e-01, L2 = 4.28571428578550184252e-01, L3 = 3.33333329818377432918e-01,
     L4 = 2.72728123808534006489e-01, L5 = 2.30660745775561754067e-01, L6 = 2.06975017800338417784e-01;
@@ -310,7 +310,7 @@ window.ND = window.ND || {};
     OVT = 8.0085662595372944372e-17, CP = 9.61796693925975554329e-01, CP_H = 9.61796700954437255859e-01,
     CP_L = -7.02846165095275826516e-09, IVLN2 = 1.44269504088896338700e+00, IVLN2_H = 1.44269502162933349609e+00,
     IVLN2_L = 1.92596299112661746887e-08, HUGE = 1.0e300, TINY = 1.0e-300;
-  const scalbn = (z, n) => { // z·2^n in exact power-of-two steps (only reached for a subnormal result)
+  const scalbn = (z, n) => {
     while (n < -1022) { z *= 2.2250738585072014e-308; n += 1022; }
     return z * mk((n + 0x3ff) << 20, 0);
   };
@@ -320,7 +320,7 @@ window.ND = window.ND || {};
     let ix = ix0;
     if ((iy | ly) === 0) return 1;
     if (ix > 0x7ff00000 || (ix === 0x7ff00000 && lx !== 0) || iy > 0x7ff00000 || (iy === 0x7ff00000 && ly !== 0)) return x + y;
-    // yisint: 0 = not an integer, 1 = odd, 2 = even (only needed when x < 0)
+
     let yisint = 0, k, j;
     if (hx < 0) {
       if (iy >= 0x43400000) yisint = 2;
@@ -331,7 +331,7 @@ window.ND = window.ND || {};
       }
     }
     if (ly === 0) {
-      if (iy === 0x7ff00000) { // y = ±∞
+      if (iy === 0x7ff00000) {
         if (((ix - 0x3ff00000) | lx) === 0) return y - y;
         if (ix >= 0x3ff00000) return hy >= 0 ? y : 0;
         return hy < 0 ? -y : 0;
@@ -341,7 +341,7 @@ window.ND = window.ND || {};
       if (hy === 0x3fe00000 && hx >= 0) return N.sqrt(x);
     }
     let ax = N.abs(x);
-    if (lx === 0 && (ix === 0x7ff00000 || ix === 0 || ix === 0x3ff00000)) { // x = ±0, ±∞, ±1
+    if (lx === 0 && (ix === 0x7ff00000 || ix === 0 || ix === 0x3ff00000)) {
       let z = ax;
       if (hy < 0) z = 1 / z;
       if (hx < 0) {
@@ -351,11 +351,11 @@ window.ND = window.ND || {};
       return z;
     }
     let n = (hx >> 31) + 1;
-    if ((n | yisint) === 0) return NaN; // (x < 0) ** non-integer
+    if ((n | yisint) === 0) return NaN;
     let s = 1;
     if ((n | (yisint - 1)) === 0) s = -1;
     let t1, t2, t, u, v, w;
-    if (iy > 0x41e00000) { // |y| > 2^31
+    if (iy > 0x41e00000) {
       if (iy > 0x43f00000) {
         if (ix <= 0x3fefffff) return hy < 0 ? HUGE * HUGE : TINY * TINY;
         if (ix >= 0x3ff00000) return hy > 0 ? HUGE * HUGE : TINY * TINY;
@@ -398,21 +398,21 @@ window.ND = window.ND || {};
       t1 = zeroLo(((zh + zl) + DP_H[k]) + t);
       t2 = zl - (((t1 - t) - DP_H[k]) - zh);
     }
-    // (y1 + y2)·(t1 + t2)
+
     const y1 = zeroLo(y);
     const pl = (y - y1) * t1 + y * t2;
     let ph = y1 * t1;
     let z = pl + ph;
     j = hi(z);
     let i = lo(z);
-    if (j >= 0x40900000) { // z >= 1024
+    if (j >= 0x40900000) {
       if (((j - 0x40900000) | i) !== 0) return s * HUGE * HUGE;
       if (pl + OVT > z - ph) return s * HUGE * HUGE;
-    } else if ((j & 0x7fffffff) >= 0x4090cc00) { // z <= -1075
+    } else if ((j & 0x7fffffff) >= 0x4090cc00) {
       if (((j - 0xc090cc00) | i) !== 0) return s * TINY * TINY;
       if (pl <= z - ph) return s * TINY * TINY;
     }
-    // 2 ** (ph + pl)
+
     i = j & 0x7fffffff;
     k = (i >> 20) - 0x3ff;
     n = 0;
@@ -452,7 +452,7 @@ window.ND = window.ND || {};
     for (let i = 0; i < n; i++) { const r = N.abs(+arguments[i]) / m; s += r * r; }
     return m * N.sqrt(s);
   };
-  // not used by the simulation today; built on the functions above so they stay engine-independent too
+
   DM.sinh = function sinh(x) { x = +x; const e = DM.exp(x); return (e - 1 / e) / 2; };
   DM.cosh = function cosh(x) { x = +x; const e = DM.exp(x); return (e + 1 / e) / 2; };
   DM.tanh = function tanh(x) { x = +x; if (x > 20) return 1; if (x < -20) return -1; const e = DM.exp(2 * x); return (e - 1) / (e + 1); };
@@ -464,11 +464,11 @@ window.ND = window.ND || {};
   ND.DM = DM;
 })(window.ND);
 
-// ---------------------------------------------------------------- SIMULATION RANDOM STREAM (ND.rng)
-// Everything that decides the fight (AI choices, sword-lock chance, ragdoll push, arrow volley spread...) draws from
-// ND.rng and only from it: one 32-bit state (mulberry32), saved with the fight (game.saveState) and seeded the same on
-// both devices online. Math.random stays for the picture and the sound (sparks, weather, voice picks, camera shake),
-// whose timing depends on the display and the wall clock and so must never move the fight.
+
+
+
+
+
 (function (ND) {
   'use strict';
   ND.rng = {
@@ -482,16 +482,20 @@ window.ND = window.ND || {};
     },
     range(a, b) { return a + this.next() * (b - a); },
   };
-  ND.rng.seed((Math.random() * 4294967296) >>> 0); // offline: a different fight every session
+  ND.rng.seed((Math.random() * 4294967296) >>> 0);
 })(window.ND);
 
 (function (ND) {
   'use strict';
-  const Math = ND.DM || globalThis.Math; // the helpers below (approach, ease, segSeg) are simulation math
+  const Math = ND.DM || globalThis.Math;
+
+
+
+  const NM = globalThis.Math;
 
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 
-  // Geliştirici profili: ND.prof (test düzeneği) tanımlı ve açıkken çizim aşamalarını işaretler; normalde tek okuma
+
   ND.profBuiltin = true;
   ND.pm = function (name) { const p = ND.prof; if (p && p.on) p.m(name); };
 
@@ -513,7 +517,7 @@ window.ND = window.ND || {};
       inOut: (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2),
       inOutSine: (t) => -(Math.cos(Math.PI * t) - 1) / 2,
     },
-    // İki doğru parçası arasındaki en kısa mesafe (Ericson, RTCD)
+
     segSeg(p1x, p1y, q1x, q1y, p2x, p2y, q2x, q2y) {
       const d1x = q1x - p1x, d1y = q1y - p1y, d2x = q2x - p2x, d2y = q2y - p2y;
       const rx = p1x - p2x, ry = p1y - p2y;
@@ -537,92 +541,92 @@ window.ND = window.ND || {};
     },
   };
 
-  // ---------------------------------------------------------------- PORTAL
-  // Which portal we run on, guessed synchronously (same rules as @studio/portal detectPortal) so classic
-  // scripts can decide things at load time (blood allowed? Escape allowed?). The real SDK wrapper is the
-  // module src/portal-bridge.ts: it arrives later as window.NDPortal and resolves ND.portal.ready.
+
+
+
+
   const qs = (() => { try { return new URLSearchParams(location.search); } catch (e) { return new URLSearchParams(''); } })();
   ND.qs = qs;
   ND.portalName = (() => {
     const known = (v) => v === 'crazygames' || v === 'poki' || v === 'yandex' || v === 'playgama' || v === 'local';
     const f = qs.get('portal');
     if (known(f)) return f;
-    // Portal-only build (npm run build:yandex / build:playgama): <meta name="nd-portal"> fixes the portal whatever the host is
+
     let b = null;
-    try { const m = document.querySelector('meta[name="nd-portal"]'); b = m && m.getAttribute('content'); } catch (e) { /* no DOM */ }
+    try { const m = document.querySelector('meta[name="nd-portal"]'); b = m && m.getAttribute('content'); } catch (e) {              }
     if (known(b)) return b;
     let ref = '';
-    try { ref = document.referrer ? new URL(document.referrer).hostname : ''; } catch (e) { /* bad referrer */ }
+    try { ref = document.referrer ? new URL(document.referrer).hostname : ''; } catch (e) {                    }
     const hosts = (location.hostname || '') + ' ' + ref;
     if (/crazygames\.com|1001juegos\.com|crazygames\.[a-z.]+/.test(hosts)) return 'crazygames';
     if (/poki\.com|poki-gdn\.com/.test(hosts)) return 'poki';
     if (/yandex\.(ru|net|com)/.test(hosts)) return 'yandex';
     return 'local';
   })();
-  // Online leaderboard (leaderboard.js) reads ND.platform: Poki forbids external requests; the portal guess wins
-  // over its own host sniffing so ?portal=poki behaves like the real thing.
-  // Yandex Games too: sign-in only with a Yandex ID (rule 1.2), no links out (8.4) and every outside host must be
-  // approved in the console; there the leaderboards stay on the device and the progress rides Yandex player data.
-  // Playgama too: one build goes to many partner sites, several of them (YouTube Playables, GameDistribution…) forbid
-  // outside requests; there the progress rides Bridge storage.
+
+
+
+
+
+
   if (ND.portalName === 'poki' || ND.portalName === 'yandex' || ND.portalName === 'playgama') ND.platform = Object.assign({ name: ND.portalName, allowNetwork: false }, ND.platform || {});
   else if (ND.portalName !== 'local') ND.platform = Object.assign({ name: ND.portalName }, ND.platform || {});
-  // Portals that forbid links out of the game (Yandex 8.4): no Privacy Policy & Terms links. The game sends no personal
-  // data there (no network above), so there is no policy to point at.
-  // Playgama: neither Playgama itself nor most partner sites allow links out (Bridge platform.isExternalLinksAllowed).
+
+
+
   ND.NO_LINK_PORTALS = { yandex: true, playgama: true };
   ND.linksAllowed = () => !ND.NO_LINK_PORTALS[ND.portalName];
-  // Blood is opt-in and only where the portal's age rating allows it (PEGI 12 forbids blood on human
-  // characters; Poki forbids body fluids). Everywhere else hits use the ink & shadow style (scene.js).
+
+
   ND.BLOOD_PORTALS = { local: true, crazygames: false, poki: false, yandex: false, playgama: false };
   ND.bloodAllowed = () => !!ND.BLOOD_PORTALS[ND.portalName];
   ND.isLocalHost = /^(localhost|127\.0\.0\.1|\[::1\]|0\.0\.0\.0)$/.test(location.hostname || '') || location.protocol === 'file:';
 
-  // Shared deferred with the bridge module (whichever loads first creates it)
+
   const PD = window.__ndPortalD || (window.__ndPortalD = (() => { let r; const p = new Promise((x) => (r = x)); return { p, r }; })());
   const api = () => window.NDPortal || null;
   const adFns = new Set(), muteFns = new Set();
   const want = { loaded: false, play: false };
   let firstPlay = false;
-  const mark = (n) => { try { performance.mark(n); } catch (e) { /* no User Timing */ } };
+  const mark = (n) => { try { performance.mark(n); } catch (e) {                      } };
   const P = ND.portal = {
     name: ND.portalName,
     ready: PD.p,
     inAd: false,
     muted: false,
     get sdk() { const a = api(); return !!(a && a.sdk); },
-    // Game became playable (menu shown, first frame drawn)
-    // (performance marks nd-loading-finished / nd-first-gameplay: load-time checks read them, they cost nothing)
+
+
     loadingFinished() { if (!want.loaded) mark('nd-loading-finished'); want.loaded = true; const a = api(); if (a) a.loadingFinished(); },
-    // Player is actually fighting (not menus, not paused, not end screens). Idempotent.
+
     gameplayStart() { if (!firstPlay) { firstPlay = true; mark('nd-first-gameplay'); } want.play = true; const a = api(); if (a) a.gameplayStart(); },
     gameplayStop() { want.play = false; const a = api(); if (a) a.gameplayStop(); },
     happyTime() { const a = api(); if (a) a.happyTime(); },
-    // Forced ad at a natural break; resolves when the game may continue (also without a bridge)
+
     interstitial() { const a = api(); return a ? a.interstitial() : Promise.resolve(); },
-    // Rewarded ad; true only when the reward must be granted. Without a bridge (plain file serve) it grants.
+
     rewarded() { const a = api(); return a ? a.rewarded() : Promise.resolve(true); },
-    // false when this session will get no rewarded ad (CrazyGames Basic Launch, an ad blocker, no fill again and
-    // again; or the bridge is not ready): the game hides its rewarded offers then. Without a bridge: available.
+
+
     rewardedAvailable() { const a = api(); try { return a ? (a.rewardedAvailable ? a.rewardedAvailable() !== false : true) : true; } catch (e) { return false; } },
     lastAdError() { const a = api(); try { return a && a.lastAdError ? a.lastAdError() : null; } catch (e) { return null; } },
     save(k, v) { const a = api(); return a ? a.save(k, v) : Promise.resolve(); },
     load(k) { const a = api(); return a ? a.load(k) : Promise.resolve(undefined); },
     language() { const a = api(); try { return a ? a.language() : (navigator.language || 'en').slice(0, 2).toLowerCase(); } catch (e) { return 'en'; } },
-    // Language the portal makes the game use (Yandex: SDK environment.i18n.lang), or null (the game picks: English).
-    // Only meaningful after `ready` (js/i18n.js waits for it).
+
+
     requiredLanguage() {
       const a = api();
       try { return a && a.requiredLanguage ? a.requiredLanguage() : null; } catch (e) { return null; }
     },
-    // fn('start' | 'end'); returns unsubscribe
+
     onAd(fn) { adFns.add(fn); return () => adFns.delete(fn); },
-    // fn(muted) — the portal's own audio switch
+
     onMute(fn) { muteFns.add(fn); if (P.muted) fn(true); return () => muteFns.delete(fn); },
-    // An anonymous game step for the portal's own statistics (js/funnel.js); kept until the bridge is ready, then sent.
-    // Portals without such statistics ignore it (src/portal-bridge.ts track).
+
+
     track(ev) { const a = api(); if (a && ready) a.track(ev); else if (trackQ.length < 30) trackQ.push(ev); },
-    // The platform's leaderboards (src/portal-bridge.ts boards), or null before the bridge exists
+
     get boards() { const a = api(); return a && a.boards ? a.boards : null; },
   };
   const trackQ = [];
@@ -638,22 +642,22 @@ window.ND = window.ND || {};
     a.onMute((m) => { P.muted = m; emit(muteFns, m); });
   });
 
-  // ---------------------------------------------------------------- SES
+
   const A = ND.audio = {
     ctx: null, enabled: true, ready: false,
-    // Silence sources on top of the player's own switch (enabled): portal switch, running ad,
-    // ?mute=1 (tools), and "away" (tab hidden; on localhost also window unfocused).
+
+
     portalMuted: false, adMuted: false, paramMuted: qs.get('mute') === '1', away: false,
     audible() { return this.enabled && !this.portalMuted && !this.adMuted && !this.paramMuted && !this.away; },
-    // Player volume sliders, 0..1 (js/volume.js shows them and saves them as whole percents in settings.vol).
-    // Routing: every effect (hits, voices, UI, ambience) → dry/revIn ("sfx" level) → master; music has its own
-    // bus (music.js, "music" level) → master. Master = mute gate × "master" level → compressor → speakers.
+
+
+
     VOL_DEFAULT: { master: 0.8, music: 0.6, sfx: 0.9 },
     vol: { master: 0.8, music: 0.6, sfx: 0.9 },
-    // Slider position → gain: squared, so the travel feels even to the ear (about a 40 dB range) and 0 is silence
+
     curve(v) { v = clamp(+v || 0, 0, 1); return v * v; },
     masterLevel() { return this.audible() ? 0.85 * this.curve(this.vol.master) : 0; },
-    // Click-free change: hold the value where it is right now, then glide to the new one
+
     ramp(param, v, tc = 0.04) {
       if (!param || !this.ctx) return;
       const t = this.ctx.currentTime;
@@ -668,8 +672,8 @@ window.ND = window.ND || {};
       this.ramp(this.master.gain, this.masterLevel(), tc);
       this.syncRev();
     },
-    // The reverb (a 2.6 s convolution, the costliest part of the sound) only runs while something can be heard: when
-    // the game is muted its input is unplugged (after the fade-out), so the browser stops computing it.
+
+
     syncRev() {
       this.syncRun();
       if (!this.rev || !this.revIn) return;
@@ -678,30 +682,30 @@ window.ND = window.ND || {};
       if (on === this.revOn) return;
       const apply = () => {
         this.revOn = on;
-        try { if (on) this.revIn.connect(this.rev); else this.revIn.disconnect(this.rev); } catch (e) { /* already (dis)connected */ }
+        try { if (on) this.revIn.connect(this.rev); else this.revIn.disconnect(this.rev); } catch (e) {                              }
       };
       if (on) apply(); else this.revTimer = setTimeout(apply, 400);
     },
-    // Sound switched off by the player (Settings, master volume 0) or by ?mute=1: after the fade-out the whole audio
-    // context is suspended, so the audio thread stops (music, ambience and reverb otherwise keep computing silence
-    // 50 times a second). Switching the sound on again (a tap, so the browser allows it) resumes it. Short silences
-    // (a hidden tab, an ad, the portal's mute) keep it running: they come back without a tap.
+
+
+
+
     playerSilent() { return !this.enabled || this.paramMuted || !(this.vol.master > 0); },
     syncRun() {
       const c = this.ctx;
       if (!c || c.state === 'closed') return;
       clearTimeout(this.runTimer);
       const silent = this.playerSilent();
-      if (!silent) { if (c.state === 'suspended' && this.selfSuspended) { this.selfSuspended = false; try { const p = c.resume(); if (p && p.catch) p.catch(() => {}); } catch (e) { /* not allowed yet */ } } return; }
+      if (!silent) { if (c.state === 'suspended' && this.selfSuspended) { this.selfSuspended = false; try { const p = c.resume(); if (p && p.catch) p.catch(() => {}); } catch (e) {                       } } return; }
       this.runTimer = setTimeout(() => {
         if (!this.playerSilent() || c.state !== 'running') return;
         this.selfSuspended = true;
-        try { const p = c.suspend(); if (p && p.catch) p.catch(() => {}); } catch (e) { /* not supported */ }
+        try { const p = c.suspend(); if (p && p.catch) p.catch(() => {}); } catch (e) {                     }
       }, 600);
     },
-    // Low graphics (weak devices): a shorter reverb tail, and mono (every input folded to one channel, one mono
-    // impulse): one short convolution instead of two long ones, about a fifth of the reverb's work. Also fewer
-    // partials in a clash, and fewer one-shot sounds at once (voice cap, see oneShot). game.js calls this.
+
+
+
     setLite(v) {
       v = !!v;
       if (v === !!this.lite) return;
@@ -710,10 +714,10 @@ window.ND = window.ND || {};
     },
     revMode(lite) {
       const r = this.rev;
-      try { r.channelCount = lite ? 1 : 2; r.channelCountMode = lite ? 'explicit' : 'clamped-max'; } catch (e) { /* older browsers: stereo */ }
+      try { r.channelCount = lite ? 1 : 2; r.channelCountMode = lite ? 'explicit' : 'clamped-max'; } catch (e) {                              }
       r.buffer = this.makeIR(lite ? 1.1 : 2.6, lite ? 1 : 2);
     },
-    // kind: 'master' | 'music' | 'sfx'; v 0..1. Applies at once (short glide); saving is the caller's job.
+
     setVolume(kind, v) {
       if (!(kind in this.vol)) return;
       this.vol[kind] = clamp(+v || 0, 0, 1);
@@ -721,30 +725,30 @@ window.ND = window.ND || {};
       else if (kind === 'sfx') { const g = this.curve(this.vol.sfx); this.ramp(this.dry && this.dry.gain, g); this.ramp(this.revIn && this.revIn.gain, g); }
       else if (ND.music && ND.music.applyVolume) ND.music.applyVolume();
     },
-    // Short sample at the current effects level (slider preview). Plays even on the menu, where the demo fight is quiet.
+
     previewFx() {
       if (!this.ready) return;
       const q = this.quiet; this.quiet = false;
       try { this.tick(0); } finally { this.quiet = q; }
     },
-    // Portal's own audio switch (CrazyGames settings): the in-game toggle cannot lift it
+
     setPortalMute(v) { this.portalMuted = !!v; this.applyGain(); },
-    // Ads run silent; the player's own sound setting is left untouched
+
     suspendForAd() { this.adMuted = true; this.applyGain(0.01); },
     resumeAfterAd() { this.adMuted = false; this.applyGain(0.1); },
-    // Dev rule (CLAUDE.md): on localhost the game is silent while the window is not focused; live only a hidden tab silences
+
     updateAway() {
       let away = false;
-      try { away = document.hidden || (ND.isLocalHost && !document.hasFocus()); } catch (e) { /* no document */ }
+      try { away = document.hidden || (ND.isLocalHost && !document.hasFocus()); } catch (e) {                   }
       if (away !== this.away) { this.away = away; this.applyGain(away ? 0.02 : 0.15); }
     },
 
     init() {
-      // iOS arka plandan dönünce 'interrupted' kalabilir; jest dışında reddedilen resume sessizce yutulur
-      if (this.ctx) { if (this.ctx.state !== 'running' && this.ctx.state !== 'closed' && !(this.selfSuspended && this.playerSilent())) { this.selfSuspended = false; try { const p = this.ctx.resume(); if (p && p.catch) p.catch(() => {}); } catch (e) { /* yok */ } } return; }
+
+      if (this.ctx) { if (this.ctx.state !== 'running' && this.ctx.state !== 'closed' && !(this.selfSuspended && this.playerSilent())) { this.selfSuspended = false; try { const p = this.ctx.resume(); if (p && p.catch) p.catch(() => {}); } catch (e) {           } } return; }
       let c;
-      // Phones: a 'balanced' output buffer (a little more latency, far fewer drop-outs when the processor is busy or
-      // hot; with the smallest buffer a slow frame starved the audio thread and the sound cut out)
+
+
       const AC = window.AudioContext || window.webkitAudioContext, mob = !!(ND.touch && ND.touch.mobile);
       try { c = mob ? new AC({ latencyHint: 'balanced' }) : new AC(); } catch (e) { try { c = new AC(); } catch (e2) { return; } }
       this.ctx = c;
@@ -760,11 +764,11 @@ window.ND = window.ND || {};
       this.ambience();
     },
 
-    // The output chain (made once per audio context; the sound check renders single sounds through a copy of it):
-    //   effects (dry + reverb) and music → master (mute gate × master level) → glue compressor → limiter → speakers.
-    // The glue compressor is gentle and slow to grab (a sword hit keeps its crack: the old one, 5:1 at -16 dB with a
-    // 3 ms attack, flattened every hit against the music); the limiter only catches the rare pile-up (a KO on a clash
-    // under the announcer) so nothing clips on a phone speaker.
+
+
+
+
+
     buildBus(c) {
       const master = c.createGain(); master.gain.value = this.masterLevel();
       const glue = c.createDynamicsCompressor();
@@ -773,8 +777,8 @@ window.ND = window.ND || {};
       const lim = c.createDynamicsCompressor();
       lim.threshold.value = -2.5; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = 0.001; lim.release.value = 0.12;
       master.connect(glue); glue.connect(make); make.connect(lim); lim.connect(c.destination);
-      // effects level: dry path and reverb send share it (the reverb itself is shared with the music bus, whose
-      // send is taken after the music level, so each slider scales its own reverb tail too)
+
+
       const fx = this.curve(this.vol.sfx);
       const dry = c.createGain(); dry.gain.value = fx; dry.connect(master);
       const rev = c.createConvolver();
@@ -783,15 +787,15 @@ window.ND = window.ND || {};
       const was = this.rev; this.rev = rev; this.revMode(this.lite); this.rev = was || rev;
       return { master, dry, rev, revIn };
     },
-    // Dip the music for a big moment (a KO, a clash, a ki technique): js/music.js duck, like the announcer's
+
     duck(db, sec) { const M = ND.music; if (M && M.duck && !this.quiet) M.duck(db, sec); },
-    // A little different every time: vr(0.06) → a factor in 0.94…1.06 (pitch, level, length of repeated sounds)
+
     vr(a) { return 1 + (Math.random() * 2 - 1) * a; },
-    // Level of everything scheduled inside fn × k (js/sfx.js sets each new sound's level this way)
+
     gs: 1,
     scaled(k, fn) { const g0 = this.gs; this.gs = g0 * k; try { return fn(); } finally { this.gs = g0; } },
-    // Menu sounds (clicks, the ranked cues, unlocks) also play over the menu's silent demo fight: `quiet` is there to
-    // mute that fight, not the buttons in front of it. Never lifted in a re-simulated step or an online match.
+
+
     menu(fn) {
       const q = this.quiet, G = ND.game;
       if (q && G && G.mode === 'attract' && !G.simOnly) this.quiet = false;
@@ -803,14 +807,14 @@ window.ND = window.ND || {};
       this.applyGain();
     },
 
-    // (made once per length and channel count: a quality change mid-fight does not compute a new one)
+
     makeIR(sec, chans = 2) {
       const k = sec + '/' + chans, M = this.irs || (this.irs = {});
       if (M[k]) return M[k];
       const c = this.ctx, len = (c.sampleRate * sec) | 0, b = (M[k] = c.createBuffer(chans, len, c.sampleRate));
       for (let ch = 0; ch < chans; ch++) {
         const data = b.getChannelData(ch);
-        for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3.4);
+        for (let i = 0; i < len; i++) data[i] = (NM.random() * 2 - 1) * NM.pow(1 - i / len, 3.4);
       }
       return b;
     },
@@ -827,9 +831,9 @@ window.ND = window.ND || {};
       return g;
     },
 
-    // One-shot voice cap: sounds still ringing are counted (their end times); beyond the cap a quiet layer is
-    // skipped, and far beyond it everything (a burst of clashes, sparks and shouts made 30+ at once, every node running
-    // on the audio thread). Low / phones: fewer.
+
+
+
     oneShot(t, dur, gain) {
       const L = this.ends || (this.ends = []), now = this.ctx.currentTime;
       let n = 0;
@@ -874,11 +878,11 @@ window.ND = window.ND || {};
       osc.connect(g); osc.start(t); osc.stop(t + o.dur + 0.05);
     },
 
-    // --- oyun sesleri
-    // Levels were set by measurement (2026-09-30 sound pass, docs/ASSET-LOG.md): loudness of each sound at the default
-    // volumes, BS.1770 momentary, against the voices and the music. Before it the hits sat 15 dB under the voices, the
-    // footsteps and the menu click were inaudible (about -75 / -60 LUFS). MIX scales each family; every repeated
-    // sound varies a little in pitch, length and level (vr) so a long exchange does not sound like a loop.
+
+
+
+
+
     MIX: { swing: 1.5, clang: 1.5, cut: 4.6, thud: 3.3, step: 0.8, whistle: 4.5, tick: 7, whoosh: 1.8, ui: 1, grind: 1.8, amb: 0.8 },
     swoosh(power = 1, pan = 0) {
       const k = this.vr(0.12), d = (0.16 + 0.12 * power) * this.vr(0.1), m = this.MIX.swing * this.vr(0.12);
@@ -888,7 +892,7 @@ window.ND = window.ND || {};
     clang(power = 1, pan = 0, pitch = 1) {
       const base = (560 + Math.random() * 90) * pitch, m = this.MIX.clang * this.vr(0.1), pw = Math.pow(power, 0.75);
       [1, 2.76, 5.4, 8.93, 13.3].forEach((r, i) => {
-        if (this.lite && i > 2) return; // (Low: the two faintest partials, a fifth and a quarter of the first, left out)
+        if (this.lite && i > 2) return;
         this.tone({ freq: base * r * this.vr(0.004), type: i ? 'sine' : 'triangle', dur: (1.3 - i * 0.18) * (0.6 + power * 0.5), gain: (0.2 / (i + 1)) * pw * m, send: 0.5, pan });
       });
       this.noise({ type: 'highpass', f0: 2500 * this.vr(0.15), dur: 0.06, gain: 0.5 * pw * m, send: 0.3, pan });
@@ -898,7 +902,7 @@ window.ND = window.ND || {};
       this.clang(1.3, pan, 1.45 * this.vr(0.03));
       this.tone({ freq: 2400 * this.vr(0.03), freq1: 1800, dur: 1.6, gain: 0.08, send: 0.7, pan });
     },
-    // a blade through cloth: a crisp slice on top, the old body of the cut under it
+
     cut(power = 1, pan = 0) {
       const k = this.vr(0.12), m = this.MIX.cut * this.vr(0.1);
       this.noise({ type: 'bandpass', f0: 5200 * k, f1: 2200 * k, q: 1.2, dur: 0.05, gain: 0.3 * power * m, attack: 0.002, send: 0.12, pan });
@@ -912,10 +916,10 @@ window.ND = window.ND || {};
       this.tone({ freq: 110 * this.vr(0.1), freq1: 38, dur: 0.28, gain: 0.6 * power * m, send: 0.1, pan });
       this.noise({ type: 'lowpass', f0: 500 * this.vr(0.2), dur: 0.14, gain: 0.35 * power * m, send: 0.05, pan });
     },
-    // a foot on the ground: a short scuff + a soft thump. g: 1 a step, ~2.5 a jump push-off, 3 a landing
-    // Steps: walking and running are silent (2026-09-30 the walk step was made a soft shuffle, 2026-10-01 the owner
-    // still heard it as typewriter keys, so it went). A jump push-off (g 2.5) or a landing (g 3) is a soft, low,
-    // muffled shuffle (filtered noise, rounded attack, no click, no tone) with a soft low thump under it.
+
+
+
+
     step(pan = 0, g = 1) {
       if (g <= 1.2) return;
       const m = this.MIX.step * this.vr(0.25), w = Math.pow(g, 0.7), k = this.vr(0.15);
@@ -948,12 +952,12 @@ window.ND = window.ND || {};
       this.tone({ freq: 880, freq1: 660, dur: 2.8, gain: 0.05, send: 0.9, delay: 0.1 });
       this.duck(8, 1.4);
     },
-    // Menu sounds switch (Settings > Audio, ND.settings.uiSfx): off → no clicks, back, confirm, toasts or coins
+
     uiOn() { return !(ND.settings && ND.settings.uiSfx === false); },
-    // a menu press: a soft, low wooden "tok" (rounded attack, short, well under the fight; owner's feedback 2026-09-30:
-    // the sound-pass click was ~9 dB louder, brighter and sharper)
-    // Only a real confirm or a back press clicks (js/sfx.js notes each press's kind before its handler runs, _press):
-    // the many handlers that call ui() for minor buttons, tabs, chips and arrow-key cycling stay silent.
+
+
+
+
     ui() {
       if (!this.uiOn()) return;
       if (this._pressGate && this._press !== 'confirm' && this._press !== 'back') return;
@@ -963,9 +967,9 @@ window.ND = window.ND || {};
         this.noise({ type: 'lowpass', f0: 1300 * k, dur: 0.02, gain: 0.35 * m, attack: 0.004, send: 0.08 });
       });
     },
-    // the swords locked (tsubazeriai), every 80 ms while the lock holds (game.js): a quiet, low metallic tension (a soft
-    // resonant hum, two inharmonic partials, and now and then a faint irregular scrape) that fades in over the first half
-    // second, far under the hits and clashes (owner's feedback: the sound-pass grind was harsh and loud)
+
+
+
     grind(pan = 0) {
       const m = this.MIX.grind, t = this.ctx ? this.ctx.currentTime : 0;
       if (!(t - (this._grT || -9) < 0.25)) this._grN = 0;
@@ -976,8 +980,8 @@ window.ND = window.ND || {};
       if (Math.random() < 0.35) this.noise({ type: 'bandpass', f0: 1700 + Math.random() * 900, q: 7, dur: 0.07, gain: 0.05 * fade * m, attack: 0.02, send: 0.3, pan });
     },
 
-    // One decoded sample (AudioBuffer) through the effects bus, like tone/noise: counted by the one-shot cap.
-    // o: gain, rate (playback speed = pitch), pan, send, delay. false when it did not play.
+
+
     sample(buf, o) {
       if (!this.ready || this.quiet || !buf) return false;
       const c = this.ctx, t = c.currentTime + (o.delay || 0), rate = o.rate || 1, gain = (o.gain ?? 0.5) * this.gs;
@@ -986,12 +990,12 @@ window.ND = window.ND || {};
       const g = this.out(o.send ?? 0.15, o.pan);
       g.gain.value = gain;
       src.connect(g); src.start(t);
-      src.onended = () => { try { g.disconnect(); } catch (e) { /* already */ } };
+      src.onended = () => { try { g.disconnect(); } catch (e) {               } };
       return true;
     },
 
-    // Ortam sesi katmanları: rüzgâr, yağmur, tipi, ateş, su, çarşı, fırtına — arenaya göre yumuşak geçiş
-    // (katmanlar ilk kullanıldıklarında kurulur; kullanılmayan arena ses işlemcisi harcamaz)
+
+
     ambience() {
       const c = this.ctx;
       const layer = (type, freq, q, level, lfoRate, lfoDepth, fRate, fDepth, buf) => {
@@ -1002,22 +1006,22 @@ window.ND = window.ND || {};
         const run = [src];
         if (lfoRate) { const l = c.createOscillator(); l.frequency.value = lfoRate; const lg = c.createGain(); lg.gain.value = lfoDepth; l.connect(lg); lg.connect(bus.gain); l.start(); run.push(l); }
         if (fRate) { const l = c.createOscillator(); l.frequency.value = fRate; const lg = c.createGain(); lg.gain.value = fDepth; l.connect(lg); lg.connect(f.frequency); l.start(); run.push(l); }
-        src.connect(f); f.connect(bus); bus.connect(g); g.connect(this.dry); // ambience counts as an effect
+        src.connect(f); f.connect(bus); bus.connect(g); g.connect(this.dry);
         src.start(0, Math.random() * 1.5);
         g._level = level * this.MIX.amb; g._run = run;
         return g;
       };
-      // çıtırtı tamponu: seyrek, hızla sönen kıvılcım patlamaları (ateş / ızgara)
+
       const crackle = () => {
         if (this.crackBuf) return this.crackBuf;
         const len = c.sampleRate * 3, b = c.createBuffer(1, len, c.sampleRate), d = b.getChannelData(0);
         for (let n = 0; n < 55; n++) {
           const at = (Math.random() * (len - 4000)) | 0, l = (40 + Math.random() * (Math.random() < 0.15 ? 2500 : 500)) | 0, a = 0.25 + Math.random() * 0.75;
-          for (let i = 0; i < l; i++) d[at + i] += (Math.random() * 2 - 1) * a * Math.exp((-4 * i) / l);
+          for (let i = 0; i < l; i++) d[at + i] += (NM.random() * 2 - 1) * a * NM.exp((-4 * i) / l);
         }
         return (this.crackBuf = b);
       };
-      // crickets on a temple night: short chirp trains (a few pulses at ~4.4 kHz), two insects, sparse; a 6 s loop
+
       const crickets = () => {
         if (this.cricketBuf) return this.cricketBuf;
         const sr = c.sampleRate, len = sr * 6, b = c.createBuffer(1, len, sr), d = b.getChannelData(0);
@@ -1026,35 +1030,35 @@ window.ND = window.ND || {};
             const n = 3 + ((Math.random() * 3) | 0), a = 0.4 + Math.random() * 0.5;
             for (let p = 0; p < n; p++) {
               const s0 = ((at + p * 0.045) * sr) | 0, l = (0.028 * sr) | 0;
-              for (let i = 0; i < l && s0 + i < len; i++) d[s0 + i] += Math.sin((2 * Math.PI * f * i) / sr) * a * Math.sin((Math.PI * i) / l);
+              for (let i = 0; i < l && s0 + i < len; i++) d[s0 + i] += NM.sin((2 * Math.PI * f * i) / sr) * a * NM.sin((Math.PI * i) / l);
             }
           }
         });
         return (this.cricketBuf = b);
       };
-      // Levels (the 2026-09-30 sound pass): every arena bed about -44 LUFS at the default volumes, well under the
-      // music (-37 in a fight) and the hits. Before: rain -30 and the waterfall -33 (louder than a sword cut), the
-      // temple's wind -52 (nothing).
+
+
+
       this.ambDefs = {
-        // temple night: a soft wind + crickets
+
         wind: () => [layer('lowpass', 380, 0.7, 0.06, 0.09, 0.6, 0.05, 180), layer('bandpass', 4200, 2, 0.032, 0.05, 0.5, 0, 0, crickets())],
         rain: () => [layer('bandpass', 2600, 0.5, 0.022, 0.3, 0.15, 0, 0), layer('lowpass', 240, 0.6, 0.02, 0.07, 0.4, 0, 0), layer('highpass', 6000, 0.4, 0.007, 0, 0, 0, 0)],
         blizzard: () => [layer('lowpass', 650, 0.8, 0.08, 0.13, 0.7, 0.07, 300), layer('bandpass', 1300, 4, 0.025, 0.21, 0.8, 0.11, 500)],
-        // yangın: çıtırtı + alçak uğultu + nefes alan alev hışırtısı
+
         fire: () => [layer('highpass', 900, 0.7, 0.13, 0, 0, 0, 0, crackle()), layer('lowpass', 150, 0.8, 0.09, 0.19, 0.5, 0, 0), layer('bandpass', 420, 0.8, 0.022, 0.37, 0.7, 0.13, 160)],
-        // şelale: sürekli gürleyen akış
+
         water: () => [layer('lowpass', 1200, 0.5, 0.036, 0.05, 0.1, 0, 0), layer('bandpass', 420, 0.7, 0.028, 0.11, 0.2, 0.07, 90), layer('highpass', 3800, 0.5, 0.011, 0.23, 0.25, 0, 0)],
-        // çarşı: uzak kalabalık mırıltısı + ızgara cızırtısı
+
         market: () => [layer('bandpass', 480, 1.6, 0.045, 3.1, 0.55, 0.7, 140), layer('bandpass', 950, 2.4, 0.022, 4.3, 0.6, 1.1, 250), layer('lowpass', 200, 0.6, 0.035, 0.09, 0.3, 0, 0),
           layer('highpass', 1800, 0.7, 0.05, 0, 0, 0, 0, crackle()), layer('highpass', 6000, 0.5, 0.01, 0.3, 0.8, 0, 0)],
-        // kale çatısı: sert, uluyan rüzgâr
+
         gale: () => [layer('lowpass', 520, 0.8, 0.1, 0.11, 0.8, 0.06, 320), layer('bandpass', 820, 7, 0.04, 0.17, 0.9, 0.09, 380), layer('bandpass', 1650, 9, 0.014, 0.23, 0.9, 0.13, 650)],
       };
       this.amb = {};
       this.setAmbience(this.ambKind || 'wind');
     },
-    // The layers of the arena left behind fade out, then stop (5 s later): a silent looping noise source with its
-    // filters and wobble oscillators still costs the audio thread, and an arcade run visits many arenas.
+
+
     setAmbience(kind) {
       this.ambKind = kind;
       if (!this.amb) return;
@@ -1065,13 +1069,13 @@ window.ND = window.ND || {};
       this.ambTimer = setTimeout(() => {
         for (const k in this.amb) {
           if (k === this.ambKind) continue;
-          for (const g of this.amb[k]) { for (const n of g._run || []) { try { n.stop(); } catch (e) { /* already stopped */ } } try { g.disconnect(); } catch (e) { /* already */ } }
+          for (const g of this.amb[k]) { for (const n of g._run || []) { try { n.stop(); } catch (e) {                       } } try { g.disconnect(); } catch (e) {               } }
           delete this.amb[k];
         }
       }, 5000);
     },
     thunder(delay = 0.5) {
-      // (-3.5 dB in the 2026-09-30 sound pass: it was the loudest thing in the game after the KO)
+
       this.noise({ type: 'lowpass', f0: 220 * this.vr(0.1), f1: 60, dur: 3.4 * this.vr(0.15), gain: 0.54, attack: 0.08, send: 0.6, delay });
       this.noise({ type: 'lowpass', f0: 1200 * this.vr(0.15), f1: 300, dur: 0.5, gain: 0.24, attack: 0.01, send: 0.4, delay });
       this.tone({ freq: 48 * this.vr(0.08), freq1: 30, dur: 2.6, gain: 0.3, attack: 0.1, send: 0.4, delay: delay + 0.05 });
@@ -1079,19 +1083,19 @@ window.ND = window.ND || {};
     whoosh(power = 1) { const k = this.vr(0.1); this.noise({ type: 'bandpass', f0: 300 * k, f1: 3000 * k, q: 0.8, dur: 0.5, gain: 0.3 * power * this.MIX.whoosh, attack: 0.35, send: 0.4 }); if (power >= 1.2) this.duck(4, 0.6); },
   };
 
-  // ---------------------------------------------------------------- JIN'S STAFF (bō): hit, block, swing
-  // A hard-wood staff landing on a body: a sharp woody crack (the staff) + a short dull thump (the body), a little
-  // different every time (pitch, level, which recording, crack-to-thump gap). The owner picked b by ear (2026-09-27):
-  //   a: synthesis only (click + noise-excited wood resonances + a short low thump and a cloth slap; no files)
-  //   b: recordings: a wooden stick (bokuto) clacking on a hard floor (3 bounces) + a realistic punch through clothes
-  //   old: the sound before (thud + a falling "bwoop" tone, metal clang on a block)
-  // ?bohit=a|b|old picks one (tests); default BO_DEFAULT. The recordings are voice/bo-b/ (sources: docs/ASSET-LOG.md),
-  // fetched and decoded by js/voice.js like the voices (ND.voice.buffer); until they are decoded (or if they fail) b plays a.
+
+
+
+
+
+
+
+
   const BO_DEFAULT = 'b';
   const BO_FILES = { 'bo-b': { crack: ['crack1', 'crack2', 'crack3'], body: ['body1', 'body2'] } };
-  // mix of the recordings (files are peak-normalized): crack and body level per version, matched by measurement to the
-  // other hits (a blade cut, the old staff hit: about -28 dB RMS over the first 50 ms at the default volumes)
-  // (+4 dB in the 2026-09-30 sound pass, with the other hits)
+
+
+
   const BO_MIX = { 'bo-b': { crack: 1.75, body: 0.87 } };
   const rnd = (a, b) => a + Math.random() * (b - a);
   const BO = A.bo = {
@@ -1099,7 +1103,7 @@ window.ND = window.ND || {};
     mode: (() => { const m = (qs.get('bohit') || '').toLowerCase(); return ['a', 'b', 'old'].includes(m) ? m : BO_DEFAULT; })(),
     last: {},
     set() { return this.mode === 'b' ? 'bo-b' : null; },
-    // a decoded recording of the current version (kind 'crack' | 'body'), never the same one twice in a row, or null
+
     pick(kind) {
       const set = this.set(), V = ND.voice, L = set && BO_FILES[set][kind];
       if (!L || !V || !V.buffer) return null;
@@ -1108,7 +1112,7 @@ window.ND = window.ND || {};
       this.last[set + kind] = i;
       return V.buffer(set, L[i]) || V.buffer(set, L[0]);
     },
-    // staff lands on a body; raw = unscaled damage (about 5–30), heavy = knockdown / special / big hit
+
     hit(raw, pan, heavy) {
       if (this.mode === 'old') {
         A.thud(0.8 + raw / 22, pan); A.tone({ freq: 150 + raw * 2, freq1: 60, dur: 0.18, gain: 0.12 + raw * 0.006, send: 0.2, pan });
@@ -1120,7 +1124,7 @@ window.ND = window.ND || {};
         const dt = rnd(0.002, 0.009), M = BO_MIX[this.set()];
         A.sample(crack, { gain: M.crack * p * rnd(0.85, 1.1), rate: rnd(0.93, 1.08) * (heavy ? 0.95 : 1), pan, send: 0.14 });
         A.sample(body, { gain: M.body * p * rnd(0.85, 1.05), rate: rnd(0.9, 1.06) * (heavy ? 0.92 : 1), pan, send: 0.08, delay: dt });
-        // weight under a big hit: a short low push (no pitch sweep you could hear as a tone)
+
         if (heavy && !A.lite) A.noise({ type: 'lowpass', f0: 180, dur: 0.16, gain: 0.45 * p, attack: 0.006, send: 0.1, pan, delay: dt });
         return;
       }
@@ -1128,20 +1132,20 @@ window.ND = window.ND || {};
     },
     synthHit(p, pan, heavy) {
       const k = rnd(0.92, 1.09), dt = rnd(0.002, 0.008), lite = A.lite;
-      // the staff: a hard click + two wood resonances rung by noise (a real knock, not a pitched beep)
-      // (a narrow band of noise carries little energy: hence the large gains of the two resonances)
+
+
       A.noise({ type: 'highpass', f0: 2600 * k, dur: 0.014, gain: 1.2 * p, attack: 0.0006, send: 0.08, pan });
       A.noise({ type: 'bandpass', f0: 1150 * k, q: 5, dur: rnd(0.05, 0.07), gain: 8 * p, attack: 0.0008, send: 0.12, pan });
       if (!lite) A.noise({ type: 'bandpass', f0: 2350 * k * rnd(0.97, 1.03), q: 6, dur: rnd(0.03, 0.045), gain: 6 * p, attack: 0.0008, send: 0.1, pan });
       A.tone({ freq: 640 * k, dur: 0.045, gain: 0.4 * p, type: 'sine', attack: 0.0008, send: 0.1, pan });
-      // the body: a short low thump (the drop is over before it can sound like a tone) + a muffled cloth slap
+
       A.tone({ freq: 118 * k, freq1: 62, glide: 0.05, dur: heavy ? 0.16 : 0.11, gain: 0.75 * p, attack: 0.002, send: 0.06, pan, delay: dt });
       A.noise({ type: 'lowpass', f0: 1500, f1: 420, dur: 0.075, gain: 1 * p, attack: 0.002, send: 0.06, pan, delay: dt });
       if (heavy && !lite) A.noise({ type: 'lowpass', f0: 180, dur: 0.16, gain: 0.45 * p, attack: 0.006, send: 0.1, pan, delay: dt });
     },
-    // wood knock without a body: a block, a parried counter, the staff striking the floor.
-    // steel: the other weapon is a blade (a light ring on top); pitch: rises through a long exchange like the clang.
-    // false in 'old' (the caller keeps its old sound)
+
+
+
     block(p, pan, steel, pitch = 1) {
       if (this.mode === 'old') return false;
       const crack = this.pick('crack');
@@ -1156,12 +1160,12 @@ window.ND = window.ND || {};
       if (steel) A.clang(0.22 * p, pan, 1.5 * pitch);
       return true;
     },
-    // the staff cutting the air: low and round (a long pole), peak in the middle, a little different each time.
-    // false in 'old'
+
+
     swing(pan, p = 1) {
       if (this.mode === 'old') return false;
       const k = rnd(0.88, 1.12), d = (0.2 + 0.07 * p) * rnd(0.92, 1.08);
-      p *= 2.7; // (the 2026-09-30 sound pass: the swing sat 8 dB under the blade's)
+      p *= 2.7;
       A.noise({ type: 'bandpass', f0: 230 * k, f1: 1050 * k, q: 1.1, dur: d, gain: 0.3 * p * rnd(0.85, 1.1), attack: d * 0.5, send: 0.18, pan });
       A.noise({ type: 'lowpass', f0: 480 * k, f1: 260, dur: d * 0.9, gain: 0.16 * p, attack: d * 0.55, send: 0.12, pan });
       if (!A.lite) A.noise({ type: 'highpass', f0: 2800 * k, dur: d * 0.7, gain: 0.03 * p, attack: d * 0.45, send: 0.1, pan });
@@ -1169,7 +1173,7 @@ window.ND = window.ND || {};
     },
   };
 
-  // Silence follows focus/visibility, the portal switch and ads (ND.portal hooks)
+
   const away = () => A.updateAway();
   document.addEventListener('visibilitychange', away);
   window.addEventListener('focus', away);

@@ -1,34 +1,34 @@
-// Gölge Düellosu — oyun döngüsü, seçim ekranı, raund akışı, kilitlenme, ışık, tekrar, HUD
+
 (function (ND) {
   'use strict';
   const $ = (id) => document.getElementById(id);
   const cv = $('cv'), mainCtx = cv.getContext('2d');
-  // The picture is drawn through `ctx`. With bloom on (High, Medium) it points at an offscreen scene layer while the
-  // scene is drawn (game.render): the bloom then reads the finished scene from that layer instead of from the visible
-  // canvas, and the visible canvas gets one copy of it plus the bloom and grain in a single uninterrupted pass.
-  // Reading the visible canvas back mid-frame (the previous way) made the browser finish, copy and resume it.
+
+
+
+
   let ctx = mainCtx;
   const sceneCv = document.createElement('canvas'), sceneCtx = sceneCv.getContext('2d');
   function renderLayer() {
     const canvas = document.createElement('canvas'); canvas.width = canvas.height = 64;
     return { canvas, ctx: canvas.getContext('2d') };
   }
-  // Keep a source stable after drawImage consumes it. Sharing a scratch canvas between fighters overwrites
-  // the first fighter's source before the frame is submitted, which can force snapshot preservation/copies.
+
+
   const lightLayers = [renderLayer(), renderLayer()], shadowLayers = [renderLayer(), renderLayer()];
   const SHA = [], SH_RES = 0.5;
-  // Tuvali gerekirse büyüt (64'ün katlarına; küçültme yok → her karede yeniden ayırma olmaz)
+
   function growCanvas(c, w, h) {
     if (c.width < w) c.width = Math.ceil(w / 64) * 64;
     if (c.height < h) c.height = Math.ceil(h / 64) * 64;
   }
   const bc = document.createElement('canvas'), bx = bc.getContext('2d');
-  // Medium tier bloom buffers (game.postLite)
+
   const blc = document.createElement('canvas'), blx = blc.getContext('2d'), blc2 = document.createElement('canvas'), bl2 = blc2.getContext('2d');
   const blc3 = document.createElement('canvas'), bl3 = blc3.getContext('2d');
   const grain = document.createElement('canvas'); grain.width = grain.height = 128;
-  // (a browser short of canvas memory, e.g. iPhone Safari over its canvas limit, returns no context or throws
-  // InvalidStateError here: then there is simply no film grain, instead of the whole game failing to start)
+
+
   let grainPat = null, grainAt = -1e9;
   function makeGrain() {
     try {
@@ -39,66 +39,66 @@
     } catch (e) { grainPat = null; console.warn('[ND] film grain unavailable', e); }
   }
   makeGrain();
-  // the grain pattern, made again (at most every 5 s) if it could not be made before
+
   const grainFill = () => { if (!grainPat && performance.now() - grainAt > 5000) { grainAt = performance.now(); makeGrain(); } return grainPat; };
   const QS = new URLSearchParams(location.search);
-  // Renderer. The fight (intro, fight, KO, replay; High, Medium and Low, each with its own glow: High glow + grain,
-  // Medium light glow, Low none) is drawn with WebGL2 (js/gl2d.js + js/gl-render.js) into a canvas lying over #cv,
-  // shown only on frames it drew. This is the default on every device where WebGL2 works: the renderer is created at
-  // start and must pass a self-check (a tiny frame read back); software WebGL is refused. Menus and the select / VS /
-  // ending screens stay on Canvas 2D, and so does every frame the GL renderer cannot draw (lost context until it is
-  // restored, unsupported call); a renderer that keeps refusing frames is switched off for the session.
-  // ?renderer=canvas forces Canvas 2D (no WebGL context at all); ?renderer=gl forces WebGL2 (software WebGL allowed,
-  // never switched off for refused frames: tests and diagnosis). ?msaa=0|2|4 sets its multisampling (default 4).
+
+
+
+
+
+
+
+
   const REN_Q = QS.get('renderer');
   const GL_FORCE = REN_Q === 'gl', GL_WANT = REN_Q !== 'canvas';
-  // GPU path (docs/SHADOW-DUEL-GPU.md): the WebGL2 renderer with its native GPU paths - High and Medium fighters placed
-  // from part pictures in the sprite atlas (bake.js, as Low does) instead of paths turned into triangles every frame,
-  // text pictures placed by the GPU, menus on WebGL2, the GPU queue limit. Presentation only. Since 1.3 the default
-  // wherever the WebGL2 renderer runs (it passed its self-check); where it does not (no WebGL2, software WebGL, a
-  // failed self-check, a lost context, a renderer switched off for refused frames) every frame is drawn by Canvas 2D
-  // with paths, exactly as before. ?renderer=gl or ?gpu=0 shows the previous WebGL2 renderer (comparison, tests);
-  // ?renderer=gpu or ?gpu=1 (with ?renderer=gl: software WebGL allowed, headless tests) forces it on.
-  // window.__ndGpuDefault = false (set before this script) turns the default off for a build.
+
+
+
+
+
+
+
+
   const GPU_PATH = REN_Q === 'gpu' || QS.get('gpu') === '1' || (window.__ndGpuDefault !== false && REN_Q !== 'gl' && REN_Q !== 'canvas' && QS.get('gpu') !== '0');
   ND.gpuPath = GPU_PATH;
   const SPRITE_BIAS = QS.get('bias') != null ? +QS.get('bias') || 0 : -0.5;
-  // GPU load of the GPU path (High / Medium; measured on phones, docs/SHADOW-DUEL-GPU.md), each overridable to compare:
-  //   ?blur=small|full  High bloom: the vertical blur taps on the small glow picture (one read per screen pixel instead
-  //                     of nine) — default small on the GPU path
-  //   ?lmsaa=n          multisampling of the fighter layer pass alone (the fighters are ready-made anti-aliased
-  //                     pictures there); default: as the scene
-  //   ?dprmax=x         cap on the canvas pixel ratio (any renderer), to compare render scales
+
+
+
+
+
+
   const BLUR_SMALL = GPU_PATH ? QS.get('blur') !== 'full' : QS.get('blur') === 'small';
   const LMSAA = QS.get('lmsaa') != null ? +QS.get('lmsaa') | 0 : null;
   const GPU_Q = QS.get('gpuq') != null ? Math.max(0, +QS.get('gpuq') | 0) : GPU_PATH ? 3 : 0;
   const DPR_Q = +QS.get('dprmax') > 0 ? +QS.get('dprmax') : Infinity;
-  // ?cap=0 / ?cap=1: frame pacing forced to Max / 60 for tests (see the pacer at the end); '' = the Frame rate setting
+
   const CAP_Q = QS.get('cap') === '0' ? '0' : QS.get('cap') === '1' ? '1' : '';
   let glr = null, glShown = false, glSamples = null;
-  // the renderer's text modes for this tier (every WebGL2 frame, and the text warm-up before a fight: game.warmTexts)
+
   function glTextFlags() {
     glr.R.textSnap = !!GFX.f.snap;
-    // GPU path: three copies of the text atlas in turn (gl2d.js R.textRing; ?textring=0 / 1 to compare)
+
     glr.R.textRing = QS.get('textring') != null ? QS.get('textring') === '1' : GPU_PATH;
-    // GPU path: texts placed at their exact position and growing texts on the size ladder (gl2d.js R.textFree;
-    // ?textfree=0 / 1 to compare): almost no new text pictures (uploads) during a fight
+
+
     glr.R.textFree = QS.get('textfree') != null ? QS.get('textfree') === '1' : GPU_PATH;
   }
-  // pop-up texts shown in this session's fights (GPU path), drawn again at each match preparation (game.warmTexts):
-  // fx: [text, colour] of fx.text; pops: [value, big] of the score pop-ups; nums / combos: kaeshi-cine.js warmTexts
+
+
   const popSeen = { fx: new Map(), pops: new Map(), nums: new Map(), combos: new Map() };
-  // (the Canvas 2D canvas under the opaque WebGL canvas is made fully transparent meanwhile: the page compositor then
-  // skips it instead of blending a second full-screen layer on every frame; it still takes the taps)
+
+
   const showGl = (on) => { if (glr && on !== glShown) { glShown = on; glr.canvas.style.visibility = on ? 'visible' : 'hidden'; cv.style.opacity = on ? '0' : ''; } };
-  // High bloom blur without ctx.filter (game.blurGlow): the bright 1/4 buffer is halved once (1/8, a 2×2 average),
-  // then blurred there by two separable Gaussian passes, each a few offset copies of the image (fractional offsets:
-  // bilinear sampling merges two kernel taps per copy). The copies are averaged 'source-over' onto an opaque image
-  // (running weighted mean, globalAlpha = w / Σw): every step stays opaque, so each costs one ±½ rounding. Adding
-  // weighted copies with 'lighter' was tried and rejected: its half-transparent steps store premultiplied colour and
-  // lose the faint tails (−1.5/255 bias measured). A black border of MARGIN pixels stands for the outside of the
-  // picture, which the previous blur(5px) also treated as black. Sigma matches blur(5px) on the 1/4 buffer (the
-  // halving and the final bilinear enlargement included; tuned against pixel diffs).
+
+
+
+
+
+
+
+
   const bq1 = document.createElement('canvas'), q1 = bq1.getContext('2d'), bq2 = document.createElement('canvas'), q2 = bq2.getContext('2d');
   function blurTaps(sigma) {
     const r = Math.ceil(sigma * 3), w = [];
@@ -108,17 +108,17 @@
       const a = w[i], b = i + 1 <= r ? w[i + 1] : 0, s = a + b, o = (i * a + (i + 1) * b) / s;
       taps.push([o, s], [-o, s]);
     }
-    let sum = 0; // [offset, weight] → [offset, running-mean alpha]
+    let sum = 0;
     return taps.map(([o, v]) => { sum += v; return [o, v / sum]; });
   }
   const GLOW_SIGMA = 2.46, GLOW_TAPS = blurTaps(GLOW_SIGMA), MARGIN = 10;
-  // (the Canvas hooks of js/gl2d.js — gradient geometry, "canvas changed" counters — go in with the renderer, before
-  // anything is drawn, so gradients cached by the scene work on both paths)
+
+
   let glWhy = GL_WANT ? '' : 'renderer=canvas';
-  // Load time: the menus are Canvas 2D, so by default the WebGL2 context, its shaders and the self-check are made right
-  // after the first frame (the portal's loading phase ends without waiting for them) and at the latest when a match is
-  // prepared (prepareMatch → startGl). The Canvas hooks go in now, before anything is drawn, where WebGL2 exists at all.
-  // ?renderer=gl (tests, check pages) still does everything here at once.
+
+
+
+
   let glLater = GL_WANT && !!ND.createGlRenderer && !GL_FORCE;
   if (glLater && typeof WebGL2RenderingContext !== 'undefined' && ND.glInstallHooks) ND.glInstallHooks();
   if (GL_WANT && ND.createGlRenderer && !glLater) initGl();
@@ -130,9 +130,9 @@
   }
   function initGl() {
     const m = QS.get('msaa');
-    // GPU path: a 2048 x 2048 text atlas (three copies: 48 MB; 2048 x 1024 on devices reporting under 4 GB), so every
-    // size a fight's pop-up texts animate through stays in it (warmTexts) instead of being drawn again whenever the
-    // 1024 x 1024 atlas filled up mid-fight (?tatlas=WxH to compare)
+
+
+
     const ta = /^(\d+)x(\d+)$/.exec(QS.get('tatlas') || ''), lowMem = +navigator.deviceMemory > 0 && +navigator.deviceMemory < 4;
     const textAtlas = ta ? [+ta[1], +ta[2]] : GPU_PATH ? [2048, lowMem ? 1024 : 2048] : null;
     try { glr = ND.createGlRenderer({ grain, samples: m == null ? 4 : +m, glowTaps: GLOW_TAPS, auto: !GL_FORCE, textAtlas }); } catch (e) { glr = null; glWhy = String(e && e.message || e); }
@@ -149,7 +149,7 @@
     }
   }
   const input = ND.input, au = ND.audio, cam = ND.cam, fx = ND.fx, scene = ND.scene, mu = ND.music;
-  // GPU path: every pop-up text a fight shows is noted for the next match preparation's text warm-up (popSeen)
+
   if (GPU_PATH && fx && fx.text) {
     const fxText = fx.text;
     fx.text = function () {
@@ -158,8 +158,8 @@
       if (t && popSeen.fx.size < 300) { const k = t.str + '|' + t.color; if (!popSeen.fx.has(k)) popSeen.fx.set(k, [t.str, t.color]); }
     };
   }
-  ND.simClock = 0; // simulation clock (seconds of fixed steps); input buffers read it, see game.advance
-  // Text that is not in ND.STR (fallbacks, composed banners) goes through the i18n phrase table
+  ND.simClock = 0;
+
   const tx = (s) => (ND.i18n ? ND.i18n.t(s) : s);
   const upper = (s) => (ND.i18n ? ND.i18n.upper(s) : String(s).toUpperCase());
   const keyLabel = (code) => (input.keyLabel ? input.keyLabel(code) : code.replace(/^Key/, ''));
@@ -173,39 +173,39 @@
   const F = [f1, f2], ORD = [f1, f2];
   const PM = ND.pm;
 
-  // ---------------------------------------------------------------- ayarlar
-  // Tüm kalıcılık ND.save (arcade.js) üzerinden; modül yoksa bellekte kalır
+
+
   const store = {
     get() { try { return ND.save ? ND.save.settings() : {}; } catch (e) { return {}; } },
-    set(v) { try { if (ND.save) ND.save.saveSettings(v); } catch (e) { /* depolama yok */ } },
+    set(v) { try { if (ND.save) ND.save.saveSettings(v); } catch (e) {                    } },
   };
   const saved = store.get();
   ND.settings.sound = saved.sound !== false;
-  // Blood is opt-in (new key, so old saves that had it on by default start in ink mode) and portal-gated (core.js)
+
   ND.settings.blood = !!(ND.bloodAllowed && ND.bloodAllowed()) && saved.bloodOptIn === true;
   ND.settings.music = saved.music !== false;
-  // Voices (Settings > Audio): fighters' shouts and the announcer (js/voice.js); on unless the player turned them off
+
   ND.settings.voice = saved.voice !== false;
-  // Menu sounds (Settings > Audio): button clicks, back, confirm, toasts and coins; off leaves the fight, voices, music
-  // and the big alerts (match found, rank up / down, results) as they are (js/core.js ui, js/sfx.js)
+
+
   ND.settings.uiSfx = saved.uiSfx !== false;
   ND.settings.hints = saved.hints !== false;
-  // Show FPS (Settings → Graphics): the small frame-rate readout, off unless the player turned it on (fpsMeter below)
+
   ND.settings.showFps = saved.showFps === true;
-  // Graphics quality (js/gfx.js): saved choice `gfx`; older saves only had the "High graphics" switch — a switch the
-  // player set by hand (hqUser) becomes High / Low, everything else starts on Auto (device guess + auto ladder).
+
+
   const TCH = ND.touch || {}, MOBILE = !!TCH.mobile;
   const GFX = ND.gfx;
   const GFX_Q = GFX.levels.includes(QS.get('gfx')) ? QS.get('gfx') : null, GFX_SAVED = saved.gfx;
-  // ?gk=msaa:2,bloom:1 (tests, the GPU preview's comparison links): advanced knobs on top of ?gfx (or the saved tier),
-  // for this visit only
+
+
   let GK_CUSTOM = null;
   const GK_Q = (() => { const q = QS.get('gk'); if (!q) return null; const o = {}; for (const p of q.split(',')) { const [k, v] = p.split(':'); if (k && v != null) o[k] = +v; } return o; })();
   {
     let lv = GFX.levels.includes(saved.gfx) ? saved.gfx : saved.hqUser ? (saved.hq !== false ? 'high' : 'low') : 'auto';
-    // ?gfx=high|medium|low|auto (test pages: the GPU preview's A/B links) overrides it for this visit without saving it
+
     if (GFX_Q) lv = GFX_Q;
-    // Advanced settings: a custom set of the five knobs (js/gfx.js), key gfxK
+
     if (!GFX_Q && saved.gfx === 'custom' && saved.gfxK) GFX.setCustom(saved.gfxK, 'init');
     else {
       GFX.pref = lv;
@@ -213,7 +213,7 @@
     }
     if (GK_Q) { GFX.setCustom(Object.assign(GFX.knobs(), GK_Q), 'init'); GK_CUSTOM = GFX.custom; }
   }
-  // Dokunmatik kumandanın görüneceği modlar (2P: 1. oyuncu dokunmatik, 2. oyuncu gamepad olabilir)
+
   const TOUCH_MODES = { cpu: 1, arcade: 1, train: 1, '2p': 1, tourney: 1, dan: 1, rival: 1, online: 1, shadow: 1 };
   const TOUCH_PHASES = { intro: 1, fight: 1, ko: 1, timeup: 1 };
   const ROT_PHASES = { intro: 1, fight: 1, ko: 1, timeup: 1, replay: 1 };
@@ -222,37 +222,37 @@
   const STR = ND.STR || {};
   const charOk = (i) => !!ND.CHARS[i] && (!ND.save || ND.save.isCharUnlocked(ND.CHARS[i].id) || ND._trial === ND.CHARS[i].id);
   const arenaOk = (id) => !ND.save || ND.save.isArenaUnlocked(id);
-  // Seçilebilir kadro: gizli olmayanlar + açılmış gizliler
+
   const visibleChars = () => ND.CHARS.map((c, i) => i).filter((i) => !ND.CHARS[i].hidden || charOk(i) || ND.save?.rivalInfo(ND.CHARS[i].id)?.ready);
   const charIdx = (v, def) => { if (typeof v === 'number' && ND.CHARS[v]) return v; const i = ND.CHARS.findIndex((c) => c.id === v); return i >= 0 ? i : def; };
   const randArena = (onlyOpen) => { const list = ND.ARENAS.filter((a) => !onlyOpen || arenaOk(a.id)); return (list.length ? list : ND.ARENAS)[(Math.random() * (list.length || ND.ARENAS.length)) | 0].id; };
-  // Seyret/menü arka planı: gizli son patron hariç herkes
+
   const pickPair = () => {
     const pool = ND.CHARS.map((c, i) => i).filter((i) => !ND.CHARS[i].hidden), n = pool.length, a = (Math.random() * n) | 0;
     return [pool[a], pool[(a + 1 + ((Math.random() * (n - 1)) | 0)) % n]];
   };
-  // 'shadow': a ranked shadow fight (js/ranked.js, js/ghost.js): the CPU in a real player's style, labelled as such; the
-  // fight's base rules (no level timing), no score / honour / funnel, the result screen is the ranked one
+
+
   const SOLO = { cpu: 1, arcade: 1, train: 1, tourney: 1, dan: 1, rival: 1, shadow: 1 };
-  // Koşu modları: bir "koşu denetleyicisi" (game.runner) yönetir — arcade ve meydan okuma (arcade.js), turnuva ve Dan (banzuke.js)
+
   const RUN_MODES = { arcade: 1, tourney: 1, dan: 1, rival: 1 };
-  // Onur (誉, honor.js) kazandıran modlar: tek oyunculu her maç (antrenman hariç)
+
   const HONOR_MODES = { cpu: 1, arcade: 1, tourney: 1, dan: 1, rival: 1 };
 
-  // ---------------------------------------------------------------- PUAN (tek oyunculu: CPU + Arcade; 2P/Seyret/Antrenman'da kapalı)
-  // Tek puan modeli: canlı puan yalnız insan oyuncu (1P) için; Arcade toplamı = dövüş puanları + bitiriş bonusu (arcade.js).
-  // Zorluk çarpanı her kazanımda anında uygulanır (açılır "+120" = gerçek puan). Oyalanmayı ödüllendirmemek için:
-  // süre bonusu raund başına tavanlı ve zamanla azalır, aynı eylemin tekrarı azalan getirili, vuruş dışı puan raund başına tavanlı.
+
+
+
+
   const SR = ND.SCORE_RULES = {
-    hit: 10,                                        // rakibe verilen her can puanı (ölçeklenmiş hasar) başına
-    comboStep: 0.15, comboMax: 2, comboGap: 3,      // karşılıksız ardışık vuruş: ×(1 + 0.15·(n−1)), en çok ×2; 3 sn ara ya da yenen darbe sıfırlar
-    counter: 60, counterMaxN: 6,                    // karşılık (kaeshi-waza) başlatma: 60 × seri adımı (en çok 6)
-    rallyBreak: 120, rallyMaxN: 8, finisher: 300,   // seriyi kıran vuruş: 120 × seri uzunluğu; kendi 3. karşılığın bitirişi
+    hit: 10,
+    comboStep: 0.15, comboMax: 2, comboGap: 3,
+    counter: 60, counterMaxN: 6,
+    rallyBreak: 120, rallyMaxN: 8, finisher: 300,
     parry: 150, gbreak: 250, knock: 100, lock: 150, special: 300,
-    styleCap: 2500,                                 // raund başına vuruş dışı (stil) puan tavanı (çarpan öncesi)
-    repeatRing: 6, repeatStep: 0.15, repeatMin: 0.25, // son 6 eylemde aynı eylemin her tekrarı −%15 (en az %25)
+    styleCap: 2500,
+    repeatRing: 6, repeatStep: 0.15, repeatMin: 0.25,
     round: 1000, perfect: 1500, hp: 1000, time: 800, timeFast: 15, match: 2000,
-    diff: [0.5, 1, 1.5, 2],                         // Çırak, Usta, Efsane, Şura (patron)
+    diff: [0.5, 1, 1.5, 2],
   };
   const SCORE_CATS = ['hit', 'combo', 'counter', 'defense', 'pressure', 'special', 'round', 'perfect', 'hp', 'time'];
   const fmtN = (n) => (ND.i18n ? ND.i18n.num(n) : String(Math.round(n)));
@@ -267,7 +267,7 @@
     roundStart() { this.combo = 0; this.comboT = 0; this.ring.length = 0; this.style = 0; this.armed = false; },
     live() { return this.on && game.phase === 'fight'; },
     comboMul() { return Math.min(SR.comboMax, 1 + SR.comboStep * Math.max(0, this.combo - 1)); },
-    // azalan getiri: son eylemler halkasında aynı anahtarın tekrar sayısı
+
     dim(key) {
       let n = 0; for (const k of this.ring) if (k === key) n++;
       this.ring.push(key); if (this.ring.length > SR.repeatRing) this.ring.shift();
@@ -281,7 +281,7 @@
       this.cat[cat] += v; this.total += v;
       return v;
     },
-    // --- olaylar (takeHit / setState sarmalayıcıları ve oyun kancalarından)
+
     damage(to, from, dmg, a, x, y) {
       if (to === f1) { if (dmg > 0) { this.combo = 0; this.comboT = 0; } return; }
       if (to !== f2 || from !== f1 || !(dmg > 0)) return;
@@ -308,7 +308,7 @@
       let v = this.credit('round', SR.round);
       if (f1.damageTaken === 0) v += this.credit('perfect', SR.perfect);
       v += this.credit('hp', SR.hp * clamp(f1.hp / f1.maxHp, 0, 1));
-      if (ko) { // hızlı bitiriş: ilk timeFast sn tam, sonra raund sonuna dek doğrusal azalır
+      if (ko) {
         const el = ROUND_TIME - timer;
         v += this.credit('time', SR.time * clamp(1 - (el - SR.timeFast) / Math.max(1, ROUND_TIME - SR.timeFast), 0, 1));
       }
@@ -345,7 +345,7 @@
       const xs = cm ? '×' + (ND.i18n ? ND.i18n.dec(+cm.toFixed(2)) : String(+cm.toFixed(2))) : '';
       if (el._x !== xs) { el._x = xs; $('scoreX').textContent = xs; }
     },
-    // yüzen "+120": yakın zamanda ve yakında çıkan puanlar tek balonda toplanır (kalabalık olmasın)
+
     pop(x, y, v, big) {
       if (!(v > 0) || game.mode === 'attract') return;
       const P = this.pops, last = P[P.length - 1];
@@ -367,11 +367,11 @@
         c.lineWidth = Math.max(3, fs * 0.22); c.strokeStyle = 'rgba(5,6,12,.88)';
         c.strokeText(s, X, Y);
         c.fillStyle = p.big ? '#f1d69c' : '#ffe08a'; c.fillText(s, X, Y);
-        if (p.rec !== p.v && GPU_PATH) { p.rec = p.v; if (popSeen.pops.size < 300) popSeen.pops.set(p.v + (p.big ? 'b' : ''), [p.v, p.big]); } // (warmTexts)
+        if (p.rec !== p.v && GPU_PATH) { p.rec = p.v; if (popSeen.pops.size < 300) popSeen.pops.set(p.v + (p.big ? 'b' : ''), [p.v, p.big]); }
       }
       c.restore();
     },
-    // match preparation (game.warmTexts): the pictures of pop-up value v through its pop-in (W(1)) and at rest (W(2))
+
     warmPop(c, v, big, W) {
       const keep = this.pops, p = { x: 0, y: -200, v, age: 0, life: big ? 1.6 : 1.1, big, rec: v };
       this.pops = [p];
@@ -383,26 +383,26 @@
     },
   };
 
-  // Dövüşçü olaylarını puana bağla (fighter.js'e dokunmadan): tüm can kaybı takeHit'ten, savuşturma / denge kırma setState'ten geçer
+
   {
     const FP = ND.Fighter.prototype, take = FP.takeHit, setSt = FP.setState;
     FP.takeHit = function (raw, a, from) {
       const live = score.on && game.phase === 'fight' && (this === f1 || this === f2), hp0 = this.hp;
       const r = take.apply(this, arguments);
-      if (live) { try { score.damage(this, from, hp0 - this.hp, a || {}, arguments[3], arguments[4]); } catch (e) { /* puan hatası dövüşü bozmasın */ } }
+      if (live) { try { score.damage(this, from, hp0 - this.hp, a || {}, arguments[3], arguments[4]); } catch (e) {                                   } }
       return r;
     };
     FP.setState = function (s) {
       const r = setSt.apply(this, arguments);
       if (score.on && (s === 'parry' || s === 'gbreak')) {
-        try { if (s === 'parry' && this === f1) score.parry(); else if (s === 'gbreak' && this === f2) score.gbreak(); } catch (e) { /* yok */ }
+        try { if (s === 'parry' && this === f1) score.parry(); else if (s === 'gbreak' && this === f2) score.gbreak(); } catch (e) {           }
         if (game.mode === 'arcade' && ((s === 'parry' && this === f1) || (s === 'gbreak' && this === f2))) ND.arcade?.observeDefense(s === 'parry' ? 'parry' : 'break');
       }
       return r;
     };
   }
 
-  // fx çağrılarını tekrar için kaydet
+
   const FX_EV = ['spark', 'blood', 'dust', 'flash', 'ring', 'text'];
   FX_EV.forEach((name) => {
     const orig = fx[name].bind(fx);
@@ -410,24 +410,24 @@
     fx['_' + name] = orig;
   });
 
-  // newMatch: a fighter's own drawing closures and part-picture cache survive the renewal (they draw that fighter)
+
   const RENEW_KEEP = { _trailFn: 1, _litFn: 1, _bake: 1 };
-  // Presentation that the fight step itself triggers (banners, music changes, the sword-lock hint, the rally counter,
-  // the KO replay's screen changes): shown at once offline, never while the fight is only re-simulated (simOnly, see
-  // game.tick). In an online match (js/net.js sets ND.presGate) it waits until its step is confirmed by both players'
-  // inputs, so a rollback can never show something that did not happen or show it twice.
+
+
+
+
   const pres = (fn) => { if (ND.presGate) ND.presGate(fn); else if (!game.simOnly) fn(); };
   const music = (m) => pres(() => mu.setMode(m));
 
   const game = ND.game = {
     renderVersion: 'fighter-surfaces-v1',
-    glowTaps: GLOW_TAPS, blurTaps, // tuning hooks for the visual check page
-    // 'gl' (a working WebGL2 renderer, the default) | 'canvas'; the render-check page switches it per stage
+    glowTaps: GLOW_TAPS, blurTaps,
+
     rendererMode: glr ? 'gl' : 'canvas',
     glStatus: () => (glr ? Object.assign({ available: true, forced: GL_FORCE }, glr.status()) : { available: false, requested: GL_WANT, forced: GL_FORCE, why: glWhy }),
     glInfo: () => (glr ? glr.info() : null),
     glRenderer: () => glr,
-    // Frame rate choice (Settings → Graphics): '60' | '90' | '120' | 'max', null = the device default (js/gfx.js)
+
     fpsPref: GFX.FPS && GFX.FPS.includes(saved.fps) ? saved.fps : null,
     mode: 'attract', level: [0, 1, 2].includes(saved.level) ? saved.level : 1, phase: 'menu', pt: 0, projs: [], hitstopT: 0, slow: 1, slowT: 0,
     round: 1, wins: [0, 0], timer: ROUND_TIME, focus: null, paused: false, bars: 0, ais: [], bannerT: 0, dim: 0,
@@ -437,64 +437,64 @@
 
     hitstop(t) { this.hitstopT = Math.max(this.hitstopT, t); },
 
-    // ---------------------------------------------------- mod başlatma
+
     start(mode, opts = {}) {
       this.cancelPreparation();
-      // A locked ninja tried through the rewarded ad is lent for that one CPU fight (and its restarts) only: any other
-      // match, mode or the menu ends the loan (otherwise it stayed usable in Arcade / tournament / Dan until reload).
+
+
       if (ND._trial && !(mode === 'cpu' && ND.CHARS[opts.c1]?.id === ND._trial)) this.endTrial();
-      // a new match (or leaving to the menu) ends any coach still running from the previous fight
+
       if (ND.coach && ND.coach.on) ND.coach.stop();
-      if (ND.tutor && ND.tutor.on) ND.tutor.stop(); // and the rally tutorial (js/tutorial.js)
-      if (ND.coach && ND.coach.tips) ND.coach.tips.fightStarted(mode === 'attract' || mode === 'watch' || mode === 'online' || mode === 'shadow' || opts.drill ? 'off' : mode); // just-in-time tips (journey only)
+      if (ND.tutor && ND.tutor.on) ND.tutor.stop();
+      if (ND.coach && ND.coach.tips) ND.coach.tips.fightStarted(mode === 'attract' || mode === 'watch' || mode === 'online' || mode === 'shadow' || opts.drill ? 'off' : mode);
       this.mode = mode;
-      // Online match (js/net.js): which fighter this device plays (0 = 1P host, 1 = 2P guest). Not fight state: the two
-      // devices differ here and nothing the fight computes reads it (only prompts, touch HUD, haptics, name tags).
+
+
       this.localSide = mode === 'online' ? (opts.side ? 1 : 0) : 0;
-      // Campaigns pass their current opponent's level; the saved CPU menu choice can be different.
-      // Training uses Apprentice timing. Local 2P and spectator modes retain the shared base rules.
+
+
       this.matchLevel = mode === 'cpu' ? this.level : RUN_MODES[mode] ? (opts.level ?? 1) : mode === 'train' ? 0 : null;
-      // başka moda geçilince etkin koşu biter (arcade/turnuva/Dan)
+
       if (this.runner && this.runner.mode !== mode) { this.runner.run = null; this.runner = null; }
       if (mode !== 'arcade' && ND.arcade && ND.arcade.run && this.runner !== ND.arcade) ND.arcade.run = null;
-      // kural değiştiriciler yalnız bu maç için (yoksa kapanır); raund sayısı ve rakip canı da buradan
+
       if (ND.mods) ND.mods.set(opts.mods || null);
       this.winsNeed = ND.mods ? ND.mods.winsNeed() : 2;
       if (mode === 'online' && opts.ctrls) {
-        // both fighters are driven by input frames (the local player's own too, delayed like the remote one's)
+
         [f1.ctrl, f2.ctrl] = opts.ctrls;
         opts.ctrls.forEach((c) => c.clear());
       } else {
         f1.ctrl = mode === 'watch' || mode === 'attract' ? aiC1 : input.p1;
         f2.ctrl = mode === '2p' ? input.p2 : aiC2;
       }
-      // online: the local player uses both key sets, touch and every pad (their frames go to the net loop)
+
       input.solo = !!SOLO[mode] || mode === 'online';
       input.p1.owner = input.p2.owner = mode === 'online' ? F[this.localSide] : null;
       [aiC1, aiC2, input.p1, input.p2].forEach((c) => c.clear());
-      input.p1.noTap = input.p2.noTap = false; // a player's double-tap dash is always on (only the tutorial turns it off: js/tutorial.js)
+      input.p1.noTap = input.p2.noTap = false;
       this.ais = [];
       let c1 = opts.c1, c2 = opts.c2, arena = opts.arena;
-      if ((mode === 'watch' || mode === 'attract') && c1 == null) { // (tests and tools may name the pair and the arena)
+      if ((mode === 'watch' || mode === 'attract') && c1 == null) {
         [c1, c2] = pickPair();
         arena = randArena(false);
-        // GPU path: the menu demo stands in the arena the select screen will show (the player's last choice), so
-        // opening the select screen does not make and upload a new arena's pictures (~9 MB) at that moment
+
+
         if (GPU_PATH && mode === 'attract' && this.sel && this.sel.arena && this.sel.arena !== 'random' && ND.ARENAS && ND.ARENAS.some((a) => a.id === this.sel.arena)) arena = this.sel.arena;
       }
       this.applyChars(c1 ?? 0, c2 ?? 1, mode === 'online' ? opts.looks : null);
-      if (opts.oppHp > 0 && RUN_MODES[mode]) f2.maxHp = Math.round(f2.ch.hp * opts.oppHp); // Dan sınavı: güçlendirilmiş rakip
+      if (opts.oppHp > 0 && RUN_MODES[mode]) f2.maxHp = Math.round(f2.ch.hp * opts.oppHp);
       if (mode === 'watch' || mode === 'attract') {
         const lv = mode === 'attract' ? 1 : 2;
         this.ais.push(new ND.AI(f1, lv), new ND.AI(f2, lv));
       } else if (mode === 'cpu') this.ais.push(new ND.AI(f2, this.level));
-      else if (RUN_MODES[mode]) this.ais.push(new ND.AI(f2, opts.ai ?? opts.level ?? 1)); // opts.ai: a journey fight's own CPU profile (Apprentice+)
+      else if (RUN_MODES[mode]) this.ais.push(new ND.AI(f2, opts.ai ?? opts.level ?? 1));
       else if (mode === 'train') this.ais.push(ND.training.makeDummy(f2));
-      else if (mode === 'shadow') this.ais.push(new ND.AI(f2, opts.ai && typeof opts.ai === 'object' ? opts.ai : 1)); // opts.ai: the shadow's profile (js/ghost.js level)
+      else if (mode === 'shadow') this.ais.push(new ND.AI(f2, opts.ai && typeof opts.ai === 'object' ? opts.ai : 1));
       if (arena === 'random' || !arena) arena = randArena(!RUN_MODES[mode]);
       scene.setTheme(arena);
       this.wins = [0, 0]; this.round = 1;
-      this.recShift = 0; this.recN = 0; this.recRing = []; // KO replay pictures (see update)
+      this.recShift = 0; this.recN = 0; this.recRing = [];
       this.stats = [{ dmg: 0, parries: 0, specials: 0, counters: 0, rallies: 0, perfect: 0 }, { dmg: 0, parries: 0, specials: 0, counters: 0, rallies: 0, perfect: 0 }];
       F.forEach((f) => { f.parries = 0; f.ki = 0; });
       if (mode === 'cpu') score.begin(this.level); else if (RUN_MODES[mode]) score.begin(opts.level ?? 1); else score.off();
@@ -509,25 +509,25 @@
       mu.setMode(attract ? 'menu' : 'fight');
       this.startRound();
       if (mode === 'train') ND.training.onStart();
-      // rally tutorial: Training → Parry drill (opts.drill), or ?tutorial=1 on this page load's first single-player fight
+
       if (!attract && ND.tutor) ND.tutor.autoStart(this, mode, opts);
-      if (!attract && mode !== 'watch' && mode !== 'online' && mode !== 'shadow') ND.funnel?.fightStarted(); // new-player funnel (js/funnel.js)
+      if (!attract && mode !== 'watch' && mode !== 'online' && mode !== 'shadow') ND.funnel?.fightStarted();
       if (attract && ND.arcade) ND.arcade.refreshMenu();
       if (!attract) this.prepareMatch();
     },
 
-    // A fight both players' devices can start on their own and keep identical (online play, determinism tests): the
-    // fight's random stream seeded, the simulation clocks at zero, fighter objects built afresh (nothing left over from
-    // earlier fights on this device: press-direction memory, weapon twirl, serial numbers...), then an ordinary
-    // start(mode, opts). opts.seed: the shared seed (both devices use the same one).
+
+
+
+
     newMatch(mode, opts = {}) {
       ND.rng.seed(opts.seed | 0);
       ND.simClock = 0; this.clock = 0; this.recOdd = false; scene.t = 0;
-      this.slowV = 0.35; this.cineX = 0; this.loser = null; // (read only after being set; reset so both devices hash alike)
+      this.slowV = 0.35; this.cineX = 0; this.loser = null;
       for (const f of F) {
         const fresh = new ND.Fighter(f.id, f.ctrl);
-        // (fields the fresh one lacks become undefined rather than deleted: deleting would put the object in V8's slow
-        // dictionary mode; the fight reads undefined and absent alike, and the state fingerprint skips both)
+
+
         for (const k of Object.keys(f)) if (!RENEW_KEEP[k]) f[k] = undefined;
         for (const k of Object.keys(fresh)) if (!RENEW_KEEP[k]) f[k] = fresh[k];
       }
@@ -537,23 +537,23 @@
     cancelPreparation() {
       if (this.preparing) { this.preparing.cancel(); this.preparing = null; }
     },
-    // Pop-up texts of the fight (GPU path): PARRY!, CLASH!, COUNTER HIT!, the counter's name banner and damage number,
-    // the combo counter, STRIKE!, the score pop-ups... Each size such a text animates through is a picture in the
-    // renderer's text atlas; one drawn for the first time costs 1-4 ms of processor time on a phone (Canvas 2D text
-    // outline, copy, three uploads: gl2d.js), and several came together exactly on the frames of a block, parry,
-    // clash or counter (the owner's stutter). Here, behind the loading screen, each one this fight can show is drawn
-    // once through the real drawing code with made-up pop-ups (the renderer only makes the pictures: gl2d.js
-    // R.textWarm): a fixed list, the two fighters' own texts, and what earlier fights of this session showed (popSeen).
-    // The look is unchanged: they are the same pictures the fight would have made on those frames.
+
+
+
+
+
+
+
+
     warmTexts() {
       const R = glr.R, L = [];
       const W = (lv) => { R.textWarm = lv; };
       R.textWarmFull = false;
-      const c = glr.begin(cv.width, cv.height); // (a frame that is never shown: the next frame starts over)
+      const c = glr.begin(cv.width, cv.height);
       const items = new Map();
       const add = (str, color) => { if (str) items.set(str + '|' + color, [str, color]); };
-      // what a block, parry, clash, lock, guard break or hit can say (fighter.js / game.js, their colours; fx.text
-      // translates the same way)
+
+
       for (const k of ['SAVUŞTURMA!', 'ÇARPIŞMA!', 'KİLİTLENDİ!', 'İTTİ!', 'YANSITMA!']) add(tx(k), '#ffe3a1');
       add(tx('DENGE KIRILDI!'), '#ff9b7a');
       for (const k of ['KARŞI!', 'KRİTİK!', 'KARŞILIK!', 'SÜPÜRME!', 'ARKADAN!']) add(tx(k), '#ffd27a');
@@ -565,14 +565,14 @@
       for (const it of items.values()) L.push(() => fx.warmTexts(c, it[0], it[1], W));
       for (const [v, big] of popSeen.pops.values()) L.push(() => score.warmPop(c, v, big, W));
       if (ND.cine && ND.cine.warmTexts) L.push(...ND.cine.warmTexts(c, W));
-      // the parry hint before a counter comes (drawPrompts, hints on; on a phone its size follows the screen)
+
       if (ND.settings.hints && tOn()) {
         const TB = (STR.touch && STR.touch.btn) || {};
         L.push(() => { try { W(2); this.promptText(c, 0, 0, Math.max(cam.s * 0.9, (this.pxr || 1) * 1.05), tx(TB.guard || 'GARD'), tx('SAVUŞTUR'), '150,210,255'); } finally { W(0); } });
       }
       let i = 0;
       return {
-        // about `ms` of drawing per loading frame; true when every pop-up is done
+
         step(ms) {
           const t0 = performance.now();
           if (!glr || !glr.ready) return true;
@@ -582,18 +582,18 @@
       };
     },
     prepareMatch() {
-      startGl(); // the fight renderer is ready before the first fight frame (normally it already is: see startGl)
+      startGl();
       if (!ND.prepare) return;
       $('hud').hidden = true; $('pauseBtn').hidden = true;
-      // Keep all match state and the round timer still while expensive first-use drawing is prepared.
-      // Each fighter fills at most three missing cache entries per preparation frame; no partial drawing is visible.
-      // The first background drawing makes the arena's wide layer caches (scene.js layerCache); the next job draws the
-      // pictures of the zoom bands this camera has not needed yet (~12 ms per loading frame), so no zoom, pan or jump
-      // of the fight draws or uploads a background layer.
+
+
+
+
+
       const jobs = [() => { this.behind = false; resize(); scene.drawBack(ctx); }, () => scene.warmLayers(12)];
-      // WebGL2 on Low: each fighter's part pictures go into the renderer's sprite atlas now (bake.js ND.warmBaked:
-      // every pose of its moves, turned and mirrored), about 12 ms of work per loading frame, so the fight itself
-      // makes almost no new pictures (each one used to be a new texture, and a stall on phones)
+
+
+
       const warmGl = glr && this.rendererMode === 'gl' && glr.ready && (GFX.tier === 'low' || GPU_PATH) && ND.warmBaked;
       for (const f of F) {
         if (warmGl) { let w = null; jobs.push(() => (w || (w = ND.warmBaked(glr.R, f))).step(12)); continue; }
@@ -602,12 +602,12 @@
           return ND.prepareBaked ? ND.prepareBaked(draw) : (draw(), true);
         });
       }
-      // GPU path: the fight's pop-up texts at every size they animate through (warmTexts; ?textwarm=0 to compare)
+
       if (warmGl && GPU_PATH && QS.get('textwarm') !== '0') { let w = null; jobs.push(() => { glTextFlags(); return (w || (w = this.warmTexts())).step(12); }); }
-      // Reveal one complete scene, never the intermediate partial part layers used by the warm-up jobs.
+
       jobs.push(() => this.render());
-      // WebGL2: wait (behind the loading screen, at most ~2.5 s) until the GPU has digested the uploads and that first
-      // full frame (every pass and shader used once), so the fight does not start with frames queued behind them
+
+
       if (glr) { let n = 0; jobs.push(() => !glr.ready || this.rendererMode !== 'gl' || ++n > 150 || glr.settle()); }
       this.preparing = ND.prepare.start(jobs, () => {
         this.preparing = null; this.acc = 0;
@@ -620,7 +620,7 @@
       this.syncTouch();
     },
 
-    // HUD name tags, rank and arena name in the current language (start of a match, and again after a language switch)
+
     hudTexts() {
       const mode = this.mode, H = STR.hud || {}, cpu = tx(H.cpu || 'CPU');
       let t1 = '1P', t2 = '2P';
@@ -633,10 +633,10 @@
       $('tag1').textContent = t1; $('tag2').textContent = t2;
       $('rlabel').textContent = tx('RAUND ' + this.round);
       for (const f of F) $('nm' + (f.id + 1)).textContent = f.ch.name;
-      // Dan rütbesi 1P adının yanında (tek oyunculu modlar)
+
       const rk = $('rank1');
       if (rk) { const tag = SOLO[mode] && ND.banzuke ? ND.banzuke.rankTag() : ''; rk.textContent = tag; rk.hidden = !tag; }
-      // Monthly Tournament title (Monthly Champion / Finalist) under 1P's name; the CPU never has one
+
       const tt = $('title1');
       if (tt) {
         const t = SOLO[mode] && ND.leaderboard ? ND.leaderboard.myTitle() : null;
@@ -648,7 +648,7 @@
       $('arenaName').textContent = (ND.ARENAS.find((a) => a.id === scene.themeId) || ND.ARENAS[0]).name;
     },
 
-    // Tüm tam ekran katmanları kapat (menü/HUD hariç)
+
     hideOverlays() {
       ['end', 'pause', 'select', 'vs', 'ending', 'replayTag', 'lockHint', 'rally', 'lb', 'bzLobby', 'bzRes', 'hall', 'honorOv', 'movesOv', 'reveal', 'journeyVs', 'journeyGoal'].forEach((id) => { const el = $(id); if (el) el.hidden = true; });
       if (ND.lbUI) ND.lbUI.open = false;
@@ -658,11 +658,11 @@
       $('banner').classList.remove('show');
     },
 
-    // Önizleme sahnesi (VS ekranı, final): arka planda arena, önizleme tuvallerinde dövüşçüler
+
     ensurePv() {
       if (!this.pv) {
         this.pv = [new ND.Fighter(0, new ND.Ctrl()), new ND.Fighter(1, new ND.Ctrl())];
-        this.pv.forEach((pv) => (pv.fullDetail = true)); // select previews keep the detailed model on Low too
+        this.pv.forEach((pv) => (pv.fullDetail = true));
         this.pv[0].opp = this.pv[1]; this.pv[1].opp = this.pv[0];
       }
       return this.pv;
@@ -677,16 +677,16 @@
       this.syncTouch();
       this.ensurePv(); this.pvIds = ids;
       const set = (pv, ci, alt, dir) => { pv.setChar(ND.CHARS[ci], alt); pv.reset(0); pv.dir = dir; pv.pvPose = null; };
-      const legacy = ND.save?.look ? ND.save.look(ND.CHARS[c1].id) : false; // false | true (Legacy) | 'champ'
+      const legacy = ND.save?.look ? ND.save.look(ND.CHARS[c1].id) : false;
       set(this.pv[0], c1, legacy, 1);
       if (c2 != null) set(this.pv[1], c2, c1 === c2 && !legacy, -1);
-      if (ND.flair) ND.flair.stage(phase); // the worn VS name cards (js/flair.js)
+      if (ND.flair) ND.flair.stage(phase);
     },
 
-    // Online room (js/online.js): the select screen's preview fighters, drawn into the room's own canvases (ids), in
-    // front of the chosen arena (the backdrop, as on the select screen). c1 / c2: 1P / 2P roster index, or null while
-    // not chosen. The match's look: no saved look, 2P in the other colours when both pick the same ninja. The previews
-    // draw the full model (fullDetail), so they make no part pictures (bake.js) the fight would use.
+
+
+
+
     roomStage(ids, c1, c2, arena) {
       if (this.phase !== 'select' || this.selMode !== 'online') {
         this.showStage('select', ids, c1 != null ? c1 : c2 != null ? c2 : 0, null);
@@ -703,10 +703,10 @@
       };
       set(this.pv[0], c1, false, 1); set(this.pv[1], c2, c1 != null && c1 === c2, -1);
     },
-    // looks (online only): [1P, 2P] catalog costume ids the server confirmed (js/ranked.js), null = the plain colours
+
     applyChars(i1, i2, looks) {
       const c1 = ND.CHARS[i1], c2 = ND.CHARS[i2];
-      // (online: the same look on both devices, whatever each player's own save holds)
+
       const legacy = !['attract', 'watch', '2p', 'online'].includes(this.mode) && ND.save?.look ? ND.save.look(c1.id) : false;
       if (this.mode === 'online' && Array.isArray(looks) && (looks[0] || looks[1])) {
         const l1 = looks[0] ? 'rw:' + looks[0] : false;
@@ -722,16 +722,16 @@
     startRound() {
       f1.reset(-260); f2.reset(260);
       this.projs = []; fx.clear(); ND.specialFx?.clear(); ND.cine?.clear(); this.lock = null; pres(() => { $('lockHint').hidden = true; });
-      if (ND.props && ND.props.live) ND.props.reset(scene.themeId); // interactive props back in place (js/props.js)
+      if (ND.props && ND.props.live) ND.props.reset(scene.themeId);
       this.timer = ROUND_TIME; this.phase = 'intro'; this.pt = 0; this.slow = 1; this.slowT = 0; this.hitstopT = 0; this.dim = 0;
       this.focus = { x: 0, y: -130, z: 0.82 }; this.flags = {}; this.doubleKO = false; this.winner = null;
-      // replay pictures are numbered on (recShift) instead of emptied: a rollback over this line must not lose them
+
       this.recShift = (this.recShift || 0) + (this.recN || 0); this.recN = 0; this.koIndex = -1; this.fxEvents = [];
       this.rally = { n: 0, last: null, t: 0, turns: [0, 0], serial: null }; this.cineT = 0; this.cineZ = 0; this.rallyHud();
-      if (ND.mods) ND.mods.roundStart(F); // değiştiriciler: dolu ki, üç kat shuriken, yarım can…
+      if (ND.mods) ND.mods.roundStart(F);
       score.roundStart();
       $('rlabel').textContent = tx('RAUND ' + this.round);
-      if (this.mode === 'attract' && this.round > 1 && !GPU_PATH) scene.setTheme(randArena(false)); // (GPU path: the demo keeps its arena)
+      if (this.mode === 'attract' && this.round > 1 && !GPU_PATH) scene.setTheme(randArena(false));
       if (this.mode === 'train') { this.focus = null; $('rlabel').textContent = upper(tx(STR.train && STR.train.title || 'Antrenman')); }
     },
 
@@ -746,7 +746,7 @@
       this.bannerT = dur;
     },
 
-    // ---------------------------------------------------- olay kancaları
+
     onKO(loser, winner) {
       if (this.phase === 'ko') { this.doubleKO = true; return; }
       if (this.phase !== 'fight') return;
@@ -763,10 +763,10 @@
       fx.text(f.x, -215, ND.SPECIALS?.[f.ch.id]?.kanji || '影斬り', f.col.ui);
       if (this.stats) this.stats[f.id].specials++;
       if (f === f1) score.special();
-      if (ND.flair) ND.flair.onSpecial(f); // a worn ki aura (js/flair.js): pictures only
+      if (ND.flair) ND.flair.onSpecial(f);
     },
 
-    // ---------------------------------------------------- karşılık serisi (kaeshi-waza)
+
     onCounter(f, name, source) {
       const R = this.rally;
       const stage = f.counterStage = ND.RALLY.advance(R, f, source);
@@ -803,13 +803,13 @@
       const R = this.rally, who = SOLO[this.mode] ? f1 : this.mode === 'online' ? this.local() : R.last;
       const n = (who && R.turns && R.turns[who.id]) || 0, el = $('rally');
       if (!el) return;
-      el.hidden = n < 1 || this.mode === 'attract' || !!(ND.tutor && ND.tutor.on); // not during the rally tutorial (its tip box sits there)
+      el.hidden = n < 1 || this.mode === 'attract' || !!(ND.tutor && ND.tutor.on);
       if (n >= 1) { $('rallyN').textContent = n + '×'; el.style.color = who.col.ui; el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); el.classList.toggle('hot', n >= 3); }
     },
     isHuman(f) { return this.mode === '2p' || this.mode === 'online' || (SOLO[this.mode] && f === f1); },
-    // The fighter this device's player drives (online: host 1P, guest 2P; elsewhere 1P)
+
     local() { return this.mode === 'online' && this.localSide ? f2 : f1; },
-    // Filmdeki gibi tuş istemi: daralan halka doğru anı gösterir
+
     drawPrompts() {
       const tut = this.mode === 'train' && ND.training && ND.training.tut && !ND.training.finished;
       if ((!ND.settings.hints && !tut) || this.phase !== 'fight' || (ND.tutor && ND.tutor.on)) return;
@@ -818,18 +818,18 @@
       const online = this.mode === 'online';
       for (const f of F) {
         if (!this.isHuman(f) || f.dead) continue;
-        if (online && f !== this.local()) continue; // online: only this device's player gets prompts (its own keys)
-        // dokunmatikte harf yerine düğme adı (HAFİF / GARD), halka da parmakla okunacak kadar büyük
+        if (online && f !== this.local()) continue;
+
         const mine = f === f1 || online;
         const tch = mine && tOn();
         const o = f.opp, L = tch ? [tx(TB.light || 'HAFİF'), tx(TB.guard || 'GARD')] : mine ? [keyLabel('KeyF'), keyLabel('KeyS')] : [keyLabel('KeyK'), '↓'];
         let frac = -1, key, label, col;
-        const cw = f.counterLeft(); // (what a press can still use: fighter.js)
+        const cw = f.counterLeft();
         if (cw > 0 && ['block', 'parry', 'guard', 'move', 'recoil'].includes(f.state)) {
-          if (ND.cine) continue; // the STRIKE! prompt with its shrinking bar (ND.cine.draw) shows the counter window
+          if (ND.cine) continue;
           frac = cw / f.counterWin; key = L[0]; label = tx('KARŞILIK'); col = '255,210,122';
         }
-        // savuşturma istemi: normalde yalnız karşılık hareketlerinde; antrenmanda her kılıç darbesinde
+
         else if (o.state === 'atk' && (o.atk.counter || (this.mode === 'train' && o.atk.kind === 'blade')) && !o.hitDone) {
           const w = o.curWin(false);
           if (w && o.st < w[0]) {
@@ -858,7 +858,7 @@
       c.textBaseline = 'alphabetic';
     },
 
-    // ---------------------------------------------------- kılıç kilitlenmesi (tsubazeriai)
+
     startLock(a, b, x, y) {
       const mid = clamp((a.x + b.x) / 2, -ND.ARENA + 60, ND.ARENA - 60);
       a.setState('lock', { lockWin: false }); b.setState('lock', { lockWin: false });
@@ -911,16 +911,16 @@
       au.clang(1.3, cam.pan(c), 0.85); cam.punch(8); this.hitstop(0.1);
     },
 
-    // ---------------------------------------------------- raund akışı
+
     phaseUpdate(rdt, gdt) {
       const pt = this.pt, fl = this.flags;
       if (this.bannerT > 0 && !this.simOnly) { this.bannerT -= rdt; if (this.bannerT <= 0) $('banner').classList.remove('show'); }
       if (this.phase === 'intro' && this.mode === 'train') {
-        // antrenman: tanıtım yok, hemen başla
+
         if (pt > 0.3) { this.phase = 'fight'; F.forEach((f) => (f.locked = false)); }
       } else if (this.phase === 'intro' && ND.tutor && ND.tutor.on && ND.tutor.G === this && ND.tutor.quick) {
-        // the new player's first fight (rally tutorial with its warm-up, js/tutorial.js): no round card, a short
-        // "Fight!" and the player's ATTACK is live at once
+
+
         if (!fl.f) { fl.f = true; this.focus = null; this.banner('Dövüş!', '始め', '', 0.7); au.gong(); au.taiko(1.1); music('fight'); }
         if (pt > 0.45) { this.phase = 'fight'; F.forEach((f) => (f.locked = false)); }
       } else if (this.phase === 'intro') {
@@ -937,7 +937,7 @@
         if (pt > (this.mode === 'attract' ? 0.8 : 1.75)) { this.phase = 'fight'; F.forEach((f) => (f.locked = false)); }
       } else if (this.phase === 'fight') {
         if (this.mode === 'train') return;
-        if (!(ND.tutor && ND.tutor.on)) this.timer -= gdt; // the rally tutorial does not use up the round
+        if (!(ND.tutor && ND.tutor.on)) this.timer -= gdt;
         if (this.mode !== 'attract' && Math.min(f1.hp / f1.maxHp, f2.hp / f2.maxHp) < 0.3) music('final');
         if (this.timer <= 0) {
           if (this.lock) this.endLock(null);
@@ -988,15 +988,15 @@
 
     matchEnd(w) {
       if (this.mode === 'shadow') {
-        // a ranked shadow fight: no score, honour, runner, funnel or save changes; js/ranked.js reports it and shows the result
+
         this.phase = 'end'; this.replay = null; this.bars = 0;
         this.stats[0].parries = f1.parries || 0; this.stats[1].parries = f2.parries || 0;
         if (ND.ranked && ND.ranked.shadowEnded) ND.ranked.shadowEnded(w ? w.id : -1);
         return;
       }
       if (this.mode === 'online') {
-        // Online: the fight state ends here on both devices; the result screen is the online one (js/online.js), shown
-        // once this step is confirmed. No score, honour, runner, funnel or save changes.
+
+
         this.phase = 'end'; this.replay = null; this.bars = 0;
         this.stats[0].parries = f1.parries || 0; this.stats[1].parries = f2.parries || 0;
         const wid = w ? w.id : -1;
@@ -1015,8 +1015,9 @@
       $('bRematch').textContent = tx(E.rematch || 'Rövanş'); $('bChange').textContent = tx(E.change || 'Karakter değiştir'); $('bEndMenu').textContent = tx(E.menu || 'Ana menü');
       $('bChange').hidden = false;
       const bc = $('bContinue'); if (bc) bc.hidden = true;
-      // a locked ninja tried for one fight (rewarded ad) goes back to the lock afterwards; a Shadow Pass trial ticket lends
-      // it for a few fights (ND._trialN: fights left, counting this one)
+      const et = $('endTip'); if (et) et.hidden = true;
+
+
       if (ND._trial && ND._trialN > 1) { ND._trialN--; const PT = STR.pass || {}; if (ND.toast && PT.ticketLeft) ND.toast(PT.ticketLeft(ND._trialN), '札'); }
       else this.endTrial();
       if (ND.coach) ND.coach.stop();
@@ -1031,9 +1032,9 @@
       const res = score.matchEnd(w);
       this.showScore(null);
       if (ND.save && ND.save.p && !ND.save.p.fought && this.mode !== 'watch') { ND.save.p.fought = true; ND.save.commit(); }
-      // touch screens, once: the buttons can be moved and resized (Settings → Controls), js/coach.js
+
       if (ND.coach && ND.coach.tips && ND.coach.tips.afterFight) ND.coach.tips.afterFight(this.mode);
-      // Onur: maç dökümü (koşu denetleyicisi bonus satırı ekleyebilir, sonra gösterilir)
+
       let hon = null;
       const settle = () => {
         if (HONOR_MODES[this.mode] && ND.honor) {
@@ -1050,7 +1051,7 @@
       setTimeout(() => { if (this.phase === 'end') { $('end').hidden = false; $('bRematch').focus(); } }, 500);
     },
 
-    // Maç sonu puan dökümü (#endScore). res null → gizle. o: { lost, newBest, note }
+
     showScore(res, o = {}) {
       const box = $('endScore'), lb = $('endLb'), dlg = $('end').querySelector('.dialog');
       if (dlg) dlg.classList.toggle('scored', !!res);
@@ -1073,7 +1074,7 @@
       box.append(grid, tot);
       if (o.note) box.appendChild(el('p', 'sbd-note', o.note));
     },
-    // CPU maçı: kişisel rekor (zorluk başına, yalnız galibiyet) + Efsane'de sıralamaya otomatik gönderim
+
     cpuResult(res) {
       const T = STR.score || {};
       const rec = ND.save && res.won ? ND.save.recordCpu(this.level, res.total) : null;
@@ -1086,13 +1087,13 @@
       if (rec && rec.newBest && ND.toast && STR.toast) setTimeout(() => ND.toast(STR.toast.newBest(res.total), STR.toast.bestK), 600);
       if (this.level === 2 && res.won && ND.lbUI) {
         const back = () => { $('end').hidden = false; setTimeout(() => $('bRematch').focus(), 0); };
-        // maç özeti: sunucu makullük denetimi için
+
         const sum = { dur: res.time, fights: 1, won: 1, rounds: this.round, rw: this.wins[0], hits: ND.mods ? ND.mods.hits : 0, lvl: 2, mode: 'cpu' };
         ND.lbUI.panel($('endLb'), 'cpu_efsane', { score: res.total, char: res.char, time: res.time, date: Date.now(), sum }, { back, onOpen: () => { $('end').hidden = true; } });
       }
     },
 
-    // ---------------------------------------------------- tekrar (son darbe)
+
     snapshot() {
       return {
         cam: { x: cam.x, y: cam.y, z: cam.z },
@@ -1100,7 +1101,7 @@
           j: ND.cloneJ(f.viewJ()),
           ropes: f.ropeList().map((r) => ({ p: r.rope.p.map((q) => ({ x: q.x, y: q.y })), col: r.col, w: r.w })),
           trail: f.trail.map((t) => t.slice()), glint: f.glint(), flash: f.flash, x: f.dead ? f.rag.p.hip.x : f.x, y: f.y,
-          dead: f.dead, hidden: !!f.hidden && !f.dead, // 影分身 / 阿修羅 ışınlanması: görünmezken tekrarda da görünmesin
+          dead: f.dead, hidden: !!f.hidden && !f.dead,
           ls: f.looseSword ? { a: { x: f.looseSword.a.x, y: f.looseSword.a.y }, b: { x: f.looseSword.b.x, y: f.looseSword.b.y } } : null,
           ghosts: f.ghosts.map((g) => ({ j: g.j, life: g.life, max: g.max })),
         })),
@@ -1115,7 +1116,7 @@
       pres(() => {
         fx.clear();
         $('replayTag').hidden = false; $('banner').classList.remove('show');
-        $('hud').hidden = true; $('pauseBtn').hidden = true; $('rally').hidden = true; // sinematik: HUD tekrar etiketinin üstüne binmesin
+        $('hud').hidden = true; $('pauseBtn').hidden = true; $('rally').hidden = true;
       });
       music('menu');
     },
@@ -1144,8 +1145,8 @@
       this.replay = null;
       this.matchEnd(w);
     },
-    // KO replay pictures: a ring numbered by recShift + recN (see update), so a picture belongs to one numbered step of
-    // the round whatever order the steps were computed in (an online rollback recomputes some of them).
+
+
     REC_RING: 1024,
     recGet(k) {
       const a = (this.recShift || 0) + k, e = this.recRing && this.recRing[a & (this.REC_RING - 1)];
@@ -1167,7 +1168,7 @@
       if (s.ls) ND.drawSword(c, s.ls.a.x, s.ls.a.y, Math.atan2(s.ls.b.y - s.ls.a.y, s.ls.b.x - s.ls.a.x), f.col, 0, f.wpn);
     },
 
-    // ---------------------------------------------------- güncelleme
+
     separate() {
       if (f1.dead || f2.dead || f1.state === 'dodge' || f2.state === 'dodge' || f1.passing() || f2.passing() || this.lock) return;
       if (Math.abs(f1.y - f2.y) > 100) return;
@@ -1182,11 +1183,11 @@
     update(rdt) {
       this.pt += rdt;
       if (this.phase === 'select' || this.phase === 'vs' || this.phase === 'ending') { this.updateSelect(rdt); scene.update(rdt); cam.follow(rdt, { x: -200, y: 0 }, { x: 200, y: 0 }, null); return; }
-      const sim = this.simOnly; // re-simulation (rollback): the fight only, nothing that just feeds the picture or sound
+      const sim = this.simOnly;
       if (this.phase === 'replay') { if (sim) scene.advance(rdt * 0.4); else scene.update(rdt * 0.4); this.updateReplay(rdt); this.bars = 1; return; }
-      // Rally tutorial (js/tutorial.js): tz is its time scale for this step (set in advance). 0 = time stands still
-      // until the player presses the prompted button: nothing moves or counts down, only the camera leans in.
-      const T = ND.tutor && ND.tutor.on && ND.tutor.G === this ? ND.tutor : null, tz = T || ND.timeScale ? this.tz : 1; // (ND.timeScale: the duel's speed, js/duel.js; absent = 1)
+
+
+      const T = ND.tutor && ND.tutor.on && ND.tutor.G === this ? ND.tutor : null, tz = T || ND.timeScale ? this.tz : 1;
       if (tz === 0 && this.phase === 'fight') {
         const d = Math.abs(f1.x - f2.x);
         cam.follow(rdt, f1, f2, { x: (f1.x + f2.x) / 2, y: -112, z: Math.min(1.4, cam.W / (cam.s * (d + 380 + cam.padX))) });
@@ -1197,12 +1198,12 @@
       this.dim = Math.max(0, this.dim - rdt * 1.6);
       const gdt = rdt * this.slow * tz;
       this.phaseUpdate(rdt, gdt);
-      if (sim) scene.advance(gdt); else scene.update(gdt); // scene.t (breathing poses, cloth wind) is fight state
+      if (sim) scene.advance(gdt); else scene.update(gdt);
       let fdt = gdt;
-      if (this.hitstopT > 0) { this.hitstopT -= T ? rdt : rdt * tz; fdt = 0; } // (the duel's speed scales its hit stops too)
+      if (this.hitstopT > 0) { this.hitstopT -= T ? rdt : rdt * tz; fdt = 0; }
       this.recording = this.mode !== 'attract' && (this.phase === 'fight' || this.phase === 'ko');
       if (fdt > 0) {
-        if (!T) for (const ai of this.ais) ai.update(fdt); // the tutorial drives the CPU itself
+        if (!T) for (const ai of this.ais) ai.update(fdt);
         const n = Math.max(1, Math.ceil(fdt * 120)), h = fdt / n;
         for (let i = 0; i < n; i++) {
           this.clock += h;
@@ -1210,7 +1211,7 @@
           if (this.lock) this.updateLock(h);
           f1.solve(h); f2.solve(h); f1.afterCombat(); f2.afterCombat();
           for (const p of this.projs) p.update(h);
-          if (ND.props && ND.props.live) ND.props.step(h, F); // interactive props (js/props.js; off unless switched on)
+          if (ND.props && ND.props.live) ND.props.step(h, F);
           if (this.hitstopT > 0) break;
         }
         const R = this.rally;
@@ -1219,28 +1220,28 @@
         const stuck = this.projs.filter((p) => p.stuck);
         if (stuck.length > 14) this.projs.splice(this.projs.indexOf(stuck[0]), 1);
       }
-      // Update once per fixed simulation step, including momentum decay during hit-stop.
+
       for (const f of F) ND.updateCloth(f.dead ? f.rag.j : f.j, gdt);
-      if (ND.anim) for (const f of F) ND.anim.hold(f, gdt); // drawn body only: a quick move into a pose held by the hit-stop
-      // The replay reads 60 snapshots per second of game time (updateReplay), so with the 120 Hz step only every
-      // other step is recorded; fx events of the skipped step wait in fxEvents for the next snapshot. The counters
-      // (recN, koIndex) decide whether and how long the KO replay plays, so they are fight state and run in both
-      // modes; the snapshot pictures are taken (at the end, after the camera) only when the step is presented.
+      if (ND.anim) for (const f of F) ND.anim.hold(f, gdt);
+
+
+
+
       let snap = false;
       if (this.recording) {
         this.recOdd = !this.recOdd;
         if (this.recOdd || this.recN === 0) { snap = true; if (++this.recN > 900) { this.recN--; this.koIndex--; this.recShift++; } }
       }
       if (sim) {
-        // online rollback: the recomputed step gets its replay picture too (camera and effects kept from the picture
-        // the predicted step left, if any: the camera does not move during a re-simulation)
+
+
         if (snap && this.mode === 'online') {
           const s = this.snapshot(), old = this.recPut(s);
           if (old) { s.cam = old.cam; s.fx = old.fx; }
         }
         return;
       }
-      this.presPart = true; // from here on the step only feeds the picture and sound (js/net.js leaves it alone)
+      this.presPart = true;
       fx.update(fdt > 0 ? gdt : gdt * 0.25);
       ND.specialFx?.update(fdt > 0 ? gdt : gdt * 0.25);
       if (ND.cine) ND.cine.update(rdt);
@@ -1258,22 +1259,22 @@
       if (this.mode !== 'attract' && !this.inBatch) this.hud();
     },
 
-    // Fixed timestep: the simulation always advances in STEP (1/120 s) slices whatever the display rate
-    // (60/120/144/165 Hz or an uneven frame time), so jumps, dashes, attack timings, AI reactions and the round
-    // clock are identical everywhere. Rendering is not interpolated (at 144/165 Hz some frames show the same step).
-    // A little slack (SLACK of a step) absorbs rAF jitter so a 60 Hz screen gets exactly two steps every frame
-    // instead of alternating 1/3; the debt is kept in acc, so over time the speed is exact.
+
+
+
+
+
     STEP: 1 / 120,
-    // One fixed simulation step (the unit rollback netcode saves, restores and replays). present = false: simOnly —
-    // the step changes exactly the same fight state, but skips what only feeds the picture and sound (camera,
-    // particles, weather, HUD, banners, music, replay pictures, score pop-ups). Everything the fight reads is outside
-    // those, so both modes give bit-identical fights (scripts/determinism-check.mjs tests it).
+
+
+
+
     simOnly: false,
     tick(present = true) {
-      // rally tutorial: its time scale (0 frozen, slow motion, 1) for this step. The input buffers (press age,
-      // parry window) run on the same scaled clock, so slow motion widens the windows the player has to hit.
+
+
       const STEP = this.STEP;
-      // tick boundary for the controllers: a keyboard / pad GUARD tap hold that has run out lets go (js/input.js)
+
       for (const f of F) if (f.ctrl.step) f.ctrl.step();
       const tz = this.tz = ND.tutor && ND.tutor.on ? ND.tutor.pre(this, STEP) : ND.timeScale ? ND.timeScale(this) : 1;
       ND.simClock = (ND.simClock || 0) + STEP * tz;
@@ -1282,52 +1283,52 @@
       this.simOnly = true;
       try { this.update(STEP); } finally { this.simOnly = false; this.presPart = false; }
     },
-    // Safety net only: the frame-time clamp (0.05 s) plus the < 0.8-step remainder already keeps a frame at ≤ 7
-    // steps, so this never changes timing; it guards against a future change to that clamp.
+
+
     MAX_STEPS: 8,
     acc: 0,
     advance(rdt) {
       if (this.preparing) return 0;
-      // online match: the net loop (js/net.js) decides how many steps run, with which inputs, and rolls back
+
       if (this.mode === 'online' && ND.net && ND.net.active) return ND.net.frame(rdt);
       const STEP = this.STEP, SLACK = 0.2;
       this.acc = Math.min(this.acc + rdt, 0.1);
       let n = Math.floor(this.acc / STEP + SLACK);
       if (n <= 0) return 0;
       this.acc -= n * STEP;
-      // Catch-up cap: at most MAX_STEPS steps in one frame, the rest of the debt is dropped, so one slow frame can
-      // never make the next one slower (spiral of death). 60 Hz = 2 steps, 30 Hz = 4, 20 Hz = 6.
+
+
       if (n > this.MAX_STEPS) { n = this.MAX_STEPS; this.acc = Math.min(this.acc, STEP); }
       this.inBatch = true;
       try {
         while (n-- > 0) {
           this.tick();
-          if (this.paused) { this.acc = 0; break; } // paused from inside the step (tutorial, coach, runner)
+          if (this.paused) { this.acc = 0; break; }
         }
       } finally { this.inBatch = false; }
       if (this.mode !== 'attract' && this.phase !== 'select' && this.phase !== 'vs' && this.phase !== 'ending' && this.phase !== 'replay') this.hud();
       return 1;
     },
 
-    // ---------------------------------------------------- çizim
-    // Işık katmanı yalnız dövüşçünün kutusu kadar küçük bir tuvalde (tam ekran tuvalin anlık görüntüsü her karede
-    // kopyalanmasın); tuval yalnız büyür, her karede yeniden boyutlanmaz
-    // Every tier, Low included (there the fighter itself is placed from cached part pictures, bake.js; that is what
-    // makes the lighting affordable on a weak phone).
+
+
+
+
+
     drawLit(f, drawFn, fx0) {
       const b = fx0 || f.bounds();
       let sx0 = Math.floor(cam.sx(b[0])), sy0 = Math.floor(cam.sy(b[1])), sx1 = Math.ceil(cam.sx(b[2])), sy1 = Math.ceil(cam.sy(b[3]));
       sx0 = Math.max(0, sx0); sy0 = Math.max(0, sy0); sx1 = Math.min(cam.W, sx1); sy1 = Math.min(cam.H, sy1);
       const w = sx1 - sx0, h = sy1 - sy0;
       if (w <= 0 || h <= 0) return;
-      // WebGL frame: a fresh transparent layer of the first pass (js/gl2d.js), already clear
+
       const gl = ctx.isGL ? ctx.layer(w, h, f.id === 1 ? 'lit1' : 'lit0') : null;
-      if (ctx.isGL && !gl) return; // no room this frame: the frame is redrawn with Canvas 2D
+      if (ctx.isGL && !gl) return;
       const { canvas: lc, ctx: lctx } = gl ? { canvas: gl, ctx: gl.ctx } : lightLayers[f.id === 1 ? 1 : 0];
       if (!gl) growCanvas(lc, w, h);
       lctx.setTransform(1, 0, 0, 1, 0, 0);
       lctx.globalCompositeOperation = 'source-over'; lctx.globalAlpha = 1;
-      // Discard the entire previous surface, including unused capacity. No old pixels need preserving.
+
       if (!gl) lctx.clearRect(0, 0, lc.width, lc.height);
       const k = cam.k;
       lctx.setTransform(k, 0, 0, k, cam.W / 2 - cam.x * k + cam.shx - sx0, cam.gy - cam.y * k + cam.shy - sy0);
@@ -1339,21 +1340,23 @@
 
     render() {
       ND.beginBakeFrame?.();
+
+      fx.quiet = this.mode === 'attract' || !!this.paused || this.phase === 'end' || !!(ND.portal && ND.portal.inAd);
       const behindUi = this.phase === 'select' || this.phase === 'vs' || this.phase === 'ending';
-      // the default renderer broke for good (a GL error, or it kept refusing frames): free it, Canvas 2D from now on
+
       if (glr && !GL_FORCE && glr.error) {
         glWhy = glr.error; console.info('[ND.gl] WebGL2 renderer switched off; drawing with Canvas 2D', glWhy);
         glr.dispose(); glr = null; glShown = false; cv.style.opacity = ''; this.rendererMode = 'canvas';
       }
-      // (GPU path: the menus' demo fight and the select / VS / ending backdrops too, so the browser's own Canvas 2D
-      // drawing on the GPU — new shaders and pictures the first time a screen opens — never runs next to WebGL2; the
-      // first select screen used to wait ~1 s on a phone with the page's main thread idle)
+
+
+
       if (glr && this.rendererMode === 'gl' && (GPU_PATH || (!behindUi && !this.behind)) && glr.ready && this.renderGl(behindUi)) {
         if (behindUi) this.renderSelect();
         return;
       }
       showGl(false);
-      // scene layer (see sceneCv): with bloom on, the Canvas post-processing reads the finished scene from it
+
       const layer = GFX.f.bloom > 0;
       if (layer) {
         if (sceneCv.width !== cv.width || sceneCv.height !== cv.height) { sceneCv.width = cv.width; sceneCv.height = cv.height; }
@@ -1368,16 +1371,16 @@
       if (behindUi) this.renderSelect();
     },
 
-    // WebGL2 frame (see glr above). false: nothing was shown, the caller draws the frame with Canvas 2D.
+
     renderGl(behindUi) {
-      // the tier's processor savings in the renderer (js/gfx.js TIERS: curve tolerance, texts on whole pixels)
+
       glr.R.setTolerance(GFX.f.tol);
-      // ?renderer=gpu, High / Medium: part pictures sampled sharper (mip bias; they are made for the closest zoom)
+
       glr.R.spriteBias = GPU_PATH && GFX.tier !== 'low' ? SPRITE_BIAS : 0;
       glTextFlags();
-      // Low: 2× multisampling instead of 4× (?msaa=n overrides). The fighters there are ready-made anti-aliased
-      // pictures and the backdrop is one picture; the samples mostly cost memory traffic: every pass writes and resolves
-      // them on every frame, which on a phone is power and heat.
+
+
+
       const ms = QS.get('msaa') != null ? +QS.get('msaa') : GFX.f.msaa != null ? GFX.f.msaa : GFX.tier === 'low' ? 2 : 4;
       if (ms !== glSamples) { glr.setSamples(ms); glSamples = ms; }
       glr.setLayerSamples(GPU_PATH && GFX.tier !== 'low' ? LMSAA : null);
@@ -1392,8 +1395,8 @@
       } catch (e) { glr.fail(e); console.warn('[ND.gl] frame failed; drawing it with Canvas 2D', e); }
       finally { ctx = mainCtx; }
       if (!ok) return false;
-      // High: the grain offset is the same two random numbers, in the same place, as the Canvas post (Medium and Low
-      // draw none there either)
+
+
       const mode = GFX.f.bloom === 2 ? 2 : GFX.f.bloom ? 1 : 0;
       const gx = mode === 2 ? (Math.random() * 128) | 0 : 0, gy = mode === 2 ? (Math.random() * 128) | 0 : 0;
       if (!glr.end({ mode, bloom: scene.theme.bloom ?? 0.5, grainX: gx, grainY: gy, grain: mode === 2, smallBlur: BLUR_SMALL })) return false;
@@ -1409,7 +1412,7 @@
       if (!withFighters) { scene.drawFront(ctx); PM('front'); return; }
       if (this.dim > 0) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = `rgba(0,0,0,${this.dim * 0.55})`; ctx.fillRect(0, 0, cam.W, cam.H); }
       cam.world(ctx);
-      // floor reflections (Medium: only where they show, js/gfx.js reflectMin: not the 4–5% ones of snow, village, castle)
+
       if (GFX.f.reflect && scene.theme.reflect >= (GFX.f.reflectMin || 0)) {
         ctx.save(); ctx.globalAlpha = scene.theme.reflect; ctx.transform(1, 0, 0, -0.55, 0, 0);
         for (const f of F) f.draw(ctx, true);
@@ -1423,12 +1426,12 @@
       scene.drawWeather(ctx, false);
       cam.world(ctx);
       for (const p of this.projs) p.draw(ctx);
-      // çizim sırası (karede dizi ayırmadan)
+
       const swap = f1.dead ? false : f2.dead ? true : f1.state === 'atk' && f2.state !== 'atk';
       ORD[0] = swap ? f2 : f1; ORD[1] = swap ? f1 : f2;
       cam.world(ctx);
       for (const f of ORD) f.drawGhosts(ctx);
-      if (ND.flair) ND.flair.drawBehind(ctx); // worn ki auras glow behind the fighters (js/flair.js)
+      if (ND.flair) ND.flair.drawBehind(ctx);
       PM('weather+ghosts');
       for (const f of ORD) this.drawLit(f, f._litFn || (f._litFn = (c) => f.draw(c, false, true)));
       PM('fighters');
@@ -1441,19 +1444,19 @@
       scene.drawFront(ctx);
       PM('front');
       fx.drawTexts(ctx);
-      score.drawPops(ctx);
+      if (!fx.quiet) score.drawPops(ctx);
       this.drawPrompts();
-      if (ND.telegraph) ND.telegraph.draw(ctx, this); // the opponent's blow: glint on its weapon, Easy assist ring (js/telegraph.js)
-      if (ND.cine) ND.cine.draw(ctx); // counter prompt, kaeshi-waza banner, screen slash, damage number, combo counter
-      if (ND.tutor && ND.tutor.on) ND.tutor.draw(ctx); // rally tutorial: DEFEND! / ATTACK! with the key
+      if (ND.telegraph && !fx.quiet) ND.telegraph.draw(ctx, this);
+      if (ND.cine && !fx.quiet) ND.cine.draw(ctx);
+      if (ND.tutor && ND.tutor.on) ND.tutor.draw(ctx);
       this.overlays();
       PM('hud');
     },
 
-    // Fenerlerin yere düşürdüğü uzun gölgeler. Dövüşçü karede bir kez, yere basık (y × −0.13) siyah bir silüet olarak
-    // küçük bir tuvale yarım çözünürlükte çizilir (büyütülürken gelen yumuşaklık eski blur(1.5px) yerine geçer);
-    // her ışık için bu silüet yalnız eğilerek basılır — ctx.filter ve ışık başına yeniden vektör çizimi yok.
-    // Silüet parçaları ışığın opaklığıyla üst üste bindirilir: eski çizim başına süzgeçteki koyu örtüşmeler korunur.
+
+
+
+
     castShadows() {
       const lights = scene.lights();
       for (const f of F) {
@@ -1461,7 +1464,7 @@
         const x = f.dead ? f.rag.p.hip.x : f.x;
         let amax = 0, n = 0;
         for (const L of lights) {
-          if (L.shadow === false) continue; // gölge düşürmeyen ışık (ör. çarşının tavan feneri)
+          if (L.shadow === false) continue;
           const d = Math.abs(x - L.x);
           if (d > 700) continue;
           const a = 0.42 * (1 - d / 700) * L.f;
@@ -1469,7 +1472,7 @@
         }
         if (!n || amax <= 0.002) continue;
         const b = f.bounds(), sc = cam.k * SH_RES, P = 2;
-        const u0 = -0.13 * b[3], u1 = -0.13 * b[1]; // basık uzayda (u = −0.13·y) dikey aralık
+        const u0 = -0.13 * b[3], u1 = -0.13 * b[1];
         const w = Math.ceil((b[2] - b[0]) * sc) + P * 2, h = Math.ceil((u1 - u0) * sc) + P * 2;
         if (w < 3 || h < 3) continue;
         const gl = ctx.isGL ? ctx.layer(w, h, f.id === 1 ? 'shadow1' : 'shadow0') : null;
@@ -1490,7 +1493,7 @@
           const d = Math.abs(x - L.x);
           if (d > 700) continue;
           const k = clamp((x - L.x) / 260, -2.6, 2.6), a = SHA[i++];
-          // dünya (px, y) → (px − k·y, 2 − 0.13·y)  ≡  basık (px, u) → (px + k/0.13·u, 2 + u)
+
           cam.world(ctx);
           ctx.globalAlpha = a / amax;
           ctx.transform(1, 0, k / 0.13, 1, 0, 2);
@@ -1499,7 +1502,7 @@
         ctx.globalAlpha = 1;
       }
     },
-    // Işıma (bloom) + film greni. src: the scene layer (see sceneCv) or null when the scene was drawn on cv itself
+
     post(src) {
       this.renderVersion = 'fighter-surfaces-v1';
       const bloom = GFX.f.bloom;
@@ -1522,8 +1525,8 @@
       ctx.restore();
       PM('post');
     },
-    // High bloom blur of the bright buffer bc (bw×bh) without ctx.filter; returns the blurred 1/8 canvas (see bq1)
-    // (the picture sits at MARGIN, MARGIN, size w×h; the caller draws only that part)
+
+
     blurGlow(bw, bh) {
       const w = Math.max(1, Math.round(bw / 2)), h = Math.max(1, Math.round(bh / 2)), T = this.glowTaps, M = MARGIN;
       const W2 = w + 2 * M, H2 = h + 2 * M;
@@ -1541,9 +1544,9 @@
       return bq1;
     },
     glowRect: [0, 0, 1, 1],
-    // Medium tier bloom: the same bright-pass as High (a 1/4 copy, two multiplies keep only the bright parts), then
-    // softened by halving twice (1/8, 1/16) instead of a blur filter (ctx.filter is slow or missing on phones).
-    // No film grain: its 'overlay' blend is an extra full-screen pass that reads the screen back on many phone GPUs.
+
+
+
     postLite(src) {
       const w4 = Math.max(1, cam.W >> 2), h4 = Math.max(1, cam.H >> 2), w8 = Math.max(1, w4 >> 1), h8 = Math.max(1, h4 >> 1), w16 = Math.max(1, w8 >> 1), h16 = Math.max(1, h8 >> 1);
       if (blc.width !== w4 || blc.height !== h4) { blc.width = w4; blc.height = h4; }
@@ -1597,13 +1600,13 @@
       this.bars = 1; this.overlays();
     },
 
-    // The HUD bars are DOM: written every frame, but each element only when its value changed (element lookups made
-    // once, no strings built per frame), so a frame where nothing changed touches no style at all.
+
+
     hud() {
       for (let i = 0; i < 2; i++) {
         const f = F[i], E = hudEls(i + 1);
         sx(E.h, f.hp / f.maxHp); sx(E.g, f.ghost / f.maxHp);
-        // (a transform from the centre, not a width: the bar changes nearly every frame and a width is a new layout)
+
         sx(E.p, Math.min(100, f.posture) / 100);
         tog(E.pb, 'hot', f.posture > 70);
         tog(E.hpb, 'low', f.hp > 0 && f.hp / f.maxHp < 0.25);
@@ -1611,7 +1614,7 @@
         tog(E.kb, 'full', f.ki >= 100);
         const am = E.a, cap = Math.max(f.ch.ammo, f.ammo);
         if (am._n !== f.ammo || am._c !== cap) { am._n = f.ammo; am._c = cap; am.innerHTML = Array.from({ length: cap }, (_, k) => `<b class="${k < f.ammo ? 'on' : ''}"></b>`).join(''); }
-        const wb = E.w.children; // round-win pips (live list: no array copy per frame)
+        const wb = E.w.children;
         for (let k = 0; k < wb.length; k++) tog(wb[k], 'on', k < this.wins[i]);
       }
       const tt = this.mode === 'train' ? '∞' : Math.ceil(this.timer), te = HUD_T.timer || (HUD_T.timer = $('timer'));
@@ -1619,8 +1622,8 @@
       if (this._touchOn) this.touchHud();
     },
 
-    // ---------------------------------------------------- seçim ekranı
-    // Modlar: '2p', 'cpu', 'arcade' (tek slot), 'train' (slot 2 = kukla), 'tutorial' (tek slot)
+
+
     openSelect(mode) {
       this.cancelPreparation();
       this.selMode = mode; this.phase = 'select'; this.pt = 0;
@@ -1640,9 +1643,9 @@
       $('bFight').textContent = tx(SS.go ? SS.go[mode] || SS.go.def : 'Dövüşe başla');
       this.trialOffer(null);
       this.closeMoves();
-      // hazır bir meydan okuma varsa seçim ekranında da kabul düğmesi (meydan okuma / eğitim / 2P hariç)
+
       this.challengeOffer(this.readyRival());
-      // kilitli seçimleri düzelt
+
       const open = visibleChars().filter(charOk);
       for (let i = 0; i < 2; i++) if (!charOk(this.sel.c[i])) S.c[i] = open[Math.min(i, open.length - 1)];
       if (S.arena !== 'random' && (!arenaOk(S.arena) || !ND.ARENAS.some((a) => a.id === S.arena))) S.arena = 'temple';
@@ -1651,14 +1654,14 @@
       if (scene.themeId !== S.arena && S.arena !== 'random') scene.setTheme(S.arena);
       this.buildRoster(); this.buildArenas();
       this.refreshSelect();
-      // the first journey select of a new save (it comes after the first fight: PLAY went straight into it): one short
-      // line and the roster glows, once (ND.save.p.selIntro)
+
+
       const P = ND.save && ND.save.p, intro = mode === 'arcade' && !!P && !P.selIntro, si = $('selIntro');
       $('select').classList.toggle('intro', intro);
       if (si) { si.hidden = !intro; si.textContent = intro ? tx((STR.onb && STR.onb.selIntro) || '') : ''; }
       if (intro) { P.selIntro = true; ND.save.commit(); }
       mu.setMode('menu');
-      // the screen opens at its top (roster and the chosen ninja first); focusing Start must not scroll it down
+
       $('select').scrollTop = 0;
       setTimeout(() => { $('select').scrollTop = 0; $('bFight').focus({ preventScroll: true }); }, 0);
     },
@@ -1667,19 +1670,19 @@
       for (let i = 0; i < 2; i++) {
         const ro = $('ro' + (i + 1));
         ro.innerHTML = '';
-        // 10'dan fazla ninja: iki dengeli satır (dar ekranda da parmak boyu kalsın)
+
         const nVis = visibleChars().length;
         ro.style.setProperty('--rc', String(nVis <= 10 ? nVis : Math.ceil(nVis / 2)));
         visibleChars().forEach((k) => {
           const ch = ND.CHARS[k], locked = !charOk(k), b = document.createElement('button');
           b.type = 'button'; b.dataset.k = k;
-          // kilitli kart: onur çubuğu ya da "meydan okumaya hazır" işareti
+
           const ri = locked && ND.save && ND.save.rivalInfo ? ND.save.rivalInfo(ch.id) : null;
           const mark = !ri ? '' : ri.ready ? '<i class="rdyb" aria-hidden="true">挑</i>' : `<i class="rbar" aria-hidden="true" style="--p:${(ND.honor ? ND.honor.pct(ch.id) * 100 : 0).toFixed(0)}%"></i>`;
           b.innerHTML = `<b style="color:${locked && !(ri && ri.ready) ? 'inherit' : ch.col.ui}">${ch.kanji}</b><span>${ch.name}</span>` + (locked ? '<i class="lk" aria-hidden="true"></i>' : '') + mark;
           if (locked) {
             const hint = ND.save ? ND.save.charHint(ch.id) : '';
-            b.className = 'locked' + (ri && ri.ready ? ' chal' : ''); // still a button: it previews the ninja (lockInfo)
+            b.className = 'locked' + (ri && ri.ready ? ' chal' : '');
             b.setAttribute('aria-label', ch.name + ' · ' + tx(SS.locked || 'Kilitli') + ' · ' + hint); b.title = hint;
             b.onclick = () => this.lockInfo(i, k);
           } else {
@@ -1713,14 +1716,14 @@
       }
       add('random', tx(SS.random || 'Rastgele'), false);
     },
-    // ends a rewarded one-fight loan of a locked ninja (see trialOffer): the lock is back, the previous pick restored
+
     endTrial() {
       if (!ND._trial) return;
       ND._trial = null; ND._trialN = 0;
       if (this.trialPrev != null) this.sel.c[0] = this.trialPrev;
       this.trialPrev = null;
     },
-    // Rewarded ad: try a locked ninja for one CPU fight. k = roster index, or null to hide the offer.
+
     trialOffer(k) {
       this.ticketOffer(k);
       const b = $('bTrial'); if (!b) return;
@@ -1735,7 +1738,7 @@
       b.onclick = () => {
         if (ND.ads.busy) return;
         ND.ads.rewarded().then((got) => {
-          // (no reward: a notice; and when this session gets no rewarded ads at all, the offer goes away)
+
           if (!got) { if (ND.toast) ND.toast(A.fail || '', '忍'); if (!ND.ads.rewardedAvailable()) b.hidden = true; return; }
           if (this.phase !== 'select') return;
           this.trialPrev = this.sel.c[0]; ND._trial = ch.id;
@@ -1744,8 +1747,8 @@
         });
       };
     },
-    // A Shadow Pass trial ticket (js/pass.js tickets / useTicket): a locked ninja for a few CPU fights, the same lending
-    // as the rewarded trial above. k = roster index, or null to hide the offer.
+
+
     ticketOffer(k) {
       const b = $('bTicket'); if (!b) return;
       const P = ND.pass, n = P && P.tickets ? P.tickets() : 0, ch = k != null ? ND.CHARS[k] : null;
@@ -1764,9 +1767,9 @@
         this.start('cpu', { c1: k, c2: this.sel.c[1], arena: this.sel.arena });
       };
     },
-    // Kilitli ninja kartı: o ninja önizlenir (figür, ad, unvan/silah, değerler, Hareketler listesi) ama "Kilitli" işaretli;
-    // açıklama alanında nasıl açılacağı + onur çubuğu. Başlat düğmesi kapalı; açma yolu varsa onun düğmesi çıkar
-    // (hazır meydan okuma, reklamla tek dövüşlük deneme). Açık bir ninja seçilince önizleme biter.
+
+
+
     lockInfo(i, k) {
       const ch = ND.CHARS[k]; if (!ch || !$('sd' + (i + 1))) return;
       const ri = ND.save && ND.save.rivalInfo ? ND.save.rivalInfo(ch.id) : null;
@@ -1778,16 +1781,16 @@
       }
       this.refreshSelect();
     },
-    // the roster index shown in slot i: a previewed locked ninja, else the chosen one
+
     selShown(i) { return this.peek && this.peek[i] != null ? this.peek[i] : this.sel.c[i]; },
-    // a slot previewing a locked ninja (Start stays off until an open ninja is chosen)
+
     selPeeking() { return !!this.peek && [0, 1].some((i) => this.peek[i] != null && !$('slot' + (i + 1)).hidden); },
-    // first rival ready to be challenged (the Challenge button the screen opens with), or null
+
     readyRival() {
       const rd = ND.save && ND.save.readyRivals && !{ rival: 1, tutorial: 1, '2p': 1 }[this.selMode] ? ND.save.readyRivals()[0] : null;
       return rd ? rd.id : null;
     },
-    // Meydan okuma düğmesi (#bChallenge): id = hazır rakip, null = gizle
+
     challengeOffer(id) {
       const b = $('bChallenge'); if (!b) return;
       const ch = id && ND.rival ? ND.CHARS.find((c) => c.id === id) : null;
@@ -1801,9 +1804,9 @@
       b.append(kj, sp, sm);
       b.onclick = () => { if (this.phase !== 'select') return; persist(); au.taiko(0.8); ND.rival.begin(this.sel.c[0], ch.id); };
     },
-    // Hareketler paneli (#movesOv): seçili ninjanın hareket listesi (ND.MOVELIST varsa ondan)
-    // In the pause menu (#bPMoves) it lists the player's own fighter in this fight (player 1), on the select screen the
-    // ninja shown in slot 1.
+
+
+
     fillMoves() {
       const ch = this.paused && this.phase !== 'select' && f1.ch ? f1.ch : ND.CHARS[this.selShown(0)];
       if (!ch || !ND.training || !ND.training.movesHtml || !$('mvList')) return false;
@@ -1818,7 +1821,7 @@
       ov.hidden = false; ov.scrollTop = 0; au.ui();
       setTimeout(() => $('mvClose').focus(), 0);
     },
-    // back to the button that opened it: the pause menu's (a fight is paused) or the select screen's
+
     closeMoves(focus) {
       const ov = $('movesOv'); if (!ov || ov.hidden) return false;
       ov.hidden = true;
@@ -1827,7 +1830,7 @@
       return true;
     },
     get movesOpen() { const ov = $('movesOv'); return !!ov && !ov.hidden; },
-    // Kilitli öğeye tıklanınca kısa süreli açıklama
+
     lockMsg(id, text) {
       const el = $(id); if (!el) return;
       au.tick(0);
@@ -1839,32 +1842,32 @@
         this.refreshSelect();
       }, 2600);
     },
-    // Seçim ekranı yönergeleri: dokunmatikte tuş harfleri yerine dokunma metni, klavye ipucu gizli
+
     selTexts() {
       const SS = STR.sel || {}, TS = (STR.touch && STR.touch.sel) || {}, mode = this.selMode, t = tOn() && mode !== '2p';
       $('who1').textContent = t && TS.who1 ? TS.who1 : SS.who1 ? SS.who1[mode] || SS.who1.def : '';
       $('who2').textContent = t && TS.who2 ? (mode === 'train' ? TS.who2train : TS.who2) : SS.who2 ? SS.who2[mode] || SS.who2.cpu : '';
       $('selHint').innerHTML = t ? '' : SS.keyHint || ''; $('selHint').classList.remove('lockmsg');
     },
-    // Dokunmatik kumanda görünürlüğü + dik ekran uyarısı (her karede; yalnız değişince DOM'a dokunur)
+
     syncTouch() {
       const T = tOn(), app = $('app');
-      // "playing" (portrait → turn-your-phone hint) only while a match is on screen: select, VS, end and ending
-      // screens stay usable in portrait
+
+
       const playing = !this.preparing && this.mode !== 'attract' && !!ROT_PHASES[this.phase];
       const rot = T && playing && PORTRAIT.matches;
       if (playing !== this._playing) { this._playing = playing; app.classList.toggle('playing', playing); }
-      // dokunmatik dövüşte kamera: zemin biraz yukarıda, yanlarda ek pay (düğmeler dövüşçüleri daha az örter)
+
       const camT = T && !!TOUCH_MODES[this.mode];
       if (camT !== this._camT) { this._camT = camT; cam.gyK = camT ? (this.phoneCam ? this.phoneGy : 0.48) : 0.6; cam.padX = camT ? 80 : 0; }
-      // (online: js/online.js pauses both players itself; the fight never pauses here)
+
       if (rot && this.mode !== 'online' && (this.phase === 'fight' || this.phase === 'intro')) {
-        if (this.countT) { this.stopCount(); this.rotPaused = true; } // turned upright again during the count: paused again
+        if (this.countT) { this.stopCount(); this.rotPaused = true; }
         if (!this.paused) { setPause(true); this.rotPaused = true; }
       }
-      // Turned sideways again: the fight goes on by itself after a short 3-2-1 (no tap on Resume needed; the count
-      // gives the player time to take the phone properly before the CPU strikes). The rally tutorial and a round
-      // intro go on at once, as before.
+
+
+
       else if (!rot && this.rotPaused) {
         this.rotPaused = false;
         if (this.paused && !$('pause').hidden) {
@@ -1872,21 +1875,21 @@
           else this.resumeCount();
         }
       }
-      // stays drawn under the pause dialog (dimmed, not touchable) so size / layout / hand changes show at once
+
       const on = !this.preparing && T && !!TOUCH_MODES[this.mode] && !!TOUCH_PHASES[this.phase] && !this.replay && !rot;
       if (on !== this._touchOn) {
         this._touchOn = on; $('touch').hidden = !on;
         if (on) this.touchHud(true); else input.touchReset();
       }
     },
-    // A 3-2-1 in the middle of the screen (n; 0 hides it): resuming after the phone was turned, online resumes
+
     showCount(n) {
       let el = $('cdown');
       if (!el) { el = document.createElement('div'); el.id = 'cdown'; el.setAttribute('aria-live', 'assertive'); $('app').appendChild(el); }
       el.hidden = !n;
       if (n && el.textContent !== String(n)) { el.textContent = n; el.classList.remove('go'); void el.offsetWidth; el.classList.add('go'); }
     },
-    // offline: the pause dialog goes, 3-2-1, the fight goes on (a press on Resume / P meanwhile goes on at once)
+
     resumeCount() {
       this.stopCount();
       $('pause').hidden = true;
@@ -1901,7 +1904,7 @@
       this.countT = setTimeout(tick, 0);
     },
     stopCount() { if (this.countT) { clearTimeout(this.countT); this.countT = 0; } this.showCount(0); if (this.paused && this.mode !== 'online') $('pause').hidden = false; },
-    // KI düğmesi (dolunca parlar) + shuriken sayısı
+
     touchHud(force) {
       const b = $('tKi'), am = $('tAmmo'); if (!b) return;
       const me = this.local(), k = Math.min(100, Math.floor(me.ki));
@@ -1919,7 +1922,7 @@
         $('sn' + n).textContent = ch.name; $('sk' + n).textContent = ch.kanji; $('sk' + n).style.color = col.ui;
         $('st' + n).textContent = ch.title + ' · ' + ch.weapon; $('sd' + n).textContent = ch.desc; $('sd' + n).classList.remove('lockmsg');
         if (i === 0 && this.movesOpen) this.fillMoves();
-        // a locked ninja previewed: "Locked" badge, how to unlock it (+ honor bar) instead of the description
+
         const slot = $('slot' + n);
         slot.classList.toggle('peek', peek);
         let lb = slot.querySelector('.lkb');
@@ -1927,11 +1930,11 @@
         lb.hidden = !peek; lb.lastChild.textContent = tx(SS.locked || 'Kilitli');
         if (peek) {
           const sd = $('sd' + n), hint = ND.save ? ND.save.charHint(ch.id) : '', ri = ND.save && ND.save.rivalInfo ? ND.save.rivalInfo(ch.id) : null;
-          sd.textContent = hint; // the name and the Locked badge are right above
+          sd.textContent = hint;
           sd.classList.add('lockmsg');
           if (ri && !ri.ready && !ri.unlocked && ND.honor) sd.insertAdjacentHTML('beforeend', ND.honor.bar(ND.honor.pct(ch.id)));
         }
-        // ninjaya özel ipuçları (roster2.js: STR.roster2.notes) açıklamanın altında
+
         const notes = !peek && STR.roster2 && STR.roster2.notes && STR.roster2.notes[ch.id];
         if (Array.isArray(notes)) notes.forEach((t) => { const s = document.createElement('small'); s.className = 'cnote'; s.textContent = t; $('sd' + n).appendChild(s); });
         const lab = { hiz: tx('Hız'), guc: tx('Güç'), menzil: tx('Menzil'), can: tx('Can') };
@@ -1941,7 +1944,7 @@
         const pv = this.pv[i]; pv.setChar(ch, alt); pv.reset(0); pv.dir = i === 0 ? 1 : -1;
         [...$('ro' + n).children].forEach((b) => b.setAttribute('aria-pressed', String(+b.dataset.k === k)));
       }
-      // Start waits for an open ninja
+
       const bf = $('bFight'), off = this.selPeeking();
       bf.disabled = off; bf.setAttribute('aria-disabled', String(off));
       document.querySelectorAll('#arenaChips [data-arena]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.arena === S.arena)));
@@ -1955,12 +1958,12 @@
       this.sel.ready[i] = false; au.ui(); this.refreshSelect();
     },
     confirm(i) {
-      if (this.peek && this.peek[i] != null) { au.tick(0); return; } // a locked ninja is only previewed
+      if (this.peek && this.peek[i] != null) { au.tick(0); return; }
       this.sel.ready[i] = true; au.taiko(0.5); this.refreshSelect();
       if (this.sel.ready[0] && (this.selMode !== '2p' || this.sel.ready[1])) setTimeout(() => { if (this.phase === 'select') this.fightFromSelect(); }, 350);
     },
-    // Training → Parry drill: the first-fight rally tutorial again (js/tutorial.js), no score, back to the menu when it is
-    // mastered. The player's last ninja against Kuro (Akane when the player is Kuro), like the lessons.
+
+
     startDrill() {
       const S = this.sel, c1 = charOk(S.c[0]) ? S.c[0] : 0;
       const kuro = ND.CHARS.findIndex((c) => c.id === 'kuro');
@@ -1987,13 +1990,15 @@
     updateSelect(rdt) {
       for (const pv of this.pv) this.stepPv(pv, rdt, scene.t + pv.id * 1.3);
     },
-    // one preview fighter (select screen, ranked pick: js/ranked.js), one frame of its idle: breathing sway (t: its
-    // clock), cloth
+
+
     stepPv(pv, rdt, t) {
       pv.st += rdt;
       const tp = ND.pose.copy(ND.POSES[pv.pvPose] || (pv.P && pv.P.stance) || ND.POSES.stance, pv.tmp);
       tp.hy += Math.sin(t * 2.3) * 1.3; tp.ay += Math.sin(t * 2.3 + 0.6) * 1.6; tp.sw += Math.sin(t * 1.15) * 0.035;
-      ND.pose.approach(pv.pose, tp, pv.pvPose ? 4 : 10, rdt);
+
+      const gr = ND.alive ? ND.alive.gesture(pv, tp, rdt) : 0;
+      ND.pose.approach(pv.pose, tp, gr || (pv.pvPose ? 4 : 10), rdt);
       pv.solve(rdt);
       ND.updateCloth(pv.j, rdt);
     },
@@ -2003,14 +2008,14 @@
         if (c) this.drawPv(c, this.pv[i]);
       }
     },
-    // a preview fighter drawn into its canvas (c) at the canvas's size on the page: glow in its colour, ground shadow,
-    // the full model, eyes. false: the canvas is not on screen
+
+
     drawPv(c, pv) {
       const r = c.getBoundingClientRect(), dpr = Math.min(this.dprCap || 2, window.devicePixelRatio || 1);
       if (r.width < 2 || r.height < 2) return false;
-      // (drawn by the processor, willReadFrequently: the first select screen used to wait ~1 s on phones — no game
-      // work, no long task — most likely the GPU compiling the canvas's path and gradient shaders for these
-      // full-detail previews; small pictures, cheap on the CPU)
+
+
+
       const pc = c.__pv2d || (c.__pv2d = c.getContext('2d', { willReadFrequently: true }));
       const W = Math.max(1, Math.round(r.width * dpr)), H = Math.max(1, Math.round(r.height * dpr));
       if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
@@ -2018,8 +2023,8 @@
       const g = pc.createRadialGradient(W / 2, H * 0.62, 10, W / 2, H * 0.62, H * 0.6);
       g.addColorStop(0, pv.col.ui + '55'); g.addColorStop(1, 'rgba(0,0,0,0)');
       pc.fillStyle = g; pc.fillRect(0, 0, W, H);
-      // (the fighter fills more of the preview, owner 2026-10-01: "the champion should be bigger, the costume does not
-      // even show"; feet a little lower, a raised long blade still inside the top edge)
+
+
       const k = H / 220;
       pc.setTransform(k, 0, 0, k, W / 2 - (pv.ch.blade > 110 ? 20 : 0) * k * pv.dir, H * 0.92);
       pc.fillStyle = 'rgba(0,0,0,.45)'; pc.beginPath(); pc.ellipse(0, 3, 50, 7, 0, 0, 6.283); pc.fill();
@@ -2028,31 +2033,31 @@
       return true;
     },
   };
-  // HUD bar scale (3 decimals), written only when it changed
+
   function sx(el, v) { const q = Math.round(Math.max(0, v) * 1000); if (el._q !== q) { el._q = q; el.style.transform = `scaleX(${(q / 1000).toFixed(3)})`; } }
-  // one class of a HUD element (each of these elements has only this one switching class), written only on a change
+
   function tog(el, cls, on) { if (el._tg !== on) { el._tg = on; el.classList.toggle(cls, on); } }
   const HUD_E = [], HUD_T = {};
   const hudEls = (n) => HUD_E[n] || (HUD_E[n] = { h: $('h' + n), g: $('g' + n), p: $('p' + n), pb: $('pb' + n), hpb: $('hpb' + n), k: $('k' + n), kb: $('kb' + n), a: $('a' + n), w: $('w' + n) });
 
-  // ---------------------------------------------------------------- UI bağlantıları
+
   function persist() {
     const id = (i) => (ND.CHARS[i] ? ND.CHARS[i].id : i);
-    // graphics: the player's choice (Auto's own steps are not saved); hq / hqUser keep older builds reading it right
-    // (a quality forced by ?gfx= is not saved while it is still the one in use)
+
+
     const forced = (GFX_Q && GFX.pref === GFX_Q) || (GK_Q && GFX.pref === 'custom' && GFX.custom === GK_CUSTOM);
     const gfx = forced ? GFX_SAVED : GFX.pref, hq = gfx !== 'low', hqUser = !!gfx && gfx !== 'auto';
     const gfxK = gfx === 'custom' ? (!forced && GFX.pref === 'custom' ? GFX.custom : saved.gfxK) : undefined;
-    // merged into what is stored, so settings kept by other files (touch controls: key "touch", js/touch.js) survive
+
     store.set(Object.assign(store.get(), { sound: ND.settings.sound, bloodOptIn: ND.settings.blood, music: ND.settings.music, voice: ND.settings.voice, uiSfx: ND.settings.uiSfx, hints: ND.settings.hints, showFps: ND.settings.showFps || undefined, gfx, gfxK, hq, hqUser, fps: game.fpsPref || undefined, level: game.level, c1: id(game.sel.c[0]), c2: id(game.sel.c[1]), arena: game.sel.arena }));
   }
   function unlockAudio() { au.init(); au.setEnabled(ND.settings.sound); mu.init(); mu.setEnabled(ND.settings.music); if (mu.mode === 'off') mu.setMode(game.phase === 'fight' ? 'fight' : 'menu'); }
   function choose(mode) { unlockAudio(); au.ui(); if (mode === 'watch') { au.quiet = false; game.start('watch'); } else game.openSelect(mode); }
   function goMenu() { game.setSingle?.(false); game.start('attract'); mu.setMode('menu'); if ($('first')) $('first').hidden = true; refreshPlay(); setTimeout(() => $('mplay').focus(), 0); }
-  // PLAY opens the saved character journeys. VS CPU remains the single-match entry.
-  // A new save (no fight played to its end yet, no journey past fight 1): PLAY goes straight into Akane's journey
-  // fight 1 (arcade.quickStart: no select, no VS; the rally tutorial with its warm-up starts in it). After the first
-  // fight the usual flow is back, and the select screen greets the player once (openSelect, "choose your ninja").
+
+
+
+
   const DIRECT_CHAR = 'akane';
   function directStart() {
     const p = ND.save && ND.save.p;
@@ -2062,10 +2067,10 @@
     const ci = ND.CHARS.findIndex((c) => c.id === DIRECT_CHAR);
     return ci >= 0 && charOk(ci) ? ci : -1;
   }
-  // Android phones on our own site: the first PLAY of the page load asks for fullscreen, and fullscreen asks for
-  // landscape (touch.js toggleFullscreen; Android Chrome allows the orientation lock only in fullscreen). Never inside a
-  // portal's frame (CrazyGames, Poki, Yandex, Playgama handle fullscreen themselves: touch.js fsAllowed), never on
-  // iPhone (no element fullscreen), and only once: a player who leaves fullscreen is not pulled back.
+
+
+
+
   let landscapeTried = false;
   function tryLandscape() {
     if (landscapeTried) return;
@@ -2075,10 +2080,10 @@
       if (!T || !T.active || !T.mobile || !UI || !UI.fsAllowed || !UI.fsAllowed()) return;
       if (!/Android/i.test(navigator.userAgent || '') || document.fullscreenElement || document.webkitFullscreenElement) return;
       UI.toggleFullscreen();
-    } catch (e) { /* refused: the rotate hint stays */ }
+    } catch (e) {                                      }
   }
   function playJourney() {
-    ND.funnel?.step('play'); // new-player funnel (js/funnel.js)
+    ND.funnel?.step('play');
     if (ND.save && !ND.save.p.firstDone) { ND.save.p.firstDone = true; ND.save.commit(); }
     if ($('first')) $('first').hidden = true;
     tryLandscape();
@@ -2098,32 +2103,32 @@
   }
   game.refreshPlay = refreshPlay;
   game.goMenu = goMenu;
-  // Seçim ekranından geri: turnuva/Dan lobisine, diğerleri ana menüye
+
   function selBack() {
     const m = game.selMode;
     if ((m === 'tourney' || m === 'dan') && ND.banzuke) { goMenu(); if (m === 'tourney') ND.banzuke.ui.lobbyTourney(); else ND.banzuke.ui.lobbyDan(); return; }
     goMenu();
   }
   function setPause(v) {
-    // (an online match never pauses: the other player's game runs on)
+
     if (game.mode === 'attract' || game.mode === 'online' || game.phase === 'end' || game.phase === 'select' || game.phase === 'replay' || game.phase === 'vs' || game.phase === 'ending') return;
     game.paused = v; $('pause').hidden = !v;
-    const br = $('bRestart'); if (br) br.hidden = !!(game.runner && game.runner.noRestart && game.mode === game.runner.mode) || game.mode === 'shadow'; // (a shadow fight is never restarted: leaving it is a loss)
-    // (pausing also cuts a voice line still sounding and drops announcer lines waiting in the queue)
+    const br = $('bRestart'); if (br) br.hidden = !!(game.runner && game.runner.noRestart && game.mode === game.runner.mode) || game.mode === 'shadow';
+
     if (v) { input.p1.clear(); input.p2.clear(); input.touchReset(); ND.voice?.stopAll?.(); ND.haptics?.stop(); $('bResume').focus(); }
-    else { input.p1.buf = {}; input.p2.buf = {}; game.closeMoves(); } // presses made in the pause menu must not fire on resume
+    else { input.p1.buf = {}; input.p2.buf = {}; game.closeMoves(); }
     game.syncTouch();
   }
-  // Rol=button kartlar (içinde ek düğmeler olan mod kartları)
+
   const card = (id, fn) => {
     const el = $(id); if (!el) return;
     el.onclick = fn;
-    // (stopPropagation: the same Enter must not also reach the window key handler of the screen fn just opened —
-    // Enter on "vs CPU" opened the select screen and started the fight at once)
+
+
     el.onkeydown = (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === el) { e.preventDefault(); e.stopPropagation(); fn(); } };
   };
 
-  // Yalnız dokunmatik cihazda iki oyuncu pratik değil: klavye/gamepad görülene dek kibarca uyar
+
   const twoPOk = () => !ND.touch || ND.touch.twoPlayerOk();
   const mark2p = () => { const m = $('m2p'); if (m) m.classList.toggle('needkb', !twoPOk()); };
   $('m2p').onclick = () => {
@@ -2134,8 +2139,8 @@
   $('mplay').onclick = playJourney;
   if ($('fPlay')) $('fPlay').onclick = playJourney;
   if ($('fMenu')) $('fMenu').onclick = () => { unlockAudio(); au.ui(); ND.funnel?.step('modes'); if (ND.save) { ND.save.p.firstDone = true; ND.save.commit(); } $('first').hidden = true; $('menu').hidden = false; refreshPlay(); setTimeout(() => $('mplay').focus(), 0); };
-  // Hall of Champions card (this month's top 10 on the card, js/banzuke.js champCard): opens over the menu (the attract
-  // fight keeps running behind); closing returns to the menu. banzuke.js sets its own handlers when it is loaded.
+
+
   card('mlb', () => {
     unlockAudio(); au.ui();
     if (ND.banzuke) return ND.banzuke.ui.showHall('week', null);
@@ -2143,14 +2148,14 @@
     $('menu').hidden = true;
     ND.lbUI.show(null, { back: () => { if (game.mode === 'attract') { $('menu').hidden = false; setTimeout(() => $('mlb').focus(), 0); } else goMenu(); } });
   });
-  // Rekabet kartları (banzuke.js yoksa gizli)
+
   ['mtour', 'mdan'].forEach((id) => { const el = $(id); if (el && !ND.banzuke) el.hidden = true; });
   if ($('mtour')) $('mtour').addEventListener('click', unlockAudio);
   if ($('mdan')) $('mdan').addEventListener('click', unlockAudio);
   if ($('mlb')) $('mlb').addEventListener('click', unlockAudio);
   card('mcpu', () => choose('cpu'));
-  // Single match (index.html #msingle): the card opens or closes its choice — vs CPU (with the difficulty) or two
-  // players. Keyboard: Enter / Space on the card opens it and focuses "vs CPU"; Escape inside closes it.
+
+
   const single = $('msingle'), pick = $('singlePick');
   function setSingle(open, focus) {
     if (!single || !pick) return;
@@ -2177,10 +2182,10 @@
     };
   });
   const toggles = { tSound: 'sound', tBlood: 'blood', tMusic: 'music', tHints: 'hints', tFps: 'showFps', tVoice: 'voice', tUiSfx: 'uiSfx' };
-  // Graphics choice: the [data-gq] rows in the menu's options and the pause dialog (index.html), four .seg buttons
-  // data-gfx="auto|high|medium|low". A press applies and saves (ND.gfx.setQuality → the GFX.onChange listener below
-  // persists). Texts from ND.STR.gfx: title, levels, and one line under the row — on Auto it says which tier is drawn
-  // right now (it can step down during a slow fight). Rebuilt on a language change like the other panels.
+
+
+
+
   const gfxRows = () => document.querySelectorAll('[data-gq]');
   function gfxTexts() {
     const G = STR.gfx || {}, L = G.levels || {};
@@ -2211,11 +2216,11 @@
     });
     syncAdv();
   }
-  // Advanced graphics (Settings → Graphics, #setAdv): a switch that opens one row per knob of js/gfx.js (KNOBS:
-  // resolution, anti-aliasing, glow, shadows & reflections, weather & particles). A press sets that knob alone
-  // (GFX.setKnob: the choice becomes Custom, the quality row shows it) and is saved (settings key gfxK); pressing a
-  // preset restores its values. The three heaviest rows (resolution, anti-aliasing, glow) carry a "heats the phone the
-  // most" hint. Texts ND.STR.gfx.adv.
+
+
+
+
+
   const ADV_WORD = { msaa: { 0: 'off' }, bloom: { 0: 'off', 1: 'low', 2: 'full' }, shadows: { 0: 'off', 1: 'simple', 2: 'full' }, effects: { 0: 'low', 1: 'mid', 2: 'full' } };
   const ADV_HOT = { scale: 1, msaa: 1, bloom: 1 };
   let advOpen = false;
@@ -2268,9 +2273,9 @@
   }));
   gfxTexts();
   ND.i18n?.onChange(gfxTexts);
-  // Frame rate (Settings → Graphics, the [data-fq] row: .seg buttons data-fps="60|90|120|max"): the frame pacer's
-  // target (js/gfx.js makePacer; phones default to 60, computers to Max). A press applies at once and is saved
-  // (settings key `fps`). Texts ND.STR.fps. How the auto quality ladder uses it: ladderTarget() below.
+
+
+
   const fqRows = () => document.querySelectorAll('[data-fq]');
   const fpsChoice = () => game.fpsPref || GFX.fpsDefault();
   function fpsTexts() {
@@ -2302,11 +2307,11 @@
   fpsTexts();
   ND.i18n?.onChange(fpsTexts);
 
-  // Touch help in the menu's Controls card (data-sh="touch.help" = ND.STR.touch.help): its first column follows the
-  // movement mode the player chose (floating stick / fixed stick / d-pad, d-pad with tap to step) and one line under
-  // it points to "Customize controls". Texts ND.STR.thelp. Redrawn when the touch settings change (every change ends
-  // with js/touch.js refreshing the pressed states of the settings panel) or the language does (i18n first refills
-  // the help from the table, then calls its listeners).
+
+
+
+
+
   function touchHelp() {
     const box = document.querySelector('.touch-help'), H = STR.thelp, src = STR.touch && STR.touch.help;
     if (!box || !H || typeof src !== 'string') return;
@@ -2319,7 +2324,7 @@
       ? row(tb('◀ ▶'), M.walk) + (dtap ? row(tb('◀ ▶'), M.step) : '') + row(tb('▲'), M.jump) + row(tb('▼', 'tb-guard'), M.guard) + row(tb('▶▶'), M.dash) + row(tb('▶ ▲'), M.both)
       : row(tb('◀ ▶'), M.walk) + row(tb('▲'), M.jump) + row(tb('▼', 'tb-guard'), M.guard) + row(tb('▶▶'), M.dash);
     const col = `<div data-hm><h3>${(H.title && H.title[mode]) || ''}</h3><dl>${rows}</dl></div>`;
-    // the buttons column stays the table's own (trusted HTML, like STR.apply's data-sh)
+
     const t = document.createElement('template');
     t.innerHTML = src;
     const grid = t.content.querySelector('.th-grid');
@@ -2335,10 +2340,10 @@
     new MutationObserver(touchHelp).observe($('setTset'), { subtree: true, childList: true, attributes: true, attributeFilter: ['aria-pressed'] });
   }
 
-  // Training tip bar (#trTip, filled by arcade.js) on touch: the stylesheet's spot fits the default button layout
-  // only. With the pad on screen the bar goes to the lowest band of the screen where it overlaps no placed control
-  // (positions from js/touch.js: ND.touchUI.geo(), the live controls of the movement mode, hidden ones skipped),
-  // centred in the widest free gap of that band. Runs when the tip, the pad or its layout change; not per frame.
+
+
+
+
   function placeTip() {
     const tip = $('trTip'), pad = $('touch'), TU = ND.touchUI;
     const G = TU && TU.geo ? TU.geo() : null;
@@ -2347,12 +2352,12 @@
       if (tip._placed) { tip._placed = false; ['left', 'right', 'bottom', 'width', 'maxWidth', 'margin', 'transform'].forEach((k) => (tip.style[k] = '')); }
       return;
     }
-    const { S, items } = G, M = 6; // M: clear space kept around every control
+    const { S, items } = G, M = 6;
     const ids = TU.liveIds ? TU.liveIds((ND.touchPrefs || {}).move) : Object.keys(items);
     const boxes = [];
     for (const id of ids) { const q = items[id]; if (q && !q.h) boxes.push([q.cx - q.d / 2 - M, q.cy - q.d / 2 - M, q.cx + q.d / 2 + M, q.cy + q.d / 2 + M]); }
     const x0 = S.sl + 8, x1 = S.W - S.sr - 8, maxW = Math.min(560, x1 - x0), minW = Math.min(maxW, Math.max(240, (x1 - x0) * 0.34));
-    // widest free horizontal gap in the band [top, bottom]
+
     const gap = (top, bottom) => {
       const iv = boxes.filter((b) => b[1] < bottom && b[3] > top).map((b) => [b[0], b[2]]).sort((a, b) => a[0] - b[0]);
       let best = [x0, x0], from = x0;
@@ -2369,13 +2374,13 @@
       let g = gap(S.H - b - h, S.H - b), gw = g[1] - g[0];
       if (!fallback || gw > fallback.gw) fallback = { b, g, gw };
       if (gw < minW) continue;
-      // narrower bar → taller text: measure again and check the band still fits
+
       const nw = Math.min(maxW, gw);
       if (nw !== w) { w = nw; tip.style.width = w + 'px'; h = tip.offsetHeight; g = gap(S.H - b - h, S.H - b); gw = g[1] - g[0]; if (gw < w) continue; }
       Object.assign(tip.style, { left: (g[0] + (gw - w) / 2).toFixed(1) + 'px', bottom: b + 'px' });
       return;
     }
-    // no band wide enough (very crowded layout): the widest gap found
+
     const f = fallback, fw = Math.max(160, Math.min(maxW, f.gw));
     Object.assign(tip.style, { width: fw + 'px', left: Math.max(x0, f.g[0] + (f.gw - fw) / 2).toFixed(1) + 'px', bottom: f.b + 'px' });
   }
@@ -2385,8 +2390,8 @@
     if ($('touch')) new MutationObserver(placeTip).observe($('touch'), { attributes: true, attributeFilter: ['hidden', 'class', 'style', 'data-move'] });
   }
   ND.touch?.onChange?.(placeTip);
-  // Every switch of a setting: the one with the id plus any copy marked data-tog="<key>" (the Settings panel has its own
-  // Sound / Music switches next to the menu's quick ones). A press flips the setting and shows it on all of them.
+
+
   for (const id in toggles) {
     const key = toggles[id];
     const els = [$(id), ...document.querySelectorAll(`[data-tog="${key}"]`)].filter(Boolean);
@@ -2399,7 +2404,7 @@
       if (key === 'blood' && !ND.settings.blood) fx.decals.length = 0;
       if (key === 'showFps') fpsMeter.set(ND.settings.showFps);
       if (key === 'voice' && ND.voice && ND.voice.setEnabled) ND.voice.setEnabled(ND.settings.voice);
-      // volume.js follows the switches (muted look of the sliders)
+
       if ((key === 'sound' || key === 'music') && ND.volumeUI) ND.volumeUI.refresh();
     }));
   }
@@ -2411,7 +2416,7 @@
   if ($('movesOv')) $('movesOv').addEventListener('click', (e) => { if (e.target === $('movesOv')) game.closeMoves(true); });
   $('bBack').onclick = () => selBack();
   $('bResume').onclick = () => setPause(false);
-  // pause menu → the player's move list (the select screen's panel); Close / Back / B returns to the pause menu
+
   if ($('bPMoves')) $('bPMoves').onclick = () => { if (game.paused) game.openMoves(); };
   $('bRestart').onclick = () => {
     if (game.mode === 'shadow') return;
@@ -2421,9 +2426,9 @@
     if (game.mode === 'train') return ND.training.reset();
     game.start(game.mode, { c1: game.sel.c[0], c2: game.sel.c[1], arena: scene.themeId });
   };
-  // (online: the turn-your-phone hint's way out leaves the room, js/online.js; there is no pause menu online)
+
   $('bMenu').onclick = () => { if ((game.mode === 'online' || game.mode === 'shadow') && ND.online) { ND.online.leave(); return; } setPause(false); if (game.runner && game.runner.abandon) game.runner.abandon(); goMenu(); };
-  // Natural break between matches: maybe an interstitial first (ads.js decides), then act
+
   const afterBreak = (fn) => {
     if (ND.ads && ND.ads.busy) return;
     const lossOffer = !$('bContinue').hidden;
@@ -2439,19 +2444,19 @@
   $('bChange').onclick = () => afterBreak(() => { unlockAudio(); game.mode === 'watch' ? goMenu() : game.openSelect(game.mode); });
   $('bEndMenu').onclick = () => afterBreak(() => { if (game.runner && game.mode === game.runner.mode && game.runner.run && game.runner.quit) return game.runner.quit(); goMenu(); });
   $('pauseBtn').onclick = () => setPause(!game.paused);
-  // (online: the replay is part of the shared fight, one device cannot skip it)
+
   cv.addEventListener('pointerdown', () => { if (game.phase === 'replay' && game.mode !== 'online') game.finishReplay(); });
 
   input.onKey = (e) => {
-    if (ND.online && ND.online.onKey && ND.online.onKey(e)) return true; // the online room / match screens
+    if (ND.online && ND.online.onKey && ND.online.onKey(e)) return true;
     if (game.preparing) { if (input.isBack(e) && !e.repeat) goMenu(); return true; }
-    if (ND.reveal && ND.reveal.close && !e.repeat && ND.reveal.close()) return true; // yeni ninja tanıtımı: herhangi bir tuş kapatır
+    if (ND.reveal && ND.reveal.close && !e.repeat && ND.reveal.close()) return true;
     if (ND.honor && ND.honor.roadOpen) { if (input.isBack(e)) { ND.honor.hideRoad(true); return true; } return false; }
     if (ND.lbUI && ND.lbUI.open) return ND.lbUI.onKey(e);
-    if (ND.banzuke && ND.banzuke.onKey(e)) return true; // salon / lobi açıkken
+    if (ND.banzuke && ND.banzuke.onKey(e)) return true;
     if (game.phase === 'replay' && !e.repeat && game.mode !== 'online') { game.finishReplay(); return true; }
     if ((game.phase === 'vs' || game.phase === 'ending') && (game.runner || ND.arcade)) return (game.runner || ND.arcade).onKey(e);
-    if (game.phase === 'select' && game.selMode !== 'online') { // (online room: its own screen, js/online.js)
+    if (game.phase === 'select' && game.selMode !== 'online') {
       if (game.movesOpen) { if ((input.isBack(e) || e.code === 'KeyM') && !e.repeat) { game.closeMoves(true); return true; } return false; }
       if (e.code === 'KeyM' && !e.repeat) { game.openMoves(); return true; }
       const map = { KeyA: [0, -1], KeyD: [0, 1], ArrowLeft: [1, -1], ArrowRight: [1, 1] };
@@ -2462,7 +2467,7 @@
       if (e.code === 'Enter' && !e.repeat) { game.fightFromSelect(); return true; }
       return false;
     }
-    // the move list over the pause menu: Back / M closes it (focus back on its button), P resumes, arrows scroll it
+
     if (game.paused && game.movesOpen) {
       if ((input.isBack(e) || e.code === 'KeyM') && !e.repeat) { game.closeMoves(true); return true; }
       if (input.isPause(e)) { setPause(false); return true; }
@@ -2479,8 +2484,8 @@
     return false;
   };
   input.onPause = () => setPause(!game.paused);
-  // Gamepad in the pause menu: D-pad / stick up and down move the focus through its buttons, A presses the focused
-  // one, RB opens the move list, B resumes. In the move list up / down scroll it, B or RB close it (pause menu again).
+
+
   const padWas = {};
   function pausePad(st, prev, gp) {
     const pr = (a) => st[a] && !prev[a], B = (gp && gp.buttons) || [], ay = (gp && gp.axes && gp.axes[1]) || 0;
@@ -2491,7 +2496,7 @@
     const hit = (k) => raw[k] && !was[k];
     if (game.movesOpen) {
       if (pr('kick') || pr('throw')) game.closeMoves(true);
-      else if (raw.u !== raw.d) $('movesOv').scrollTop += raw.d ? 14 : -14; // held: keeps scrolling
+      else if (raw.u !== raw.d) $('movesOv').scrollTop += raw.d ? 14 : -14;
       return;
     }
     if (pr('throw')) { game.openMoves(); return; }
@@ -2502,7 +2507,7 @@
     if (hit('u') || hit('d')) btns[cur < 0 ? 0 : (cur + (hit('d') ? 1 : -1) + btns.length) % btns.length].focus();
     else if (hit('a') && cur >= 0) btns[cur].click();
   }
-  // Gamepad ile menü dışı ekranlar: X/A onay, B geri, yön seçim
+
   input.onPad = (st, prev, gp) => {
     if (ND.honor && ND.honor.roadOpen) {
       const p = (a) => st[a] && !prev[a];
@@ -2530,28 +2535,28 @@
   };
   window.addEventListener('pointerdown', unlockAudio, { once: true });
   window.addEventListener('keydown', unlockAudio, { once: true });
-  // iOS Safari: AudioContext yalnız touchend/click gibi "etkinleştiren" olaylarda açılır ve arka plandan dönünce
-  // 'interrupted' kalabilir → çalışmıyorsa her dokunuş bırakılışında yeniden dene
+
+
   const gestureAudio = () => { if (!au.ctx || au.ctx.state !== 'running' || !mu.ready) unlockAudio(); };
   ['pointerup', 'touchend', 'click', 'keydown'].forEach((ev) => window.addEventListener(ev, gestureAudio, { capture: true, passive: true }));
-  // Sekme/uygulama arka plana: dövüşü duraklat, basılı tuşları bırak, sesi askıya al
+
   let hiddenAt = 0;
   function onHide() {
     if (hiddenAt) return;
     hiddenAt = performance.now();
     if (game.phase === 'fight' || game.phase === 'intro') setPause(true);
     input.p1.clear(); input.p2.clear(); input.touchReset();
-    try { if (au.ctx && au.ctx.state === 'running') au.ctx.suspend().catch(() => {}); } catch (e) { /* yok */ }
+    try { if (au.ctx && au.ctx.state === 'running') au.ctx.suspend().catch(() => {}); } catch (e) {           }
   }
   function onShow() {
     hiddenAt = 0;
-    // iOS jest olmadan reddedebilir: o zaman ilk dokunuşta gestureAudio açar
-    try { if (au.ctx && au.ctx.state !== 'running') au.ctx.resume().catch(() => {}); } catch (e) { /* yok */ }
+
+    try { if (au.ctx && au.ctx.state !== 'running') au.ctx.resume().catch(() => {}); } catch (e) {           }
   }
   document.addEventListener('visibilitychange', () => (document.hidden ? onHide() : onShow()));
   window.addEventListener('pagehide', onHide);
   window.addEventListener('pageshow', () => { if (!document.hidden) onShow(); });
-  // Dokunmatik ↔ klavye geçişi: açık ekranların metinleri, kumanda, 2P işareti
+
   if (ND.touch) ND.touch.onChange(() => {
     mark2p();
     if (game.phase === 'select') game.selTexts();
@@ -2559,19 +2564,19 @@
   });
   mark2p();
 
-  // ---------------------------------------------------------------- başlat
-  // Canvas size = CSS size × pixel ratio (capped per graphics tier, js/gfx.js: computers 2 / 1.5 / 1, phones
-  // 1.5 / 1.25 / 1) × the current rung's scale. Very large screens (5K) stay near 4K pixels, phones near 2.2 MP.
-  // The HUD is DOM, so it stays sharp whatever the canvas size.
+
+
+
+
   const MAX_PX = MOBILE ? 2.2e6 : 3840 * 2160;
-  // Phones in landscape (a small page on a device whose main pointer is a finger): the camera stands closer, the
-  // fighters are PHONE_ZOOM times bigger on screen (cam.s; when they stand far apart the fit-both zoom of cam.follow
-  // takes over as before), the ground line a bit higher (PHONE_GY, syncTouch) so the feet stay above the thumb
-  // buttons, and a jump zooms out enough to keep the head clear of the HUD (cam.topPx). Decided from the device and the
-  // page size, not from the touch UI being on (that can switch mid-fight, and the part cache's scale level for the
-  // fight follows cam.s, js/bake.js). Computers and tablets keep their framing.
+
+
+
+
+
+
   const PHONE_ZOOM = 1.2, PHONE_GY = 0.45;
-  // (?phonecam=0: the old framing, to compare on a phone)
+
   const phoneCam = (r) => QS.get('phonecam') !== '0' && !!(ND.touch && (ND.touch.mobile || ND.touch.forced === true)) && r.width > r.height && r.height <= 500 && r.width <= 1000;
   function resize() {
     const r = cv.getBoundingClientRect();
@@ -2579,34 +2584,34 @@
     let dpr = Math.min(window.devicePixelRatio || 1, GFX.f.dpr, DPR_Q);
     const px = r.width * r.height * dpr * dpr;
     if (px > MAX_PX) dpr *= Math.sqrt(MAX_PX / px);
-    // (GPU path: menus at the fight's own size — the backdrop is drawn at most ~30 times a second either way, and a
-    // size change between menu and fight rebuilt every background picture and render target: ~9 MB of uploads at
-    // each menu / VS / fight switch)
-    // (Canvas 2D fallback, no WebGL2 renderer: the menus stay at 3/4 as before)
+
+
+
+
     const k = dpr * aq.R[aq.i].s * (GFX.f.scale || 1) * (game.behind && !(GPU_PATH && (glr || glLater)) ? BEHIND_SCALE : 1);
     const w = Math.max(1, Math.round(r.width * k)), h = Math.max(1, Math.round(r.height * k));
     if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
-    game.pxr = cv.width / r.width; // tuval pikseli / CSS pikseli (tuş istemi boyutu için)
-    game.dprCap = GFX.f.dpr;       // select-screen previews use the same cap
+    game.pxr = cv.width / r.width;
+    game.dprCap = GFX.f.dpr;
     scene.resize(cv.width, cv.height);
     const ph = phoneCam(r);
     if (ph) cam.s *= PHONE_ZOOM;
-    // the HUD's bottom (index.html #hud: about 60 CSS px on a short screen) and a little room
+
     cam.topPx = ph ? 60 * game.pxr : 0;
     if (ph !== game.phoneCam) { game.phoneCam = ph; game.phoneGy = PHONE_GY; game._camT = null; }
   }
-  // ---------------------------------------------------------------- graphics quality ladder (auto quality)
-  // A ladder of rungs { tier, s (resolution scale) }. A fixed choice (High / Medium / Low) only moves between the
-  // resolution scales of its tier. Auto starts at the device guess (computers High, phones Medium, weak phones Low)
-  // and goes down: high 1 → .85 → medium 1 → .85 → low 1 → .85 → .7 (→ .6 on phones).
-  // Measured in ~1-second windows of a running fight or round intro (not the menu demo, not paused), judged by the
-  // median frame gap: slow windows step down, very slow ones jump straight to a lower tier, a step that did not help
-  // is undone, ten fast windows try one rung back up. The rules and thresholds: ladderFrame in js/gfx.js.
-  // Auto's own steps are not saved; each session learns again (a hitch at start must not lower it for good).
+
+
+
+
+
+
+
+
   const SCALES = MOBILE ? [1, 0.85, 0.7, 0.6] : [1, 0.85, 0.7];
   function ladder(pref) {
     const R = [];
-    if (pref === 'custom') return [{ tier: GFX.tier, s: 1 }]; // the player's own knobs: no automatic steps
+    if (pref === 'custom') return [{ tier: GFX.tier, s: 1 }];
     if (pref === 'auto') {
       const T = GFX.tiers.slice(Math.max(0, GFX.tiers.indexOf(GFX.guess())));
       T.forEach((tier, i) => (i === T.length - 1 ? SCALES : SCALES.slice(0, 2)).forEach((s) => R.push({ tier, s })));
@@ -2618,7 +2623,7 @@
   function setRung(i) {
     aq.i = i; aq.settle = 1;
     const tier = aq.R[i].tier;
-    if (GFX.tier !== tier) GFX._setTier(tier, 'auto'); // the listener below resizes
+    if (GFX.tier !== tier) GFX._setTier(tier, 'auto');
     else resize();
   }
   function aqReset() { Object.assign(aq, AQ0, { R: ladder(GFX.pref), resOff: {} }); resize(); }
@@ -2632,29 +2637,29 @@
     setRung,
     toast() { const T = STR.toast || {}; ND.toast?.(tx(T.perf || 'Performans için grafik düşürüldü'), T.perfK || '軽'); },
   };
-  // the decision itself lives in js/gfx.js (ladderFrame), where scripts/auto-quality-check.mjs tests it
-  // The ladder's frame-time target: 60 fps rules (0) unless the player chose a higher frame rate AND Auto graphics —
-  // then frames are judged against that rate (Max: the screen's refresh period), so Auto may lower the tier to reach
-  // it. A fixed High / Medium / Low is never lowered for a frame rate (a 16.7 ms frame is not slow for it).
+
+
+
+
   function ladderTarget() {
     if (GFX.pref !== 'auto' || !game.fpsPref || CAP_Q) return 0;
     const f = GFX.fpsOf(game.fpsPref);
     return f > 60 ? 1000 / f : f ? 0 : pacer ? Math.min(1000 / 60, pacer.period) : 0;
   }
   function aqWatch(gapMs, workMs) {
-    // the round intro counts too (the fighters walk in over the full scene): a weak phone steps down before the
-    // first exchange instead of about a second into it
+
+
     const counting = !game.paused && (game.phase === 'fight' || game.phase === 'intro') && game.mode !== 'attract' && !document.hidden;
     aq.targetMs = ladderTarget();
     GFX.ladderFrame(aq, gapMs, workMs, counting, aqAct);
   }
-  game.aq = aq; game._aqWatch = aqWatch; game._aqReset = aqReset; // console tests
-  // Adres çubuğu açılıp kapanınca / döndürünce tuval gerilmesin: her boyut değişiminde arka tamponu yeniden ölç
+  game.aq = aq; game._aqWatch = aqWatch; game._aqReset = aqReset;
+
   const onResize = () => { resize(); if (game.syncTouch) game.syncTouch(); };
   window.addEventListener('resize', onResize);
   if (window.visualViewport) window.visualViewport.addEventListener('resize', onResize);
   window.addEventListener('orientationchange', () => { onResize(); setTimeout(onResize, 300); });
-  if (window.ResizeObserver) { try { new ResizeObserver(onResize).observe(cv); } catch (e) { /* yok */ } }
+  if (window.ResizeObserver) { try { new ResizeObserver(onResize).observe(cv); } catch (e) {           } }
   resize();
   input.init();
   scene.init();
@@ -2674,14 +2679,14 @@
     if (game.phase === 'select') game.openSelect(game.selMode);
     if (game.mode !== 'attract') game.hudTexts();
     if (game.mode === 'arcade') ND.arcade?.refreshGoal();
-    // Repaint the active tip on resume without restarting the lesson or its timer.
+
     if (ND.coach) ND.coach.shown = null;
     if (ND.tutor) ND.tutor.shownKey = '';
     placeTip();
   });
 
-  // Portal gameplay events: "playing" = a match is on screen and running (intro, fight, KO, replay), not paused,
-  // not in an ad, tab visible. Menus, select, VS and end screens are stopped. The bridge drops duplicates.
+
+
   const PLAY_PHASES = { intro: 1, fight: 1, ko: 1, timeup: 1, replay: 1 };
   let loaded = false, wasPlaying = false;
   function portalTick(rdt, inAd) {
@@ -2692,10 +2697,10 @@
     if (ND.coach && ND.coach.tips && ND.coach.tips.on) ND.coach.tips.tick(rdt, game);
     if (ND.tutor && ND.tutor.on) ND.tutor.tick(rdt);
   }
-  // Behind the menus (the attract demo under the title / menu screens) and the select, VS and ending screens the
-  // game canvas is only a dimmed backdrop: it is drawn at 3/4 resolution (see resize) and at most ~30 times a
-  // second, and after an expensive draw the next frame skips drawing, so a slow phone keeps half its time for the
-  // menus themselves. The simulation still advances every frame, so the demo moves at its normal speed.
+
+
+
+
   const BEHIND_SCALE = 0.75, BEHIND_PHASES = { select: 1, vs: 1, ending: 1 };
   const isBehind = () => game.mode === 'attract' || !!BEHIND_PHASES[game.phase];
   let lastDraw = -1e9, skipDraw = false;
@@ -2703,14 +2708,14 @@
     const behind = isBehind();
     if (behind !== !!game.behind) { game.behind = behind; resize(); lastDraw = -1e9; skipDraw = false; }
     if (behind && (skipDraw || w0 - lastDraw < 28)) { skipDraw = false; return; }
-    // Paused or an ad running: the fight picture does not change (the simulation stands still), so it is drawn about
-    // 10 times a second instead of on every screen refresh (the pause menu is the page's own; less heat while it is open)
-    // The same for a result screen over the finished fight and an online match waiting for the other player (nothing
-    // moves there either): phones spent full frames redrawing a still picture under a dialog.
+
+
+
+
     if (!behind && (game.paused || (ND.portal && ND.portal.inAd) || stillUnder()) && w0 - lastDraw < 100) return;
-    // GPU path: while 3 or more drawn frames still wait for the GPU, this refresh draws nothing (the simulation has
-    // already advanced): a slow GPU frame no longer piles later frames up behind it (the owner's phone showed 3–6
-    // frames queued and 40–100 ms freezes); ?gpuq=n sets the limit, 0 off
+
+
+
     if (GPU_Q && glr && game.rendererMode === 'gl' && glr.ready) {
       glr.queueLimit = GPU_Q;
       if (glr.queued() >= GPU_Q) { game.gpuSkips = (game.gpuSkips || 0) + 1; return; }
@@ -2719,9 +2724,9 @@
     game.render();
     skipDraw = behind && performance.now() - w0 > 12;
   }
-  // GPU path, result screen (the GPU draws a still picture there): the two fighters' part pictures for a key light from
-  // the other side are made a few milliseconds per frame, so a rematch or the next fight in an arena lit from that side
-  // does not make them all on its loading screen (it did: 1,282 pictures, ~44 MB, ~1 s on the owner's phone)
+
+
+
   let bgW = null;
   function bgWarm() {
     if (!(GPU_PATH && glr && glr.ready && game.rendererMode === 'gl' && game.phase === 'end' && !game.preparing && ND.warmBaked && ND._draw)) { bgW = null; return; }
@@ -2731,14 +2736,14 @@
   const endEl = $('end');
   const stillUnder = () => (game.phase === 'end' && ((endEl && !endEl.hidden) || !!(ND.online && ND.online.endShown && ND.online.endShown()))) || !!(ND.net && ND.net.isWaiting && ND.net.isWaiting());
   game.isBehind = isBehind;
-  // Show FPS readout (#fpsMeter, Settings → Graphics, saved as `showFps`). Costs nothing while off. While on, every
-  // frame the game loop runs (callbacks the pacer skips never get here, so a 60 cap on a 120 Hz screen reads 60)
-  // stores its real interval (requestAnimationFrame timestamps) in a ring; twice a second the last ~1 s of intervals
-  // gives the rate (frames / time) and the 95th percentile interval ("p95": 1 frame in 20 took this long or longer, the
-  // stutter number). One text node, written only when the text changes. Gaps over 1 s (hidden tab) and loading frames
-  // are left out, so a return from another tab does not read as one slow frame.
-  // Behind the menus the canvas itself is drawn at most ~30 times a second (drawFrame), the loop still runs at the
-  // full rate, and that loop rate is what is shown. ?perf=1 keeps its own, larger profiler (js/perf.js).
+
+
+
+
+
+
+
+
   const fpsMeter = (() => {
     const N = 256, ring = new Float64Array(N), tmp = new Float64Array(N), SHOW_MS = 500, WIN_MS = 1000;
     let on = false, k = 0, n = 0, el = null, node = null, text = '', since = 0;
@@ -2769,49 +2774,49 @@
       get text() { return text; },
     };
   })();
-  game.fpsMeter = fpsMeter; // console tests
+  game.fpsMeter = fpsMeter;
   fpsMeter.set(ND.settings.showFps);
   let last = performance.now();
-  // Frame pacing (js/gfx.js makePacer): the Frame rate setting (fpsChoice: phones 60 by default, where 90–120 Hz
-  // screens would otherwise ask for frames the GPU cannot finish on a steady beat; computers Max = one frame per
-  // refresh). ?cap=0 forces Max, ?cap=1 forces 60 (not saved). Loading work (game.preparing) always runs on every
-  // callback.
+
+
+
+
   const pacer = GFX.makePacer ? GFX.makePacer(CAP_Q ? (CAP_Q === '1' ? 60 : 0) : GFX.fpsOf(fpsChoice())) : null;
   game.pace = { on: !!pacer, stat: () => pacer?.stat() || null };
   game.applyFps = () => { if (pacer && !CAP_Q) pacer.setTarget(GFX.fpsOf(fpsChoice())); };
-  // A throw inside one frame must not become an error on every frame after it (the next frame is already asked for, so
-  // the loop runs on and the same throw would repeat 60 times a second). Each different error is caught here and still
-  // reported once, as it is: to the studio panel (index.html __ndErr, kind 'frame') and to the browser as an uncaught
-  // error (a portal's own error listener sees it too); its repeats are only counted (game.frameFaults(), console tests).
-  // Nothing about the fight changes: the step that threw is not retried or skipped differently than before.
+
+
+
+
+
   const faults = new Map();
   function frameFault(e) {
     let k = 'unknown';
-    try { k = String(e && e.message) + '|' + String((e && e.stack) || '').split('\n').slice(0, 3).join('|'); } catch (x) { /* odd object */ }
+    try { k = String(e && e.message) + '|' + String((e && e.stack) || '').split('\n').slice(0, 3).join('|'); } catch (x) {                  }
     const n = faults.get(k) || 0;
     if (n || faults.size >= 20) { if (n) faults.set(k, n + 1); return; }
     faults.set(k, 1);
-    try { console.error('[ND] frame failed', e); } catch (x) { /* no console */ }
-    try { if (e && typeof e === 'object') e.__ndReported = true; if (window.__ndErr) window.__ndErr.report('frame', e); } catch (x) { /* never */ }
+    try { console.error('[ND] frame failed', e); } catch (x) {                  }
+    try { if (e && typeof e === 'object') e.__ndReported = true; if (window.__ndErr) window.__ndErr.report('frame', e); } catch (x) {             }
     setTimeout(() => { throw e; }, 0);
   }
   game.frameFaults = () => [...faults].map(([k, n]) => ({ k, n }));
   function frame(now) {
     requestAnimationFrame(frame);
     try {
-      if (game.pace.on && pacer && !game.preparing && !pacer.due(now)) return; // skipped: its time goes to the next frame
+      if (game.pace.on && pacer && !game.preparing && !pacer.due(now)) return;
       if (game.preparing) pacer?.reset();
       const gap = now - last; last = now;
       if (!game.preparing) fpsMeter.frame(gap);
       frameBody(gap);
     } catch (e) { frameFault(e); }
   }
-  // One display frame (gap = ms since the previous one). Exposed as game._frame for console tests (hidden tab: no rAF).
+
   function frameBody(gap) {
     const rdt = Math.min(0.05, Math.max(0, gap / 1000));
     const w0 = performance.now();
     if (game.preparing) {
-      // Keep preparation outside gameplay, auto-quality sampling and combat input. Ads/hidden tabs pause it too.
+
       portalTick(0, true);
       if (!document.hidden && !(ND.portal && ND.portal.inAd)) game.preparing.step();
       return;
@@ -2822,7 +2827,7 @@
     portalTick(rdt, inAd);
     game.syncTouch();
     drawFrame(performance.now());
-    // a vibration of this frame's hit / parry goes to the browser once the frame is handed over (js/haptics.js defer)
+
     if (ND.haptics && ND.haptics.pending) setTimeout(hFlush, 0);
     bgWarm();
     if (!loaded) { loaded = true; document.documentElement.classList.add('nd-ready'); ND.portal?.loadingFinished(); ND.funnel?.step('menu'); if (glLater) setTimeout(startGl, 0); }

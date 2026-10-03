@@ -1,54 +1,54 @@
-// Shadow Duel — interactive props (環境物): cups, bottles, jars, stools, tables, crates, barrels, lanterns, weapon racks,
-// straw bales, buckets, incense burners. A prototype for the cinematic duel mode; OFF unless switched on.
-//
-// ON:  ?props=1 (any mode) · ?esya=1 (the props test page, js/props-test.js) · ND.props.enable() (the duel mode)
-// OFF: nothing here runs; the game is exactly as before (scripts/anim-digest-check.mjs proves it against main).
-//
-// ============================================================================================ API FOR THE DUEL MODE
-//   const P = ND.props;
-//   P.enable({ cpu })        switch on (cpu: CPU fighters may use props on their own, see cpuThink)
-//   P.disable()
-//   P.live                   true while on (game.js / sim-state.js read it); P.setCpu(on): the CPU's own prop use
-//   f.wpn.none = true        a disarmed fighter (drawn without its weapon, holds props in the front hand, can re-arm)
-//   P.reset(arenaId)         place the arena's set (ARENA_SETS below); game.js calls it at every round start
-//   P.spawn(kind, x, o)      add one prop: o = { gz (floor depth, ≤ 0), on: propId (stand it on that prop), fx: ±1 }
-//   P.step(h, fighters)      one fixed simulation step (game.js calls it after the fighters' solve, every sub-step)
-//   P.draw(ctx, 'back'|'front')   world-space drawing (game.js renderScene: before / after the fighters)
-//   --- queries
-//   P.items                  live props: { id, k (kind), x, y, vx, vy, a, st (0 rest, 1 moving, 2 held, 3 broken), hold (fighter id) }
-//   P.get(id) · P.held(f) · P.kind(k)  (kind table: size, material, carry, weapon numbers...)
-//   P.nearest(f, filter, maxDist)    → { p, d } nearest usable prop. filter: 'carry' | 'kick' | 'platform' | 'rack' | kind | fn(p)
-//   P.canUse(f, p, act)      → true if act ('grab' | 'smash' | 'swing' | 'throw' | 'kick' | 'rearm') is possible now
-//   --- actions (each one is a real move of the fighter: state 'atk' with its own key poses; returns false if not possible)
-//   P.act(f, 'grab', p)      pick up a small prop (cup, bottle, bucket, jar, stool) with the free hand (both when disarmed)
-//   P.act(f, 'smash')        smash the held prop on the opponent's head: stun + the prop breaks (cup, bottle, jar)
-//   P.act(f, 'swing')        swing the held stool: knockdown + the stool snaps
-//   P.act(f, 'throw')        throw the held prop at the opponent (a blade can cut it in the air; a parry cuts it)
-//   P.act(f, 'kick', p)      kick a prop on the floor at the opponent (barrel, bucket, crate, bale, jar...)
-//   P.act(f, 'rearm', rack)  take a spare sword from a weapon rack (after a disarm: f.wpn.none = true)
-//   P.act(f, 'shove', p)     front kick that sends the opponent flying onto prop p (the table slam of a cinematic)
-//   P.go(f, p, act, done)    walk / dash to p, then act (the fighter is driven, its CPU waits); done(ok) at the end
-//   P.slam(f, p, o)          throw fighter f onto prop p from where it is (ballistic: lands on its top), o = { from }
-//   P.drop(f)                let go of the held prop
-//   --- cinematic hooks (defence chains)
-//   P.cineCandidates(att, def) → [{ type: 'smash'|'swing'|'throw'|'kick'|'slam'|'rearm', prop, user: def, target: att,
-//                                  score, dist, focus: { x, y, z } }], best first. E.g. after a perfect parry:
-//                                  'smash' = def grabs the cup on the table and smashes it on att's head;
-//                                  'slam'  = def's front kick throws att through the table / onto the stool.
-//   P.playCine(c, { then, done })    run candidate c (walk/dash, grab, strike); then: a second candidate run right after
-//                                  (e.g. smash → slam); done(ok). The duel mode owns slow motion and the camera
-//                                  (c.focus is a good camera target), the props module only moves bodies.
-//   --- events (presentation side: sounds and particles are played here already)
-//   P.on(fn)                 fn(ev) for 'break' | 'hit' | 'cut' | 'grab' | 'throw' | 'land' | 'rearm' events: { type, p, f, x, y }
-//   --- rollback / determinism
-//   P.save() / P.load(s) / P.hash()   the whole prop state (sim-state.js includes it when props are on)
-// Determinism: the simulation reads ND.DM math and its own seeded stream (S.rs), never Math.random or the clock; sounds,
-// liquid drops, dust and splinters are presentation (Math.random) and never run in a re-simulated step (game.simOnly).
-// ====================================================================================================================
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 (function (ND) {
   'use strict';
-  const Math = ND.DM || globalThis.Math; // the simulation: deterministic math on every device
-  const NM = globalThis.Math; // presentation only (particles, sound variation)
+  const Math = ND.DM || globalThis.Math;
+  const NM = globalThis.Math;
   const { clamp, segSeg } = ND.M;
   const fx = ND.fx, au = ND.audio, cam = ND.cam, pose = ND.pose, PO = ND.POSES;
   const G = () => ND.game;
@@ -58,9 +58,9 @@
   const TAU = Math.PI * 2;
   const GRAV = 2000, FGRAV = 2500;
 
-  // ------------------------------------------------------------------------------------------ materials
-  // brk: impact speed (px/s, along the contact normal) above which an impact damages the prop; dk: damage per px/s
-  // above it; e: bounce; mu: friction; snd: sound family
+
+
+
   const MAT = {
     ceramic: { brk: 300, dk: 0.035, e: 0.22, mu: 0.45, snd: 'ceramic' },
     wood: { brk: 560, dk: 0.022, e: 0.28, mu: 0.6, snd: 'wood' },
@@ -69,15 +69,15 @@
     metal: { brk: Infinity, dk: 0, e: 0.32, mu: 0.4, snd: 'metal' },
   };
 
-  // ------------------------------------------------------------------------------------------ kinds
-  // Local coordinates: origin = the middle of the prop's bottom, x right, y down (so the top is at -h). Sizes are world
-  // units (a fighter stands ~220 tall); small props are drawn a little larger than life so they read on a phone.
-  // hull: outline used by the physics (convex parts in `solid` when the outline is not convex)
-  // top: height of a surface others can stand on (and a falling body crashes onto) · carry: 1 one hand, 2 heavy
-  // grip: where the hand holds it (local) · hold: its angle in the hand relative to the forearm (facing right)
-  // weapon: when it hits a fighter (held strike or thrown): dmg (raw), stun (s), kb, knock, post (guard damage)
-  // parts: wooden props break along their real parts ([x0, y0, x1, y1] rectangles or polygons; 'split' = also snaps in two)
-  // grid: ceramics shatter into a jagged grid [cols, rows]
+
+
+
+
+
+
+
+
+
   const KINDS = ND.PROP_KINDS = {
     cup: { w: 13, h: 10, m: 0.3, hp: 1, mat: 'ceramic', liquid: 'sake', carry: 1, grip: [0, -5], upright: 1, kick: 1, throw: 1,
       hull: [[-4.5, 0], [4.5, 0], [6.5, -10], [-6.5, -10]], grid: [2, 2],
@@ -117,14 +117,14 @@
       hull: [[-11, 0], [11, 0], [13.5, -24], [-13.5, -24]],
       parts: [[-13.5, -24, -6.75, 0], [-6.75, -24, 0, 0], [0, -24, 6.75, 0], [6.75, -24, 13.5, 0]],
       weapon: { dmg: 8, stun: 0.6, kb: 220, post: 16 } },
-    // --- set pieces of the duel prototype's market (js/duel-seq.js): fixed in place (fixed: nothing pushes them)
-    // a wooden post: a blade that misses bites into it and sticks; chipped by cuts, splinters
+
+
     post: { w: 24, h: 210, m: 60, hp: 40, mat: 'wood', fixed: 1, kick: 0,
       hull: [[-12, 0], [12, 0], [12, -210], [-12, -210]], parts: [[-12, -210, 12, -140], [-12, -140, 12, -70], [-12, -70, 12, 0]] },
-    // a raised veranda (engawa) with a step at its end: the high ground (its top is a surface)
+
     veranda: { w: 190, h: 48, m: 400, hp: Infinity, mat: 'wood', fixed: 1, top: 48, kick: 0,
       hull: [[-95, 0], [95, 0], [95, -48], [-95, -48]] },
-    // a shop front: a wooden frame with a paper screen (shoji) and a noren cloth: a body thrown into it tears through
+
     shopfront: { w: 80, h: 236, m: 80, hp: 6, mat: 'paper', fixed: 1, kick: 0,
       hull: [[-40, 0], [40, 0], [40, -236], [-40, -236]],
       parts: [[-40, -236, 40, -204], [-40, -204, 0, -112], [0, -204, 40, -112], [-40, -112, 0, -18], [0, -112, 40, -18], [-40, -18, 40, 0]] },
@@ -133,9 +133,9 @@
       weapon: { dmg: 12, stun: 0.5, kb: 300, knock: 1, post: 40 } },
   };
 
-  // ------------------------------------------------------------------------------------------ arena sets
-  // [kind, x, gz (floor depth: 0 = the fighters' line, negative = further back), extra]; on: index of a prop in the same
-  // list to stand on. Kept clear of the middle, where the fighters start (±260).
+
+
+
   const ARENA_SETS = ND.PROP_SETS = {
     temple: [['burner', -560, -18], ['lantern', -380, -10], ['bale', -700, -6], ['table', 400, -8], ['cup', 382, 0, { on: 3 }], ['cup', 402, 0, { on: 3 }], ['bottle', 428, 0, { on: 3 }], ['rack', 640, -20]],
     rain: [['barrel', -560, -14], ['bucket', -470, -4], ['stool', -330, -6], ['crate', 430, -12], ['crate', 436, 0, { on: 3 }], ['jar', 560, -6], ['lantern', 700, -16]],
@@ -147,7 +147,7 @@
     castle: [['rack', -600, -20], ['stool', -400, -6], ['barrel', 420, -12], ['crate', 520, -16], ['burner', 680, -20]],
   };
 
-  // ------------------------------------------------------------------------------------------ geometry helpers
+
   function polyCentroid(P) {
     let a = 0, cx = 0, cy = 0;
     for (let i = 0; i < P.length; i++) {
@@ -158,7 +158,7 @@
     a *= 0.5;
     return [cx / (6 * a), cy / (6 * a), Math.abs(a)];
   }
-  // Sutherland–Hodgman: polygon P clipped by convex polygon C (either winding)
+
   function clipPoly(P, C) {
     let out = P;
     const n = C.length, A0 = polyCentroid(C);
@@ -189,18 +189,18 @@
     up.pop(); lo.pop();
     return lo.concat(up);
   }
-  // a small deterministic stream for the piece shapes (same pieces on every device)
+
   function mul(seed) { let s = seed | 0; return () => { s = (s + 0x6d2b79f5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
-  // A jagged polyline from a to b (shared by the two pieces on either side: both walk it, one backwards)
+
   function jag(a, b, n, amp, r) {
     const L = [a], dx = b[0] - a[0], dy = b[1] - a[1], ln = Math.hypot(dx, dy) || 1, nx = -dy / ln, ny = dx / ln;
     for (let i = 1; i < n; i++) { const u = i / n + (r() - 0.5) * 0.18 / n, o = (r() - 0.5) * 2 * amp; L.push([a[0] + dx * u + nx * o, a[1] + dy * u + ny * o]); }
     L.push(b);
     return L;
   }
-  // Pieces of a kind: { polys: [[x, y]...] (each a convex part of the piece, local coords), cx, cy (centroid), v (physics
-  // outline relative to the centroid), m, I, r }. Every piece is cut from the same picture (js/props-art.js), so the
-  // shards fit together like the object they came from.
+
+
+
   function buildPieces(k, K) {
     const r = mul(0x51ed + k.length * 977 + k.charCodeAt(0) * 131), solid = K.solid || [K.hull], out = [];
     const add = (polys, cut, edge) => {
@@ -217,7 +217,7 @@
       out.push({ polys, edge: edge || null, cut: cut || null, cx, cy, v, m, I: m * (w * w + h * h) / 12, r: rr, A });
     };
     if (K.grid) {
-      // jittered lattice over the bounding box; shared jagged edges; each cell clipped by the solid outline
+
       const [C, R] = K.grid, x0 = -K.w / 2 - 1, x1 = K.w / 2 + 1, y0 = -K.h - 1, y1 = 1;
       const pt = [];
       for (let j = 0; j <= R; j++) {
@@ -233,7 +233,7 @@
       for (let j = 0; j < R; j++) {
         for (let i = 0; i < C; i++) {
           const cell = [].concat(H[j][i], V[j][i + 1].slice(1), H[j + 1][i].slice().reverse().slice(1), V[j][i].slice().reverse().slice(1, -1));
-          // the jagged cell is not convex: split it into a fan of triangles around its centre before clipping
+
           const c = polyCentroid(cell), parts = [];
           for (let q = 0; q < cell.length; q++) {
             const tri = [[c[0], c[1]], cell[q], cell[(q + 1) % cell.length]];
@@ -247,7 +247,7 @@
         if (typeof pr[0] === 'number') {
           const [a, b, c, d, sp] = pr, poly = [[a, b], [c, b], [c, d], [a, d]];
           if (sp === 'split') {
-            // a board that snaps: two halves along a jagged break near its middle
+
             const mx = (a + c) / 2 + (r() - 0.5) * (c - a) * 0.3, J = jag([mx + (r() - 0.5) * 6, b], [mx + (r() - 0.5) * 6, d], 4, (c - a) * 0.025 + 1.4, r);
             { const e = [[a, b]].concat(J, [[a, d]]); add(fan(e), null, e); }
             { const e = [[c, b]].concat(J, [[c, d]]); add(fan(e), null, e); }
@@ -257,13 +257,13 @@
     }
     return out;
   }
-  // a simple (possibly concave) polygon → triangles around its centroid (fine for the star-shaped parts used here)
+
   function fan(P) {
     const c = polyCentroid(P), T = [];
     for (let i = 0; i < P.length; i++) T.push([[c[0], c[1]], P[i], P[(i + 1) % P.length]]);
     return T;
   }
-  // Two halves of a prop cut by a blade at angle th through its centre (16 angle buckets: the same halves everywhere)
+
   const CUTS = {};
   function cutPieces(k, K, bucket) {
     const key = k + bucket;
@@ -276,7 +276,7 @@
       const H = half(sg), polys = [];
       for (const S of K.solid || [K.hull]) { const cp = clipPoly(S, H); if (cp.length >= 3) polys.push(cp); }
       const P0 = { polys, cut: [com[0], com[1], th], cx: 0, cy: 0 };
-      // physics outline as for ordinary pieces
+
       let ax = 0, ay = 0, A = 0; const pts = [];
       for (const p of polys) { const q = polyCentroid(p); ax += q[0] * q[2]; ay += q[1] * q[2]; A += q[2]; for (const z of p) pts.push(z); }
       if (!A) continue;
@@ -290,10 +290,10 @@
     return (CUTS[key] = out);
   }
 
-  // drawn a little larger than life so they read on a phone screen (sc: the whole kind, art included)
+
   const SCALE = { cup: 1.35, bottle: 1.25, jar: 1.12, stool: 1.1, table: 1.14, barrel: 1.06, lantern: 1.08, bucket: 1.2, rack: 1.2 };
   const scl = (v, s) => (typeof v === 'number' ? v * s : Array.isArray(v) ? v.map((q) => scl(q, s)) : v);
-  // kind setup: size, centre of mass, physics outline, inertia, pieces
+
   for (const k in KINDS) {
     const K = KINDS[k];
     K.id = k;
@@ -309,12 +309,12 @@
     K._r = Math.max(...K._v.map((p) => Math.hypot(p[0], p[1])));
     K._I = K.m * (K.w * K.w + K.h * K.h) / 12;
     K._mat = MAT[K.mat];
-    // round things (barrel, bale, jar) roll on: less friction and rolling resistance
+
     K._ph = K.round ? Object.assign({}, K._mat, { mu: K._mat.mu * 0.3, roll: 0.5 }) : K._mat;
     K._pieces = K.hp === Infinity ? [] : buildPieces(k, K);
   }
 
-  // ------------------------------------------------------------------------------------------ state
+
   const S = {
     on: false, cpu: false, arena: null, rs: 1, t: 0, nid: 1, items: [], shards: [],
     tasks: [null, null], brain: [{ cd: 1.5 }, { cd: 2.5 }], dizzy: [0, 0], fy: [0, 0], fvy: [0, 0],
@@ -330,10 +330,10 @@
   };
   const rnd = () => { let t = (S.rs = (S.rs + 0x6d2b79f5) | 0); t = Math.imul(t ^ (t >>> 15), 1 | t); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
   const rr = (a, b) => a + rnd() * (b - a);
-  const emit = (ev) => { if (!pres()) return; for (const fn of P.listeners) { try { fn(ev); } catch (e) { /* a listener never breaks the fight */ } } };
+  const emit = (ev) => { if (!pres()) return; for (const fn of P.listeners) { try { fn(ev); } catch (e) {                                         } } };
   P.on = (fn) => { P.listeners.push(fn); return () => { const i = P.listeners.indexOf(fn); if (i >= 0) P.listeners.splice(i, 1); }; };
 
-  // P.live: the switch game.js and sim-state.js read (P.on is the event API)
+
   P.live = false;
   P.enable = function (o = {}) {
     P.live = S.on = true; S.cpu = !!o.cpu;
@@ -359,7 +359,7 @@
     }
     if (ND.propArt && pres()) { ND.propArt.prepare(arena); ND.propArt.warm(); }
   };
-  // add one prop standing on the floor (gz) or on another prop (on: prop object or id)
+
   P.spawn = function (k, x, o = {}) {
     const K = KINDS[k];
     if (!K) return null;
@@ -375,21 +375,21 @@
     return p;
   };
 
-  // ------------------------------------------------------------------------------------------ transforms
-  // world position of local point (lx, ly) of prop p
+
+
   function toWorld(p, lx, ly, out) {
     const K = KINDS[p.k], c = Math.cos(p.a), s = Math.sin(p.a), x = (lx - K._com[0]) * p.fx, y = ly - K._com[1];
     out[0] = p.x + c * x - s * y; out[1] = p.y + s * x + c * y;
     return out;
   }
   const TW = [0, 0], TW2 = [0, 0];
-  // top surface height (world y) of a resting, upright platform prop, or null
+
   function topOf(q) {
     const K = KINDS[q.k];
     if (!K.top || q.st === 3 || q.st === 2 || Math.abs(Math.sin(q.a)) > 0.12) return null;
     return q.y - K._com[1] * Math.cos(q.a) - K.top;
   }
-  // the floor (or platform top) under world x for body b (not b itself, nor what rests on b)
+
   function surfaceAt(x, b, cy) {
     let s = b.gz;
     for (const q of S.items) {
@@ -403,10 +403,10 @@
     return s;
   }
 
-  // ------------------------------------------------------------------------------------------ rigid bodies
-  // One body = { x, y, vx, vy, a, w } + outline verts (relative to the centre of mass), mass m, inertia I.
-  // Contacts with the floor / platform tops: impulses at the deepest vertices (normal + Coulomb friction), position
-  // correction, then sleep when still. Arena walls bounce. Returns the largest normal impact speed of this step.
+
+
+
+
   const CV = [];
   function integrate(b, V, m, I, mat, h, fl, surf) {
     b.vy += GRAV * h;
@@ -419,7 +419,7 @@
       if (wy > f) { const d = wy - f; CV[n * 3] = rx; CV[n * 3 + 1] = ry; CV[n * 3 + 2] = d; n++; if (d > pen) pen = d; }
     }
     if (n) {
-      // the two deepest contacts
+
       let i0 = 0, i1 = -1;
       for (let i = 1; i < n; i++) if (CV[i * 3 + 2] > CV[i0 * 3 + 2]) i0 = i;
       for (let i = 0; i < n; i++) if (i !== i0 && (i1 < 0 || CV[i * 3 + 2] > CV[i1 * 3 + 2])) i1 = i;
@@ -430,11 +430,11 @@
           const vcy = b.vy + b.w * rx, vcx = b.vx - b.w * ry;
           if (vcy <= 0) continue;
           if (it === 0) imp = Math.max(imp, vcy);
-          // normal n = (0, -1): impulse jn along n; r × n = -rx
+
           const e = vcy > 120 ? mat.e : 0, rn = -rx, kn = 1 / m + (rn * rn) / I;
           const jn = ((1 + e) * vcy) / kn / ids.length;
           b.vy -= jn / m; b.w += (rn * jn) / I;
-          // friction along t = (1, 0); r × t = -ry
+
           const rt = -ry, kt = 1 / m + (rt * rt) / I, vt = b.vx - b.w * ry;
           let jt = -vt / kt;
           const lim = mat.mu * jn;
@@ -443,10 +443,10 @@
         }
       }
       b.y -= pen;
-      b.w *= 1 - (mat.roll ?? 3) * h; // rolling resistance
+      b.w *= 1 - (mat.roll ?? 3) * h;
       b.vx *= 1 - 0.6 * h;
     }
-    // arena walls
+
     const A = ND.ARENA + 30;
     if (b.x > A) { b.x = A; if (b.vx > 0) { b.vx *= -0.35; b.w *= 0.6; imp = Math.max(imp, Math.abs(b.vx) * 2); } }
     if (b.x < -A) { b.x = -A; if (b.vx < 0) { b.vx *= -0.35; b.w *= 0.6; imp = Math.max(imp, Math.abs(b.vx) * 2); } }
@@ -454,7 +454,7 @@
     return imp;
   }
 
-  // ------------------------------------------------------------------------------------------ damage & breaking
+
   function wake(p) { if (p.st === 0 && !KINDS[p.k].fixed) { p.st = 1; p.sl = 0; S.mv = (S.mv || 0) + 1; } }
   function freeSupported(p) { for (const q of S.items) if (q.sup === p.id && q.st === 0) { q.sup = -1; wake(q); } }
   P.hurt = function (p, dmg, how, ix, iy, dx, dy, by) {
@@ -464,9 +464,9 @@
     if (pres()) { snd(p, 'knock', Math.min(1.2, dmg / 6)); if (KINDS[p.k].mat === 'wood') splinters(ix, iy, dx, 3); }
     return false;
   };
-  // how: 'shatter' (impact) | 'cut' (blade, dx/dy = the blade direction) | 'crush' (a body falling on it)
+
   function breakProp(p, how, ix, iy, dx, dy, by) {
-    S.brk = (S.brk || 0) + 1; // (resting pieces above the floor look again for what holds them: shardStep)
+    S.brk = (S.brk || 0) + 1;
     const K = KINDS[p.k];
     if (p.st === 3) return;
     if (K.hp === Infinity) return;
@@ -483,7 +483,7 @@
     for (let i = 0; i < pieces.length; i++) {
       const pc = pieces[i], lx = (pc.cx - K._com[0]) * p.fx, ly = pc.cy - K._com[1];
       const wx = p.x + c * lx - s * ly, wy = p.y + s * lx + c * ly;
-      // burst away from the impact point (cut: the halves part across the blade)
+
       let ox = wx - ix, oy = wy - iy;
       if (how === 'cut') { const nx = -dy, ny = dx, d = nx * ox + ny * oy; ox = nx * Math.sign(d || 1); oy = ny * Math.sign(d || 1); }
       const ol = Math.hypot(ox, oy) || 1;
@@ -495,7 +495,7 @@
         gz: p.gz, fl: p.fx, age: 0, sl: 0, fade: 0, ct: 0,
       });
     }
-    // the weapon rack drops its spare swords
+
     if (K.swords && p.n > 0) for (let i = 0; i < p.n; i++) S.shards.push({ k: p.k, pi: -1, sword: 1, x: p.x + (i ? 14 : -14), y: p.y - 30, vx: rr(-140, 140), vy: rr(-380, -200), a: rr(-0.4, 0.4), w: rr(-6, 6), gz: p.gz, fl: 1, age: 0, sl: 0, fade: 0, ct: 0 });
     capShards();
     if (pres()) breakFx(p, how, ix, iy, dx, dy);
@@ -504,32 +504,32 @@
   P.breakProp = (p, how = 'shatter', o = {}) => breakProp(p, how, o.x ?? p.x, o.y ?? p.y, o.dx ?? 1, o.dy ?? 0, o.by);
   function capShards() {
     const cap = P.debrisCap();
-    // oldest settled pieces go first (they fade quickly), then the oldest of all
+
     let n = S.shards.length - cap;
     for (let i = 0; i < S.shards.length && n > 0; i++) { const d = S.shards[i]; if (d.fade === 0 && d.sl > 0.2) { d.fade = 0.0001; d.fq = 1; n--; } }
     while (S.shards.length > cap + 12) S.shards.shift();
     P.stats.maxShards = Math.max(P.stats.maxShards, S.shards.length);
   }
 
-  // ------------------------------------------------------------------------------------------ the fixed step
+
   P.step = function (h, F) {
     if (!P.live) return;
     const g = G();
     F = F || (g && g.F);
     S.t += h;
     for (let i = 0; i < 2; i++) if (S.dizzy[i] > 0) S.dizzy[i] = Math.max(0, S.dizzy[i] - h);
-    // tasks (walk to a prop, then act) and the CPU's own use of props
+
     if (F) for (const f of F) { runTask(f, h); if (S.cpu && !f.dead) cpuThink(f, h); }
-    // held props follow the hand
+
     if (F) for (const p of S.items) if (p.st === 2) { const f = F[p.hold]; if (!f || f.dead) dropProp(p, f); else holdPose(p, f); }
-    // drop on being hit
+
     if (F) for (const f of F) { const p = P.held(f); if (p && (f.dead || DROP_ON[f.state])) dropProp(p, f, true); }
-    // bodies
+
     for (const p of S.items) {
       if (p.st !== 1) continue;
       const K = KINDS[p.k];
       if (p.tt < 9) p.tt += h;
-      if (p.owner >= 0 && p.tt < 2) p.gz += (0 - p.gz) * Math.min(1, h * 10); // a thrown / kicked prop flies on the fighters' line
+      if (p.owner >= 0 && p.tt < 2) p.gz += (0 - p.gz) * Math.min(1, h * 10);
       const vy0 = p.vy;
       const imp = integrate(p, K._v, K.m, K._I, K._ph, h, p.fx, true);
       if (imp > 0) {
@@ -538,18 +538,18 @@
           if (P.hurt(p, (imp - K._mat.brk) * K._mat.dk + (p.owner >= 0 && p.tt < 2 ? 1 : 0), 'shatter', ix, iy, p.vx * 0.002, -1)) continue;
         }
         if (pres() && imp > 90 && (vy0 > 90 || Math.abs(p.w) > 3)) snd(p, 'land', Math.min(1.2, imp / 500));
-        if (imp > 150 && p.owner >= 0) p.owner = -1; // a thrown prop that landed is just a prop again
+        if (imp > 150 && p.owner >= 0) p.owner = -1;
       }
       p.spin = p.w;
-      // sleep: still on a surface (vy: a resting heavy prop keeps a small gravity jitter round 10, which must not keep
-      // it awake for good: a table that never sleeps is never a station again)
+
+
       if (p._ct && Math.abs(p.vx) < 8 && Math.abs(p.vy) < 24 && Math.abs(p.w) < 0.35) { p.sl += h; if (p.sl > 0.2) { p.st = 0; p.vx = p.vy = p.w = 0; p.owner = -1; } }
       else p.sl = 0;
       if (p.y > 400) p.st = 3;
     }
-    // supports: a resting prop whose support moved or broke falls
+
     for (const p of S.items) if (p.st === 0 && p.sup >= 0) { const q = P.get(p.sup); if (!q || q.st !== 0) { p.sup = -1; wake(p); } }
-    // flying props: against each other and the resting ones
+
     propVsProp(h);
     if (F) {
       for (const f of F) {
@@ -559,18 +559,18 @@
         for (const p of S.items) if (p.st === 1) flyingHits(p, f, h);
       }
     }
-    // shards
+
     const keep = P.debrisKeep();
     for (let i = S.shards.length - 1; i >= 0; i--) {
       const d = S.shards[i];
       d.age += h;
-      // (a piece asleep on something that has since broken or moved falls on - never left hanging in the air)
+
       if (d.sl >= 0.25 && d.y < (d.gz || 0) - 6 && (d.brk !== (S.brk || 0) || d.mv !== (S.mv || 0))) d.sl = 0;
       if (d.sl < 0.25 || d.fade === 0) {
         const pc = shardPiece(d);
         if (d.sl < 0.25) {
           const imp = integrate(d, pc.v, pc.m, pc.I, KINDS[d.k]._mat, h, d.fl, false);
-          if (imp > 160 && d.age > 0.05 && d.ct < 2) { d.ct++; if (pres()) shardTick(d, imp); } // (the count is state: also when not presented)
+          if (imp > 160 && d.age > 0.05 && d.ct < 2) { d.ct++; if (pres()) shardTick(d, imp); }
           if (d._ct && Math.abs(d.vx) < 10 && Math.abs(d.vy) < 14 && Math.abs(d.w) < 0.5) d.sl += h; else d.sl = 0;
           if (d.sl >= 0.25) { d.vx = d.vy = d.w = 0; d.brk = S.brk || 0; d.mv = S.mv || 0; }
         }
@@ -579,7 +579,7 @@
       if (d.fade > 0) { d.fade += h * (d.fq ? 4 : 1); if (d.fade >= 1) S.shards.splice(i, 1); }
       else if (d.y > 400) S.shards.splice(i, 1);
     }
-    // remember the fighters' heights (falls onto props cross a top between two steps)
+
     if (F) for (const f of F) { S.fy[f.id] = f.dead ? f.rag.p.hip.y : f.y; S.fvy[f.id] = f.dead ? 0 : f.vy; }
     for (const p of S.items) if (p.cut > 0) p.cut = Math.max(0, p.cut - h);
     if (pres()) P.updateFx(h);
@@ -588,21 +588,21 @@
   function shardPiece(d) { return d.sword ? SWORD_PIECE : d.pi >= 100 ? d.cb[d.pi - 100] : KINDS[d.k]._pieces[d.pi]; }
   const SWORD_PIECE = { v: [[-62, -3], [62, -3], [62, 3], [-62, 3]], m: 1.2, I: 1.2 * 124 * 124 / 12, r: 62 };
   P.shardPiece = shardPiece;
-  // drawing (js/props-art.js): 'back' before the fighters, 'front' after them
+
   P.draw = (ctx, layer) => { if (ND.propArt) ND.propArt.draw(ctx, layer); };
 
-  // ------------------------------------------------------------------------------------------ held props
-  // the hand a fighter holds props with: the back hand while it has its weapon, the front one when disarmed
+
+
   const handOf = (f) => (f.wpn && f.wpn.none ? 'F' : 'B');
   P.handOf = handOf;
-  // carry position (when no prop move is running): the back hand low in front of the belly, where it can be seen
+
   function carryTarget(f, out) {
     const j = f.j, d = f.dir;
     out[0] = j.sh.x + d * 21; out[1] = j.sh.y + 40;
     return out;
   }
   P.carryTarget = carryTarget;
-  // where the held prop is: its grip point in the hand, its angle following the forearm (facing space)
+
   function holdPose(p, f) {
     const K = KINDS[p.k], j = f.j, d = f.dir, H = p.hand === 'F' ? ['elF', 'haF'] : ['elB', 'haB'];
     const moving = f.state === 'atk' && f.atk && f.atk.prop;
@@ -610,11 +610,11 @@
     if (moving || p.hand === 'F') { hx = j[H[1]].x; hy = j[H[1]].y; phi = Math.atan2(j[H[1]].y - j[H[0]].y, (j[H[1]].x - j[H[0]].x) * d); }
     else { carryTarget(f, TW); hx = TW[0]; hy = TW[1]; phi = Math.PI / 2 - 0.25; }
     p.fx = d;
-    // upright things (cup, bottle, jar, bucket) stay roughly upright in the fist and tilt a little with the swing;
-    // a stool lies along the forearm while it is swung, and hangs upright when carried
+
+
     const a = moving || p.hand === 'F' ? (K.upright ? clamp(phi * 0.35, -0.9, 0.9) : phi + (K.hold || 0)) : 0;
     p.a = d * a;
-    // put the grip point on the hand
+
     const gx = (K.grip[0] - K._com[0]) * p.fx, gy = K.grip[1] - K._com[1], c = Math.cos(p.a), s = Math.sin(p.a);
     p.x = hx - (c * gx - s * gy); p.y = hy - (s * gx + c * gy); p.w = 0;
   }
@@ -626,9 +626,9 @@
   }
   P.drop = (f) => { const p = P.held(f); if (p) dropProp(p, f, false); };
 
-  // ------------------------------------------------------------------------------------------ fighters and props
-  // A fighter body crashing down onto a prop (knocked into the air, thrown, a KO ragdoll): the prop breaks (or a metal
-  // one rings and tips over), a short hit-stop, the camera shakes, the body is slowed and falls on through it.
+
+
+
   function fighterFalls(f, h) {
     const g = G();
     let x, y, vy, y0 = S.fy[f.id];
@@ -638,13 +638,13 @@
     for (const p of S.items) {
       if (p.st === 3 || p.st === 2) continue;
       const K = KINDS[p.k], top = p.y - K._com[1] * Math.cos(p.a) - (K.top || K.h * 0.85);
-      // body length along x (lying / flying fighters are long): ±46 around the hip
+
       if (Math.abs(x - p.x) > K.w / 2 + (f.dead ? 18 : 40)) continue;
-      const yb = f.dead ? y + 12 : y; // the feet line (alive) / the back (ragdoll)
+      const yb = f.dead ? y + 12 : y;
       if (!(yb >= top - 2 && y0 + (f.dead ? 12 : 0) < top + 6)) continue;
       const e = (f.dead ? 1.2 : 1) * Math.max(vy, 260), ix = clamp(x, p.x - K.w / 2, p.x + K.w / 2), iy = top;
       if (K.hp === Infinity) {
-        // metal: the body bounces off, the burner rings and tips
+
         wake(p); p.vx += (p.x - x) * 2 + f.dir * 40; p.w += (x < p.x ? 1 : -1) * 3.5;
         if (!f.dead) { f.vy = -Math.min(420, vy * 0.45); f.vx = (x < p.x ? -1 : 1) * Math.max(140, Math.abs(f.vx)); f.y = Math.min(f.y, top - 1); }
         if (pres()) { snd(p, 'metal', 1.2); fx.dust(ix, iy, 10, 1.1); cam.punch(8); }
@@ -653,21 +653,21 @@
         return;
       }
       const brk = P.hurt(p, e * 0.06 + 6, 'crush', ix, iy, f.vx * 0.002, 1, f);
-      // small things (a cup, a bottle) are crushed on the way without slowing the body
+
       const small = K.m < 1.5;
       if (!f.dead) {
-        // slowed by what it crashed through (or stopped by what held: a short bounce)
+
         if (brk && !small) { f.vy = Math.min(f.vy, 150); f.vx *= 0.55; }
         else if (!brk) { f.vy = -Math.min(320, vy * 0.4); f.y = Math.min(f.y, top - 1); f.vx *= 0.7; }
         if (!small) fallDamage(f, brk ? 5 : 3);
       } else if (!small) {
-        // the ragdoll: every point loses most of its downward speed
+
         for (const k in f.rag.p) { const q = f.rag.p[k]; const v = q.y - q.py; if (v > 0) q.py = q.y - v * (brk ? 0.35 : -0.2); }
       }
       g && g.hitstop(small ? 0.02 : brk ? 0.085 : 0.05);
       if (pres() && !small) { cam.punch(brk ? 10 : 6); fx.dust(ix, Math.min(iy + 10, 0), 7, 1.1); }
       emit({ type: 'land', p, f, x: ix, y: iy, broke: brk });
-      return; // one prop per step
+      return;
     }
   }
   function fallDamage(f, raw) {
@@ -676,11 +676,11 @@
     f.hp = Math.max(1, f.hp - d); f.damageTaken = (f.damageTaken || 0) + d; f.flash = Math.max(f.flash || 0, 0.45); f.ghostT = 0.55;
   }
 
-  // The fighter's blade passing through a prop: light props are cut clean in two (in the air too), heavy ones chipped.
+
   const BLADE_PREV = [null, null];
   function bladeCuts(f, h) {
     if (f.dead || !f.j || !f.j.tip || (f.wpn && f.wpn.none)) { BLADE_PREV[f.id] = null; return; }
-    // a cut's hit window, or any blade swinging fast through a move (a wind-up cuts a jar as well as the blow does)
+
     const j = f.j, pb = f.sweepFrom || f.prevBlade;
     if (!pb) return;
     const swinging = f.state === 'atk' && f.atk && f.atk.kind === 'blade' && Math.hypot(j.tip.x - pb[2], j.tip.y - pb[3]) > 5;
@@ -689,7 +689,7 @@
       if (p.st === 3 || p.st === 2 || p.cut > 0) continue;
       const K = KINDS[p.k];
       if (K.hp === Infinity) continue;
-      // the blade's sweep (two segments: from the step before and now) against the prop's circle
+
       const r1 = segSeg(j.haF.x, j.haF.y, j.tip.x, j.tip.y, p.x, p.y, p.x, p.y), r2 = segSeg(pb[0], pb[1], pb[2], pb[3], p.x, p.y, p.x, p.y);
       const rad = K._r * 0.62;
       if (r1.d > rad && r2.d > rad && segSeg(pb[2], pb[3], j.tip.x, j.tip.y, p.x, p.y, p.x, p.y).d > rad) continue;
@@ -710,7 +710,7 @@
     }
   }
 
-  // Feet: a kick (any kick move) sends a floor prop flying; a dash or a fast walk nudges small ones.
+
   function feetKicks(f, h) {
     if (f.dead || !f.j || !f.j.ftF) return;
     const kicking = f.state === 'atk' && f.atk && f.atk.kind === 'kick' && f.atk.active && f.st >= f.atk.active[0] && f.st <= f.atk.active[1];
@@ -734,7 +734,7 @@
     p.st = 1; p.sl = 0; p.owner = f.id; p.tt = 0; p.gz0 = p.gz;
     const m = clamp(12 / (K.m + 2), 0.55, 2.2);
     p.vx = f.dir * (460 + 260 * m) * power; p.vy = -(K.m > 8 ? 70 : 240) * power; p.w = f.dir * (K.m > 8 ? 7 : 14) * power;
-    if (o && !o.dead) { // aim a little: low and straight at the other fighter
+    if (o && !o.dead) {
       const dx = o.x - p.x;
       if (dx * f.dir > 0 && Math.abs(dx) < 700) p.vx = f.dir * Math.max(Math.abs(p.vx), Math.min(900, Math.abs(dx) * 2.2));
     }
@@ -743,7 +743,7 @@
     emit({ type: 'kick', p, f, x: p.x, y: p.y });
   }
 
-  // A moving prop reaching a fighter: guard (bounces off / shatters on the blade; a parry cuts it), or a hit.
+
   function flyingHits(p, f, h) {
     const K = KINDS[p.k], sp = Math.hypot(p.vx, p.vy);
     if (f.dead || sp < 230 || (p.owner === f.id && p.tt < 0.6) || (p.hitF === f.id && p.hitT > S.t - 0.4)) return;
@@ -759,14 +759,14 @@
     if (f.guardingFrom && f.guardingFrom(from || f.opp, p.x - p.vx * 0.1)) {
       const parry = f.ctrl && f.ctrl.since && ND.parryWin && f.ctrl.since('guard') <= ND.parryWin(f);
       if (parry || K.m <= 5) {
-        // the blade meets it: cut clean in two (a parry), small ones shatter on the guard
+
         g && g.hitstop(parry ? 0.1 : 0.05);
         if (pres()) { au.clang(0.5, cam.pan(p.x), 1.6); fx.spark(hit[0], hit[1], dirx > 0 ? Math.PI : 0, 10, 0.8); fx.text(f.x, -205, parry ? 'CUT!' : 'BLOCK', '#ffe3a1'); cam.punch(parry ? 7 : 4); }
         if (parry && f.j.tip) breakProp(p, 'cut', p.x, p.y, f.j.tip.x - f.j.haF.x, f.j.tip.y - f.j.haF.y, f);
         else breakProp(p, 'shatter', hit[0], hit[1], -dirx, 0, f);
         if (parry && f.gainKi) f.gainKi(10);
       } else {
-        // heavy: knocked back off the guard
+
         p.vx = -p.vx * 0.3; p.vy = -180; p.w = -p.w * 0.5;
         P.hurt(p, 6, 'shatter', hit[0], hit[1], -dirx, 0, f);
         if (pres()) { au.thud(1, cam.pan(p.x)); fx.dust(hit[0], hit[1], 6, 0.7); cam.punch(5); }
@@ -782,21 +782,21 @@
     const a = attackOf(K, W, pw, sp);
     if (f.takeHit) f.takeHit(Math.round(W.dmg * pw), a, from, hit[0], hit[1], hit[2], dirx);
     if (pres()) { cam.punch(7); }
-    // it breaks on the body when it came fast enough (fragile things always); otherwise it bounces off
+
     if (K.mat === 'ceramic' || K.mat === 'paper') breakProp(p, 'shatter', hit[0], hit[1], -dirx, -0.3, from);
     else if (!P.hurt(p, sp * 0.036, 'shatter', hit[0], hit[1], -dirx, -0.3, from)) { p.vx = -p.vx * 0.25; p.vy = -200; p.w = -p.w * 0.4; }
     g && g.hitstop(0.06);
     if (hit[2] === 'head' && W.stun > 0.7) S.dizzy[f.id] = Math.max(S.dizzy[f.id], W.stun);
     emit({ type: 'hit', p, f, x: hit[0], y: hit[1] });
   }
-  // the attack record a prop hit passes to Fighter.takeHit (blunt: dust, ring and a thump instead of a cut)
+
   const ATKS = {};
   function attackOf(K, W, pw, sp = 700) {
     const kn = !!W.knock && sp > 260, key = K.id + (pw > 1.15 ? 'h' : pw < 0.8 ? 'l' : 'm') + (kn ? 'k' : '');
     return ATKS[key] || (ATKS[key] = { kind: 'prop', blunt: true, dmg: W.dmg, kb: W.kb * Math.min(1.2, pw), stun: W.stun, post: W.post, knock: kn, trip: !!W.trip, prop: K.id });
   }
 
-  // props flying into props: both take the hit, the slower one is pushed
+
   function propVsProp(h) {
     const L = S.items;
     for (let i = 0; i < L.length; i++) {
@@ -825,10 +825,10 @@
     }
   }
 
-  // ------------------------------------------------------------------------------------------ fighter moves
-  // Each prop action is a real move: state 'atk' with key poses made for that moment (the hand reaches the prop),
-  // a.kind 'prop' (no blade / kick test), a.tick = the move's logic (grab, strike, release...). Its active window lets
-  // the CPU see it coming and guard / parry, like any attack.
+
+
+
+
   const MK = (o) => pose.mk(o);
   const POSE = {
     crouchGrab: MK({ hx: 10, hy: -50, lean: 0.62, hd: 0.25, ax: 22, ay: 40, sw: 0.9, grip: 0, gx: 30, gy: 40, f1x: 38, f2x: -30 }),
@@ -847,9 +847,9 @@
     rearmB: MK({ hx: -2, hy: -80, lean: 0.06, hd: -0.05, ax: 30, ay: -10, sw: -1.2, grip: 0, gx: -8, gy: 36, f1x: 24, f2x: -28 }),
   };
   P.POSE = POSE;
-  // the shoulder of a pose (local, facing right): the back hand's target is relative to it
+
   function shoulderOf(p) { return [p.hx + Math.sin(p.lean) * 56 * 0.86, p.hy - Math.cos(p.lean) * 56 * 0.86]; }
-  // a copy of pose base whose back hand (or front hand, F) reaches the world point (wx, wy); crouches when needed
+
   function reachPose(base, f, wx, wy, front) {
     const q = pose.copy(base), lx = (wx - f.x) * f.dir, ly = wy - f.y;
     for (let it = 0; it < 6; it++) {
@@ -860,7 +860,7 @@
         q.grip = 0;
         break;
       }
-      // too far: bend forward and lower the hips
+
       q.lean = Math.min(0.95, q.lean + 0.1); q.hy = Math.min(-34, q.hy + (dy > 0 ? 6 : -2)); q.hx += dx > 0 ? 4 : -2; q.f1x += 4;
     }
     return q;
@@ -881,8 +881,8 @@
     movesIn = true;
     for (const k in MOVES) ND.ATK[k] = MOVES[k];
   }
-  // A disarmed fighter (f.wpn.none, set by the duel mode or the test page) is drawn without its weapon and with an
-  // open front hand: ND.solve marks the joints (hasSword: false). Off unless props are on.
+
+
   let solveIn = false;
   function installSolve() {
     if (solveIn || !ND.solve) return;
@@ -891,12 +891,12 @@
     ND.solve = function (p, rx, ry, dir, j, wpn) { const r = s0(p, rx, ry, dir, j, wpn); if (wpn && wpn.none) r.hasSword = false; return r; };
   }
 
-  // start a prop move: keys built for this moment
-  let actSpeed = 1; // a cinematic plays the prop moves a little faster (task sp)
+
+  let actSpeed = 1;
   function startMove(f, name, keys, mem) {
     const a = MOVES[name];
-    // (each move gets its own copies of the key poses: no pose object is shared between the two fighters' states, so
-    // a saved and restored fight fingerprints exactly like one never restored)
+
+
     const own = keys.map((k) => [k[0], pose.copy(k[1]), k[2]]);
     f.setState('atk', { atk: a, atkName: name, keys: [[0, f.entry]].concat(own), aspd: actSpeed });
     Object.assign(f.mem, mem || {});
@@ -928,7 +928,7 @@
     f.dir = o && Math.abs(o.x - f.x) > 1 ? (o.x >= f.x ? 1 : -1) : f.dir;
     const front = handOf(f) === 'F';
     if (act === 'grab') {
-      // face the prop, reach for its grip point
+
       const K = KINDS[p.k];
       f.dir = p.x >= f.x ? 1 : -1;
       toWorld(p, K.grip[0], K.grip[1], TW);
@@ -956,7 +956,7 @@
     return false;
   };
 
-  // move logic (called from the fighter's own update: Fighter.updAtk → a.tick(f, dt, t, o))
+
   for (const name of Object.keys(MOVES)) MOVES[name].tick = (f, dt, t, o) => moveTick(f, name, dt, t, o);
   function moveTick(f, name, dt, t, o) {
     const m = f.mem, p = m.pid != null ? P.get(m.pid) : null;
@@ -977,7 +977,7 @@
     }
     if (name === 'pr_smash' || name === 'pr_swing') {
       const a = MOVES[name];
-      // close the gap so the blow lands (a short step, never through the other fighter)
+
       if (t > 0.04 && t < a.active[0] + 0.02 && o && !o.dead) {
         const gap = facing(f, o.x), want = name === 'pr_swing' ? 92 : 78;
         f.vx = gap > want ? f.dir * Math.min(520, (gap - want) / 0.12) : 0; f.drive = true;
@@ -985,7 +985,7 @@
       if (!p || p.st !== 2 || m.hit || t < a.active[0] || t > a.active[1] || !o || o.dead) return;
       const K = KINDS[p.k], W = K.weapon || { dmg: 6, stun: 0.5, kb: 200, post: 10 };
       if (o.isInv && o.isInv()) return;
-      // the held prop's sweep against the opponent's head and body
+
       const hb = ND.hurtboxes(o.j), rad = K._r * 0.75 + 4;
       let hit = null;
       for (const b of hb) { if (b[5] === 'leg') continue; const r = segSeg(p.x, p.y, m.px ?? p.x, m.py ?? p.y, b[0], b[1], b[2], b[3]); if (r.d < b[4] + rad) { hit = [r.x, r.y, b[5]]; break; } }
@@ -998,7 +998,7 @@
         g && g.hitstop(parry ? 0.12 : 0.07);
         o.posture = Math.min(99, (o.posture || 0) + W.post);
         if (o.state === 'guard' || o.state === 'move') o.setState('block', { dur: 0.2 });
-        if (parry || K.mat === 'ceramic') { // the blade meets the cup / bottle: it bursts (a parry cuts it clean)
+        if (parry || K.mat === 'ceramic') {
           if (parry && o.j.tip) breakProp(p, 'cut', p.x, p.y, o.j.tip.x - o.j.haF.x, o.j.tip.y - o.j.haF.y, o);
           else breakProp(p, 'shatter', hit[0], hit[1], -f.dir, 0, o);
           if (parry) { f.setState('recoil'); f.vx = -f.dir * 200; f.lockAtk && f.lockAtk('parry'); o.openCounter && o.openCounter(ND.CWIN ? ND.CWIN.parry : 0.5, 'parry', { from: f, serial: f.serial, counter: false }); }
@@ -1010,7 +1010,7 @@
       const a2 = attackOf(K, W, name === 'pr_swing' ? 1.2 : 1);
       o.takeHit(Math.round(W.dmg * (head ? 1.2 : 1)), a2, f, hit[0], hit[1], hit[2], f.dir);
       if (head && !W.knock) S.dizzy[o.id] = Math.max(S.dizzy[o.id], W.stun + 0.2);
-      // the prop breaks on the head (a stool snaps on the body)
+
       if (K.mat === 'ceramic' || name === 'pr_swing' || p.hp <= 6) breakProp(p, 'shatter', hit[0], hit[1], f.dir, -0.4, f);
       else P.hurt(p, 6, 'shatter', hit[0], hit[1], f.dir, 0, f);
       g && g.hitstop(0.1);
@@ -1031,7 +1031,7 @@
         if (p && p.st !== 3 && p.st !== 2 && Math.abs(p.x - f.j.ftF.x) < KINDS[p.k].w / 2 + 34) kickProp(p, f, 1.15);
         else if (pres()) au.swoosh(0.6, f.pan);
       } else if (o && !o.dead && Math.abs(o.x - f.x) < 140) {
-        // the front kick that sends the opponent flying onto the prop
+
         o.setState('hurt', { dur: 0.1, hurtPose: PO.hurt2 });
         if (pres()) { au.thud(1.2, f.pan); fx.dust(o.x, o.y - 100, 8, 0.8); cam.punch(8); }
         G() && G().hitstop(0.08);
@@ -1051,7 +1051,7 @@
       }
     }
   }
-  // release a held prop toward the opponent's chest (ballistic arc that arrives there)
+
   function throwProp(p, f, o) {
     const K = KINDS[p.k];
     p.st = 1; p.hold = -1; p.owner = f.id; p.tt = 0; p.sl = 0; p.gz0 = p.gz; p.sup = -1;
@@ -1064,7 +1064,7 @@
     emit({ type: 'throw', p, f, x: p.x, y: p.y, T });
   }
   P.throwProp = throwProp;
-  // Fighter f thrown so that it lands on prop p's top (or right on a floor prop): a 'launch' with a computed arc
+
   P.slam = function (f, p, o = {}) {
     if (!f || f.dead || !p || p.st === 3) return false;
     const K = KINDS[p.k], top = p.y - K._com[1] - (K.top || K.h * 0.85);
@@ -1076,12 +1076,12 @@
     return true;
   };
 
-  // ------------------------------------------------------------------------------------------ go & act (tasks)
-  // A task drives a fighter (its CPU waits: f.locked) through phases:
-  //   'to'   walk (a dash when far) to the place to use the prop from, then act on it
-  //   'opp'  walk up to the opponent, then act ('smash' / 'swing' with the held prop, 'shove' onto the prop)
-  //   'now'  act as soon as the fighter is free ('throw')
-  //   'act'  the move runs; the task ends with it
+
+
+
+
+
+
   P.go = function (f, p, act, done) {
     if (!P.live || !f || f.dead || !p) { if (done) done(false); return false; }
     return task(f, act, p, act === 'smash' || act === 'swing' ? 'opp' : act === 'throw' ? 'now' : 'to', done);
@@ -1096,7 +1096,7 @@
   function standX(f, p, act) {
     const K = KINDS[p.k], o = f.opp;
     if (act === 'kick') {
-      // on the far side of the prop from the opponent (it is kicked at them)
+
       const s = o ? (o.x >= p.x ? -1 : 1) : -f.dir;
       return p.x + s * (K.w / 2 + 30);
     }
@@ -1134,9 +1134,9 @@
   }
 
 
-  // ------------------------------------------------------------------------------------------ the CPU's use of props
-  // Free play: now and then a CPU fighter near a prop uses it (most of the fight stays a sword fight). Deterministic:
-  // its own timers and the props' stream.
+
+
+
   function cpuThink(f, h) {
     const g = G();
     if (!g || !g.ais || !g.ais.some((a) => a.me === f) || S.tasks[f.id] || g.phase !== 'fight') return;
@@ -1155,7 +1155,7 @@
     if (B.cd > 0) return;
     B.cd = rr(2.5, 5);
     if (f.wpn && f.wpn.none) { const r = P.nearest(f, 'rack', 600); if (r) P.go(f, r.p, 'rearm'); return; }
-    // a prop between me and the opponent to kick, or a small one to pick up
+
     const kk = P.nearest(f, (p) => KINDS[p.k].kick && p.st === 0 && (o.x - p.x) * (p.x - f.x) >= 0 && Math.abs(o.x - p.x) < 520, 170);
     const cc = P.nearest(f, (p) => KINDS[p.k].carry && p.st === 0, 190);
     const r = rnd();
@@ -1164,7 +1164,7 @@
   }
   P.cpuThink = cpuThink;
 
-  // ------------------------------------------------------------------------------------------ queries
+
   const FILTERS = {
     carry: (p) => !!KINDS[p.k].carry, kick: (p) => !!KINDS[p.k].kick, platform: (p) => !!KINDS[p.k].top,
     rack: (p) => p.k === 'rack' && p.n > 0, any: () => true,
@@ -1180,12 +1180,12 @@
     return best ? { p: best, d: bd } : null;
   };
 
-  // ------------------------------------------------------------------------------------------ cinematic hooks
+
   P.cineCandidates = function (att, def) {
     const out = [];
     if (!P.live || !att || !def || att.dead || def.dead) return out;
     const mid = (att.x + def.x) / 2, gap = Math.abs(att.x - def.x);
-    const away = Math.sign(att.x - def.x) || def.dir; // where att flies when def kicks it away
+    const away = Math.sign(att.x - def.x) || def.dir;
     const focus = (x) => ({ x: (x + mid) / 2, y: -110, z: 1.35 });
     for (const p of S.items) {
       if (p.st !== 0) continue;
@@ -1195,7 +1195,7 @@
         out.push({ type, prop: p, user: def, target: att, dist: dd, score: (K.mat === 'ceramic' ? 3 : 2.4) - dd / 200 + (K.weapon && K.weapon.head ? 0.6 : 0), focus: focus(p.x) });
       }
       if (K.top && K.hp !== Infinity) {
-        // the prop must lie beyond att, seen from def, within a throw's reach
+
         const beyond = (p.x - att.x) * away, d = Math.abs(p.x - att.x);
         if (beyond > 30 && d < 420 && gap < 200) out.push({ type: 'slam', prop: p, user: def, target: att, dist: d, score: 2.6 - d / 300 + (p.k === 'table' ? 0.8 : 0), focus: focus(p.x) });
       }
@@ -1206,8 +1206,8 @@
     out.sort((a, b) => b.score - a.score);
     return out;
   };
-  // run a candidate: smash / swing / throw pick the prop up first; slam = step in + front kick onto the prop.
-  // o.then: a candidate (or a function returning one, asked when this one is done) run right after; o.done(ok)
+
+
   P.playCine = function (c, o = {}) {
     if (!c || !P.live) { if (o.done) o.done(false); return false; }
     const f = c.user, p = c.prop, sp = o.speed || 1.3;
@@ -1225,7 +1225,7 @@
 
 
 
-  // ------------------------------------------------------------------------------------------ save / load / hash
+
   const ITEM_KEYS = ['id', 'k', 'x', 'y', 'vx', 'vy', 'a', 'w', 'gz', 'gz0', 'hp', 'st', 'sup', 'hold', 'hand', 'owner', 'tt', 'sl', 'fx', 'lit', 'n', 'cut', 'q', 'hitF', 'hitT', 'hitP', 'spin'];
   const SHARD_KEYS = ['k', 'pi', 'sword', 'x', 'y', 'vx', 'vy', 'a', 'w', 'gz', 'fl', 'age', 'sl', 'fade', 'fq', 'ct', 'brk', 'mv'];
   const cp = (o, K) => { const r = {}; for (const k of K) if (o[k] !== undefined) r[k] = o[k]; return r; };
@@ -1234,7 +1234,7 @@
       rs: S.rs, t: S.t, nid: S.nid, arena: S.arena, brk: S.brk || 0, mv: S.mv || 0,
       items: S.items.map((p) => cp(p, ITEM_KEYS)),
       shards: S.shards.map((d) => Object.assign(cp(d, SHARD_KEYS), d.cb ? { cb: d.cb } : null)),
-      tasks: S.tasks.map((t) => (t ? Object.assign({}, t) : null)), // (done: the caller's callback, kept by reference)
+      tasks: S.tasks.map((t) => (t ? Object.assign({}, t) : null)),
       brain: S.brain.map((b) => Object.assign({}, b)), dizzy: S.dizzy.slice(), fy: S.fy.slice(), fvy: S.fvy.slice(),
     };
   };
@@ -1260,8 +1260,8 @@
     return ((h0 >>> 0).toString(16).padStart(8, '0') + (h1 >>> 0).toString(16).padStart(8, '0'));
   };
 
-  // ------------------------------------------------------------------------------------------ presentation: sound
-  // The game's own synthesized voices (ND.audio noise / tone through the effects bus); a little different every time.
+
+
   const V = (a) => 1 + (NM.random() * 2 - 1) * a;
   const SND = P.sfx = {
     wood(p, pan) {
@@ -1270,7 +1270,7 @@
       au.noise({ type: 'bandpass', f0: 880 * k, q: 3.5, dur: 0.11, gain: 4.2 * p, attack: 0.001, send: 0.18, pan });
       au.noise({ type: 'bandpass', f0: 1900 * k, q: 5, dur: 0.06, gain: 3 * p, attack: 0.001, send: 0.12, pan });
       au.tone({ freq: 150 * k, freq1: 62, glide: 0.08, dur: 0.16, gain: 0.7 * p, attack: 0.002, send: 0.1, pan });
-      // splinters: a crackle trailing the crack
+
       if (!au.lite) for (let i = 0; i < 4; i++) au.noise({ type: 'highpass', f0: 3200 + NM.random() * 2500, dur: 0.012, gain: 0.5 * p * V(0.3), attack: 0.0006, send: 0.12, pan, delay: 0.02 + NM.random() * 0.14 });
     },
     ceramic(p, pan) {
@@ -1278,7 +1278,7 @@
       au.noise({ type: 'highpass', f0: 3000 * k, dur: 0.02, gain: 1.3 * p, attack: 0.0005, send: 0.15, pan });
       au.noise({ type: 'bandpass', f0: 4400 * k, q: 1.6, dur: 0.2, gain: 1.4 * p, attack: 0.001, send: 0.25, pan });
       au.tone({ freq: 240 * k, freq1: 110, glide: 0.05, dur: 0.07, gain: 0.35 * p, attack: 0.001, send: 0.08, pan });
-      // the pieces: short bright tinkles scattering
+
       const n = au.lite ? 4 : 8;
       for (let i = 0; i < n; i++) au.tone({ freq: 2400 + NM.random() * 3400, dur: 0.04 + NM.random() * 0.09, gain: (0.05 + NM.random() * 0.06) * p, type: 'sine', attack: 0.0008, send: 0.3, pan, delay: 0.015 + NM.random() * 0.32 });
     },
@@ -1324,8 +1324,8 @@
   }
   P.snd = snd;
 
-  // ------------------------------------------------------------------------------------------ presentation: particles
-  // Liquid drops, splinters, straw, paper scraps, embers: not fight state (Math.random), capped, drawn by props-art.js.
+
+
   const FXP = P.fxp = [];
   const fxCap = () => (ND.gfx && ND.gfx.tier === 'low' ? 60 : 150);
   const rnd2 = (a, b) => a + NM.random() * (b - a);
@@ -1342,14 +1342,14 @@
     if (K.mat === 'straw') for (let i = 0; i < 26; i++) addFx({ k: 'st', x: p.x + rnd2(-20, 20), y: p.y + rnd2(-15, 10), vx: rnd2(-260, 260) + p.vx * 0.3, vy: rnd2(-380, -60), a: rnd2(0, 6.28), w: rnd2(-14, 14), l: rnd2(6, 13), life: rnd2(1.2, 2.4), max: 2.4 });
     if (K.mat === 'paper') { for (let i = 0; i < 10; i++) addFx({ k: 'pp', x: p.x + rnd2(-10, 10), y: p.y + rnd2(-30, 10), vx: rnd2(-160, 160), vy: rnd2(-260, -40), a: rnd2(0, 6.28), w: rnd2(-10, 10), s: rnd2(3, 6), ph: rnd2(0, 6.28), life: rnd2(1.4, 2.4), max: 2.4 }); }
     if (K.light && p.lit > 0) {
-      // the light goes out: a last flare and a few embers
+
       for (let i = 0; i < 12; i++) addFx({ k: 'em', x: p.x + rnd2(-8, 8), y: p.y - 10 + rnd2(-10, 10), vx: rnd2(-120, 120), vy: rnd2(-260, -40), life: rnd2(0.6, 1.4), max: 1.4 });
       addFx({ k: 'out', x: p.x, y: p.y - 12, life: 0.45, max: 0.45 });
     }
     if (K.liquid && p.q > 0.2) {
       const L = LIQ[K.liquid], n = K.m > 3 ? 34 : 18;
       for (let i = 0; i < n; i++) addFx({ k: 'lq', c: L[0], x: ix + rnd2(-6, 6), y: iy + rnd2(-6, 6), vx: rnd2(-1, 1) * rnd2(80, 340) + dx * 120 + p.vx * 0.3, vy: rnd2(-420, -80), r: rnd2(1.1, 2.6) * (K.m > 3 ? 1.3 : 1), life: 1.6, max: 1.6, st: L[1] });
-      // a wet stain spreads where it splashed
+
       fx.decals.push({ x: p.x + rnd2(-6, 6), y: rnd2(2, 12), rx: K.m > 3 ? 46 : 22, ry: K.m > 3 ? 7 : 4, a: 0.5, c: L[1], fade: 7, age: 0 });
     }
     if (how === 'crush') fx.dust(ix, 0, 10, 1.4);
@@ -1379,7 +1379,7 @@
     }
   };
 
-  // ------------------------------------------------------------------------------------------ on by flag
+
   P.flag = FLAG;
   if (FLAG) P.enable({ cpu: /[?&]esya=1/.test(qs) || /#.*esya/.test(qs) });
 })(window.ND);

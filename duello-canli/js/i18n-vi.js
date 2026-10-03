@@ -1,19 +1,19 @@
-// Shadow Duel — Vietnamese catalog for ND.i18n, translated from the English one (js/i18n-en.js).
-// Loaded on demand: js/i18n.js loads this file only when the game runs in this language. Same structure as i18n-en.js.
-// Glossary: guard = đỡ (button ĐỠ), parry = gạt đòn (GẠT ĐÒN!), counter = phản đòn (PHẢN ĐÒN!), counter hit = đánh chặn,
-//   posture = tư thế (posture bar = thanh tư thế, VỠ TƯ THẾ!), guard break = phá thế đỡ (VỠ THẾ ĐỠ!),
-//   ki technique = tuyệt kỹ ki, ki cancel = nối ki, blade lock = khóa kiếm, dash = lướt, combo = combo, string/chain = chuỗi,
-//   string ender = đòn kết chuỗi, rally = giằng co, finisher = đòn kết liễu, launcher = hất tung, juggle = tung hứng,
-//   light / heavy slash = chém nhẹ / chém mạnh (buttons ĐÁNH / MẠNH), kick = đá, sweep = quét chân, cross-up = vòng sau,
-//   air slash = chém trên không, dive = bổ nhào, knocks down = quật ngã, shuriken = phi tiêu, dummy = hình nộm,
-//   arcade = Arcade, training = Luyện tập, tutorial = Hướng dẫn, ranked = xếp hạng, journey = hành trình,
-//   mastery star = sao tinh thông, Master seal = Ấn Bậc thầy, honor = danh dự, rival challenge = Thách đấu,
-//   Monthly Tournament = Giải đấu tháng, Dan Trial = Thi Dan, Hall of Champions = Sảnh Vinh Danh,
-//   shadow (ghost opponent) = bóng, season = mùa, round = hiệp, tier = bậc, leaderboard = bảng xếp hạng, nickname = biệt danh.
-//   rating = điểm hạng, placement = phân hạng, Shadow Pass = Thẻ Bóng Tối (tab: Thẻ), level = cấp (tag LV),
-//   pass tier = mốc, XP = XP, booster = tăng tốc, costume = trang phục, title = danh hiệu, badge = huy hiệu,
-//   frame = khung, blade trail = vệt kiếm, journey seal = ấn hành trình.
-//   The player is addressed as "bạn".
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 (function (ND) {
   'use strict';
   (ND.I18N_CATALOGS || (ND.I18N_CATALOGS = {}))['vi'] = function (I, EN) {
@@ -22,7 +22,7 @@
     const dec = (x) => I.dec(x);
     const fmtTime = (s) => I.time(s);
 
-    // ================================================================ UI tables (ND.STR)
+
     merge(EN.STR, {
       menu: {
         brand: (nc, na) => `${nc} đấu sĩ, ${na} đấu trường và một bậc thầy ẩn mặt. Đấu kiếm thời gian thực, khóa kiếm, gạt đòn, phá tư thế, tuyệt kỹ ki và vật lý ragdoll.`,
@@ -151,7 +151,7 @@
       bz: {
         back: 'Quay lại', toMenu: 'Menu chính', you: 'Bạn', youTag: 'bạn', newBest: 'Kỷ lục mới!', seeResult: 'Xem kết quả',
         resetIn: 'Làm mới sau',
-        // time left: days (d) · hours (h) · minutes (m) · seconds (s)
+
         left: (ms) => { const t = Math.floor(ms / 1000), d = Math.floor(t / 86400), hh = Math.floor((t % 86400) / 3600), mm = Math.floor((t % 3600) / 60), ss = t % 60; return d ? `${d} ngày ${hh}g ${mm}p` : hh ? `${hh}g ${mm}p` : `${mm}p ${ss}s`; },
         leftShort: (ms) => { const t = Math.floor(ms / 60000), d = Math.floor(t / 1440), hh = Math.floor((t % 1440) / 60), mm = t % 60; return d ? `${d} ngày ${hh}g` : hh ? `${hh}g ${mm}p` : `${mm}p`; },
         weekName: (m, y) => `${['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'][m - 1] || m}/${y}`,
@@ -237,7 +237,7 @@
           pending: (n) => `Mục đang chờ gửi: ${n}`,
           classic: 'Bảng Arcade · Huyền thoại',
         },
-        // Monthly Tournament rewards: permanent title (top 3) and Champion colors (1st)
+
         ttl: {
           champ: 'Vô địch tháng', finalist: 'Á quân',
           reward: 'Từ giải tháng 10/2026, top 3 mỗi tháng nhận một danh hiệu vĩnh viễn. Nhà vô địch còn nhận màu Vô địch độc quyền cho ninja đã dùng. Danh hiệu cần ít nhất 5 người chơi trong tháng.',
@@ -375,10 +375,10 @@
       ],
     });
 
-    // ================================================================ story, fighters, arenas, specials
-    // ---- Fragment B: story text (talk, pairs, endings, roster2 notes), characters, arenas, specials, pop-ups, AI levels, number words
+
+
     merge(EN.STR, {
-      // open = speaks first (opponent), reply = answers (player), boss = said to the final boss
+
       talk: {
         akane: {
           open: ['Lưỡi kiếm ta đỏ thắm, ý chí ta trong sạch. Hãy đối mặt ta bằng danh dự.', 'Ta cúi chào trước, rồi mới ra đòn. Thế mới công bằng.', 'Trận này vì danh dự của chúng ta. Không có đường lui.'],
@@ -446,7 +446,7 @@
           boss: 'Shura, trên trời chẳng có chỗ nào để trốn. Mũi tên ta sẽ tìm ra ngươi.',
         },
       },
-      // Special match-ups: lines are spoken in the order written
+
       pairs: {
         'akane|aoi': [['akane', 'Aoi! Đến lúc kết thúc trận đấu còn dang dở rồi.'], ['aoi', 'Gió luôn thổi về cùng một ngọn lửa, Akane. Bắt đầu đi.']],
         'kuro|tetsu': [['kuro', 'Vỏ sắt. Để xem bên trong có rỗng không.'], ['tetsu', 'Ngay cả núi cũng cúi đầu trước kỷ luật, Kuro.']],
@@ -543,22 +543,22 @@
 
     EN.NUMWORDS = ['Không', 'Một', 'Hai', 'Ba', 'Bốn', 'Năm', 'Sáu', 'Bảy', 'Tám', 'Chín', 'Mười', 'Mười một', 'Mười hai'];
 
-    // ================================================================ static HTML, hardcoded literals, canvas pop-ups
+
     merge(EN.PHRASES, {
-      // ---------------------------------------------------------------- index.html: <title>, brand, HUD
+
       'Gölge Düellosu': 'Shadow Duel',
       'Duraklat': 'Tạm dừng',
       'KARŞILIKLI SERİ': 'GIẰNG CO',
       'SON DARBE': 'ĐÒN CUỐI',
       'atlamak için bir tuşa bas': 'bấm phím bất kỳ để bỏ qua',
-      // touch buttons (static fallbacks of data-s="touch.btn.*")
+
       'GARD': 'ĐỠ',
       'HAFİF': 'NHẸ',
       'SALDIR': 'ĐÁNH',
       'AĞIR': 'MẠNH',
       'ATIL': 'LƯỚT',
       'TEKME': 'ĐÁ',
-      // ---------------------------------------------------------------- main menu
+
       'Sekiz savaşçı, üç arena. Gerçek zamanlı kılıç çarpışması, kılıç kilitlenmesi, savuşturma, denge kırma, Gölge Kesiği ve ragdoll fiziği.': 'Tám đấu sĩ, ba đấu trường. Đấu kiếm thời gian thực, khóa kiếm, gạt đòn, phá tư thế, Chém Bóng và vật lý ragdoll.',
       'İki Oyuncu': 'Hai người chơi',
       'Aynı klavyede ya da iki gamepad ile kafa kafaya': 'Đối đầu trên cùng bàn phím hoặc hai tay cầm',
@@ -578,7 +578,7 @@
       'Kan efekti': 'Hiệu ứng máu',
       'Tuş ipuçları': 'Gợi ý phím',
       'Yüksek grafik': 'Đồ họa cao',
-      // ---------------------------------------------------------------- controls card
+
       'Kontroller': 'Điều khiển',
       '1. Oyuncu': 'Người chơi 1',
       '2. Oyuncu': 'Người chơi 2',
@@ -592,7 +592,7 @@
       'Sağ Shift': 'Shift phải',
       'Atılma': 'Lướt',
       'Ki tekniği (ki dolu)': 'Tuyệt kỹ ki (đầy ki)',
-      // ---------------------------------------------------------------- select screen
+
       'Ninjanı seç': 'Chọn ninja của bạn',
       'Hazır': 'Sẵn sàng',
       '1. oyuncunun ninjası': 'Ninja của người chơi 1',
@@ -609,7 +609,7 @@
       'Güç': 'Sức mạnh',
       'Menzil': 'Tầm đánh',
       'Can': 'Máu',
-      // ---------------------------------------------------------------- pause / end
+
       'Duraklatıldı': 'Đã tạm dừng',
       'Devam et': 'Tiếp tục',
       'Maçı yeniden başlat': 'Đấu lại từ đầu',
@@ -621,20 +621,20 @@
       'Verilen hasar': 'Sát thương gây ra',
       'Savuşturma': 'Gạt đòn',
       'Ki Saldırısı': 'Đòn ki',
-      // ---------------------------------------------------------------- training / leaderboard / misc
+
       'Antrenman': 'Luyện tập',
       'ANTRENMAN': 'LUYỆN TẬP',
       'Sıralama': 'Bảng xếp hạng',
       'Tümü': 'Tất cả',
       'Ekranı yan çevir': 'Xoay ngang màn hình',
       'Performans için grafik düşürüldü': 'Đã giảm đồ họa để chạy mượt hơn',
-      // hidden boss pushed into ND.CHARS by arcade.js (safety net; EN.CHARS.shura should carry the same)
+
       'Kanlı Usta': 'Bậc Thầy Nhuốm Máu',
       'Yolunu kanla çizen iblis usta. Uzun nodachi, yıkıcı darbeler, neredeyse kusursuz savuşturma.': 'Một quỷ sư vạch đường bằng máu. Nodachi dài, đòn nghiền nát, gạt đòn gần như hoàn hảo.',
-      // ---------------------------------------------------------------- HUD tags (fallbacks when STR.hud is missing)
+
       'SEN': 'BẠN',
       'KUKLA': 'HÌNH NỘM',
-      // ---------------------------------------------------------------- round banners (#bt / #bs)
+
       'Son raund': 'Hiệp cuối',
       'Kazanan her şeyi alır': 'Thắng là có tất cả',
       'İlk iki raundu alan kazanır': 'Ai thắng hai hiệp trước sẽ thắng',
@@ -643,13 +643,13 @@
       'Berabere': 'Hòa',
       'Çifte K.O.': 'K.O. kép',
       'Mükemmel': 'Hoàn hảo',
-      // blade-lock hint (fallbacks of STR.hud.lockSolo / lockDuo)
+
       'F / K tuşuna hızlıca bas!': 'Bấm liên tục F / K!',
       'Hafif ya da ağır tuşuna hızlıca bas!': 'Bấm liên tục nhẹ hoặc mạnh!',
-      // counter / parry prompt labels under the key ring (ctx.fillText in drawPrompts)
+
       'KARŞILIK': 'PHẢN ĐÒN',
       'SAVUŞTUR': 'GẠT ĐÒN',
-      // ---------------------------------------------------------------- canvas pop-ups (fx.text)
+
       'SON VURUŞ!': 'KẾT LIỄU!',
       'KİLİTLENDİ!': 'KHÓA KIẾM!',
       'İTTİ!': 'ĐẨY LÙI!',
@@ -672,9 +672,9 @@
     });
 
     merge(EN.HTML, {
-      // brand title
+
       'Gölge<br><em>Düel</em><em>losu</em>': 'Shadow<br><em>Du</em><em>el</em>',
-      // tips list (<ul class="tips">)
+
       '<b>Savuşturma:</b> darbe gelmeden hemen önce gard tuşuna bas; rakip sendeler.':
         '<b>Gạt đòn:</b> bấm đỡ ngay trước khi đòn đánh tới; đối thủ sẽ loạng choạng.',
       '<b>Karşılık (返し技):</b> gard ya da savuşturmanın hemen ardından saldırı tuşu → anında karşı kesik. <b>İleri</b> + hafif = bacağa süpürme, <b>geri</b> + hafif = yanından dönüp arkadan kesme, <b>ağır</b> = güçlü karşı darbe.':
@@ -689,30 +689,30 @@
         '<b>Lướt + nhẹ</b> = chém lướt. <b>Trên không</b> nhẹ = chém trên không, mạnh = bổ nhào. Chém mạnh quật ngã; ai bị đập vào tường sẽ bật ngược lại.',
       '<b>Denge çubuğu</b> dolarsa gard kırılır. Tekme gardı delip dengeyi hızla doldurur.':
         'Khi <b>thanh tư thế</b> đầy, thế đỡ sẽ vỡ. Đòn đá xuyên thế đỡ và làm đầy tư thế rất nhanh.',
-      // gamepad note (Esc -> Start or P)
+
       'Gamepad: X hafif · Y ağır · B tekme · A zıpla · LB gard · RB shuriken · RT atılma · R3 ki tekniği. Start ya da <kbd>P</kbd> duraklatır. CPU modunda her iki tuş seti de seni yönetir.':
         'Tay cầm: X nhẹ · Y mạnh · B đá · A nhảy · LB đỡ · RB phi tiêu · RT lướt · R3 tuyệt kỹ ki. Start hoặc <kbd>P</kbd> để tạm dừng. Khi đấu với máy, cả hai bộ phím đều điều khiển bạn.',
-      // select / VS hints (Esc -> ⌫)
+
       '<kbd>Enter</kbd> başlatır · <kbd>⌫</kbd> menüye döner': '<kbd>Enter</kbd> bắt đầu · <kbd>⌫</kbd> quay lại',
       '<kbd>Enter</kbd> / <kbd>F</kbd> başlatır · <kbd>⌫</kbd> çıkar': '<kbd>Enter</kbd> / <kbd>F</kbd> bắt đầu · <kbd>⌫</kbd> thoát',
     });
 
     EN.PATTERNS.push(
-      // HUD round label (#rlabel) and round banner
+
       [/^RAUND (\d+)$/, 'HIỆP $1'],
       [/^(\d+)\. Raund$/, 'Hiệp $1'],
-      // canvas pop-ups built from numbers
+
       [/^(\d+)\. KARŞILIK$/, 'PHẢN ĐÒN ×$1'],
       [/^(\d+) VURUŞLUK SERİ!$/, 'GIẰNG CO $1 ĐÒN!'],
-      // time-up banner sub: `${name} önde`
+
       [/^(.+) önde$/, (m, n) => I.t(n) + ' dẫn trước'],
-      // end screen title: `${Name} kazandı`
+
       [/^(.+) kazandı$/, (m, n) => I.t(n) + ' thắng'],
-      // end screen sub line: `${a} – ${b} · ${round} raund · ${arenaName}`
+
       [/^(\d+) – (\d+) · (\d+) raund · (.+)$/, (m, a, b, r, ar) => `${a} – ${b} · ${r} hiệp · ${I.t(ar)}`],
     );
 
-    // ================================================================ added with the portal build (PLAY, ads, coach)
+
     merge(EN.STR, {
       menu: { play: 'Chơi', playSub: (name, lv) => `${name} đấu máy · ${lv}` },
       first: { play: 'Chơi', sub: 'Chạm một cái là vào trận', menu: 'Mọi chế độ' },
@@ -731,21 +731,21 @@
       },
     });
 
-    // ================================================================ VOLUME: sliders on the menu card and in pause (js/volume.js)
+
     merge(EN.STR, {
       vol: {
         title: 'Âm lượng', master: 'Tổng', music: 'Nhạc', sfx: 'Hiệu ứng', sound: 'Âm thanh',
         pct: (n) => `${n}%`,
         muted: 'Âm thanh đang tắt. Kéo một thanh trượt để bật lại.',
-        // Settings > Audio: character / announcer voices switch (js/voice.js) and the courtesy credit under it
+
         voice: 'Giọng nói',
         uiSfx: 'Âm thanh menu',
         credit: 'Giọng nói: ユーフルカ (youfulca.com) · 効果音ラボ · すぱらんど',
       },
     });
 
-    // ================================================================ TOUCH LAYOUT EDITOR: movement modes + "Customize controls"
-    // (js/touch.js settings rows, js/touch-editor.js; Turkish source in i18n.js, block "touch movement modes + layout editor")
+
+
     merge(EN.STR, {
       tedit: {
         move: 'Di chuyển',
@@ -779,8 +779,8 @@
       },
     });
 
-    // ================================================================ PROGRESSION: honor, rival challenges, moves panel
-    // (arcade.js STR.honor / STR.rival / STR.hint, game.js select screen; rules in js/honor.js)
+
+
     merge(EN.STR, {
       menu: { arcadeDesc: 'Lần lượt hạ từng đối thủ khi độ khó tăng dần, cuối đường là một bậc thầy ẩn mặt. Nguồn danh dự dồi dào nhất.' },
       sel: {
@@ -853,8 +853,8 @@
       },
     });
 
-    // ================================================================ COMBAT: new kits, combos, move list (combat designer)
-    // Akane/Aoi/Ren/Kage identities, combo counter, ki cancel, ND.MOVELIST names/descriptions (read through ND.i18n.t)
+
+
     merge(EN.CHARS, {
       akane: { desc: 'Bậc thầy iaijutsu. Kiếm nằm chờ trong vỏ và mỗi nhát chém là một lần rút kiếm; thế rút kiếm của cô bắt được đòn lao tới.', weapon: 'Katana (iai)' },
       aoi: { desc: 'Kiếm sĩ tachi một tay của gió. Những cú đâm tầm xa và bước gió thu hẹp mọi khoảng cách chỉ trong một động tác.', weapon: 'Tachi' },
@@ -864,7 +864,7 @@
     merge(EN.TXT, { kiCancel: 'NỐI KI!', launch: 'HẤT TUNG!', iaiCatch: 'IAI GAESHI!' });
     EN.PATTERNS.push([/^(\d+) VURUŞ$/, '$1 ĐÒN']);
     merge(EN.PHRASES, {
-      // shared rows
+
       'Tekme': 'Đá',
       'Tekme: dengeyi hızla doldurur, gardı kırmaya yarar. Ardından AĞIR ile seri bitirişine bağlanır.': 'Đá: làm đầy tư thế nhanh và giúp phá thế đỡ. Nối MẠNH để kết chuỗi.',
       'Shuriken fırlatır; zamanla yeniden dolar.': 'Ném phi tiêu; phi tiêu tự nạp lại theo thời gian.',
@@ -884,7 +884,7 @@
       'Atılırken dönerek geniş kesik; yere serer.': 'Vừa lướt vừa xoay chém rộng; quật ngã.',
       'İki kesiklik seri bitirişi; son kesik yere serer.': 'Đòn kết chuỗi hai nhát; nhát cuối quật ngã.',
       'Rakibin kılıcını aşağı çarpıp dürter: gardı ezer.': 'Đập kiếm đối thủ xuống rồi đâm: nghiền thế đỡ.',
-      // Akane
+
       'Kından yatay çekiş kesiği, çapraz iniş, geri dönen kesik; kılıç her seferinde kınına döner.': 'Rút kiếm chém ngang, chém chéo xuống và chém ngược lại; mỗi lần kiếm đều trở về vỏ.',
       'Derin çömelişten geniş yatay çekiş; yere serer.': 'Rút kiếm chém ngang rộng từ thế ngồi thấp; quật ngã.',
       'Atılarak kından çekiş: uzak mesafeyi bir anda kapatır, seriye devam eder.': 'Lướt tới rút kiếm: thu hẹp khoảng cách xa trong chớp mắt, nối tiếp chuỗi.',
@@ -893,7 +893,7 @@
       'Çekiş duruşu: kısa bir an bekler; bu sırada gelen yakın dövüş darbesini yakalar ve kaçınılmaz bir iai kesiğiyle karşılık verir. Boşa giderse açık kalır.': 'Thế rút kiếm: chờ trong khoảnh khắc; đòn cận chiến nào lao tới lúc đó sẽ bị bắt và đáp trả bằng nhát iai không thể tránh. Nếu không có gì tới, cô sẽ để lộ sơ hở.',
       'Kesa’dan sonra yükselen ve inen iki çekiş kesiği; son kesik yere serer.': 'Sau Kesa, hai nhát rút kiếm vút lên rồi bổ xuống; nhát cuối quật ngã.',
       'Tekmeden sonra çömelip rakibin içinden geçen kızıl iai; arkasında belirir.': 'Sau cú đá, hạ thấp người tung nhát iai đỏ thẫm xuyên qua đối thủ; hiện ra sau lưng họ.',
-      // Aoi
+
       'Tek elle uzun dürtüş, yukarı savrulan kesik ve rüzgâr adımıyla derin atılma dürtüşü.': 'Cú đâm dài một tay, nhát chém hất lên và cú đâm lao sâu bằng bước gió.',
       'Dönerek geniş yatay kesik; yere serer.': 'Xoay người chém ngang rộng; quật ngã.',
       'Rüzgâr adımı: çok uzaktan tek hamlede dürter, seriye devam eder.': 'Bước gió: đâm từ rất xa chỉ trong một động tác, nối tiếp chuỗi.',
@@ -902,7 +902,7 @@
       'Geri sıçrar, ardından çok uzağa uzanan dürtüşle geri döner: gardı ezer, yere serer.': 'Bật lùi, rồi quay lại với cú đâm rất xa: nghiền thế đỡ và quật ngã.',
       'Üç hızlı dürtüş; sonuncusu rüzgârla rakibi savurur.': 'Ba cú đâm nhanh; cú cuối thổi bay đối thủ theo gió.',
       'İki kez dönerek çevresini biçen kesik; gardı ezer.': 'Xoay hai vòng chém quanh người; nghiền thế đỡ.',
-      // Ren
+
       'Kesik · Dirsek · Diz': 'Chém · Cùi chỏ · Gối',
       'Tek elle kesik, dirsek darbesi ve uçan diz: kılıçla başlayıp bedenle biter.': 'Chém một tay, thúc cùi chỏ và gối bay: mở đầu bằng kiếm, kết thúc bằng thân thể.',
       'İki elle tepeden ezici iniş; gardı zorlar, yere serer.': 'Bổ hai tay từ trên xuống cực mạnh; ép thế đỡ và quật ngã.',
@@ -912,7 +912,7 @@
       'Topuğu havaya kaldırıp balta gibi indirir: yere serer.': 'Giơ gót chân lên cao rồi bổ xuống như rìu: quật ngã.',
       'Dirsekten sonra kesik ve tepeden ezici iniş; son vuruş yere serer.': 'Sau cùi chỏ là một nhát chém và cú bổ cực mạnh từ trên xuống; đòn cuối quật ngã.',
       'Tekmenin ardından dönen topuk tekmesi; yere serer.': 'Sau cú đá là cú đá gót xoay người; quật ngã.',
-      // Kage
+
       'Ters tutuşla kesik, dönen kesik ve gölge adımı: kaybolup öne geçer, dürterek belirir.': 'Chém cầm ngược, chém xoay và bước bóng: biến mất, lách lên trước rồi hiện ra đâm tới.',
       'Sıçrayıp ters tutuşla aşağı saplar; yere serer.': 'Bật lên và đâm xuống với kiếm cầm ngược; quật ngã.',
       'Gölge gibi uzun atılma kesiği; seriye devam eder.': 'Chém lướt dài như một cái bóng; nối tiếp chuỗi.',
@@ -921,18 +921,18 @@
       'Ayağının dibine sis bombası atar: yakındakini sersemletir, Kage dumanın içinde geri kaçar.': 'Ném bom khói xuống chân: làm choáng kẻ ở gần trong khi Kage lùi lại trong làn khói.',
       'Üç hızlı ters kesik ve aşağı saplama; sonuncusu yere serer.': 'Ba nhát chém ngược nhanh và một cú đâm xuống; đòn cuối quật ngã.',
       'Tekmeden sonra dumanda kaybolur, rakibin arkasında belirip saplar.': 'Sau cú đá, biến mất trong khói rồi hiện ra sau lưng đối thủ và đâm.',
-      // template row names
+
       'Nodachi serisi': 'Chuỗi nodachi', 'Ağır nodachi': 'Nodachi mạnh', 'Kodachi serisi': 'Chuỗi kodachi', 'Ağır kesik': 'Chém mạnh',
       'Tantō dansı': 'Vũ điệu tantō', 'Çift kesik': 'Song chém', 'Naginata serisi': 'Chuỗi naginata', 'Ağır savuruş': 'Vung mạnh',
       'Zincir ve orak': 'Xích và liềm', 'Zincir çekişi': 'Kéo xích', 'Asa serisi': 'Chuỗi gậy', 'Ağır süpürme': 'Quét mạnh',
       'Yelpaze serisi': 'Chuỗi quạt', 'Rüzgâr dalgası': 'Sóng gió', 'Tantō serisi': 'Chuỗi tantō', 'Ok (basılı tut: güçlü)': 'Bắn tên (giữ: nạp lực)',
       'Geri + AĞIR da ok atar (basılı tut: güçlü atış); ok kalmadıysa tantō ile tepeden iner.': 'Lùi + MẠNH cũng bắn tên (giữ để bắn nạp lực); hết tên thì cô bổ xuống từ trên cao bằng tantō.',
-      // combat pop-ups
+
       'KI İPTALİ!': 'NỐI KI!', 'HAVAYA!': 'HẤT TUNG!',
     });
 
-    // ================================================================ COUNTER CINEMATIC + COMBO TRIAL (combat feel pass)
-    // js/kaeshi-cine.js STR.kaeshi, js/combo-trial.js STR.trial, js/coach.js combo/counter tips, move list legend
+
+
     {
       const tb = (t, c) => `<i class="tb${c ? ' ' + c : ''}">${t}</i>`;
       merge(EN.STR, {
@@ -989,8 +989,8 @@
       });
     }
 
-    // ================================================================ GRAPHICS QUALITY: the Graphics setting (js/gfx.js)
-    // (Turkish source in i18n.js, block "graphics quality")
+
+
     merge(EN.STR, {
       gfx: {
         title: 'Đồ họa',
@@ -1003,8 +1003,8 @@
           custom: 'Thiết lập riêng của bạn (Nâng cao).',
         },
         now: (lv) => `Hiện tại: ${lv}`,
-        // Settings → Graphics → Advanced (game.js gfxAdvBuild, js/gfx.js KNOBS): the switch, the line under it, the hint on
-        // the heaviest rows, one title per knob and the value words (resolution shows percentages, anti-aliasing 2× / 4×)
+
+
         adv: {
           title: 'Nâng cao',
           note: 'Đổi một mục sẽ chuyển sang "Tùy chỉnh"; bấm một mức có sẵn để lấy lại giá trị của nó.',
@@ -1015,8 +1015,8 @@
       },
     });
 
-    // ================================================================ FRAME RATE: Settings → Graphics (js/gfx.js makePacer)
-    // (Turkish source in i18n.js, block "frame rate"; the numbers themselves are not translated)
+
+
     merge(EN.STR, {
       fps: {
         title: 'Tốc độ khung hình',
@@ -1031,7 +1031,7 @@
       },
     });
 
-    // ================================================================ SETTINGS SCREEN (js/settings.js; Turkish source in i18n.js)
+
     merge(EN.STR, {
       set: {
         title: 'Cài đặt', close: 'Đóng',
@@ -1041,13 +1041,13 @@
       },
     });
 
-    // ================================================================ LANGUAGE PICKER (js/lang-ui.js; Turkish source in i18n.js)
-    // Language names are not translated: each one is written in its own language (ND.i18n.names).
+
+
     merge(EN.STR, { lang: { title: 'Ngôn ngữ', change: 'Đổi ngôn ngữ', close: 'Đóng' } });
 
-    // ================================================================ TOUCH HELP PER MOVEMENT MODE
-    // (game.js touchHelp(): the menu's touch help follows the movement mode; Turkish source in i18n.js, block
-    // "touch help per movement mode")
+
+
+
     merge(EN.STR, {
       thelp: {
         title: { float: 'Cần điều khiển', fixed: 'Cần cố định', dpad: 'D-pad' },
@@ -1061,10 +1061,10 @@
       },
     });
 
-    // ================================================================ SHARED LABELS (static HTML / move list text that is the same word in Turkish)
+
     merge(EN.PHRASES, { 'Shuriken': 'Phi tiêu', 'KI': 'KI' });
 
-    // Persistent character journeys.
+
     merge(EN.STR, { menu: { arcadeDesc: 'Hành trình tám trận cho mỗi ninja. Đấu tiếp đối thủ kế tiếp, mở khóa kết thúc của nhân vật và Ấn Bậc thầy.' }, sel: { title: { arcade: 'Arcade · Hành trình nhân vật' } },
       journey: {
         start: 'Bắt đầu hành trình',
@@ -1081,8 +1081,8 @@
       }
     });
 
-    // ================================================================ PROGRESS / ACCOUNT (Settings → Progress, Hall of Champions;
-    // js/settings.js, js/banzuke.js; Turkish source in i18n.js, block "account and recovery code")
+
+
     merge(EN.STR, {
       set: { tabs: { save: 'Tiến trình' } },
       acct: {
@@ -1106,8 +1106,8 @@
       lb: { savedLocalAccount: (r) => (r ? `#${r} trên máy này · hiện không kết nối được tài khoản` : 'Đã lưu trên máy này · hiện không kết nối được tài khoản') },
     });
 
-    // ================================================================ PRIVACY (js/privacy.js; Turkish source in i18n.js, block
-    // "privacy"). The policy page itself (privacy.html) is English + Turkish; other languages see the English part.
+
+
     merge(EN.STR, {
       priv: {
         notice: 'Shadow Duel lưu biệt danh và điểm của bạn cho bảng xếp hạng trực tuyến.',
@@ -1116,8 +1116,8 @@
       },
     });
 
-    // ================================================================ FIRST-FIGHT RALLY TUTORIAL: js/tutorial.js STR.tutor and
-    // Training → Parry drill (Turkish source in i18n.js, block "rally tutorial")
+
+
     merge(EN.STR, {
       menu: { trainDrill: 'Tập gạt đòn' },
       tutor: {
@@ -1137,12 +1137,21 @@
         mastered: 'THÀNH THẠO!', masteredSub: 'Đỡ, phản đòn, lặp lại',
         warm: (l) => `Khởi động: đánh ${l} ba lần`,
         nudge: (k) => `Bấm ${k}`, nudgeT: (k) => `Chạm ${k}`,
+
+
+        skip: 'Bỏ qua ›',
+        steps: {
+          attack: (b) => `Chém bằng ${b}`, guard: (b) => `Đỡ lưỡi kiếm bằng ${b}`, counter: (b) => `Đánh trả bằng ${b}`,
+          timing: (b, l) => `Đến lượt bạn: ${b} khi vòng khép lại, rồi ${l}`,
+        },
+        ok: { attack: 'TỐT LẮM!', guard: 'ĐỠ ĐƯỢC!', counter: 'PHẢN ĐÒN!', timing: 'HOÀN HẢO!' },
+        ready: 'SẴN SÀNG!', readySub: 'Giờ hãy thắng trận đấu',
       },
     });
 
-    // ================================================================ NEW PLAYER: the select screen's one-time greeting
-    // (game.js openSelect), the VS goal line's "?" (arcade.js openVs) and the just-in-time tips (js/coach.js ND.coach.tips;
-    // arguments: key / button chips, lessons: the menu names of Training and Tutorial). Turkish source in i18n.js.
+
+
+
     merge(EN.STR, {
       onb: { selIntro: 'Chọn ninja: mỗi người có hành trình riêng', more: 'Chi tiết' },
       tips: {
@@ -1159,7 +1168,7 @@
       },
     });
 
-    // ================================================================ online "play with a friend" (js/online.js: ND.STR.online)
+
     merge(EN.STR, {
       online: {
         title: 'Chơi với bạn bè',
@@ -1232,7 +1241,7 @@
       },
     });
 
-    // ================================================================ ranked duel (js/ranked.js: ND.STR.ranked)
+
     merge(EN.STR, {
       ranked: {
         title: 'Đấu xếp hạng', menuSub: 'Đối thủ ngẫu nhiên · điểm, bậc và mùa giải', offline: 'Đấu xếp hạng hiện đang tạm ngưng',
@@ -1284,11 +1293,22 @@
         aiNote: 'Khi ít người chơi trực tuyến, bạn có thể gặp đối thủ AI đánh theo lối của người chơi thật.', gotIt: 'Đã hiểu',
         err: { network: 'Không kết nối được máy chủ. Kiểm tra kết nối Internet.', bad_version: 'Đã có phiên bản game mới: hãy tải lại trang.', busy: 'Hàng chờ đang rất đông, thử lại sau nhé.',
           rate_limited: 'Thử quá nhiều lần, đợi một chút.', disabled: 'Đấu xếp hạng hiện đang tạm ngưng.', banned: 'Tài khoản này không thể đấu xếp hạng.', other: 'Đã có lỗi, thử lại nhé.' },
+
+        bg: { ru: 'Xem menu khi đang tìm', stopT: 'Dừng tìm trận xếp hạng?', stopS: 'Bắt đầu trận này sẽ dừng việc tìm trận.', stopGo: 'Dừng và chơi', keep: 'Tiếp tục tìm', stopped: 'Đã dừng tìm trận xếp hạng', chip: 'Đang tìm' },
+        card: { findMatch: 'Tìm trận', searching: 'Đang tìm…', resume: 'Quay lại trận',
+          place: (p, n) => `Hạng ${p}/${n} trên bảng`, placeOnly: (p) => `Hạng ${p} trên bảng`,
+          toBoard: (n) => `Còn ${n} trận nữa để vào bảng xếp hạng`, toBoardSoon: 'Thêm vài trận nữa để vào bảng xếp hạng',
+          invite: 'Từ Ashigaru đến Shōgun: trận xếp hạng đầu tiên chỉ cách một chạm',
+          guestInvite: 'Đăng nhập để chơi tính điểm · khách chơi không tính điểm', nickInvite: 'Chọn biệt danh để chơi tính điểm',
+          winRate: (p) => `Thắng ${p}%`, streakW: (n) => `Thắng ${n} trận liên tiếp`, streakL: (n) => `Thua ${n} trận liên tiếp`,
+          peak: (t) => `Cao nhất mùa: ${t}`, shields: (n) => `Khiên ×${n}`, top: 'Top 3 mùa giải', you: 'Bạn', empty: 'Chưa có ai trên bảng: hãy là người đầu tiên', rating: 'điểm' },
       },
+
+      upd: { ready: 'Đã có phiên bản mới — chạm để cập nhật', refresh: 'Đã có phiên bản mới — tải lại trang để chơi', close: 'Đóng' },
     });
 
-    // ================================================================ LEVEL + SHADOW PASS (js/level.js, js/pass.js)
-    // English: L.en in js/i18n-pass.js; the on-demand languages keep these texts in their own file.
+
+
     merge(EN.STR, {
       pass: {
         k: '影', lv: 'LV',
@@ -1299,7 +1319,7 @@
         free: 'Miễn phí', bonus: 'Bóng', bonusAds: 'Mỗi phần thưởng: một quảng cáo', bonusWait: (n) => `Không xem quảng cáo: mở sau ${n} mốc`,
         claim: 'Nhận', claimAll: (n) => `Nhận hết (${n})`, owned: 'Đã nhận', watch: 'Xem QC', milestone: 'Miễn phí', opensAt: (t) => `Ở mốc ${t}`,
         online: 'Cần trực tuyến', soon: 'Sắp có thêm mốc mới', soonXp: 'XP của bạn vẫn tiếp tục cộng dồn', close: 'Đóng', tabs: { pass: 'Thẻ', profile: 'Hồ sơ' },
-        rows: { win: 'Thắng', loss: 'Tham chiến', rounds: 'Hiệp', perfect: 'Hoàn hảo', rally: 'Giằng co', counter: 'Phản đòn', parry: 'Gạt đòn', short: 'Trận nhanh', boost: 'Tăng tốc', daily: 'Trận thắng đầu ngày', streak: 'Chuỗi ngày', clear: 'Hành trình', trial: 'Thử combo', tutorial: 'Hướng dẫn' },
+        rows: { win: 'Thắng', loss: 'Tham chiến', rounds: 'Hiệp', perfect: 'Hoàn hảo', rally: 'Giằng co', counter: 'Phản đòn', parry: 'Gạt đòn', short: 'Trận nhanh', boost: 'Tăng tốc', daily: 'Trận thắng đầu ngày', streak: 'Chuỗi ngày', clear: 'Hành trình', trial: 'Thử combo', tutorial: 'Hướng dẫn', first: 'Quà chào mừng' },
         streakN: (n) => `ngày ${n}`,
         up: 'Lên cấp', got: 'Phần thưởng mới',
         boostName: (n) => `×1,5 XP · ${n} trận`, honorName: (n) => `+${n} danh dự`,
@@ -1323,8 +1343,8 @@
       },
     });
 
-    // ================================================================ 1.3.2 SHADOW PASS: 30 tiers, fight flair, progress rewards,
-    // the ranked shield, the Profile screen (English: X.en in js/i18n-pass.js; flair: the fight flair's names, js/flair.js ids)
+
+
     merge(EN.STR, {
       pass: {
         kinds2: { pose: 'Tư thế chiến thắng', hitfx: 'Hiệu ứng đòn đánh', slash: 'Nhát chém phản đòn', aura: 'Hào quang khí', ko: 'Đòn kết liễu KO', card: 'Thẻ tên', arena: 'Biến thể đấu trường', music: 'Nhạc menu', rkey: 'Chìa khóa', akey: 'Chìa khóa', ticket: 'Vé', shield: 'Khiên' },
@@ -1353,6 +1373,8 @@
         shieldUsed: 'Đã dùng khiên: không mất điểm',
         rankedHonor: (n) => `+${n} danh dự`,
         variant: 'Biến thể',
+
+        newTag: 'MỚI', newN: (n) => `Mới: ${n}`, headUnlocks: 'Ninja và đấu trường', headRewards: 'Phần thưởng xếp hạng',
         flair: { pose_tenchi: 'Giương Lên Trời', pose_rei: 'Cúi Chào Rei', pose_hiza: 'Zanshin Quỳ Gối', pose_katsugi: 'Vác Kiếm Trên Vai', pose_kissaki: 'Tới Lượt Ngươi', hitfx_kinpaku: 'Đòn Lá Vàng', hitfx_aizome: 'Mực Chàm', hitfx_sakura: 'Bùng Nổ Anh Đào', hitfx_kitsunebi: 'Lửa Hồ Ly', hitfx_raijin: 'Tia Lửa Raijin', slash_kin: 'Lưỡi Chém Vàng', slash_sumi: 'Bút Lông Sumi', slash_hana: 'Gió Cánh Hoa', slash_rai: 'Nhát Chém Sấm', aura_kitsunebi: 'Hào Quang Lửa Hồ Ly', aura_raiun: 'Hào Quang Bão Tố', aura_hana: 'Hào Quang Hoa', aura_gekko: 'Hào Quang Ánh Trăng', ko_enso: 'Kết Liễu Ensō', ko_hanafubuki: 'Bão Cánh Hoa', ko_raiko: 'Sét Đánh', ko_mikazuki: 'Trăng Lưỡi Liềm', card_seigaiha: 'Sóng Seigaiha', card_yozakura: 'Anh Đào Đêm', card_ryu: 'Sơn Mài Rồng', card_tsukiyo: 'Rừng Thông Dưới Trăng', card_asanoha: 'Vàng Asanoha', arena_temple_snow: 'Đền Tuyết Rơi', arena_rain_moon: 'Rừng Trúc Dưới Trăng', arena_snow_night: 'Đỉnh Tuyết Về Đêm', arena_market_rain: 'Chợ Đêm Mưa', music_haru: 'Vườn Xuân', music_yuki: 'Trăng Tuyết', music_matsuri: 'Đêm Lễ Hội', pass1_akane: 'Lễ Phục Bóng Trăng' },
       },
     });
@@ -1360,8 +1382,8 @@
     void dec; void fmtTime; void num;
   };
 
-  // ---------------------------------------------------------------- journey texts (js/journey-text.js reads ND.JOURNEY_COPY)
-  // Same lists, same order and same counts as the `en` entry in js/journey-text.js (ui 17, goals 10, titles 13, endings 13).
+
+
   (ND.JOURNEY_COPY || (ND.JOURNEY_COPY = {}))['vi'] = {
     ui: ['Hành trình nhân vật', 'Đối thủ cuối', 'Tinh thông (tùy chọn)', 'Thắng trận này để giữ ngôi sao.', 'Đã nhận sao tinh thông', 'Chưa nhận sao · Thử lại khi chơi lại', 'Sao tinh thông', 'Hoàn thành hành trình với 6 trên 8 sao để nhận danh hiệu và màu Di sản. Sao được giữ qua các lần chơi lại.', 'Màu gốc', 'Màu Di sản', 'Ngoại hình', 'Nhận 6 sao tinh thông và hoàn thành hành trình của nhân vật này.', 'Hành trình và phần thưởng trước của bạn vẫn được giữ. Chơi lại để khám phá con đường mới.', 'Thử thách Shura: hoàn thành hành trình của 3 nhân vật khác nhau.', 'Thắng trận này để mở khóa', 'Hoàn thành hành trình', 'Chương'],
     goals: ['Gạt đòn', 'Phản đòn trúng', 'Đòn mạnh trúng', 'Cú đá trúng', 'Đòn trên không trúng', 'Đòn lướt trúng', 'Đòn combo thứ ba', 'Đòn phóng trúng', 'Tuyệt kỹ ki trúng', 'Phá thế đỡ'],
