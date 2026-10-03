@@ -929,10 +929,11 @@
       hookMocap();
       if (layer === 'back') { try { uiUpdate(); } catch (e) {                                           } }
       if (layer !== 'back' || !G.F || !G.F[0] || !G.F[0].dz) { const r = pdraw0.call(this, ctx, layer); if (layer !== 'back' && G.F && G.F[0] && G.F[0].dz && D.arenaDraw) { cam.world(ctx); D.arenaDraw(ctx, 'front'); } return r; }
-      const v = S.arena === 'temple' ? S.items.filter((p) => p.k === 'veranda' && p.st === 0) : [];
+      const own = S.arena !== 'temple' && D.arenaVeranda && D.arenaVeranda();
+      const v = S.arena === 'temple' || own ? S.items.filter((p) => p.k === 'veranda' && p.st === 0) : [];
       cam.world(ctx);
       if (D.arenaDraw) { ctx.save(); D.arenaDraw(ctx, 'back'); ctx.restore(); }
-      for (const p of v) drawShrine(ctx, p);
+      for (const p of v) (own ? own : drawShrine)(ctx, p);
 
       for (const p of v) p.st = 2;
       try { pdraw0.call(this, ctx, layer); } finally { for (const p of v) p.st = 0; }
@@ -954,6 +955,7 @@
     vaultKick: ['fRunJumpOver', 0.32, 0.95, 0, 0.46, 'air'],
     slip: ['fSlipSake', 0.05, 1.25, 0, 1.25, 'down'],
   };
+  D.envMCL = MCL;
   const MCG = ['fStoolPick', 0.05, 0.75, 0, 0.42, null];
   const MCS = new WeakMap(), HIPS = {};
 
