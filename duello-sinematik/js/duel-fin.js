@@ -76,8 +76,8 @@
     dur: 3.0, trig: { stun: 2.6, kb: 30 }, card: { k: '紅一閃', n: 'KURENAI ISSEN' },
     ops: [
       { t: 0, op: 'slow', v: 0.4, d: 0.2 }, { t: 0, op: 'cam', on: 'mid', z: 2.06, y: -118, cut: 1 },
-      { t: 0.22, op: 'mv', m: 'ak_dKesa', spd: 1, hits: [{ dmg: 4, stun: 2.4, kb: 420 }] },
-      { t: 0.62, op: 'pose', who: 'A', keys: [[0.3, 'ak_stance', 'inOutSine'], [0.6, 'ak_stance']] },
+      { t: 0.22, op: 'mv', m: 'ak_dKesa', spd: 1, hits: [{ dmg: 4, stun: 2.4, kb: 120 }] },
+      { t: 0.62, op: 'glide', gap: 230, d: 0.34 }, { t: 0.62, op: 'pose', who: 'A', keys: [[0.3, 'ak_stance', 'inOutSine'], [0.6, 'ak_stance']] },
       { t: 0.66, op: 'sheathe' },
       { t: 0.72, op: 'cam', on: 'A', z: 2.59, y: -112, cut: 1 }, { t: 0.72, op: 'dim', v: 0.55 }, { t: 0.8, op: 'fx', k: 'gather' },
       { t: 1.22, op: 'mv', m: 'sp_akane', spd: 1, hits: [{ dmg: 9, stun: 1.6, kb: 0 }] },
@@ -257,7 +257,15 @@
         f.dz.finKeys = o.keys;
         return;
       }
-      case 'glide': c.gl = { x0: A.x, gap: o.gap, t0: c.t, d: o.d, side: A.x <= V.x ? -1 : 1 }; return;
+      case 'glide': {
+
+        const side = A.x <= V.x ? -1 : 1, d0 = Math.abs(V.x - A.x), need = Math.max(0, o.gap - d0), L = ND.ARENA - 30;
+        let ax = A.x + side * need / 2, vx = V.x - side * need / 2;
+        if (Math.abs(ax) > L) { vx -= side * (Math.abs(ax) - L); ax = Math.sign(ax) * L; }
+        if (Math.abs(vx) > L) { ax += side * (Math.abs(vx) - L); vx = Math.sign(vx) * L; }
+        c.gl = { a0: A.x, v0: V.x, a1: ax, v1: vx, t0: c.t, d: o.d };
+        return;
+      }
       case 'slow': if (!c.skip) { G.slowT = o.d; G.slowV = o.v; } return;
       case 'cam':
         c.cam = { on: o.on, z: o.z, y: o.y };
@@ -285,8 +293,7 @@
     for (const f of [A, V]) if (f.dz.finKeys && (f.state === 'zanshin' || f.state === 'dfinp')) { pose.seq(poseKeys(f, f.dz.finKeys), f.st, f.pose); f.vx = 0; }
     if (c.gl) {
       const g = c.gl, u = E.inOutSine(clamp((c.t - g.t0) / Math.max(0.01, g.d), 0, 1));
-      const x1 = clamp(V.x + g.side * g.gap, -ND.ARENA + 20, ND.ARENA - 20);
-      A.x = g.x0 + (x1 - g.x0) * u; A.vx = 0;
+      A.x = g.a0 + (g.a1 - g.a0) * u; V.x = g.v0 + (g.v1 - g.v0) * u; A.vx = 0; V.vx = 0;
       if (u >= 1) c.gl = null;
     }
 
