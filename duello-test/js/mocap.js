@@ -875,6 +875,17 @@
   // tantō, the twin tantō), laid along the recorded blade's direction as the picture shows it, at the hand's depth
   // scale. The left hand: on the pole for the naginata and the bō (two hands along it), on the handle for a sword; free
   // for the twin weapons (the second tantō / fan in it), the kusarigama (the chain) and the bow (the string).
+  // the second weapon in the left hand, as drawn: the twin tanto in reverse grip back along the forearm, the second fan
+  // beyond the hand - turned by rg.secA and drawn rg.secQ of its length (the duel keeps it off the bodies, js/mocap-duel.js
+  // secondStop); { h: the hand (picture), ang, L: its drawn length, q }
+  Mo.secondLine = (rg, wpn) => {
+    const P = rg.P, pr = projector(rg), e = pr(P.elL), h = pr(P.haL), sgn = rg.dir < 0 ? -1 : 1, q = rg.secQ || 1;
+    const ang = (wpn.type === 'tessen' ? Math.atan2(h.y - e.y, h.x - e.x) - sgn * 0.3 : Math.atan2(e.y - h.y, e.x - h.x) + sgn * 0.25) + (rg.secA || 0);
+    return { h, ang, q, L: (wpn.type === 'tessen' ? wpn.blade * 0.94 : wpn.blade) * (h.s || 1) * q, spread: Mo.fanSpread(rg, wpn, 'B') };
+  };
+  // an open fan's half angle either side of its line (js/skeleton.js drawTessen: (0.14 + open * 2.35) / 2): 'F' the fan in
+  // the sword hand (look.j.wFan), 'B' the second one (wFanB); 0 for any other weapon
+  Mo.fanSpread = (rg, wpn, w) => { if (!wpn || wpn.type !== 'tessen') return 0; const j = (rg.look && rg.look.j) || {}, o = (w === 'B' ? j.wFanB : j.wFan) || 0; return o < 0.06 ? 0 : (0.14 + o * 2.35) / 2; };
   const KATANA_T = { katana: 1, nodachi: 1, kodachi: 1, ninjato: 1 };
   const isKatana = (w) => !w || !w.type || (KATANA_T[w.type] && !w.twin);
   Mo.isKatana = isKatana;
@@ -1062,10 +1073,10 @@
     // the second weapon in the left hand (twin tantō: reverse grip along the forearm; tessen: the second fan beyond it)
     const second = () => {
       if (!P.armed || P.inside || !(wpn.twin) || (Mo.noWeapon && Mo.noWeapon(rg))) return;
-      const e = pr(P.elL), h = pr(P.haL), sk = h.s;
+      const S2 = Mo.secondLine(rg, wpn), h = S2.h, sk = h.s;
       ctx.save(); ctx.translate(h.x, h.y); ctx.scale(sk, sk); ctx.translate(-h.x, -h.y);
-      if (wpn.type === 'tessen') K.drawTessen(ctx, h.x, h.y, Math.atan2(h.y - e.y, h.x - e.x) - sgn * 0.3, c, fj.wFanB || 0, wpn.blade * 0.94, sgn, 0);
-      else K.drawSword(ctx, h.x, h.y, Math.atan2(e.y - h.y, e.x - h.x) + sgn * 0.25, c, 0, wpn);
+      if (wpn.type === 'tessen') K.drawTessen(ctx, h.x, h.y, S2.ang, c, fj.wFanB || 0, wpn.blade * 0.94 * S2.q, sgn, 0);
+      else { if (S2.q < 0.995) { ctx.translate(h.x, h.y); ctx.rotate(S2.ang); ctx.scale(S2.q, 1); ctx.rotate(-S2.ang); ctx.translate(-h.x, -h.y); } K.drawSword(ctx, h.x, h.y, S2.ang, c, 0, wpn); }
       ctx.restore();
     };
     // the kusarigama's chain: from the sickle's butt to the weight (rg.chain, js/mocap-duel.js)

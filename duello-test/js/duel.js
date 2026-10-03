@@ -35,9 +35,9 @@
   // pole, staff, twin blades, fans, chain and bow as each lands). A fight with anyone not on it runs the old fight, for
   // both sides. ?duelroster=akane,kuro (tests) overrides it.
   // (2026-10-03: Tetsu's naginata, Jin's bō and Tsubame's bow + tantō in - drawing, determinism, 32-match stability and
-  // CPU difficulty checked; Hana's twin tantō, Mai's fans and Tora's chain wait: the second weapon / chain still goes
-  // through the other's body)
-  const ROSTER_LIST = ND.DUEL_ROSTER = ['akane', 'aoi', 'kuro', 'yuki', 'ren', 'kage', 'shura', 'tetsu', 'jin', 'tsubame'];
+  // CPU difficulty checked; then Hana's twin tantō (no blade through a head or neck, none behind a torso, 16 drawn matches
+  // clean); Mai's fans and Tora's chain wait: 2-14 frames through a head or neck a run)
+  const ROSTER_LIST = ND.DUEL_ROSTER = ['akane', 'aoi', 'kuro', 'yuki', 'ren', 'kage', 'shura', 'tetsu', 'jin', 'tsubame', 'hana'];
   const ROSTER = {};
   { const q = (/[?&]duelroster=([a-z,]+)/.exec(location.search || '') || [])[1]; for (const id of q ? q.split(',') : ROSTER_LIST) ROSTER[id] = 1; }
   // WHERE: the single-player fights (a match vs the CPU, the journey and its tourney / dan / rival runs, training) and
@@ -65,7 +65,7 @@
   function dzNew() {
     return {
       armed: true, chain: 0, chainT: 9, gs: 0, gsT: 0, bk: null, cine: null, sword: null, realWpn: null, realP: null,
-      roll: 0, rollGrab: false, lastMove: null, disarmT: 0, offLine: 0, pp: pose.copy(PO.stance),
+      roll: 0, rollGrab: false, lastMove: null, disarmT: 0, offLine: 0, pp: pose.copy(PO.stance), oneHand: null, pickTwo: false,
     };
   }
 
@@ -95,7 +95,7 @@
     if (z.realWpn) f.wpn = z.realWpn;
     if (z.realP) f.P = z.realP;
     f._pd = null;
-    z.armed = true; z.realWpn = null; z.realP = null;
+    z.armed = true; z.realWpn = null; z.realP = null; z.oneHand = null; z.pickTwo = false;
     if (z.sword) { z.sword.dead = true; z.sword = null; }
     if (!quiet) {
       const j = f.j; fx.spark(j.haF.x, j.haF.y, -Math.PI / 2, 12, 0.7, '230,236,255');
@@ -117,6 +117,9 @@
     const s = new DuelSword(f, h.x, h.y, ang, side * sp, vy, va);
     G.projs.push(s);
     z.armed = false; z.sword = s; z.realWpn = f.wpn; z.realP = f.P; z.disarmT = ND.simClock;
+    // (a hook for the drawing: twin weapons lose only the struck hand's one - the sword hand's, 'R'; the other stays in the
+    // left hand as drawn. The fight treats the fighter as disarmed, as before, until it is picked up)
+    z.oneHand = z.realWpn && z.realWpn.twin ? 'R' : null;
     f.wpn = D.fistWpn(f.wpn); f.P = uaP(f.P); f._pd = null; f.counterUntil = 0;
     f.wpn.none = true; // (the props module's "disarmed" flag: it then lets the free hand take props, js/props.js)
     ND.solve(f.pose, f.x, f.y, f.dir, f.j, f.wpn);
@@ -442,6 +445,8 @@
     if (z.propT > 0) { z.propT -= dt; G.cineT = Math.max(G.cineT || 0, 0.2); G.cineX = z.propX; G.cineZ = Math.max(G.cineZ || 0, 1.35); }
     if (s === 'dbind') { if (z.cine && z.cine.def === f) cineStep(z.cine, dt); bindPose(f); return; }
     if (s === 'dcut') { cutPose(f, dt); return; }
+    // (hooks for the drawing, js/mocap-duel.js: a pole - the naginata, the bō - is picked up with both hands)
+    { const w = z.realWpn || f.wpn; z.pickTwo = s === 'dpick' && !!(w && (w.type === 'naginata' || w.type === 'bo')); }
     if (s === 'dpick') { pickStep(f, dt); return; }
     if (s === 'droll') { rollStep(f, dt); return; }
     // (an unarmed dash is a roll only towards the own sword lying ahead - the roll that takes it up; else a plain dash)
@@ -563,7 +568,9 @@
     { const DM = ND.AI_KNOBS && ND.AI_KNOBS.duelDmg, cm = from && from.ch && (CPQ[from.ch.id] ?? (DM && DM[from.ch.id])); // (AI_KNOBS.duelDmg: remote-tunable)
       const g = ND.game; if (cm && g && g.ais && g.ais.some((q) => q && q.me === from)) raw *= cm; }
     if (was === 'dpick') { raw *= T.punish; fx.text(this.x, -222, 'PUNISHED!', '#ff9b7a'); stat('punishedPicks'); }
+    D.hitRawScaled = raw; // (the hit's feel - its stop and shake - comes from the move's own damage: js/duel-ui.js impact)
     const r = takeHit0.call(this, raw, a, from, x, y, part, kdir);
+    D.hitRawScaled = null;
     this.dz.chain = 0;
     if (!this.dead && this.dz.armed) {
       // (the technique disarms through a guard only, js/duel.js blocked: a clean hit is just a hit)
