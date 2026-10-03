@@ -482,7 +482,7 @@
     const rg = s.rig, P = rg.P, BG = D.gapPoint && D.gapPoint(f);
     let target = 0;
     if (BG && P) {
-      const dir = f.dir < 0 ? -1 : 1, room = (BG.x - f.x - (s.ox || 0)) * dir - 6; // (local forward distance to the contact line)
+      const dir = f.dir < 0 ? -1 : 1, room = (BG.x - f.x - (s.ox || 0)) * dir - 15; // (local forward distance to the contact line; 15: the two faces about a head-width apart - 6 left the heads pressed in a lock, 2026-10-03)
       // the front of the body as drawn last frame, before its lean, at the current lean
       const th0 = rg.lean || 0, cs = Math.cos(th0), sn = Math.sin(th0), h = P.hip;
       let front = -1e9, ht = 60;

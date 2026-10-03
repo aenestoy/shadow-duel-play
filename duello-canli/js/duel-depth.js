@@ -275,7 +275,10 @@
         for (let k = 0; k <= 12; k++) { const x = j.haF.x + dxj + (j.tip.x - j.haF.x) * k / 12, y = j.haF.y + (j.tip.y - j.haF.y) * k / 12; m = Math.max(m, 16 - Math.hypot(x - H.x, y - H.y), 10 - lsd(N, H, x, y)); }
         return m;
       };
-      const pair = (oxA) => Math.max(lpen(lshapes(ja, oxA, ka), B), bladeHN(ja, oxA, jb, LT.ox[1]), bladeHN(jb, LT.ox[1], ja, oxA));
+      // (in a blade lock the faces stay about a head-width apart: the blades cross between them)
+      const lockd = a.state === 'lock' || b.state === 'lock';
+      const faces = (oxA) => (lockd && ja.head && jb.head ? 15.5 * 2 + 16 - Math.hypot(ja.head.x + oxA - jb.head.x - LT.ox[1], ja.head.y - jb.head.y) : 0);
+      const pair = (oxA) => Math.max(lpen(lshapes(ja, oxA, ka), B), bladeHN(ja, oxA, jb, LT.ox[1]), bladeHN(jb, LT.ox[1], ja, oxA), faces(oxA));
       if (pair(LT.ox[0]) > 0) {
         const away = a.x < b.x ? -1 : 1;
         let lo = 0, hi = LOX * 2;
