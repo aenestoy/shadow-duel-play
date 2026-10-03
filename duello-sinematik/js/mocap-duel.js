@@ -162,10 +162,15 @@
 
 
   const ST = new WeakMap();
+  (ND.onLook || (ND.onLook = [])).push((f) => { ST.delete(f); });
+
+
+
   function stateOf(f) {
     let s = ST.get(f);
+    if (s && (s.ch !== f.ch || s.col !== f.col || s.wpn !== f.wpn)) s = null;
     if (!s) {
-      s = { rig: new Mo.Rig(f, f.x, f.dir), clk: null, walkT: 0, lastSheathed: null, sheatheT: 9, impactT: 9, lastState: '', lastSerial: -1 };
+      s = { rig: new Mo.Rig(f, f.x, f.dir), clk: null, walkT: 0, lastSheathed: null, sheatheT: 9, impactT: 9, lastState: '', lastSerial: -1, ch: f.ch, col: f.col, wpn: f.wpn };
       s.rig.driven = true; s.rig.travel = 0; s.rig.footLock = true; s.rig.maxTurn = 26;
       ST.set(f, s);
     }

@@ -169,7 +169,7 @@
       const FN = D.FIN, grp = FN ? 2 : 99, N = T.chainNeed, w = 11 * u, gap = 4 * u, gg = FN ? 5 * u : 0, ng = Math.floor((N - 1) / grp);
       const x0 = hx - ((N * w + (N - 1) * gap + ng * gg) / 2);
       if (z.chain > 0 || (z.cine && z.cine.def === f && !z.cine.fin)) {
-        const tier = FN && z.chain > 0 && z.chain < N ? FN.tierOf(z.chain) : 0, hot = tier && z.chainT <= FN.win;
+        const tier = FN && z.chain > 0 && z.chain < N ? FN.tierOf(z.chain) : 0, hot = tier > (z.finTier || 0) && z.chainT <= FN.win;
         for (let i = 0; i < N; i++) {
           const x = x0 + i * (w + gap) + Math.floor(i / grp) * gg + w / 2, on = i < z.chain;
           ctx.beginPath(); ctx.moveTo(x, hy - w * 0.6); ctx.lineTo(x + w * 0.45, hy); ctx.lineTo(x, hy + w * 0.6); ctx.lineTo(x - w * 0.45, hy); ctx.closePath();
@@ -536,6 +536,7 @@
 
     if (ND.scene && ND.scene.lightFighter) {
       const lf0 = ND.scene.lightFighter, HF = new WeakMap();
+      (ND.onLook || (ND.onLook = [])).push((f) => { HF.delete(f); });
       ND.scene.lightFighter = function (c, f) {
         if (!f || !f.dz) return lf0.apply(this, arguments);
         let h = HF.get(f); if (!h) HF.set(f, (h = { last: 0, n: 9 }));

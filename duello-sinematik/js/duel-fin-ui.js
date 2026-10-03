@@ -11,7 +11,7 @@
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
   const oc = (t) => 1 - Math.pow(1 - t, 3);
   const NUM = ['', '一', '二', '三'];
-  const U = (D.finUi = { strokes: [], card: null, bars: 0, gathers: [], seen: null });
+  const U = (D.finUi = { strokes: [], card: null, bars: 0, gathers: [], petals: [], seen: null });
   const sim = () => !!G.simOnly;
   const tt = (s) => (ND.i18n ? ND.i18n.t(s) : s);
 
@@ -49,6 +49,15 @@
         au.tone({ freq: 2600, dur: 0.06, gain: 0.08, send: 0.25, pan: A.pan, type: 'square' });
         au.tone({ freq: 1800, dur: 0.12, gain: 0.05, send: 0.5, pan: A.pan, delay: 0.03 });
         break;
+      case 'snap':
+        au.noise({ type: 'bandpass', f0: 3200, f1: 1800, q: 2, dur: 0.07, gain: 0.18, send: 0.2, pan: A.pan });
+        au.noise({ type: 'bandpass', f0: 3600, f1: 2000, q: 2, dur: 0.07, gain: 0.16, send: 0.2, pan: A.pan, delay: 0.06 });
+        break;
+      case 'petals': {
+        const n = o.n || 10, acc = (A.col && A.col.accent) || col;
+        for (let i = 0; i < n; i++) U.petals.push({ x: A.x + (Math.random() - 0.5) * 220, y: A.y - 60 - Math.random() * 140, vx: (Math.random() - 0.5) * 120, vy: -40 - Math.random() * 60, a: Math.random() * 6.28, va: (Math.random() - 0.5) * 8, age: 0, life: 1 + Math.random() * 0.8, col: acc });
+        break;
+      }
       case 'end':
         markSeen(c.key);
         break;
@@ -78,7 +87,7 @@
   const draw0 = ND.cine.draw;
   ND.cine.draw = function (ctx) {
     draw0.call(this, ctx);
-    if (!G.F || !(G.phase === 'fight' || G.phase === 'ko')) { U.strokes.length = 0; U.card = null; U.bars = 0; return; }
+    if (!G.F || !(G.phase === 'fight' || G.phase === 'ko')) { U.strokes.length = 0; U.petals.length = 0; U.card = null; U.bars = 0; return; }
     const now = ND.scene ? ND.scene.t : 0, dt = U.lt != null ? clamp(now - U.lt, 0, 0.1) : 0; U.lt = now;
 
     const rdt = G.slow > 0 ? dt / Math.max(0.2, G.slow) : dt;
@@ -91,6 +100,7 @@
       ctx.fillStyle = 'rgba(4,4,8,.85)'; ctx.fillRect(0, 0, cam.W, h); ctx.fillRect(0, cam.H - h, cam.W, h);
     }
     for (let i = U.gathers.length - 1; i >= 0; i--) { const g = U.gathers[i]; g.age += rdt; if (g.age >= g.life) { U.gathers.splice(i, 1); continue; } drawGather(ctx, g); }
+    for (let i = U.petals.length - 1; i >= 0; i--) { const p = U.petals[i]; p.age += rdt; if (p.age >= p.life) { U.petals.splice(i, 1); continue; } p.vy += 60 * rdt; p.x += (p.vx + Math.sin(p.age * 5 + p.a) * 40) * rdt; p.y += p.vy * rdt; p.a += p.va * rdt; drawPetal(ctx, p); }
     for (let i = U.strokes.length - 1; i >= 0; i--) { const s = U.strokes[i]; s.age += rdt; if (s.age >= s.life) { U.strokes.splice(i, 1); continue; } drawStroke(ctx, s); }
     if (U.card) { U.card.age += rdt; if (U.card.age >= U.card.life) U.card = null; else drawCard(ctx, U.card, u); }
     ctx.restore();
@@ -121,6 +131,11 @@
     }
     band(W * 0.28, s.col, 0.85, 0);
     ctx.globalAlpha = 1;
+  }
+  function drawPetal(ctx, p) {
+    const k = cam.k, x = cam.sx(p.x), y = cam.sy(p.y), u = p.age / p.life;
+    ctx.globalAlpha = (u < 0.15 ? u / 0.15 : u > 0.7 ? (1 - u) / 0.3 : 1) * 0.85; ctx.fillStyle = p.col;
+    ctx.beginPath(); ctx.ellipse(x, y, 4.2 * k, 2.2 * k * Math.abs(Math.cos(p.a)) + 0.6 * k, p.a, 0, 6.283); ctx.fill(); ctx.globalAlpha = 1;
   }
 
   function drawGather(ctx, g) {

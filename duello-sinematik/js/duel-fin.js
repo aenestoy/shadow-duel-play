@@ -14,6 +14,7 @@
 
 
 
+
 (function (ND) {
   'use strict';
   const FLAG = (() => { try { return !/[?&]duel=0(&|$)/.test(location.search || ''); } catch (e) { return true; } })();
@@ -27,6 +28,7 @@
   const FIN = D.FIN = {
     on: !OFF,
     win: 1.0,
+    gap: 128, gapUa: 104, gapDown: 40,
     tierOf: (pts) => (pts <= 0 ? 0 : pts <= 2 ? 1 : pts <= 4 ? 2 : 3),
     stats: null,
   };
@@ -99,6 +101,52 @@
     ] });
 
 
+
+  def('mai:1', {
+    dur: 1.2, trig: { knock: 1, kb: 330, mul: 1.15, lift: 0.8 }, card: { k: '扇返し', n: 'OGI-GAESHI' },
+    ops: [
+      { t: 0, op: 'slow', v: 0.32, d: 0.28 }, { t: 0, op: 'cam', on: 'V', z: 2.2, y: -104, cut: 1 }, { t: 0, op: 'fx', k: 'ink', a: 0.35, len: 0.16 },
+      { t: 0.4, op: 'cam', on: 'A', z: 2.35, y: -122, cut: 1 },
+      { t: 0.42, op: 'pose', who: 'A', keys: [[0.14, 'mi_hA', 'outQuart'], [0.36, 'mi_hA'], [0.62, 'mi_stance', 'inOut']] },
+      { t: 0.52, op: 'fx', k: 'snap' }, { t: 0.52, op: 'fx', k: 'petals', n: 14 },
+    ] });
+  def('mai:2', {
+    dur: 2.1, trig: { stun: 1.7, kb: 230 }, card: { k: '胡蝶乱舞', n: 'KOCHO RANBU' },
+    ops: [
+      { t: 0, op: 'slow', v: 0.4, d: 0.2 }, { t: 0, op: 'cam', on: 'mid', z: 2.05, y: -116, cut: 1 },
+      { t: 0.22, op: 'mv', m: 'mi_l1', spd: 1, hits: [{ dmg: 2, stun: 1.6, kb: 160 }] },
+      { t: 0.44, op: 'mv', m: 'mi_l2', spd: 1, hits: [{ dmg: 3, stun: 1.6, kb: 160 }] },
+      { t: 0.5, op: 'cam', on: 'A', z: 2.4, y: -118, cut: 1 }, { t: 0.5, op: 'fx', k: 'petals', n: 8 },
+      { t: 0.68, op: 'mv', m: 'fm_dh', spd: 1, hits: [{ dmg: 4, knock: 1, kb: 440, lift: 1.0 }] },
+      { t: 0.9, op: 'cam', on: 'mid', z: 1.8, y: -124, cut: 1 }, { t: 0.9, op: 'slow', v: 0.36, d: 0.42 }, { t: 0.9, op: 'fx', k: 'ink', a: -0.5, len: 0.2 },
+      { t: 0.96, op: 'fx', k: 'card' },
+      { t: 1.3, op: 'pose', who: 'A', keys: [[0.16, 'mi_hA', 'outQuart'], [0.34, 'mi_hA'], [0.6, 'mi_stance', 'inOut']] }, { t: 1.4, op: 'fx', k: 'snap' },
+    ] });
+  def('mai:3', {
+    dur: 2.7, trig: { stun: 2.2, kb: 200 }, card: { k: '天女の舞', n: 'TENNYO NO MAI' },
+    ops: [
+      { t: 0, op: 'slow', v: 0.4, d: 0.2 }, { t: 0, op: 'cam', on: 'mid', z: 2.0, y: -118, cut: 1 },
+      { t: 0.2, op: 'mv', m: 'fm_s1', spd: 1, hits: [{ dmg: 3, stun: 2, kb: 150 }, { dmg: 3, knock: 1, kb: 120, lift: 1.5 }] },
+      { t: 0.3, op: 'cam', on: 'A', z: 2.4, y: -120, cut: 1 }, { t: 0.3, op: 'fx', k: 'petals', n: 10 },
+      { t: 0.56, op: 'cam', on: 'V', z: 1.75, y: -170 }, { t: 0.58, op: 'slow', v: 0.35, d: 0.35 }, { t: 0.6, op: 'dim', v: 0.4 },
+      { t: 0.72, op: 'mv', m: 'fm_up', spd: 1.1, hits: [{ dmg: 4, knock: 1, kb: 40, lift: 0.95 }] },
+      { t: 0.8, op: 'fx', k: 'ink', a: -1.2, len: 0.2 },
+      { t: 1.15, op: 'mv', m: 'mi_heavy', spd: 1 }, { t: 1.15, op: 'cam', on: 'mid', z: 1.6, y: -126, cut: 1 },
+      { t: 1.43, op: 'hit', h: { dmg: 5, knock: 1, kb: 560, lift: 0.55 } }, { t: 1.43, op: 'slow', v: 0.3, d: 0.5 }, { t: 1.43, op: 'fx', k: 'petals', n: 18 },
+      { t: 1.5, op: 'fx', k: 'card' },
+      { t: 1.9, op: 'pose', who: 'A', keys: [[0.2, 'mi_hA', 'outQuart'], [0.5, 'mi_stance', 'inOut']] }, { t: 2.0, op: 'fx', k: 'snap' },
+    ] });
+  def('mai:u', {
+    dur: 1.6, trig: { stun: 1.5, kb: 380 }, card: { k: '旋風脚', n: 'SENPU-KYAKU' },
+    ops: [
+      { t: 0, op: 'slow', v: 0.45, d: 0.18 }, { t: 0, op: 'cam', on: 'mid', z: 2.1, y: -118, cut: 1 },
+      { t: 0.2, op: 'mv', m: 'ua_round', spd: 1.2, hits: [{ dmg: 3, stun: 1.5, kb: 320, part: 'head' }] },
+      { t: 0.62, op: 'mv', m: 'ua_spinKick', spd: 1, hits: [{ dmg: 5, knock: 1, kb: 460, lift: 0.95 }] },
+      { t: 0.7, op: 'cam', on: 'mid', z: 2.35, y: -116, cut: 1 }, { t: 0.95, op: 'slow', v: 0.35, d: 0.32 }, { t: 0.98, op: 'fx', k: 'card' },
+      { t: 0.98, op: 'cam', on: 'V', z: 2.0, y: -106 },
+    ] });
+
+
   def('_:any', { dur: 0.9, trig: { knock: 1, kb: 300, mul: 1.1 }, ops: [{ t: 0, op: 'slow', v: 0.35, d: 0.28 }, { t: 0, op: 'cam', on: 'V', z: 2.19, y: -112, cut: 1 }, { t: 0, op: 'fx', k: 'ink', a: -0.2, len: 0.18 }] });
   const scriptKey = (f, tier) => {
     const id = f.ch.id, un = !(f.dz && f.dz.armed);
@@ -111,31 +159,20 @@
 
 
 
+
+
+
+
+
   const setState0 = FP.setState;
   FP.setState = function (s, extra) {
     const z = this.dz;
-    if (z && FIN.on && !D._finScript) {
-      const arm = z.finArm;
-
-      if (arm && this.state === 'atk' && this.serial === arm.serial && !arm.hit) { z.finArm = null; z.chain = 0; stat('whiff'); }
-    }
     const r = setState0.call(this, s, extra);
     if (z && FIN.on && s === 'atk' && !D._finScript && !isFin(z.cine)) {
-      if (z.chain > 0 && !z.cine) {
-
-        if (z.chainT <= FIN.win) { z.finArm = { serial: this.serial, pts: z.chain, hit: false }; stat('armed'); }
-        else { z.finArm = null; stat('late'); }
-      } else z.finArm = null;
+      const tier = FIN.tierOf(z.chain);
+      if (tier > (z.finTier || 0) && !z.cine && z.chainT <= FIN.win) { z.finArm = { serial: this.serial, tier }; stat('armed'); }
+      else { z.finArm = null; if (tier > (z.finTier || 0) && z.chainT > FIN.win) stat('late'); }
     }
-    return r;
-  };
-
-  const blocked0 = FP.blocked;
-  FP.blocked = function (a, x, y, isKick, fromX) {
-    const z = this.dz, arm = z && z.finArm;
-    const r = blocked0.call(this, a, x, y, isKick, fromX);
-    if (arm && z.finArm === arm && this.state !== 'atk') { z.finArm = null; }
-    if (arm && z.finArm === arm) { z.finArm = null; z.chain = 0; stat('blocked'); }
     return r;
   };
 
@@ -146,14 +183,13 @@
     if (!z || D._finHit) return takeHit0.call(this, raw, a, from, x, y, part, kdir);
 
     if (isFin(z.cine)) return;
-    if (z.finArm) z.finArm = null;
+    z.finArm = null;
     const A = from, arm = A && A.dz && A.dz.finArm;
     if (arm && A.state === 'atk' && A.serial === arm.serial && canFin(A, V)) {
-      arm.hit = true; A.dz.finArm = null;
-      const pts = arm.pts; A.dz.chain = 0;
-      return startFin(A, V, FIN.tierOf(pts), raw, a, x, y, part, kdir);
+      A.dz.finArm = null; A.dz.finTier = arm.tier;
+      return startFin(A, V, arm.tier, raw, a, x, y, part, kdir);
     }
-    if (arm) { A.dz.finArm = null; }
+    if (arm) A.dz.finArm = null;
     return takeHit0.call(this, raw, a, from, x, y, part, kdir);
   };
 
@@ -297,6 +333,18 @@
       if (u >= 1) c.gl = null;
     }
 
+
+    if (!c.gl && !(A.state === 'atk' && A.atk && A.atk.cross) && Math.abs(V.y - A.y) < 120) {
+      const d = V.x - A.x, ad = Math.abs(d), MIN = (A.dz.armed ? FIN.gap : FIN.gapUa) + (V.state === 'launch' || V.state === 'down' ? FIN.gapDown : 0);
+      if (ad < MIN) {
+
+        const sd = d === 0 ? A.dir : Math.sign(d), L = ND.ARENA;
+        let ax = V.x - sd * MIN;
+        if (Math.abs(ax) > L) { V.x += sd * (Math.abs(ax) - L); ax = Math.sign(ax) * L; }
+        A.x = ax; if (A.vx * sd > 0) A.vx = 0;
+      }
+    }
+
     if (c.cam && !c.skip) {
       const C = c.cam, x = camX(c, C.on);
 
@@ -351,8 +399,14 @@
 
   const upd0 = FP.update;
   FP.update = function (dt) {
+    const z = this.dz, t0 = z ? z.chainT : 0;
     const r = upd0.call(this, dt);
-    const c = this.dz && this.dz.cine;
+    if (z) {
+      const o = this.opp, wait = isFin(z.cine) || (o && (o.state === 'down' || o.state === 'getup' || o.state === 'launch' || o.dead));
+      if (wait && z.chainT > t0) z.chainT = t0;
+      if (!(z.chain > 0)) z.finTier = 0;
+    }
+    const c = z && z.cine;
     if (isFin(c) && c.A === this) step(c, dt);
     return r;
   };
@@ -387,7 +441,7 @@
     A.setState('atk', { atk: a, atkName: m, keys: [[0, A.entry]].concat(a.keys) });
     const W = a.hits && a.hits.length ? a.hits[0] : a.active || [0.1, 0.2];
     A.st = W[0];
-    A.dz.chain = 0; A.dz.finArm = null;
+    A.dz.finArm = null;
     startFin(A, V, tier === 'u' ? 1 : +tier, a.dmg * A.ch.dmg, a, V.x - 20, V.y - 110, 'body', 1);
     return true;
   };

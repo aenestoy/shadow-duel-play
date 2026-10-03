@@ -85,7 +85,7 @@
     return {
       armed: true, chain: 0, chainT: 9, gs: 0, gsT: 0, bk: null, cine: null, sword: null, realWpn: null, realP: null,
       roll: 0, rollGrab: false, pass: false, passV: 0, lastMove: null, disarmT: 0, offLine: 0, pp: pose.copy(PO.stance), oneHand: null, pickTwo: false,
-      finArm: null, finKeys: null,
+      finArm: null, finKeys: null, finTier: 0,
     };
   }
 
@@ -368,6 +368,11 @@
   D.guardTarget = guardTarget;
 
 
+
+
+
+
+  { const sc0 = FP.setChar; if (sc0) FP.setChar = function () { const r = sc0.apply(this, arguments); for (const fn of ND.onLook || []) { try { fn(this); } catch (e) {                       } } this._anim = null; return r; }; }
   const NOPROPS = /[?&]props=0(&|$)/.test(location.search || '');
   { const nm0 = G.newMatch; G.newMatch = function (mode, opts) { D.matchSpeed = mode === 'online' && opts && +opts.speed >= 0.7 && +opts.speed <= 1 ? +opts.speed : 1; return nm0.apply(this, arguments); }; }
   const reset0 = FP.reset;
