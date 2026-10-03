@@ -135,7 +135,7 @@
         if (D.canPick(me)) {
 
 
-          if (dist > 170 || busy || (dist > 110 && o.state !== 'atk' && rnd() < 0.4) || rnd() < 0.25 * (1 - lv.smart)) { this.tap('throw'); return; }
+          if (dist > 170 || busy || (dist > 110 && o.state !== 'atk' && rnd() < 0.4) || rnd() < 0.25 * (1 - lv.smart)) { this.tap(D.kicksOn && D.kicksOn(me) && rnd() < 0.5 * (lv.smart || 0) ? 'kick' : 'throw'); return; }
           return decide0.call(this, dist, fwd);
         }
 

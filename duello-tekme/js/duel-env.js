@@ -112,7 +112,10 @@
 
 
 
-  const handsBusy = (f) => armed(f) && !!(ND.mocap && ND.mocap.isKatana && f.wpn && !ND.mocap.isKatana(f.wpn));
+
+
+  const KAT = { katana: 1, nodachi: 1, kodachi: 1, ninjato: 1 };
+  const handsBusy = (f) => armed(f) && !!(f.wpn && f.wpn.type && !(KAT[f.wpn.type] && !f.wpn.twin));
   D.handsBusy = handsBusy;
   { const cu0 = P.canUse; P.canUse = function (f, p, act) { if (act === 'grab' && f && f.dz && handsBusy(f)) return false; return cu0.apply(this, arguments); }; }
   const topOf = (p) => { const K = KINDS[p.k]; return K.top || K.h * 0.85; };

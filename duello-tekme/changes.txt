@@ -1,1 +1,2 @@
 2026-10-04 00:52  565bd6d2  Kicks (Akane): down+KICK sweep, back+KICK spinning kick, forward+KICK wrist kick (into a heavy cut: disarm), KICK in the air, back-forward+KICK double kick
+2026-10-04 01:12  cf39d1d3  Kicks for Aoi (Kaze-geri), Kuro (Yama-geri), Yuki (Kitsune-tobi) + Akane: each has down/back/forward/air KICK and back-forward+KICK own kick; unarmed: KICK at your sword flicks it up

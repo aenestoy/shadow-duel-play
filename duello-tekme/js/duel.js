@@ -378,7 +378,7 @@
 
 
     const g = ND.game, PR = ND.props;
-    if (PR && g && g.F && this === g.F[1] && !PR.flag && !NOPROPS) { const want = !!(g.F[0].dz && g.F[1].dz); if (want !== !!PR.live) D.propsOn(want); }
+    if (PR && g && g.F && this === g.F[1] && !PR.flag && (!NOPROPS || g.mode === 'online')) { const want = !!(g.F[0].dz && g.F[1].dz); if (want !== !!PR.live) D.propsOn(want); }
     return r;
   };
   const isInvP = FP.isInv;
@@ -601,8 +601,8 @@
     if (from && from.dz && !from.dz.armed && a && !a.special) raw *= T.uaDmg;
 
 
-    { const CD = (ND.AI_KNOBS && ND.AI_KNOBS.duelChDmg) || T.chDmg; if (from && from.ch && CD[from.ch.id]) raw *= CD[from.ch.id]; }
-    if (from && from.ch && CHQ[from.ch.id]) raw *= CHQ[from.ch.id];
+    { const ON = G.mode === 'online', CD = (ON && ND.AI_KNOBS0 ? ND.AI_KNOBS0.duelChDmg : ND.AI_KNOBS && ND.AI_KNOBS.duelChDmg) || T.chDmg; if (from && from.ch && CD[from.ch.id]) raw *= CD[from.ch.id]; }
+    if (from && from.ch && CHQ[from.ch.id] && G.mode !== 'online') raw *= CHQ[from.ch.id];
 
 
 
@@ -677,6 +677,21 @@
     } else pose.seq([[0, f.entry], [0.16, P0, E.outCubic], [T.pickDur, P0]], t, f.pose);
     if (t >= T.pickDur + (f.mem.got != null ? 0.1 : 0)) f.setState('move');
   }
+
+
+  D.kickUp = (f, ph) => {
+    const s = D.swordOf(f), z = f.dz;
+    if (!s || z.armed) return;
+    s.grip(PT);
+    if (ph === 'flick') {
+      if (!s.resting() || Math.abs(PT.x - f.x) > T.pickR + 16) return;
+      s.mode = 'fly'; s.bounces = 1; s.kup = f.serial; s.vx = (f.x + f.dir * 30 - PT.x) / 0.16; s.vy = -640; s.va = -f.dir * 9;
+      if (s.y > -20) s.y = -20;
+      au.swoosh(0.5, f.pan); fx.dust(PT.x, 0, 4, 0.4);
+      return;
+    }
+    if (s.kup === f.serial && Math.abs(PT.x - f.x) < 80 && PT.y < -40) { rearm(f, false); stat('kickUps'); }
+  };
   function rollToSword(f) {
     const sw = D.swordOf(f), d = f.ddir || f.dir;
     if (!sw || !sw.resting || !sw.resting()) return false;
