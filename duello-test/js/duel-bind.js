@@ -15,7 +15,7 @@
 // world } or null. D.bindPoint(f) → the contact point now (world) or null: the spark / contact flash goes there.
 (function (ND) {
   'use strict';
-  const FLAG = (() => { try { return /[?&]duel=\d/.test(location.search || ''); } catch (e) { return false; } })();
+  const FLAG = (() => { try { return !/[?&]duel=0(&|$)/.test(location.search || ''); } catch (e) { return true; } })(); // (the duel is the fight; ?duel=0: the old fight everywhere)
   if (!FLAG || !ND.duel) return;
   const D = ND.duel;
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);

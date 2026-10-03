@@ -15,7 +15,7 @@
 (function (ND) {
   'use strict';
   const Q = (() => { try { return location.search || ''; } catch (e) { return ''; } })();
-  const ON = /[?&]duel=\d/.test(Q) && !/[?&]mocap=0(&|$)/.test(Q) && !/[?&]mduel=0(&|$)/.test(Q); // (mduel=0: the mocap-test page's NOW panel)
+  const ON = !/[?&]duel=0(&|$)/.test(Q) && !/[?&]mocap=0(&|$)/.test(Q) && !/[?&]mduel=0(&|$)/.test(Q); // (mduel=0: the mocap-test page's NOW panel)
   const Mo = ND.mocap, D = ND.duel, A3 = ND.depth25;
   if (!ON || !Mo || !D || !A3 || !ND.Fighter) return;
   const L = ND.LEN, PO = ND.POSES;
@@ -98,7 +98,20 @@
     'fCartwheel', 'fBackflip', 'fHandspring', 'fKickSide'];
   const CLIPS = [...new Set(Object.values(SEG).map((s) => s[0]).concat(['idle', 'walk', 'backWalk', 'run', 'blockIdle', 'blockedImpact', 'crouchBlockIdle', 'crouchBlockedImpact',
     'hitHead', 'hitBody', 'knockdown', 'getUp', 'sheathe', 'vault', 'pickThrow', 'fGetUp']))];
-  Mo.loadAll(CLIPS).then(() => { MD.ready = true; credit(); Mo.loadAll(ACTS).catch(() => {}); }).catch((e) => { MD.error = String(e); });
+  // (loaded when needed: at once on the duel's test page; in the game when the first duel fight is set up, or once the
+  // page has been idle a few seconds - the first load of the game stays as it was; until they are in, the hand-keyed
+  // 2.5D drawing shows)
+  let loading = false;
+  MD.load = () => {
+    if (loading) return; loading = true;
+    Mo.loadAll(CLIPS).then(() => { MD.ready = true; credit(); Mo.loadAll(ACTS).catch(() => {}); }).catch((e) => { MD.error = String(e); });
+  };
+  if (/[?&]duel=1(&|$)/.test(Q) || /[?&]mocap=1(&|$)/.test(Q)) MD.load();
+  else {
+    const G0 = ND.game, nm0 = G0 && G0.newMatch;
+    if (nm0) G0.newMatch = function () { const r = nm0.apply(this, arguments); if (this.F && this.F.some((f) => f.dz)) MD.load(); return r; };
+    try { setTimeout(() => (window.requestIdleCallback ? requestIdleCallback(() => MD.load(), { timeout: 4000 }) : MD.load()), 6000); } catch (e) { MD.load(); }
+  }
   // (the arena moments load after the fight's own clips: MD.act returns false until its clip is in)
   // the licence line of the ACCAD motion capture (CC BY 3.0: the credit must show wherever its clips play) - the duel
   // page's footer while the recorded drawing is on (the game has no credits screen yet)
@@ -110,6 +123,9 @@
       el.id = 'mocap-credit'; el.textContent = MD.CREDIT;
       el.style.cssText = 'position:fixed;left:6px;bottom:2px;font:9px/1.2 sans-serif;color:rgba(255,255,255,.5);text-shadow:0 1px 2px #000;pointer-events:none;z-index:40';
       document.body.appendChild(el);
+      // (shown while a duel fight is on screen - where the clips play - not over the menus)
+      const G1 = ND.game;
+      if (G1) setInterval(() => { const on = !!(G1.F && G1.F[0] && G1.F[0].dz && !D.lite && (G1.phase === 'fight' || G1.phase === 'intro' || G1.phase === 'ko')); if (el.hidden === on) el.hidden = !on; }, 500);
     } catch (e) { /* no page */ }
   }
   const C = (id) => Mo.clips[id];
@@ -702,7 +718,11 @@
     let h = P.blade.h, u = P.blade.u, p0 = pen(h, u);
     // (in a cut's own hit window a blade that misses her - more than 6 off the body - is brought ON to it as well: the hit
     // never shows with the blade away from her)
-    if (p0 <= 0 && !(aimW(f) > 0.3 && penT > 6)) return;
+    // (a cut the duel aims - its hit frames - is also kept off its OWN body: the aim placed the blade in front of the
+    // wielder's torso and the own-body rule, which lets a recorded pose keep what it had, let it stay, 2026-10-03)
+    const aimed = aimW(f) > 0.01 && !!rg.ovr;
+    const selfNow = aimed ? Mo.selfPen(P, P.blade.h, P.blade.u, BLf) : -1;
+    if (p0 <= 0 && !(aimW(f) > 0.3 && penT > 6) && !(selfNow > 0.5)) return;
     // the least change that clears it: the hand drawn back (away from the other, within the arm: the elbow bends) and the
     // blade turned round the hand in the picture's plane — cost: 1 per unit back, 25 per radian turned
     const hitW = aimW(f), L = Mo.L, L20 = Mo.L20, j20 = !!P.wrR, away = [-1, 0, 0], rot = (uu, a) => { const c = Math.cos(a), sn = Math.sin(a); return norm([uu[0] * c - uu[1] * sn, uu[0] * sn + uu[1] * c, uu[2]]); };
@@ -715,7 +735,7 @@
     const handIn = (q) => { const w = pj(q); return Math.max(14.5 + 6 - Math.hypot(w.x - hd.x, w.y - hd.y), TORSO_R + 6 - segD(w.x, w.y), kasa ? 12 - Math.hypot(Math.max(0, Math.abs(w.x - hd.x) - 27), w.y - hd.y + 8) : -1e9); };
     const hand0 = Math.max(0, handIn(h));
     // (nor into its own body, further than the drawing already has it: js/mocap.js Mo.selfPen)
-    const self0 = Math.max(0, Mo.selfPen(P, h, u, BLf));
+    const self0 = aimed ? 0 : Math.max(0, Mo.selfPen(P, h, u, BLf));
     const pv = s.bsPrev && s.bsPrev.clk >= (ND.simClock || 0) - 0.05 ? s.bsPrev : null;
     let best = null, least = null;
     // (the hand also up or down a little - over or under the other's arm - when drawn back is not enough: 2 per unit)
@@ -749,7 +769,9 @@
       if (hitW > 0.01) cost += Math.max(0, tc - 3) * 8 * hitW; // (from the other's torso: the chest, not the face)
       if (!best || cost < best.cost) best = { cost, h: hb, u: uu, ang, back, up, dq };
     };
-    for (const up of [0, -12, 12, -24, 24]) {
+    // (in a cut's hit window the hand may also rise higher - a deflecting counter from the hip reaches her chest over
+    // her thigh instead of stopping in front of her face, 2026-10-03)
+    for (const up of hitW > 0.3 ? [0, -12, 12, -24, 24, -36, -48] : [0, -12, 12, -24, 24]) {
       if (up && best && best.cost < Math.abs(up) * 2) continue;
       for (let back = 0; back <= 64; back += 8) {
         if (best && back + Math.abs(up) * 2 >= best.cost) break; // (nothing further back can be cheaper)

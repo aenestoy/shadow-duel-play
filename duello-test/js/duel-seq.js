@@ -14,7 +14,7 @@
 // so save / restore / rollback and the fingerprint cover it; the sounds, sparks and texts are presentation.
 (function (ND) {
   'use strict';
-  const FLAG = (() => { try { return /[?&]duel=\d/.test(location.search || ''); } catch (e) { return false; } })();
+  const FLAG = (() => { try { return !/[?&]duel=0(&|$)/.test(location.search || ''); } catch (e) { return true; } })(); // (the duel is the fight; ?duel=0: the old fight everywhere)
   if (!FLAG || !ND.duel) return;
   const Math = ND.DM || globalThis.Math;
   const D = ND.duel, G = ND.game, PO = ND.POSES, pose = ND.pose, fx = ND.fx, au = ND.audio, cam = ND.cam, E = ND.M.ease;

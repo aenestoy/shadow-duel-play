@@ -7,10 +7,13 @@
 //     loose sword's marker (and "PICK UP" over your own one when you can), UNARMED over a disarmed fighter
 (function (ND) {
   'use strict';
-  const FLAG = (() => { try { return /[?&]duel=\d/.test(location.search || ''); } catch (e) { return false; } })();
+  const FLAG = (() => { try { return !/[?&]duel=0(&|$)/.test(location.search || ''); } catch (e) { return true; } })(); // (the duel is the fight; ?duel=0: the old fight everywhere)
   if (!FLAG || !ND.duel || !ND.game) return;
   const D = ND.duel, G = ND.game, cam = ND.cam, T = D.T, pose = ND.pose;
   const QS = new URLSearchParams(location.search);
+  // ?duel=1: the duel's test page (straight into Akane vs Kuro, the bar, the help box, move names); without it the
+  // duel is simply the game's fight (no test controls)
+  const TEST = QS.get('duel') === '1';
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
   const NAMES = {};
   for (const m of D.LIST || []) NAMES[m.id] = m.name.replace(/\s*\((?!R\)|L\)|low)[^)]*\)/, '');
@@ -27,7 +30,7 @@
     return p ? ONTO[p.k] || 'Kicked into the ' + p.k : null;
   }
   const S = D.ui = {
-    slow: QS.get('slow') === '1', names: QS.get('names') !== '0', path: QS.get('path') === '1', help: QS.get('help') !== '0',
+    slow: TEST && QS.get('slow') === '1', names: TEST ? QS.get('names') !== '0' : QS.get('names') === '1', path: QS.get('path') === '1', help: QS.get('help') !== '0',
     side: QS.get('side') === '1' ? 1 : 0, lv: QS.has('lv') && [0, 1, 2].includes(+QS.get('lv')) ? +QS.get('lv') : 1, labels: [], seen: [null, null], hud: QS.get('hud') !== '0',
   };
 
@@ -48,7 +51,7 @@
   const rankOf = (s) => { for (const [re, p] of RANK) if (re.test(s)) return p; return 25; };
   const HL = S.hl = { head: null, sub: null };
   function headline(str, p, col) {
-    const s = ND.i18n && typeof str === 'string' ? ND.i18n.t(str) : String(str);
+    const s0 = typeof str === 'string' && D.tr ? D.tr(str) : str, s = ND.i18n && typeof s0 === 'string' && s0 === str ? ND.i18n.t(s0) : String(s0); // (the duel's own words: js/i18n-duel.js)
     const it = { s, p: p ?? rankOf(str), col: col || '#ffd27a', age: 0 };
     const h = HL.head;
     // (ONE headline at a time: a stronger one replaces it, a weaker one is dropped - "DISARMED!" with "COUNTER HIT!"
@@ -112,6 +115,7 @@
   // every text the overlay draws this frame, as a box (scripts/duel-labels.mjs: no two may overlap)
   D.textBoxes = [];
   function txt(ctx, s, x, y, px, col, align = 'center', a = 1, kind, who) {
+    if (D.tr && typeof s === 'string') s = D.tr(s); // (the duel's own words in the language in force: js/i18n-duel.js)
     ctx.globalAlpha = a; ctx.font = `700 ${Math.round(px)}px Oswald, sans-serif`; ctx.textAlign = align; ctx.textBaseline = 'middle';
     // (one text per place: a text that would land on one already drawn this frame is left out. The overlay draws the
     // most important first: the headline, the defence / technique label, then the prompts, names and markers)
@@ -291,7 +295,7 @@
     if (human(owner) && D.canPick(owner) && owner.state !== 'dpick') {
       // (drawn with the overlay's texts, drawDuel: there it keeps clear of flashes, headlines and other texts)
       const tch = !!(ND.touch && ND.touch.active);
-      S.pick = { x: gx, y: gy - 46, s: tch ? 'PICK UP: SHURIKEN' : 'PICK UP: ' + (owner.id === 0 ? 'T' : 'I'), t: ND.scene.t, who: owner.id };
+      S.pick = { x: gx, y: gy - 46, s: D.tr('PICK UP') + (tch ? '' : ': ' + (owner.id === 0 ? 'T' : 'I')), t: ND.scene.t, who: owner.id };
     }
   };
 
@@ -363,7 +367,7 @@
   }
   D.showpiece = showpiece;
   // tools (scripts/duel-*.mjs) start their own fights: ?duel=1&auto=0 leaves the page alone
-  if (QS.get('auto') !== '0') {
+  if (TEST && QS.get('auto') !== '0') {
     const go = () => setTimeout(boot, 0);
     if (document.readyState === 'complete') go(); else addEventListener('load', go);
   }

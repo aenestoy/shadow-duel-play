@@ -40,8 +40,8 @@
   };
 })();
 </script>
-<!-- Fonts ship with the game (no external requests): fonts/fonts.css is written by scripts/font-subset.mjs -->
-<!-- Portal SDK bridge (module, bundled by Vite): publishes window.NDPortal; js/core.js wraps it as ND.portal -->
+<!-- Fonts ship with the game (no external requests): fonts/fonts.css is written by scripts/font-subset.mjs -->
+<!-- Portal SDK bridge (module, bundled by Vite): publishes window.NDPortal; js/core.js wraps it as ND.portal -->
 <style>
   /* 1.3.2 load time: until the game's first frame (js/game.js adds .nd-ready, the menu then in the player's language),
      the menu's raw Turkish markup is not shown (it also pulled the latin-ext fonts in while the scripts were loading);
@@ -2417,6 +2417,7 @@
 <!-- duel prototype (branch claude/sd-duel, docs/SHADOW-DUEL-DUELLO.md): type="text/plain" tags are never fetched or run;
      only an address with ?duel=1 turns them into scripts (the loader under them), so the game is unchanged without it -->
 <script  data-duel type="text/plain" src="js/duel.js"></script>
+<script  data-duel type="text/plain" src="js/i18n-duel.js"></script>
 <script  data-duel type="text/plain" src="js/duel-moves.js"></script>
 <script  data-duel type="text/plain" src="js/duel-depth.js"></script>
 <script  data-duel type="text/plain" src="js/duel-bind.js"></script>
@@ -2424,12 +2425,12 @@
 <script  data-duel type="text/plain" src="js/duel-seq.js"></script>
 <script  data-duel type="text/plain" src="js/duel-env.js"></script>
 <script  data-duel type="text/plain" src="js/duel-ui.js"></script>
-<script>if(/[?&]duel=\d/.test(location.search))for(const s of document.querySelectorAll('script[data-duel]')){const e=document.createElement('script');e.src=s.getAttribute('src');e.async=false;document.body.appendChild(e);}</script>
+<script>if(!/[?&]duel=0(&|$)/.test(location.search))for(const s of document.querySelectorAll('script[data-duel]')){const e=document.createElement('script');e.src=s.getAttribute('src');e.async=false;document.body.appendChild(e);}</script>
 <!-- motion-capture prototype (branch claude/sd-mocap; docs/SHADOW-DUEL-MOCAP.md): inert text the same way; ?mocap=1 (the
      mocap-test page) or the duel (?duel=1, unless ?mocap=0) runs it: the duel's fighters are then drawn from recorded motion -->
 <script  data-mocap type="text/plain" src="js/mocap.js"></script>
 <script  data-mocap type="text/plain" src="js/mocap-duel.js"></script>
-<script>if(/[?&]mocap=1(&|$)/.test(location.search)||(/[?&]duel=\d/.test(location.search)&&!/[?&]mocap=0(&|$)/.test(location.search)))for(const s of document.querySelectorAll('script[data-mocap]')){const e=document.createElement('script');e.src=s.getAttribute('src');e.async=false;document.body.appendChild(e);}</script>
+<script>if(/[?&]mocap=1(&|$)/.test(location.search)||(!/[?&]duel=0(&|$)/.test(location.search)&&!/[?&]mocap=0(&|$)/.test(location.search)))for(const s of document.querySelectorAll('script[data-mocap]')){const e=document.createElement('script');e.src=s.getAttribute('src');e.async=false;document.body.appendChild(e);}</script>
 <!-- online "play with a friend" (docs/SHADOW-DUEL-ONLINE.md): the match loop and the rooms. data-online: left out of the
      offline portal builds (Yandex, Playgama; vite.config.ts), so they carry no online code or address -->
 <script  data-online src="js/net.js"></script>

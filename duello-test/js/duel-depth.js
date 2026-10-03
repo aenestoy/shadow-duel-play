@@ -17,7 +17,7 @@
 // where the sparks are. Ordinary Math: presentation, not saved, not fingerprinted (f._anim is skipped by sim-state.js).
 (function (ND) {
   'use strict';
-  const FLAG = (() => { try { return /[?&]duel=\d/.test(location.search || ''); } catch (e) { return false; } })();
+  const FLAG = (() => { try { return !/[?&]duel=0(&|$)/.test(location.search || ''); } catch (e) { return true; } })(); // (the duel is the fight; ?duel=0: the old fight everywhere)
   if (!FLAG || !ND.duel || !ND.anim) return;
   const D = ND.duel, L = ND.LEN, G = ND.game;
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -149,6 +149,7 @@
   const FP = ND.Fighter.prototype, trail0 = FP.drawTrail;
   const SCOL = { 1: '255,214,140', '-1': '120,180,255', 0: '236,242,255' };
   FP.drawTrail = function (ctx) {
+    if (this.dz && D.lite) return; // (the light look: no streaks - the normal game's coloured counter arcs crossed bodies)
     const a = this.state === 'atk' ? this.atk : null;
     if (!this.dz || !a || !a.dz3 || a.special || a.counter || !ND.anim || !ND.anim.on) return trail0.call(this, ctx);
     const Tr = this.trail;
@@ -216,6 +217,7 @@
     const lf0 = ND.gfx.ladderFrame;
     ND.gfx.ladderFrame = function (aq, gapMs, workMs) {
       const A = D.liteAuto;
+      const G = ND.game;
       if (A.on && !D.lite && G && G.phase === 'fight' && !G.paused && G.F && G.F[0] && G.F[0].dz && !document.hidden) {
         A.samples.push(workMs);
         if (A.samples.length >= 240) {
@@ -226,6 +228,113 @@
       }
       return lf0.apply(this, arguments);
     };
+  }
+  // ------------------------------------------------------------------ the light look's own keep-apart and blade-stop
+  // The light look draws the normal game's baked bodies from the display joints (f.viewJ()); the recorded-motion rig's
+  // keep-apart and blade-stop do not run for it, and the fight puts the pair 40-70 apart in a counter: the baked bodies
+  // were drawn one inside the other (2026-10-03, the slow-phone clip). The same rules on the drawn joints: the bodies
+  // drawn apart by the least shift (the torso as baked ~24 round the spine, head 15, thighs 11, forearms / shins 6-7
+  // against torso and head only; most of it taken by one on the floor), eased back when there is room; a blade that
+  // would cross the other's head, neck or torso deeper than 6 turns round the hand by the least angle (it may rest on
+  // the chest in its own hit window). Drawing only: the joints are display joints.
+  const LT = { clk: -1, ox: [0, 0], at: [0, 0] }, LMOVE = { down: 1, getup: 1, launch: 1 }, LOX = 70;
+  const lsd = (p, q, x, y) => { if (!q) return Math.hypot(x - p.x, y - p.y); const vx = q.x - p.x, vy = q.y - p.y, l2 = vx * vx + vy * vy || 1, t = clamp(((x - p.x) * vx + (y - p.y) * vy) / l2, 0, 1); return Math.hypot(x - p.x - vx * t, y - p.y - vy * t); };
+  const lseg = (p, q, r, t) => {
+    if (q && t) { const cr = (A, B, C) => (B.x - A.x) * (C.y - A.y) - (B.y - A.y) * (C.x - A.x); const d1 = cr(p, q, r), d2 = cr(p, q, t), d3 = cr(r, t, p), d4 = cr(r, t, q); if ((d1 > 0) !== (d2 > 0) && (d3 > 0) !== (d4 > 0)) return 0; }
+    const ps = (P, A, B) => lsd(A, B, P.x, P.y);
+    return Math.min(ps(p, r, t), q ? ps(q, r, t) : 1e9, ps(r, p, q), t ? ps(t, p, q) : 1e9);
+  };
+  // (the same shapes the body audit measures: torso 24 (+1), head 15, a straw kasa's brim 54 wide, thighs from each hip)
+  const lshapes = (j, dx, kasa) => { const m = (q) => (q ? { x: q.x + dx, y: q.y } : null); const L = [[m(j.hip), m(j.neck), 25], [m(j.head), null, 15.5], [m(j.hipF || j.hip), m(j.knF), 11], [m(j.hipB || j.hip), m(j.knB), 11], [m(j.elF), m(j.haF), 6, 1], [m(j.elB), m(j.haB), 6, 1], [m(j.knF), m(j.ftF), 7, 1], [m(j.knB), m(j.ftB), 7, 1]];
+    if (kasa && j.head) L.push([{ x: j.head.x + dx - 27, y: j.head.y - 8 }, { x: j.head.x + dx + 27, y: j.head.y - 8 }, 6]);
+    return L.filter((q) => q[0] && (q[1] || !q[3])); };
+  const isKasa = (f) => !!(f && f.ch && f.ch.acc === 'kasa');
+  const lpen = (A, B) => { let p = 0; for (const [a, b, r1, l1] of A) for (const [c, d, r2, l2] of B) { if (l1 && l2) continue; p = Math.max(p, r1 + r2 - lseg(a, b, c, d)); } return p; };
+  function litePair() {
+    const GG = ND.game, F = GG && GG.F, clk = ND.simClock || 0;
+    if (!D.lite || !F || !F[0] || !F[1] || LT.clk === clk) return;
+    const dt = LT.clk < 0 || clk < LT.clk ? 0 : Math.min(0.1, clk - LT.clk);
+    LT.clk = clk;
+    for (let i = 0; i < 2; i++) LT.ox[i] *= Math.exp(-dt / 0.22);
+    const [a, b] = F, ja = a.viewJ && a.viewJ(), jb = b.viewJ && b.viewJ();
+    if (!ja || !jb || !ja.hip || !jb.hip || a.dead || b.dead || a.hidden || b.hidden || !a.dz || !b.dz) return;
+    const bind = a.state === 'dbind' || b.state === 'dbind' || (a.dz.cine && !a.dz.cine.done) || (b.dz.cine && !b.dz.cine.done);
+    if (bind) { LT.ox[0] = LT.ox[1] = 0; }
+    else if (Math.abs(a.x - b.x) >= 20) {
+      const ka = isKasa(a), kb = isKasa(b), B = lshapes(jb, LT.ox[1], kb);
+      if (lpen(lshapes(ja, LT.ox[0], ka), B) > 0) {
+        const away = a.x < b.x ? -1 : 1;
+        let lo = 0, hi = LOX * 2;
+        if (lpen(lshapes(ja, LT.ox[0] + away * hi, ka), B) > 0) lo = hi; else for (let k = 0; k < 10; k++) { const m = (lo + hi) / 2; if (lpen(lshapes(ja, LT.ox[0] + away * m, ka), B) > 0) lo = m; else hi = m; }
+        const need = hi + 0.5, mf = LMOVE[a.state] && !LMOVE[b.state] ? 0.8 : LMOVE[b.state] && !LMOVE[a.state] ? 0.2 : 0.5;
+        LT.ox[0] = clamp(LT.ox[0] + away * need * mf, -LOX, LOX); LT.ox[1] = clamp(LT.ox[1] - away * need * (1 - mf), -LOX, LOX);
+      }
+    }
+    // the blades: never through the other's head / neck / torso (as drawn, with the offsets)
+    for (let i = 0; i < 2; i++) {
+      const f = F[i], o = F[1 - i], j = i ? jb : ja, q = i ? ja : jb;
+      if (!j.hasSword || !j.tip || !j.haF || f.state === 'dbind' || (f.dz.cine && !f.dz.cine.done) || !q.head || !q.neck) continue;
+      const dx = LT.ox[1 - i] - LT.ox[i], hx = j.haF.x, hy = j.haF.y, L = Math.hypot(j.tip.x - hx, j.tip.y - hy) || 1, a0 = Math.atan2(j.tip.y - hy, j.tip.x - hx);
+      const a = f.state === 'atk' ? f.atk : null, hit = a && a.active && f.st >= a.active[0] - 0.02 && f.st <= a.active[1] + 0.04, give = hit ? 8 : 6;
+      const H = { x: q.head.x + dx, y: q.head.y }, N = { x: q.neck.x + dx, y: q.neck.y }, P = { x: q.hip.x + dx, y: q.hip.y };
+      const mv = (p) => (p ? { x: p.x + dx, y: p.y } : null);
+      const LEGS = [[mv(q.hipF || q.hip), mv(q.knF), 6], [mv(q.hipB || q.hip), mv(q.knB), 6], [mv(q.knF), mv(q.ftF), 3.5], [mv(q.knB), mv(q.ftB), 3.5]].filter((l) => l[0] && l[1]);
+      // (deep into the head / neck / torso, or lying ALONG them - more than 8 of the blade within the body as drawn, the
+      // audit's bladeOver - and never into the floor)
+      const pen = (ang) => { let m = -1e9, over = 0; const c = Math.cos(ang), sn = Math.sin(ang); for (let k = 2; k <= 16; k++) { const x = hx + c * L * k / 16, y = hy + sn * L * k / 16, dh = Math.hypot(x - H.x, y - H.y), dn = lsd(N, H, x, y), dt = lsd(P, N, x, y); m = Math.max(m, 16 - dh, 9 - dn, 24 - give - dt); for (const [la, lb, lr] of LEGS) m = Math.max(m, lr - lsd(la, lb, x, y)); if (dh < 15 || dn < 9 || dt < 25) over += L / 16; } m = Math.max(m, over - 8, hy + sn * L - 2); return m; };
+      const p0 = pen(a0);
+      if (p0 <= 0) continue;
+      let best = null, least = p0, lA = a0;
+      for (let k = 1; k <= 30 && best == null; k++) for (const sg of [1, -1]) { const an = a0 + sg * k * 0.06, pn = pen(an); if (pn <= 0) { best = an; break; } if (pn < least) { least = pn; lA = an; } }
+      if (best == null) best = lA; // (nothing clears it: the least deep)
+      j.tip = { x: hx + Math.cos(best) * L, y: hy + Math.sin(best) * L };
+    }
+  }
+  D.liteOffset = (f) => { litePair(); const GG = ND.game; return D.lite && GG && GG.F ? (GG.F[0] === f ? LT.ox[0] : GG.F[1] === f ? LT.ox[1] : 0) : 0; };
+  D.litePair = litePair;
+  // what the light look draws, for the audits and the props held in a hand (ND.depth25.snap): the display joints at
+  // the offset, the blade from the hand to its (stopped) point
+  if (ND.depth25 && ND.depth25.snap) {
+    const sn0 = ND.depth25.snap, LKEYS2 = ['hip', 'hipF', 'hipB', 'neck', 'head', 'sh', 'shB', 'elF', 'haF', 'elB', 'haB', 'knF', 'ftF', 'knB', 'ftB', 'tip'];
+    ND.depth25.snap = function (f, o) {
+      if (!D.lite || !f || !f.dz || f.dead) return sn0.apply(this, arguments);
+      const ox = D.liteOffset(f), j = f.viewJ && f.viewJ();
+      if (!j || !j.hip || f.hidden) return null;
+      o = o || {};
+      for (const k of LKEYS2) if (j[k]) { const q = o[k] || (o[k] = { x: 0, y: 0 }); q.x = j[k].x + ox; q.y = j[k].y; }
+      if (j.haF && j.tip) { o.hilt = { x: j.haF.x + ox, y: j.haF.y }; const d = Math.hypot(j.tip.x - j.haF.x, j.tip.y - j.haF.y) || 1, h = (f.wpn && f.wpn.handle) || 24; o.pomm = { x: o.hilt.x - (j.tip.x - j.haF.x) / d * h, y: o.hilt.y - (j.tip.y - j.haF.y) / d * h }; }
+      o.armed = !!j.hasSword; o.sheathed = !!j.wSheath; o.dir = f.dir < 0 ? -1 : 1; o.lite = true;
+      return o;
+    };
+  }
+  { // the drawn body (and its ghosts: none in the light look) at its offset
+    const FPd = ND.Fighter.prototype, dr0 = FPd.draw, gh0 = FPd.drawGhosts;
+    FPd.draw = function (ctx) {
+      if (!D.lite || !this.dz) return dr0.apply(this, arguments);
+      const ox = D.liteOffset(this);
+      if (!ox) return dr0.apply(this, arguments);
+      ctx.save(); ctx.translate(ox, 0);
+      try { return dr0.apply(this, arguments); } finally { ctx.restore(); }
+    };
+    if (gh0) FPd.drawGhosts = function () { if (D.lite && this.dz) return; return gh0.apply(this, arguments); };
+  }
+  // A scabbard worn on the back (Kuro's nodachi: js/skeleton.js saya, drawn by the recorded-motion and 2.5D bodies) never
+  // through the floor: lying down, it turns round its mouth until its end rests on the floor (drawing only)
+  if (ND._draw && ND._draw.saya && !ND._draw.saya.duelClamp) {
+    const K = ND._draw, saya0 = K.saya;
+    K.saya = function (ctx, j, c, D1, wpn) {
+      const TF = K.TF;
+      if (!j || !j.sh || !j.hip || !TF || !wpn) return saya0.apply(this, arguments);
+      const bx = -TF.nx, by = -TF.ny, ux = TF.ux, uy = TF.uy, sl = (wpn.blade + wpn.handle) / 120;
+      const x0 = j.sh.x + bx * 2 + ux * 16 * sl, y0 = j.sh.y + by * 2 + uy * 16 * sl, x1 = j.hip.x + bx * 40 - ux * 36 * sl, y1 = j.hip.y + by * 40 - uy * 36 * sl;
+      const FL = -3;
+      if (!(y1 > FL) || !(y0 < FL)) return saya0.apply(this, arguments);
+      const Lh = Math.hypot(x1 - x0, y1 - y0), dy = FL - y0, dx = (Math.sign(x1 - x0) || 1) * Math.sqrt(Math.max(0, Lh * Lh - dy * dy));
+      const rot = Math.atan2(dy, dx) - Math.atan2(y1 - y0, x1 - x0);
+      ctx.save(); ctx.translate(x0, y0); ctx.rotate(rot); ctx.translate(-x0, -y0);
+      try { return saya0.apply(this, arguments); } finally { ctx.restore(); }
+    };
+    K.saya.duelClamp = true;
   }
   const present0 = ND.anim.present;
   ND.anim.present = function (f, dt, hold, sj) {

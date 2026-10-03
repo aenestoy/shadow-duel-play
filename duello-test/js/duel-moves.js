@@ -18,7 +18,7 @@
 // button's class, so the game stays learnable — see FRAME below and docs/SHADOW-DUEL-DUELLO.md.
 (function (ND) {
   'use strict';
-  const FLAG = (() => { try { return /[?&]duel=\d/.test(location.search || ''); } catch (e) { return false; } })();
+  const FLAG = (() => { try { return !/[?&]duel=0(&|$)/.test(location.search || ''); } catch (e) { return true; } })(); // (the duel is the fight; ?duel=0: the old fight everywhere)
   if (!FLAG || !ND.duel) return;
   const Math = ND.DM || globalThis.Math;
   const PO = ND.POSES, pose = ND.pose, ATK = ND.ATK, fx = ND.fx, au = ND.audio, cam = ND.cam, D = ND.duel, E = ND.M.ease;

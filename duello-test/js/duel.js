@@ -21,7 +21,7 @@
 // fight's projectile list (the loose swords), so save / restore / rollback and the fingerprint cover it.
 (function (ND) {
   'use strict';
-  const FLAG = (() => { try { return /[?&]duel=\d/.test(location.search || ''); } catch (e) { return false; } })();
+  const FLAG = (() => { try { return !/[?&]duel=0(&|$)/.test(location.search || ''); } catch (e) { return true; } })(); // (the duel is the fight; ?duel=0: the old fight everywhere)
   if (!FLAG || !ND.Fighter || !ND.game) return;
   const Math = ND.DM || globalThis.Math; // fight logic: deterministic math (core.js)
   const { clamp, segSeg } = ND.M;
@@ -31,8 +31,15 @@
   const TAU = Math.PI * 2;
   const rnd = () => ND.rng.next();
 
-  const ROSTER = { akane: 1, kuro: 1 };
-  const MODES = { cpu: 1, watch: 1, '2p': 1, attract: 1, train: 1 };
+  // WHO fights the duel: one list - a ninja joins once its weapon's drawing is approved (the sword ninjas first; the
+  // pole, staff, twin blades, fans, chain and bow as each lands). A fight with anyone not on it runs the old fight, for
+  // both sides. ?duelroster=akane,kuro (tests) overrides it.
+  const ROSTER_LIST = ND.DUEL_ROSTER = ['akane', 'aoi', 'kuro', 'yuki', 'ren', 'kage', 'shura'];
+  const ROSTER = {};
+  { const q = (/[?&]duelroster=([a-z,]+)/.exec(location.search || '') || [])[1]; for (const id of q ? q.split(',') : ROSTER_LIST) ROSTER[id] = 1; }
+  // WHERE: the single-player fights (a match vs the CPU, the journey and its tourney / dan / rival runs, training) and
+  // two players on one device; the tutorial, online, ranked and the ghosts keep the old fight
+  const MODES = { cpu: 1, watch: 1, '2p': 1, attract: 1, train: 1, arcade: 1, tourney: 1, dan: 1, rival: 1 };
   const D = ND.duel = {
     on: true, ROSTER, MODES,
     // tuning (seconds are fight seconds)
@@ -415,9 +422,11 @@
     const z = f.dz, o = f.opp, iai = !!(f.wpn && f.wpn.iai);
     if (!iai || !o) { z.drawn = false; return; }
     const hot = ON[f.state] || (o.state === 'atk' && Math.abs(o.x - f.x) < 420);
+    // (calm means calm for both: the clock runs only while he is not guarding, swinging, hit or down either)
+    const oBusy = !!ON[o.state];
     if (hot) { z.drawn = true; z.calmT = 0; return; }
     if (!z.drawn) return;
-    if (Math.abs(o.x - f.x) > CALM_D && (f.state === 'move' || f.state === 'land' || f.state === 'zanshin')) {
+    if (Math.abs(o.x - f.x) > CALM_D && !oBusy && (f.state === 'move' || f.state === 'land' || f.state === 'zanshin')) {
       z.calmT = (z.calmT || 0) + dt;
       if (z.calmT >= CALM_T) { z.drawn = false; z.calmT = 0; }
     } else z.calmT = 0;

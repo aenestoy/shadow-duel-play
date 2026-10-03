@@ -16,7 +16,7 @@
 // never loads this file.
 (function (ND) {
   'use strict';
-  const FLAG = (() => { try { return /[?&]duel=\d/.test(location.search || ''); } catch (e) { return false; } })();
+  const FLAG = (() => { try { return !/[?&]duel=0(&|$)/.test(location.search || ''); } catch (e) { return true; } })(); // (the duel is the fight; ?duel=0: the old fight everywhere)
   if (!FLAG || !ND.duel || !ND.props) return;
   const Math = ND.DM || globalThis.Math;
   const D = ND.duel, P = ND.props, G = ND.game, PO = ND.POSES, pose = ND.pose, fx = ND.fx, au = ND.audio, cam = ND.cam, E = ND.M.ease;
@@ -1040,7 +1040,7 @@
       #tCtxHint.show{opacity:1}`;
     document.head.appendChild(st);
     const b = document.createElement('button');
-    b.id = 'tCtx'; b.type = 'button'; b.tabIndex = -1; b.setAttribute('aria-label', 'Use it');
+    b.id = 'tCtx'; b.type = 'button'; b.tabIndex = -1; b.setAttribute('aria-label', D.tr ? D.tr('Use it') : 'Use it');
     const press = (e) => { e.preventDefault(); e.stopPropagation(); CTX.pending = 1; CTX.taps = (CTX.taps || 0) + 1; b.classList.add('on'); };
     const up = (e) => { e.stopPropagation(); b.classList.remove('on'); };
     b.addEventListener('pointerdown', press); b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up);
@@ -1089,7 +1089,7 @@
     if (seen || UI.hinted) return;
     UI.hinted = true;
     const h = UI.hint, app = document.getElementById('app');
-    h.textContent = touchOn() ? 'Something to use is in reach: tap this button.' : `Something to use is in reach: press ${KEYNAME}.`;
+    h.textContent = touchOn() || !D.tr || (ND.i18n && ND.i18n.lang !== 'en') ? (D.tr ? D.tr('Something to use is in reach: tap this button.') : 'Something to use is in reach: tap this button.') + (touchOn() ? '' : ` (${KEYNAME})`) : `Something to use is in reach: press ${KEYNAME}.`;
     h.style.left = Math.max(8, Math.min(app.clientWidth - 230, (UI.x || 0) - 200)) + 'px';
     h.style.top = Math.max(8, (UI.y || 0) - (UI.r || 30) - 46) + 'px';
     h.classList.add('show');
