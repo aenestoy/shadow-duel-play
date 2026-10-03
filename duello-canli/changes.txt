@@ -2,3 +2,4 @@
 2026-10-03 15:50  d7a358b8  WIP 2: a bit more hit effect - bigger flash, short slash mark and small ring on heavy/counter/finisher, lights stay subtle
 2026-10-03 15:56  872fe016  WIP 3: Hana (twin tanto) now fights in the new duel
 2026-10-03 16:02  f3efdb76  WIP 4: bind ring only for you (not CPU v CPU), chest-sized
+2026-10-03 16:08  3240f207  WIP 5: light look (slow phones, ?lite=1) - no blade through heads/necks, bodies kept apart

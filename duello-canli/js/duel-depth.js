@@ -237,7 +237,7 @@
   // against torso and head only; most of it taken by one on the floor), eased back when there is room; a blade that
   // would cross the other's head, neck or torso deeper than 6 turns round the hand by the least angle (it may rest on
   // the chest in its own hit window). Drawing only: the joints are display joints.
-  const LT = { clk: -1, ox: [0, 0], at: [0, 0] }, LMOVE = { down: 1, getup: 1, launch: 1 }, LOX = 70;
+  const LT = { clk: -1, sig: '', ox: [0, 0], at: [0, 0], ra: [0, 0], raClk: [-1, -1] }, LMOVE = { down: 1, getup: 1, launch: 1 }, LOX = 90;
   const lsd = (p, q, x, y) => { if (!q) return Math.hypot(x - p.x, y - p.y); const vx = q.x - p.x, vy = q.y - p.y, l2 = vx * vx + vy * vy || 1, t = clamp(((x - p.x) * vx + (y - p.y) * vy) / l2, 0, 1); return Math.hypot(x - p.x - vx * t, y - p.y - vy * t); };
   const lseg = (p, q, r, t) => {
     if (q && t) { const cr = (A, B, C) => (B.x - A.x) * (C.y - A.y) - (B.y - A.y) * (C.x - A.x); const d1 = cr(p, q, r), d2 = cr(p, q, t), d3 = cr(r, t, p), d4 = cr(r, t, q); if ((d1 > 0) !== (d2 > 0) && (d3 > 0) !== (d4 > 0)) return 0; }
@@ -252,20 +252,34 @@
   const lpen = (A, B) => { let p = 0; for (const [a, b, r1, l1] of A) for (const [c, d, r2, l2] of B) { if (l1 && l2) continue; p = Math.max(p, r1 + r2 - lseg(a, b, c, d)); } return p; };
   function litePair() {
     const GG = ND.game, F = GG && GG.F, clk = ND.simClock || 0;
-    if (!D.lite || !F || !F[0] || !F[1] || LT.clk === clk) return;
-    const dt = LT.clk < 0 || clk < LT.clk ? 0 : Math.min(0.1, clk - LT.clk);
-    LT.clk = clk;
-    for (let i = 0; i < 2; i++) LT.ox[i] *= Math.exp(-dt / 0.22);
+    if (!D.lite || !F || !F[0] || !F[1]) return;
     const [a, b] = F, ja = a.viewJ && a.viewJ(), jb = b.viewJ && b.viewJ();
-    if (!ja || !jb || !ja.hip || !jb.hip || a.dead || b.dead || a.hidden || b.hidden || !a.dz || !b.dz) return;
+    if (!ja || !jb || !ja.hip || !jb.hip) return;
+    // (once per drawn pose: keyed by the clock AND the joints - a snap asked for in the middle of a fight step (a hit's
+    // contact spark) came before the step's own pose, and the pair kept that stale answer for the frame, 2026-10-03)
+    const sig = clk + ':' + [ja.hip, jb.hip, ja.head, jb.head, ja.haF, jb.haF, ja.knF, jb.knF].map((q) => (q ? q.x.toFixed(1) + ',' + q.y.toFixed(1) : '-')).join(';');
+    if (LT.sig === sig) return;
+    const dt = LT.clk < 0 || clk < LT.clk ? 0 : Math.min(0.1, clk - LT.clk);
+    LT.clk = clk; LT.sig = sig;
+    for (let i = 0; i < 2; i++) LT.ox[i] *= Math.exp(-dt / 0.22);
+    if (a.dead || b.dead || a.hidden || b.hidden || !a.dz || !b.dz) return;
     const bind = a.state === 'dbind' || b.state === 'dbind' || (a.dz.cine && !a.dz.cine.done) || (b.dz.cine && !b.dz.cine.done);
     if (bind) { LT.ox[0] = LT.ox[1] = 0; }
     else if (Math.abs(a.x - b.x) >= 20) {
       const ka = isKasa(a), kb = isKasa(b), B = lshapes(jb, LT.ox[1], kb);
-      if (lpen(lshapes(ja, LT.ox[0], ka), B) > 0) {
+      // (and each one's blade - hand to point, as the pose has it - off the other's head and neck: a blade turned off them
+      // round the hand cannot clear a hand that is already there)
+      const bladeHN = (j, dxj, q, dxq) => {
+        if (!j.hasSword || !j.haF || !j.tip || !q.head || !q.neck) return 0;
+        let m = 0; const H = { x: q.head.x + dxq, y: q.head.y }, N = { x: q.neck.x + dxq, y: q.neck.y };
+        for (let k = 0; k <= 12; k++) { const x = j.haF.x + dxj + (j.tip.x - j.haF.x) * k / 12, y = j.haF.y + (j.tip.y - j.haF.y) * k / 12; m = Math.max(m, 16 - Math.hypot(x - H.x, y - H.y), 10 - lsd(N, H, x, y)); }
+        return m;
+      };
+      const pair = (oxA) => Math.max(lpen(lshapes(ja, oxA, ka), B), bladeHN(ja, oxA, jb, LT.ox[1]), bladeHN(jb, LT.ox[1], ja, oxA));
+      if (pair(LT.ox[0]) > 0) {
         const away = a.x < b.x ? -1 : 1;
         let lo = 0, hi = LOX * 2;
-        if (lpen(lshapes(ja, LT.ox[0] + away * hi, ka), B) > 0) lo = hi; else for (let k = 0; k < 10; k++) { const m = (lo + hi) / 2; if (lpen(lshapes(ja, LT.ox[0] + away * m, ka), B) > 0) lo = m; else hi = m; }
+        if (pair(LT.ox[0] + away * hi) > 0) lo = hi; else for (let k = 0; k < 10; k++) { const m = (lo + hi) / 2; if (pair(LT.ox[0] + away * m) > 0) lo = m; else hi = m; }
         const need = hi + 0.5, mf = LMOVE[a.state] && !LMOVE[b.state] ? 0.8 : LMOVE[b.state] && !LMOVE[a.state] ? 0.2 : 0.5;
         LT.ox[0] = clamp(LT.ox[0] + away * need * mf, -LOX, LOX); LT.ox[1] = clamp(LT.ox[1] - away * need * (1 - mf), -LOX, LOX);
       }
@@ -276,18 +290,30 @@
       if (!j.hasSword || !j.tip || !j.haF || f.state === 'dbind' || (f.dz.cine && !f.dz.cine.done) || !q.head || !q.neck) continue;
       const dx = LT.ox[1 - i] - LT.ox[i], hx = j.haF.x, hy = j.haF.y, L = Math.hypot(j.tip.x - hx, j.tip.y - hy) || 1, a0 = Math.atan2(j.tip.y - hy, j.tip.x - hx);
       const a = f.state === 'atk' ? f.atk : null, hit = a && a.active && f.st >= a.active[0] - 0.02 && f.st <= a.active[1] + 0.04, give = hit ? 8 : 6;
+      // (drawn over the other - js/game.js draws an attacker last - a cut in its hit frames may cross in front of the
+      // torso and legs; otherwise never inside them)
+      const sw = F[0].dead ? false : F[1].dead ? true : F[0].state === 'atk' && F[1].state !== 'atk', front = hit && f === (sw ? F[0] : F[1]);
       const H = { x: q.head.x + dx, y: q.head.y }, N = { x: q.neck.x + dx, y: q.neck.y }, P = { x: q.hip.x + dx, y: q.hip.y };
       const mv = (p) => (p ? { x: p.x + dx, y: p.y } : null);
       const LEGS = [[mv(q.hipF || q.hip), mv(q.knF), 6], [mv(q.hipB || q.hip), mv(q.knB), 6], [mv(q.knF), mv(q.ftF), 3.5], [mv(q.knB), mv(q.ftB), 3.5]].filter((l) => l[0] && l[1]);
       // (deep into the head / neck / torso, or lying ALONG them - more than 8 of the blade within the body as drawn, the
       // audit's bladeOver - and never into the floor)
-      const pen = (ang) => { let m = -1e9, over = 0; const c = Math.cos(ang), sn = Math.sin(ang); for (let k = 2; k <= 16; k++) { const x = hx + c * L * k / 16, y = hy + sn * L * k / 16, dh = Math.hypot(x - H.x, y - H.y), dn = lsd(N, H, x, y), dt = lsd(P, N, x, y); m = Math.max(m, 16 - dh, 9 - dn, 24 - give - dt); for (const [la, lb, lr] of LEGS) m = Math.max(m, lr - lsd(la, lb, x, y)); if (dh < 15 || dn < 9 || dt < 25) over += L / 16; } m = Math.max(m, over - 8, hy + sn * L - 2); return m; };
-      const p0 = pen(a0);
-      if (p0 <= 0) continue;
-      let best = null, least = p0, lA = a0;
-      for (let k = 1; k <= 30 && best == null; k++) for (const sg of [1, -1]) { const an = a0 + sg * k * 0.06, pn = pen(an); if (pn <= 0) { best = an; break; } if (pn < least) { least = pn; lA = an; } }
-      if (best == null) best = lA; // (nothing clears it: the least deep)
-      j.tip = { x: hx + Math.cos(best) * L, y: hy + Math.sin(best) * L };
+      const pen = (ang) => { let m = -1e9, over = 0; const c = Math.cos(ang), sn = Math.sin(ang); for (let k = 0; k <= 16; k++) { const x = hx + c * L * k / 16, y = hy + sn * L * k / 16, dh = Math.hypot(x - H.x, y - H.y), dn = lsd(N, H, x, y), dt = lsd(P, N, x, y); if (k >= 2 || dh < 16 || dn < 9) { m = Math.max(m, 16 - dh, 9 - dn); if (!front) { m = Math.max(m, 25 - dt); for (const [la, lb, lr] of LEGS) m = Math.max(m, lr - lsd(la, lb, x, y)); } } if (k >= 2 && (dh < 15 || dn < 9 || dt < 25)) over += L / 16; } m = Math.max(m, front ? -1e9 : over - 8, hy + sn * L - 2); return m; };
+      // (eased like the recorded-motion blade-stop: the turn moves toward the needed one over ~0.05 s, in and out, but
+      // never through a pose that is in the other's head, neck or body)
+      const raPrev = LT.raClk[i] >= clk - 0.05 ? LT.ra[i] : 0, p0 = pen(a0);
+      let tgt = 0;
+      if (p0 > 0) {
+        let best = null, least = p0, lA = 0;
+        for (let k = 1; k <= 30 && best == null; k++) for (const sg of [1, -1]) { const d = sg * k * 0.06, pn = pen(a0 + d); if (pn <= 0) { best = d; break; } if (pn < least) { least = pn; lA = d; } }
+        tgt = best == null ? lA : best; // (nothing clears it: the least deep)
+      }
+      if (!tgt && Math.abs(raPrev) < 0.01) { LT.ra[i] = 0; LT.raClk[i] = clk; continue; }
+      let d = tgt;
+      const kE = 1 - Math.exp(-Math.max(0, dt) / 0.02);
+      for (const k of [kE, 0.5, 0.75]) { const e = raPrev + (tgt - raPrev) * k; if (pen(a0 + e) <= 0) { d = e; break; } }
+      LT.ra[i] = d; LT.raClk[i] = clk;
+      if (d) j.tip = { x: hx + Math.cos(a0 + d) * L, y: hy + Math.sin(a0 + d) * L };
     }
   }
   D.liteOffset = (f) => { litePair(); const GG = ND.game; return D.lite && GG && GG.F ? (GG.F[0] === f ? LT.ox[0] : GG.F[1] === f ? LT.ox[1] : 0) : 0; };
