@@ -48,7 +48,7 @@
   const rn = () => ND.rng.next();
   const armed = (f) => !!(f.dz && f.dz.armed !== false && !(f.wpn && (f.wpn.fist || f.wpn.none)));
 
-  const DZ0 = { arKick: 0, arPoolT: 0, arPlan: -1, arPlanN: -1, arBurnT: 0, arSplatT: 0, arCd: 0 };
+  const DZ0 = { arKick: 0, arPoolT: 0, arBurnT: 0, arSplatT: 0 };
   {
     const rs0 = FP.reset;
     FP.reset = function () { const r = rs0.apply(this, arguments); if (this.dz) Object.assign(this.dz, DZ0); return r; };
@@ -147,7 +147,7 @@
     ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
     const u = Math.min(cam.W / 960, cam.H / 540);
 
-    ctx.font = `800 ${Math.round(18 * u)}px system-ui,sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = `700 ${Math.round(19 * u)}px Oswald,'Source Sans 3',sans-serif`;
     const hw = Math.min(cam.W / 2 - 8, ctx.measureText(BANNER.s).width / 2 + 10 * u), x = clamp(cam.sx(BANNER.x), hw, cam.W - hw), y = cam.H * 0.165;
     ctx.globalAlpha = a; ctx.lineWidth = 5 * u; ctx.strokeStyle = 'rgba(8,14,18,.85)'; ctx.strokeText(BANNER.s, x, y);
     ctx.fillStyle = '#dff6ff'; ctx.fillText(BANNER.s, x, y);
@@ -357,7 +357,7 @@
   }
   DEFS.waterfall = {
     event: {
-      first: [14, 20], gap: [22, 32],
+      first: [8, 13], gap: [20, 30],
       start(s) { s.ev = { k: 'surge', ph: 0, t: 0, x: WF.x0, dir: 1, speed: WF.surge.speed, hit: 0 }; banner('The falls surge! Jump it or guard!', -20, -300); if (pres()) au.thud(0.6, 0); return true; },
       step(s, e, h, F, ex) {
         e.t += h;
@@ -378,7 +378,7 @@
     },
     ctx(f, add) { const o = f.opp, d = Math.abs(o.x - f.x); if (inWater(f.x) && f.x < A() && d > 70 && d < 280 && o.onGround) add('splash', null, 60, 'water'); },
     cpu(ai, f, dist, s, lv) {
-      if (inWater(f.x) && dist > 110 && dist < 250 && f.opp.state !== 'atk' && rn() < 0.05 + 0.12 * (lv.str || 0)) return D.envStart(f, 'splash', null);
+      if (inWater(f.x) && dist > 110 && dist < 250 && f.opp.state !== 'atk' && rn() < 0.05 + 0.12 * (lv.str || 0)) return 'splash';
       return false;
     },
     ring: { side: 1, act: 'pool' },
@@ -453,7 +453,7 @@
 
   DEFS.temple = {
     event: {
-      first: [16, 24], gap: [26, 36],
+      first: [9, 14], gap: [22, 32],
       start(s) { s.ev = { k: 'petals', ph: 0, t: 0 }; banner('A petal storm: hard to read his blade!', 0); return true; },
       step(s, e, h) { e.t += h; if (e.ph === 0 && e.t >= 1.0) { e.ph = 1; e.t = 0; } else if (e.ph === 1 && e.t >= 5.0) e.done = 1; },
       warn: 1.0,
@@ -486,7 +486,7 @@
     zones: [{ k: 'puddle', x0: -560, x1: -440 }, { k: 'puddle', x0: 40, x1: 160 }, { k: 'puddle', x0: 470, x1: 590 }, { k: 'mud', x0: -310, x1: -160 }],
     init(s) { s.stalk = RN.stalks.map(() => 0); },
     event: dropEvent({
-      k: 'bolt', first: [14, 22], gap: [22, 32], warn: 1.5, w: 120, margin: 120, banner: 'Lightning! A bamboo will fall!',
+      k: 'bolt', first: [8, 13], gap: [20, 30], warn: 1.5, w: 120, margin: 120, banner: 'Lightning! A bamboo will fall!',
       pick(s, x0) { let best = -1, bd = 1e9; RN.stalks.forEach((x, i) => { if (!s.stalk[i] && Math.abs(x - x0) < bd) { bd = Math.abs(x - x0); best = i; } }); if (best < 0) return null; s.evStalk = best; return RN.stalks[best]; },
       land(s, e, F, ex) { s.stalk[s.evStalk] = RN.regrow; fallsOn(F, e.x, e.w, { dmg: 10, stun: 0.6, kb: 220, knock: true, post: 25 }, ex, 'Felled by the bamboo!'); s.obs.push({ k: 'log', x: e.x, w: 40, life: 9 }); if (pres()) { ND.scene.flashL = 1; au.thud(1.4, cam.pan(e.x)); cam.punch(8); spray(e.x, -10, 1, 14, 0.8, '170,190,120'); spray(e.x, -10, -1, 14, 0.8, '170,190,120'); } },
     }),
@@ -498,8 +498,8 @@
       if (k >= 0) add('stalkCut', null, 20, 'bamboo');
     },
     cpu(ai, f, dist, s, lv) {
-      if (stalkFor(s, f) >= 0 && rn() < 0.08 + 0.2 * (lv.str || 0)) return D.envStart(f, 'stalkCut', null);
-      if (zoneAt(this, s, f.x, 'mud') && dist > 110 && dist < 250 && f.opp.state !== 'atk' && rn() < 0.04 + 0.1 * (lv.str || 0)) return D.envStart(f, 'mudkick', null);
+      if (stalkFor(s, f) >= 0 && rn() < 0.08 + 0.2 * (lv.str || 0)) return 'stalkCut';
+      if (zoneAt(this, s, f.x, 'mud') && dist > 110 && dist < 250 && f.opp.state !== 'atk' && rn() < 0.04 + 0.1 * (lv.str || 0)) return 'mudkick';
       return false;
     },
     walls: [-1, 1], wet: (x) => !!zoneAt(DEFS.rain, null, x, 'puddle'),
@@ -581,7 +581,7 @@
   DEFS.snow = {
     zones: [{ k: 'drift', x0: -2000, x1: -560 }, { k: 'drift', x0: 560, x1: 2000 }, { k: 'ice', x0: -230, x1: 40 }],
     event: dropEvent({
-      k: 'snow', first: [15, 22], gap: [22, 32], warn: 1.5, w: 150, margin: 140, banner: 'Snow is sliding off the pines!',
+      k: 'snow', first: [8, 13], gap: [20, 30], warn: 1.5, w: 150, margin: 140, banner: 'Snow is sliding off the pines!',
       land(s, e, F, ex) {
         for (const f of F) {
           if (!underIt(f, e.x, e.w)) continue;
@@ -593,7 +593,7 @@
       },
     }),
     ctx(f, add, s) { const o = f.opp, d = Math.abs(o.x - f.x); if (zoneAt(this, s, f.x, 'drift') && d > 70 && d < 280 && o.onGround) add('snowkick', null, 60, 'snow'); },
-    cpu(ai, f, dist, s, lv) { if (zoneAt(this, s, f.x, 'drift') && dist > 110 && dist < 250 && f.opp.state !== 'atk' && rn() < 0.05 + 0.12 * (lv.str || 0)) return D.envStart(f, 'snowkick', null); return false; },
+    cpu(ai, f, dist, s, lv) { if (zoneAt(this, s, f.x, 'drift') && dist > 110 && dist < 250 && f.opp.state !== 'atk' && rn() < 0.05 + 0.12 * (lv.str || 0)) return 'snowkick'; return false; },
     walls: [-1, 1], cushion: true,
     drawFloor: drawSnowFloor, drawFront: drawSnowFront,
   };
@@ -605,11 +605,24 @@
     ctx.fillStyle = `rgba(255,255,255,${0.45 + 0.1 * Math.sin(t)})`; ctx.beginPath(); ellipse(ctx, cx - rx * 0.3, 14, rx * 0.5, 7); ctx.fill();
     ctx.strokeStyle = 'rgba(110,150,190,.6)'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(cx - 60, 10); ctx.lineTo(cx - 20, 34); ctx.lineTo(cx + 30, 26); ctx.moveTo(cx - 20, 34); ctx.lineTo(cx - 34, 70); ctx.moveTo(cx + 60, 40); ctx.lineTo(cx + 100, 18); ctx.stroke();
 
-    ctx.fillStyle = 'rgba(246,248,255,.92)';
-    for (const sd of [-1, 1]) { ctx.beginPath(); ctx.moveTo(sd * 560, 120); ctx.quadraticCurveTo(sd * 600, -40, sd * 700, -36); ctx.lineTo(sd * (a + 300), -40); ctx.lineTo(sd * (a + 300), 300); ctx.lineTo(sd * 540, 300); ctx.fill(); }
-    for (const o of (s && s.obs) || []) if (o.k === 'heap') { const k = Math.min(1, o.life / 1.5); ctx.fillStyle = `rgba(250,252,255,${0.95 * k})`; ctx.beginPath(); ellipse(ctx, o.x, 6, o.w / 2, 30); ellipse(ctx, o.x - 20, -6, o.w / 3, 22); ctx.fill(); }
+    for (const sd of [-1, 1]) {
+      const x0 = sd * 560;
+      ctx.fillStyle = 'rgba(150,160,200,.35)'; ctx.beginPath(); ctx.moveTo(x0, -44); ctx.bezierCurveTo(x0 + sd * 30, 60, x0 - sd * 10, 200, x0 + sd * 20, 430); ctx.lineTo(x0 + sd * 70, 430); ctx.bezierCurveTo(x0 + sd * 40, 200, x0 + sd * 80, 60, x0 + sd * 50, -44); ctx.fill();
+      ctx.fillStyle = 'rgba(252,253,255,.9)'; ctx.beginPath(); ctx.moveTo(x0 + sd * 40, -44); ctx.bezierCurveTo(x0 + sd * 70, 60, x0 + sd * 30, 200, x0 + sd * 60, 430); ctx.lineTo(sd * (a + 400), 430); ctx.lineTo(sd * (a + 400), -44); ctx.fill();
+      ctx.strokeStyle = 'rgba(120,132,180,.55)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x0 + sd * 40, -44); ctx.bezierCurveTo(x0 + sd * 70, 60, x0 + sd * 30, 200, x0 + sd * 60, 430); ctx.stroke();
+      ctx.fillStyle = 'rgba(140,150,195,.25)'; ctx.beginPath(); for (let i = 0; i < 6; i++) ellipse(ctx, sd * (640 + i * 70), -10 + (i % 3) * 60, 30, 6); ctx.fill();
+    }
+
+    for (const o of (s && s.obs) || []) if (o.k === 'heap') {
+      const k = Math.min(1, o.life / 1.5);
+      ctx.globalAlpha = k;
+      ctx.fillStyle = 'rgba(110,120,170,.45)'; ctx.beginPath(); ellipse(ctx, o.x + 10, 22, o.w / 2 + 6, 22); ctx.fill();
+      ctx.fillStyle = '#fbfcff'; ctx.beginPath(); ellipse(ctx, o.x, 4, o.w / 2, 26); ellipse(ctx, o.x - 22, -10, o.w / 3, 22); ellipse(ctx, o.x + 30, -4, o.w / 4, 16); ctx.fill();
+      ctx.strokeStyle = 'rgba(110,122,170,.7)'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(o.x - 22, -10, o.w / 3, Math.PI * 1.05, Math.PI * 1.95); ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
     const e = s && s.ev;
-    if (e && e.k === 'snow' && e.ph === 0) { const k = e.t / 1.5, p = 0.6 + 0.4 * Math.sin(t * 14); ctx.fillStyle = `rgba(80,90,130,${0.2 + 0.25 * k})`; ctx.beginPath(); ellipse(ctx, e.x, 8, (e.w / 2) * (0.6 + 0.4 * k), 18); ctx.fill(); ctx.strokeStyle = `rgba(60,70,120,${0.5 + 0.4 * p})`; ctx.lineWidth = 3; ctx.beginPath(); ellipse(ctx, e.x, 8, e.w / 2, 18); ctx.stroke(); }
+    if (e && e.k === 'snow' && e.ph === 0) { const k = e.t / 1.5, p = 0.6 + 0.4 * Math.sin(t * 14); ctx.fillStyle = `rgba(60,70,120,${0.22 + 0.25 * k})`; ctx.beginPath(); ellipse(ctx, e.x, 8, (e.w / 2) * (0.6 + 0.4 * k), 18); ctx.fill(); ctx.strokeStyle = `rgba(40,50,110,${0.6 + 0.35 * p})`; ctx.lineWidth = 3.5; ctx.beginPath(); ellipse(ctx, e.x, 8, e.w / 2, 18); ctx.stroke(); }
   }
 
   function drawSnowFront(ctx, s) {
@@ -618,8 +631,10 @@
     for (const sd of [-1, 1]) { ctx.beginPath(); ctx.moveTo(sd * 590, 30); for (let x = 590; x <= a + 300; x += 30) ctx.lineTo(sd * x, 8 + 4 * Math.sin(x * 0.07)); ctx.lineTo(sd * (a + 300), 40); ctx.lineTo(sd * 590, 40); ctx.fill(); }
     const e = s && s.ev;
     if (e && e.k === 'snow') {
-      if (e.ph === 0) { ctx.fillStyle = 'rgba(250,252,255,.85)'; ctx.beginPath(); for (let i = 0; i < 10; i++) { const y = -380 + ((t * 300 + i * 53) % 370); ellipse(ctx, e.x + ((i * 29) % 80) - 40, y, 3 + (i % 3), 3 + (i % 3)); } ctx.fill(); }
-      else if (e.t < 0.25) { const k = e.t / 0.25; ctx.fillStyle = 'rgba(250,252,255,.9)'; ctx.beginPath(); for (let i = 0; i < 9; i++) { const y = -420 + 430 * Math.min(1, k * (1 + (i % 3) * 0.12)), r = 10 + (i % 4) * 5; ellipse(ctx, e.x + ((i * 37) % (e.w - 20)) - e.w / 2 + 10, y - (i % 3) * 30, r, r * 0.8); } ctx.fill(); }
+
+      ctx.strokeStyle = 'rgba(100,110,160,.8)'; ctx.lineWidth = 1.5;
+      if (e.ph === 0) { ctx.fillStyle = '#fbfcff'; ctx.beginPath(); for (let i = 0; i < 12; i++) { const y = -340 + ((t * 300 + i * 53) % 330); ellipse(ctx, e.x + ((i * 29) % 100) - 50, y, 4 + (i % 3), 4 + (i % 3)); } ctx.fill(); ctx.stroke(); }
+      else if (e.t < 0.3) { const k = e.t / 0.3; ctx.fillStyle = '#fbfcff'; ctx.beginPath(); for (let i = 0; i < 9; i++) { const y = -340 + 350 * Math.min(1, k * k * (1 + (i % 3) * 0.12)), r = 10 + (i % 4) * 5; ellipse(ctx, e.x + ((i * 37) % (e.w - 20)) - e.w / 2 + 10, y - (i % 3) * 26, r, r * 0.8); } ctx.fill(); ctx.stroke(); }
     }
   }
   P.ARENA_SETS.snow = [['bale', -640, -10], ['bale', -586, -4], ['bucket', -380, -2], ['crate', 420, -14], ['jar', 520, -8], ['rack', 700, -22]];
@@ -628,11 +643,11 @@
   DEFS.village = {
     zones: [{ k: 'fire', x0: -2000, x1: -A() + 70 }, { k: 'fire', x0: A() - 70, x1: 2000 }],
     event: dropEvent({
-      k: 'beam', first: [15, 22], gap: [22, 32], warn: 1.5, w: 130, margin: 170, banner: 'A burning beam is coming down!',
+      k: 'beam', first: [8, 13], gap: [20, 30], warn: 1.5, w: 130, margin: 170, banner: 'A burning beam is coming down!',
       land(s, e, F, ex) { fallsOn(F, e.x, e.w, { dmg: 11, stun: 0.6, kb: 240, knock: true, post: 25 }, ex, 'Hit by the beam!'); s.obs.push({ k: 'beam', x: e.x, w: 130, life: 7 }); if (pres()) { au.thud(1.4, cam.pan(e.x)); cam.punch(8); spray(e.x, -20, 1, 20, 0.9, '255,168,70'); spray(e.x, -20, -1, 20, 0.9, '255,168,70'); } },
     }),
     ctx(f, add, s) { const o = f.opp, d = Math.abs(o.x - f.x); if (nearFire(this, s, f.x) && !zoneAt(this, s, f.x, 'fire') && d > 70 && d < 280 && o.onGround) add('emberkick', null, 60, 'fire'); },
-    cpu(ai, f, dist, s, lv) { if (nearFire(this, s, f.x) && !zoneAt(this, s, f.x, 'fire') && dist > 110 && dist < 250 && f.opp.state !== 'atk' && rn() < 0.05 + 0.12 * (lv.str || 0)) return D.envStart(f, 'emberkick', null); return false; },
+    cpu(ai, f, dist, s, lv) { if (nearFire(this, s, f.x) && !zoneAt(this, s, f.x, 'fire') && dist > 110 && dist < 250 && f.opp.state !== 'atk' && rn() < 0.05 + 0.12 * (lv.str || 0)) return 'emberkick'; return false; },
     walls: [-1, 1], fire: true, splatBurn: (f) => Math.abs(f.x) > A() - 90,
     drawFloor: drawVillageFloor, drawFront: drawVillageFront,
   };
@@ -688,7 +703,7 @@
   DEFS.market = {
     init(s) { s.lan = MK.lan.map(() => 0); s.stall = 0; },
     event: {
-      first: [15, 22], gap: [24, 34],
+      first: [9, 14], gap: [22, 32],
       start(s) { const dir = rn() < 0.5 ? 1 : -1; s.ev = { k: 'cart', ph: 0, t: 0, dir, x: -dir * (A() + 260), speed: MK.cart.speed, hit: 0 }; banner('A cart is rolling down the street!', -dir * (A() - 200)); if (pres()) au.clang(0.4, -dir * 0.8, 1.4); return true; },
       step(s, e, h, F, ex) {
         e.t += h;
@@ -714,8 +729,8 @@
       if (s.stall && rampOk(f)) add('ramp', null, 10, 'steps');
     },
     cpu(ai, f, dist, s, lv) {
-      if (lanFor(s, f) >= 0 && rn() < 0.06 + 0.18 * (lv.str || 0)) return D.envStart(f, 'lanternDrop', null);
-      if (s.stall && rampOk(f) && rn() < 0.05 + 0.15 * (lv.str || 0)) return D.envStart(f, 'ramp', null);
+      if (lanFor(s, f) >= 0 && rn() < 0.06 + 0.18 * (lv.str || 0)) return 'lanternDrop';
+      if (s.stall && rampOk(f) && rn() < 0.05 + 0.15 * (lv.str || 0)) return 'ramp';
       return false;
     },
     ring: { side: -1, act: 'shop' }, walls: [1],
@@ -821,7 +836,7 @@
   DEFS.castle = {
     zones: [{ k: 'tiles', x0: -150, x1: 130 }],
     event: {
-      first: [14, 20], gap: [22, 32],
+      first: [8, 13], gap: [20, 30],
       start(s) { const dir = rn() < 0.7 ? 1 : -1; s.ev = { k: 'gust', ph: 0, t: 0, dir }; banner(dir > 0 ? 'A gale towards the edge! Guard!' : 'A gale! Guard!', 0); return true; },
       step(s, e, h, F, ex) {
         e.t += h;
@@ -836,7 +851,7 @@
       warn: CS.gust.warn,
     },
     ctx(f, add, s) { const o = f.opp, d = Math.abs(o.x - f.x); if (zoneAt(this, s, f.x, 'tiles') && !(f.dz.arKick > 0) && d > 140 && d < 560) add('tilekick', null, 60, 'tile'); },
-    cpu(ai, f, dist, s, lv) { if (zoneAt(this, s, f.x, 'tiles') && dist > 180 && dist < 520 && f.opp.state !== 'atk' && rn() < 0.04 + 0.12 * (lv.str || 0)) return D.envStart(f, 'tilekick', null); return false; },
+    cpu(ai, f, dist, s, lv) { if (zoneAt(this, s, f.x, 'tiles') && dist > 180 && dist < 520 && f.opp.state !== 'atk' && rn() < 0.04 + 0.12 * (lv.str || 0)) return 'tilekick'; return false; },
     shots(s, h, F) {
       for (let i = s.shots.length - 1; i >= 0; i--) {
         const q = s.shots[i], x0 = q.x; q.x += q.dir * 900 * h; q.t += h;
@@ -913,7 +928,7 @@
     if (!s) return;
     const live = G.phase === 'fight', ex = inEx();
     if (live) s.t += h;
-    for (const f of F) { const z = f.dz; if (!z) continue; if (z.arKick > 0) z.arKick -= h; if (z.arBurnT > 0) z.arBurnT -= h; if (z.arCd > 0) z.arCd -= h; }
+    for (const f of F) { const z = f.dz; if (!z) continue; if (z.arKick > 0) z.arKick -= h; if (z.arBurnT > 0) z.arBurnT -= h; }
     obsStep(s, h, F);
     if (d.step) d.step(s, h, F, ex);
     if (d.shots) d.shots(s, h, F);
@@ -1010,14 +1025,21 @@
 
     const up0 = AP.update;
     AP.update = function (dt) {
+      if (this.arCd > 0) this.arCd -= dt;
       const s = this.me && this.me.dz ? stNow() : null, e = s && s.ev;
       if (!(e && e.k === 'petals' && e.ph === 1) || !this.lv || typeof this.lv !== 'object') return up0.apply(this, arguments);
       const lv = this.lv; this.lv = blindLv(lv);
       try { return up0.apply(this, arguments); } finally { this.lv = lv; }
     };
   }
+
+
+  const act = (ai, f, name) => {
+    if (G.ais && G.ais.indexOf(ai) >= 0) return D.envStart(f, name, null);
+    ai.tap('ctx'); return true;
+  };
   function cpuArena(ai, f, dist, d) {
-    const s = stNow(), o = f.opp, lv = ai.lv || {}, z = f.dz, sm = lv.smart || 0;
+    const s = stNow(), o = f.opp, lv = ai.lv || {}, z = ai, sm = lv.smart || 0;
     if (!s || !o || o.dead) return false;
     const e = s.ev, ex = inEx();
 
@@ -1045,9 +1067,9 @@
     }
     if (z.arCd > 0 || o.state === 'atk') return false;
 
-    if (wallBehind(d, f) && dist < 150 && dist > 50 && rn() < 0.03 + 0.09 * sm) { if (D.envStart(f, 'wallflip', null)) { z.arCd = 3; return true; } }
+    if (wallBehind(d, f) && dist < 150 && dist > 50 && rn() < 0.03 + 0.09 * sm) { if (act(ai, f, 'wallflip')) { z.arCd = 3; return true; } }
 
-    if (d.cpu && rn() < 0.35) { if (d.cpu(ai, f, dist, s, lv)) { z.arCd = 3 + rn() * 2; return true; } z.arCd = 0.3; }
+    if (d.cpu && rn() < 0.35) { const n = d.cpu(ai, f, dist, s, lv); if (n && act(ai, f, n)) { z.arCd = 3 + rn() * 2; return true; } z.arCd = 0.3; }
     return false;
   }
   const guardFor = (ai, t) => { ai.setHeld('left', false); ai.setHeld('right', false); ai.move = 0; ai.setHeld('guard', true); ai.guardUntil = ai.t + t; };
@@ -1124,40 +1146,40 @@
 
 
   if (D.TR) Object.assign(D.TR, {
-    'Into the pool!': ['Havuza düştü!', '¡Al estanque!', 'Para o lago!', 'В омут!', 'Ins Becken!', 'Dans le bassin !', 'Nella pozza!', 'Do wody!', 'Ke kolam!', 'Rơi xuống hồ!', 'ตกน้ำ!', 'कुंड में!', 'إلى البركة!', '掉进水潭！', '掉進水潭！', '滝つぼへ！', '물웅덩이로!'],
+    'Into the pool!': ['Havuza düştü!', '¡Al estanque!', 'Para o lago!', 'В омут!', 'Ins Becken!', 'Dans le bassin !', 'Nella pozza!', 'Do wody!', 'Ke kolam!', 'Rơi xuống hồ!', 'ตกน้ำ!', 'कुंड में!', 'إلى البركة!', '掉进水里！', '掉進水裡！', '滝つぼへ！', '물속으로!'],
     'Swept by the surge!': ['Dalga sürükledi!', '¡Arrastrado por la ola!', 'Arrastado pela onda!', 'Сбит волной!', 'Von der Welle erfasst!', 'Emporté par la vague !', "Travolto dall'onda!", 'Porwany przez falę!', 'Terseret gelombang!', 'Bị sóng cuốn!', 'โดนคลื่นซัด!', 'लहर बहा ले गई!', 'جرفته الموجة!', '被浪卷走！', '被浪捲走！', '波にさらわれた！', '파도에 휩쓸림!'],
-    'Water in the face!': ['Yüzüne su!', '¡Agua a la cara!', 'Água na cara!', 'Вода в лицо!', 'Wasser ins Gesicht!', "De l'eau en plein visage !", 'Acqua in faccia!', 'Woda w twarz!', 'Air ke wajah!', 'Tạt nước vào mặt!', 'สาดน้ำใส่หน้า!', 'मुँह पर पानी!', 'ماء في الوجه!', '泼水！', '潑水！', '顔に水しぶき！', '얼굴에 물!'],
+    'Water in the face!': ['Yüzüne su!', '¡Agua a la cara!', 'Água na cara!', 'Вода в лицо!', 'Wasser ins Gesicht!', "De l'eau en plein visage !", 'Acqua in faccia!', 'Woda w twarz!', 'Air ke wajah!', 'Tạt nước vào mặt!', 'สาดน้ำใส่หน้า!', 'मुँह पर पानी!', 'ماء في الوجه!', '水打在脸上！', '水打在臉上！', '顔に水しぶき！', '얼굴에 물!'],
     'Over the wave!': ['Dalganın üstünden!', '¡Sobre la ola!', 'Por cima da onda!', 'Над волной!', 'Über die Welle!', 'Par-dessus la vague !', "Sopra l'onda!", 'Nad falą!', 'Melompati ombak!', 'Nhảy qua sóng!', 'กระโดดข้ามคลื่น!', 'लहर के ऊपर से!', 'فوق الموجة!', '跃过浪头！', '躍過浪頭！', '波を飛び越えた！', '파도를 넘었다!'],
-    'Braced against the surge': ['Dalgaya karşı direndi', 'Aguanta la ola', 'Resiste à onda', 'Устоял против волны', 'Hält der Welle stand', 'Tient bon face à la vague', "Resiste all'onda", 'Opiera się fali', 'Menahan gelombang', 'Trụ vững trước sóng', 'ยืนต้านคลื่น', 'लहर के आगे डटा', 'صمد أمام الموجة', '顶住浪头', '頂住浪頭', '波に耐えた', '파도를 버텼다'],
-    'The falls surge! Jump it or guard!': ['Şelale coşuyor! Atla ya da savun!', '¡La cascada crece! ¡Salta o defiende!', 'A cascata transborda! Pule ou defenda!', 'Водопад бурлит! Прыгай или блокируй!', 'Der Wasserfall schwillt! Spring oder blocke!', 'La cascade déferle ! Saute ou garde !', 'La cascata si gonfia! Salta o para!', 'Wodospad wzbiera! Skacz lub blokuj!', 'Air terjun meluap! Lompat atau tangkis!', 'Thác nước dâng! Nhảy hoặc đỡ!', 'น้ำตกทะลัก! กระโดดหรือป้องกัน!', 'झरना उफना! कूदो या बचाव करो!', 'الشلال يفيض! اقفز أو احمِ نفسك!', '瀑布涌来！跳起或格挡！', '瀑布湧來！跳起或格擋！', '滝があふれる！跳ぶかガード！', '폭포가 넘친다! 뛰거나 막아라!'],
-    'Snow in the face!': ['Yüzüne kar!', '¡Nieve a la cara!', 'Neve na cara!', 'Снег в лицо!', 'Schnee ins Gesicht!', 'De la neige en plein visage !', 'Neve in faccia!', 'Śnieg w twarz!', 'Salju ke wajah!', 'Tuyết vào mặt!', 'สาดหิมะใส่หน้า!', 'मुँह पर बर्फ़!', 'ثلج في الوجه!', '雪扑面！', '雪撲面！', '顔に雪！', '얼굴에 눈!'],
-    'Mud in the face!': ['Yüzüne çamur!', '¡Barro a la cara!', 'Lama na cara!', 'Грязь в лицо!', 'Schlamm ins Gesicht!', 'De la boue en plein visage !', 'Fango in faccia!', 'Błoto w twarz!', 'Lumpur ke wajah!', 'Bùn vào mặt!', 'สาดโคลนใส่หน้า!', 'मुँह पर कीचड़!', 'طين في الوجه!', '泥巴扑面！', '泥巴撲面！', '顔に泥！', '얼굴에 진흙!'],
-    'Embers in the face!': ['Yüzüne kor!', '¡Brasas a la cara!', 'Brasas na cara!', 'Угли в лицо!', 'Glut ins Gesicht!', 'Des braises en plein visage !', 'Braci in faccia!', 'Żar w twarz!', 'Bara ke wajah!', 'Than hồng vào mặt!', 'เถ้าถ่านใส่หน้า!', 'मुँह पर अंगारे!', 'جمر في الوجه!', '火星扑面！', '火星撲面！', '顔に火の粉！', '얼굴에 불씨!'],
-    'Wall splat!': ['Duvara yapıştı!', '¡Contra la pared!', 'Colado na parede!', 'Впечатан в стену!', 'An die Wand!', 'Écrasé contre le mur !', 'Spiaccicato al muro!', 'Na ścianę!', 'Menempel di dinding!', 'Dính tường!', 'กระแทกกำแพง!', 'दीवार से चिपका!', 'ارتطم بالجدار!', '撞墙！', '撞牆！', '壁に叩きつけ！', '벽에 처박힘!'],
-    'Splatted into the fire!': ['Ateşe yapıştı!', '¡Contra el fuego!', 'Jogado no fogo!', 'Впечатан в огонь!', 'Ins Feuer geschleudert!', 'Projeté dans le feu !', 'Scaraventato nel fuoco!', 'W ogień!', 'Terlempar ke api!', 'Văng vào lửa!', 'กระแทกเข้ากองไฟ!', 'आग में जा गिरा!', 'ارتطم بالنار!', '撞进火里！', '撞進火裡！', '炎に叩きつけ！', '불길에 처박힘!'],
+    'Braced against the surge': ['Dalgaya karşı direndi', 'Aguanta la ola', 'Resiste à onda', 'Устоял против волны', 'Hält der Welle stand', 'Tient bon face à la vague', "Resiste all'onda", 'Opiera się fali', 'Menahan gelombang', 'Trụ vững trước sóng', 'ยืนต้านคลื่น', 'लहर के आगे डटा', 'صمد أمام الموجة', '顶住浪头', '頂住浪頭', '波をこらえた', '파도를 막아냈다'],
+    'The falls surge! Jump it or guard!': ['Şelale coşuyor! Atla ya da savun!', '¡La cascada crece! ¡Salta o defiende!', 'A cascata transborda! Pule ou defenda!', 'Водопад бурлит! Прыгай или блокируй!', 'Der Wasserfall schwillt! Spring oder blocke!', 'La cascade déferle ! Saute ou garde !', 'La cascata si gonfia! Salta o para!', 'Wodospad wzbiera! Skacz lub blokuj!', 'Air terjun meluap! Lompat atau tangkis!', 'Thác nước dâng! Nhảy hoặc đỡ!', 'น้ำตกทะลัก! กระโดดหรือป้องกัน!', 'झरना उफना! कूदो या बचाव करो!', 'الشلال يفيض! اقفز أو احمِ نفسك!', '瀑布涌来！跳起或格挡！', '瀑布大水來了！跳起或格擋！', '滝があふれる！跳ぶかガード！', '폭포가 넘친다! 뛰거나 막아라!'],
+    'Snow in the face!': ['Yüzüne kar!', '¡Nieve a la cara!', 'Neve na cara!', 'Снег в лицо!', 'Schnee ins Gesicht!', 'De la neige en plein visage !', 'Neve in faccia!', 'Śnieg w twarz!', 'Salju ke wajah!', 'Tuyết vào mặt!', 'สาดหิมะใส่หน้า!', 'मुँह पर बर्फ़!', 'ثلج في الوجه!', '雪打在脸上！', '雪打在臉上！', '顔に雪！', '얼굴에 눈!'],
+    'Mud in the face!': ['Yüzüne çamur!', '¡Barro a la cara!', 'Lama na cara!', 'Грязь в лицо!', 'Schlamm ins Gesicht!', 'De la boue en plein visage !', 'Fango in faccia!', 'Błoto w twarz!', 'Lumpur ke wajah!', 'Bùn vào mặt!', 'สาดโคลนใส่หน้า!', 'मुँह पर कीचड़!', 'طين في الوجه!', '黑水打在脸上！', '黑水打在臉上！', 'どろが顔に！', '얼굴에 구정물!'],
+    'Embers in the face!': ['Yüzüne kor!', '¡Brasas a la cara!', 'Brasas na cara!', 'Угли в лицо!', 'Glut ins Gesicht!', 'Des braises en plein visage !', 'Braci in faccia!', 'Żar w twarz!', 'Bara ke wajah!', 'Than hồng vào mặt!', 'เถ้าถ่านใส่หน้า!', 'मुँह पर अंगारे!', 'جمر في الوجه!', '火星打在脸上！', '火星打在臉上！', '顔に火の粉！', '얼굴에 불씨!'],
+    'Wall splat!': ['Duvara yapıştı!', '¡Contra la pared!', 'Colado na parede!', 'Впечатан в стену!', 'An die Wand!', 'Écrasé contre le mur !', 'Spiaccicato al muro!', 'Na ścianę!', 'Menempel di dinding!', 'Dính tường!', 'กระแทกกำแพง!', 'दीवार से चिपका!', 'ارتطم بالجدار!', '撞墙！', '撞牆！', '壁に叩きつけ！', '벽에 처박혔다!'],
+    'Splatted into the fire!': ['Ateşe yapıştı!', '¡Contra el fuego!', 'Jogado no fogo!', 'Впечатан в огонь!', 'Ins Feuer geschleudert!', 'Projeté dans le feu !', 'Scaraventato nel fuoco!', 'W ogień!', 'Terlempar ke api!', 'Văng vào lửa!', 'กระแทกเข้ากองไฟ!', 'आग में जा गिरा!', 'ارتطم بالنار!', '撞进火里！', '撞進火裡！', '炎に叩きつけ！', '불길에 처박혔다!'],
     'Up the wall and over!': ['Duvardan yukarı, üstünden aştı!', '¡Por la pared y por encima!', 'Pela parede e por cima!', 'По стене и через него!', 'Die Wand hoch und drüber!', 'Sur le mur et par-dessus !', 'Su per il muro e oltre!', 'Po ścianie i nad nim!', 'Naik dinding dan melompatinya!', 'Leo tường và lộn qua!', 'วิ่งขึ้นกำแพงแล้วตีลังกาข้าม!', 'दीवार पर चढ़कर ऊपर से!', 'على الجدار ومن فوقه!', '蹬墙翻越！', '蹬牆翻越！', '壁を駆け上がり飛び越えた！', '벽을 타고 넘었다!'],
-    'Buried in snow!': ['Kara gömüldü!', '¡Enterrado en la nieve!', 'Soterrado na neve!', 'Засыпан снегом!', 'Im Schnee begraben!', 'Enseveli sous la neige !', 'Sepolto nella neve!', 'Zasypany śniegiem!', 'Terkubur salju!', 'Bị vùi trong tuyết!', 'จมกองหิมะ!', 'बर्फ़ में दबा!', 'دُفن في الثلج!', '被雪埋住！', '被雪埋住！', '雪に埋まった！', '눈에 파묻힘!'],
+    'Buried in snow!': ['Kara gömüldü!', '¡Enterrado en la nieve!', 'Soterrado na neve!', 'Засыпан снегом!', 'Im Schnee begraben!', 'Enseveli sous la neige !', 'Sepolto nella neve!', 'Zasypany śniegiem!', 'Terkubur salju!', 'Bị vùi trong tuyết!', 'จมกองหิมะ!', 'बर्फ़ में दबा!', 'دُفن في الثلج!', '被雪埋住！', '被雪埋住！', '雪に埋まった！', '눈에 파묻혔다!'],
     'Through the shop front!': ['Dükkânın içinden!', '¡A través del escaparate!', 'Através da vitrine!', 'Сквозь лавку!', 'Durch den Laden!', 'À travers la boutique !', 'Attraverso la bottega!', 'Przez sklep!', 'Menembus toko!', 'Xuyên qua cửa hàng!', 'ทะลุหน้าร้าน!', 'दुकान के आर-पार!', 'عبر واجهة المتجر!', '撞穿店面！', '撞穿店面！', '店先を突き破った！', '가게를 뚫고!'],
-    'Hanging from the eave!': ['Saçağa asıldı!', '¡Colgado del alero!', 'Pendurado no beiral!', 'Висит на карнизе!', 'Hängt an der Traufe!', "Suspendu à l'avant-toit !", "Appeso alla grondaia!", 'Wisi na okapie!', 'Bergantung di atap!', 'Treo trên mái hiên!', 'ห้อยชายคา!', 'छज्जे से लटका!', 'معلّق بالحافة!', '挂在屋檐上！', '掛在屋簷上！', '軒にぶら下がった！', '처마에 매달림!'],
+    'Hanging from the eave!': ['Saçağa asıldı!', '¡Colgado del alero!', 'Pendurado no beiral!', 'Висит на карнизе!', 'Hängt an der Traufe!', "Suspendu à l'avant-toit !", 'Appeso alla grondaia!', 'Wisi na okapie!', 'Bergantung di atap!', 'Treo trên mái hiên!', 'ห้อยชายคา!', 'छज्जे से लटका!', 'معلّق بالحافة!', '挂在屋顶边上！', '掛在屋頂邊上！', '屋根の端にぶら下がった！', '처마에 매달림!'],
     'Cut through!': ['Kesip geçti!', '¡Cortado!', 'Cortou!', 'Разрублено!', 'Durchgehauen!', 'Tranché net !', 'Tagliato!', 'Przecięte!', 'Terbelah!', 'Chém đứt!', 'ฟันขาด!', 'काट डाला!', 'قُطع!', '一刀两断！', '一刀兩斷！', '断ち切った！', '베어 넘겼다!'],
-    'Felled by the bamboo!': ['Bambu devirdi!', '¡Derribado por el bambú!', 'Derrubado pelo bambu!', 'Сбит бамбуком!', 'Vom Bambus gefällt!', 'Abattu par le bambou !', 'Abbattuto dal bambù!', 'Powalony bambusem!', 'Tertimpa bambu!', 'Bị tre đè!', 'โดนไผ่ล้มทับ!', 'बाँस ने गिराया!', 'أسقطه الخيزران!', '被竹子砸倒！', '被竹子砸倒！', '竹に倒された！', '대나무에 깔림!'],
-    'Bamboo cut down!': ['Bambu kesildi!', '¡Bambú talado!', 'Bambu cortado!', 'Бамбук срублен!', 'Bambus gefällt!', 'Bambou abattu !', 'Bambù abbattuto!', 'Bambus ścięty!', 'Bambu ditebang!', 'Chém đổ cây tre!', 'ฟันไผ่ล้ม!', 'बाँस काट गिराया!', 'قُطع الخيزران!', '砍倒竹子！', '砍倒竹子！', '竹を切り倒した！', '대나무를 베었다!'],
+    'Felled by the bamboo!': ['Bambu devirdi!', '¡Derribado por el bambú!', 'Derrubado pelo bambu!', 'Сбит бамбуком!', 'Vom Bambus gefällt!', 'Abattu par le bambou !', 'Abbattuto dal bambù!', 'Powalony bambusem!', 'Tertimpa bambu!', 'Bị tre đè!', 'โดนไผ่ล้มทับ!', 'बाँस ने गिराया!', 'أسقطه الخيزران!', '被竹子砸倒！', '被竹子砸倒！', '竹に倒された！', '대나무에 맞았다!'],
+    'Bamboo cut down!': ['Bambu kesildi!', '¡Bambú talado!', 'Bambu cortado!', 'Бамбук срублен!', 'Bambus gefällt!', 'Bambou abattu !', 'Bambù abbattuto!', 'Bambus ścięty!', 'Bambu ditebang!', 'Chém đổ cây tre!', 'ฟันไผ่ล้ม!', 'बाँस काट गिराया!', 'قُطع الخيزران!', '斩倒竹子！', '斬倒竹子！', '竹を切り倒した！', '대나무를 베었다!'],
     'Lightning! A bamboo will fall!': ['Yıldırım! Bir bambu devrilecek!', '¡Un rayo! ¡Caerá un bambú!', 'Raio! Um bambu vai cair!', 'Молния! Бамбук падает!', 'Blitz! Ein Bambus fällt gleich!', 'La foudre ! Un bambou va tomber !', 'Fulmine! Cadrà un bambù!', 'Piorun! Bambus zaraz runie!', 'Petir! Bambu akan tumbang!', 'Sét đánh! Cây tre sắp đổ!', 'ฟ้าผ่า! ไผ่กำลังจะล้ม!', 'बिजली! बाँस गिरने वाला है!', 'برق! خيزرانة ستسقط!', '雷击！竹子要倒了！', '雷擊！竹子要倒了！', '落雷！竹が倒れる！', '번개! 대나무가 쓰러진다!'],
-    'Snow is sliding off the pines!': ['Çamlardan kar kayıyor!', '¡La nieve cae de los pinos!', 'A neve desliza dos pinheiros!', 'С сосен сползает снег!', 'Schnee rutscht von den Kiefern!', 'La neige glisse des pins !', 'La neve scivola dai pini!', 'Śnieg zsuwa się z sosen!', 'Salju meluncur dari pinus!', 'Tuyết trượt khỏi rặng thông!', 'หิมะกำลังร่วงจากต้นสน!', 'चीड़ से बर्फ़ फिसल रही है!', 'الثلج ينزلق من الصنوبر!', '松树上的雪滑落了！', '松樹上的雪滑落了！', '松から雪が落ちてくる！', '소나무에서 눈이 쏟아진다!'],
-    'A burning beam is coming down!': ['Yanan bir kiriş düşüyor!', '¡Cae una viga en llamas!', 'Uma viga em chamas vai cair!', 'Падает горящая балка!', 'Ein brennender Balken stürzt herab!', 'Une poutre en feu va tomber !', 'Sta cadendo una trave in fiamme!', 'Płonąca belka spada!', 'Balok terbakar akan jatuh!', 'Xà nhà đang cháy sắp rơi!', 'คานไฟไหม้กำลังร่วง!', 'जलती कड़ी गिर रही है!', 'عارضة مشتعلة تسقط!', '燃烧的横梁要掉下来了！', '燃燒的橫樑要掉下來了！', '燃える梁が落ちてくる！', '불타는 들보가 떨어진다!'],
-    'Hit by the beam!': ['Kiriş çarptı!', '¡Golpeado por la viga!', 'Atingido pela viga!', 'Задет балкой!', 'Vom Balken getroffen!', 'Touché par la poutre !', 'Colpito dalla trave!', 'Trafiony belką!', 'Tertimpa balok!', 'Bị xà đè!', 'โดนคานทับ!', 'कड़ी से टकराया!', 'أصابته العارضة!', '被横梁砸中！', '被橫樑砸中！', '梁が直撃！', '들보에 맞음!'],
-    'Burned!': ['Yandı!', '¡Quemado!', 'Queimado!', 'Обжёгся!', 'Verbrannt!', 'Brûlé !', 'Bruciato!', 'Poparzony!', 'Terbakar!', 'Bị bỏng!', 'โดนไฟลวก!', 'जल गया!', 'احترق!', '烧伤！', '燒傷！', '火傷！', '화상!'],
-    'A cart is rolling down the street!': ['Sokaktan bir araba geliyor!', '¡Un carro baja por la calle!', 'Uma carroça desce a rua!', 'По улице катится тележка!', 'Ein Karren rollt die Straße herab!', 'Une charrette dévale la rue !', 'Un carretto scende per la strada!', 'Wózek toczy się ulicą!', 'Gerobak meluncur di jalan!', 'Một chiếc xe đẩy lao xuống phố!', 'รถเข็นกำลังไหลลงถนน!', 'गली में ठेला लुढ़क रहा है!', 'عربة تتدحرج في الشارع!', '推车冲过街道！', '推車衝過街道！', '屋台車が転がってくる！', '수레가 굴러온다!'],
-    'Over the cart!': ['Arabanın üstünden!', '¡Sobre el carro!', 'Por cima da carroça!', 'Над тележкой!', 'Über den Karren!', 'Par-dessus la charrette !', 'Sopra il carretto!', 'Nad wózkiem!', 'Melompati gerobak!', 'Nhảy qua xe đẩy!', 'กระโดดข้ามรถเข็น!', 'ठेले के ऊपर से!', 'فوق العربة!', '跃过推车！', '躍過推車！', '車を飛び越えた！', '수레를 넘었다!'],
-    'Braced against the cart': ['Arabaya karşı direndi', 'Aguanta el carro', 'Resiste à carroça', 'Устоял против тележки', 'Hält dem Karren stand', 'Tient bon face à la charrette', 'Resiste al carretto', 'Opiera się wózkowi', 'Menahan gerobak', 'Trụ vững trước xe đẩy', 'ยืนต้านรถเข็น', 'ठेले के आगे डटा', 'صمد أمام العربة', '顶住推车', '頂住推車', '車に耐えた', '수레를 버텼다'],
-    'Run over by the cart!': ['Araba ezdi geçti!', '¡Arrollado por el carro!', 'Atropelado pela carroça!', 'Сбит тележкой!', 'Vom Karren überrollt!', 'Renversé par la charrette !', 'Travolto dal carretto!', 'Potrącony przez wózek!', 'Tertabrak gerobak!', 'Bị xe đẩy tông!', 'โดนรถเข็นชน!', 'ठेले ने कुचल दिया!', 'دهسته العربة!', '被推车撞倒！', '被推車撞倒！', '車にはねられた！', '수레에 치였다!'],
-    'Cut the lantern down!': ['Feneri kesip düşürdü!', '¡Farol cortado!', 'Lanterna cortada!', 'Срубил фонарь!', 'Laterne abgeschnitten!', 'Lanterne tranchée !', 'Lanterna tagliata!', 'Latarnia ścięta!', 'Lentera dipotong jatuh!', 'Chém rơi đèn lồng!', 'ฟันโคมตก!', 'लालटेन काट गिराई!', 'قطع الفانوس!', '砍落灯笼！', '砍落燈籠！', '提灯を斬り落とした！', '등불을 베어 떨궜다!'],
+    'Snow is sliding off the pines!': ['Çamlardan kar kayıyor!', '¡La nieve cae de los pinos!', 'A neve desliza dos pinheiros!', 'С сосен сползает снег!', 'Schnee rutscht von den Kiefern!', 'La neige glisse des pins !', 'La neve scivola dai pini!', 'Śnieg zsuwa się z sosen!', 'Salju meluncur dari pinus!', 'Tuyết trượt khỏi rặng thông!', 'หิมะกำลังร่วงจากต้นสน!', 'चीड़ से बर्फ़ फिसल रही है!', 'الثلج ينزلق من الصنوبر!', '松上的雪滑落了！', '松上的雪滑落了！', '松から雪が落ちてくる！', '소나무에서 눈이 쏟아진다!'],
+    'A burning beam is coming down!': ['Yanan bir kiriş düşüyor!', '¡Cae una viga en llamas!', 'Uma viga em chamas vai cair!', 'Падает горящая балка!', 'Ein brennender Balken stürzt herab!', 'Une poutre en feu va tomber !', 'Sta cadendo una trave in fiamme!', 'Płonąca belka spada!', 'Balok terbakar akan jatuh!', 'Xà nhà đang cháy sắp rơi!', 'คานไฟไหม้กำลังร่วง!', 'जलती कड़ी गिर रही है!', 'عارضة مشتعلة تسقط!', '燃烧的木头要掉下来了！', '燃燒的木頭要掉下來了！', '燃える木が落ちてくる！', '불타는 들보가 떨어진다!'],
+    'Hit by the beam!': ['Kiriş çarptı!', '¡Golpeado por la viga!', 'Atingido pela viga!', 'Задет балкой!', 'Vom Balken getroffen!', 'Touché par la poutre !', 'Colpito dalla trave!', 'Trafiony belką!', 'Tertimpa balok!', 'Bị xà đè!', 'โดนคานทับ!', 'कड़ी से टकराया!', 'أصابته العارضة!', '被木头砸中！', '被木頭砸中！', '木が直撃！', '들보에 맞음!'],
+    'Burned!': ['Yandı!', '¡Quemado!', 'Queimado!', 'Обжёгся!', 'Verbrannt!', 'Brûlé !', 'Bruciato!', 'Poparzony!', 'Terbakar!', 'Bị bỏng!', 'โดนไฟลวก!', 'जल गया!', 'احترق!', '烧伤！', '燒傷！', 'やけど！', '화상!'],
+    'A cart is rolling down the street!': ['Sokaktan bir araba geliyor!', '¡Un carro baja por la calle!', 'Uma carroça desce a rua!', 'По улице катится тележка!', 'Ein Karren rollt die Straße herab!', 'Une charrette dévale la rue !', 'Un carretto scende per la strada!', 'Wózek toczy się ulicą!', 'Gerobak meluncur di jalan!', 'Một chiếc xe đẩy lao xuống phố!', 'รถเข็นกำลังไหลลงถนน!', 'गली में ठेला लुढ़क रहा है!', 'عربة تتدحرج في الشارع!', '小摊冲过街道！', '小攤衝過街道！', '屋台車が転がってくる！', '수레가 굴러온다!'],
+    'Over the cart!': ['Arabanın üstünden!', '¡Sobre el carro!', 'Por cima da carroça!', 'Над тележкой!', 'Über den Karren!', 'Par-dessus la charrette !', 'Sopra il carretto!', 'Nad wózkiem!', 'Melompati gerobak!', 'Nhảy qua xe đẩy!', 'กระโดดข้ามรถเข็น!', 'ठेले के ऊपर से!', 'فوق العربة!', '跃过小摊！', '躍過小攤！', '車を飛び越えた！', '수레를 넘었다!'],
+    'Braced against the cart': ['Arabaya karşı direndi', 'Aguanta el carro', 'Resiste à carroça', 'Устоял против тележки', 'Hält dem Karren stand', 'Tient bon face à la charrette', 'Resiste al carretto', 'Opiera się wózkowi', 'Menahan gerobak', 'Trụ vững trước xe đẩy', 'ยืนต้านรถเข็น', 'ठेले के आगे डटा', 'صمد أمام العربة', '顶住小摊', '頂住小攤', '車をこらえた', '수레를 막아냈다'],
+    'Run over by the cart!': ['Araba ezdi geçti!', '¡Arrollado por el carro!', 'Atropelado pela carroça!', 'Сбит тележкой!', 'Vom Karren überrollt!', 'Renversé par la charrette !', 'Travolto dal carretto!', 'Potrącony przez wózek!', 'Tertabrak gerobak!', 'Bị xe đẩy tông!', 'โดนรถเข็นชน!', 'ठेले ने कुचल दिया!', 'دهسته العربة!', '被小摊撞倒！', '被小攤撞倒！', '車にはねられた！', '수레에 치였다!'],
+    'Cut the lantern down!': ['Feneri kesip düşürdü!', '¡Farol cortado!', 'Lanterna cortada!', 'Срубил фонарь!', 'Laterne abgeschnitten!', 'Lanterne tranchée !', 'Lanterna tagliata!', 'Latarnia ścięta!', 'Lentera dipotong jatuh!', 'Chém rơi đèn lồng!', 'ฟันโคมตก!', 'लालटेन काट गिराई!', 'قطع الفانوس!', '斩落灯笼！', '砍落燈籠！', '提灯を斬り落とした！', '등불을 베어 떨어뜨렸다!'],
     'A lantern on the head!': ['Kafasına fener!', '¡Un farol en la cabeza!', 'Lanterna na cabeça!', 'Фонарь на голову!', 'Laterne auf den Kopf!', 'Une lanterne sur la tête !', 'Una lanterna in testa!', 'Latarnia na głowę!', 'Lentera menimpa kepala!', 'Đèn lồng rơi trúng đầu!', 'โคมตกใส่หัว!', 'सिर पर लालटेन!', 'فانوس على الرأس!', '灯笼砸头！', '燈籠砸頭！', '提灯が頭に！', '머리에 등불!'],
     'Through the stall!': ['Tezgâhın içinden!', '¡A través del puesto!', 'Através da banca!', 'Сквозь прилавок!', 'Durch den Stand!', "À travers l'étal !", 'Attraverso la bancarella!', 'Przez stragan!', 'Menembus lapak!', 'Xuyên qua sạp!', 'ทะลุแผงลอย!', 'ठेले के आर-पार!', 'عبر الكشك!', '撞穿摊位！', '撞穿攤位！', '屋台を突き破った！', '노점을 뚫고!'],
-    'Off the ramp!': ['Rampadan atladı!', '¡Desde la rampa!', 'Da rampa!', 'С трамплина!', 'Von der Rampe!', 'Depuis la rampe !', 'Dalla rampa!', 'Z rampy!', 'Dari lereng!', 'Bật khỏi dốc!', 'กระโดดจากทางลาด!', 'ढलान से छलाँग!', 'من المنحدر!', '借坡飞跃！', '借坡飛躍！', '坂から跳んだ！', '경사로에서 도약!'],
-    'A gale towards the edge! Guard!': ['Kenara doğru fırtına! Savun!', '¡Un vendaval hacia el borde! ¡Defiende!', 'Ventania para a beira! Defenda!', 'Ветер к краю! Блокируй!', 'Sturm zur Kante! Blocken!', 'Une rafale vers le bord ! Garde !', 'Raffica verso il bordo! Para!', 'Wichura ku krawędzi! Blokuj!', 'Badai ke arah tepi! Tangkis!', 'Gió giật về phía mép! Đỡ!', 'ลมกระโชกไปทางขอบ! ป้องกัน!', 'किनारे की ओर आँधी! बचाव करो!', 'عاصفة نحو الحافة! احمِ نفسك!', '狂风吹向屋檐！格挡！', '狂風吹向屋簷！格擋！', '縁へ突風！ガード！', '가장자리로 돌풍! 막아라!'],
+    'Off the ramp!': ['Rampadan atladı!', '¡Desde la rampa!', 'Da rampa!', 'С трамплина!', 'Von der Rampe!', 'Depuis la rampe !', 'Dalla rampa!', 'Z rampy!', 'Dari lereng!', 'Bật khỏi dốc!', 'กระโดดจากทางลาด!', 'ढलान से छलाँग!', 'من المنحدر!', '从斜板跃下！', '從斜板躍下！', '台から跳んだ！', '경사로에서 도약!'],
+    'A gale towards the edge! Guard!': ['Kenara doğru fırtına! Savun!', '¡Un vendaval hacia el borde! ¡Defiende!', 'Ventania para a beira! Defenda!', 'Ветер к краю! Блокируй!', 'Sturm zur Kante! Blocken!', 'Une rafale vers le bord ! Garde !', 'Raffica verso il bordo! Para!', 'Wichura ku krawędzi! Blokuj!', 'Badai ke arah tepi! Tangkis!', 'Gió giật về phía mép! Đỡ!', 'ลมกระโชกไปทางขอบ! ป้องกัน!', 'किनारे की ओर आँधी! बचाव करो!', 'عاصفة نحو الحافة! احمِ نفسك!', '狂风吹向边上！格挡！', '狂風吹向邊上！格擋！', '縁へ突風！ガード！', '가장자리로 돌풍! 막아라!'],
     'A gale! Guard!': ['Fırtına! Savun!', '¡Un vendaval! ¡Defiende!', 'Ventania! Defenda!', 'Ветер! Блокируй!', 'Sturm! Blocken!', 'Une rafale ! Garde !', 'Raffica! Para!', 'Wichura! Blokuj!', 'Badai! Tangkis!', 'Gió giật! Đỡ!', 'ลมกระโชก! ป้องกัน!', 'आँधी! बचाव करो!', 'عاصفة! احمِ نفسك!', '狂风！格挡！', '狂風！格擋！', '突風！ガード！', '돌풍! 막아라!'],
-    'A roof tile at him!': ['Ona kiremit attı!', '¡Una teja hacia él!', 'Uma telha nele!', 'Черепицей в него!', 'Ein Dachziegel auf ihn!', 'Une tuile sur lui !', 'Una tegola contro di lui!', 'Dachówką w niego!', 'Genteng ke arahnya!', 'Đá ngói vào hắn!', 'เตะกระเบื้องใส่!', 'उस पर खपरैल!', 'قرميدة نحوه!', '踢瓦片砸他！', '踢瓦片砸他！', '瓦を蹴りつけた！', '기와를 날렸다!'],
+    'A roof tile at him!': ['Ona kiremit attı!', '¡Una teja hacia él!', 'Uma telha nele!', 'Черепицей в него!', 'Ein Dachziegel auf ihn!', 'Une tuile sur lui !', 'Una tegola contro di lui!', 'Dachówką w niego!', 'Genteng ke arahnya!', 'Đá ngói vào hắn!', 'เตะกระเบื้องใส่!', 'उस पर खपरैल!', 'قرميدة نحوه!', '踢起石块砸他！', '踢起石塊砸他！', 'かわらを蹴りつけた！', '기와를 날렸다!'],
     'Slipped!': ['Kaydı!', '¡Resbaló!', 'Escorregou!', 'Поскользнулся!', 'Ausgerutscht!', 'Glissade !', 'Scivolato!', 'Poślizg!', 'Terpeleset!', 'Trượt chân!', 'ลื่น!', 'फिसल गया!', 'انزلق!', '滑倒！', '滑倒！', '滑った！', '미끄러짐!'],
     'A petal storm: hard to read his blade!': ['Yaprak fırtınası: kılıcını okumak zor!', 'Tormenta de pétalos: ¡difícil leer su espada!', 'Tempestade de pétalas: difícil ler a lâmina!', 'Буря лепестков: клинок не разглядеть!', 'Blütensturm: seine Klinge ist schwer zu lesen!', 'Tempête de pétales : sa lame est dure à lire !', 'Tempesta di petali: difficile leggere la lama!', 'Burza płatków: trudno dostrzec ostrze!', 'Badai kelopak: sulit membaca pedangnya!', 'Bão cánh hoa: khó đọc đường kiếm!', 'พายุกลีบดอก: อ่านดาบยาก!', 'पंखुड़ियों का तूफ़ान: तलवार पढ़ना मुश्किल!', 'عاصفة بتلات: يصعب قراءة سيفه!', '花瓣风暴：难以看清刀路！', '花瓣風暴：難以看清刀路！', '花吹雪：太刀筋が読めない！', '꽃잎 폭풍: 칼끝이 안 보인다!'],
   });

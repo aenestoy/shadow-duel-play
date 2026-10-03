@@ -524,6 +524,7 @@
 
     if (ND.scene && ND.scene.lightFighter) {
       const lf0 = ND.scene.lightFighter, HF = new WeakMap();
+      (ND.onLook || (ND.onLook = [])).push((f) => { HF.delete(f); });
       ND.scene.lightFighter = function (c, f) {
         if (!f || !f.dz) return lf0.apply(this, arguments);
         let h = HF.get(f); if (!h) HF.set(f, (h = { last: 0, n: 9 }));
