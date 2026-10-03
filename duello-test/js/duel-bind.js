@@ -63,7 +63,15 @@
   };
   D.bindPoint = function (f) { const c = f && f.dz && f.dz.cine; return c && c.ph === 'bind' && !c.done ? point(c) : null; };
   // the line the two bodies keep behind: the bind's contact point, through the strike that ends it too
-  D.gapPoint = function (f) { const c = f && f.dz && f.dz.cine; return c && !c.done && (f.state === 'dbind' || f.state === 'dcut') && c.def && c.att ? point(c) : null; };
+  // (and the normal fight's blade lock - js/game.js startLock - in a duel: its blades meet at the lock's middle; the heads
+  // were drawn pressed into each other there, 2026-10-03, Tora v Akane)
+  D.gapPoint = function (f) {
+    const c = f && f.dz && f.dz.cine;
+    if (c && !c.done && (f.state === 'dbind' || f.state === 'dcut') && c.def && c.att) return point(c);
+    const Lk = ND.game && ND.game.lock;
+    if (f && f.dz && f.state === 'lock' && Lk && (Lk.a === f || Lk.b === f)) return { x: Lk.mid + Lk.a.dir * (Lk.off || 0), y: -132 };
+    return null;
+  };
   // the hand-keyed drawing (js/depth25.js pose3d): the sword hand and blade to the bind geometry
   if (ND.depth25) ND.depth25.bindHand = D.bindGeom;
   // ... and its bodies keep a gap: the drawn pose (js/anim.js display pose, after duel-depth's grip and weight rules)
@@ -76,7 +84,7 @@
     const chest = P.hx + ux * L.torso * 0.75 + 19, head = P.hx + ux * L.torso + Math.sin(ha) * 15 + hr;
     return Math.max(chest, head);
   }
-  const HEADR = { kasa: 33, kabuto: 19, hood: 17, oni: 17 }; // (measured on the drawn heads: Kuro's straw hat is ~66 wide)
+  const HEADR = { kasa: 33, kabuto: 19, hood: 17, oni: 17, tora: 19, monk: 16 }; // (measured on the drawn heads: Kuro's straw hat is ~66 wide)
   D.headR = (f) => HEADR[f.ch.acc] || 15;
   if (ND.anim && ND.anim.preSolve) {
     const ps0 = ND.anim.preSolve;
@@ -85,7 +93,7 @@
       if (!f.dz || f.dead || !D0) return;
       const C = D.gapPoint(f);
       if (!C) return;
-      const dir = f.dir < 0 ? -1 : 1, room = (C.x - f.x) * dir - 12; // (a hat brim tilts forward with the head: room to spare)
+      const dir = f.dir < 0 ? -1 : 1, room = (C.x - f.x) * dir - 15; // (a hat brim tilts forward with the head: room to spare; the two faces about a head-width apart)
       for (let i = 0; i < 24 && frontOf(D0, f) > room; i++) {
         if (D0.hx > -10) D0.hx -= 1.5; else D0.lean -= 0.04;
       }

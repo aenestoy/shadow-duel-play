@@ -217,20 +217,21 @@
       const c = f.dz && f.dz.cine;
       if (!c || c.def !== f || c.ph !== 'bind') continue;
       // (the effects table, below: full size with ?fx=1, smaller by default, the player's only with ?fx=0)
-      const sc = D.fxMode === 'full' ? 1 : (D.FXS[D.fxMode] || {}).bindRing || 0;
-      if (!sc && !human(f)) continue;
-      const x = cam.sx(c.px), y = cam.sy(c.py), W = T.bindWin, mid = (W[0] + W[1]) / 2, kk = k * (sc || 0.6);
-      const r0 = 34 * kk, r = r0 + Math.max(0, mid - c.t) * 420 * kk - Math.max(0, c.t - mid) * 60 * kk;
+      // (2026-10-03: the ring showed in CPU-against-CPU fights too, ~1.5 fighters tall as it started - the owner wants
+      // moderate effects: only for a human defender - the one who presses - and never bigger than a chest)
+      if (!human(f)) { if (human(f.opp)) { const x = cam.sx(c.px), y = cam.sy(c.py); txt(ctx, 'BOUND!', x, y - 44 * k - 18 * u, 18 * u, '#ff9b7a'); } continue; }
+      const x = cam.sx(c.px), y = cam.sy(c.py), W = T.bindWin, mid = (W[0] + W[1]) / 2;
+      const r0 = 14 * k, r = r0 + Math.min(1, Math.max(0, (mid - c.t) / Math.max(0.05, mid))) * 14 * k - Math.max(0, c.t - mid) * 30 * k;
       const open = c.t >= W[0] && c.t <= W[1];
-      ctx.lineWidth = 3 * u; ctx.strokeStyle = 'rgba(255,255,255,.55)';
+      ctx.lineWidth = 2 * u; ctx.strokeStyle = 'rgba(255,255,255,.55)';
       ctx.beginPath(); ctx.arc(x, y, r0, 0, 6.283); ctx.stroke();
-      ctx.lineWidth = (open ? 6 : 4) * u; ctx.strokeStyle = open ? '#ffd27a' : '#ff9b7a';
+      ctx.lineWidth = (open ? 4 : 3) * u; ctx.strokeStyle = open ? '#ffd27a' : '#ff9b7a';
       ctx.beginPath(); ctx.arc(x, y, Math.max(4, r), 0, 6.283); ctx.stroke();
       if (human(f)) {
         const tch = !!(ND.touch && ND.touch.active), key = tch ? 'ATTACK' : f.id === 0 ? 'F' : 'K';
-        txt(ctx, 'STRIKE!', x, y - r0 - 30 * u, 26 * u, open ? '#ffd27a' : '#ece6d6');
-        txt(ctx, key, x, y + r0 + 22 * u, 15 * u, '#ffd27a');
-      } else if (human(f.opp)) txt(ctx, 'BOUND!', x, y - r0 - 30 * u, 22 * u, '#ff9b7a');
+        txt(ctx, 'STRIKE!', x, y - 28 * k - 18 * u, 20 * u, open ? '#ffd27a' : '#ece6d6');
+        txt(ctx, key, x, y + 28 * k + 16 * u, 13 * u, '#ffd27a');
+      }
     }
     // the coming cut's path (PATH toggle): from the wind-up tip through the strike to the follow-through
     if (S.path) for (const f of G.F) if (f.state === 'atk' && f.atk && f.atk.dz3 && f.atk.active && f.st < f.atk.active[1]) drawPath(ctx, f, k);

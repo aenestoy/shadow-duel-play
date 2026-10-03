@@ -77,6 +77,8 @@
     if (w !== undefined) t.kiWait = w;
     const dk = clamp(o.duelK, [0, 1]);
     if (dk !== undefined) t.duelK = dk;
+    const sp = clamp(o.duelSpeed, [0.7, 1]);
+    if (sp !== undefined) t.duelSpeed = sp;
     const ds = clamp(o.duelSoft, [0, 1]);
     if (ds !== undefined) t.duelSoft = ds;
     // (per ninja: {"duelKch": {"kage": 1, "yuki": 0.8}})
@@ -103,7 +105,7 @@
   // a clean tune (or null) → every number in force (defaults where the tune says nothing)
   function effective(t) {
     t = t || {};
-    const E = { levels: {}, apprenticePlusK: t.apprenticePlusK ?? DEF.apprenticePlusK, kiWait: t.kiWait ?? DEF.kiWait, duelK: t.duelK ?? DEF.duelK, duelSoft: t.duelSoft ?? DEF.duelSoft, duelKch: t.duelKch || null, duelK0ch: t.duelK0ch || null, duelDmg: t.duelDmg || null, journey: {} };
+    const E = { levels: {}, apprenticePlusK: t.apprenticePlusK ?? DEF.apprenticePlusK, kiWait: t.kiWait ?? DEF.kiWait, duelK: t.duelK ?? DEF.duelK, duelSoft: t.duelSoft ?? DEF.duelSoft, duelSpeed: t.duelSpeed ?? null, duelKch: t.duelKch || null, duelK0ch: t.duelK0ch || null, duelDmg: t.duelDmg || null, journey: {} };
     for (const l of LEVEL_KEYS) {
       const o = (t.levels && t.levels[l]) || {};
       E.levels[l] = Object.assign({}, DEF.levels[l], o, { tick: (o.tick || DEF.levels[l].tick).slice() });
@@ -123,7 +125,7 @@
       for (const f of Object.keys(FIELDS)) lv[f] = e[f];
       lv.tick[0] = e.tick[0]; lv.tick[1] = e.tick[1];
     }
-    K.apprenticePlusK = E.apprenticePlusK; K.kiWait = E.kiWait; K.duelK = E.duelK; K.duelSoft = E.duelSoft; if (!KCH0) KCH0 = Object.assign({}, K.duelKch || {}); K.duelKch = Object.assign({}, KCH0, E.duelKch || {});
+    K.apprenticePlusK = E.apprenticePlusK; K.kiWait = E.kiWait; K.duelK = E.duelK; K.duelSoft = E.duelSoft; if (E.duelSpeed != null) K.duelSpeed = E.duelSpeed; else delete K.duelSpeed; if (!KCH0) KCH0 = Object.assign({}, K.duelKch || {}); K.duelKch = Object.assign({}, KCH0, E.duelKch || {});
     if (!KDM0) KDM0 = Object.assign({}, K.duelDmg || {}); K.duelDmg = Object.assign({}, KDM0, E.duelDmg || {});
     if (!KK00) KK00 = Object.assign({}, K.duelK0ch || {}); K.duelK0ch = Object.assign({}, KK00, E.duelK0ch || {});
     if (ND.aiDerive) ND.aiDerive();

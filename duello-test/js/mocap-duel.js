@@ -360,6 +360,10 @@
     const t = f.st, W = a.hits && a.hits.length ? a.hits : [a.active];
     let best = 0;
     for (const [a0, a1] of W) { const k = clamp((t - (a0 - 0.08)) / 0.07, 0, 1) * clamp(1 - (t - a1) / 0.1, 0, 1); if (k > best) best = k; }
+    // (once the cut has landed - the other reels back from it, after the move's last hit window started - the blade is let
+    // go over 0.08 s and follows through with its own swing past the body (the blade-stop keeps it off it); held on its
+    // target it stayed level at the reeling defender's face for the rest of the window, 2026-10-03)
+    if (t >= W[W.length - 1][0] && (o.state === 'hurt' || o.state === 'stagger' || o.state === 'launch') && o.st > 0.04) best *= clamp(1 - (o.st - 0.04) / 0.08, 0, 1);
     return best * best * (3 - 2 * best);
   }
   function slideAt(f, s, rg, dir) {
@@ -478,7 +482,7 @@
     const rg = s.rig, P = rg.P, BG = D.gapPoint && D.gapPoint(f);
     let target = 0;
     if (BG && P) {
-      const dir = f.dir < 0 ? -1 : 1, room = (BG.x - f.x - (s.ox || 0)) * dir - 6; // (local forward distance to the contact line)
+      const dir = f.dir < 0 ? -1 : 1, room = (BG.x - f.x - (s.ox || 0)) * dir - 15; // (local forward distance to the contact line; 15: the two faces about a head-width apart - 6 left the heads pressed in a lock, 2026-10-03)
       // the front of the body as drawn last frame, before its lean, at the current lean
       const th0 = rg.lean || 0, cs = Math.cos(th0), sn = Math.sin(th0), h = P.hip;
       let front = -1e9, ht = 60;
@@ -536,6 +540,13 @@
     if (s.ox) { const bind = f.state === 'dbind' || (f.dz && f.dz.cine && !f.dz.cine.done); s.ox *= Math.exp(-Math.max(0, dt) / (bind ? 0.04 : 0.22)); if (Math.abs(s.ox) < 0.2) s.ox = 0; }
     rg.x = f.x + (s.ox || 0); rg.dir = f.dir < 0 ? -1 : 1; rg.vx = f.vx;
     rg.noSword = !isArmed(f); // (an empty hand: no blade drawn in it, none in the saya - through every cross-fade too)
+    // the duel's drawing hooks (js/duel.js): z.oneHand - a twin fighter disarmed of the sword hand's weapon keeps the left
+    // hand's; z.pickTwo - a pole picked up with both hands (the left hand onto the pole on the floor, then on it in hand)
+    rg.oneHand = f.dz && f.dz.armed === false ? f.dz.oneHand || null : null;
+    rg.pickTwo = !!(f.dz && f.dz.pickTwo);
+    { let to = null;
+      if (rg.pickTwo && f.dz.armed === false && D.swordOf) { const sw = D.swordOf(f); if (sw && sw.resting() && sw.bl) { const Pq = { x: 0, y: 0 }; sw.pt(-0.12 + 32 / sw.bl, Pq); to = [(Pq.x - rg.x) * rg.dir, Math.min(-3, Pq.y), rg.P ? rg.P.haL[2] : -6]; } }
+      rg.leftTo = to || rg.leftTo; rg.leftW = clamp((rg.leftW || 0) + (to ? 1 : -1) * Math.max(0, dt) / 0.12, 0, 1); if (!rg.leftW) rg.leftTo = null; }
     const d = direct(f, s, dt);
     if (!d) return null;
     // a recorded run / vault faces the way the body travels
@@ -600,6 +611,8 @@
   // bodies in an exchange be drawn half inside each other while the capsules still cleared, 2026-10-02)
   const BODY_MIN = 20, OX_MAX = 80, TORSO_R = 24;
   MD.TORSO_R = TORSO_R;
+  // (an armoured torso is drawn wider: Tetsu's kabuto set - the shoulder plates - 4 more either side)
+  MD.torsoOf = (acc) => (acc === 'kabuto' ? TORSO_R + 4 : TORSO_R);
   MD.sep = !(() => { try { return /[?&]sep=0(&|$)/.test(location.search || ''); } catch (e) { return false; } })(); // (?sep=0: off, to compare)
   const MOVERS = { down: 1, getup: 1, launch: 1 };
   function shapesOf(rg, dx) {
@@ -614,7 +627,7 @@
     const arm = (S) => [pj(P['el' + S]), pj(FS === S ? lerp(P['el' + S], P['ha' + S], 0.7) : P['ha' + S]), 6, 1];
     // (the head 14.5; a straw kasa's brim too: a band 54 wide over the head — two heads, a hat and a head, never pressed)
     const hd = pj(P.head), kasa = rg.look && rg.look.ch && rg.look.ch.acc === 'kasa';
-    return [[pj(P.hip), pj(P.neck), TORSO_R], [hd, null, 14.5], kasa ? [{ x: hd.x - 27, y: hd.y - 8 }, { x: hd.x + 27, y: hd.y - 8 }, 6] : null, [pj(P.hipR), pj(P.knR), 11], [pj(P.hipL), pj(P.knL), 11],
+    return [[pj(P.hip), pj(P.neck), MD.torsoOf(rg.look && rg.look.ch && rg.look.ch.acc)], [hd, null, 14.5], kasa ? [{ x: hd.x - 27, y: hd.y - 8 }, { x: hd.x + 27, y: hd.y - 8 }, 6] : null, [pj(P.hipR), pj(P.knR), 11], [pj(P.hipL), pj(P.knL), 11],
       arm('R'), arm('L'), [pj(P.knR), pj(P.ftR), 8.5, 1], [pj(P.knL), pj(P.ftL), 8.5, 1]].filter(Boolean);
   }
   function segDist(p, q, r, t) {
@@ -731,40 +744,48 @@
   const inBody = (B, x, y) => Math.max(16 - Math.hypot(x - B.hd.x, y - B.hd.y), 10 - segPt2(B.nk, B.hd, x, y)[0], TORSO_R - 4 - segPt2(B.hp, B.nk, x, y)[0]);
   function secondStop(f, s, o, so) {
     const rg = s.rig, P = rg.P, w = f.wpn;
-    if (!P || !w || !w.twin || !P.armed || P.inside || f.dead || o.dead || o.hidden || !so.rig.P || (f.dz && !f.dz.armed)) { rg.secA = 0; rg.secQ = 1; return; }
+    const kept = rg.oneHand === 'R' && w && w.twin;
+    if (!P || !w || !w.twin || (!kept && (!P.armed || P.inside || (f.dz && !f.dz.armed))) || f.dead || o.dead || o.hidden || !so.rig.P) { rg.secA = 0; rg.secQ = 1; rg.secO = 1; return; }
     const B = bodyOf(so), own = bodyOf(s), ownFront = Mo.bladeFront ? Mo.bladeFront(P, P.haL, [0, 0, 0], 0).T : true;
-    const a0 = rg.secA || 0, q0 = rg.secQ || 1;
-    rg.secA = 0; rg.secQ = 1;
+    const a0 = rg.secA || 0, q0 = rg.secQ || 1, o0 = rg.secO != null ? rg.secO : 1;
+    rg.secA = 0; rg.secQ = 1; rg.secO = 1;
     const base = Mo.secondLine(rg, w), towards = o.x > f.x ? 1 : -1;
-    // (an open fan: its two outer ribs too, the whole leaf between them is the fan)
-    const SPR = base.spread > 0.05 ? [0, -base.spread, base.spread, -base.spread / 2, base.spread / 2] : [0];
-    const pen = (a, q) => {
-      let m = -1e9; const L = base.L * q;
+    // (an open fan: its two outer ribs too, the whole leaf between them is the fan; it may also fold shut part way, op:
+    // a fan pressed against the other in a close exchange closes)
+    const sprOf = (op) => { const sp = Mo.fanSpread(Object.assign({}, rg, { secO: op }), w, 'B'); return sp > 0.05 ? [0, -sp, sp, -sp / 2, sp / 2] : [0]; };
+    const SPRS = { 1: sprOf(1), 0.5: sprOf(0.5), 0: [0] };
+    const pen = (a, q, op = 1) => {
+      let m = -1e9; const L = base.L * q, SPR = SPRS[op] || sprOf(op);
       for (const sp of SPR) for (let i = 0; i <= 12; i++) {
         const d = (L * i) / 12, x = base.h.x + Math.cos(base.ang + a + sp) * d, y = base.h.y + Math.sin(base.ang + a + sp) * d;
         m = Math.max(m, inBody(B, x, y));
-        if (ownFront && d > 10) m = Math.max(m, inBody(own, x, y) - 1);
+        // (its own body: along its middle line only - an open fan's leaf held over its own coat is its guard)
+        if (ownFront && d > 10 && !sp) m = Math.max(m, inBody(own, x, y) - 1);
       }
       return m;
     };
     // (at rest where the recorded hand puts it, when that is clear; eased back there from a turn)
     const p00 = pen(0, 1);
-    if (p00 <= 0 && Math.abs(a0) < 0.02 && q0 > 0.99) return;
-    let best = null;
-    for (const q of [1, 0.85, 0.7, 0.6]) for (let i = 0; i <= 31; i++) for (const sg of i ? [1, -1] : [1]) {
+    if (p00 <= 0 && Math.abs(a0) < 0.02 && q0 > 0.99 && o0 > 0.99) return;
+    const OPS = w.type === 'tessen' ? [1, 0.5, 0] : [1];
+    let best = null, least = null;
+    for (const op of OPS) for (const q of [1, 0.85, 0.7, 0.6]) for (let i = 0; i <= 31; i++) for (const sg of i ? [1, -1] : [1]) {
       const a = sg * i * 0.1;
       const tipx = Math.cos(base.ang + a) * towards;
-      const cost = Math.abs(a - a0) * 1.2 + Math.abs(a) * 0.4 + (1 - q) * 4 + (p00 > 0 ? Math.max(0, tipx) * 0.8 : 0);
+      const cost = Math.abs(a - a0) * 1.2 + Math.abs(a) * 0.4 + (1 - q) * 4 + (1 - op) * 3 + Math.abs(op - o0) * 0.5 + (p00 > 0 ? Math.max(0, tipx) * 0.8 : 0);
       if (best && cost >= best.cost) continue;
-      if (pen(a, q) > 0) continue;
-      best = { cost, a, q };
+      const pn = pen(a, q, op);
+      if (pn > 0) { if (!least || pn < least.pn - 0.5 || (pn < least.pn + 0.5 && cost < least.cost)) least = { pn, cost, a, q, op }; continue; }
+      best = { cost, a, q, op };
     }
-    if (!best) { rg.secA = a0; rg.secQ = q0; return; }
+    // (nothing clear in reach: the least deep of them, never left deeper than it was)
+    if (!best && least && least.pn < Math.max(p00, pen(a0, q0, o0))) best = least;
+    if (!best) { rg.secA = a0; rg.secQ = q0; rg.secO = o0; return; }
     // (eased like the blade-stop: toward the new turn over ~0.05 s, never through a pose that is in a body)
-    if (p00 <= 0 && pen(0, 1) <= 0 && best.cost > 0) best = { a: 0, q: 1 }; // (nothing to keep off: easing back to rest)
-    let A = best.a, Qq = best.q;
-    for (const k of [0.34, 0.5, 0.75]) { const a = a0 + (best.a - a0) * k, q = q0 + (best.q - q0) * k; if (pen(a, q) <= 0) { A = a; Qq = q; break; } }
-    rg.secA = A; rg.secQ = Qq;
+    if (p00 <= 0 && best.cost > 0) best = { a: 0, q: 1, op: 1 }; // (nothing to keep off: easing back to rest)
+    let A = best.a, Qq = best.q, Op = best.op;
+    for (const k of [0.34, 0.5, 0.75]) { const a = a0 + (best.a - a0) * k, q = q0 + (best.q - q0) * k, op = o0 + (best.op - o0) * k; if (pen(a, q, op) <= 0) { A = a; Qq = q; Op = op; break; } }
+    rg.secA = A; rg.secQ = Qq; rg.secO = Op;
     MD.stats.secondStop = (MD.stats.secondStop || 0) + 1;
   }
   function chainStop(f, s, o, so) {
@@ -834,8 +855,11 @@
       for (const sp of [-FSP, FSP, -FSP / 2, FSP / 2]) for (let i = 2; i <= 12; i++) { const d = (LL * i) / 12; m = Math.max(m, inBody(BB, h0.x + Math.cos(a0 + sp) * d, h0.y + Math.sin(a0 + sp) * d)); }
       return m;
     } : null;
+    // (RL: the other reels from a landed cut - the follow-through passes beside the body as drawn, 6 clear of the torso
+    // and shoulders, 10 of the head: the tip resting on a reeling shoulder read as the cut still in her, 2026-10-03)
+    const RL = o.state === 'hurt' || o.state === 'stagger' || o.state === 'launch';
     const pen = (h, u, NS0 = 24) => (penFan ? penFan(h, u, NS0) : pen1(h, u, NS0));
-    const pen1 = (h, u, NS0 = 24, rib) => { const NS = Math.ceil(NS0 * NSK); let m = -1e9, over = 0; if (!rib) penT = 1e9; const dl = (BL - SL - B0) / NS; for (let k = 0; k <= NS; k++) { const w = pj(madd(h, u, B0 + dl * k)), dh = Math.hypot(w.x - hd.x, w.y - hd.y), dn = neckD(w.x, w.y), dt = segD(w.x, w.y); penT = Math.min(penT, dt - TORSO_R); m = Math.max(m, HR - dh, NR - dn, TORSO_R - dt - give, 26 - Math.hypot(w.x - nk.x, w.y - nk.y)); if (dh < HR || dn < NR || dt < TORSO_R) over += dl; for (const [a, b, r] of LG) m = Math.max(m, r - segP(a, b, w.x, w.y)); m = Math.max(m, w.y + 1); } return Math.max(m, over - 10); };
+    const pen1 = (h, u, NS0 = 24, rib) => { const NS = Math.ceil(NS0 * NSK); let m = -1e9, over = 0; if (!rib) penT = 1e9; const dl = (BL - SL - B0) / NS; for (let k = 0; k <= NS; k++) { const w = pj(madd(h, u, B0 + dl * k)), dh = Math.hypot(w.x - hd.x, w.y - hd.y), dn = neckD(w.x, w.y), dt = segD(w.x, w.y); penT = Math.min(penT, dt - TORSO_R); m = Math.max(m, HR - dh, NR - dn, TORSO_R - dt - give, 26 - Math.hypot(w.x - nk.x, w.y - nk.y)); if (RL && B0 + dl * k > 30) m = Math.max(m, TORSO_R + 6 - dt, 24 - dh, 16 - dn); if (dh < HR || dn < (RL ? 14 : NR) || dt < TORSO_R + (RL ? 4 : 0)) over += dl; for (const [a, b, r] of LG) m = Math.max(m, r - segP(a, b, w.x, w.y)); m = Math.max(m, w.y + 1); } return Math.max(m, over - (RL ? 6 : 10)); };
     let h = P.blade.h, u = P.blade.u, p0 = pen(h, u);
     // (in a cut's own hit window a blade that misses her - more than 6 off the body - is brought ON to it as well: the hit
     // never shows with the blade away from her)
@@ -868,7 +892,7 @@
     // down to 0.6 of itself - so it lands ON the chest instead of being swung away from her: 30 per 0.1 of length)
     // (a frame's cost: a coarse pass - every other turn and hand step - then the neighbours of its best, cut off as soon as
     // nothing further can beat the best found; the full grid cost ~2 ms a frame on a phone, 2026-10-03)
-    const DQ = hitW > 0.01 ? [1, 0.85, 0.7] : [1], HB = new Map();
+    const DQ = hitW > 0.01 ? [1, 0.88, 0.78] : [1], HB = new Map(); // (never under 0.75 of its length: 0.7 read as a stub, 2026-10-03)
     const handAt = (back, up) => {
       const key = back * 1000 + up; if (HB.has(key)) return HB.get(key);
       let hb = madd(madd(h, away, back), [0, 1, 0], up); const dS = len(sub(hb, P.shR)), MXA = L.uArm + L.fArm - 0.5; // (where the arm can put it)
@@ -881,7 +905,7 @@
       if (best && back + Math.abs(up) * 2 + Math.abs(ang) * 25 + (1 - dq) * 300 >= best.cost) return;
       const hb = handAt(back, up); if (!hb) return;
       let uu = flat(hb, ang ? rot(u, ang) : u);
-      if (dq < 1) { const r = Math.hypot(uu[0], uu[1]) || 1, q = r * dq; uu = [uu[0] / r * q, uu[1] / r * q, (uu[2] < 0 ? -1 : 1) * Math.sqrt(Math.max(0, 1 - q * q))]; if (Mo.bladeDrawn(hb, uu, BL) < 0.6) return; }
+      if (dq < 1) { const r = Math.hypot(uu[0], uu[1]) || 1, q = r * dq; uu = [uu[0] / r * q, uu[1] / r * q, (uu[2] < 0 ? -1 : 1) * Math.sqrt(Math.max(0, 1 - q * q))]; if (Mo.bladeDrawn(hb, uu, BL) < 0.76) return; }
       // (and near last frame's turn: a blade held off the body keeps to one side of it, never flipping over from frame to frame)
       let cost = back + Math.abs(up) * 2 + Math.abs(ang) * 25 + (1 - dq) * 300 + (pv && hitW <= 0.01 ? Math.abs(ang - pv.ang) * 30 + Math.abs(back - pv.back) * 0.5 : 0);
       if (best && cost >= best.cost) return;
@@ -919,14 +943,31 @@
     const tgt = { ang: best.ang, back: best.back, up: best.up || 0, dq: best.dq || 1 };
     const from = ap ? (ap.clk === now ? ap.prev : ap.cur) : { ang: 0, back: 0, up: 0, dq: 1 };
     const onTop = (() => { const g = ND.game, F2 = g && g.F; if (!F2) return true; const sw = F2[0].dead ? false : F2[1].dead ? true : F2[0].state === 'atk' && F2[1].state !== 'atk'; return f === (sw ? F2[0] : F2[1]); })();
+    // (once the other reels from the landed cut, the blade crossing in front of the chest is no longer the cut: an eased
+    // pose that lies along the torso or the shoulders as drawn (4 wider, the neck 14) - more than 6 of it - is not taken either, 2026-10-03: Kuro's follow-through
+    // stayed across Mai's chest for several frames while it eased between two solutions)
+    const reeling = o.state === 'hurt' || o.state === 'stagger' || o.state === 'launch';
     const throughOk = (hb, uu) => {
+      let ov = 0; const dl = (BL - 10) / 16;
+      // (a pole's butt end behind the hands: never through a head or neck either)
+      if (B0 < 0) for (let k = 0; k <= 6; k++) { const w = pj(madd(hb, uu, B0 + (10 - B0) * k / 6)); if (15 - Math.hypot(w.x - hd.x, w.y - hd.y) > 0 || 9 - neckD(w.x, w.y) > 0) return false; }
       for (let k = 0; k <= 16; k++) {
-        const w = pj(madd(hb, uu, 10 + ((BL - 10) * k) / 16));
+        const w = pj(madd(hb, uu, 10 + dl * k));
+        if (segD(w.x, w.y) < TORSO_R + (reeling ? 4 : 0) || (reeling && neckD(w.x, w.y) < 14)) { ov += dl; if (reeling && ov > 6) return false; }
         if (15 - Math.hypot(w.x - hd.x, w.y - hd.y) > 0 || 9 - neckD(w.x, w.y) > 0) return false;
         if (!(hitW > 0.01 && onTop) && TORSO_R - 5 - segD(w.x, w.y) > 0) return false;
         // (never into the floor; through the legs only as a cut crossing in front of them in its hit frames)
         if (w.y > -2) return false;
         if (!(hitW > 0.01 && onTop)) for (const [a2, b2, r2] of LG) if (r2 + 1 - segP(a2, b2, w.x, w.y) > 0) return false;
+      }
+      // (an open fan's outer ribs too, measured in the picture as drawn)
+      if (BB) {
+        const h0 = pj(hb), t0 = pj(madd(hb, uu, BLf)), a0 = Math.atan2(t0.y - h0.y, t0.x - h0.x), LL = BLf * (h0.s || 1);
+        for (const sp of [-FSP, FSP, -FSP / 2, FSP / 2]) for (let i = 2; i <= 12; i++) {
+          const d = (LL * i) / 12, x = h0.x + Math.cos(a0 + sp) * d, y = h0.y + Math.sin(a0 + sp) * d;
+          if (16 - Math.hypot(x - hd.x, y - hd.y) > 0 || 10 - neckD(x, y) > 0) return false;
+          if (!(hitW > 0.01 && onTop) && TORSO_R - 4 - segD(x, y) > 0) return false;
+        }
       }
       return true;
     };
