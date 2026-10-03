@@ -19,7 +19,6 @@
 
 
 
-
 (function (ND) {
   'use strict';
   const doc = document, $ = (id) => doc.getElementById(id);
@@ -511,8 +510,12 @@
   function gesture(f, tp, dt) {
     const g = f._ndG, M = f._ndMenu;
 
-    if (M && M.anchor && f.P && f.P.stance) { tp.sw = f.P.stance.sw; anchor(tp, f.P.stance); }
-    if (!g) { idle(f); return 0; }
+
+
+    const st = !f.pvPose && f.P && f.P.stance;
+    if (st) { tp.hy = st.hy + (tp.hy - st.hy) * 0.7; tp.ay = st.ay; tp.sw = st.sw; }
+    if (M && M.anchor && st) anchor(tp, st);
+    if (!g) return 0;
     if (f.pvPose) { stop(f); return 0; }
     const K = G8[g.name], P = f.P || ND.POSES, end = K[K.length - 1][0];
     g.u += dt;
@@ -538,22 +541,8 @@
     return 16;
   }
 
-  function idle(f) {
-    if (f.pvPose || f._ndNoIdle || level() === 'off') return;
-    const t = now(), still = f.ch && f.ch.id === 'kuro';
-    if (!f._ndNext) { f._ndNext = t + (still ? 5000 : 3200) + Math.random() * 4000; return; }
-    if (t < f._ndNext) return;
-    f._ndNext = 0;
-    const name = flourishOf(f);
-    play(f, name);
 
-    const o = f._ndPal;
-    if (o && Math.random() < 0.45 && (name === 'bow' || name === 'kata' || name === 'flick' || name === 'edge' || name === 'hat')) {
-      const reply = name === 'bow' ? 'bow' : 'nod';
-      o._ndNext = t + 99999;
-      setTimeout(() => { o._ndNext = 0; if (!o._ndG && !o.pvPose) play(o, reply); }, moveLength(name) * 1000 * 0.7 + 200);
-    }
-  }
+
 
 
   function hookGame(g) {
@@ -573,13 +562,12 @@
         if (!rdy && f._ndG && f._ndG.hold) stop(f);
       }
     });
-
-    wrap('openSelect', function () { const pv = this.pv; if (!pv) return; pv.forEach((f, i) => { if (f) { stop(f); setTimeout(() => { if (this.phase === 'select' && !f._ndG) play(f, 'pick'); }, 260 + i * 280); } }); });
+    wrap('openSelect', function () { const pv = this.pv; if (pv) pv.forEach(stop); });
     wrap('confirm', function (i) { const f = this.pv && this.pv[i]; if (f && this.sel && this.sel.ready[i]) play(f, 'ready', { hold: true }); });
     wrap('showStage', function (phase) {
       const pv = this.pv; if (!pv) return;
       pv.forEach(stop);
-      if (phase === 'vs') { setTimeout(() => { if (this.phase === 'vs') play(pv[0], 'ready'); }, 300); setTimeout(() => { if (this.phase === 'vs') play(pv[1], 'nod'); }, 850); }
+      if (phase === 'vs') { setTimeout(() => { if (this.phase === 'vs') play(pv[0], 'ready'); }, 300); }
     });
   }
 
@@ -590,7 +578,7 @@
   function makeFig(id, ci, dir, host) {
     const o = { id, f: null, ci, look: false, c: null, host, dir, ox: 0.5 };
     const c = o.c = doc.createElement('canvas'); c.className = 'nd-fig'; c.hidden = true; c.setAttribute('aria-hidden', 'true');
-    c.addEventListener('click', () => { if (o.f && !o.f._ndG) play(o.f, flourishOf(o.f)); });
+    c.addEventListener('click', () => { if (o.f && !o.f._ndG) { play(o.f, flourishOf(o.f)); o.still = false; } });
     o.c.__o = o;
     host.insertBefore(c, host.firstChild);
     return o;
@@ -609,7 +597,7 @@
     if (!o.f) return;
     const key = ch.id + '|' + look;
     if (o.key === key) return;
-    o.key = key; o.f.setChar(ch, look); menu(o.f, true); o.f.reset(0); o.f.dir = o.dir; o.f._ndG = null;
+    o.key = key; o.f.setChar(ch, look); menu(o.f, true); o.f.reset(0); o.f.dir = o.dir; o.f._ndG = null; o.still = false; o.settle = 1; o.pic = null;
   }
   function ensureFigs() {
     if (figs || !ND.Fighter || !ND.CHARS || !G()) return figs;
@@ -622,7 +610,7 @@
     if (ro) { ro.observe(first); ro.observe($('menu')); }
 
 
-    card.addEventListener('click', (e) => { if (M.on && M.f && hitFig(M, e.clientX, e.clientY)) { e.preventDefault(); e.stopImmediatePropagation(); if (!M.f._ndG) play(M.f, flourishOf(M.f)); } }, true);
+    card.addEventListener('click', (e) => { if (M.on && M.f && hitFig(M, e.clientX, e.clientY)) { e.preventDefault(); e.stopImmediatePropagation(); if (!M.f._ndG) { play(M.f, flourishOf(M.f)); M.still = false; } } }, true);
     return figs;
   }
 
@@ -636,13 +624,20 @@
   function extentOf(ci, excl) {
     const ch = ND.CHARS[ci] || ND.CHARS[0], key = ch.id + (excl ? '|m' : '|a');
     if (extCache[key]) return extCache[key];
-    const g = G(), f = new ND.Fighter(6, new ND.Ctrl());
-    f.fullDetail = true; f.setChar(ch, false); menu(f, true); f.reset(0); f.dir = 1; f._ndNoIdle = true;
-    let up = 0, fw = 0, bk = 0, t = 0;
-    const meas = () => { for (const k of PTS) { const q = f.j[k]; if (!q) continue; const r = k === 'head' ? 30 : k === 'haF' || k === 'haB' ? 24 : 6; up = Math.max(up, -q.y + r); fw = Math.max(fw, q.x + r); bk = Math.max(bk, -q.x + r); } };
-    const step = () => { g.stepPv(f, 1 / 15, (t += 1 / 15)); meas(); };
-    for (let i = 0; i < 20; i++) step();
-    for (const n of [...new Set(movesOf(f))]) { if (excl && excl[n]) continue; play(f, n); for (let i = 0; i < moveLength(n) * 15 + 12; i++) step(); }
+
+
+    const f = new ND.Fighter(6, new ND.Ctrl());
+    f.setChar(ch, false); menu(f, true); f.reset(0); f.dir = 1;
+    const j = {}, idlePose = ND.pose.copy(f.P.stance, {}), tp = {};
+    let up = 0, fw = 0, bk = 0;
+    const meas = () => { ND.solve(tp, 0, 0, 1, j, f.wpn); for (const k of PTS) { const q = j[k]; if (!q) continue; const r = k === 'head' ? 30 : k === 'haF' || k === 'haB' ? 24 : 6; up = Math.max(up, -q.y + r); fw = Math.max(fw, q.x + r); bk = Math.max(bk, -q.x + r); } };
+    ND.pose.copy(idlePose, tp); meas();
+    for (const n of [...new Set(movesOf(f))]) {
+      if (excl && excl[n]) continue;
+      ND.pose.copy(idlePose, f.pose); play(f, n);
+      for (let i = 0; f._ndG && i < 200; i++) { ND.pose.copy(idlePose, tp); gesture(f, tp, 1 / 20); meas(); }
+    }
+    up *= 1.04; fw *= 1.06; bk *= 1.06;
     bk += 22; fw += 8;
     const e = { up: up + 6, fw, bk, asp: (fw + bk) / ((up + 6) / 0.95) };
     extCache[key] = e;
@@ -728,18 +723,37 @@
     if (doc.hidden) { setTimeout(figRun, 500); return; }
 
 
+
     const low = level() === 'low', g = G();
 
     const covered = COVER.some((id) => { const e = $(id); return e && !e.hidden; });
     for (const o of [figs.L, figs.R, figs.M]) {
       if (!o.on) continue;
-      if (covered || !o.last || now() - o.born < 600) { o.last = t; continue; }
-      if (t - o.last < (o.f._ndG ? (low ? 48 : 38) : 120)) continue;
+      if (covered || !o.last) { o.last = t; continue; }
+      const live = !!o.f._ndG || !o.still || (o.settle || 0) > 0;
+      if (t - o.last < (live ? (low ? 48 : 38) : 120)) continue;
       const dt = Math.min(0.1, (t - o.last) / 1000); o.last = t; o.t = (o.t || 0) + dt;
-      g.stepPv(o.f, dt, o.t + o.f.id * 1.3);
-      draw(o);
+      if (live) {
+
+
+        for (let r = dt, tt = o.t - dt; r > 1e-6; ) { const h = Math.min(1 / 60, r); r -= h; tt += h; g.stepPv(o.f, h, tt + o.f.id * 1.3); }
+        if (o.f._ndG) o.settle = 0.6; else o.settle = Math.max(0, (o.settle || 0) - dt);
+        draw(o); o.pic = null;
+        if (!o.f._ndG && !o.settle) o.still = true;
+      } else breathe(o);
     }
     figRaf = requestAnimationFrame(figFrame);
+  }
+
+  function breathe(o) {
+    const c = o.c, pc = c.__pv2d; if (!pc || !c.width) return;
+    const r = c.getBoundingClientRect(), dpr = Math.min((G() && G().dprCap) || 2, window.devicePixelRatio || 1, level() === 'low' ? 1 : 1.25);
+    if (Math.abs(Math.round(r.width * dpr) - c.width) > 1 || Math.abs(Math.round(r.height * dpr) - c.height) > 1) { o.still = false; o.settle = 0.2; return; }
+    if (!o.pic || o.pic.width !== c.width || o.pic.height !== c.height) { const k = o.pic && o.pic.width === c.width && o.pic.height === c.height ? o.pic : doc.createElement('canvas'); k.width = c.width; k.height = c.height; k.getContext('2d').drawImage(c, 0, 0); o.pic = k; }
+    const s = 1 + 0.004 * Math.sin((o.t + o.f.id * 1.3) * 1.9), H = c.height, fy = H * 0.95;
+    pc.setTransform(1, 0, 0, 1, 0, 0); pc.clearRect(0, 0, c.width, H);
+    pc.setTransform(1, 0, 0, s, 0, fy * (1 - s)); pc.drawImage(o.pic, 0, 0);
+    pc.setTransform(1, 0, 0, 1, 0, 0);
   }
 
 
