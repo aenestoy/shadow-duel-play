@@ -360,6 +360,10 @@
     const t = f.st, W = a.hits && a.hits.length ? a.hits : [a.active];
     let best = 0;
     for (const [a0, a1] of W) { const k = clamp((t - (a0 - 0.08)) / 0.07, 0, 1) * clamp(1 - (t - a1) / 0.1, 0, 1); if (k > best) best = k; }
+    // (once the cut has landed - the other reels back from it, after the move's last hit window started - the blade is let
+    // go over 0.08 s and follows through with its own swing past the body (the blade-stop keeps it off it); held on its
+    // target it stayed level at the reeling defender's face for the rest of the window, 2026-10-03)
+    if (t >= W[W.length - 1][0] && (o.state === 'hurt' || o.state === 'stagger' || o.state === 'launch') && o.st > 0.04) best *= clamp(1 - (o.st - 0.04) / 0.08, 0, 1);
     return best * best * (3 - 2 * best);
   }
   function slideAt(f, s, rg, dir) {
@@ -607,6 +611,8 @@
   // bodies in an exchange be drawn half inside each other while the capsules still cleared, 2026-10-02)
   const BODY_MIN = 20, OX_MAX = 80, TORSO_R = 24;
   MD.TORSO_R = TORSO_R;
+  // (an armoured torso is drawn wider: Tetsu's kabuto set - the shoulder plates - 4 more either side)
+  MD.torsoOf = (acc) => (acc === 'kabuto' ? TORSO_R + 4 : TORSO_R);
   MD.sep = !(() => { try { return /[?&]sep=0(&|$)/.test(location.search || ''); } catch (e) { return false; } })(); // (?sep=0: off, to compare)
   const MOVERS = { down: 1, getup: 1, launch: 1 };
   function shapesOf(rg, dx) {
@@ -621,7 +627,7 @@
     const arm = (S) => [pj(P['el' + S]), pj(FS === S ? lerp(P['el' + S], P['ha' + S], 0.7) : P['ha' + S]), 6, 1];
     // (the head 14.5; a straw kasa's brim too: a band 54 wide over the head — two heads, a hat and a head, never pressed)
     const hd = pj(P.head), kasa = rg.look && rg.look.ch && rg.look.ch.acc === 'kasa';
-    return [[pj(P.hip), pj(P.neck), TORSO_R], [hd, null, 14.5], kasa ? [{ x: hd.x - 27, y: hd.y - 8 }, { x: hd.x + 27, y: hd.y - 8 }, 6] : null, [pj(P.hipR), pj(P.knR), 11], [pj(P.hipL), pj(P.knL), 11],
+    return [[pj(P.hip), pj(P.neck), MD.torsoOf(rg.look && rg.look.ch && rg.look.ch.acc)], [hd, null, 14.5], kasa ? [{ x: hd.x - 27, y: hd.y - 8 }, { x: hd.x + 27, y: hd.y - 8 }, 6] : null, [pj(P.hipR), pj(P.knR), 11], [pj(P.hipL), pj(P.knL), 11],
       arm('R'), arm('L'), [pj(P.knR), pj(P.ftR), 8.5, 1], [pj(P.knL), pj(P.ftL), 8.5, 1]].filter(Boolean);
   }
   function segDist(p, q, r, t) {
@@ -849,8 +855,11 @@
       for (const sp of [-FSP, FSP, -FSP / 2, FSP / 2]) for (let i = 2; i <= 12; i++) { const d = (LL * i) / 12; m = Math.max(m, inBody(BB, h0.x + Math.cos(a0 + sp) * d, h0.y + Math.sin(a0 + sp) * d)); }
       return m;
     } : null;
+    // (RL: the other reels from a landed cut - the follow-through passes beside the body as drawn, 6 clear of the torso
+    // and shoulders, 10 of the head: the tip resting on a reeling shoulder read as the cut still in her, 2026-10-03)
+    const RL = o.state === 'hurt' || o.state === 'stagger' || o.state === 'launch';
     const pen = (h, u, NS0 = 24) => (penFan ? penFan(h, u, NS0) : pen1(h, u, NS0));
-    const pen1 = (h, u, NS0 = 24, rib) => { const NS = Math.ceil(NS0 * NSK); let m = -1e9, over = 0; if (!rib) penT = 1e9; const dl = (BL - SL - B0) / NS; for (let k = 0; k <= NS; k++) { const w = pj(madd(h, u, B0 + dl * k)), dh = Math.hypot(w.x - hd.x, w.y - hd.y), dn = neckD(w.x, w.y), dt = segD(w.x, w.y); penT = Math.min(penT, dt - TORSO_R); m = Math.max(m, HR - dh, NR - dn, TORSO_R - dt - give, 26 - Math.hypot(w.x - nk.x, w.y - nk.y)); if (dh < HR || dn < NR || dt < TORSO_R) over += dl; for (const [a, b, r] of LG) m = Math.max(m, r - segP(a, b, w.x, w.y)); m = Math.max(m, w.y + 1); } return Math.max(m, over - 10); };
+    const pen1 = (h, u, NS0 = 24, rib) => { const NS = Math.ceil(NS0 * NSK); let m = -1e9, over = 0; if (!rib) penT = 1e9; const dl = (BL - SL - B0) / NS; for (let k = 0; k <= NS; k++) { const w = pj(madd(h, u, B0 + dl * k)), dh = Math.hypot(w.x - hd.x, w.y - hd.y), dn = neckD(w.x, w.y), dt = segD(w.x, w.y); penT = Math.min(penT, dt - TORSO_R); m = Math.max(m, HR - dh, NR - dn, TORSO_R - dt - give, 26 - Math.hypot(w.x - nk.x, w.y - nk.y)); if (RL && B0 + dl * k > 30) m = Math.max(m, TORSO_R + 6 - dt, 24 - dh, 16 - dn); if (dh < HR || dn < (RL ? 14 : NR) || dt < TORSO_R + (RL ? 4 : 0)) over += dl; for (const [a, b, r] of LG) m = Math.max(m, r - segP(a, b, w.x, w.y)); m = Math.max(m, w.y + 1); } return Math.max(m, over - (RL ? 6 : 10)); };
     let h = P.blade.h, u = P.blade.u, p0 = pen(h, u);
     // (in a cut's own hit window a blade that misses her - more than 6 off the body - is brought ON to it as well: the hit
     // never shows with the blade away from her)
@@ -934,9 +943,15 @@
     const tgt = { ang: best.ang, back: best.back, up: best.up || 0, dq: best.dq || 1 };
     const from = ap ? (ap.clk === now ? ap.prev : ap.cur) : { ang: 0, back: 0, up: 0, dq: 1 };
     const onTop = (() => { const g = ND.game, F2 = g && g.F; if (!F2) return true; const sw = F2[0].dead ? false : F2[1].dead ? true : F2[0].state === 'atk' && F2[1].state !== 'atk'; return f === (sw ? F2[0] : F2[1]); })();
+    // (once the other reels from the landed cut, the blade crossing in front of the chest is no longer the cut: an eased
+    // pose that lies along the torso or the shoulders as drawn (4 wider, the neck 14) - more than 6 of it - is not taken either, 2026-10-03: Kuro's follow-through
+    // stayed across Mai's chest for several frames while it eased between two solutions)
+    const reeling = o.state === 'hurt' || o.state === 'stagger' || o.state === 'launch';
     const throughOk = (hb, uu) => {
+      let ov = 0; const dl = (BL - 10) / 16;
       for (let k = 0; k <= 16; k++) {
-        const w = pj(madd(hb, uu, 10 + ((BL - 10) * k) / 16));
+        const w = pj(madd(hb, uu, 10 + dl * k));
+        if (segD(w.x, w.y) < TORSO_R + (reeling ? 4 : 0) || (reeling && neckD(w.x, w.y) < 14)) { ov += dl; if (reeling && ov > 6) return false; }
         if (15 - Math.hypot(w.x - hd.x, w.y - hd.y) > 0 || 9 - neckD(w.x, w.y) > 0) return false;
         if (!(hitW > 0.01 && onTop) && TORSO_R - 5 - segD(w.x, w.y) > 0) return false;
         // (never into the floor; through the legs only as a cut crossing in front of them in its hit frames)

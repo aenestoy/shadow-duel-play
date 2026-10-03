@@ -7,3 +7,4 @@
 2026-10-03 16:44  5172d0cb  mocap: Mai's fans and Tora's chain kept off heads, necks and torsos (eased); a twin disarm keeps the left weapon; pole pickup with both hands
 2026-10-03 16:58  d3042ecd  WIP 7: no more half-length / cut-off katana (light look and full look); includes the mocap agent's Mai/Tora fixes
 2026-10-03 17:07  d12889b9  WIP 8: the duel runs one notch slower (speed 0.9; compare with ?speed=1 or ?speed=0.85)
+2026-10-03 17:33  416d630d  WIP 9: all 13 ninjas in the duel (Mai, Tora added); speed 0.9 here (?speed=1 to compare)

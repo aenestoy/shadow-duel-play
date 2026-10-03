@@ -37,7 +37,9 @@
   // (2026-10-03: Tetsu's naginata, Jin's bō and Tsubame's bow + tantō in - drawing, determinism, 32-match stability and
   // CPU difficulty checked; then Hana's twin tantō (no blade through a head or neck, none behind a torso, 16 drawn matches
   // clean); Mai's fans and Tora's chain wait: 2-14 frames through a head or neck a run)
-  const ROSTER_LIST = ND.DUEL_ROSTER = ['akane', 'aoi', 'kuro', 'yuki', 'ren', 'kage', 'shura', 'tetsu', 'jin', 'tsubame', 'hana'];
+  // (and Mai's fans and Tora's chain: no weapon through a head or neck, none behind a torso, no overlap, 2026-10-03 -
+  // all 13 champions now fight the duel)
+  const ROSTER_LIST = ND.DUEL_ROSTER = ['akane', 'aoi', 'kuro', 'yuki', 'ren', 'kage', 'shura', 'tetsu', 'jin', 'tsubame', 'hana', 'mai', 'tora'];
   const ROSTER = {};
   { const q = (/[?&]duelroster=([a-z,]+)/.exec(location.search || '') || [])[1]; for (const id of q ? q.split(',') : ROSTER_LIST) ROSTER[id] = 1; }
   // WHERE: the single-player fights (a match vs the CPU, the journey and its tourney / dan / rival runs, training) and
