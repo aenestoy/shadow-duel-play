@@ -536,6 +536,13 @@
     if (s.ox) { const bind = f.state === 'dbind' || (f.dz && f.dz.cine && !f.dz.cine.done); s.ox *= Math.exp(-Math.max(0, dt) / (bind ? 0.04 : 0.22)); if (Math.abs(s.ox) < 0.2) s.ox = 0; }
     rg.x = f.x + (s.ox || 0); rg.dir = f.dir < 0 ? -1 : 1; rg.vx = f.vx;
     rg.noSword = !isArmed(f); // (an empty hand: no blade drawn in it, none in the saya - through every cross-fade too)
+    // the duel's drawing hooks (js/duel.js): z.oneHand - a twin fighter disarmed of the sword hand's weapon keeps the left
+    // hand's; z.pickTwo - a pole picked up with both hands (the left hand onto the pole on the floor, then on it in hand)
+    rg.oneHand = f.dz && f.dz.armed === false ? f.dz.oneHand || null : null;
+    rg.pickTwo = !!(f.dz && f.dz.pickTwo);
+    { let to = null;
+      if (rg.pickTwo && f.dz.armed === false && D.swordOf) { const sw = D.swordOf(f); if (sw && sw.resting() && sw.bl) { const Pq = { x: 0, y: 0 }; sw.pt(-0.12 + 32 / sw.bl, Pq); to = [(Pq.x - rg.x) * rg.dir, Math.min(-3, Pq.y), rg.P ? rg.P.haL[2] : -6]; } }
+      rg.leftTo = to || rg.leftTo; rg.leftW = clamp((rg.leftW || 0) + (to ? 1 : -1) * Math.max(0, dt) / 0.12, 0, 1); if (!rg.leftW) rg.leftTo = null; }
     const d = direct(f, s, dt);
     if (!d) return null;
     // a recorded run / vault faces the way the body travels
@@ -731,40 +738,48 @@
   const inBody = (B, x, y) => Math.max(16 - Math.hypot(x - B.hd.x, y - B.hd.y), 10 - segPt2(B.nk, B.hd, x, y)[0], TORSO_R - 4 - segPt2(B.hp, B.nk, x, y)[0]);
   function secondStop(f, s, o, so) {
     const rg = s.rig, P = rg.P, w = f.wpn;
-    if (!P || !w || !w.twin || !P.armed || P.inside || f.dead || o.dead || o.hidden || !so.rig.P || (f.dz && !f.dz.armed)) { rg.secA = 0; rg.secQ = 1; return; }
+    const kept = rg.oneHand === 'R' && w && w.twin;
+    if (!P || !w || !w.twin || (!kept && (!P.armed || P.inside || (f.dz && !f.dz.armed))) || f.dead || o.dead || o.hidden || !so.rig.P) { rg.secA = 0; rg.secQ = 1; rg.secO = 1; return; }
     const B = bodyOf(so), own = bodyOf(s), ownFront = Mo.bladeFront ? Mo.bladeFront(P, P.haL, [0, 0, 0], 0).T : true;
-    const a0 = rg.secA || 0, q0 = rg.secQ || 1;
-    rg.secA = 0; rg.secQ = 1;
+    const a0 = rg.secA || 0, q0 = rg.secQ || 1, o0 = rg.secO != null ? rg.secO : 1;
+    rg.secA = 0; rg.secQ = 1; rg.secO = 1;
     const base = Mo.secondLine(rg, w), towards = o.x > f.x ? 1 : -1;
-    // (an open fan: its two outer ribs too, the whole leaf between them is the fan)
-    const SPR = base.spread > 0.05 ? [0, -base.spread, base.spread, -base.spread / 2, base.spread / 2] : [0];
-    const pen = (a, q) => {
-      let m = -1e9; const L = base.L * q;
+    // (an open fan: its two outer ribs too, the whole leaf between them is the fan; it may also fold shut part way, op:
+    // a fan pressed against the other in a close exchange closes)
+    const sprOf = (op) => { const sp = Mo.fanSpread(Object.assign({}, rg, { secO: op }), w, 'B'); return sp > 0.05 ? [0, -sp, sp, -sp / 2, sp / 2] : [0]; };
+    const SPRS = { 1: sprOf(1), 0.5: sprOf(0.5), 0: [0] };
+    const pen = (a, q, op = 1) => {
+      let m = -1e9; const L = base.L * q, SPR = SPRS[op] || sprOf(op);
       for (const sp of SPR) for (let i = 0; i <= 12; i++) {
         const d = (L * i) / 12, x = base.h.x + Math.cos(base.ang + a + sp) * d, y = base.h.y + Math.sin(base.ang + a + sp) * d;
         m = Math.max(m, inBody(B, x, y));
-        if (ownFront && d > 10) m = Math.max(m, inBody(own, x, y) - 1);
+        // (its own body: along its middle line only - an open fan's leaf held over its own coat is its guard)
+        if (ownFront && d > 10 && !sp) m = Math.max(m, inBody(own, x, y) - 1);
       }
       return m;
     };
     // (at rest where the recorded hand puts it, when that is clear; eased back there from a turn)
     const p00 = pen(0, 1);
-    if (p00 <= 0 && Math.abs(a0) < 0.02 && q0 > 0.99) return;
-    let best = null;
-    for (const q of [1, 0.85, 0.7, 0.6]) for (let i = 0; i <= 31; i++) for (const sg of i ? [1, -1] : [1]) {
+    if (p00 <= 0 && Math.abs(a0) < 0.02 && q0 > 0.99 && o0 > 0.99) return;
+    const OPS = w.type === 'tessen' ? [1, 0.5, 0] : [1];
+    let best = null, least = null;
+    for (const op of OPS) for (const q of [1, 0.85, 0.7, 0.6]) for (let i = 0; i <= 31; i++) for (const sg of i ? [1, -1] : [1]) {
       const a = sg * i * 0.1;
       const tipx = Math.cos(base.ang + a) * towards;
-      const cost = Math.abs(a - a0) * 1.2 + Math.abs(a) * 0.4 + (1 - q) * 4 + (p00 > 0 ? Math.max(0, tipx) * 0.8 : 0);
+      const cost = Math.abs(a - a0) * 1.2 + Math.abs(a) * 0.4 + (1 - q) * 4 + (1 - op) * 3 + Math.abs(op - o0) * 0.5 + (p00 > 0 ? Math.max(0, tipx) * 0.8 : 0);
       if (best && cost >= best.cost) continue;
-      if (pen(a, q) > 0) continue;
-      best = { cost, a, q };
+      const pn = pen(a, q, op);
+      if (pn > 0) { if (!least || pn < least.pn - 0.5 || (pn < least.pn + 0.5 && cost < least.cost)) least = { pn, cost, a, q, op }; continue; }
+      best = { cost, a, q, op };
     }
-    if (!best) { rg.secA = a0; rg.secQ = q0; return; }
+    // (nothing clear in reach: the least deep of them, never left deeper than it was)
+    if (!best && least && least.pn < Math.max(p00, pen(a0, q0, o0))) best = least;
+    if (!best) { rg.secA = a0; rg.secQ = q0; rg.secO = o0; return; }
     // (eased like the blade-stop: toward the new turn over ~0.05 s, never through a pose that is in a body)
-    if (p00 <= 0 && pen(0, 1) <= 0 && best.cost > 0) best = { a: 0, q: 1 }; // (nothing to keep off: easing back to rest)
-    let A = best.a, Qq = best.q;
-    for (const k of [0.34, 0.5, 0.75]) { const a = a0 + (best.a - a0) * k, q = q0 + (best.q - q0) * k; if (pen(a, q) <= 0) { A = a; Qq = q; break; } }
-    rg.secA = A; rg.secQ = Qq;
+    if (p00 <= 0 && best.cost > 0) best = { a: 0, q: 1, op: 1 }; // (nothing to keep off: easing back to rest)
+    let A = best.a, Qq = best.q, Op = best.op;
+    for (const k of [0.34, 0.5, 0.75]) { const a = a0 + (best.a - a0) * k, q = q0 + (best.q - q0) * k, op = o0 + (best.op - o0) * k; if (pen(a, q, op) <= 0) { A = a; Qq = q; Op = op; break; } }
+    rg.secA = A; rg.secQ = Qq; rg.secO = Op;
     MD.stats.secondStop = (MD.stats.secondStop || 0) + 1;
   }
   function chainStop(f, s, o, so) {
@@ -927,6 +942,15 @@
         // (never into the floor; through the legs only as a cut crossing in front of them in its hit frames)
         if (w.y > -2) return false;
         if (!(hitW > 0.01 && onTop)) for (const [a2, b2, r2] of LG) if (r2 + 1 - segP(a2, b2, w.x, w.y) > 0) return false;
+      }
+      // (an open fan's outer ribs too, measured in the picture as drawn)
+      if (BB) {
+        const h0 = pj(hb), t0 = pj(madd(hb, uu, BLf)), a0 = Math.atan2(t0.y - h0.y, t0.x - h0.x), LL = BLf * (h0.s || 1);
+        for (const sp of [-FSP, FSP, -FSP / 2, FSP / 2]) for (let i = 2; i <= 12; i++) {
+          const d = (LL * i) / 12, x = h0.x + Math.cos(a0 + sp) * d, y = h0.y + Math.sin(a0 + sp) * d;
+          if (16 - Math.hypot(x - hd.x, y - hd.y) > 0 || 10 - neckD(x, y) > 0) return false;
+          if (!(hitW > 0.01 && onTop) && TORSO_R - 4 - segD(x, y) > 0) return false;
+        }
       }
       return true;
     };

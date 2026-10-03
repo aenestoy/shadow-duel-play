@@ -4,3 +4,4 @@
 2026-10-03 16:02  f3efdb76  WIP 4: bind ring only for you (not CPU v CPU), chest-sized
 2026-10-03 16:08  3240f207  WIP 5: light look (slow phones, ?lite=1) - no blade through heads/necks, bodies kept apart
 2026-10-03 16:37  e22c2b13  WIP 6: CPU difficulty re-tuned for all 11 duel ninjas (Tetsu and Jin slightly tougher on Apprentice)
+2026-10-03 16:44  5172d0cb  mocap: Mai's fans and Tora's chain kept off heads, necks and torsos (eased); a twin disarm keeps the left weapon; pole pickup with both hands

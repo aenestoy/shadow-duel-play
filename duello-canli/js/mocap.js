@@ -356,7 +356,8 @@
       if (this.gripFix) {
         // (handle and saya mouth both weighted, so the hand travels from one to the other as the clips cross-fade)
         let tgt = null, w = 0;
-        const wT = F.armed && F.tw > 0.02 && !P.inside && twoHanded(this.look.wpn || L) ? F.tw : 0, wS = F.sw > 0.02 ? F.sw : 0;
+        // (a pole being picked up - the duel's z.pickTwo, js/mocap-duel.js rg.pickTwo: both hands on it as soon as it is in hand)
+        const wT = F.armed && !P.inside && twoHanded(this.look.wpn || L) ? (this.pickTwo && Mo.isPole(this.look.wpn) ? 1 : F.tw > 0.02 ? F.tw : 0) : 0, wS = F.sw > 0.02 ? F.sw : 0;
         if (wT > 0 || wS > 0) {
           const tT = madd(P.blade.h, P.blade.u, -gripGap(this.look.wpn || L)), tS = madd(A, s, 3);
           tgt = wS <= 0 ? tT : wT <= 0 ? tS : lerp(tT, tS, wS / (wT + wS)); w = Math.min(1, Math.max(wT, wS));
@@ -367,6 +368,11 @@
           P.elL = r.m; P.haL = r.e;
           P.gripL = wT;
         } else P.gripL = 0;
+      }
+      // (the left hand reaching for a point the duel gives - a pole on the floor, taken with both hands: rg.leftTo, local)
+      if (this.leftTo && this.leftW > 0.01) {
+        const T = lerp(P.haL, this.leftTo, this.leftW), pole = sub(P.elL, lerp(P.shL, P.haL, 0.5)), r = ik3(P.shL, T, L.uArm, L.fArm, pole);
+        P.elL = r.m; P.haL = r.e; F.fistL = 1;
       }
       P.fistR = !!F.fistR || P.armed; P.fistL = !!F.fistL;
       // (after the arm IK above: the wrist sits behind the fist along the hand's own direction)
@@ -885,7 +891,7 @@
   };
   // an open fan's half angle either side of its line (js/skeleton.js drawTessen: (0.14 + open * 2.35) / 2): 'F' the fan in
   // the sword hand (look.j.wFan), 'B' the second one (wFanB); 0 for any other weapon
-  Mo.fanSpread = (rg, wpn, w) => { if (!wpn || wpn.type !== 'tessen') return 0; const j = (rg.look && rg.look.j) || {}, o = (w === 'B' ? j.wFanB : j.wFan) || 0; return o < 0.06 ? 0 : (0.14 + o * 2.35) / 2; };
+  Mo.fanSpread = (rg, wpn, w) => { if (!wpn || wpn.type !== 'tessen') return 0; const j = (rg.look && rg.look.j) || {}, o = (w === 'B' ? (j.wFanB || 0) * (rg.secO != null ? rg.secO : 1) : j.wFan) || 0; return o < 0.06 ? 0 : (0.14 + o * 2.35) / 2; };
   const KATANA_T = { katana: 1, nodachi: 1, kodachi: 1, ninjato: 1 };
   const isKatana = (w) => !w || !w.type || (KATANA_T[w.type] && !w.twin);
   Mo.isKatana = isKatana;
@@ -940,7 +946,7 @@
       if (!front) { // the back hand counts as on the handle when it is within 6 of the handle line
         JA.haF = j[haK]; // (handInfo measures from haF to the tip)
       }
-    } else if (side === 'L' && P.armed && rg && rg.look && rg.look.wpn && (rg.look.wpn.twin || rg.look.wpn.type === 'kusarigama' || rg.look.wpn.type === 'yumi')) {
+    } else if (side === 'L' && (P.armed || (rg && rg.oneHand === 'R')) && rg && rg.look && rg.look.wpn && (rg.look.wpn.twin || rg.look.wpn.type === 'kusarigama' || rg.look.wpn.type === 'yumi')) {
       // (the left hand holds the second tantō / fan, the chain or the bow's string: a fist along the forearm)
       const el = j[front ? 'elF' : 'elB'], ha = j[haK];
       JA.hasSword = false; JA.fist = true; JA.tip = { x: ha.x + (ha.x - el.x) * 2, y: ha.y + (ha.y - el.y) * 2 };
@@ -1072,10 +1078,12 @@
     };
     // the second weapon in the left hand (twin tantō: reverse grip along the forearm; tessen: the second fan beyond it)
     const second = () => {
-      if (!P.armed || P.inside || !(wpn.twin) || (Mo.noWeapon && Mo.noWeapon(rg))) return;
+      // (after a one-hand disarm - the duel's z.oneHand 'R': the sword hand's one is on the floor - the left hand's stays)
+      const kept = rg.oneHand === 'R' && wpn.twin;
+      if (!kept && (!P.armed || P.inside || !(wpn.twin) || (Mo.noWeapon && Mo.noWeapon(rg)))) return;
       const S2 = Mo.secondLine(rg, wpn), h = S2.h, sk = h.s;
       ctx.save(); ctx.translate(h.x, h.y); ctx.scale(sk, sk); ctx.translate(-h.x, -h.y);
-      if (wpn.type === 'tessen') K.drawTessen(ctx, h.x, h.y, S2.ang, c, fj.wFanB || 0, wpn.blade * 0.94 * S2.q, sgn, 0);
+      if (wpn.type === 'tessen') K.drawTessen(ctx, h.x, h.y, S2.ang, c, (fj.wFanB || 0) * (rg.secO != null ? rg.secO : 1), wpn.blade * 0.94 * S2.q, sgn, 0);
       else { if (S2.q < 0.995) { ctx.translate(h.x, h.y); ctx.rotate(S2.ang); ctx.scale(S2.q, 1); ctx.rotate(-S2.ang); ctx.translate(-h.x, -h.y); } K.drawSword(ctx, h.x, h.y, S2.ang, c, 0, wpn); }
       ctx.restore();
     };
@@ -1083,6 +1091,7 @@
     const chain = () => { if (wpn.type === 'kusarigama' && rg.chain && rg.chain.init && P.armed && !(Mo.noWeapon && Mo.noWeapon(rg))) ND.Chain.prototype.draw.call(rg.chain, ctx, c.accent); };
     const katana = isKatana(wpn) ? () => { A3.drawKatana3(ctx, fo, S, prA, c, 0); } : () => { weapon2d(); chain(); };
     if (wpn.twin) { const armL = items.find((i) => i.arm === 'L'); const fL = armL.f; armL.f = () => { second(); fL(); }; }
+    if (rg.oneHand === 'R' && wpn.twin) AJ.oneHand = true;
     const armR = items.find((i) => i.arm === 'R');
     const kSide = (zk >= zT) === (armR.z >= zT);
     if (P.armed && kSide) { const f0 = armR.f; armR.f = () => { drawTrail(ctx, rg, armR.z >= zT); katana(); f0(); }; }
