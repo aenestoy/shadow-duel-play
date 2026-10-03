@@ -361,7 +361,7 @@
 
 
 
-  const KICK_ON0 = Object.freeze({ akane: 1, aoi: 1, kuro: 1, yuki: 1, hana: 1, tetsu: 1, ren: 1 }), KICK_ON = Object.assign({}, KICK_ON0);
+  const KICK_ON0 = Object.freeze({ akane: 1, aoi: 1, kuro: 1, yuki: 1, hana: 1, tetsu: 1, ren: 1, kage: 1, tora: 1, jin: 1 }), KICK_ON = Object.assign({}, KICK_ON0);
   { const q = (/[?&]kicks=([a-z,]+|all|0)(&|$)/.exec(location.search || '') || [])[1]; if (q === '0') for (const k of Object.keys(KICK_ON)) delete KICK_ON[k]; else if (q === 'all') for (const id of Object.keys(D.ROSTER)) KICK_ON[id] = 1; else if (q) for (const id of q.split(',')) KICK_ON[id] = 1; }
   D.KICK_ON = KICK_ON;
   const kOn = (id) => (ND.game && ND.game.mode === 'online' ? KICK_ON0 : KICK_ON)[id];
@@ -485,7 +485,7 @@
   sig('jn_tenbin', 'jin', [[0.08, 'jn_tbA', es], [0.15, 'jn_tbB', eq], [0.21, 'jn_tbA', es], [0.29, 'jn_tbC', eq], [0.38, 'jn_tbC'], [0.64, 'jn_stance', ei]],
     { hits: [[0.12, 0.18], [0.26, 0.33]], active: [0.12, 0.18], dmg: 5, post: 18, kb: 180, stun: 0.42, knockLast: true, lastHit: { dmg: 8, kb: 460 }, lunge: [0.06, 0.3, 240],
       spin: [0.17, 0.26, 1], z3: KZ([[0.08, 0.3, 0.3, 1, 1], [0.15, -0.3, -0.3, 1, 1], [0.29, 0.2, 0.1, 1, 1]], 0.64) },
-    'Tenbin-geri (staff on the shoulders, low and high spinning kicks)');
+    'Tenbin-geri (staff held overhead, a low kick then a high one)');
 
   P('mi_omA', K({ hx: 0, hy: -86, lean: 0.0, hd: 0.0, ax: 40, ay: -30, sw: -1.0, gx: -30, gy: -30, f1x: 20, f2x: -22 }));
   P('mi_omB', K({ hx: -10, hy: -86, lean: -0.42, hd: 0.1, ax: 36, ay: -26, sw: -1.1, gx: -24, gy: -30, f1x: 84, f1y: -104, f2x: -18 }));
