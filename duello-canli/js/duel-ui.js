@@ -406,6 +406,7 @@
     };
     const mark = (s) => { Q.until = Math.max(Q.until, (ND.simClock || 0) + (s || 0.6)); };
     const duel = () => !!(G.F && G.F[0] && G.F[0].dz);
+    const SL = D.slashMarks = []; // (slash marks at a landed cut, js/duel-ui.js impact)
     D.quietDefence = quiet;
     D.clearQuietLabel = () => { Q.label = null; };
     const fx = ND.fx, ring0 = fx.ring, flash0 = fx.flash, spark0 = fx.spark, text1 = fx.text;
@@ -536,9 +537,13 @@
     }
     // flashes and rings never bigger than ~1.5 heads / a body's width; ink and blood a small burst at the hit point
     const fl1 = fx.flash, rg1 = fx.ring;
-    fx.flash = function (x, y, ang, size, col) { if (!duel()) return fl1.apply(this, arguments); return fl1.call(this, x, y, ang, Math.min(size == null ? 60 : size, 36), col); };
-    fx.ring = function (x, y, col, size) { if (!duel()) return rg1.apply(this, arguments); return rg1.call(this, x, y, col, Math.min(size == null ? 90 : size, 70)); };
-    if (fx.blood) { const bl0 = fx.blood; fx.blood = function (x, y, dx, dy, n, power) { if (!duel()) return bl0.apply(this, arguments); return bl0.call(this, x, y, dx, dy, Math.max(3, Math.round((n == null ? 18 : n) * 0.35)), (power == null ? 1 : power) * 0.55); }; }
+    // (2026-10-03, the owner: "put back a bit more hit effect" - moderate, by hit type: a landed heavy / counter / finisher
+    // flashes up to 48 (the old fight ~60), a light one 36; rings only on those big hits; blood 60 % of the old count,
+    // full power only on the big ones)
+    const big = () => !!(D.hitCur && D.hitCur.big), inHit = () => !!D.hitCur;
+    fx.flash = function (x, y, ang, size, col) { if (!duel()) return fl1.apply(this, arguments); return fl1.call(this, x, y, ang, Math.min(size == null ? 60 : size, big() ? 48 : 36), col); };
+    fx.ring = function (x, y, col, size) { if (!duel()) return rg1.apply(this, arguments); if (inHit() && !big()) return; return rg1.call(this, x, y, col, Math.min(size == null ? 90 : size, 70)); };
+    if (fx.blood) { const bl0 = fx.blood; fx.blood = function (x, y, dx, dy, n, power) { if (!duel()) return bl0.apply(this, arguments); return bl0.call(this, x, y, dx, dy, Math.max(3, Math.round((n == null ? 18 : n) * (inHit() ? 0.6 : 0.35))), (power == null ? 1 : power) * (big() ? 1 : 0.55)); }; }
     // a technique's own arcs and glows (js/specials.js: the crescent swept round a counter, a special's white ball …):
     // smaller and shorter, a glow under ~1.5 heads
     if (ND.specialFx) {
@@ -546,6 +551,14 @@
       ND.specialFx.add = function (o) {
         // (a swept crescent of a counter or a cut lay over the attacker's face and front, 2026-10-03: in the duel there is
         // none outside a special - the blade, its spark and its trail tell the cut)
+        // (2026-10-03, the owner wanted a little more: a counter's or the finisher's crescent comes back, small and short)
+        const ctrF = o && o.f && o.f.state === 'atk' && o.f.atk && (o.f.atk.counter || o.f.atkName === 'finisher');
+        if (o && o.draw && o.span != null && duel() && !special() && ctrF) {
+          o.r = Math.min(o.r || 0, 30); if (o.w) o.w = Math.min(o.w, 6); if (o.life) o.life = Math.min(o.life, 0.18);
+          const dim = (c) => (typeof c === 'string' && /^\d+,\d+,\d+$/.test(c) ? c.split(',').map((v) => Math.round(+v * 0.6)).join(',') : c);
+          o.col = dim(o.col); o.core = dim(o.core);
+          return add0.call(this, o);
+        }
         if (o && o.draw && o.span != null && duel() && !special()) { o.t = o.life || 1; return o; }
         if (o && o.draw && duel() && (quiet() || special())) {
           if (!X.special && quiet()) { o.t = 0; return o; }
@@ -607,6 +620,25 @@
         if (R.age > 1.6) Q.corner = null;
         else txt(ctx, R.s, cam.W - 18 * u, cam.H * 0.22, 13 * u, R.col, 'right', R.age < 1.3 ? 1 : (1.6 - R.age) / 0.3);
       }
+      // (the short slash mark where a cut lands, kept inside the struck body's torso as drawn: never across another body)
+      for (let i = SL.length - 1; i >= 0; i--) {
+        const m = SL[i]; m.age += dt;
+        if (m.age > m.life || !G.F || !G.F[0].dz) { SL.splice(i, 1); continue; }
+        const sn = ND.depth25 && ND.depth25.snap ? ND.depth25.snap(m.def, {}) : null;
+        if (!sn || !sn.hip || !sn.neck) continue;
+        const kk = cam.k, a = 1 - m.age / m.life, hx = cam.sx(sn.hip.x), hy = cam.sy(sn.hip.y), nx = cam.sx(sn.neck.x), ny = cam.sy(sn.neck.y), R = 27 * kk;
+        ctx.save();
+        ctx.beginPath(); ctx.lineCap = 'round'; ctx.lineWidth = 2 * R; ctx.moveTo(hx, hy); ctx.lineTo(nx, ny);
+        { const ang2 = Math.atan2(ny - hy, nx - hx), px = Math.cos(ang2 + Math.PI / 2) * R, py = Math.sin(ang2 + Math.PI / 2) * R; ctx.beginPath(); ctx.arc(hx, hy, R, ang2 + Math.PI / 2, ang2 - Math.PI / 2); ctx.lineTo(nx - px, ny - py); ctx.arc(nx, ny, R, ang2 - Math.PI / 2, ang2 + Math.PI / 2); ctx.closePath(); }
+        ctx.clip();
+        const cx = cam.sx(m.x), cy = cam.sy(m.y), L = m.len * kk * (0.75 + 0.25 * Math.min(1, m.age / 0.04)), ux = Math.cos(m.ang), uy = Math.sin(m.ang), bend = 0.18 * L;
+        ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = a; ctx.lineCap = 'round';
+        for (const [w, col] of [[m.w * 2.2, 'rgba(255,214,160,0.35)'], [m.w, 'rgba(255,250,236,1)']]) {
+          ctx.strokeStyle = col; ctx.lineWidth = w * kk; ctx.beginPath(); ctx.moveTo(cx - ux * L / 2, cy - uy * L / 2);
+          ctx.quadraticCurveTo(cx - uy * bend, cy + ux * bend, cx + ux * L / 2, cy + uy * L / 2); ctx.stroke();
+        }
+        ctx.restore();
+      }
       const k = cam.k * X.contact;
       for (let i = Q.flashes.length - 1; i >= 0; i--) {
         const f = Q.flashes[i];
@@ -637,6 +669,7 @@
       if (!(from && from.dz && this.dz && a)) return th.apply(this, arguments); // (the stop is fight state: the same in a re-simulation)
       const prev = cur;
       cur = { base: raw, big: !!(a.counter || a.crush || a.special || a.knock || a.launch || BIG.test(from.atkName || '')) };
+      D.hitCur = cur;
       const hp0 = this.hp;
       try { return th.apply(this, arguments); } finally {
         const landed = this.hp < hp0 && this.state !== 'block' && this.state !== 'parry' && this.state !== 'guard';
@@ -646,8 +679,16 @@
           const sn = ND.depth25 && ND.depth25.snap ? ND.depth25.snap(this, {}) : null;
           if (sn && sn.hip && sn.neck && a.kind === 'blade') { const tw = from.x < this.x ? -1 : 1; sx = sn.hip.x + (sn.neck.x - sn.hip.x) * 0.58 + tw * 18; sy = sn.hip.y + (sn.neck.y - sn.hip.y) * 0.58; }
           if (sx != null && sy != null) fxi.spark(sx, sy, from.dir, cur.big ? 9 : 6, cur.big ? 1.25 : 1, '255,250,235');
+          // (a short slash mark along the cut, on the struck body: lights 30 long and thin, the big ones 46 and bolder)
+          const J = from.viewJ ? from.viewJ() : from.j;
+          if (a.kind === 'blade' && sx != null && J && J.haF && J.tip && D.slashMarks) {
+            D.slashMarks.push({ def: this, x: sx - (from.x < this.x ? -1 : 1) * 6, y: sy, ang: Math.atan2(J.tip.y - J.haF.y, J.tip.x - J.haF.x), len: cur.big ? 46 : 30, w: cur.big ? 3.2 : 2, life: cur.big ? 0.16 : 0.11, age: 0 });
+            if (D.slashMarks.length > 4) D.slashMarks.shift();
+          }
+          // (a small ring only on the big hits)
+          if (cur.big && fxi.ring) fxi.ring(sx, sy, '255,240,215', 44);
         }
-        cur = prev;
+        cur = prev; D.hitCur = prev;
       }
     };
     G.hitstop = function (t) {

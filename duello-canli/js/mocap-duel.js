@@ -924,6 +924,9 @@
         const w = pj(madd(hb, uu, 10 + ((BL - 10) * k) / 16));
         if (15 - Math.hypot(w.x - hd.x, w.y - hd.y) > 0 || 9 - neckD(w.x, w.y) > 0) return false;
         if (!(hitW > 0.01 && onTop) && TORSO_R - 5 - segD(w.x, w.y) > 0) return false;
+        // (never into the floor; through the legs only as a cut crossing in front of them in its hit frames)
+        if (w.y > -2) return false;
+        if (!(hitW > 0.01 && onTop)) for (const [a2, b2, r2] of LG) if (r2 + 1 - segP(a2, b2, w.x, w.y) > 0) return false;
       }
       return true;
     };
