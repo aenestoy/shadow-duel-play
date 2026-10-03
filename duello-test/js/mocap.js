@@ -356,9 +356,9 @@
       if (this.gripFix) {
         // (handle and saya mouth both weighted, so the hand travels from one to the other as the clips cross-fade)
         let tgt = null, w = 0;
-        const wT = F.armed && F.tw > 0.02 && !P.inside ? F.tw : 0, wS = F.sw > 0.02 ? F.sw : 0;
+        const wT = F.armed && F.tw > 0.02 && !P.inside && twoHanded(this.look.wpn || L) ? F.tw : 0, wS = F.sw > 0.02 ? F.sw : 0;
         if (wT > 0 || wS > 0) {
-          const tT = madd(P.blade.h, P.blade.u, -Math.max(GRIP2, ((this.look.wpn || L).handle || 24) - 5)), tS = madd(A, s, 3);
+          const tT = madd(P.blade.h, P.blade.u, -gripGap(this.look.wpn || L)), tS = madd(A, s, 3);
           tgt = wS <= 0 ? tT : wT <= 0 ? tS : lerp(tT, tS, wS / (wT + wS)); w = Math.min(1, Math.max(wT, wS));
         }
         if (tgt) {
@@ -728,7 +728,7 @@
           const a = sgn * i * 0.05, cost = Math.abs(a) + (q - qq) * 2 + Math.abs(a - pa) * 0.5;
           if (best && cost >= best.cost) continue;
           const v = fit(qq, a);
-          if (Mo.bladeDrawn(b.h, v, BL) < 0.6) continue; // (never drawn under 0.6 of its length)
+          if (Mo.bladeDrawn(b.h, v, BL) < 0.62) continue; // (never drawn under 0.6 of its length)
           const pn = Mo.selfPen(P, b.h, v, BL);
           if (pn <= 0) best = { cost, v, a }; else if (!least || pn < least.pn) least = { pn, v, a };
         }
@@ -869,6 +869,20 @@
   // depth25's helpers take {x, y, z} points and a projector pr(p, zN)
   const o3 = (a) => ({ x: a[0], y: a[1], z: a[2] });
   const J2 = (q) => ({ x: q.x, y: q.y });
+  // ------------------------------------------------------------ the champions' own weapons (js/characters.js type)
+  // A katana (and the nodachi, kodachi, ninjatō) is the 3D katana (js/depth25.js). Every other weapon is drawn with the
+  // normal game's own art (js/skeleton.js drawSword: the naginata, the bō, the kusarigama, the tessen, the yumi and its
+  // tantō, the twin tantō), laid along the recorded blade's direction as the picture shows it, at the hand's depth
+  // scale. The left hand: on the pole for the naginata and the bō (two hands along it), on the handle for a sword; free
+  // for the twin weapons (the second tantō / fan in it), the kusarigama (the chain) and the bow (the string).
+  const KATANA_T = { katana: 1, nodachi: 1, kodachi: 1, ninjato: 1 };
+  const isKatana = (w) => !w || !w.type || (KATANA_T[w.type] && !w.twin);
+  Mo.isKatana = isKatana;
+  const POLE_T = { naginata: 1, bo: 1 };
+  Mo.isPole = (w) => !!(w && POLE_T[w.type]);
+  function twoHanded(w) { return isKatana(w) || !!(w && POLE_T[w.type]); }
+  // (the two hands on a pole: shoulder width apart along it)
+  function gripGap(w) { return w && w.type === 'bo' ? 30 : w && w.type === 'naginata' ? 34 : Math.max(GRIP2, ((w && w.handle) || 24) - 5); }
 
   // 2D joints for the drawn parts: which arm / leg is the near one is decided by depth
   function joints2d(rg, P, pr) {
@@ -915,6 +929,10 @@
       if (!front) { // the back hand counts as on the handle when it is within 6 of the handle line
         JA.haF = j[haK]; // (handInfo measures from haF to the tip)
       }
+    } else if (side === 'L' && P.armed && rg && rg.look && rg.look.wpn && (rg.look.wpn.twin || rg.look.wpn.type === 'kusarigama' || rg.look.wpn.type === 'yumi')) {
+      // (the left hand holds the second tantō / fan, the chain or the bow's string: a fist along the forearm)
+      const el = j[front ? 'elF' : 'elB'], ha = j[haK];
+      JA.hasSword = false; JA.fist = true; JA.tip = { x: ha.x + (ha.x - el.x) * 2, y: ha.y + (ha.y - el.y) * 2 };
     } else if (fist || (side === 'L' && P.gripL > 0.5)) {
       // a fist pointing along the forearm
       const el = j[front ? 'elF' : 'elB'], ha = j[haK];
@@ -1025,7 +1043,35 @@
     items.push({ z: zArm('L'), f: armItem('L'), arm: 'L' });
     // the katana is drawn just under the hand that holds it, unless the blade is on the other side of the body
     const zk = P.armed ? zz(bladeMid) : P.saya.a[2];
-    const katana = () => { A3.drawKatana3(ctx, fo, S, prA, c, 0); };
+    const fj = (look && look.j) || {}, sgn = rg.dir < 0 ? -1 : 1;
+    // the champion's own weapon in the sword hand (not a katana): the normal game's art along the drawn blade
+    const weapon2d = () => {
+      if (Mo.noWeapon && Mo.noWeapon(rg)) return;
+      const hS = madd(P.blade.h, P.blade.u, -(rg.poleSlide || 0)); // (a pole slid back through the hands: rg.poleSlide, js/mocap-duel.js)
+      const h0 = pr(hS), t0 = pr(madd(hS, P.blade.u, wpn.blade)), dx = t0.x - h0.x, dy = t0.y - h0.y, dl = Math.hypot(dx, dy) || 1;
+      // (fs: the share of its length the picture shows - the drawing is squeezed along the weapon by it, as the 3D katana is)
+      const ang = Math.atan2(dy, dx), fs = clamp(dl / (wpn.blade * h0.s), 0.2, 1), sk = h0.s;
+      const hL = pr(P.haL), tp = { x: h0.x + (dx / dl) * 30 * sk, y: h0.y + (dy / dl) * 30 * sk };
+      const jw = { dir: sgn, wFs: 0, wFan: fj.wFan || 0, wFanB: fj.wFanB || 0, wBow: fj.wBow || 0, wDraw: fj.wDraw || 0, wArrow: fj.wArrow || 0, wCharge: fj.wCharge || 0, wAmmo: fj.wAmmo,
+        haF: { x: h0.x, y: h0.y }, haB: { x: hL.x, y: hL.y }, tip: tp, hasSword: true };
+      ctx.save(); ctx.translate(h0.x, h0.y); ctx.scale(sk, sk); if (fs < 0.995 && !(wpn.type === 'yumi' && jw.wBow > 0.5)) { ctx.rotate(ang); ctx.scale(fs, 1); ctx.rotate(-ang); } ctx.translate(-h0.x, -h0.y);
+      if (wpn.type === 'yumi' && jw.wBow > 0.5) { jw.haB = { x: h0.x + (hL.x - h0.x) / sk, y: h0.y + (hL.y - h0.y) / sk }; jw.tip = { x: h0.x + (dx / dl) * 30, y: h0.y + (dy / dl) * 30 }; }
+      K.drawSword(ctx, h0.x, h0.y, ang, c, 0, wpn, undefined, jw);
+      ctx.restore();
+    };
+    // the second weapon in the left hand (twin tantō: reverse grip along the forearm; tessen: the second fan beyond it)
+    const second = () => {
+      if (!P.armed || P.inside || !(wpn.twin) || (Mo.noWeapon && Mo.noWeapon(rg))) return;
+      const e = pr(P.elL), h = pr(P.haL), sk = h.s;
+      ctx.save(); ctx.translate(h.x, h.y); ctx.scale(sk, sk); ctx.translate(-h.x, -h.y);
+      if (wpn.type === 'tessen') K.drawTessen(ctx, h.x, h.y, Math.atan2(h.y - e.y, h.x - e.x) - sgn * 0.3, c, fj.wFanB || 0, wpn.blade * 0.94, sgn, 0);
+      else K.drawSword(ctx, h.x, h.y, Math.atan2(e.y - h.y, e.x - h.x) + sgn * 0.25, c, 0, wpn);
+      ctx.restore();
+    };
+    // the kusarigama's chain: from the sickle's butt to the weight (rg.chain, js/mocap-duel.js)
+    const chain = () => { if (wpn.type === 'kusarigama' && rg.chain && rg.chain.init && P.armed && !(Mo.noWeapon && Mo.noWeapon(rg))) ND.Chain.prototype.draw.call(rg.chain, ctx, c.accent); };
+    const katana = isKatana(wpn) ? () => { A3.drawKatana3(ctx, fo, S, prA, c, 0); } : () => { weapon2d(); chain(); };
+    if (wpn.twin) { const armL = items.find((i) => i.arm === 'L'); const fL = armL.f; armL.f = () => { second(); fL(); }; }
     const armR = items.find((i) => i.arm === 'R');
     const kSide = (zk >= zT) === (armR.z >= zT);
     if (P.armed && kSide) { const f0 = armR.f; armR.f = () => { drawTrail(ctx, rg, armR.z >= zT); katana(); f0(); }; }
@@ -1049,7 +1095,8 @@
       if (j.chest) { j.wideC = 1 + 0.3 * Math.abs(sC); j.wideP = 1 + 0.3 * Math.abs(sP); }
       K.torsoFrame(j);
       // (a long blade worn on the back keeps the drawing's own scabbard, as depth25 does)
-      if (!wpn.iai && K.saya && wpn.type !== 'naginata' && wpn.type !== 'bo' && wpn.type !== 'tessen' && wpn.type !== 'kusarigama') K.saya(ctx, j, c, D0, wpn);
+      if (wpn.type === 'yumi' && K.quiverBack) { j.wAmmo = fj.wAmmo; K.quiverBack(ctx, j, c, D0); } // (the archer's quiver on the back, as the normal fight)
+      else if (!wpn.iai && K.saya && wpn.type !== 'naginata' && wpn.type !== 'bo' && wpn.type !== 'tessen' && wpn.type !== 'kusarigama') K.saya(ctx, j, c, D0, wpn);
       if (X.ropes) for (const r of X.ropes) r.rope.draw(ctx, r.col, r.w, 'rgba(255,255,255,.07)');
       if (CO) ND.costumeLayer(CO, 'back', ctx, j);
       const TF = K.TF;

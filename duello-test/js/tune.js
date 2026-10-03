@@ -3,7 +3,7 @@
 // The CPU level numbers (ND.AI_LEVELS 0–3, ai.js), Apprentice+'s place between Apprentice and Usta (k), the CPU's KI
 // wait and the journey ladder (ND.JOURNEY.ladder, journey.js) can be changed without a new build: a small JSON of
 // overrides, every part optional, e.g.
-//   {"v":1,"levels":{"1":{"parry":0.35}},"apprenticePlusK":0.4,"kiWait":6,"duelK":0.5,
+//   {"v":1,"levels":{"1":{"parry":0.35}},"apprenticePlusK":0.4,"kiWait":6,"duelK":0.5,"duelSoft":0.5,
 //    "journey":{"levels":[0,0,0,1,1,2,2,3],"ai":[null,0.5,0.5,null,null,null,null,null],"hp":[0,0,0,0,0,0,1.15,0]}}
 // Where it comes from:
 //   - the plain build (CrazyGames, our own site): our server, RPC nd_tune (supabase/ai-tune.sql);
@@ -39,7 +39,7 @@
   const clamp = (v, r) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(r[1], Math.max(r[0], v)) : undefined);
 
   // ---------------------------------------------------------------- built-in defaults (read before any tune)
-  const DEF = { levels: {}, apprenticePlusK: K.apprenticePlusK, kiWait: K.kiWait, duelK: K.duelK,
+  const DEF = { levels: {}, apprenticePlusK: K.apprenticePlusK, kiWait: K.kiWait, duelK: K.duelK, duelSoft: K.duelSoft,
     journey: { levels: J.ladder.levels.slice(), ai: J.ladder.ai.slice(), hp: J.ladder.hp.slice() } };
   for (const l of LEVEL_KEYS) {
     const d = DEF.levels[l] = {};
@@ -77,6 +77,14 @@
     if (w !== undefined) t.kiWait = w;
     const dk = clamp(o.duelK, [0, 1]);
     if (dk !== undefined) t.duelK = dk;
+    const ds = clamp(o.duelSoft, [0, 1]);
+    if (ds !== undefined) t.duelSoft = ds;
+    // (per ninja: {"duelKch": {"kage": 1, "yuki": 0.8}})
+    if (isObj(o.duelKch)) { const m = {}; for (const [id, v] of Object.entries(o.duelKch)) { const c = /^[a-z]{2,12}$/.test(id) ? clamp(v, [0, 1]) : undefined; if (c !== undefined) m[id] = c; } if (Object.keys(m).length) t.duelKch = m; }
+    // (per ninja, Apprentice's own: {"duelK0ch": {"akane": 0.5}})
+    if (isObj(o.duelK0ch)) { const m = {}; for (const [id, v] of Object.entries(o.duelK0ch)) { const c = /^[a-z]{2,12}$/.test(id) ? clamp(v, [0, 1]) : undefined; if (c !== undefined) m[id] = c; } if (Object.keys(m).length) t.duelK0ch = m; }
+    // (per ninja, the duel CPU's damage: {"duelDmg": {"kage": 1.5}})
+    if (isObj(o.duelDmg)) { const m = {}; for (const [id, v] of Object.entries(o.duelDmg)) { const c = /^[a-z]{2,12}$/.test(id) ? clamp(v, [0.5, 2]) : undefined; if (c !== undefined) m[id] = c; } if (Object.keys(m).length) t.duelDmg = m; }
     if (isObj(o.journey)) {
       // per fight; an entry that is missing or of the wrong type keeps the default (undefined)
       const per = (a, fn) => (Array.isArray(a) ? Array.from({ length: N }, (_, i) => (i < a.length ? fn(a[i]) : undefined)) : null);
@@ -95,7 +103,7 @@
   // a clean tune (or null) → every number in force (defaults where the tune says nothing)
   function effective(t) {
     t = t || {};
-    const E = { levels: {}, apprenticePlusK: t.apprenticePlusK ?? DEF.apprenticePlusK, kiWait: t.kiWait ?? DEF.kiWait, duelK: t.duelK ?? DEF.duelK, journey: {} };
+    const E = { levels: {}, apprenticePlusK: t.apprenticePlusK ?? DEF.apprenticePlusK, kiWait: t.kiWait ?? DEF.kiWait, duelK: t.duelK ?? DEF.duelK, duelSoft: t.duelSoft ?? DEF.duelSoft, duelKch: t.duelKch || null, duelK0ch: t.duelK0ch || null, duelDmg: t.duelDmg || null, journey: {} };
     for (const l of LEVEL_KEYS) {
       const o = (t.levels && t.levels[l]) || {};
       E.levels[l] = Object.assign({}, DEF.levels[l], o, { tick: (o.tick || DEF.levels[l].tick).slice() });
@@ -108,13 +116,16 @@
   }
 
   // ---------------------------------------------------------------- putting numbers in place (in place: same objects)
+  let KCH0 = null, KDM0 = null, KK00 = null; // (the built-in per-ninja duel factors, kept from before the first tune)
   function applyLevels(E) {
     for (const l of LEVEL_KEYS) {
       const lv = L[l], e = E.levels[l];
       for (const f of Object.keys(FIELDS)) lv[f] = e[f];
       lv.tick[0] = e.tick[0]; lv.tick[1] = e.tick[1];
     }
-    K.apprenticePlusK = E.apprenticePlusK; K.kiWait = E.kiWait; K.duelK = E.duelK;
+    K.apprenticePlusK = E.apprenticePlusK; K.kiWait = E.kiWait; K.duelK = E.duelK; K.duelSoft = E.duelSoft; if (!KCH0) KCH0 = Object.assign({}, K.duelKch || {}); K.duelKch = Object.assign({}, KCH0, E.duelKch || {});
+    if (!KDM0) KDM0 = Object.assign({}, K.duelDmg || {}); K.duelDmg = Object.assign({}, KDM0, E.duelDmg || {});
+    if (!KK00) KK00 = Object.assign({}, K.duelK0ch || {}); K.duelK0ch = Object.assign({}, KK00, E.duelK0ch || {});
     if (ND.aiDerive) ND.aiDerive();
   }
   function applyLadder(E) {

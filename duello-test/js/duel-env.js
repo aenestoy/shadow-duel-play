@@ -109,6 +109,12 @@
   const rnd = () => ND.rng.next();
   const free = (f) => !f.dead && f.onGround && f.y > -1 && (f.state === 'move' || f.state === 'guard' || f.state === 'land' || f.state === 'zanshin');
   const armed = (f) => !!(f.dz && f.dz.armed !== false && !(f.wpn && (f.wpn.fist || f.wpn.none)));
+  // both hands busy with the weapon: a pole held in two hands (naginata, bō), a second tantō / fan, the chain, the bow -
+  // none has a scabbard to go into while the hands carry a stool (a katana does: it is sheathed for it). Such a champion
+  // picks a carried prop up only with empty hands; armed, the context button kicks it at the opponent instead.
+  const handsBusy = (f) => armed(f) && !!(ND.mocap && ND.mocap.isKatana && f.wpn && !ND.mocap.isKatana(f.wpn));
+  D.handsBusy = handsBusy;
+  { const cu0 = P.canUse; P.canUse = function (f, p, act) { if (act === 'grab' && f && f.dz && handsBusy(f)) return false; return cu0.apply(this, arguments); }; }
   const topOf = (p) => { const K = KINDS[p.k]; return K.top || K.h * 0.85; };
   // the nearest standing prop that passes test, within maxD
   function near(f, test, maxD) {
@@ -438,7 +444,7 @@
     const kk = P.nearest(f, (p) => KINDS[p.k].kick && !KINDS[p.k].fixed && p.st === 0 && Math.abs(o.x - p.x) < 520 && Math.abs(o.x - p.x) > 90, 230);
     if (kk) out.push(['p:kick', kk.p, 3]); // (from range: a prop kicked at him costs no opening)
     const cc = P.nearest(f, (p) => KINDS[p.k].carry && p.st === 0, 260);
-    if (cc && !P.held(f)) out.push(['p:grab', cc.p, dist > 170 ? 2.5 : 1]);
+    if (cc && !P.held(f) && !handsBusy(f)) out.push(['p:grab', cc.p, dist > 170 ? 2.5 : 1]);
     return out;
   }
   function doOption(f, e) {
@@ -568,7 +574,7 @@
         else if (ahead) add(beyond ? 'flip' : 'vault', p, ad, 'table');
         continue;
       }
-      if (CARRY[p.k] && K.carry) { if (ad < 80 && !(p.sup >= 0)) add('p:grab', p, ad, ICON[p.k]); else if (p.k === 'stool' && ahead && ad < 90 && hold > 0) add('vault', p, ad, 'stool'); continue; }
+      if (CARRY[p.k] && K.carry && !handsBusy(f)) { if (ad < 80 && !(p.sup >= 0)) add('p:grab', p, ad, ICON[p.k]); else if (p.k === 'stool' && ahead && ad < 90 && hold > 0) add('vault', p, ad, 'stool'); continue; }
       if (VAULT[p.k] && ad < 95 && ahead) { add(hold > 0 || !K.kick ? 'vault' : 'p:kick', p, ad, ICON[p.k] || 'barrel'); continue; }
       if (K.kick && !K.fixed && ad < 90) add('p:kick', p, ad, ICON[p.k] || 'barrel');
     }

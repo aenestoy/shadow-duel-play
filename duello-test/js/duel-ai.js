@@ -16,33 +16,64 @@
   const G = ND.game;
   const PT = { x: 0, y: 0 };
 
-  // The duel's CPU levels: the same profiles (and the same remote tune, js/tune.js) brought closer to Apprentice by
-  // AI_KNOBS.duelK - a parry, a guard and a counter are worth more in the duel (a full chain binds, a bind disarms or
-  // cuts), so the same numbers made a harder opponent than the normal fight (a button-masher lost 29 of 48 to
-  // Apprentice+ instead of 16, 2026-10-03). Each level's duel profile is kept in place and re-made with the tune.
+  // The duel's CPU levels: the same profiles (and the same remote tune, js/tune.js), each brought towards the level
+  // below it - a parry, a guard and a counter are worth more in the duel (a full chain binds, a bind disarms or cuts),
+  // so the same numbers made a harder opponent than the normal fight (a button-masher lost 29 of 48 to Apprentice+
+  // instead of 16, 2026-10-03). duel profile = below + (level - below) × k: Efsane towards Usta, Usta towards
+  // Apprentice+, Apprentice+ towards Apprentice, Apprentice towards a softer Apprentice under it (Apprentice minus
+  // AI_KNOBS.duelSoft of the step up to Usta). k per ninja (AI_KNOBS.duelKch {id: k}, else duelK): each kit meets the
+  // duel's rules differently - measured so each ninja's CPU wins as often as in the old fight against the same
+  // button-masher, at every level. All remote-tunable; ?duelk=0.6 overrides k, for tests. Each profile is kept in place
+  // and re-made with the tune.
   const LV = ND.AI_LEVELS, KN = ND.AI_KNOBS, DUEL_LV = new Map();
-  const duelDerive = () => {
-    const a = LV[0], k = KN.duelK ?? 0.6;
-    for (const key of Object.keys(LV)) {
-      const b = LV[key]; if (!b || b === a) continue;
-      let o = DUEL_LV.get(b); if (!o) DUEL_LV.set(b, (o = { name: b.name }));
-      for (const f of Object.keys(b)) {
-        if (f === 'name') continue;
-        if (Array.isArray(b[f])) { const t = o[f] || (o[f] = []); b[f].forEach((v, i) => { t[i] = a[f][i] + (v - a[f][i]) * k; }); }
-        else if (typeof b[f] === 'number' && typeof a[f] === 'number') o[f] = a[f] + (b[f] - a[f]) * k;
-        else o[f] = b[f];
-      }
+  const KQ = (/[?&]duelk=([\d.]+)/.exec(location.search || '') || [])[1];
+  const kOf = (id) => (KQ != null ? +KQ : KN.duelKch && KN.duelKch[id] != null ? KN.duelKch[id] : KN.duelK ?? 0.6);
+  // (Apprentice has its own k per ninja: AI_KNOBS.duelK0ch {id: k} - a kit that needs its full numbers at Usta may still
+  // be too much for a beginner; unset = the ninja's k; ?duelk0= for tests)
+  const K0Q = (/[?&]duelk0=([\d.]+)/.exec(location.search || '') || [])[1];
+  const kAt = (id, key) => (key !== '0' ? kOf(id) : K0Q != null ? +K0Q : KN.duelK0ch && KN.duelK0ch[id] != null ? KN.duelK0ch[id] : kOf(id));
+  const SOFT = {};
+  const BELOW = { 0: () => SOFT, 0.5: () => LV[0], 1: () => LV[0.5], 2: () => LV[1], 3: () => LV[2] };
+  const soften = () => {
+    const a = LV[0], b = LV[1], e = KN.duelSoft ?? 0.5, P = (f) => f !== 'react' && f !== 'mash' && f !== 'tick';
+    for (const f of Object.keys(a)) {
+      if (f === 'name') continue;
+      if (Array.isArray(a[f])) { const t = SOFT[f] || (SOFT[f] = []); a[f].forEach((v, i) => { t[i] = Math.max(0, v - (b[f][i] - v) * e); }); }
+      else if (typeof a[f] === 'number') { const v = a[f] - (b[f] - a[f]) * e; SOFT[f] = Math.max(0, P(f) ? Math.min(1, v) : v); }
     }
   };
-  duelDerive();
-  { const d0 = ND.aiDerive; ND.aiDerive = function () { const r = d0 && d0.apply(this, arguments); duelDerive(); return r; }; }
-  D.duelLevel = (lv) => DUEL_LV.get(lv) || lv;
+  const derive1 = (b, k, o, key) => {
+    const a = (BELOW[key] || (() => LV[0]))();
+    for (const f of Object.keys(b)) {
+      if (f === 'name') continue;
+      if (Array.isArray(b[f]) && Array.isArray(a[f])) { const t = o[f] || (o[f] = []); b[f].forEach((v, i) => { t[i] = a[f][i] + (v - a[f][i]) * k; }); }
+      else if (typeof b[f] === 'number' && typeof a[f] === 'number') o[f] = a[f] + (b[f] - a[f]) * k;
+      else o[f] = b[f];
+    }
+    return o;
+  };
+  const duelDerive = () => { soften(); for (const o of DUEL_LV.values()) derive1(o.__b, o.__k, o, o.__key); };
+  { const d0 = ND.aiDerive; ND.aiDerive = function () { const r = d0 && d0.apply(this, arguments); for (const o of DUEL_LV.values()) o.__k = kAt(o.__id, o.__key); duelDerive(); return r; }; }
+  soften();
+  const CACHE = new Map();
+  D.duelLevel = (lv, id) => {
+    if (!lv || typeof lv !== 'object') return lv;
+    const key = Object.keys(LV).find((k) => LV[k] === lv), ck = (id || '') + '|' + key;
+    let o = CACHE.get(ck);
+    if (!o) {
+      o = { name: lv.name };
+      Object.defineProperty(o, '__b', { value: lv }); Object.defineProperty(o, '__key', { value: key });
+      Object.defineProperty(o, '__id', { value: id, writable: true }); Object.defineProperty(o, '__k', { value: kAt(id, key), writable: true });
+      CACHE.set(ck, o); DUEL_LV.set(ck, o); derive1(lv, o.__k, o, key);
+    }
+    return o;
+  };
 
   const up0 = AP.update;
   AP.update = function (dt) {
     const me = this.me;
     if (!me.dz) return up0.call(this, dt);
-    if (!this.duelLv) { this.duelLv = true; this.lv = D.duelLevel(this.lv); }
+    if (!this.duelLv) { this.duelLv = true; this.lv = D.duelLevel(this.lv, me.ch && me.ch.id); }
     // queued presses (input combos): [time, action, 'tap' | 'hold' | 'rel']
     if (this.dq && this.dq.length) {
       for (const a of this.taps) if (!this.held[a]) this.c.release(a, 'ai');

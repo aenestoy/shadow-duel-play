@@ -34,7 +34,10 @@
   // WHO fights the duel: one list - a ninja joins once its weapon's drawing is approved (the sword ninjas first; the
   // pole, staff, twin blades, fans, chain and bow as each lands). A fight with anyone not on it runs the old fight, for
   // both sides. ?duelroster=akane,kuro (tests) overrides it.
-  const ROSTER_LIST = ND.DUEL_ROSTER = ['akane', 'aoi', 'kuro', 'yuki', 'ren', 'kage', 'shura'];
+  // (2026-10-03: Tetsu's naginata, Jin's bō and Tsubame's bow + tantō in - drawing, determinism, 32-match stability and
+  // CPU difficulty checked; Hana's twin tantō, Mai's fans and Tora's chain wait: the second weapon / chain still goes
+  // through the other's body)
+  const ROSTER_LIST = ND.DUEL_ROSTER = ['akane', 'aoi', 'kuro', 'yuki', 'ren', 'kage', 'shura', 'tetsu', 'jin', 'tsubame'];
   const ROSTER = {};
   { const q = (/[?&]duelroster=([a-z,]+)/.exec(location.search || '') || [])[1]; for (const id of q ? q.split(',') : ROSTER_LIST) ROSTER[id] = 1; }
   // WHERE: the single-player fights (a match vs the CPU, the journey and its tourney / dan / rival runs, training) and
@@ -273,7 +276,7 @@
     const o = f.opp, a = o.state === 'atk' ? o.atk : null;
     if (!a || o.dead || !a.active || !o.keys) return THR;
     if (a.kind !== 'blade' && a.kind !== 'kick') return THR;
-    const W = a.hits || [a.active], end = W[W.length - 1][1];
+    const W = a.hits && a.hits.length ? a.hits : [a.active], end = W[W.length - 1][1]; // (an empty hits list: the active window)
     if (o.st > end + 0.02) return THR;
     let w = W[0];
     for (const x of W) if (o.st <= x[1]) { w = x; break; }
@@ -355,8 +358,8 @@
   // a cut never lands with the sword in the saya (2026-10-03: Akane's finisher hit while her drawn hand was still on the
   // hilt at the hip - the stance-like first key read as noto): through a blade move up to its last hit window the sword
   // is out, except a move's own draw window (a.sheath) before its first hit
-  const lastHit = (a) => { const W = a.hits || (a.active ? [a.active] : null); return W ? W[W.length - 1][1] : 0; };
-  const inHit = (a, t) => { const W = a.hits || (a.active ? [a.active] : []); for (const w of W) if (t >= w[0] - 0.04 && t <= w[1]) return true; return false; };
+  const lastHit = (a) => { const W = a.hits && a.hits.length ? a.hits : a.active ? [a.active] : null; return W ? W[W.length - 1][1] : 0; };
+  const inHit = (a, t) => { const W = a.hits && a.hits.length ? a.hits : a.active ? [a.active] : []; for (const w of W) if (t >= w[0] - 0.04 && t <= w[1]) return true; return false; };
   FP.sheathed = function () {
     if (this.wpn && this.wpn.fist) return 0;
     // (the duel: once the fight is on, the sword stays out until a calm moment - post(), z.drawn)
@@ -542,6 +545,8 @@
   }
 
   // ------------------------------------------------------------------ hits: chain, punished pickups, disarms
+  const CHQ = {}; { const q = (/[?&]chdmg=([a-z0-9:.,]+)/.exec(location.search || '') || [])[1]; if (q) for (const kv of q.split(',')) { const [c, v] = kv.split(':'); CHQ[c] = +v; } }
+  const CPQ = {}; { const q = (/[?&]cpudmg=([a-z0-9:.,]+)/.exec(location.search || '') || [])[1]; if (q) for (const kv of q.split(',')) { const [c, v] = kv.split(':'); CPQ[c] = +v; } }
   const takeHit0 = FP.takeHit;
   FP.takeHit = function (raw, a, from, x, y, part, kdir) {
     if (!this.dz) return takeHit0.call(this, raw, a, from, x, y, part, kdir);
@@ -551,6 +556,12 @@
     // (the duel's characters even: Akane's quick draws and strings out-damaged Kuro's heavier kit - against the same
     // button-masher the CPU won 100 % as Akane and 63-70 % as Kuro, 2026-10-03)
     if (from && from.ch && T.chDmg[from.ch.id]) raw *= T.chDmg[from.ch.id];
+    if (from && from.ch && CHQ[from.ch.id]) raw *= CHQ[from.ch.id]; // (?chdmg=kage:1.3 - tests)
+    // (a CPU ninja whose kit the duel's rules weaken - measured against the same button-masher as the old fight,
+    // 2026-10-03: Aoi's and Kage's CPUs won clearly less than in the old fight - they hit harder as the CPU only;
+    // the player's ninja is untouched)
+    { const DM = ND.AI_KNOBS && ND.AI_KNOBS.duelDmg, cm = from && from.ch && (CPQ[from.ch.id] ?? (DM && DM[from.ch.id])); // (AI_KNOBS.duelDmg: remote-tunable)
+      const g = ND.game; if (cm && g && g.ais && g.ais.some((q) => q && q.me === from)) raw *= cm; }
     if (was === 'dpick') { raw *= T.punish; fx.text(this.x, -222, 'PUNISHED!', '#ff9b7a'); stat('punishedPicks'); }
     const r = takeHit0.call(this, raw, a, from, x, y, part, kdir);
     this.dz.chain = 0;

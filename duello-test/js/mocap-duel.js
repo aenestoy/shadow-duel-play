@@ -313,9 +313,13 @@
       if (!s.bgOn) { s.bw = s.cw || 0; s.ovPrev = null; rg.x -= s.ox || 0; s.ox = 0; } // (the keep-apart offset goes at the bind's first moment: the bind places the pair itself, the blades meet where the fight says) // (a small keep-apart offset goes at the bind's first moment: the blades meet where the fight says)
       s.bgOn = true; s.bw = Math.min(BG.w, s.bw + (dt > 0 ? dt / 0.03 : 0));
       // (the crossing is in the fight's world: a body drawn off its x by the keep-apart offset reaches it all the same)
+      // (a naginata in a bind: the pole slides back through the hands so its blade - not the shaft beyond it - is where
+      // the blades meet, a katana's length out; the long shaft went on through the other's body)
+      { const tgt = f.wpn && f.wpn.type === 'naginata' ? Math.max(0, f.wpn.blade - 96) * s.bw : 0; rg.poleSlide = (rg.poleSlide || 0) + (tgt - (rg.poleSlide || 0)) * Math.min(1, dt > 0 ? dt / 0.06 : 1); }
       O3.h = BG.h; O3.u = BG.u; O3.e = BG.e; O3.w = s.bw; ovSmooth(s, dt); oxComp(s, dir); rg.ovr = O3; s.cw = s.bw; MD.stats.contact++; return;
     }
     s.bgOn = false;
+    if (rg.poleSlide) { rg.poleSlide *= Math.exp(-Math.max(0, dt) / 0.08); if (rg.poleSlide < 0.5) rg.poleSlide = 0; }
     O3.e = null;
     // a deflecting counter (suriage and its kin, a.slide): before its cut the blade rides UP the opponent's drawn blade
     // - from its middle towards its point - and sparks where they touch; then the cut (2026-10-03: the owner's suriage
@@ -553,8 +557,19 @@
       s.pairAt = so0.pairAt = clk;
       if (so0.tickedAt === clk && so0.rig.P) { kickStop(f, s, o, so0); kickStop(o, so0, f, s); bladeStop(f, s, o, so0); bladeStop(o, so0, f, s); const ox0 = (s.ox || 0) * 1e3 + (so0.ox || 0); apart(f, s, o, so0); if ((s.ox || 0) * 1e3 + (so0.ox || 0) !== ox0) { bladeStop(f, s, o, so0); bladeStop(o, so0, f, s); apart(f, s, o, so0); } } // (the second round only when the keep-apart moved a body: nothing else changed) // (legs first: a bent kicking leg may bring its thigh in; blade-stop before AND after the keep-apart, and the keep-apart once more last: an arm pulled back by a blade-stop never ends in the other's head or hat brim)
     }
+    // the kusarigama's chain (js/skeleton.js ND.Chain, as the normal fight's js/specials.js wpnState.kusarigama): from the
+    // sickle's butt to the weight, through the left hand, on the DRAWN body; thrown along the fight's own weight path
+    if (f.wpn && f.wpn.type === 'kusarigama' && rg.P && ND.Chain && dt > 0) {
+      const C = rg.chain || (rg.chain = new ND.Chain()), P = rg.P;
+      const pm = Mo.project(rg, madd(P.blade.h, P.blade.u, -(f.wpn.handle || 12))), hl = Mo.project(rg, P.haL);
+      const a = f.state === 'atk' ? f.atk : null, p = a && a.wpath ? a.wpath(f, f.st, CHP) : null;
+      let tw = NaN;
+      if (!p && (f.state === 'move' || f.state === 'win' || f.state === 'land' || f.state === 'zanshin')) { s.twA = ((s.twA || 0) + dt * 12 * (f.dir || 1)) % (Math.PI * 2); tw = s.twA; }
+      C.update(dt, pm.x, pm.y, hl.x, hl.y, !!p, p ? p.x + (s.ox || 0) : 0, p ? p.y : 0, tw);
+    }
     return s;
   }
+  const CHP = { x: 0, y: 0 };
   MD.tick = tick;
   // ------------------------------------------------------------------ two bodies never drawn inside each other
   // Outside a bind (its own lean keeps the pair apart: bodyGap) the two fighters' heads and torsos (as drawn: the torso
@@ -695,6 +710,9 @@
     if (P.inside && !(P.bladeVis > 12)) return;
     if (f.state === 'dbind' || (f.dz && f.dz.cine)) return;
     const Q = so.rig.P, pjo = (q) => Mo.project(so.rig, q), hd = pjo(Q.head), hp = pjo(Q.hip), nk = pjo(Q.neck);
+    // (a pole - the naginata, the bō - strikes with both ends: its butt behind the hands is measured too; rg.poleSlide: slid
+    // back through the hands in a bind)
+    const SL = rg.poleSlide || 0, B0 = Mo.isPole && Mo.isPole(f.wpn) ? -((f.wpn.handle || 0) + SL) : 4;
     const BLf = (f.wpn && f.wpn.blade) || 96, BL = P.inside ? Math.min(BLf, P.bladeVis) : BLf, PJR = Mo.projectorOf ? Mo.projectorOf(rg) : null, pj = PJR || ((q) => Mo.project(rg, q));
     const segD = (x, y) => { const vx = nk.x - hp.x, vy = nk.y - hp.y, l2 = vx * vx + vy * vy || 1, t = clamp(((x - hp.x) * vx + (y - hp.y) * vy) / l2, 0, 1); return Math.hypot(x - hp.x - vx * t, y - hp.y - vy * t); };
     // (the neck too: neck point to the head's centre, 9 round - a blade through the throat of one leaning back)
@@ -714,7 +732,8 @@
     // blade over them - a riposte lying across the chest up to the chin read as through the neck)
     // (penT: how far the blade is from the torso's surface - the contact a landing cut is drawn to, never the head's)
     let penT = 0;
-    const pen = (h, u, NS = 24) => { let m = -1e9, over = 0; penT = 1e9; const dl = (BL - 4) / NS; for (let k = 0; k <= NS; k++) { const w = pj(madd(h, u, 4 + dl * k)), dh = Math.hypot(w.x - hd.x, w.y - hd.y), dn = neckD(w.x, w.y), dt = segD(w.x, w.y); penT = Math.min(penT, dt - TORSO_R); m = Math.max(m, HR - dh, NR - dn, TORSO_R - dt - give, 26 - Math.hypot(w.x - nk.x, w.y - nk.y)); if (dh < HR || dn < NR || dt < TORSO_R) over += dl; for (const [a, b, r] of LG) m = Math.max(m, r - segP(a, b, w.x, w.y)); m = Math.max(m, w.y + 1); } return Math.max(m, over - 10); };
+    const NSK = Math.max(1, (BL - SL - B0) / 92); // (a long pole sampled as finely as a katana)
+    const pen = (h, u, NS0 = 24) => { const NS = Math.ceil(NS0 * NSK); let m = -1e9, over = 0; penT = 1e9; const dl = (BL - SL - B0) / NS; for (let k = 0; k <= NS; k++) { const w = pj(madd(h, u, B0 + dl * k)), dh = Math.hypot(w.x - hd.x, w.y - hd.y), dn = neckD(w.x, w.y), dt = segD(w.x, w.y); penT = Math.min(penT, dt - TORSO_R); m = Math.max(m, HR - dh, NR - dn, TORSO_R - dt - give, 26 - Math.hypot(w.x - nk.x, w.y - nk.y)); if (dh < HR || dn < NR || dt < TORSO_R) over += dl; for (const [a, b, r] of LG) m = Math.max(m, r - segP(a, b, w.x, w.y)); m = Math.max(m, w.y + 1); } return Math.max(m, over - 10); };
     let h = P.blade.h, u = P.blade.u, p0 = pen(h, u);
     // (in a cut's own hit window a blade that misses her - more than 6 off the body - is brought ON to it as well: the hit
     // never shows with the blade away from her)
@@ -900,6 +919,7 @@
     return P;
   };
   let drawingNoSword = false;
+  Mo.noWeapon = (rg) => !!(rg && rg.noSword); // (the champions' own weapons, js/mocap.js weapon2d: none in an empty hand)
   const kat0 = A3.drawKatana3;
   A3.drawKatana3 = function () { if (drawingNoSword) return; return kat0.apply(this, arguments); };
   const moDraw0 = Mo.draw;
@@ -917,7 +937,8 @@
     put('elF', P.elR); put('haF', P.haR); put('elB', P.elL); put('haB', P.haL);
     put('knF', P.knR); put('ftF', P.ftR); put('knB', P.knL); put('ftB', P.ftL); put('hipF', P.hipR); put('hipB', P.hipL); put('shB', P.shL);
     const BL = f.wpn.blade, u = P.blade.u;
-    put('tip', madd(P.blade.h, u, BL)); put('pom', madd(P.blade.h, u, -f.wpn.handle)); put('hilt', P.armed ? madd(P.blade.h, u, 4) : P.blade.h); put('pomm', madd(P.blade.h, u, P.armed ? 4 - f.wpn.handle : -f.wpn.handle));
+    const sl = rg.poleSlide || 0; // (a pole slid back through the hands in a bind)
+    put('tip', madd(P.blade.h, u, BL - sl)); put('pom', madd(P.blade.h, u, -f.wpn.handle - sl)); put('hilt', P.armed ? madd(P.blade.h, u, 4) : P.blade.h); put('pomm', madd(P.blade.h, u, P.armed ? 4 - f.wpn.handle : -f.wpn.handle));
     put('saya', P.saya.a); put('sayaEnd', madd(P.saya.a, P.saya.u, P.saya.L)); put('obi', P.saya.a);
     o.u = { x: u[0], y: u[1], z: u[2] }; o.e = { x: P.blade.e[0], y: P.blade.e[1], z: P.blade.e[2] };
     o.armed = P.armed; o.sheathed = !P.armed; o.grip = P.gripL || 0; o.dir = rg.dir; o.mocap = true; o.fist = rg.fist && rg.fist.w > 0.3 ? rg.fist.S : null;
