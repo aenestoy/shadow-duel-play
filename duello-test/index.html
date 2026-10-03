@@ -5,7 +5,7 @@
     <meta name="robots" content="noindex, nofollow" />
     <script>(function(){try{var l=location;if(!/[?&]st=/.test(l.search))history.replaceState(null,"",l.pathname+(l.search?l.search+"&":"?")+"st=0"+l.hash)}catch(e){}})();</script>
     <meta name="robots" content="noindex, nofollow" />
-    <script>(function(){try{var l=location,q=l.search,a=["st=0","duel=1"].filter(function(x){return !new RegExp("[?&]"+x.split("=")[0]+"=").test(q)});if(a.length)history.replaceState(null,"",l.pathname+(q?q+"&":"?")+a.join("&")+l.hash)}catch(e){}})();</script>
+    <script>(function(){try{var l=location,q=l.search,a=["st=0"].filter(function(x){return !new RegExp("[?&]"+x.split("=")[0]+"=").test(q)});if(a.length)history.replaceState(null,"",l.pathname+(q?q+"&":"?")+a.join("&")+l.hash)}catch(e){}})();</script>
 <script type="module" crossorigin src="./assets/index-kUdXeJA5.js"></script>
 <link rel="stylesheet" crossorigin href="./assets/index-QEQwL5px.css">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -2409,7 +2409,6 @@
      them on. Left out of every shipped build (vite.config.ts stripProps); only the props test build keeps them. -->
 <script  data-props src="js/props.js"></script>
 <script  data-props src="js/props-art.js"></script>
-<script  data-props src="js/props-test.js"></script>
 <!-- voices: fighters and announcer, files in voice/ (docs/SES-PLANI.md); ?voice=off silences, ?voice=log logs -->
 <script  src="js/voice.js?v=sfx-1"></script>
 <!-- the sound pass of 2026-09-30: menu clicks / hover / back, guard, jump, ki ready, result stings, ranked cues (js/sfx.js) -->
