@@ -1,3 +1,4 @@
 2026-10-04 01:20  be08adbc  Counter cinematics, Akane: block/parry then strike back within 1 s - tier 1/2/3 by the pips (一 二 三), unarmed one; test page ?duel=1 has CINE buttons
 2026-10-04 01:26  b8676480  Counter cinematics (Akane): block/parry, then strike back within 1 s - tier 1/2/3 by the pips (一 二 三) + unarmed; ?duel=1 has CINE buttons
 2026-10-04 02:35  57000826  Mai's 4 counter cinematics (fan snap, petals, spins, wind); each tier plays once per chain, chain builds on to the bind; ?duel=1 CINE buttons play the player's ninja
+2026-10-04 02:40  f2a671f7  Mai added (CINE: MAI button on ?duel=1 switches ninja); each tier once per chain, chain builds to the bind

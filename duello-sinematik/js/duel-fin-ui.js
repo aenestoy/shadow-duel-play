@@ -189,6 +189,18 @@
     const bar = document.getElementById('duelBar');
     if (!bar) { if (++tries > 40) clearInterval(iv); return; }
     clearInterval(iv);
+
+    const who = () => [...new Set(Object.keys(D.FIN_SCRIPTS).map((k) => k.split(':')[0]).filter((id) => id !== '_'))];
+    const nb = document.createElement('button'); nb.type = 'button';
+    const cur = () => (ND.game.F && ND.game.F[0] ? ND.game.F[0].ch.id : 'akane');
+    const label = () => { nb.textContent = 'CINE: ' + cur().toUpperCase(); };
+    nb.onclick = (e) => {
+      e.stopPropagation(); const L = who(), i = (L.indexOf(cur()) + 1) % L.length, id = L[i];
+      const ix = (c) => ND.CHARS.findIndex((x) => x.id === c);
+      ND.game.start('cpu', { c1: ix(id), c2: ix(id === 'kuro' ? 'akane' : 'kuro'), arena: 'temple' });
+      setTimeout(label, 300);
+    };
+    bar.appendChild(nb); setTimeout(label, 600);
     for (const [label, tier] of [['CINE 一', '1'], ['CINE 二', '2'], ['CINE 三', '3'], ['CINE 素手', 'u']]) {
       const b = document.createElement('button'); b.type = 'button'; b.textContent = label;
       b.onclick = (e) => { e.stopPropagation(); const g = ND.game; if (g.phase === 'fight' && g.F) D.finDemo(tier, g.F[0].ch.id); };
