@@ -728,13 +728,13 @@
       // (a blade the duel places - a bind, a cut aimed at its target: rg.ovr - is left where it is put)
       if (P && BL && b.h && !(rg && rg.ovr && rg.ovr.w > 0.01) && Mo.selfPen(P, b.h, u, BL) > 0) {
         const pa = rg && rg.rbA != null ? rg.rbA : 0, qs = [];
-        for (let qq = q; qq >= Math.min(q, 0.6) - 1e-6; qq -= 0.05) qs.push(qq);
+        for (let qq = q; qq >= Math.min(q, 0.76) - 1e-6; qq -= 0.05) qs.push(qq); // (never drawn under 0.75: shorter read as a stub)
         let best = null, least = null;
         for (const qq of qs) for (let i = 0; i <= 24; i++) for (const sgn of i ? [1, -1] : [1]) {
           const a = sgn * i * 0.05, cost = Math.abs(a) + (q - qq) * 2 + Math.abs(a - pa) * 0.5;
           if (best && cost >= best.cost) continue;
           const v = fit(qq, a);
-          if (Mo.bladeDrawn(b.h, v, BL) < 0.62) continue; // (never drawn under 0.6 of its length)
+          if (Mo.bladeDrawn(b.h, v, BL) < 0.76) continue; // (never drawn under 0.75 of its length)
           const pn = Mo.selfPen(P, b.h, v, BL);
           if (pn <= 0) best = { cost, v, a }; else if (!least || pn < least.pn) least = { pn, v, a };
         }

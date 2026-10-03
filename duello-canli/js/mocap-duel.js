@@ -883,7 +883,7 @@
     // down to 0.6 of itself - so it lands ON the chest instead of being swung away from her: 30 per 0.1 of length)
     // (a frame's cost: a coarse pass - every other turn and hand step - then the neighbours of its best, cut off as soon as
     // nothing further can beat the best found; the full grid cost ~2 ms a frame on a phone, 2026-10-03)
-    const DQ = hitW > 0.01 ? [1, 0.85, 0.7] : [1], HB = new Map();
+    const DQ = hitW > 0.01 ? [1, 0.88, 0.78] : [1], HB = new Map(); // (never under 0.75 of its length: 0.7 read as a stub, 2026-10-03)
     const handAt = (back, up) => {
       const key = back * 1000 + up; if (HB.has(key)) return HB.get(key);
       let hb = madd(madd(h, away, back), [0, 1, 0], up); const dS = len(sub(hb, P.shR)), MXA = L.uArm + L.fArm - 0.5; // (where the arm can put it)
@@ -896,7 +896,7 @@
       if (best && back + Math.abs(up) * 2 + Math.abs(ang) * 25 + (1 - dq) * 300 >= best.cost) return;
       const hb = handAt(back, up); if (!hb) return;
       let uu = flat(hb, ang ? rot(u, ang) : u);
-      if (dq < 1) { const r = Math.hypot(uu[0], uu[1]) || 1, q = r * dq; uu = [uu[0] / r * q, uu[1] / r * q, (uu[2] < 0 ? -1 : 1) * Math.sqrt(Math.max(0, 1 - q * q))]; if (Mo.bladeDrawn(hb, uu, BL) < 0.6) return; }
+      if (dq < 1) { const r = Math.hypot(uu[0], uu[1]) || 1, q = r * dq; uu = [uu[0] / r * q, uu[1] / r * q, (uu[2] < 0 ? -1 : 1) * Math.sqrt(Math.max(0, 1 - q * q))]; if (Mo.bladeDrawn(hb, uu, BL) < 0.76) return; }
       // (and near last frame's turn: a blade held off the body keeps to one side of it, never flipping over from frame to frame)
       let cost = back + Math.abs(up) * 2 + Math.abs(ang) * 25 + (1 - dq) * 300 + (pv && hitW <= 0.01 ? Math.abs(ang - pv.ang) * 30 + Math.abs(back - pv.back) * 0.5 : 0);
       if (best && cost >= best.cost) return;
