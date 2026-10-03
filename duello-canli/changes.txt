@@ -1,0 +1,1 @@
+2026-10-03 15:28  e43cbc8f  Akane's cuts swing and land as cuts (no poke); heavy comes down on the hit; short hit stop + small contact spark
