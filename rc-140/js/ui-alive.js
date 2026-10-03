@@ -293,6 +293,9 @@
   function skipCel() { if (celOn && celOn._skip) celOn._skip(); }
 
 
+  function quiet() { celQ = []; skipCel(); }
+
+
   function sound() {
     const A = ND.audio;
     if (!A || !A.ready || (A.uiOn && !A.uiOn())) return;
@@ -818,6 +821,6 @@
     queue();
   }
 
-  ND.alive = { level, celebrate, gesture, play, menu, moveLength, moves: () => Object.keys(G8), enter, countUp, wipe, slash, _figs: () => figs };
+  ND.alive = { level, celebrate, quiet, gesture, play, menu, moveLength, moves: () => Object.keys(G8), enter, countUp, wipe, slash, _figs: () => figs };
   if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', init); else init();
 })(window.ND);

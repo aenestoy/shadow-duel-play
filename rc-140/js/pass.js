@@ -907,6 +907,8 @@
       const was = P.isOpen;
       if (was) { ov.hidden = true; pov.hidden = true; stopWatch(); nwShown.clear(); }
       tab = which === 'profile' ? 'profile' : 'pass'; offerCounted = false;
+
+      if (tab === 'profile') safe(() => ND.alive && ND.alive.quiet && ND.alive.quiet());
       if (!was) backTo = $('menu') && !$('menu').hidden ? 'menu' : null;
       if (backTo) $('menu').hidden = true;
       cur().hidden = false;
