@@ -19,3 +19,4 @@
 2026-10-04 15:04  6379ba59  (no note)
 2026-10-04 15:23  9828ca88  phone tutorial: GUARD glows on the d-pad's down arrow (or the stick), not the right GUARD button
 2026-10-04 15:38  184aa114  (no note)
+2026-10-04 15:57  96dce304  latest claude/sd-duel (camera framing fixes, coach box timing); tutorial unchanged
