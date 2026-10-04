@@ -85,6 +85,7 @@
     return s;
   }
   D.arenaState = ars;
+  D.arenaDefs = DEFS;
   const stNow = () => (G.flags && G.flags.ar) || null;
 
   const OBZ = { beam: 'fire', paper: 'fire', heap: 'drift' };

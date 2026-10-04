@@ -541,7 +541,7 @@
           if (P.hurt(p, (imp - K._mat.brk) * K._mat.dk + (p.owner >= 0 && p.tt < 2 ? 1 : 0), 'shatter', ix, iy, p.vx * 0.002, -1)) continue;
         }
         if (pres() && imp > 90 && (vy0 > 90 || Math.abs(p.w) > 3)) snd(p, 'land', Math.min(1.2, imp / 500));
-        if (imp > 150 && p.owner >= 0) p.owner = -1;
+        if (imp > 150 && p.owner >= 0 && p.k !== 'table') p.owner = -1;
       }
       p.spin = p.w;
 
@@ -749,7 +749,7 @@
 
   function flyingHits(p, f, h) {
     const K = KINDS[p.k], sp = Math.hypot(p.vx, p.vy);
-    if (f.dead || sp < 230 || (p.owner === f.id && p.tt < 0.6) || (p.hitF === f.id && p.hitT > S.t - 0.4)) return;
+    if (f.dead || sp < 230 || (p.owner === f.id && (p.tt < 0.6 || p.k === 'table')) || (p.hitF === f.id && p.hitT > S.t - 0.4)) return;
     if (!f.j || !f.j.hip) return;
     const hb = ND.hurtboxes(f.j), rad = K._r * 0.7;
     let hit = null;
