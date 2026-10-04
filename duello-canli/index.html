@@ -1643,14 +1643,19 @@ try { (function (list) {
   #touch[data-coach="dodge"] .ta-dodge, #touch[data-coach="throw"] .ta-throw, #touch[data-coach="guard"] .td-d, #touch[data-coach="dodge"] .td-r { animation: coachBtn .8s ease-in-out infinite alternate; }
   @keyframes coachBtn { from { box-shadow: 0 0 0 0 rgba(241,214,156,.0); } to { box-shadow: 0 0 0 6px rgba(241,214,156,.35), 0 0 22px rgba(241,214,156,.7); } }
   @media (prefers-reduced-motion: reduce) { #touch[data-coach] .ta-light, #touch[data-coach] .ta-guard, #touch[data-coach] .ta-heavy, #touch[data-coach] .ta-ki, #touch[data-coach] .ta-dodge, #touch[data-coach] .ta-throw { animation: none; } }
-  /* rally tutorial (js/tutorial.js): the button to press glows and grows; bigger while time is stopped ("… stop") */
-  #touch[data-tutor^="light"] .ta-light, #touch[data-tutor^="guard"] .ta-guard, #touch[data-tutor^="guard"] .td-d { animation: tutorBtn .5s ease-in-out infinite alternate; }
-  #touch[data-tutor~="stop"] .ta-light, #touch[data-tutor~="stop"] .ta-guard, #touch[data-tutor~="stop"] .td-d { --tg: 1.3; }
-  #touch[data-tutor~="nudge"] .ta-light, #touch[data-tutor~="nudge"] .ta-guard, #touch[data-tutor~="nudge"] .td-d { --tg: 1.5; animation-duration: .38s; }
-  #touch[data-tutor^="light"] .ta-light::after, #touch[data-tutor^="guard"] .ta-guard::after { opacity: 1; }
-  #touch[data-tutor^="guard"] .t-base .d { opacity: 1; scale: 1.3; }
+  /* rally tutorial (js/tutorial.js): the button to press glows and grows; bigger while time is stopped ("… stop").
+     GUARD is taught on the movement control (the owner, 1.5): the d-pad's ▼ GUARD, or the stick's guard direction -
+     wherever the layout (left-handed, the editor's saved spots) puts it; the right-hand GUARD button gets no highlight
+     (it still works) */
+  #touch[data-tutor^="light"] .ta-light, #touch[data-tutor^="guard"] .td-d { animation: tutorBtn .5s ease-in-out infinite alternate; }
+  #touch[data-tutor~="stop"] .ta-light, #touch[data-tutor~="stop"] .td-d { --tg: 1.3; }
+  #touch[data-tutor~="nudge"] .ta-light, #touch[data-tutor~="nudge"] .td-d { --tg: 1.5; animation-duration: .38s; }
+  #touch[data-tutor^="light"] .ta-light::after { opacity: 1; }
+  #touch[data-tutor^="guard"] .t-base .d { opacity: 1; animation: tutorArrow .5s ease-in-out infinite alternate; }
+  #touch[data-tutor~="nudge"] .t-base .d { --tg: 1.7; animation-duration: .38s; }
+  @keyframes tutorArrow { from { scale: 1.2; filter: drop-shadow(0 0 0 rgba(150,210,255,0)); } to { scale: var(--tg, 1.45); filter: drop-shadow(0 0 6px rgba(150,210,255,.95)) drop-shadow(0 0 14px rgba(241,214,156,.8)); } }
   @keyframes tutorBtn { from { scale: 1; box-shadow: 0 0 0 0 rgba(241,214,156,0); } to { scale: var(--tg, 1.16); box-shadow: 0 0 0 7px rgba(241,214,156,.4), 0 0 26px rgba(241,214,156,.8); } }
-  @media (prefers-reduced-motion: reduce) { #touch[data-tutor^="light"] .ta-light, #touch[data-tutor^="guard"] .ta-guard, #touch[data-tutor^="guard"] .td-d { animation: none; scale: var(--tg, 1.16); box-shadow: 0 0 0 5px rgba(241,214,156,.5); } }
+  @media (prefers-reduced-motion: reduce) { #touch[data-tutor^="light"] .ta-light, #touch[data-tutor^="guard"] .td-d { animation: none; scale: var(--tg, 1.16); box-shadow: 0 0 0 5px rgba(241,214,156,.5); } #touch[data-tutor^="guard"] .t-base .d { animation: none; scale: 1.4; } }
   .btn.ad { display: grid; gap: 3px; justify-items: center; border-color: var(--gold); background: linear-gradient(90deg, rgba(217,179,108,.16), rgba(217,179,108,.05)); }
   .btn.ad small { font: 500 11px/1 var(--display); letter-spacing: .14em; color: var(--muted); }
   .btn.ad span::before { content: '▶'; margin-right: 8px; color: var(--gold); font-size: .8em; }
@@ -2510,6 +2515,6 @@ try { (function (list) {
 <!-- 1.4: "new version ready" note on the bare main menu (js/update-note.js; every build: version.json next to this page,
      on CrazyGames the studio server's answer) -->
 <script  src="js/update-note.js"></script>
-<div id="wipTag" style="position:fixed;left:6px;bottom:6px;z-index:2147483647;font:600 11px/1.3 system-ui,sans-serif;color:#ffd27a;background:rgba(0,0,0,.6);padding:3px 7px;border-radius:4px;pointer-events:none;max-width:70vw">1.5 aday – testler sürüyor</div>
+<div id="wipTag" style="position:fixed;left:6px;bottom:6px;z-index:2147483647;font:600 11px/1.3 system-ui,sans-serif;color:#ffd27a;background:rgba(0,0,0,.6);padding:3px 7px;border-radius:4px;pointer-events:none;max-width:70vw">WIP 15:23 — phone tutorial: GUARD glows on the d-pad's down arrow (or the stick), not the right GUARD button</div>
 </body>
 </html>

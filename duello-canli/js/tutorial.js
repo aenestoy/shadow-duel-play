@@ -224,13 +224,15 @@
     label(act) {
       const d = this.device();
       if (d === 'pad') return act === 'guard' ? 'LB' : 'X';
-      if (d === 'touch') { const TB = (ND.STR && ND.STR.touch && ND.STR.touch.btn) || {}; return tt(act === 'guard' ? TB.guard || 'GARD' : TB.light || 'SALDIR'); }
+
+
+      if (d === 'touch') { const TB = (ND.STR && ND.STR.touch && ND.STR.touch.btn) || {}; return act === 'guard' ? '▼ ' + tt(TB.down || TB.guard || 'GARD') : tt(TB.light || 'SALDIR'); }
       const code = act === 'guard' ? 'KeyS' : 'KeyF';
       return ND.input && ND.input.keyLabel ? ND.input.keyLabel(code) : code.slice(3);
     },
     chip(act) {
       const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-      return this.device() === 'touch' ? `<i class="tb ${act === 'guard' ? 'tb-guard' : 'tb-light'}">${esc(this.label(act))}</i>` : `<kbd>${esc(this.label(act))}</kbd>`;
+      return this.device() === 'touch' ? `<i class="tb ${act === 'guard' ? 'tb-down' : 'tb-light'}">${esc(this.label(act))}</i>` : `<kbd>${esc(this.label(act))}</kbd>`;
     },
     refill() {
       for (const f of this.G.F) { f.hp = f.maxHp; f.ghost = f.maxHp; f.posture = 0; f.damageTaken = 0; f.ki = 0; }
@@ -657,7 +659,10 @@
       this.btnT = 1; this.btnXY = null;
       const t = $('touch'), cv = $('cv'), G = this.G;
       if (!t || t.hidden || !cv || !t.querySelector) return;
-      const b = t.querySelector(act === 'guard' ? '.ta-guard, .td-d' : '.ta-light');
+
+
+      const vis = (e) => !!e && e.offsetParent !== null && e.getBoundingClientRect && e.getBoundingClientRect().width > 2;
+      const b = act === 'guard' ? [t.querySelector('.td-d'), t.querySelector('.t-base .d')].find(vis) || null : t.querySelector('.ta-light');
       if (!b || !b.getBoundingClientRect) return;
       const r = b.getBoundingClientRect(), c = cv.getBoundingClientRect(), k = (G && G.pxr) || 1;
       if (r.width < 2) return;

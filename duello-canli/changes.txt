@@ -17,3 +17,4 @@
 2026-10-04 13:32  7226b96e  kamera artık sağa sola kaymıyor (menü arka planı, dövüş, sinematik): çerçeveleme hedefe uygulanıyor, karşılık vuruşu itişi yumuşak
 2026-10-04 13:59  990fa0e7  first-fight tutorial on the new fight: speed 0.85, ring = real parry window, cinematics play whole before the next step and READY!
 2026-10-04 15:04  6379ba59  (no note)
+2026-10-04 15:23  9828ca88  phone tutorial: GUARD glows on the d-pad's down arrow (or the stick), not the right GUARD button
