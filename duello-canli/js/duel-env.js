@@ -1137,7 +1137,9 @@
     if (!UI.el) return;
     const f = (G.F || []).find((q) => q && q.dz && human(q));
     let e = null;
-    if (f && P.live && G.phase === 'fight' && !G.paused && !f.dead && (free(f) || P.held(f))) {
+
+
+    if (f && P.live && G.phase === 'fight' && !G.paused && !f.dead && !(ND.tutor && ND.tutor.on) && (free(f) || P.held(f))) {
       const hold = (f.ctrl && f.ctrl.axis ? f.ctrl.axis() : 0) * (Math.sign(f.opp.x - f.x) || f.dir);
       e = ctxPick(f, hold > 0 ? 1 : hold < 0 ? -1 : 0);
     }

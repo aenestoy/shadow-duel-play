@@ -89,7 +89,9 @@
   const saveHint = () => { try { localStorage.setItem(HINT_KEY, JSON.stringify(hintN)); } catch (e) {               } };
   U.hint = null; U.hintChain = 0;
   function hintStep() {
-    const F = G.F; if (!F || G.phase !== 'fight' || G.mode === 'attract' || G.mode === 'watch') return;
+
+
+    const F = G.F; if (!F || G.phase !== 'fight' || G.mode === 'attract' || G.mode === 'watch' || (ND.tutor && ND.tutor.on)) return;
     const me = F.find((f) => G.isHuman && G.isHuman(f) && f.dz);
     if (!me || U.hint) return;
     const z = me.dz, tier = D.FIN.tierOf(z.chain);

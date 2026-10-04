@@ -37,7 +37,9 @@
   'use strict';
   const $ = (id) => (typeof document !== 'undefined' && document.getElementById ? document.getElementById(id) : null);
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
-  const ALL = ['left', 'right', 'up', 'guard', 'light', 'heavy', 'kick', 'throw', 'dodge', 'special'];
+
+
+  const ALL = ['left', 'right', 'up', 'guard', 'light', 'heavy', 'kick', 'throw', 'dodge', 'special', 'ctx'];
 
 
   const PASSES = [
@@ -261,6 +263,9 @@
       if (G.lock && G.endLock) { G.endLock(null); if (this.ph === 'def') { this.fail('early'); } }
 
       for (const f of G.F) if (f.hp < f.maxHp * 0.4 && !f.dead) { f.hp = f.maxHp; f.ghost = f.maxHp; }
+
+
+      { const ar = G.F[0].dz && G.flags && G.flags.ar; if (ar && !ar.ev && ar.next < ar.t + 3) ar.next = ar.t + 3; }
       this.phT += rdt;
       const tz = this.step(G, rdt);
       this.tzNow = tz;
@@ -340,7 +345,7 @@
           this.setMask((this.pass > 0 || this.short) && this.mine() ? ['guard'] : null);
           if (G.clock >= this.contactAt - this.opening(f2) / P.spd && f2.state === 'move') {
             f2.dir = f1.x >= f2.x ? 1 : -1; f2.chainN = 0;
-            f2.startAtk('light1', P.spd);
+            this.plainCut(f2, () => f2.startAtk('light1', P.spd));
             this.atkSerial = f2.serial; this.hp1 = f1.hp; this.guardSeen = -9; this.wasAtk = false;
             this.beat = 0; this.set('def');
           }
@@ -404,6 +409,10 @@
 
         case 'won':
           this.setMask(null); this.prompt = null;
+
+
+
+          if (G.F.some((f) => (f.dz && f.dz.cine) || f.state === 'down' || f.state === 'getup' || f.state === 'launch')) { this.phT = 0; return 1; }
           if (this.phT > (this.short ? 0.9 : this.pass < 2 ? 1.5 : 0.6)) {
             this.from = 0; this.beat = 0;
             if (this.pass >= (this.short ? 1 : 2)) {
@@ -444,11 +453,21 @@
 
     opening(f) {
       const M = ND.MOVES && ND.MOVES[f.ch.id], ATK = ND.ATK || {};
-      const nm = M ? (typeof M === 'function' ? M(f, 'light1') : M.light1) || 'light1' : 'light1';
+      const nm = M ? (typeof M === 'function' ? this.plainCut(f, () => M(f, 'light1')) : M.light1) || 'light1' : 'light1';
       const a = ATK[nm] || ATK.light1, w = a && (a.hits ? a.hits[0] : a.active);
       return (w ? w[0] : 0.13) / (f.ch.spd || 1);
     },
 
+
+
+
+
+
+    plainCut(f, fn) {
+      if (!f.dz) return fn();
+      const n0 = f.chainN; f.chainN = 1;
+      try { return fn(); } finally { f.chainN = n0; }
+    },
     walk(f, tx, tol = 18) {
       const dx = tx - f.x, far = Math.abs(dx);
       const hl = f.ctrl.srcs.left && f.ctrl.srcs.left.has('tut'), hr = f.ctrl.srcs.right && f.ctrl.srcs.right.has('tut');

@@ -1277,7 +1277,9 @@
       const STEP = this.STEP;
 
       for (const f of F) if (f.ctrl.step) f.ctrl.step();
-      const tz = this.tz = ND.tutor && ND.tutor.on ? ND.tutor.pre(this, STEP) : ND.timeScale ? ND.timeScale(this) : 1;
+
+
+      const tz = this.tz = ND.tutor && ND.tutor.on ? ND.tutor.pre(this, STEP) * (ND.timeScale ? ND.timeScale(this) : 1) : ND.timeScale ? ND.timeScale(this) : 1;
       ND.simClock = (ND.simClock || 0) + STEP * tz;
       this.presPart = false;
       if (present) { try { this.update(STEP); } finally { this.presPart = false; } return; }

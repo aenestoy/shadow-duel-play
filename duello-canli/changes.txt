@@ -15,3 +15,4 @@
 2026-10-04 08:28  4afd8c53  atılma artık rakibin üstünden takla (ışınlanma yok); kılıç düşünce metal sesi yok; hız 0,85 (sahip); köşede fps + hız düğmesi (1× / 0,75× / 0,5×); dereceli bu sayfada puansız
 2026-10-04 11:38  d60ee12d  kamera sinematikte hep iki dövüşçüyü ve sahneyi gösterir (köşede siyah bant / yanlış yer yok); daha az çöp bellek (takılma); hız 0,85'te zorluk ayarı; tutorial/menü 影 izi yok
 2026-10-04 13:32  7226b96e  kamera artık sağa sola kaymıyor (menü arka planı, dövüş, sinematik): çerçeveleme hedefe uygulanıyor, karşılık vuruşu itişi yumuşak
+2026-10-04 13:59  990fa0e7  first-fight tutorial on the new fight: speed 0.85, ring = real parry window, cinematics play whole before the next step and READY!
