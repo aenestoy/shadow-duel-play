@@ -348,6 +348,180 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+  D.kicksOn = (f) => !!(f && f.dz);
+  const KZ = (a, b) => [[0, ...REST], ...a, [b, ...REST]];
+
+  const KH = { ax: 10, ay: 12, sw: -1.25 };
+
+  P('dk_swA', Object.assign({ hx: -10, hy: -52, lean: 0.52, hd: 0.28, f1x: 30, f2x: -40 }, KH, { ax: 12, ay: 2, sw: -1.6 }));
+  P('dk_swB', Object.assign({ hx: -2, hy: -44, lean: 0.5, hd: 0.3, f1x: 92, f1y: -3, f2x: -42 }, KH, { ax: 14, ay: 6, sw: -1.55 }));
+
+
+  reg('dk_sweep', { keys: [[0.1, 'dk_swA', es], [0.18, 'dk_swB', eq], [0.26, 'dk_swB'], [0.58, 'stance', ei]],
+    active: [0.13, 0.22], dmg: 6, post: 18, kb: 170, stun: 0.5, knock: true, trip: true, low: true, kind: 'kick', limb: 'ftF', limbR: 15, lunge: [0.08, 0.16, 200],
+    dz3: { side: 0, v: 'low', dir: 'sweep' }, z3: KZ([[0.1, 0.35, 0.45, 1, 1], [0.18, -0.45, -0.65, 1, 1], [0.26, -0.4, -0.6, 1, 1]], 0.58) });
+  note('dk_sweep', 'both', 'Ashi-barai (low sweep)', '↓ + KICK', 'knocks down · jump over it');
+
+  P('dk_spA', Object.assign({ hx: 4, hy: -76, lean: 0.34, hd: 0.2, f1x: 20, f2x: -30 }, KH));
+  P('dk_spB', Object.assign({ hx: -12, hy: -84, lean: -0.5, hd: 0.12, f1x: 94, f1y: -78, f2x: -18 }, KH, { ax: 4, ay: 16, sw: -1.4 }));
+  reg('dk_spin', { keys: [[0.2, 'dk_spA', es], [0.32, 'dk_spB', eq], [0.44, 'dk_spB'], [0.86, 'stance', ei]],
+    active: [0.29, 0.4], dmg: 14, post: 40, gcrush: 1.5, kb: 520, stun: 0.6, knock: true, kind: 'kick', limb: 'ftF', limbR: 14, parry: true, spin: [0.08, 0.28, 1],
+    lunge: [0.2, 0.32, 300], sw: 0.27, pw: 1.2, punish: true,
+    dz3: { side: 0, v: 'level', dir: 'spinKick' }, z3: KZ([[0.12, -1.3, -0.7, 1, 0.8], [0.2, -1.7, -1.1, -1, 0.7], [0.27, -0.9, -1.2, -1, 0.8], [0.32, 0.25, 0.2, 1, 1], [0.44, 0.15, 0.1, 1, 1]], 0.86) });
+  note('dk_spin', 'both', 'Ushiro-mawashi (spinning back kick)', '← + KICK', 'slow, strong, breaks a guard · open if it misses');
+
+  P('dk_wrA', Object.assign({ hx: -2, hy: -84, lean: -0.04, hd: 0.06, f1x: 18, f1y: -52, f2x: -22 }, KH));
+  P('dk_wrB', Object.assign({ hx: -10, hy: -86, lean: -0.3, hd: 0.1, f1x: 70, f1y: -108, f2x: -22 }, KH, { ax: 6, ay: 18, sw: -1.35 }));
+  reg('dk_wrist', { keys: [[0.07, 'dk_wrA', es], [0.13, 'dk_wrB', eq], [0.21, 'dk_wrB'], [0.46, 'stance', ei]],
+    active: [0.1, 0.19], dmg: 5, post: 22, kb: 220, stun: 0.4, kind: 'kick', limb: 'ftF', limbR: 13, lunge: [0.05, 0.12, 180], disarmKick: true,
+    dz3: { side: 0, v: 'up', dir: 'wristKick' }, z3: KZ([[0.07, 0.25, 0.3, 1, 1], [0.13, -0.1, -0.2, 1, 1]], 0.46) });
+  note('dk_wrist', 'both', 'Kote-geri (wrist kick)', '→ + KICK', 'into a cut\'s wind-up: kicks the sword away');
+
+  P('dk_flyA', Object.assign({ hx: 0, hy: -88, lean: 0.0, hd: 0.06, f1x: 20, f1y: -42, f2x: -16, f2y: -26 }, KH));
+  P('dk_flyB', Object.assign({ hx: -6, hy: -88, lean: -0.3, hd: 0.1, f1x: 84, f1y: -44, f2x: -18, f2y: -30 }, KH, { ax: 4, ay: 14, sw: -1.4 }));
+  reg('dk_fly', { keys: [[0.06, 'dk_flyA', es], [0.12, 'dk_flyB', eq], [0.36, 'fall']], active: [0.08, 0.22], dmg: 8, post: 16, kb: 300, stun: 0.45, air: true,
+    kind: 'kick', limb: 'ftF', limbR: 14 });
+  note('dk_fly', 'both', 'Tobi-geri (flying kick)', 'in the air + KICK', '');
+
+
+
+  P('ak_ndA', Object.assign({ hx: -2, hy: -82, lean: 0.0, hd: 0.06, f1x: 18, f1y: -40, f2x: -24 }, KH));
+  P('ak_ndB', Object.assign({ hx: -6, hy: -82, lean: -0.16, hd: 0.08, f1x: 78, f1y: -34, f2x: -24 }, KH));
+  P('ak_ndC', Object.assign({ hx: -4, hy: -86, lean: -0.08, hd: 0.06, f1x: 20, f1y: -62, f2x: -22 }, KH));
+  P('ak_ndD', Object.assign({ hx: -12, hy: -86, lean: -0.4, hd: 0.14, f1x: 78, f1y: -112, f2x: -22 }, KH, { ax: 4, ay: 18, sw: -1.4 }));
+  reg('ak_nidan', { keys: [[0.06, 'ak_ndA', es], [0.11, 'ak_ndB', eq], [0.17, 'ak_ndC', es], [0.23, 'ak_ndD', eq], [0.32, 'ak_ndD'], [0.58, 'ak_stance', ei]],
+    active: [0.09, 0.14], hits: [[0.09, 0.14], [0.21, 0.28]], dmg: 5, post: 16, kb: 160, stun: 0.42, knockLast: true, lastHit: { dmg: 8, kb: 440, post: 22 },
+    kind: 'kick', limb: 'ftF', limbR: 13, lunge: [0.04, 0.22, 220],
+    dz3: { side: 0, v: 'up', dir: 'doubleKick' }, z3: KZ([[0.06, 0.2, 0.3, 1, 1], [0.11, -0.1, -0.2, 1, 1], [0.17, 0.15, 0.25, 1, 1], [0.23, -0.2, -0.3, 1, 1]], 0.58) });
+  note('ak_nidan', 'akane', 'Nidan-geri (double kick, low then high)', '← → + KICK', 'her own kick');
+
+
+  U('dk_kuA', { hx: -8, hy: -76, lean: 0.2, hd: 0.2, ax: 22, ay: -10, sw: -0.8, gx: 12, gy: -8, f1x: 34, f1y: -2, f2x: -30 });
+  U('dk_kuB', { hx: -4, hy: -82, lean: -0.08, hd: 0.0, ax: 30, ay: -34, sw: -1.3, gx: 14, gy: -16, f1x: 30, f1y: -44, f2x: -26 });
+  U('dk_kuC', { hx: -2, hy: -80, lean: 0.06, hd: -0.05, ax: 34, ay: -44, sw: -1.5, gx: 16, gy: -20, f1x: 26, f2x: -28 });
+  reg('dk_kickup', { keys: [[0.08, 'dk_kuA', es], [0.15, 'dk_kuB', eq], [0.27, 'dk_kuC', eo], [0.44, 'ua_stance', ei]], kind: 'kick', limb: 'ftF', limbR: 10,
+    ev: [[0.13, (f) => D.kickUp && D.kickUp(f, 'flick')], [0.29, (f) => D.kickUp && D.kickUp(f, 'catch')]],
+    dz3: { side: 0, v: 'up', dir: 'kickUp' }, z3: KZ([[0.08, 0.2, 0.2, 1, 1], [0.15, -0.1, -0.1, 1, 1]], 0.44) });
+  note('dk_kickup', 'both', 'Keri-age (kicks the own sword up into the hand)', 'KICK', 'unarmed, standing at the own sword');
+
+  const K = (o) => Object.assign({}, KH, o);
+
+  const hop = (t0, vy, vx = 0) => function (f, dt, t) { if (!f.mem.hop && t > t0) { f.mem.hop = 1; f.onGround = false; f.vy = vy; if (vx) f.vx = f.dir * vx; } };
+  const sig = (name, who, keys, o, nm, when) => { reg(name, Object.assign({ keys, kind: 'kick', limb: 'ftF', limbR: 14, dz3: { side: 0, v: 'level', dir: 'sigKick' } }, o)); note(name, who, nm, '← → + KICK', when || 'own kick'); return name; };
+
+  P('ao_kzA', K({ hx: -4, hy: -80, lean: 0.1, hd: 0.06, ax: -8, ay: 0, sw: -2.3, f1x: 26, f1y: -46, f2x: -26 }));
+  P('ao_kzB', K({ hx: -16, hy: -84, lean: -0.48, hd: 0.14, ax: -14, ay: -4, sw: -2.5, f1x: 98, f1y: -76, f2x: -26 }));
+  sig('ao_kaze', 'aoi', [[0.1, 'ao_kzA', es], [0.2, 'ao_kzB', eq], [0.3, 'ao_kzB'], [0.6, 'ao_stance', ei]],
+    { active: [0.17, 0.27], dmg: 10, post: 26, kb: 560, stun: 0.5, lunge: [0.04, 0.19, 640], z3: KZ([[0.1, 0.4, 0.5, -1, 0.8], [0.2, -0.2, -0.4, -1, 0.8]], 0.6) },
+    'Kaze-geri (gliding side kick)');
+
+  P('kr_ygA', K({ hx: -10, hy: -84, lean: -0.1, hd: 0.05, ax: 0, ay: -20, sw: -1.9, f1x: 20, f1y: -62, f2x: -30 }));
+  P('kr_ygB', K({ hx: 6, hy: -80, lean: -0.22, hd: 0.12, ax: -4, ay: -16, sw: -2.0, f1x: 96, f1y: -60, f2x: -26 }));
+  sig('kr_yama', 'kuro', [[0.18, 'kr_ygA', es], [0.3, 'kr_ygB', eq], [0.42, 'kr_ygB'], [0.82, 'stance', ei]],
+    { active: [0.26, 0.36], dmg: 12, post: 48, gcrush: 1.7, kb: 640, stun: 0.6, knock: true, lunge: [0.2, 0.32, 420], z3: KZ([[0.18, 0.3, 0.3, 1, 1], [0.3, -0.2, -0.2, 1, 1]], 0.82) },
+    'Yama-geri (stamping push kick, breaks a guard)');
+
+  P('yk_ktA', K({ hx: 0, hy: -90, lean: 0.0, hd: 0.06, ax: 14, ay: 6, sw: -1.2, f1x: 20, f1y: -46, f2x: -14, f2y: -28 }));
+  P('yk_ktB', K({ hx: -4, hy: -90, lean: -0.24, hd: 0.08, ax: 10, ay: 10, sw: -1.3, f1x: 80, f1y: -52, f2x: -14, f2y: -30 }));
+  P('yk_ktC', K({ hx: -4, hy: -92, lean: -0.1, hd: 0.06, ax: 12, ay: 8, sw: -1.3, f1x: 16, f1y: -54, f2x: 20, f2y: -50 }));
+  P('yk_ktD', K({ hx: -8, hy: -92, lean: -0.36, hd: 0.1, ax: 8, ay: 12, sw: -1.4, f1x: 22, f1y: -48, f2x: 84, f2y: -64 }));
+  sig('yk_kitsune', 'yuki', [[0.06, 'yk_ktA', es], [0.11, 'yk_ktB', eq], [0.17, 'yk_ktC', es], [0.22, 'yk_ktD', eq], [0.34, 'yk_ktD'], [0.5, 'fall']],
+    { hits: [[0.09, 0.14], [0.2, 0.27]], active: [0.09, 0.14], dmg: 5, post: 14, kb: 200, stun: 0.4, knockLast: true, lastHit: { dmg: 7, kb: 420, limb: 'ftB' }, air: true,
+      lunge: [0.0, 0.12, 320], tick: hop(0.03, -300, 260) },
+    'Kitsune-tobi (hop, two kicks in the air)');
+
+  P('hn_sgA', K({ hx: 0, hy: -70, lean: 0.6, hd: 0.3, ax: 30, ay: 40, sw: 1.2, gx: 24, gy: 42, f1x: 30, f2x: -30 }));
+  P('hn_sgB', K({ hx: 4, hy: -126, lean: 0.1, hd: 0.06, ax: 20, ay: 8, sw: -1.2, f1x: 60, f1y: -60, f2x: -40, f2y: -40 }));
+  P('hn_sgC', K({ hx: 8, hy: -80, lean: 0.3, hd: 0.15, ax: 22, ay: 12, sw: -1.1, f1x: 74, f1y: -20, f2x: -20 }));
+  sig('hn_sakura', 'hana', [[0.08, 'hn_sgA', es], [0.22, 'hn_sgB', es], [0.3, 'hn_sgC', eq], [0.38, 'hn_sgC'], [0.62, 'stance', ei]],
+    { active: [0.26, 0.34], dmg: 11, post: 34, gcrush: 1.3, kb: 380, stun: 0.55, knock: true, lunge: [0.06, 0.26, 360], rollT: [0.06, 0.28], tick: hop(0.05, -520, 240), z3: KZ([[0.08, 0.3, 0.3, 1, 1], [0.3, -0.2, -0.2, 1, 1]], 0.62) },
+    'Sakura-guruma (flip, the heel falls from above)');
+
+  P('tt_vtA', K({ hx: -8, hy: -76, lean: 0.24, hd: 0.1, ax: 34, ay: 30, sw: -1.5, f1x: 24, f2x: -32 }));
+  P('tt_vtB', K({ hx: 6, hy: -100, lean: -0.3, hd: 0.06, ax: 40, ay: 30, sw: -1.55, f1x: 54, f1y: -66, f2x: 44, f2y: -60 }));
+  P('tt_vtC', K({ hx: 0, hy: -96, lean: -0.5, hd: 0.12, ax: 36, ay: 28, sw: -1.5, f1x: 82, f1y: -64, f2x: 76, f2y: -54 }));
+  sig('tt_vault', 'tetsu', [[0.14, 'tt_vtA', es], [0.26, 'tt_vtB', es], [0.34, 'tt_vtC', eq], [0.44, 'tt_vtC'], [0.86, 'stance', ei]],
+    { active: [0.3, 0.42], dmg: 14, post: 40, kb: 620, stun: 0.6, knock: true, lunge: [0.14, 0.36, 460], tick: hop(0.2, -380, 90), limbR: 16, z3: KZ([[0.14, 0.2, 0.2, 1, 1], [0.34, 0, 0, 1, 1]], 0.86) },
+    'Bo-tobi (vaults on the naginata, two-foot kick)');
+
+  P('rn_ofA', K({ hx: 6, hy: -86, lean: 0.0, hd: 0.06, ax: 4, ay: -6, sw: -2.4, f1x: 30, f1y: -64, f2x: -20 }));
+  P('rn_ofB', K({ hx: 8, hy: -82, lean: -0.3, hd: 0.12, ax: 2, ay: -8, sw: -2.45, f1x: 90, f1y: -72, f2x: -24 }));
+  sig('rn_oni', 'ren', [[0.07, 'rn_ofA', eq], [0.14, 'rn_ofA'], [0.24, 'rn_ofB', eq], [0.34, 'rn_ofB'], [0.62, 'rn_stance', ei]],
+    { hits: [[0.07, 0.13], [0.22, 0.3]], active: [0.07, 0.13], dmg: 5, post: 22, kb: 160, stun: 0.45, knockLast: true, lastHit: { dmg: 8, kb: 600, post: 40, gcrush: 1.5, limb: 'ftF' },
+      limb: 'knF', lunge: [0.04, 0.26, 260], z3: KZ([[0.07, 0.2, 0.3, 1, 1], [0.24, -0.25, -0.3, 1, 1]], 0.62) },
+    'Oni-fumikomi (knee, then the stamp kick)');
+
+  P('kg_khA', K({ hx: -4, hy: -64, lean: 0.4, hd: 0.06, ax: 20, ay: 24, sw: -2.6, f1x: 30, f2x: -36 }));
+  P('kg_khB', K({ hx: -12, hy: -84, lean: -0.5, hd: 0.14, ax: 12, ay: 20, sw: -2.6, f1x: 90, f1y: -96, f2x: -20 }));
+  sig('kg_kage', 'kage', [[0.08, 'kg_khA', es], [0.2, 'kg_khA'], [0.28, 'kg_khB', eq], [0.38, 'kg_khB'], [0.66, 'kg_stance', ei]],
+    { active: [0.25, 0.34], dmg: 10, post: 26, kb: 460, stun: 0.55, knock: true, lunge: [0.08, 0.24, 760], hide: [0.08, 0.2], spin: [0.2, 0.3, 1], z3: KZ([[0.2, -0.8, -0.5, 1, 1], [0.28, 0.3, 0.2, 1, 1]], 0.66) },
+    'Kage-geri (vanishes, reappears with a hook kick)');
+
+  P('tr_kgA', K({ hx: -4, hy: -78, lean: 0.2, hd: 0.06, ax: 30, ay: -30, sw: -2.2, gx: -22, gy: 26, f1x: 26, f2x: -30 }));
+  P('tr_kgB', K({ hx: -10, hy: -92, lean: -0.46, hd: 0.12, ax: 28, ay: -20, sw: 0.6, gx: -22, gy: 26, f1x: 92, f1y: -88, f2x: -10, f2y: -26 }));
+  sig('tr_kusari', 'tora', [[0.14, 'tr_kgA', es], [0.26, 'tr_kgB', eq], [0.36, 'tr_kgB'], [0.62, 'tr_stance', ei]],
+    { active: [0.22, 0.32], dmg: 12, post: 30, kb: 520, stun: 0.55, knock: true, spin: [0.06, 0.24, 1], lunge: [0.1, 0.26, 360], tick: hop(0.14, -360, 300), z3: KZ([[0.14, -0.7, -0.4, 1, 1], [0.26, 0.3, 0.2, 1, 1]], 0.62) },
+    'Kusari-geri (chain whirl into a jumping hook kick)');
+
+  P('jn_tbA', K({ hx: 0, hy: -70, lean: 0.3, hd: 0.08, ax: 14, ay: -24, sw: 0.0, grip: 1, f1x: 26, f2x: -32 }));
+  P('jn_tbB', K({ hx: -4, hy: -74, lean: 0.1, hd: 0.08, ax: 14, ay: -26, sw: 0.0, grip: 1, f1x: 88, f1y: -26, f2x: -30 }));
+  P('jn_tbC', K({ hx: -10, hy: -86, lean: -0.42, hd: 0.12, ax: 12, ay: -28, sw: 0.0, grip: 1, f1x: 88, f1y: -100, f2x: -20 }));
+  sig('jn_tenbin', 'jin', [[0.08, 'jn_tbA', es], [0.15, 'jn_tbB', eq], [0.21, 'jn_tbA', es], [0.29, 'jn_tbC', eq], [0.38, 'jn_tbC'], [0.64, 'jn_stance', ei]],
+    { hits: [[0.12, 0.18], [0.26, 0.33]], active: [0.12, 0.18], dmg: 5, post: 18, kb: 180, stun: 0.42, knockLast: true, lastHit: { dmg: 8, kb: 460 }, lunge: [0.06, 0.3, 240],
+      spin: [0.17, 0.26, 1], z3: KZ([[0.08, 0.3, 0.3, 1, 1], [0.15, -0.3, -0.3, 1, 1], [0.29, 0.2, 0.1, 1, 1]], 0.64) },
+    'Tenbin-geri (staff held overhead, a low kick then a high one)');
+
+  P('mi_omA', K({ hx: 0, hy: -86, lean: 0.0, hd: 0.0, ax: 46, ay: -44, sw: -1.0, gx: -38, gy: -42, f1x: 20, f2x: -22 }));
+  P('mi_omB', K({ hx: -10, hy: -86, lean: -0.42, hd: 0.1, ax: 44, ay: -42, sw: -1.1, gx: -34, gy: -40, f1x: 84, f1y: -104, f2x: -18 }));
+  P('mi_omC', K({ hx: -6, hy: -84, lean: -0.2, hd: 0.06, ax: 40, ay: -34, sw: -1.1, gx: -32, gy: -34, f1x: 76, f1y: -40, f2x: -20 }));
+  sig('mi_ogi', 'mai', [[0.1, 'mi_omA', es], [0.22, 'mi_omB', eq], [0.3, 'mi_omC', eo], [0.56, 'mi_stance', ei]],
+    { active: [0.18, 0.28], dmg: 10, post: 26, kb: 420, stun: 0.55, knock: true, spin: [0.02, 0.18, 1], lunge: [0.04, 0.2, 300], z3: KZ([[0.1, 0.5, 0.3, 1, 1], [0.22, -0.4, -0.3, 1, 1]], 0.56) },
+    'Ogi-mai (fan twirl into a crescent kick)');
+
+  P('ts_sgA', K({ hx: 0, hy: -70, lean: 0.3, hd: 0.06, ax: 20, ay: 28, sw: -0.5, f1x: 26, f2x: -30 }));
+  P('ts_sgB', K({ hx: -6, hy: -120, lean: -0.6, hd: 0.2, ax: 16, ay: 24, sw: -0.6, f1x: 74, f1y: -120, f2x: -10, f2y: -30 }));
+  sig('ts_tsubame', 'tsubame', [[0.07, 'ts_sgA', es], [0.16, 'ts_sgB', eq], [0.3, 'ts_sgB'], [0.56, 'fall']],
+    { active: [0.12, 0.22], dmg: 9, post: 20, kb: 300, stun: 0.6, launch: true, air: true, lunge: [0.0, 0.05, 200],
+      tick(f, dt, t) { if (!f.mem.hop && t > 0.1) { f.mem.hop = 1; f.onGround = false; f.vy = -500; f.vx = -f.dir * 220; } f.roll = t >= 0.12 && t < 0.42 ? -f.dir * Math.PI * 2 * es((t - 0.12) / 0.3) : 0; },
+      z3: KZ([[0.07, 0.2, 0.2, 1, 1], [0.16, -0.2, -0.1, 1, 1]], 0.56) },
+    'Tsubame-gaeshi geri (somersault kick, away)');
+
+  P('sh_aoA', K({ hx: -6, hy: -96, lean: -0.2, hd: -0.05, ax: 6, ay: -20, sw: -1.8, f1x: 34, f1y: -134, f2x: -16, f2y: -24 }));
+  P('sh_aoB', K({ hx: 8, hy: -78, lean: 0.26, hd: 0.15, ax: 10, ay: -10, sw: -1.7, f1x: 70, f1y: -36, f2x: -22 }));
+  sig('sh_ashura', 'shura', [[0.18, 'sh_aoA', es], [0.3, 'sh_aoB', eqd], [0.38, 'sh_aoB'], [0.78, 'stance', ei]],
+    { active: [0.25, 0.34], dmg: 14, post: 52, gcrush: 1.8, kb: 360, stun: 0.6, knock: true, lunge: [0.1, 0.28, 420], tick: hop(0.08, -420, 100), z3: KZ([[0.18, 0.3, 0.5, 1, 1], [0.3, -0.1, -0.2, 1, 1]], 0.78) },
+    'Ashura-otoshi (leaping axe kick, breaks a guard)');
+  const SIG = { akane: 'ak_nidan', aoi: 'ao_kaze', kuro: 'kr_yama', yuki: 'yk_kitsune', hana: 'hn_sakura', tetsu: 'tt_vault', ren: 'rn_oni', kage: 'kg_kage',
+    tora: 'tr_kusari', jin: 'jn_tenbin', mai: 'mi_ogi', tsubame: 'ts_tsubame', shura: 'sh_ashura' };
+  D.KICK_SIG = SIG;
+  { const NEW = new Set(Object.values(SIG).concat(['dk_sweep', 'dk_spin', 'dk_wrist', 'dk_fly', 'dk_kickup'])); D.isKickMove = (n) => NEW.has(n); }
+
+  function kickPick(f) {
+    const id = f.ch.id, armed = f.dz.armed, cb = D.combo(f);
+    if (!armed && !cb && D.canPick(f)) return 'dk_kickup';
+    if (cb === 'bf') return armed ? (SIG[id] && ATK[SIG[id]] ? SIG[id] : null) : 'ua_flyknee';
+    if (f.ctrl.held('guard')) return armed ? 'dk_sweep' : 'ua_sweep';
+    const d = f.dirFor('kick');
+    if (d < 0) return armed ? 'dk_spin' : 'ua_spinKick';
+    if (d > 0) return armed ? 'dk_wrist' : 'ua_front';
+    return null;
+  }
+  D.kickPick = kickPick;
+
+
+
   const KIT = {
     akane: { light1: 'ak_dNuki', light2: 'ak_dKesa', light3: 'd_tsukiL3', heavy: 'd_men', fLight: 'd_tsuki', bLight: 'ak_dKiri', fHeavy: 'd_kiriUp', dash: 'd_dashR' },
     kuro: { light1: 'd_kesaR', light2: 'd_kesaL', light3: 'd_shomen', heavy: 'd_men', fLight: 'd_tsuki', bLight: 'd_suneR', fHeavy: 'd_kiriUp', bHeavy: 'd_kesaH', dash: 'd_dashR' },
@@ -374,6 +548,7 @@
     const id = f.ch.id, opener = (f.chainN | 0) === 0;
     if (isSpecial(f, n)) return f.dz.armed ? null : 'ua_ki';
     const btn = /^(light1|fLight|bLight|dash)$/.test(n) ? 'L' : /^(heavy|fHeavy|bHeavy|dashHeavy)$/.test(n) ? 'H' : n === 'kick' ? 'K' : null;
+    if (opener && btn === 'K') { const k = kickPick(f); if (k && ATK[k]) return k; }
     if (!f.dz.armed) {
       if (opener && btn) {
         const cb = D.combo(f);

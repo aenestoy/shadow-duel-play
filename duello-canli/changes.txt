@@ -11,3 +11,4 @@
 2026-10-03 17:54  9c4a1aa3  WIP 10: blade lock and bind keep the two faces a head-width apart (Tora's helmet no longer over Akane's face)
 2026-10-03 23:45  4e2cd55f  WIP 11: Kage's ki appears behind the opponent; double-tap toward a close opponent rolls past him
 2026-10-04 03:21  688e4d8b  online duel fixes, 13-ninja damage balance, cloth carry-over fix, speed 1.0
+2026-10-04 07:24  c32a5840  1.5 aday: yeni dövüş + tekmeler + karşı saldırı sinematikleri (atlanamaz) + 7 arena + dereceli/çevrimiçi yeni dövüşle; 13 ninja dengesi ve zorluk ayarı; testler sürüyor

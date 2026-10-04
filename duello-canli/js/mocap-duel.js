@@ -71,6 +71,8 @@
   };
 
   MD.KEYED = ['d_tsuki', 'd_tsukiL3', 'd_tobikomi', 'd_wallL', 'd_kaiten', 'd_ashibarai', 'ak_dKiri', 'ak_tsubame', 'ak_kage', 'ak_ryusei', 'ak_maki', 'kr_uchi',
+
+    'dk_sweep', 'dk_spin', 'dk_wrist', 'dk_fly', 'ak_nidan',
     'ua_bf', 'ua_knee', 'ua_sweep', 'ua_air', 'ua_stomp', 'ua_flyknee', 'ua_ki', 'ua_cRip', 'ua_cSweep', 'ua_cSpin', 'ua_cHeavy', 'ua_cFin',
     'parry', 'clash', 'dbind', 'droll', 'dodge', 'air / jump', 'land', 'specials', 'counters', 'showpiece except the vault and the bottle'];
 
@@ -359,7 +361,7 @@
   function aimW(f) {
     const a = f.state === 'atk' ? f.atk : null, o = f.opp;
     if (!a || a.kind !== 'blade' || !a.active || !o || o.dead || o.hidden || (f.dz && f.dz.armed === false)) return 0;
-    if (f.dz && f.dz.cine) return 0;
+    if (f.dz && f.dz.cine && !f.dz.cine.fin) return 0;
 
 
     const t = f.st, W = a.hits && a.hits.length ? a.hits : [a.active];
@@ -447,7 +449,7 @@
   function fistAim(f, s, dt) {
     const rg = s.rig, a = f.state === 'atk' ? f.atk : null, o = f.opp, dir = f.dir < 0 ? -1 : 1;
     let w = 0;
-    if (a && a.active && !isArmed(f) && /^(haF|haB)$/.test(a.limb || '') && o && !o.dead && !o.hidden && !(f.dz && f.dz.cine) && Math.abs(o.x - f.x) < 260) {
+    if (a && a.active && !isArmed(f) && /^(haF|haB)$/.test(a.limb || '') && o && !o.dead && !o.hidden && !(f.dz && f.dz.cine && !f.dz.cine.fin) && Math.abs(o.x - f.x) < 260) {
       const t = f.st, a0 = a.active[0], a1 = a.active[1];
       const k = clamp((t - (a0 - 0.06)) / 0.06, 0, 1) * clamp(1 - (t - a1) / 0.14, 0, 1);
       w = k * k * (3 - 2 * k);
@@ -542,7 +544,7 @@
 
 
 
-    if (s.ox) { const bind = f.state === 'dbind' || (f.dz && f.dz.cine && !f.dz.cine.done); s.ox *= Math.exp(-Math.max(0, dt) / (bind ? 0.04 : 0.22)); if (Math.abs(s.ox) < 0.2) s.ox = 0; }
+    if (s.ox) { const bind = f.state === 'dbind' || (f.dz && f.dz.cine && !f.dz.cine.done && !f.dz.cine.fin); s.ox *= Math.exp(-Math.max(0, dt) / (bind ? 0.04 : 0.22)); if (Math.abs(s.ox) < 0.2) s.ox = 0; }
     rg.x = f.x + (s.ox || 0); rg.dir = f.dir < 0 ? -1 : 1; rg.vx = f.vx;
     rg.noSword = !isArmed(f);
 
@@ -648,7 +650,7 @@
   MD.bodyPen = (fa, fb) => { const a = ST.get(fa), b = ST.get(fb); return a && b && a.rig.P && b.rig.P ? penOf(shapesOf(a.rig, 0), shapesOf(b.rig, 0)) : 0; };
   function apart(f, s, o, so) {
     if (!s.rig.P || f.dead || o.dead || f.hidden || o.hidden) return;
-    if (f.state === 'dbind' || o.state === 'dbind' || (f.dz && f.dz.cine && !f.dz.cine.done) || (o.dz && o.dz.cine && !o.dz.cine.done)) return;
+    if (f.state === 'dbind' || o.state === 'dbind' || (f.dz && f.dz.cine && !f.dz.cine.done && !f.dz.cine.fin) || (o.dz && o.dz.cine && !o.dz.cine.done && !o.dz.cine.fin)) return;
 
     if (D.passing && (D.passing(f) || D.passing(o))) return;
     if (Math.abs(f.x - o.x) < BODY_MIN) return;
@@ -826,7 +828,7 @@
     if (!P || !P.armed || f.dead || o.dead || o.hidden || !so.rig.P) return;
 
     if (P.inside && !(P.bladeVis > 12)) return;
-    if (f.state === 'dbind' || (f.dz && f.dz.cine)) return;
+    if (f.state === 'dbind' || (f.dz && f.dz.cine && !f.dz.cine.fin)) return;
     const Q = so.rig.P, pjo = (q) => Mo.project(so.rig, q), hd = pjo(Q.head), hp = pjo(Q.hip), nk = pjo(Q.neck);
 
 

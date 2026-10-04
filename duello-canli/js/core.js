@@ -588,6 +588,10 @@ window.ND = window.ND || {};
   const adFns = new Set(), muteFns = new Set();
   const want = { loaded: false, play: false };
   let firstPlay = false;
+
+
+  let loadHidden = document.visibilityState === 'hidden';
+  document.addEventListener('visibilitychange', () => { if (!want.loaded && document.visibilityState === 'hidden') loadHidden = true; });
   const mark = (n) => { try { performance.mark(n); } catch (e) {                      } };
   const P = ND.portal = {
     name: ND.portalName,
@@ -595,6 +599,7 @@ window.ND = window.ND || {};
     inAd: false,
     muted: false,
     get sdk() { const a = api(); return !!(a && a.sdk); },
+    get loadHidden() { return loadHidden; },
 
 
     loadingFinished() { if (!want.loaded) mark('nd-loading-finished'); want.loaded = true; const a = api(); if (a) a.loadingFinished(); },

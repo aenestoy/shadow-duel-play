@@ -164,15 +164,27 @@
       if (!z || f.dead) continue;
       const hx = cam.sx(f.x), hy = cam.sy(f.y - 236);
 
-      const N = T.chainNeed, w = 11 * u, gap = 4 * u, x0 = hx - ((N * w + (N - 1) * gap) / 2);
-      if (z.chain > 0 || (z.cine && z.cine.def === f)) {
+
+
+      const FN = D.FIN, grp = FN ? 2 : 99, N = T.chainNeed, w = 11 * u, gap = 4 * u, gg = FN ? 5 * u : 0, ng = Math.floor((N - 1) / grp);
+      const x0 = hx - ((N * w + (N - 1) * gap + ng * gg) / 2);
+      if (z.chain > 0 || (z.cine && z.cine.def === f && !z.cine.fin)) {
+        const tier = FN && z.chain > 0 && z.chain < N ? FN.tierOf(z.chain) : 0, hot = tier > (z.finTier || 0) && z.chainT <= FN.win;
         for (let i = 0; i < N; i++) {
-          const x = x0 + i * (w + gap) + w / 2, on = i < z.chain;
+          const x = x0 + i * (w + gap) + Math.floor(i / grp) * gg + w / 2, on = i < z.chain;
           ctx.beginPath(); ctx.moveTo(x, hy - w * 0.6); ctx.lineTo(x + w * 0.45, hy); ctx.lineTo(x, hy + w * 0.6); ctx.lineTo(x - w * 0.45, hy); ctx.closePath();
           ctx.fillStyle = on ? f.col.ui : 'rgba(10,12,20,.6)'; ctx.fill();
           ctx.lineWidth = 1.5 * u; ctx.strokeStyle = on ? '#fff3d0' : 'rgba(255,255,255,.35)'; ctx.stroke();
         }
         if (z.chain >= N) txt(ctx, 'BIND READY', hx, hy - 16 * u, 12 * u, '#ffd27a');
+        else if (tier) {
+
+          const xe = x0 + N * (w + gap) + ng * gg + 8 * u;
+          ctx.globalAlpha = hot ? 1 : 0.45; ctx.font = `700 ${Math.round(15 * u)}px "Noto Serif JP", serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.lineWidth = 3 * u; ctx.strokeStyle = 'rgba(5,5,8,.9)'; ctx.strokeText(['', '一', '二', '三'][tier], xe, hy + u);
+          ctx.fillStyle = hot ? '#ffd27a' : '#e8e0cc'; ctx.fillText(['', '一', '二', '三'][tier], xe, hy + u);
+          ctx.globalAlpha = 1; ctx.textBaseline = 'alphabetic';
+        }
       }
 
       if (!z.armed) tagsDue.push([f, hx, hy]);
@@ -320,6 +332,7 @@
   <li><b>Disarm</b> also with a heavy hit on a broken guard, or <b>← → + HEAVY</b> (50 ki).</li>
   <li><b>Unarmed:</b> punches, elbows, knees, kicks. Near your sword press <b>SHURIKEN</b> to pick it up, or roll over it (dodge). Kick their sword away, punish their pickup.</li>
   <li><b>Props</b> (PROPS button): after a won bind the cup, stool or table may finish the job; a weapon rack holds a spare sword.</li>
+  <li><b>Kicks:</b> KICK alone a front kick · <b>↓ + KICK</b> sweep (jump over it) · <b>← + KICK</b> spinning kick (slow, strong) · <b>→ + KICK</b> hand kick (into a cut's wind-up: the sword flies) · <b>in the air</b> flying kick · <b>← → + KICK</b> your ninja's own kick · unarmed at your sword: KICK flicks it up.</li>
   <li><b>Same buttons, more moves:</b> distance, height, guard, walls, air and fists change the move. Combos: ← → or → ← then LIGHT / HEAVY.</li>
   </ul>`;
   function el(tag, attrs, html) { const e = document.createElement(tag); Object.assign(e, attrs || {}); if (html != null) e.innerHTML = html; return e; }
@@ -710,4 +723,36 @@
       return pu0.call(this, amt);
     };
   }
+})(window.ND);
+
+
+
+
+
+
+
+(function (ND) {
+  'use strict';
+  const FP = ND.Fighter && ND.Fighter.prototype;
+  if (!FP || !FP.cloth || !ND.duel) return;
+  const LAST = new WeakMap(), JUMP = 60;
+  const ropes = (f) => { const L = []; if (f.tails) for (const r of f.tails) if (r) L.push(r); if (f.sash) L.push(f.sash); return L; };
+  const thrown = (R) => {
+    const p = R.p; if (!R.init || !p || p.length < 2) return false;
+    const far = (R.seg || 7) * p.length * 1.3;
+    for (let i = 1; i < p.length; i++) if (!(Math.abs(p[i].x - p[0].x) < far && Math.abs(p[i].y - p[0].y) < far)) return true;
+    return false;
+  };
+  const cl0 = FP.cloth;
+  FP.cloth = function (j, dt) {
+    const x = typeof this.x === 'number' ? this.x : null, y = typeof this.y === 'number' ? this.y : 0;
+    if (x !== null) {
+      const l = LAST.get(this);
+      if (l && (Math.abs(x - l.x) > JUMP || Math.abs(y - l.y) > JUMP)) for (const R of ropes(this)) R.init = false;
+      if (l) { l.x = x; l.y = y; } else LAST.set(this, { x, y });
+    }
+    const r = cl0.call(this, j, dt);
+    for (const R of ropes(this)) if (thrown(R)) R.init = false;
+    return r;
+  };
 })(window.ND);

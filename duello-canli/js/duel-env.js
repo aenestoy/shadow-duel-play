@@ -146,6 +146,7 @@
 
 
   const ACT = {};
+  D.envACT = ACT;
   function track(K, t) {
     if (t <= K[0][0]) return K[0][1];
     for (let i = 1; i < K.length; i++) if (t <= K[i][0]) { const a = K[i - 1], b = K[i], u = (t - a[0]) / Math.max(1e-6, b[0] - a[0]); return a[1] + (b[1] - a[1]) * E.inOutSine(u); }
@@ -346,7 +347,7 @@
   const SP_MIN = 96;
   function reachIn(f, dt) {
     const o = f.opp, a = f.atk;
-    if (f.state === 'atk' && a && a.special && o && !o.dead && o.state !== 'down' && o.state !== 'getup' && Math.abs(o.x - f.x) < SP_MIN) {
+    if (f.state === 'atk' && a && a.special && o && !o.dead && o.state !== 'down' && o.state !== 'getup' && Math.abs(o.x - f.x) < SP_MIN && !(a.cross && D.finOf && D.finOf(f))) {
       const s1 = Math.sign(o.x - f.x) || f.dir; f.x = Math.max(-ND.ARENA, Math.min(ND.ARENA, o.x - s1 * SP_MIN));
     }
     if (f.state !== 'atk' || !a || a.kind !== 'blade' || a.special || a.prop || !a.active || !o || o.dead || !f.onGround || !o.onGround || o.state === 'down' || o.state === 'getup' || o.state === 'launch') return;
@@ -378,13 +379,15 @@
     if (this.state !== 'denv') return;
     if (c.keys) pose.seq(c.keys, Math.min(t, A.dur), this.pose);
     const x0 = this.x;
-    if (c.X) this.x = clamp(track(c.X, t), -ND.ARENA, ND.ARENA);
+    if (c.X) this.x = A.out ? track(c.X, t) : clamp(track(c.X, t), -ND.ARENA, ND.ARENA);
 
     if (A.kickWin && t > A.kickWin[0] && t < A.kickWin[1] && o && !o.dead && Math.abs(o.x - this.x) < KICK_SEP && (c.a !== 'vault' || c.kick)) {
       const sd = Math.sign(this.x - o.x) || -this.dir || -1;
       this.x = clamp(o.x + sd * KICK_SEP, -ND.ARENA, ND.ARENA);
     }
-    const y = c.Y ? track(c.Y, t) : 0;
+    let y = c.Y ? track(c.Y, t) : 0;
+
+    c.sink = A.out && y > 0 ? y : 0; if (c.sink) y = 0;
 
     this.y = y; this.vx = dt > 0 ? (this.x - x0) / dt : 0; this.vy = 0; this.onGround = y > -1 && !(A.air && t > A.air[0] && t < A.air[1]);
     if (c.dirs) { for (const d of c.dirs) if (t >= d[0]) this.dir = d[1]; }
@@ -395,10 +398,10 @@
   FP.isInv = function () {
     const c = this.dz && this.state === 'denv' ? this.dz.env : null;
 
-    if (c) { const A = ACT[c.a]; if (A.air) { const m = (A.air[1] - A.air[0]) / 3; if (c.t > A.air[0] + m && c.t < A.air[1] - m) return true; } }
+    if (c) { const A = ACT[c.a]; if (A.inv && c.t > A.inv[0] && c.t < A.inv[1]) return true; if (A.air) { const m = (A.air[1] - A.air[0]) / 3; if (c.t > A.air[0] + m && c.t < A.air[1] - m) return true; } }
     return inv0.call(this);
   };
-  FP.passing = function () { const c = this.dz && this.state === 'denv' ? this.dz.env : null; return !!(c && (c.a === 'vault' || c.a === 'wall' || c.a === 'steps')) || pass0.call(this); };
+  FP.passing = function () { const c = this.dz && this.state === 'denv' ? this.dz.env : null; return !!(c && (c.a === 'vault' || c.a === 'wall' || c.a === 'steps' || ACT[c.a].pass)) || pass0.call(this); };
 
 
 
@@ -420,7 +423,7 @@
     const ln = near(f, (p) => p.k === 'lantern' && Math.abs(o.x - p.x) < 150, 200);
     if (ln && armed(f)) out.push(['lantern', ln, 6]);
 
-    if (Math.abs(f.x) > A - 200 && (o.x - f.x) * Math.sign(f.x) < 0 && dist < 340 && dist > 70) out.push(['wall', null, 2.5]);
+    if (Math.abs(f.x) > A - 200 && (o.x - f.x) * Math.sign(f.x) < 0 && dist < 340 && dist > 70 && !(D.arenaNoWall && D.arenaNoWall(Math.sign(f.x)))) out.push(['wall', null, 2.5]);
 
     const st = near(f, (p) => p.k === 'veranda', 220);
     if (st && dist < 360 && dist > 120 && Math.abs(o.x - st.x) > KINDS.veranda.w / 2 - 10) out.push(['steps', st, 2.5]);
@@ -561,7 +564,7 @@
     const toward = Math.sign(o.x - f.x) || f.dir, dist = Math.abs(o.x - f.x), C = [];
     const add = (a, p, d, icon) => C.push({ a, p, d, icon });
 
-    if (Math.abs(f.x) > A - 90 && (o.x - f.x) * Math.sign(f.x) < 0) add('wall', null, A - Math.abs(f.x), 'wall');
+    if (Math.abs(f.x) > A - 90 && (o.x - f.x) * Math.sign(f.x) < 0 && !(D.arenaNoWall && D.arenaNoWall(Math.sign(f.x)))) add('wall', null, A - Math.abs(f.x), 'wall');
     for (const p of S.items) {
       if (p.st !== 0) continue;
       const K = KINDS[p.k], dx = p.x - f.x, ad = Math.abs(dx), ahead = dx * toward > 0;
@@ -581,6 +584,7 @@
       if (VAULT[p.k] && ad < 95 && ahead) { add(hold > 0 || !K.kick ? 'vault' : 'p:kick', p, ad, ICON[p.k] || 'barrel'); continue; }
       if (K.kick && !K.fixed && ad < 90) add('p:kick', p, ad, ICON[p.k] || 'barrel');
     }
+    if (D.arenaCtx) D.arenaCtx(f, hold, add);
     if (!C.length) return null;
     C.sort((x, y) => x.d - y.d);
     return C[0];
@@ -711,7 +715,7 @@
 
   const SEP_EX = 40;
   const SEP = 40, DOWN_SEP = 50, LAUNCH_SEP = 60, AIR_SEP = 72, OVER = 175, ABOVE = 40, ABOVE_SEP = 100;
-  const held = (f) => f.state === 'lock' || f.state === 'dbind' || f.state === 'dseq' || !!(f.dz && f.dz.cine);
+  const held = (f) => f.state === 'lock' || f.state === 'dbind' || f.state === 'dseq' || !!(f.dz && f.dz.cine) || (f.state === 'denv' && !!(f.dz && f.dz.env && ACT[f.dz.env.a] && ACT[f.dz.env.a].hold));
   const lying = (f) => f.state === 'down' || f.state === 'getup' || (f.state === 'launch' && f.onGround);
   const placeApart = (a, b, s, gap, wa) => {
     const A = ND.ARENA, d = b.x - a.x, push = gap - d * s;
@@ -844,6 +848,7 @@
       throughTable(F);
       spills(h, F);
       refill(h, F);
+      if (D.arenaStep) D.arenaStep(h, F);
     }
 
 
@@ -923,10 +928,12 @@
     P.draw = function (ctx, layer) {
       hookMocap();
       if (layer === 'back') { try { uiUpdate(); } catch (e) {                                           } }
-      if (layer !== 'back' || !G.F || !G.F[0] || !G.F[0].dz) return pdraw0.call(this, ctx, layer);
-      const v = S.arena === 'temple' ? S.items.filter((p) => p.k === 'veranda' && p.st === 0) : [];
+      if (layer !== 'back' || !G.F || !G.F[0] || !G.F[0].dz) { const r = pdraw0.call(this, ctx, layer); if (layer !== 'back' && G.F && G.F[0] && G.F[0].dz && D.arenaDraw) { cam.world(ctx); D.arenaDraw(ctx, 'front'); } return r; }
+      const own = S.arena !== 'temple' && D.arenaVeranda && D.arenaVeranda();
+      const v = S.arena === 'temple' || own ? S.items.filter((p) => p.k === 'veranda' && p.st === 0) : [];
       cam.world(ctx);
-      for (const p of v) drawShrine(ctx, p);
+      if (D.arenaDraw) { ctx.save(); D.arenaDraw(ctx, 'back'); ctx.restore(); }
+      for (const p of v) (own ? own : drawShrine)(ctx, p);
 
       for (const p of v) p.st = 2;
       try { pdraw0.call(this, ctx, layer); } finally { for (const p of v) p.st = 0; }
@@ -948,6 +955,7 @@
     vaultKick: ['fRunJumpOver', 0.32, 0.95, 0, 0.46, 'air'],
     slip: ['fSlipSake', 0.05, 1.25, 0, 1.25, 'down'],
   };
+  D.envMCL = MCL;
   const MCG = ['fStoolPick', 0.05, 0.75, 0, 0.42, null];
   const MCS = new WeakMap(), HIPS = {};
 
@@ -1055,7 +1063,7 @@
       opacity:0;transform:scale(.8);transition:opacity .22s ease,transform .22s ease;pointer-events:none;touch-action:none;-webkit-tap-highlight-color:transparent}
       #tCtx.show{opacity:.95;transform:scale(1);pointer-events:auto}
       #tCtx.on{transform:scale(.92)}
-      #tCtx b{position:absolute;right:-2px;bottom:-2px;font:700 12px/1 system-ui,sans-serif;color:#1b140c;background:#ffe3a1;border-radius:6px;padding:2px 4px}
+      #tCtx b{position:absolute;left:50%;bottom:3px;transform:translateX(-50%);font:700 11px/1 system-ui,sans-serif;color:#1b140c;background:#ffe3a1;border-radius:5px;padding:1px 4px}
       #tCtxHint{position:absolute;z-index:31;max-width:220px;font:600 13px/1.25 system-ui,sans-serif;color:#fff;background:rgba(20,16,12,.85);border:1px solid rgba(255,214,140,.6);
       border-radius:8px;padding:6px 9px;opacity:0;transition:opacity .3s;pointer-events:none}
       #tCtxHint.show{opacity:1}`;
