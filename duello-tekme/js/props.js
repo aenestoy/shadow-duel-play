@@ -319,12 +319,15 @@
     on: false, cpu: false, arena: null, rs: 1, t: 0, nid: 1, items: [], shards: [],
     tasks: [null, null], brain: [{ cd: 1.5 }, { cd: 2.5 }], dizzy: [0, 0], fy: [0, 0], fvy: [0, 0],
   };
+  const lowDebris = () => (ND.game && ND.game.mode === 'online') || !!(ND.gfx && (ND.gfx.tier === 'low' || ND.gfx.mobile));
   const P = ND.props = {
     on: false, S, KINDS, ARENA_SETS, MAT,
     get items() { return S.items; },
     get shards() { return S.shards; },
-    debrisCap: () => (ND.gfx && (ND.gfx.tier === 'low' || ND.gfx.mobile) ? 26 : 48),
-    debrisKeep: () => (ND.gfx && (ND.gfx.tier === 'low' || ND.gfx.mobile) ? 3.5 : 6),
+
+
+    debrisCap: () => (lowDebris() ? 26 : 48),
+    debrisKeep: () => (lowDebris() ? 3.5 : 6),
     listeners: [],
     stats: { breaks: 0, maxShards: 0 },
   };

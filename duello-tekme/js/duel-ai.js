@@ -31,7 +31,14 @@
 
 
   const K0Q = (/[?&]duelk0=([\d.]+)/.exec(location.search || '') || [])[1];
-  const kAt = (id, key) => (key !== '0' ? kOf(id) : K0Q != null ? +K0Q : KN.duelK0ch && KN.duelK0ch[id] != null ? KN.duelK0ch[id] : kOf(id));
+
+
+  const LVK = { 0.5: 'duelKAch', 1: 'duelKUch' };
+  const kAt = (id, key) => {
+    if (key === '0') return K0Q != null ? +K0Q : KN.duelK0ch && KN.duelK0ch[id] != null ? KN.duelK0ch[id] : kOf(id);
+    const M = LVK[key] && KN[LVK[key]];
+    return KQ == null && M && M[id] != null ? M[id] : kOf(id);
+  };
   const SOFT = {};
   const BELOW = { 0: () => SOFT, 0.5: () => LV[0], 1: () => LV[0.5], 2: () => LV[1], 3: () => LV[2] };
   const soften = () => {
@@ -56,9 +63,33 @@
   { const d0 = ND.aiDerive; ND.aiDerive = function () { const r = d0 && d0.apply(this, arguments); for (const o of DUEL_LV.values()) o.__k = kAt(o.__id, o.__key); duelDerive(); return r; }; }
   soften();
   const CACHE = new Map();
+
+
+
+
+  const GCACHE = new WeakMap();
+  const GKQ = (/[?&]ghostk=([\d.]+)/.exec(location.search || '') || [])[1];
+  const mixLv = (A, B, u) => { const o = {}; for (const f of Object.keys(B)) { const x = A[f], y = B[f]; if (Array.isArray(y) && Array.isArray(x)) o[f] = y.map((v, i) => x[i] + (v - x[i]) * u); else if (typeof y === 'number' && typeof x === 'number') o[f] = x + (y - x) * u; } return o; };
+  function ghostLevel(lv, id) {
+    let o = GCACHE.get(lv);
+    if (o) return o;
+    const t = typeof lv.__t === 'number' ? lv.__t : 0;
+    const a = t <= 1 ? mixLv(SOFT, LV[0.5], Math.max(0, t)) : mixLv(LV[0.5], LV[1], Math.min(1, t - 1));
+    const k = (t < 0.5 ? kAt(id, '0') : kOf(id)) * (GKQ != null ? +GKQ : KN.duelGhostK ?? 1);
+    o = { name: lv.name };
+    for (const f of Object.keys(lv)) {
+      if (f === 'name') continue;
+      if (Array.isArray(lv[f]) && Array.isArray(a[f])) o[f] = lv[f].map((v, i) => a[f][i] + (v - a[f][i]) * k);
+      else if (typeof lv[f] === 'number' && typeof a[f] === 'number') o[f] = a[f] + (lv[f] - a[f]) * k;
+      else o[f] = lv[f];
+    }
+    GCACHE.set(lv, o);
+    return o;
+  }
   D.duelLevel = (lv, id) => {
     if (!lv || typeof lv !== 'object') return lv;
     const key = Object.keys(LV).find((k) => LV[k] === lv), ck = (id || '') + '|' + key;
+    if (key == null) return ghostLevel(lv, id);
     let o = CACHE.get(ck);
     if (!o) {
       o = { name: lv.name };
@@ -176,14 +207,17 @@
       if (Math.abs(o.x + Math.sign(o.x - me.x) * (D.PASS ? D.PASS.beyond : 70)) < ND.ARENA - 30) { this.moveDir(fwd2 === 'right' ? 1 : -1); this.tap('dodge'); return; }
     }
 
-    if (D.kicksOn && D.kicksOn(me) && me.dz.armed && dist < 260) {
+
+
+    if (D.kicksOn && D.kicksOn(me) && me.dz.armed && dist < 260 && !(D.envExchange && D.envExchange()) && this.t - (this.kLast ?? -9) > 4 / KRATE) {
       const r = rnd(), oppGuard = o.state === 'guard' || o.state === 'block', sm = lv.smart || 0;
-      if (dist < 150 && r < 0.02 + 0.05 * sm) {
+      if (dist < 150 && r < (0.008 + 0.022 * sm) * KRATE) {
         const r2 = rnd();
         this.kickQ(oppGuard && r2 < 0.45 ? 'spin' : r2 < 0.5 ? 'sweep' : r2 < 0.75 && D.KICK_SIG[me.ch.id] ? 'sig' : 'spin');
+        this.kLast = this.t;
         return;
       }
-      if (dist > 170 && o.onGround && r < 0.012 + 0.025 * sm) { this.kickQ('air'); return; }
+      if (dist > 170 && o.onGround && r < (0.004 + 0.01 * sm) * KRATE) { this.kickQ('air'); this.kLast = this.t; return; }
     }
 
     const C = D.COMBO && D.COMBO[me.ch.id];
@@ -195,6 +229,8 @@
     return decide0.call(this, dist, fwd);
   };
 
+
+  const KRATE = +((/[?&]kickrate=([\d.]+)/.exec(location.search || '') || [])[1] || 1);
 
 
   AP.kickQ = function (kind) {
@@ -218,9 +254,10 @@
       const a = o.atk, k = o.ch.spd * o.aspd, t0 = this.t - o.st / k;
       if (a.low && a.kind === 'kick' && a.active && dist < 240) {
         if (rnd() < 0.2 + 0.55 * sm) this.kq = { act: 'jump', at: Math.max(this.t + lv.react, t0 + a.active[0] / k - 0.14), until: t0 + a.active[1] / k };
-      } else if (D.kicksOn && D.kicksOn(me) && me.dz.armed && a.kind === 'blade' && a.active && !a.special && !a.counter && dist < 170) {
+      } else if (D.kicksOn && D.kicksOn(me) && me.dz.armed && a.kind === 'blade' && a.active && !a.special && !a.counter && dist < 170 && (a.heavyClass || a.active[0] >= 0.3)) {
+
         const kw = ND.ATK.dk_wrist.active[0] / me.ch.spd, due = t0 + a.active[0] / k - kw - 0.02;
-        if (due - this.t > lv.react && rnd() < 0.4 * sm) this.kq = { act: 'wrist', at: Math.max(this.t + lv.react, due - 0.05), until: due };
+        if (due - this.t > lv.react && rnd() < 0.15 * sm) this.kq = { act: 'wrist', at: Math.max(this.t + lv.react, due - 0.05), until: due };
       }
     }
     if (o.state === 'atk' && o.atk && o.atk.punish && !o.hitDone && o.atk.active && o.st > o.atk.active[1] && dist < 210 && this.kPun !== o.keys) {

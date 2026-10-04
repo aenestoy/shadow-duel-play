@@ -131,6 +131,7 @@
       lv.range = Math.round(Math.min(def + 90, Math.max(def - 40, s.range)));
     }
     lv.name = 'Shadow';
+    Object.defineProperty(lv, '__t', { value: skillT(rating) });
     return lv;
   }
 

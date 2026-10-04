@@ -320,6 +320,7 @@
   <li><b>Disarm</b> also with a heavy hit on a broken guard, or <b>← → + HEAVY</b> (50 ki).</li>
   <li><b>Unarmed:</b> punches, elbows, knees, kicks. Near your sword press <b>SHURIKEN</b> to pick it up, or roll over it (dodge). Kick their sword away, punish their pickup.</li>
   <li><b>Props</b> (PROPS button): after a won bind the cup, stool or table may finish the job; a weapon rack holds a spare sword.</li>
+  <li><b>Kicks:</b> KICK alone a front kick · <b>↓ + KICK</b> sweep (jump over it) · <b>← + KICK</b> spinning kick (slow, strong) · <b>→ + KICK</b> hand kick (into a cut's wind-up: the sword flies) · <b>in the air</b> flying kick · <b>← → + KICK</b> your ninja's own kick · unarmed at your sword: KICK flicks it up.</li>
   <li><b>Same buttons, more moves:</b> distance, height, guard, walls, air and fists change the move. Combos: ← → or → ← then LIGHT / HEAVY.</li>
   </ul>`;
   function el(tag, attrs, html) { const e = document.createElement(tag); Object.assign(e, attrs || {}); if (html != null) e.innerHTML = html; return e; }
@@ -524,6 +525,7 @@
 
     if (ND.scene && ND.scene.lightFighter) {
       const lf0 = ND.scene.lightFighter, HF = new WeakMap();
+      (ND.onLook || (ND.onLook = [])).push((f) => { HF.delete(f); });
       ND.scene.lightFighter = function (c, f) {
         if (!f || !f.dz) return lf0.apply(this, arguments);
         let h = HF.get(f); if (!h) HF.set(f, (h = { last: 0, n: 9 }));

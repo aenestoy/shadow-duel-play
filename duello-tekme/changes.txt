@@ -3,3 +3,4 @@
 2026-10-04 01:24  308d9f20  Kicks now for 7 ninjas: + Hana (flip heel kick), Tetsu (vaults on the naginata), Ren (knee then stamp kick); a blocked spinning kick can be punished
 2026-10-04 01:27  c59a942d  Kicks now for 10 ninjas: + Kage (vanishing kick), Tora (chain-whirl jumping kick), Jin (staff overhead, low-high kicks)
 2026-10-04 01:31  eabd543c  Kicks for all 13 ninjas: + Mai (fan twirl kick), Tsubame (back-flip kick), Shura (leaping axe kick)
+2026-10-04 05:21  191d35eb  All 13 with kicks; CPU kicks less and never mid-exchange; hand kick disarms only a heavy cut; sweep no longer sinks; kick-up fixed for long swords; move list in 18 languages

@@ -1077,7 +1077,10 @@
 
   function uiPlace() {
     const b = UI.el, app = document.getElementById('app'), W = app.clientWidth, H = app.clientHeight;
-    const key = W + 'x' + H + (touchOn() ? 't' : 'k');
+
+
+    let lay = ''; try { lay = ND.touchUI && ND.touchUI.prefs ? JSON.stringify(ND.touchUI.prefs) : ''; } catch (e) { lay = ''; }
+    const key = W + 'x' + H + (touchOn() ? 't' : 'k') + lay;
     if (UI.placedFor === key) return;
     UI.placedFor = key;
     const R = app.getBoundingClientRect();
@@ -1096,7 +1099,8 @@
     for (const c of acts) for (let k = 0; k < 16; k++) {
       const a = (k / 16) * Math.PI * 2, x = c.x + Math.cos(a) * (c.r + r + 8), y = c.y + Math.sin(a) * (c.r + r + 8);
       if (!ok(x, y)) continue;
-      const score = (light ? Math.hypot(light.x - x, light.y - y) : 0) + Math.max(0, W * 0.55 - x) * 2;
+
+      const score = (light ? Math.hypot(light.x - x, light.y - y) : 0) + (light && light.x < W / 2 ? Math.max(0, x - W * 0.45) : Math.max(0, W * 0.55 - x)) * 2;
       if (!best || score < best.s) best = { x, y, s: score };
     }
     if (!best) best = { x: W - r - 10, y: r + 60 };

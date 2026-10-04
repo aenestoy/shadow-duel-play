@@ -367,10 +367,11 @@
 
   P('dk_swA', Object.assign({ hx: -10, hy: -52, lean: 0.52, hd: 0.28, f1x: 30, f2x: -40 }, KH, { ax: 12, ay: 2, sw: -1.6 }));
   P('dk_swB', Object.assign({ hx: -2, hy: -44, lean: 0.5, hd: 0.3, f1x: 92, f1y: -3, f2x: -42 }, KH, { ax: 14, ay: 6, sw: -1.55 }));
-  P('dk_swC', Object.assign({ hx: 2, hy: -46, lean: 0.46, hd: 0.26, f1x: 74, f1y: -2, f2x: -40 }, KH, { ax: 16, ay: 8, sw: -1.5 }));
-  reg('dk_sweep', { keys: [[0.1, 'dk_swA', es], [0.19, 'dk_swB', eq], [0.28, 'dk_swC', eo], [0.6, 'stance', ei]],
-    active: [0.15, 0.26], dmg: 6, post: 18, kb: 170, stun: 0.5, knock: true, trip: true, low: true, kind: 'kick', limb: 'ftF', limbR: 15, lunge: [0.08, 0.18, 230],
-    dz3: { side: 0, v: 'low', dir: 'sweep' }, z3: KZ([[0.1, 0.35, 0.45, 1, 1], [0.19, -0.45, -0.65, 1, 1], [0.28, -0.3, -0.45, 1, 1]], 0.6) });
+
+
+  reg('dk_sweep', { keys: [[0.1, 'dk_swA', es], [0.18, 'dk_swB', eq], [0.26, 'dk_swB'], [0.58, 'stance', ei]],
+    active: [0.13, 0.22], dmg: 6, post: 18, kb: 170, stun: 0.5, knock: true, trip: true, low: true, kind: 'kick', limb: 'ftF', limbR: 15, lunge: [0.08, 0.16, 200],
+    dz3: { side: 0, v: 'low', dir: 'sweep' }, z3: KZ([[0.1, 0.35, 0.45, 1, 1], [0.18, -0.45, -0.65, 1, 1], [0.26, -0.4, -0.6, 1, 1]], 0.58) });
   note('dk_sweep', 'both', 'Ashi-barai (low sweep)', '↓ + KICK', 'knocks down · jump over it');
 
   P('dk_spA', Object.assign({ hx: 4, hy: -76, lean: 0.34, hd: 0.2, f1x: 20, f2x: -30 }, KH));
@@ -505,6 +506,7 @@
   const SIG = { akane: 'ak_nidan', aoi: 'ao_kaze', kuro: 'kr_yama', yuki: 'yk_kitsune', hana: 'hn_sakura', tetsu: 'tt_vault', ren: 'rn_oni', kage: 'kg_kage',
     tora: 'tr_kusari', jin: 'jn_tenbin', mai: 'mi_ogi', tsubame: 'ts_tsubame', shura: 'sh_ashura' };
   D.KICK_SIG = SIG;
+  { const NEW = new Set(Object.values(SIG).concat(['dk_sweep', 'dk_spin', 'dk_wrist', 'dk_fly', 'dk_kickup'])); D.isKickMove = (n) => NEW.has(n); }
 
   function kickPick(f) {
     const id = f.ch.id, armed = f.dz.armed, cb = D.combo(f);

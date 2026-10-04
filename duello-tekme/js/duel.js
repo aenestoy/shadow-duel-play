@@ -367,6 +367,11 @@
   D.guardTarget = guardTarget;
 
 
+
+
+
+
+  { const sc0 = FP.setChar; if (sc0) FP.setChar = function () { const r = sc0.apply(this, arguments); for (const fn of ND.onLook || []) { try { fn(this); } catch (e) {                       } } this._anim = null; return r; }; }
   const NOPROPS = /[?&]props=0(&|$)/.test(location.search || '');
   { const nm0 = G.newMatch; G.newMatch = function (mode, opts) { D.matchSpeed = mode === 'online' && opts && +opts.speed >= 0.7 && +opts.speed <= 1 ? +opts.speed : 1; return nm0.apply(this, arguments); }; }
   const reset0 = FP.reset;
@@ -620,7 +625,9 @@
 
 
 
-      else if (was === 'atk' && from && from.dz && a && a.kind === 'kick' && (a.disarmKick || (!from.dz.armed && /^(ftF|knF)$/.test(a.limb || ''))) &&
+
+
+      else if (was === 'atk' && from && from.dz && a && a.kind === 'kick' && (a.disarmKick ? !!(atk0 && (atk0.heavyClass || (atk0.active && atk0.active[0] >= 0.3))) : (!from.dz.armed && /^(ftF|knF)$/.test(a.limb || ''))) &&
         atk0 && atk0.kind === 'blade' && atk0.active && st0 < atk0.active[0] && disarm(this, from, kdir, 'break')) {
         stat('kickDisarms');
       }
@@ -685,12 +692,16 @@
     s.grip(PT);
     if (ph === 'flick') {
       if (!s.resting() || Math.abs(PT.x - f.x) > T.pickR + 16) return;
-      s.mode = 'fly'; s.bounces = 1; s.kup = f.serial; s.vx = (f.x + f.dir * 30 - PT.x) / 0.16; s.vy = -640; s.va = -f.dir * 9;
+
       if (s.y > -20) s.y = -20;
+      const tf = 0.16 / ((f.ch.spd || 1) * (f.aspd || 1)), gx = f.x + f.dir * 30 - PT.x, gy = f.y - 100 - PT.y;
+      s.mode = 'fly'; s.bounces = 1; s.kup = f.serial; s.vx = gx / tf; s.vy = Math.min(gy / tf - 950 * tf, -380); s.va = -f.dir * 9;
+
+      { s.pt(1, PT2); const ty = PT2.y; s.pt(-s.hl / s.bl, PT2); const lo = Math.max(ty, PT2.y); if (lo > -4) s.y -= lo + 4; }
       au.swoosh(0.5, f.pan); fx.dust(PT.x, 0, 4, 0.4);
       return;
     }
-    if (s.kup === f.serial && Math.abs(PT.x - f.x) < 80 && PT.y < -40) { rearm(f, false); stat('kickUps'); }
+    if (s.kup === f.serial && s.mode === 'fly' && Math.abs(PT.x - f.x) < 110 && PT.y < f.y - 30) { rearm(f, false); stat('kickUps'); }
   };
   function rollToSword(f) {
     const sw = D.swordOf(f), d = f.ddir || f.dir;

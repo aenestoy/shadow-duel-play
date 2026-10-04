@@ -168,6 +168,7 @@
 
   if (D.useA) {
     const EXT = new WeakMap(), W3 = 11;
+    (ND.onLook || (ND.onLook = [])).push((f) => { EXT.delete(f); });
     A3.provider = (f) => {
       if (!f.dz || f.dead || D.lite) return null;
       const S = f._anim, C = S && S.d3, j = S && S.j;
@@ -410,6 +411,7 @@
   const LKEYS = Object.keys(LIM);
   const FREE = { launch: 1, down: 1, getup: 1, droll: 1, dpick: 1, win: 1, dead: 1 };
   const PS = new WeakMap();
+  (ND.onLook || (ND.onLook = [])).push((f) => { PS.delete(f); });
   const SAYA_PULL = 12, SAYA_T = [0.07, 0.3];
 
   function handOnSaya(D0, back) {
