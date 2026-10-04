@@ -1,3 +1,4 @@
 2026-10-04 01:20  42036e71  Waterfall changes the fight: the stream carries you right, the right edge is a pool (ring-out), a surge every ~25 s (jump or guard), water kick (Q / button in the water)
 2026-10-04 01:57  a59967d7  All 7 arenas now change the fight: market cart + lanterns + stall ramp, rain lightning bamboo + puddles/mud, snow slide + ice + drifts, village burning beam + fire ends, castle gale + eave + tiles, temple petal storm; wall splat + up-the-wall escape at walls
 2026-10-04 02:55  e948c84d  Arena events come sooner (first at 8-14 s, then every 20-32 s); snow easier to read (drift edge, heap, warning ring); arenas checked online (2 browsers, all 7 in sync)
+2026-10-04 04:15  62b9bed0  Balance: arena hazards hit softer, low CPU levels read the arena less; cheaper arena drawing on phones; merged the latest duel (speed 1.0)

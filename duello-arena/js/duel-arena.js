@@ -155,6 +155,10 @@
   }
   const ellipse = (ctx, x, y, rx, ry) => { ctx.moveTo(x + rx, y); ctx.ellipse(x, y, rx, ry, 0, 0, 6.283); };
 
+  const GR = new WeakMap();
+  const grad = (ctx, key, make) => { let m = GR.get(ctx); if (!m) GR.set(ctx, (m = new Map())); let g = m.get(key); if (!g) m.set(key, (g = make())); return g; };
+  const lin = (ctx, key, x0, y0, x1, y1, stops) => grad(ctx, key, () => { const g = ctx.createLinearGradient(x0, y0, x1, y1); for (const q of stops) g.addColorStop(q[0], q[1]); return g; });
+
 
 
 
@@ -191,7 +195,7 @@
       c.Y = [[0, y0], [0.3, y0 * 0.85], [0.52, 0], [0.62, 0]];
       c.keys = [[0, f.entry], [0.06, pk('wallHit'), E.outCubic], [0.32, mod('wallHit', { hy: -70 }), E.inOut], [0.52, pk('down'), E.inCubic || E.inOut]];
       c.dirs = [[0, -w]];
-      c.ev = [[0.02, (f) => { if (pres()) { fx.dust(f.x + w * 10, f.y - 90, 10, 0.9); au.thud(1.3, f.pan); cam.punch(8); } chip(f, 4); const d = def(); if (d && d.splatBurn && d.splatBurn(f)) { chip(f, 3); if (pres()) spray(f.x, -60, -w, 20, 0.7, '255,168,70'); } }],
+      c.ev = [[0.02, (f) => { if (pres()) { fx.dust(f.x + w * 10, f.y - 90, 10, 0.9); au.thud(1.3, f.pan); cam.punch(8); } chip(f, 3); const d = def(); if (d && d.splatBurn && d.splatBurn(f)) { chip(f, 2); if (pres()) spray(f.x, -60, -w, 20, 0.7, '255,168,70'); } }],
         [0.6, (f) => { f.dz.env = null; f.setState('down'); }]];
       f.dz.arSplatT = 2.6;
       label(f, (def() && def().splatBurn && def().splatBurn(f)) ? 'Splatted into the fire!' : 'Wall splat!');
@@ -241,7 +245,7 @@
     };
   }
   ringAct('pool', {
-    side: 1, dur: 1.55, turn: 0.95, hitAt: 0.28, dmg: 5, label: 'Into the pool!',
+    side: 1, dur: 1.55, turn: 0.95, hitAt: 0.28, dmg: 4, label: 'Into the pool!',
     X: [[0.22, 56], [0.95, 70], [1.2, 18], [1.4, -40], [1.55, -70]],
     Y: [[0.12, -30], [0.3, 64], [0.9, 60], [1.15, 26], [1.3, -40], [1.45, 0], [1.55, 0]],
     keys: (f) => [[0.16, pk('launch'), E.outCubic], [0.32, mod('launch', { lean: -0.9 }), E.inOut], [0.9, mod('kneel', { lean: 0.5 }), E.inOut], [1.2, mod('jump', { lean: 0.4 }), E.outCubic], [1.42, pk('land'), E.outCubic], [1.55, f.P.stance, E.inOut]],
@@ -256,7 +260,7 @@
     onIn: (f) => { for (const p of S.items) if (p.k === 'shopfront' && p.st === 0) P.breakProp(p, 'crush', { x: p.x, y: -110, dx: -1, dy: 0, by: f.opp }); },
   });
   ringAct('eave', {
-    side: 1, dur: 1.6, turn: 1.0, hitAt: 0.3, dmg: 5, label: 'Hanging from the eave!',
+    side: 1, dur: 1.6, turn: 1.0, hitAt: 0.3, dmg: 4, label: 'Hanging from the eave!',
     X: [[0.2, 34], [0.95, 30], [1.2, 6], [1.4, -40], [1.6, -66]],
     Y: [[0.12, -24], [0.3, 150], [0.95, 140], [1.18, 40], [1.32, -46], [1.48, 0], [1.6, 0]],
     keys: (f) => [[0.16, pk('launch'), E.outCubic], [0.32, mod('ua_pickHigh', { lean: -0.2, hy: -90 }), E.inOut], [0.95, mod('ua_pickHigh', { lean: 0.15, hy: -96 }), E.inOut], [1.2, mod('jump', { lean: 0.5 }), E.outCubic], [1.45, pk('land'), E.outCubic], [1.6, f.P.stance, E.inOut]],
@@ -395,9 +399,7 @@
   }
   function drawFallsFloor(ctx, s) {
     const t = ND.scene.t, a = A(), lite = !!D.lite, x0 = WF.x0, x1 = a + 2;
-    const g = ctx.createLinearGradient(0, -46, 0, 260);
-    g.addColorStop(0, 'rgba(130,196,204,.78)'); g.addColorStop(0.3, 'rgba(92,160,172,.6)'); g.addColorStop(1, 'rgba(48,104,118,.66)');
-    ctx.fillStyle = g;
+    ctx.fillStyle = lite ? 'rgba(98,162,174,.64)' : lin(ctx, 'wf1', 0, -46, 0, 260, [[0, 'rgba(130,196,204,.78)'], [0.3, 'rgba(92,160,172,.6)'], [1, 'rgba(48,104,118,.66)']]);
     ctx.beginPath(); ctx.moveTo(x0 - 40, -46); ctx.lineTo(x1, -46); ctx.lineTo(x1, 520); ctx.lineTo(x0 + 30, 520);
     ctx.bezierCurveTo(x0 - 20, 300, x0 + 25, 120, x0 - 10, 30); ctx.bezierCurveTo(x0 - 30, -5, x0 - 50, -25, x0 - 40, -46); ctx.fill();
     ctx.strokeStyle = 'rgba(230,248,245,.55)'; ctx.lineWidth = 2.4;
@@ -409,9 +411,7 @@
       ctx.beginPath(); ctx.moveTo(x0 + 10, rows[i]); ctx.lineTo(x1, rows[i]); ctx.stroke();
     }
     ctx.setLineDash([]);
-    const pg = ctx.createLinearGradient(0, -46, 0, 300);
-    pg.addColorStop(0, 'rgba(40,92,104,.96)'); pg.addColorStop(1, 'rgba(14,44,56,.98)');
-    ctx.fillStyle = pg; ctx.fillRect(a + 4, -48, 1400, 700);
+    ctx.fillStyle = lite ? 'rgba(28,70,82,.97)' : lin(ctx, 'wf2', 0, -46, 0, 300, [[0, 'rgba(40,92,104,.96)'], [1, 'rgba(14,44,56,.98)']]); ctx.fillRect(a + 4, -48, 1400, 700);
     ctx.fillStyle = 'rgba(22,38,36,.9)'; ctx.fillRect(a - 2, -48, 10, 700);
     ctx.strokeStyle = 'rgba(240,252,250,.7)'; ctx.lineWidth = 3;
     ctx.beginPath(); for (let y = -44; y < 520; y += 26) { const w = 6 + 4 * Math.sin(t * 3 + y * 0.07); ctx.moveTo(a + 8, y); ctx.quadraticCurveTo(a + 8 + w, y + 13, a + 8, y + 26); } ctx.stroke();
@@ -440,9 +440,7 @@
   function drawFallsFront(ctx) {
     const a = A();
     if (!(G.F || []).some((f) => f && f.state === 'denv' && f.dz && f.dz.env && f.dz.env.a === 'pool')) return;
-    const g = ctx.createLinearGradient(0, -2, 0, 260);
-    g.addColorStop(0, 'rgba(70,130,140,.9)'); g.addColorStop(1, 'rgba(16,48,60,.98)');
-    ctx.fillStyle = g; ctx.fillRect(a + 6, -2, 1400, 600);
+    ctx.fillStyle = D.lite ? 'rgba(40,90,100,.95)' : lin(ctx, 'wf3', 0, -2, 0, 260, [[0, 'rgba(70,130,140,.9)'], [1, 'rgba(16,48,60,.98)']]); ctx.fillRect(a + 6, -2, 1400, 600);
     ctx.strokeStyle = 'rgba(240,252,250,.8)'; ctx.lineWidth = 3;
     const t = ND.scene.t; ctx.beginPath(); ctx.moveTo(a + 6, -2); for (let x = a + 6; x < a + 400; x += 20) ctx.lineTo(x + 10, -2 + 2.5 * Math.sin(t * 6 + x * 0.08)); ctx.stroke();
   }
@@ -488,7 +486,7 @@
     event: dropEvent({
       k: 'bolt', first: [8, 13], gap: [20, 30], warn: 1.5, w: 120, margin: 120, banner: 'Lightning! A bamboo will fall!',
       pick(s, x0) { let best = -1, bd = 1e9; RN.stalks.forEach((x, i) => { if (!s.stalk[i] && Math.abs(x - x0) < bd) { bd = Math.abs(x - x0); best = i; } }); if (best < 0) return null; s.evStalk = best; return RN.stalks[best]; },
-      land(s, e, F, ex) { s.stalk[s.evStalk] = RN.regrow; fallsOn(F, e.x, e.w, { dmg: 10, stun: 0.6, kb: 220, knock: true, post: 25 }, ex, 'Felled by the bamboo!'); s.obs.push({ k: 'log', x: e.x, w: 40, life: 9 }); if (pres()) { ND.scene.flashL = 1; au.thud(1.4, cam.pan(e.x)); cam.punch(8); spray(e.x, -10, 1, 14, 0.8, '170,190,120'); spray(e.x, -10, -1, 14, 0.8, '170,190,120'); } },
+      land(s, e, F, ex) { s.stalk[s.evStalk] = RN.regrow; fallsOn(F, e.x, e.w, { dmg: 6, stun: 0.6, kb: 220, knock: true, post: 20 }, ex, 'Felled by the bamboo!'); s.obs.push({ k: 'log', x: e.x, w: 40, life: 9 }); if (pres()) { ND.scene.flashL = 1; au.thud(1.4, cam.pan(e.x)); cam.punch(8); spray(e.x, -10, 1, 14, 0.8, '170,190,120'); spray(e.x, -10, -1, 14, 0.8, '170,190,120'); } },
     }),
     step(s, h) { for (let i = 0; i < s.stalk.length; i++) if (s.stalk[i] > 0) s.stalk[i] = Math.max(0, s.stalk[i] - h); },
     ctx(f, add, s) {
@@ -644,7 +642,7 @@
     zones: [{ k: 'fire', x0: -2000, x1: -A() + 70 }, { k: 'fire', x0: A() - 70, x1: 2000 }],
     event: dropEvent({
       k: 'beam', first: [8, 13], gap: [20, 30], warn: 1.5, w: 130, margin: 170, banner: 'A burning beam is coming down!',
-      land(s, e, F, ex) { fallsOn(F, e.x, e.w, { dmg: 11, stun: 0.6, kb: 240, knock: true, post: 25 }, ex, 'Hit by the beam!'); s.obs.push({ k: 'beam', x: e.x, w: 130, life: 7 }); if (pres()) { au.thud(1.4, cam.pan(e.x)); cam.punch(8); spray(e.x, -20, 1, 20, 0.9, '255,168,70'); spray(e.x, -20, -1, 20, 0.9, '255,168,70'); } },
+      land(s, e, F, ex) { fallsOn(F, e.x, e.w, { dmg: 7, stun: 0.6, kb: 240, knock: true, post: 20 }, ex, 'Hit by the beam!'); s.obs.push({ k: 'beam', x: e.x, w: 130, life: 7 }); if (pres()) { au.thud(1.4, cam.pan(e.x)); cam.punch(8); spray(e.x, -20, 1, 20, 0.9, '255,168,70'); spray(e.x, -20, -1, 20, 0.9, '255,168,70'); } },
     }),
     ctx(f, add, s) { const o = f.opp, d = Math.abs(o.x - f.x); if (nearFire(this, s, f.x) && !zoneAt(this, s, f.x, 'fire') && d > 70 && d < 280 && o.onGround) add('emberkick', null, 60, 'fire'); },
     cpu(ai, f, dist, s, lv) { if (nearFire(this, s, f.x) && !zoneAt(this, s, f.x, 'fire') && dist > 110 && dist < 250 && f.opp.state !== 'atk' && rn() < 0.05 + 0.12 * (lv.str || 0)) return 'emberkick'; return false; },
@@ -665,8 +663,8 @@
       const x0 = sd < 0 ? -a - 120 : a - 70, x1 = sd < 0 ? -a + 70 : a + 120;
       ctx.fillStyle = 'rgba(30,14,8,.9)'; ctx.beginPath(); ellipse(ctx, (x0 + x1) / 2, 8, (x1 - x0) / 2 + 10, 30); ctx.fill();
       ctx.strokeStyle = '#2a140a'; ctx.lineWidth = 9; ctx.beginPath(); ctx.moveTo(x0 + 10, 4); ctx.lineTo(x1 - 20, -30); ctx.moveTo(x0 + 30, -26); ctx.lineTo(x1 - 6, 10); ctx.stroke();
-      const g = ctx.createRadialGradient((x0 + x1) / 2, 0, 5, (x0 + x1) / 2, 0, 170); g.addColorStop(0, `rgba(255,120,40,${0.32 + 0.06 * Math.sin(t * 8)})`); g.addColorStop(1, 'rgba(255,120,40,0)');
-      ctx.fillStyle = g; ctx.fillRect(x0 - 160, -170, x1 - x0 + 320, 260);
+      if (!D.lite) ctx.fillStyle = grad(ctx, 'vf' + sd, () => { const g = ctx.createRadialGradient((x0 + x1) / 2, 0, 5, (x0 + x1) / 2, 0, 170); g.addColorStop(0, 'rgba(255,120,40,.34)'); g.addColorStop(1, 'rgba(255,120,40,0)'); return g; });
+      if (!D.lite) ctx.fillRect(x0 - 160, -170, x1 - x0 + 320, 260);
     }
     flames(ctx, -a - 110, -a + 64, -30, 130, t, D.lite ? 3 : 6);
     flames(ctx, a - 64, a + 110, -30, 130, t + 1, D.lite ? 3 : 6);
@@ -742,7 +740,7 @@
     if (!f.onGround || f.y < -40) { if (f.state !== 'launch') label(f, 'Over the cart!'); return; }
     if (ex || CONTACT[f.state]) { f.vx = dir * 320; return; }
     if (guarding(f, f.x - dir * 50)) { f.vx = dir * 420; f.posture = Math.min(99, (f.posture || 0) + 20); label(f, 'Braced against the cart'); return; }
-    hurtBy(f, 9, { dmg: 9, stun: 0.6, kb: 300, knock: true, post: 25 }, f.opp, dir);
+    hurtBy(f, 6, { dmg: 6, stun: 0.6, kb: 300, knock: true, post: 20 }, f.opp, dir);
     label(f, 'Run over by the cart!');
   }
 
@@ -814,7 +812,7 @@
   }
   function drawChochin(ctx, x, y, a, rot) {
     ctx.save(); ctx.globalAlpha = a; ctx.translate(x, y); if (rot) ctx.rotate(rot);
-    const g = ctx.createRadialGradient(0, 0, 2, 0, 0, 60); g.addColorStop(0, 'rgba(255,150,80,.35)'); g.addColorStop(1, 'rgba(255,150,80,0)'); ctx.fillStyle = g; ctx.fillRect(-60, -60, 120, 120);
+    if (!D.lite) { ctx.fillStyle = grad(ctx, 'chochin', () => { const g = ctx.createRadialGradient(0, 0, 2, 0, 0, 60); g.addColorStop(0, 'rgba(255,150,80,.35)'); g.addColorStop(1, 'rgba(255,150,80,0)'); return g; }); ctx.fillRect(-60, -60, 120, 120); }
     ctx.fillStyle = '#d23a22'; ctx.beginPath(); ellipse(ctx, 0, 0, 17, 22); ctx.fill();
     ctx.fillStyle = '#1b0f0b'; ctx.fillRect(-10, -25, 20, 5); ctx.fillRect(-10, 20, 20, 5);
     ctx.strokeStyle = 'rgba(255,220,160,.55)'; ctx.lineWidth = 1; ctx.beginPath(); for (let k = -12; k <= 12; k += 6) { ctx.moveTo(-16, k); ctx.lineTo(16, k); } ctx.stroke();
@@ -891,7 +889,7 @@
     for (let i = 0; i < 14; i++) { const x = z.x0 + 10 + ((i * 47) % (z.x1 - z.x0 - 20)), y = -30 + ((i * 29) % 90); ctx.save(); ctx.translate(x, y); ctx.rotate(((i * 13) % 7 - 3) * 0.08); ctx.fillRect(-16, -5, 32, 10); ctx.strokeRect(-16, -5, 32, 10); ctx.restore(); }
 
     ctx.fillStyle = '#05060c'; ctx.fillRect(a + 6, -48, 1400, 700);
-    const g = ctx.createLinearGradient(a + 6, 0, a + 600, 0); g.addColorStop(0, 'rgba(60,70,110,.5)'); g.addColorStop(1, 'rgba(10,12,24,0)'); ctx.fillStyle = g; ctx.fillRect(a + 6, -48, 600, 700);
+    ctx.fillStyle = D.lite ? 'rgba(30,36,60,.5)' : lin(ctx, 'cs1', a + 6, 0, a + 600, 0, [[0, 'rgba(60,70,110,.5)'], [1, 'rgba(10,12,24,0)']]); ctx.fillRect(a + 6, -48, 600, 700);
     ctx.fillStyle = '#262c40'; ctx.fillRect(a - 4, -48, 14, 700); ctx.fillStyle = 'rgba(200,212,255,.4)'; ctx.fillRect(a - 4, -48, 3, 700);
     const e = s && s.ev;
     if (e && e.k === 'gust') {
@@ -939,8 +937,8 @@
       if (q.t < T) continue;
       s.falls.splice(i, 1);
       const by = F.find((f) => f.id === q.by);
-      if (q.k === 'stalk') { fallsOn(F, q.x, 110, { dmg: 9, stun: 0.6, kb: 200, knock: true, post: 20 }, ex, 'Felled by the bamboo!'); s.obs.push({ k: 'log', x: q.x, w: 40, life: 9 }); if (pres()) { au.thud(1.2, cam.pan(q.x)); cam.punch(5); } }
-      else { for (const f of F) if (f !== by && underIt(f, q.x, 100) && f.onGround) { if (guarding(f, q.x) || CONTACT[f.state]) { f.posture = Math.min(99, (f.posture || 0) + 14); continue; } hurtBy(f, 6, { dmg: 6, stun: 0.65, kb: 80, post: 12, hurt: 'stagger' }, by, Math.sign(f.x - q.x) || 1); label(f, 'A lantern on the head!'); }
+      if (q.k === 'stalk') { fallsOn(F, q.x, 110, { dmg: 6, stun: 0.6, kb: 200, knock: true, post: 18 }, ex, 'Felled by the bamboo!'); s.obs.push({ k: 'log', x: q.x, w: 40, life: 9 }); if (pres()) { au.thud(1.2, cam.pan(q.x)); cam.punch(5); } }
+      else { for (const f of F) if (f !== by && underIt(f, q.x, 100) && f.onGround) { if (guarding(f, q.x) || CONTACT[f.state]) { f.posture = Math.min(99, (f.posture || 0) + 14); continue; } hurtBy(f, 5, { dmg: 5, stun: 0.65, kb: 80, post: 12, hurt: 'stagger' }, by, Math.sign(f.x - q.x) || 1); label(f, 'A lantern on the head!'); }
         s.obs.push({ k: 'paper', x: q.x, w: 70, life: 2.6 }); if (pres()) { P.snd && P.snd({ k: 'lantern', x: q.x }, 'paper', 1); spray(q.x, -20, 1, 10, 0.6, '255,168,70'); } }
     }
 
@@ -949,7 +947,7 @@
       f.dz.arBurnT = 1.0;
       const z = zoneAt(d, s, f.x, 'fire'), cx = z.x != null ? z.x : (Math.max(z.x0, -A()) + Math.min(z.x1, A())) / 2, kd = Math.sign(f.x - cx) || -Math.sign(f.x) || 1;
       if (CONTACT[f.state] || ex) { chip(f, 2); continue; }
-      hurtBy(f, 3, { dmg: 3, stun: 0.28, kb: 260, post: 6 }, f.opp, kd);
+      hurtBy(f, 2, { dmg: 2, stun: 0.28, kb: 260, post: 6 }, f.opp, kd);
       label(f, 'Burned!');
     }
 
@@ -1043,7 +1041,7 @@
     if (!s || !o || o.dead) return false;
     const e = s.ev, ex = inEx();
 
-    if (e && z.arPlanN !== s.n) { z.arPlanN = s.n; const r = rn(); z.arPlan = r < 0.2 + 0.55 * sm ? 1 : r < 0.35 + 0.6 * sm ? 2 : 0; }
+    if (e && z.arPlanN !== s.n) { z.arPlanN = s.n; const r = rn(); const k = sm * sm; z.arPlan = r < 0.08 + 0.62 * k ? 1 : r < 0.16 + 0.75 * k ? 2 : 0; }
     if (e && z.arPlan > 0) {
 
       if (d.event.front) {
@@ -1069,7 +1067,7 @@
 
     if (wallBehind(d, f) && dist < 150 && dist > 50 && rn() < 0.03 + 0.09 * sm) { if (act(ai, f, 'wallflip')) { z.arCd = 3; return true; } }
 
-    if (d.cpu && rn() < 0.35) { const n = d.cpu(ai, f, dist, s, lv); if (n && act(ai, f, n)) { z.arCd = 3 + rn() * 2; return true; } z.arCd = 0.3; }
+    if (d.cpu && rn() < 0.12 + 0.3 * sm) { const n = d.cpu(ai, f, dist, s, lv); if (n && act(ai, f, n)) { z.arCd = 3 + rn() * 2; return true; } z.arCd = 0.3; }
     return false;
   }
   const guardFor = (ai, t) => { ai.setHeld('left', false); ai.setHeld('right', false); ai.move = 0; ai.setHeld('guard', true); ai.guardUntil = ai.t + t; };

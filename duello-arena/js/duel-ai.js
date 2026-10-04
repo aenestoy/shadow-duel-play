@@ -31,7 +31,14 @@
 
 
   const K0Q = (/[?&]duelk0=([\d.]+)/.exec(location.search || '') || [])[1];
-  const kAt = (id, key) => (key !== '0' ? kOf(id) : K0Q != null ? +K0Q : KN.duelK0ch && KN.duelK0ch[id] != null ? KN.duelK0ch[id] : kOf(id));
+
+
+  const LVK = { 0.5: 'duelKAch', 1: 'duelKUch' };
+  const kAt = (id, key) => {
+    if (key === '0') return K0Q != null ? +K0Q : KN.duelK0ch && KN.duelK0ch[id] != null ? KN.duelK0ch[id] : kOf(id);
+    const M = LVK[key] && KN[LVK[key]];
+    return KQ == null && M && M[id] != null ? M[id] : kOf(id);
+  };
   const SOFT = {};
   const BELOW = { 0: () => SOFT, 0.5: () => LV[0], 1: () => LV[0.5], 2: () => LV[1], 3: () => LV[2] };
   const soften = () => {
