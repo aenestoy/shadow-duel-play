@@ -524,6 +524,7 @@
       ND.rng.seed(opts.seed | 0);
       ND.simClock = 0; this.clock = 0; this.recOdd = false; scene.t = 0;
       this.slowV = 0.35; this.cineX = 0; this.loser = null;
+      this.recording = false;
       for (const f of F) {
         const fresh = new ND.Fighter(f.id, f.ctrl);
 

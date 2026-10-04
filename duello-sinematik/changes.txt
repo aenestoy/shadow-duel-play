@@ -4,3 +4,4 @@
 2026-10-04 02:40  f2a671f7  Mai added (CINE: MAI button on ?duel=1 switches ninja); each tier once per chain, chain builds to the bind
 2026-10-04 03:18  fd5571c2  All 13 ninjas: 3 counter tiers + unarmed each, and each one's bind crown; hint in 18 languages. ?duel=1: CINE: <ninja> switches
 2026-10-04 04:17  01f10b00  13 ninjas: counter tiers 一二三 + unarmed + bind crown; damage x0.7; lighter on slow phones; ?duel=1 CINE buttons (ninja / tiers / BIND)
+2026-10-04 06:06  1cd639df  Integrated build + cinematics: CPU plays for the bind at chain 5-6 (Legend ~1 bind/match), Jin/Tetsu/Tora tier 3 under 4 s, knocked-down opponent kept in frame, crown spacing

@@ -240,11 +240,11 @@
     sl(0, 0.4, 0.2), cm(0, 'mid', 1.8, -110, 1),
     mv(0.22, 'fn_fl', 1, [H(4, { kb: 260 })]), mv(0.62, 'fn_bl', 1, [KO(5, { kb: 300, lift: 1.2 })]),
     cm(0.78, 'V', 1.9, -96, 1), sl(0.86, 0.34, 0.4), fxo(0.86, 'ink', { a: 0.05, len: 0.28, w: 1.2 }), fxo(0.92, 'card')] });
-  def('tetsu:3', { dur: 2.8, trig: { stun: 2.6, kb: 220 }, card: { k: '鉄の渦', n: 'TETSU NO UZU' }, ops: [
-    sl(0, 0.4, 0.2), cm(0, 'mid', 1.75, -112, 1),
-    mv(0.2, 'fn_s1', 1, [H(3, { kb: 160 }), H(3, { kb: 280 })]),
-    cm(1.0, 'mid', 1.5, -118, 1), mv(1.05, 'sp_tetsu', 1, [H(2, { kb: 120 }), H(2, { kb: 120 }), H(2, { kb: 120 }), H(2, { kb: 120 }), KO(4, { kb: 520, lift: 1 })]),
-    sl(1.9, 0.32, 0.45), fxo(1.9, 'ink', { a: -0.1, len: 0.3, w: 1.3 }), fxo(1.95, 'card'), fxo(1.95, 'thud')] });
+  def('tetsu:3', { dur: 2.45, trig: { stun: 2.4, kb: 220 }, card: { k: '鉄の渦', n: 'TETSU NO UZU' }, ops: [
+    sl(0, 0.4, 0.16), cm(0, 'mid', 1.75, -112, 1),
+    mv(0.18, 'fn_s1', 1, [H(3, { kb: 160 }), H(3, { kb: 280 })]),
+    cm(0.82, 'mid', 1.5, -118, 1), mv(0.84, 'sp_tetsu', 1, [H(2, { kb: 120 }), H(2, { kb: 120 }), H(2, { kb: 120 }), H(2, { kb: 120 }), KO(4, { kb: 520, lift: 1 })]),
+    sl(1.68, 0.32, 0.36), fxo(1.68, 'ink', { a: -0.1, len: 0.3, w: 1.3 }), fxo(1.72, 'card'), fxo(1.72, 'thud')] });
   def('tetsu:u', { dur: 1.6, trig: { stun: 1.6, kb: 360 }, card: { k: '鉄掌', n: 'TESSHO' }, ops: [
     sl(0, 0.45, 0.18), cm(0, 'mid', 2.0, -112, 1),
     mv(0.2, 'ua_knee', 1, [H(3, { stun: 1.6, kb: 300 })]), mv(0.6, 'ua_cHeavy', 0.9, [KO(5, { kb: 520, lift: 0.8 })]),
@@ -296,12 +296,12 @@
     sl(0, 0.4, 0.2), cm(0, 'mid', 1.95, -118, 1),
     mv(0.2, 'tr_l2', 1, [H(3, { kb: 120 })]), fxo(0.3, 'chain'), mv(0.62, 'fc_s2', 1, [KO(5, { kb: 480, lift: 0.9 })]),
     cm(0.7, 'A', 2.2, -118, 1), cm(0.9, 'mid', 1.85, -120, 1), sl(0.92, 0.34, 0.38), fxo(0.92, 'ink', { a: 0.4, len: 0.22 }), fxo(0.98, 'card')] });
-  def('tora:3', { dur: 2.8, trig: { stun: 2.6, kb: 220 }, card: { k: '鎖竜巻', n: 'KUSARI TATSUMAKI' }, ops: [
+  def('tora:3', { dur: 2.6, trig: { stun: 2.6, kb: 220 }, card: { k: '鎖竜巻', n: 'KUSARI TATSUMAKI' }, ops: [
     sl(0, 0.4, 0.2), cm(0, 'mid', 1.95, -118, 1),
     mv(0.2, 'fc_s1', 1, [H(3, { kb: 160 }), H(3, { kb: 260 })]),
-    cm(0.98, 'A', 1.7, -150, 1), fxo(1.0, 'chain'),
-    mv(1.0, 'sp_tora', 1, [H(2, { kb: 80 }), H(2, { kb: 80 }), H(2, { kb: 80 }), H(2, { kb: 80 }), KO(4, { kb: 420, lift: 1.4 })]),
-    cm(1.9, 'V', 1.75, -160, 1), sl(2.05, 0.32, 0.4), fxo(2.05, 'ink', { a: -0.9, len: 0.24 }), fxo(2.1, 'card')] });
+    cm(0.84, 'A', 1.7, -150, 1), fxo(0.86, 'chain'),
+    mv(0.86, 'sp_tora', 1, [H(2, { kb: 80 }), H(2, { kb: 80 }), H(2, { kb: 80 }), H(2, { kb: 80 }), KO(4, { kb: 420, lift: 1.4 })]),
+    cm(1.76, 'V', 1.75, -160, 1), sl(1.91, 0.32, 0.34), fxo(1.91, 'ink', { a: -0.9, len: 0.24 }), fxo(1.96, 'card')] });
   def('tora:u', { dur: 1.5, trig: { stun: 1.5, kb: 340 }, card: { k: '虎足払い', n: 'TORA-BARAI' }, ops: [
     sl(0, 0.45, 0.16), cm(0, 'mid', 2.05, -110, 1),
     mv(0.18, 'ua_jab', 1.3, [H(2, { stun: 1.5, kb: 280, part: 'head' })]), mv(0.42, 'ua_sweep', 1, [KO(4, { kb: 260, lift: 1.3 })]),
@@ -316,12 +316,12 @@
     mv(0.2, 'jn_l2', 1, [H(3, { kb: 240 })]), mv(0.54, 'jn_l3', 1, [KO(5, { kb: 460, lift: 1 })]),
     cm(0.64, 'A', 2.2, -120, 1), sl(0.76, 0.36, 0.36), fxo(0.76, 'ink', { a: 0.9, len: 0.2 }), fxo(0.82, 'card'),
     ps(1.2, [[0.24, 'jn_bow', 'inOutSine'], [0.6, '@stance', 'inOut']])] });
-  def('jin:3', { dur: 2.9, trig: { stun: 2.6, kb: 220 }, card: { k: '金剛輪舞', n: 'KONGO RINBU' }, ops: [
-    sl(0, 0.4, 0.2), cm(0, 'mid', 1.9, -118, 1),
-    mv(0.2, 'fb_s1', 1, [H(3, { kb: 160 }), H(3, { kb: 280 })]),
-    cm(0.98, 'mid', 1.6, -120, 1), mv(1.0, 'sp_jin', 1, [H(2, { kb: 110 }), H(2, { kb: 110 }), H(2, { kb: 110 }), H(2, { kb: 110 }), KO(4, { kb: 460, lift: 1.3 })]),
-    sl(1.95, 0.32, 0.4), fxo(1.95, 'ink', { a: -1.0, len: 0.24 }), fxo(2.0, 'card'),
-    cm(2.2, 'A', 2.1, -122, 1), ps(2.25, [[0.24, 'jn_bow', 'inOutSine'], [0.5, 'jn_bow']])] });
+  def('jin:3', { dur: 2.45, trig: { stun: 2.4, kb: 220 }, card: { k: '金剛輪舞', n: 'KONGO RINBU' }, ops: [
+    sl(0, 0.4, 0.16), cm(0, 'mid', 1.9, -118, 1),
+    mv(0.18, 'fb_s1', 1, [H(3, { kb: 160 }), H(3, { kb: 280 })]),
+    cm(0.76, 'mid', 1.6, -120, 1), mv(0.78, 'sp_jin', 1, [H(2, { kb: 110 }), H(2, { kb: 110 }), H(2, { kb: 110 }), H(2, { kb: 110 }), KO(4, { kb: 460, lift: 1.3 })]),
+    sl(1.7, 0.32, 0.34), fxo(1.7, 'ink', { a: -1.0, len: 0.24 }), fxo(1.75, 'card'),
+    cm(1.9, 'A', 2.1, -122, 1), ps(1.92, [[0.22, 'jn_bow', 'inOutSine'], [0.5, 'jn_bow']])] });
   def('jin:u', { dur: 1.6, trig: { stun: 1.6, kb: 320 }, card: { k: '三連拳', n: 'SANRENKEN' }, ops: [
     sl(0, 0.45, 0.16), cm(0, 'A', 2.1, -118, 1),
     mv(0.2, 'ua_cFin', 0.9, [H(2, { stun: 1.6, kb: 200, part: 'head' }), H(2, { stun: 1.6, kb: 220 }), KO(4, { kb: 460, lift: 1 })]),
@@ -370,7 +370,7 @@
 
   const kneel = (t) => ps(t, [[0.22, 'kneel', 'outCubic'], [1.2, 'kneel']], 'V');
   const crown = (id, card, pose, extra) => def(id + ':b', { dur: 1.7, crown: true, card, ops: [
-    sl(0, 0.45, 0.25), cm(0, 'mid', 2.25, -112, 1), kneel(0.05), ps(0.1, pose), fxo(0.9, 'card'), cm(0.85, 'mid', 2.05, -116), ...(extra || [])] });
+    sl(0, 0.45, 0.25), cm(0, 'mid', 2.1, -112, 1), { t: 0, op: 'glide', gap: 190, d: 0.3 }, kneel(0.05), ps(0.1, pose), fxo(0.9, 'card'), cm(0.85, 'mid', 2.05, -116), ...(extra || [])] });
   crown('akane', { k: '鞘鳴り', n: 'SAYANARI' }, [[0.3, 'chiburi', 'outQuart'], [0.6, 'chiburi'], [1.1, 'ak_stance', 'inOut']], [{ t: 0.8, op: 'sheathe' }, fxo(1.2, 'click')]);
   crown('aoi', { k: '風止み', n: 'KAZE-YAMI' }, [[0.3, 'ao_hB', 'outQuart'], [1.3, 'ao_hB']], [fxo(0.4, 'petals', { n: 8, col: 'rgb(190,225,255)' })]);
   crown('kuro', { k: '山の影', n: 'YAMA NO KAGE' }, [[0.35, 'ks_oRaise', 'outCubic'], [1.3, 'ks_oRaise']], [fxo(0.5, 'thud')]);
@@ -600,7 +600,7 @@
 
 
     if (!c.gl && !(A.state === 'atk' && A.atk && A.atk.cross) && Math.abs(V.y - A.y) < 120) {
-      const d = V.x - A.x, ad = Math.abs(d), MIN = (A.dz.armed ? FIN.gap : FIN.gapUa) + (V.state === 'launch' || V.state === 'down' ? FIN.gapDown : 0);
+      const d = V.x - A.x, ad = Math.abs(d), MIN = (A.dz.armed ? FIN.gap + Math.max(0, ((A.wpn.blade || 96) + (A.wpn.handle || 24)) - 120) * 0.4 : FIN.gapUa) + (V.state === 'launch' || V.state === 'down' ? FIN.gapDown : 0);
       if (ad < MIN) {
 
         const sd = d === 0 ? A.dir : Math.sign(d), L = ND.ARENA;
@@ -694,6 +694,51 @@
 
   const isInv0 = FP.isInv;
   FP.isInv = function () { return (this.dz && isFin(this.dz.cine) && !D._finHit) || isInv0.call(this); };
+
+
+
+
+
+
+
+
+  FIN.holdMin = 5;
+  FIN.bindHold = { 0: 0, 0.5: 0.15, 1: 0.55, 2: 0.9, 3: 0.95 };
+  const HQ = (/[?&]finhold=([\d.]+)/.exec(Q) || [])[1];
+  const LVS = ND.AI_LEVELS;
+  const lvKey = (lv) => {
+
+
+    if (lv && lv.name) for (const k of ['0', '0.5', '1', '2', '3']) if (LVS && LVS[k] && LVS[k].name === lv.name) return k;
+
+    let best = '1', d = 9;
+    for (const k of ['0', '0.5', '1', '2']) { const L = LVS && LVS[k]; if (L && lv && Math.abs((L.parry || 0) - (lv.parry || 0)) < d) { d = Math.abs((L.parry || 0) - (lv.parry || 0)); best = k; } }
+    return best;
+  };
+  const holdP = (lv, id) => {
+    if (HQ != null) return +HQ;
+    const N = ND.AI_KNOBS || {}, K = N.duelBindPlay, C = N.duelBindPlayCh, k = lvKey(lv);
+    if (C && id && C[id] != null) return +C[id];
+    if (K && typeof K === 'object') return K[k] != null ? +K[k] : 0;
+    return FIN.bindHold[k] || 0;
+  };
+  FIN.holdP = holdP;
+  if (ND.AI) {
+    const AP = ND.AI.prototype, aup0 = AP.update;
+    AP.update = function (dt) {
+      const me = this.me, z = me && me.dz, g = ND.game;
+      if (z && FIN.on && z.armed && z.chain >= FIN.holdMin && z.chain < D.T.chainNeed && me.counterUntil > g.clock && me.serial !== this.cTok && me.serial !== this.hTokB &&
+        ['block', 'parry', 'guard', 'move'].includes(me.state)) {
+        this.hTokB = me.serial;
+        if (ND.rng.next() < holdP(this.lv, me.ch && me.ch.id)) {
+          this.cTok = me.serial; this.cAt = 0;
+          this.guardUntil = Math.max(this.guardUntil || 0, (this.t || 0) + dt + 0.75); this.setHeld('guard', true); this.move = 0;
+          stat('holds');
+        }
+      }
+      return aup0.call(this, dt);
+    };
+  }
 
 
 

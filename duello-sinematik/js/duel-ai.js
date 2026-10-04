@@ -120,6 +120,7 @@
     if (me.state === 'dbind') return this.bindAI(dt);
     up0.call(this, dt);
     this.duelExtra(dt);
+    this.kickAI(dt);
   };
 
 
@@ -165,7 +166,7 @@
         if (D.canPick(me)) {
 
 
-          if (dist > 170 || busy || (dist > 110 && o.state !== 'atk' && rnd() < 0.4) || rnd() < 0.25 * (1 - lv.smart)) { this.tap('throw'); return; }
+          if (dist > 170 || busy || (dist > 110 && o.state !== 'atk' && rnd() < 0.4) || rnd() < 0.25 * (1 - lv.smart)) { this.tap(D.kicksOn && D.kicksOn(me) && rnd() < 0.5 * (lv.smart || 0) ? 'kick' : 'throw'); return; }
           return decide0.call(this, dist, fwd);
         }
 
@@ -206,6 +207,19 @@
       if (Math.abs(o.x + Math.sign(o.x - me.x) * (D.PASS ? D.PASS.beyond : 70)) < ND.ARENA - 30) { this.moveDir(fwd2 === 'right' ? 1 : -1); this.tap('dodge'); return; }
     }
 
+
+
+    if (D.kicksOn && D.kicksOn(me) && me.dz.armed && dist < 260 && !(D.envExchange && D.envExchange()) && this.t - (this.kLast ?? -9) > 4 / KRATE) {
+      const r = rnd(), oppGuard = o.state === 'guard' || o.state === 'block', sm = lv.smart || 0;
+      if (dist < 150 && r < (0.008 + 0.022 * sm) * KRATE) {
+        const r2 = rnd();
+        this.kickQ(oppGuard && r2 < 0.45 ? 'spin' : r2 < 0.5 ? 'sweep' : r2 < 0.75 && D.KICK_SIG[me.ch.id] ? 'sig' : 'spin');
+        this.kLast = this.t;
+        return;
+      }
+      if (dist > 170 && o.onGround && r < (0.004 + 0.01 * sm) * KRATE) { this.kickQ('air'); this.kLast = this.t; return; }
+    }
+
     const C = D.COMBO && D.COMBO[me.ch.id];
     if (C && dist < 260) {
       const oppGuard = o.state === 'guard' || o.state === 'block';
@@ -213,6 +227,53 @@
       if (rnd() < 0.025 + 0.035 * lv.smart) { const r = rnd(); this.comboQ(r < 0.5 ? 'bf' : 'fb', r < 0.35 || r > 0.8 ? 'light' : 'heavy'); return; }
     }
     return decide0.call(this, dist, fwd);
+  };
+
+
+  const KRATE = +((/[?&]kickrate=([\d.]+)/.exec(location.search || '') || [])[1] || 1);
+
+
+  AP.kickQ = function (kind) {
+    const me = this.me, fwd = me.opp.x >= me.x ? 1 : -1;
+    if (kind === 'spin') return this.dirTap('kick', -fwd);
+    if (kind === 'wrist') return this.dirTap('kick', fwd);
+    if (kind === 'sig') return this.comboQ('bf', 'kick');
+    this.releaseAll();
+    const q = this.dq || (this.dq = []), t = this.t;
+    if (kind === 'sweep') q.push([t, 'guard', 'hold'], [t + 0.04, 'kick', 'tap'], [t + 0.12, 'guard', 'rel']);
+    else if (kind === 'air') q.push([t, fwd > 0 ? 'right' : 'left', 'hold'], [t + 0.02, 'up', 'tap'], [t + 0.2, 'kick', 'tap'], [t + 0.24, fwd > 0 ? 'right' : 'left', 'rel']);
+  };
+
+
+  AP.kickAI = function () {
+    const me = this.me, o = me.opp, lv = this.lv, sm = lv.smart || 0;
+    if (!o || o.dead || me.locked || G.phase !== 'fight') return;
+    const dist = Math.abs(o.x - me.x), fwd = o.x >= me.x ? 1 : -1;
+    if (o.state === 'atk' && o.atk && o.keys !== this.kSeen) {
+      this.kSeen = o.keys;
+      const a = o.atk, k = o.ch.spd * o.aspd, t0 = this.t - o.st / k;
+      if (a.low && a.kind === 'kick' && a.active && dist < 240) {
+        if (rnd() < 0.2 + 0.55 * sm) this.kq = { act: 'jump', at: Math.max(this.t + lv.react, t0 + a.active[0] / k - 0.14), until: t0 + a.active[1] / k };
+      } else if (D.kicksOn && D.kicksOn(me) && me.dz.armed && a.kind === 'blade' && a.active && !a.special && !a.counter && dist < 170 && (a.heavyClass || a.active[0] >= 0.3)) {
+
+        const kw = ND.ATK.dk_wrist.active[0] / me.ch.spd, due = t0 + a.active[0] / k - kw - 0.02;
+        if (due - this.t > lv.react && rnd() < 0.15 * sm) this.kq = { act: 'wrist', at: Math.max(this.t + lv.react, due - 0.05), until: due };
+      }
+    }
+    if (o.state === 'atk' && o.atk && o.atk.punish && !o.hitDone && o.atk.active && o.st > o.atk.active[1] && dist < 210 && this.kPun !== o.keys) {
+      this.kPun = o.keys;
+      if (rnd() < 0.3 + 0.6 * sm) this.kq = { act: 'punish', at: this.t + lv.react * 0.6, until: this.t + 0.5 };
+    }
+    const q = this.kq;
+    if (q && this.t >= q.at) {
+      this.kq = null;
+      const free = me.state === 'move' || me.state === 'guard' || me.state === 'land' || me.state === 'block';
+      if (!free || this.t > q.until + 0.05 || !me.onGround || (this.dq && this.dq.length)) return;
+      this.pending = null; this.setHeld('guard', false);
+      if (q.act === 'jump') this.tap('up');
+      else if (q.act === 'wrist') this.dirTap('kick', fwd);
+      else if (q.act === 'punish') this.dirTap(rnd() < 0.55 ? 'light' : 'heavy', 0);
+    }
   };
 
 

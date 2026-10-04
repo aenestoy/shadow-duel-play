@@ -10,7 +10,7 @@
 
 
 
-  const KNOBS = ND.AI_KNOBS = { kiWait: 6, apprenticePlusK: 0.4, duelK: 0.6, duelSoft: 1, duelKch: { yuki: 0.5, shura: 1, kage: 1, aoi: 0.4, ren: 0.8, akane: 1, kuro: 0.4, mai: 0.2, tsubame: 1 }, duelK0ch: { akane: 0.8, shura: 0.75, aoi: 0.6, tetsu: 0.8, jin: 0.8 }, duelDmg: { akane: 1.3, aoi: 1.1, kage: 1.3, kuro: 0.85 }, duelChDmg: { akane: 0.64, kuro: 1.65, kage: 0.56, shura: 0.76, tora: 0.85, jin: 0.97, ren: 1.06, aoi: 1.08, tetsu: 1.05, tsubame: 1.08, mai: 1.08, yuki: 1.15, hana: 1.04 }, duelKAch: {}, duelKUch: {} };
+  const KNOBS = ND.AI_KNOBS = { kiWait: 6, apprenticePlusK: 0.4, duelK: 0.6, duelSoft: 1, duelKch: { yuki: 0.5, shura: 1, kage: 1, aoi: 0.4, ren: 0.8, akane: 1, kuro: 0.4, mai: 0.2, tsubame: 1 }, duelK0ch: { akane: 0.8, shura: 0.75, aoi: 0.6, tetsu: 0.8, jin: 0.8 }, duelDmg: { akane: 0.83, aoi: 1.19, kuro: 1.23, yuki: 1.15, ren: 1.06, kage: 0.86, shura: 0.78, tetsu: 1.05, jin: 0.97, tsubame: 1.08, hana: 1.05, mai: 1.08, tora: 0.9 }, duelChDmg: { kage: 0.85 }, duelKAch: {}, duelKUch: {} };
 
 
   ND.AI_KNOBS0 = { duelChDmg: Object.freeze(Object.assign({}, KNOBS.duelChDmg)) };

@@ -450,6 +450,8 @@
       if (free && f.onGround && c.has('throw', 0.2) && D.canPick(f)) { c.take('throw'); startPick(f); return; }
       if (s === 'air' && !f.airUsed && c.has('heavy', 0.2) && f.y < -50 && f.canAtk()) { c.take('heavy'); f.airUsed = true; f.startAtk('ua_stomp'); }
     }
+
+    if (s === 'air' && !f.airUsed && D.kicksOn && D.kicksOn(f) && c.has('kick', 0.2) && f.canAtk()) { c.take('kick'); f.airUsed = true; f.chainN = 0; f.startAtk(z.armed ? 'dk_fly' : 'ua_air'); }
   }
 
 
@@ -588,6 +590,13 @@
   }
 
 
+  const checkKick0 = FP.checkKick;
+  FP.checkKick = function (a) {
+    if (this.dz && a && a.low && this.opp && !this.opp.onGround && this.opp.y < -24) return;
+    return checkKick0.call(this, a);
+  };
+
+
   const CHQ = {}; { const q = (/[?&]chdmg=([a-z0-9:.,]+)/.exec(location.search || '') || [])[1]; if (q) for (const kv of q.split(',')) { const [c, v] = kv.split(':'); CHQ[c] = +v; } }
   const CPQ = {}; { const q = (/[?&]cpudmg=([a-z0-9:.,]+)/.exec(location.search || '') || [])[1]; if (q) for (const kv of q.split(',')) { const [c, v] = kv.split(':'); CPQ[c] = +v; } }
   const takeHit0 = FP.takeHit;
@@ -616,7 +625,10 @@
       if (was === 'gbreak' && heavy && rnd() < T.breakDisarm) disarm(this, from, kdir, 'break');
 
 
-      else if (was === 'atk' && from && from.dz && !from.dz.armed && a && a.kind === 'kick' && /^(ftF|knF)$/.test(a.limb || '') &&
+
+
+
+      else if (was === 'atk' && from && from.dz && a && a.kind === 'kick' && (a.disarmKick ? !!(atk0 && (atk0.heavyClass || (atk0.active && atk0.active[0] >= 0.3))) : (!from.dz.armed && /^(ftF|knF)$/.test(a.limb || ''))) &&
         atk0 && atk0.kind === 'blade' && atk0.active && st0 < atk0.active[0] && disarm(this, from, kdir, 'break')) {
         stat('kickDisarms');
       }
@@ -673,6 +685,25 @@
     } else pose.seq([[0, f.entry], [0.16, P0, E.outCubic], [T.pickDur, P0]], t, f.pose);
     if (t >= T.pickDur + (f.mem.got != null ? 0.1 : 0)) f.setState('move');
   }
+
+
+  D.kickUp = (f, ph) => {
+    const s = D.swordOf(f), z = f.dz;
+    if (!s || z.armed) return;
+    s.grip(PT);
+    if (ph === 'flick') {
+      if (!s.resting() || Math.abs(PT.x - f.x) > T.pickR + 16) return;
+
+      if (s.y > -20) s.y = -20;
+      const tf = 0.16 / ((f.ch.spd || 1) * (f.aspd || 1)), gx = f.x + f.dir * 30 - PT.x, gy = f.y - 100 - PT.y;
+      s.mode = 'fly'; s.bounces = 1; s.kup = f.serial; s.vx = gx / tf; s.vy = Math.min(gy / tf - 950 * tf, -380); s.va = -f.dir * 9;
+
+      { s.pt(1, PT2); const ty = PT2.y; s.pt(-s.hl / s.bl, PT2); const lo = Math.max(ty, PT2.y); if (lo > -4) s.y -= lo + 4; }
+      au.swoosh(0.5, f.pan); fx.dust(PT.x, 0, 4, 0.4);
+      return;
+    }
+    if (s.kup === f.serial && s.mode === 'fly' && Math.abs(PT.x - f.x) < 110 && PT.y < f.y - 30) { rearm(f, false); stat('kickUps'); }
+  };
   function rollToSword(f) {
     const sw = D.swordOf(f), d = f.ddir || f.dir;
     if (!sw || !sw.resting || !sw.resting()) return false;

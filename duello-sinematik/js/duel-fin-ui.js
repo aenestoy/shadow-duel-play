@@ -130,7 +130,21 @@
 
   const follow0 = cam.follow;
   cam.follow = function (dt, fa, fb, focus) {
-    if (focus && D.lite && active() && focus.z > 1.6) focus = { x: focus.x, y: focus.y, z: 1.6 };
+    const c = focus && active();
+    if (c) {
+
+
+      let z = focus.z, x = focus.x;
+      const V = c.V, A = c.A;
+      if (V && (V.state === 'launch' || V.state === 'down' || V.state === 'getup')) {
+        const lo = Math.min(A.x, V.x) - 110, hi = Math.max(A.x, V.x) + 110;
+        z = Math.min(z, Math.max(1.05, this.W / (this.s * (hi - lo))));
+        const half = this.W / (2 * this.s * z);
+        x = Math.max(hi - half, Math.min(lo + half, x));
+      }
+      if (D.lite) z = Math.min(z, 1.6);
+      if (z !== focus.z || x !== focus.x) focus = { x, y: focus.y, z };
+    }
     return follow0.call(this, dt, fa, fb, focus);
   };
 
