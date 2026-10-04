@@ -1088,7 +1088,10 @@
 
 
     let lay = ''; try { lay = ND.touchUI && ND.touchUI.prefs ? JSON.stringify(ND.touchUI.prefs) : ''; } catch (e) { lay = ''; }
-    const key = W + 'x' + H + (touchOn() ? 't' : 'k') + lay;
+
+
+    let rs = ''; for (const id of ['tDpad', 'tActs', 'tBase']) { const e = document.getElementById(id); if (e && e.offsetParent !== null) { const q = e.getBoundingClientRect(); rs += '|' + Math.round(q.left) + ',' + Math.round(q.top) + ',' + Math.round(q.width); } }
+    const key = W + 'x' + H + (touchOn() ? 't' : 'k') + lay + rs;
     if (UI.placedFor === key) return;
     UI.placedFor = key;
     const R = app.getBoundingClientRect();

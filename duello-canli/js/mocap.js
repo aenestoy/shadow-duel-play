@@ -696,16 +696,20 @@
     const zz = zDraw(P), zk = zz(madd(h, u, BL * 0.35)), zT = (P.hip[2] + zz(P.neck)) * 0.5, zLeg = (s) => (P['kn' + s][2] + P['ft' + s][2]) * 0.5;
     return { T: zk >= zT, R: zk >= zLeg('R'), L: zk >= zLeg('L') };
   };
+
+  const SPJ = new Float64Array(20), SPL = [0, 0, 0, 0];
+  const segP2f = (A, i, j, x, y) => { const px = A[i], py = A[i + 1], vx = A[j] - px, vy = A[j + 1] - py, l2 = vx * vx + vy * vy || 1, t = clamp(((x - px) * vx + (y - py) * vy) / l2, 0, 1), ex = x - px - vx * t, ey = y - py - vy * t; return Math.sqrt(ex * ex + ey * ey); };
   Mo.selfPen = (P, h, u, BL) => {
-    const cam = Mo.cam, pr = (p) => { const s = cam / (cam - p[2]); return [p[0] * s, p[1] * s]; };
+    const cam = Mo.cam, put = (p, i) => { const s = cam / (cam - p[2]); SPJ[i] = p[0] * s; SPJ[i + 1] = p[1] * s; };
     const fr = Mo.bladeFront(P, h, u, BL);
     if (!fr.T && !fr.R && !fr.L) return -1e9;
-    const hd = pr(P.head), nk = pr(P.neck), hp = pr(P.hip), LG = [fr.R && [pr(P.hipR), pr(P.knR), 5], fr.L && [pr(P.hipL), pr(P.knL), 5], fr.R && [pr(P.knR), pr(P.ftR), 2.5], fr.L && [pr(P.knL), pr(P.ftL), 2.5]].filter(Boolean);
+    put(P.head, 0); put(P.neck, 2); put(P.hip, 4); put(P.hipR, 6); put(P.knR, 8); put(P.hipL, 10); put(P.knL, 12); put(P.ftR, 14); put(P.ftL, 16);
     let m = -1e9;
     for (let k = 0; k <= 20; k++) {
-      const w = pr(madd(h, u, 10 + ((BL - 10) * k) / 20)), x = w[0], y = w[1];
-      if (fr.T) m = Math.max(m, 14 - Math.hypot(x - hd[0], y - hd[1]), 8 - segP2(nk, hd, x, y), 18 - segP2(hp, nk, x, y));
-      for (const [a, c, r] of LG) m = Math.max(m, r - segP2(a, c, x, y));
+      const kk = 10 + ((BL - 10) * k) / 20, pz = h[2] + u[2] * kk, s = cam / (cam - pz), x = (h[0] + u[0] * kk) * s, y = (h[1] + u[1] * kk) * s;
+      if (fr.T) { const dx = x - SPJ[0], dy = y - SPJ[1]; m = Math.max(m, 14 - Math.sqrt(dx * dx + dy * dy), 8 - segP2f(SPJ, 2, 0, x, y), 18 - segP2f(SPJ, 4, 2, x, y)); }
+      if (fr.R) m = Math.max(m, 5 - segP2f(SPJ, 6, 8, x, y), 2.5 - segP2f(SPJ, 8, 14, x, y));
+      if (fr.L) m = Math.max(m, 5 - segP2f(SPJ, 10, 12, x, y), 2.5 - segP2f(SPJ, 12, 16, x, y));
     }
     return m;
   };

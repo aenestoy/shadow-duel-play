@@ -441,7 +441,9 @@
 
 
 
-  function ik(ax, ay, bx, by, l1, l2, score) {
+
+
+  function ik(ax, ay, bx, by, l1, l2, score, out) {
     let dx = bx - ax, dy = by - ay, d = Math.hypot(dx, dy);
     const max = l1 + l2 - 0.01;
     if (d > max) { bx = ax + (dx / d) * max; by = ay + (dy / d) * max; dx = bx - ax; dy = by - ay; d = max; }
@@ -451,43 +453,45 @@
     const e1x = ax + Math.cos(base + A) * l1, e1y = ay + Math.sin(base + A) * l1;
     const e2x = ax + Math.cos(base - A) * l1, e2y = ay + Math.sin(base - A) * l1;
     const pick = score(e1x, e1y) >= score(e2x, e2y);
-    return { mx: pick ? e1x : e2x, my: pick ? e1y : e2y, ex: bx, ey: by };
+    out.mx = pick ? e1x : e2x; out.my = pick ? e1y : e2y; out.ex = bx; out.ey = by;
+    return out;
   }
   const elbowScore = (x, y) => y + 0.3 * x;
   const kneeScore = (x, y) => x - 0.5 * y;
+  const IKF = { mx: 0, my: 0, ex: 0, ey: 0 }, IKB = { mx: 0, my: 0, ex: 0, ey: 0 }, ILF = { mx: 0, my: 0, ex: 0, ey: 0 }, ILB = { mx: 0, my: 0, ex: 0, ey: 0 };
 
 
   ND.solve = function (p, rx, ry, dir, j = {}, wpn = L) {
-    const hip = [p.hx, p.hy];
+    const hip0 = p.hx, hip1 = p.hy;
     const ux = Math.sin(p.lean), uy = -Math.cos(p.lean);
-    const neck = [hip[0] + ux * L.torso, hip[1] + uy * L.torso];
-    const sh = [hip[0] + ux * L.torso * 0.86, hip[1] + uy * L.torso * 0.86];
+    const neck0 = hip0 + ux * L.torso, neck1 = hip1 + uy * L.torso;
+    const sh0 = hip0 + ux * L.torso * 0.86, sh1 = hip1 + uy * L.torso * 0.86;
     const ha = p.lean + p.hd;
-    const head = [neck[0] + Math.sin(ha) * 15, neck[1] - Math.cos(ha) * 15];
+    const head0 = neck0 + Math.sin(ha) * 15, head1 = neck1 - Math.cos(ha) * 15;
 
-    const hf = [sh[0] + p.ax, sh[1] + p.ay];
-    const armF = ik(sh[0], sh[1], hf[0], hf[1], L.uArm, L.fArm, elbowScore);
+    const hf0 = sh0 + p.ax, hf1 = sh1 + p.ay;
+    const armF = ik(sh0, sh1, hf0, hf1, L.uArm, L.fArm, elbowScore, IKF);
     const cs = Math.cos(p.sw), sn = Math.sin(p.sw);
-    const hand = [armF.ex, armF.ey];
-    const tip = [hand[0] + cs * wpn.blade, hand[1] + sn * wpn.blade];
-    const pom = [hand[0] - cs * wpn.handle, hand[1] - sn * wpn.handle];
+    const hand0 = armF.ex, hand1 = armF.ey;
+    const tip0 = hand0 + cs * wpn.blade, tip1 = hand1 + sn * wpn.blade;
+    const pom0 = hand0 - cs * wpn.handle, pom1 = hand1 - sn * wpn.handle;
 
     const gg = wpn.handle * 0.55;
-    const gripX = hand[0] - cs * gg, gripY = hand[1] - sn * gg;
+    const gripX = hand0 - cs * gg, gripY = hand1 - sn * gg;
     const g = wpn.twin ? 0 : clamp(p.grip, 0, 1);
-    const shB = [sh[0] - 3, sh[1] + 1];
-    const hbx = gripX * g + (sh[0] + p.gx) * (1 - g), hby = gripY * g + (sh[1] + p.gy) * (1 - g);
-    const armB = ik(shB[0], shB[1], hbx, hby, L.uArm, L.fArm, elbowScore);
+    const shB0 = sh0 - 3, shB1 = sh1 + 1;
+    const hbx = gripX * g + (sh0 + p.gx) * (1 - g), hby = gripY * g + (sh1 + p.gy) * (1 - g);
+    const armB = ik(shB0, shB1, hbx, hby, L.uArm, L.fArm, elbowScore, IKB);
 
-    const legF = ik(hip[0], hip[1], p.f1x, p.f1y, L.thigh, L.shin, kneeScore);
-    const legB = ik(hip[0] - 2, hip[1], p.f2x, p.f2y, L.thigh, L.shin, kneeScore);
+    const legF = ik(hip0, hip1, p.f1x, p.f1y, L.thigh, L.shin, kneeScore, ILF);
+    const legB = ik(hip0 - 2, hip1, p.f2x, p.f2y, L.thigh, L.shin, kneeScore, ILB);
 
-    const W = (pt, key) => { const o = j[key] || (j[key] = { x: 0, y: 0 }); o.x = rx + pt[0] * dir; o.y = ry + pt[1]; };
-    W(hip, 'hip'); W(neck, 'neck'); W(sh, 'sh'); W(head, 'head');
-    W([armF.mx, armF.my], 'elF'); W(hand, 'haF'); W(tip, 'tip'); W(pom, 'pom');
-    W([armB.mx, armB.my], 'elB'); W([armB.ex, armB.ey], 'haB');
-    W([legF.mx, legF.my], 'knF'); W([legF.ex, legF.ey], 'ftF');
-    W([legB.mx, legB.my], 'knB'); W([legB.ex, legB.ey], 'ftB');
+    const W = (x, y, key) => { const o = j[key] || (j[key] = { x: 0, y: 0 }); o.x = rx + x * dir; o.y = ry + y; };
+    W(hip0, hip1, 'hip'); W(neck0, neck1, 'neck'); W(sh0, sh1, 'sh'); W(head0, head1, 'head');
+    W(armF.mx, armF.my, 'elF'); W(hand0, hand1, 'haF'); W(tip0, tip1, 'tip'); W(pom0, pom1, 'pom');
+    W(armB.mx, armB.my, 'elB'); W(armB.ex, armB.ey, 'haB');
+    W(legF.mx, legF.my, 'knF'); W(legF.ex, legF.ey, 'ftF');
+    W(legB.mx, legB.my, 'knB'); W(legB.ex, legB.ey, 'ftB');
     j.dir = dir; j.hasSword = true;
     j.hang = Math.atan2(j.head.y - j.neck.y, j.head.x - j.neck.x);
     return j;

@@ -717,13 +717,13 @@
 
 
 
-  D.finDemo = (tier, who) => {
+  D.finDemo = (tier, who, at) => {
     const g = G; if (!g.F || g.phase !== 'fight') return false;
     const A = g.F.find((f) => f.ch.id === who) || g.F[0], V = A.opp;
     for (const f of g.F) { if (f.dz && f.dz.cine) { f.dz.cine = null; } f.setState('move'); f.vx = f.vy = 0; f.y = 0; f.onGround = true; f.hp = f.maxHp; }
     if (tier === 'u') { if (A.dz.armed) D.disarm(A, V, -A.dir, 'break'); }
     else if (!A.dz.armed) D.rearm(A, true);
-    A.x = -60; V.x = 60; A.dir = 1; V.dir = -1;
+    { const c0 = typeof at === 'number' ? Math.max(-ND.ARENA + 70, Math.min(ND.ARENA - 70, at)) : 0; A.x = c0 - 60; V.x = c0 + 60; } A.dir = 1; V.dir = -1;
     { const sw = D.swordOf && D.swordOf(A); if (sw && sw.resting() && Math.abs(sw.x - A.x) < 260) { sw.x = A.x - 320; sw.vx = 0; } }
     const m = A.dz.armed ? (A.wpn.iai ? 'ak_dKesa' : 'd_kesaR') : 'ua_jab';
     const a = ATK[m] || ATK.light1;

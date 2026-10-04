@@ -844,3 +844,80 @@
   };
   requestAnimationFrame(frame);
 })(window.ND);
+
+
+
+
+
+(function (ND) {
+  'use strict';
+  const G = ND.game;
+  if (!G || !G.newMatch || typeof document === 'undefined') return;
+  const nm0 = G.newMatch;
+  G.newMatch = function (mode) {
+    const r = nm0.apply(this, arguments);
+    if (mode !== 'attract') { for (const id of ['first', 'menu']) { const e = document.getElementById(id); if (e && !e.hidden) e.hidden = true; } document.documentElement.classList.add('nd-ready'); }
+    return r;
+  };
+})(window.ND);
+
+
+
+
+
+(function (ND) {
+  'use strict';
+  const cam = ND.cam;
+  if (!cam || !cam.follow) return;
+  const f0 = cam.follow;
+  cam.clampToScene = function () {
+    const half = this.W / (2 * this.s * this.z), lim = (ND.ARENA || 900) + 120 - half;
+    if (!(lim > 0)) { this.x = 0; return; }
+    if (this.x > lim) this.x = lim; else if (this.x < -lim) this.x = -lim;
+  };
+
+
+  const G = ND.game, KEYS = ['head', 'haF', 'haB', 'ftF', 'ftB', 'tip'], M = 8;
+
+  const PTS = [];
+  const points = (f) => {
+    PTS.length = 0;
+    const j = f.j, stale = !j || !j.hip || Math.abs(j.hip.x - f.x) > 150 || Math.abs(j.hip.y - f.y) > 200;
+    if (stale) { PTS.push(f.x - 55, f.y - 215, 0, f.x + 55, f.y - 215, 0, f.x - 55, f.y, 0, f.x + 55, f.y, 0); return PTS; }
+    for (let q = 0; q < KEYS.length; q++) { const p = j[KEYS[q]]; if (p) PTS.push(p.x, p.y - (q === 0 ? 16 : 0), KEYS[q] === 'tip' ? 1 : 0); }
+    return PTS;
+  };
+  const fits = (c, F) => {
+    for (let i = 0; i < F.length; i++) {
+      const f = F[i]; if (!f || f.dead || f.hidden) continue;
+      const P = points(f);
+      const edge = (ND.ARENA || 900) + 80;
+      for (let q = 0; q < P.length; q += 3) {
+        const m = P[q + 2] ? -60 : M, sx = c.sx(P[q]) - c.shx, sy = c.sy(P[q + 1]) - c.shy;
+        if (sy < m || sy > c.H - m || (Math.abs(P[q]) < edge && (sx < m || sx > c.W - m))) return false;
+      }
+    }
+    return true;
+  };
+  const span = (F) => { let a = 1e9, b = -1e9; for (const f of F) { if (!f || f.dead || f.hidden) continue; const P = points(f); for (let q = 0; q < P.length; q += 3) { if (P[q] < a) a = P[q]; if (P[q] > b) b = P[q]; } } return [a, b]; };
+
+  const zMin = (c) => c.W / (2 * c.s * ((ND.ARENA || 900) + 120));
+  cam.frameFighters = function (F, dt) {
+    if (!F) return;
+    if (fits(this, F)) { if (this.fz != null) { this.fz += (dt || 0) * 0.5; if (this.fz > 4) this.fz = null; } return; }
+    const [a, b] = span(F);
+    if (a < b) { const x0 = this.x; this.x = (a + b) / 2; this.clampToScene(); if (fits(this, F)) return; if (Math.abs(this.x - x0) < 1) this.x = x0; }
+    const lo = zMin(this) * 1.02;
+    for (let i = 0; i < 14 && !fits(this, F) && this.z > lo; i++) { this.z = Math.max(lo, this.z * 0.94); this.x = a < b ? (a + b) / 2 : this.x; this.clampToScene(); }
+
+    this.fz = this.z;
+  };
+  cam.follow = function (dt, fa, fb, focus) {
+    const r = f0.apply(this, arguments);
+    const held = focus && G && G.F && G.phase === 'fight';
+    if (!held) this.fz = null; else if (this.fz != null && this.z > this.fz) this.z = this.fz;
+    this.clampToScene();
+    if (held) this.frameFighters(G.F, dt);
+    return r;
+  };
+})(window.ND);

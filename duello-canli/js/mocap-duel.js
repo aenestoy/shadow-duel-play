@@ -836,9 +836,9 @@
 
     const SL = rg.poleSlide || 0, B0 = Mo.isPole && Mo.isPole(f.wpn) ? -((f.wpn.handle || 0) + SL) : 4;
     const BLf = (f.wpn && f.wpn.blade) || 96, BL = P.inside ? Math.min(BLf, P.bladeVis) : BLf, PJR = Mo.projectorOf ? Mo.projectorOf(rg) : null, pj = PJR || ((q) => Mo.project(rg, q));
-    const segD = (x, y) => { const vx = nk.x - hp.x, vy = nk.y - hp.y, l2 = vx * vx + vy * vy || 1, t = clamp(((x - hp.x) * vx + (y - hp.y) * vy) / l2, 0, 1); return Math.hypot(x - hp.x - vx * t, y - hp.y - vy * t); };
+    const segD = (x, y) => { const vx = nk.x - hp.x, vy = nk.y - hp.y, l2 = vx * vx + vy * vy || 1, t = clamp(((x - hp.x) * vx + (y - hp.y) * vy) / l2, 0, 1), ex = x - hp.x - vx * t, ey = y - hp.y - vy * t; return Math.sqrt(ex * ex + ey * ey); };
 
-    const neckD = (x, y) => { const vx = hd.x - nk.x, vy = hd.y - nk.y, l2 = vx * vx + vy * vy || 1, t = clamp(((x - nk.x) * vx + (y - nk.y) * vy) / l2, 0, 1); return Math.hypot(x - nk.x - vx * t, y - nk.y - vy * t); };
+    const neckD = (x, y) => { const vx = hd.x - nk.x, vy = hd.y - nk.y, l2 = vx * vx + vy * vy || 1, t = clamp(((x - nk.x) * vx + (y - nk.y) * vy) / l2, 0, 1), ex = x - nk.x - vx * t, ey = y - nk.y - vy * t; return Math.sqrt(ex * ex + ey * ey); };
 
 
     const give = aimW(f) > 0.01 ? 5 : 3;
@@ -849,7 +849,7 @@
 
 
     const LG = [['hipR', 'knR', 11], ['hipL', 'knL', 11], ['knR', 'ftR', 8.5], ['knL', 'ftL', 8.5]].map(([a, b, r]) => [pjo(Q[a]), pjo(Q[b]), r - (give > 3 ? give : 2)]);
-    const segP = (p, q, x, y) => { const vx = q.x - p.x, vy = q.y - p.y, l2 = vx * vx + vy * vy || 1, t = clamp(((x - p.x) * vx + (y - p.y) * vy) / l2, 0, 1); return Math.hypot(x - p.x - vx * t, y - p.y - vy * t); };
+    const segP = (p, q, x, y) => { const vx = q.x - p.x, vy = q.y - p.y, l2 = vx * vx + vy * vy || 1, t = clamp(((x - p.x) * vx + (y - p.y) * vy) / l2, 0, 1), ex = x - p.x - vx * t, ey = y - p.y - vy * t; return Math.sqrt(ex * ex + ey * ey); };
 
 
 
@@ -870,7 +870,10 @@
 
     const RL = o.state === 'hurt' || o.state === 'stagger' || o.state === 'launch';
     const pen = (h, u, NS0 = 24) => (penFan ? penFan(h, u, NS0) : pen1(h, u, NS0));
-    const pen1 = (h, u, NS0 = 24, rib) => { const NS = Math.ceil(NS0 * NSK); let m = -1e9, over = 0; if (!rib) penT = 1e9; const dl = (BL - SL - B0) / NS; for (let k = 0; k <= NS; k++) { const w = pj(madd(h, u, B0 + dl * k)), dh = Math.hypot(w.x - hd.x, w.y - hd.y), dn = neckD(w.x, w.y), dt = segD(w.x, w.y); penT = Math.min(penT, dt - TORSO_R); m = Math.max(m, HR - dh, NR - dn, TORSO_R - dt - give, 26 - Math.hypot(w.x - nk.x, w.y - nk.y)); if (RL && B0 + dl * k > 30) m = Math.max(m, TORSO_R + 6 - dt, 24 - dh, 16 - dn); if (dh < HR || dn < (RL ? 14 : NR) || dt < TORSO_R + (RL ? 4 : 0)) over += dl; for (const [a, b, r] of LG) m = Math.max(m, r - segP(a, b, w.x, w.y)); m = Math.max(m, w.y + 1); } return Math.max(m, over - (RL ? 6 : 10)); };
+
+
+    const PJd = rg.dir, PJx = rg.x, PJc = Mo.cam;
+    const pen1 = (h, u, NS0 = 24, rib) => { const NS = Math.ceil(NS0 * NSK); let m = -1e9, over = 0; if (!rib) penT = 1e9; const dl = (BL - SL - B0) / NS; for (let k = 0; k <= NS; k++) { const kk = B0 + dl * k, pz = h[2] + u[2] * kk, sc = PJc / (PJc - pz), wx = PJx + (h[0] + u[0] * kk) * PJd * sc, wy = (h[1] + u[1] * kk) * sc, ax = wx - hd.x, ay = wy - hd.y, dh = Math.sqrt(ax * ax + ay * ay), dn = neckD(wx, wy), dt = segD(wx, wy), bx = wx - nk.x, by = wy - nk.y; penT = Math.min(penT, dt - TORSO_R); m = Math.max(m, HR - dh, NR - dn, TORSO_R - dt - give, 26 - Math.sqrt(bx * bx + by * by)); if (RL && kk > 30) m = Math.max(m, TORSO_R + 6 - dt, 24 - dh, 16 - dn); if (dh < HR || dn < (RL ? 14 : NR) || dt < TORSO_R + (RL ? 4 : 0)) over += dl; for (let i = 0; i < LG.length; i++) { const L = LG[i]; m = Math.max(m, L[2] - segP(L[0], L[1], wx, wy)); } m = Math.max(m, wy + 1); } return Math.max(m, over - (RL ? 6 : 10)); };
     let h = P.blade.h, u = P.blade.u, p0 = pen(h, u);
 
 

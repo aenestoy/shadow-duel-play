@@ -40,7 +40,7 @@
 
 
 
-  const KLV = [-1, 1.5];
+  const KLV = [-1, 2];
   const BIND_LV = ['0', '0.5', '1', '2', '3'];
   const NIN = ['akane', 'aoi', 'kuro', 'yuki', 'ren', 'kage', 'shura', 'tetsu', 'jin', 'tsubame', 'hana', 'mai', 'tora'];
   const DEF = { levels: {}, apprenticePlusK: K.apprenticePlusK, kiWait: K.kiWait, duelK: K.duelK, duelSoft: K.duelSoft,

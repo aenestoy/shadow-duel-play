@@ -426,16 +426,17 @@
       let i0 = 0, i1 = -1;
       for (let i = 1; i < n; i++) if (CV[i * 3 + 2] > CV[i0 * 3 + 2]) i0 = i;
       for (let i = 0; i < n; i++) if (i !== i0 && (i1 < 0 || CV[i * 3 + 2] > CV[i1 * 3 + 2])) i1 = i;
-      const ids = i1 >= 0 ? [i0, i1] : [i0];
+      const nIds = i1 >= 0 ? 2 : 1;
       for (let it = 0; it < 3; it++) {
-        for (const i of ids) {
+        for (let q = 0; q < nIds; q++) {
+          const i = q === 0 ? i0 : i1;
           const rx = CV[i * 3], ry = CV[i * 3 + 1];
           const vcy = b.vy + b.w * rx, vcx = b.vx - b.w * ry;
           if (vcy <= 0) continue;
           if (it === 0) imp = Math.max(imp, vcy);
 
           const e = vcy > 120 ? mat.e : 0, rn = -rx, kn = 1 / m + (rn * rn) / I;
-          const jn = ((1 + e) * vcy) / kn / ids.length;
+          const jn = ((1 + e) * vcy) / kn / nIds;
           b.vy -= jn / m; b.w += (rn * jn) / I;
 
           const rt = -ry, kt = 1 / m + (rt * rt) / I, vt = b.vx - b.w * ry;
