@@ -24,6 +24,7 @@
     const B = BTN(), D = X().dirs || {};
     if (id === 'stick') return B.stick || '';
     if (id === 'pause') return X().pauseName || '';
+    if (id === 'ctx') { const D = ND.duel; return D && D.tr ? D.tr('Use it') : 'Use it'; }
     if (DIRS[id]) return D[id] || DIRS[id];
     if (id === 'throw') return X().throwName || B.throw || '';
     return B[id] || '';
@@ -33,15 +34,19 @@
     const B = BTN();
     if (id === 'stick') return '<i class="u"></i><i class="l"></i><i class="r"></i><i class="d"></i><b class="te-knob"></b>';
     if (id === 'pause') return '<i class="pz"></i>';
+
+
+    if (id === 'ctx') { const I = ND.duel && ND.duel.envUi && ND.duel.envUi.icons; return (I && (I.stool || I.barrel)) || '<i class="cx"></i>'; }
     if (id === 'throw') return `<i class="shu"></i><small>${esc(B.throw || '')}</small>`;
     if (id === 'dd') return `<i class="chev"></i><small>${esc(B.down || '')}</small>`;
     if (DIRS[id]) return '<i class="chev"></i>';
     return `<span>${esc(B[id] || '')}</span>`;
   }
-  const kind = (id) => (id === 'stick' || id === 'pause' ? id : DIRS[id] ? 'dir' : 'act');
+  const kind = (id) => (id === 'stick' || id === 'pause' || id === 'ctx' ? id : DIRS[id] ? 'dir' : 'act');
   const keep = (id) => !!(TU().KEEP || { stick: 1 })[id];
   const cur = () => (st ? st.items[st.sel] : null);
-  const live = () => TU().liveIds(st.move);
+
+  const live = () => TU().liveIds(st.move).filter((id) => id !== 'ctx' || !!ND.duel);
   const others = (id) => live().filter((k) => k !== id && !st.items[k].h).map((k) => st.items[k]);
   const overlaps = (id) => { const q = st.items[id]; return !q.h && others(id).some((o) => TU().hits(q, o)); };
 

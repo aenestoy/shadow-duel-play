@@ -1040,6 +1040,9 @@
 
 
 
+
+
+
   const SVG = (b) => `<svg viewBox="0 0 24 24" width="62%" height="62%" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${b}</svg>`;
   const ICONS = {
     stool: SVG('<path d="M5 8h14M7 8l-2 11M17 8l2 11M8 14h8"/>'),
@@ -1061,7 +1064,7 @@
     st.textContent = `#tCtx{position:absolute;left:0;top:0;z-index:31;width:var(--ctxd,64px);height:var(--ctxd,64px);border-radius:50%;border:0;padding:0;display:grid;place-items:center;
       color:#ffe3a1;background:radial-gradient(circle at 50% 45%,rgba(255,214,140,.28),rgba(20,16,12,.62) 70%);box-shadow:0 0 0 2px rgba(255,214,140,.75),0 0 14px rgba(255,190,90,.35);
       opacity:0;transform:scale(.8);transition:opacity .22s ease,transform .22s ease;pointer-events:none;touch-action:none;-webkit-tap-highlight-color:transparent}
-      #tCtx.show{opacity:.95;transform:scale(1);pointer-events:auto}
+      #tCtx.show{opacity:calc(.95 * var(--ctxo,1));transform:scale(1);pointer-events:auto}
       #tCtx.on{transform:scale(.92)}
       #tCtx b{position:absolute;left:50%;bottom:3px;transform:translateX(-50%);font:700 11px/1 system-ui,sans-serif;color:#1b140c;background:#ffe3a1;border-radius:5px;padding:1px 4px}
       #tCtxHint{position:absolute;z-index:31;max-width:220px;font:600 13px/1.25 system-ui,sans-serif;color:#fff;background:rgba(20,16,12,.85);border:1px solid rgba(255,214,140,.6);
@@ -1095,9 +1098,22 @@
     if (UI.placedFor === key) return;
     UI.placedFor = key;
     const R = app.getBoundingClientRect();
+    UI.hide = false; b.style.setProperty('--ctxo', '1');
     if (!touchOn()) { const d = 58; b.style.setProperty('--ctxd', d + 'px'); b.style.translate = `${W - d - 28}px ${H - d - 96}px`; UI.x = W - d / 2 - 28; UI.y = H - d / 2 - 96; UI.r = d / 2; return; }
     const ctl = [...document.querySelectorAll('#touch button, #touch .t-base, #pauseBtn')].filter((e) => e.offsetParent !== null && getComputedStyle(e).display !== 'none')
       .map((e) => { const r = e.getBoundingClientRect(); return { x: r.left - R.left + r.width / 2, y: r.top - R.top + r.height / 2, r: Math.max(r.width, r.height) / 2, act: e.dataset ? e.dataset.act : null }; }).filter((c) => c.r > 4);
+
+    const TU = ND.touchUI, G0 = TU && TU.geo ? TU.geo() : null, q = G0 && G0.items && G0.items.ctx;
+    if (q && TU.saved && TU.saved()) {
+      if (q.h) { UI.hide = true; return; }
+      const rq = q.d / 2;
+      if (ctl.every((c) => Math.hypot(c.x - q.cx, c.y - q.cy) >= c.r + rq + 1)) {
+        b.style.setProperty('--ctxd', q.d.toFixed(1) + 'px');
+        b.style.setProperty('--ctxo', (Math.max(0.2, Math.min(1, (q.o || 1) * ((TU.prefs && TU.prefs.op) || 1)))).toFixed(2));
+        b.style.translate = `${(q.cx - rq).toFixed(1)}px ${(q.cy - rq).toFixed(1)}px`;
+        UI.x = q.cx; UI.y = q.cy; UI.r = rq; return;
+      }
+    }
     const acts = ctl.filter((c) => c.act);
     const tb = acts.length ? Math.min(...acts.map((c) => c.r)) * 2 : 64, d = Math.round(tb * 0.92), r = d / 2;
 
@@ -1144,8 +1160,10 @@
       e = ctxPick(f, hold > 0 ? 1 : hold < 0 ? -1 : 0);
     }
     if (!e && CTX.force) e = { icon: CTX.force === true ? 'stool' : CTX.force };
-    const on = !!e;
+    let on = !!e;
     if (on) { uiPlace(); if (UI.ic !== e.icon) { UI.ic = e.icon; UI.el.innerHTML = (ICONS[e.icon] || ICONS.barrel) + (touchOn() ? '' : `<b>${KEYNAME}</b>`); } }
+
+    if (on && UI.hide) on = false;
     if (on !== UI.on) { UI.on = on; UI.el.classList.toggle('show', on); if (on && !CTX.force) uiHint(); }
   }
   D.envUi = { icons: ICONS, update: () => uiUpdate(), place: () => { UI.placedFor = ''; uiPlace(); }, state: () => ({ on: UI.on, x: UI.x, y: UI.y, r: UI.r, ic: UI.ic, t: CTX.shownT || 0 }) };

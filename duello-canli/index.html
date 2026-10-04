@@ -525,6 +525,10 @@ try { (function (list) {
     box-shadow: inset 0 0 0 1.5px rgba(241,214,156,.85), inset 0 0 0 4.5px rgba(12,9,7,.9), inset 0 0 0 5.5px rgba(217,179,108,.4); }
   .te-pause .te-face { color: var(--gold-hi); }
   .te-pause .pz { position: absolute; inset: 22%; background: currentColor; -webkit-mask: var(--pz) center / contain no-repeat; mask: var(--pz) center / contain no-repeat; }
+  /* the duel's context button (js/duel-env.js #tCtx): its gold ring and warm glow, the icon drawn by the editor */
+  .te-ctx .te-face { color: #ffe3a1; background: radial-gradient(circle at 50% 45%, rgba(255,214,140,.28), rgba(20,16,12,.62) 70%); box-shadow: 0 0 0 2px rgba(255,214,140,.75), 0 0 14px rgba(255,190,90,.35); }
+  .te-ctx .te-face svg { width: 62%; height: 62%; }
+  .te-ctx .cx { width: 40%; height: 40%; border-radius: 50%; border: 2px solid currentColor; }
   .te-it.sel { outline-color: var(--gold-hi, #f1d69c); z-index: 2; }
   .te-it.bad { outline-color: #ff6b6b; }
   .te-it.off .te-face { opacity: .28; border-style: dashed; }
@@ -2506,6 +2510,6 @@ try { (function (list) {
 <!-- 1.4: "new version ready" note on the bare main menu (js/update-note.js; every build: version.json next to this page,
      on CrazyGames the studio server's answer) -->
 <script  src="js/update-note.js"></script>
-<div id="wipTag" style="position:fixed;left:6px;bottom:6px;z-index:2147483647;font:600 11px/1.3 system-ui,sans-serif;color:#ffd27a;background:rgba(0,0,0,.6);padding:3px 7px;border-radius:4px;pointer-events:none;max-width:70vw">WIP 13:59 — first-fight tutorial on the new fight: speed 0.85, ring = real parry window, cinematics play whole before the next step and READY!</div>
+<div id="wipTag" style="position:fixed;left:6px;bottom:6px;z-index:2147483647;font:600 11px/1.3 system-ui,sans-serif;color:#ffd27a;background:rgba(0,0,0,.6);padding:3px 7px;border-radius:4px;pointer-events:none;max-width:70vw">1.5 aday – testler sürüyor</div>
 </body>
 </html>

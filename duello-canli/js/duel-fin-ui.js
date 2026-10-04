@@ -219,11 +219,37 @@
   }
 
 
+  let spotT = 0, spotKey = '', spot = null;
+  function phoneSpot(bw, bh, k) {
+    const now = performance.now(), key = cam.W + 'x' + cam.H + ':' + Math.round(bw) + ':' + Math.round(bh);
+    if (key === spotKey && now - spotT < 500) return spot;
+    spotKey = key; spotT = now; spot = null;
+    const cv = document.querySelector('#app canvas') || document.querySelector('canvas');
+    if (!cv) return null;
+    const R = cv.getBoundingClientRect(), sc = cam.W / (R.width || 1), toC = (r) => [(r.left - R.left) * sc, (r.top - R.top) * sc, (r.right - R.left) * sc, (r.bottom - R.top) * sc];
+    const vis = (e) => e && e.offsetParent !== null && getComputedStyle(e).display !== 'none' && getComputedStyle(e).visibility !== 'hidden';
+    const avoid = [];
+    for (const e of document.querySelectorAll('#touch button, #touch .t-base, #pauseBtn, #tCtx.show, #rallyHud, .tip-box, #coachTip')) if (vis(e)) avoid.push(toC(e.getBoundingClientRect()));
+    let top = 8 * k;
+    for (const id of ['hpb1', 'hpb2', 'w1', 'w2', 'kb1', 'kb2', 'clock', 'pb1', 'pb2']) { const e = document.getElementById(id); if (vis(e)) top = Math.max(top, toC(e.getBoundingClientRect())[3]); }
+    const pad = 6 * k, box = (x, y) => [x - pad, y - 8 * k - pad, x + bw + pad, y + bh + 8 * k + pad];
+    const free = (b) => b[0] >= 0 && b[2] <= cam.W && b[1] >= 0 && b[3] <= cam.H && avoid.every((a) => a[2] <= b[0] || a[0] >= b[2] || a[3] <= b[1] || a[1] >= b[3]);
+    const y = top + 14 * k;
+    for (const x of [cam.W / 2 - bw / 2, cam.W * 0.04, cam.W * 0.96 - bw]) if (free(box(x, y))) { spot = [x, y]; return spot; }
+    for (let yy = y; yy < cam.H * 0.6; yy += 10 * k) for (const x of [cam.W / 2 - bw / 2, cam.W * 0.04, cam.W * 0.96 - bw]) if (free(box(x, yy))) { spot = [x, yy]; return spot; }
+    spot = [cam.W / 2 - bw / 2, y];
+    return spot;
+  }
   function drawCard(ctx, cd, u) {
     const t = cd.age, inT = oc(clamp(t / 0.18, 0, 1)), a = t < cd.life - 0.3 ? 1 : (cd.life - t) / 0.3;
     const tch = !!(ND.touch && ND.touch.active), pr = G.pxr || 1, k = tch ? Math.max(u, pr * 0.8) : Math.max(u, 0.8);
     const left = cd.side === 0, bw = Math.min(cam.W * 0.42, 300 * k), bh = 62 * k;
-    const x0 = left ? cam.W * 0.06 : cam.W * 0.94 - bw, y0 = cam.H * (tch ? 0.6 : 0.68);
+    let x0 = left ? cam.W * 0.06 : cam.W * 0.94 - bw, y0 = cam.H * (tch ? 0.6 : 0.68);
+
+
+
+    if (tch) { const P = phoneSpot(bw, bh, k); if (P) { x0 = P[0]; y0 = P[1]; } }
+    U.cardBox = [x0, y0 - 8 * k, x0 + bw, y0 + bh + 8 * k];
     const slide = (1 - inT) * 40 * k * (left ? -1 : 1);
     ctx.globalAlpha = a;
     ctx.save(); ctx.translate(slide, 0);

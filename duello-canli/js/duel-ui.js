@@ -887,13 +887,13 @@
     for (let q = 0; q < KEYS.length; q++) { const p = j[KEYS[q]]; if (p) PTS.push(p.x, p.y - (q === 0 ? 16 : 0), KEYS[q] === 'tip' ? 1 : 0); }
     return PTS;
   };
-  const fits = (c, F) => {
+  const fits = (c, F, ex = 0) => {
     for (let i = 0; i < F.length; i++) {
       const f = F[i]; if (!f || f.dead || f.hidden) continue;
       const P = points(f);
       const edge = (ND.ARENA || 900) + 80;
       for (let q = 0; q < P.length; q += 3) {
-        const m = P[q + 2] ? -60 : M, sx = c.sx(P[q]) - c.shx, sy = c.sy(P[q + 1]) - c.shy;
+        const m = (P[q + 2] ? -60 : M) + ex, sx = c.sx(P[q]) - c.shx, sy = c.sy(P[q + 1]) - c.shy;
         if (sy < m || sy > c.H - m || (Math.abs(P[q]) < edge && (sx < m || sx > c.W - m))) return false;
       }
     }
@@ -931,7 +931,7 @@
 
 
   const P = { x: 0, y: 0, z: 1 }, A = { x: 0, y: 0, z: 1 };
-  let lx = null, ly = 0, lz = 1;
+  let lx = null, ly = 0, lz = 1, vx = 0, vz = 0, kx = null, kz = 1;
   const hookCut = () => {
     const D = ND.duel; if (cutHooked || !D || !D.finFx) return;
     cutHooked = true;
@@ -946,6 +946,8 @@
       const dx = this.x - lx, dy = this.y - ly, kz = this.z / lz;
       if (Math.abs(dx) > 1e-3 || Math.abs(dy) > 1e-3 || Math.abs(kz - 1) > 1e-5) { P.x += dx; P.y += dy; P.z *= kz; this.x = lx; this.y = ly; this.z = lz; }
     }
+
+    const own = lx != null && !cutNow && Math.abs(this.x - lx) < 1e-3;
     cutNow = false;
     this.x -= A.x; this.y -= A.y; this.z /= A.z;
 
@@ -958,7 +960,53 @@
     P.x *= out; P.y *= out; P.z = 1 + (P.z - 1) * out;
     A.x += (P.x - A.x) * inn; A.y += (P.y - A.y) * inn; A.z += (P.z - A.z) * inn;
     this.x += A.x; this.y += A.y; this.z *= A.z;
+
+
+
+
+
+    kx = null;
+    if (own) {
+
+      const fr = Math.max(0.1, Math.min(3, h * 60)), f2 = fr * fr, az = 0.003 * f2;
+      let wz = Math.log(this.z / lz);
+      if (wz - vz > az) wz = vz + az; else if (wz - vz < -az) wz = vz - az;
+      this.z = lz * Math.exp(wz);
+      const k = this.s * this.z || 1, am = (5 / k) * f2;
+      let v = this.x - lx;
+      if (v - vx > am) v = vx + am; else if (v - vx < -am) v = vx - am;
+      const l = limAt(this, this.z);
+      if (l > 0) {
+        if (v > 0) { const d = Math.max(0, l - lx); if (v > d * 0.3) v = d * 0.3; }
+        else if (v < 0) { const d = Math.max(0, l + lx); if (-v > d * 0.3) v = -d * 0.3; }
+      }
+      this.x = lx + v;
+
+
+      const E = (ND.ARENA || 900) + 120, l2 = E - this.W / (2 * this.s * this.z);
+      if (l2 > 0 && Math.abs(this.x) > l2) {
+        const lo = lx + vx - am, hi = lx + vx + am;
+        const xr = this.x > 0 ? Math.max(lo, Math.min(hi, l2)) : Math.min(hi, Math.max(lo, -l2));
+        this.x = xr;
+        if (Math.abs(xr) > l2 && E - Math.abs(xr) > 1) this.z = this.W / (2 * this.s * (E - Math.abs(xr)));
+      }
+
+
+
+
+      if (held && G.F) {
+        const at = (x, z, ex) => { V.shx = V.shy = 0; V.y = this.y; V.z = z; const lv = limAt(cam, z); V.x = lv > 0 ? Math.max(-lv, Math.min(lv, x)) : 0; return fits(V, G.F, ex); };
+        if (!at(this.x, this.z, 0)) {
+          const x0 = this.x, lz0 = Math.log(this.z), lzT = Math.log(T.z);
+          let t = 0;
+          for (const q of [0.02, 0.05, 0.1, 0.2, 0.35, 0.5, 0.75, 1]) if (at(x0 + (T.x - x0) * q, Math.exp(lz0 + (lzT - lz0) * q), 0)) { t = q; break; }
+
+          if (t) { kx = x0; kz = Math.exp(lz0); this.x = x0 + (T.x - x0) * t; this.z = Math.exp(lz0 + (lzT - lz0) * t); }
+        }
+      }
+    }
     this.clampToScene();
+    vx = own ? (kx != null ? kx : this.x) - lx : 0; vz = own ? Math.log((kx != null ? kz : this.z) / lz) : 0;
     lx = this.x; ly = this.y; lz = this.z;
     return r;
   };
