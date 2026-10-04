@@ -524,6 +524,7 @@
       ND.rng.seed(opts.seed | 0);
       ND.simClock = 0; this.clock = 0; this.recOdd = false; scene.t = 0;
       this.slowV = 0.35; this.cineX = 0; this.loser = null;
+      this.recording = false;
       for (const f of F) {
         const fresh = new ND.Fighter(f.id, f.ctrl);
 
@@ -1276,7 +1277,9 @@
       const STEP = this.STEP;
 
       for (const f of F) if (f.ctrl.step) f.ctrl.step();
-      const tz = this.tz = ND.tutor && ND.tutor.on ? ND.tutor.pre(this, STEP) : ND.timeScale ? ND.timeScale(this) : 1;
+
+
+      const tz = this.tz = ND.tutor && ND.tutor.on ? ND.tutor.pre(this, STEP) * (ND.timeScale ? ND.timeScale(this) : 1) : ND.timeScale ? ND.timeScale(this) : 1;
       ND.simClock = (ND.simClock || 0) + STEP * tz;
       this.presPart = false;
       if (present) { try { this.update(STEP); } finally { this.presPart = false; } return; }
@@ -1728,8 +1731,8 @@
       this.ticketOffer(k);
       const b = $('bTrial'); if (!b) return;
       const ok = k != null && this.selMode === 'cpu' && ND.ads && ND.ads.rewardedAvailable() && !!ND.CHARS[k];
-      b.hidden = !ok;
-      if (!ok) return;
+      if (!ok) { b.hidden = true; return; }
+      ND.ads.showOffer(b);
       const A = STR.ads || {}, ch = ND.CHARS[k];
       b.innerHTML = '';
       const sp = document.createElement('span'); sp.textContent = A.trial ? A.trial(ch.name) : ch.name;

@@ -168,6 +168,7 @@
 
   if (D.useA) {
     const EXT = new WeakMap(), W3 = 11;
+    (ND.onLook || (ND.onLook = [])).push((f) => { EXT.delete(f); });
     A3.provider = (f) => {
       if (!f.dz || f.dead || D.lite) return null;
       const S = f._anim, C = S && S.d3, j = S && S.j;
@@ -263,8 +264,9 @@
     LT.clk = clk; LT.sig = sig;
     for (let i = 0; i < 2; i++) LT.ox[i] *= Math.exp(-dt / 0.22);
     if (a.dead || b.dead || a.hidden || b.hidden || !a.dz || !b.dz) return;
-    const bind = a.state === 'dbind' || b.state === 'dbind' || (a.dz.cine && !a.dz.cine.done) || (b.dz.cine && !b.dz.cine.done);
+    const bind = a.state === 'dbind' || b.state === 'dbind' || (a.dz.cine && !a.dz.cine.done && !a.dz.cine.fin) || (b.dz.cine && !b.dz.cine.done && !b.dz.cine.fin);
     if (bind) { LT.ox[0] = LT.ox[1] = 0; }
+    else if (D.passing && (D.passing(a) || D.passing(b))) {                                                           }
     else if (Math.abs(a.x - b.x) >= 20) {
       const ka = isKasa(a), kb = isKasa(b), B = lshapes(jb, LT.ox[1], kb);
 
@@ -299,7 +301,7 @@
 
     for (let i = 0; i < 2; i++) {
       const f = F[i], o = F[1 - i], j = i ? jb : ja, q = i ? ja : jb;
-      if (!j.hasSword || !j.tip || !j.haF || f.state === 'dbind' || (f.dz.cine && !f.dz.cine.done) || !q.head || !q.neck) continue;
+      if (!j.hasSword || !j.tip || !j.haF || f.state === 'dbind' || (f.dz.cine && !f.dz.cine.done && !f.dz.cine.fin) || !q.head || !q.neck) continue;
       const dx = LT.ox[1 - i] - LT.ox[i], hx = j.haF.x, hy = j.haF.y, L = Math.hypot(j.tip.x - hx, j.tip.y - hy) || 1, a0 = Math.atan2(j.tip.y - hy, j.tip.x - hx);
       const a = f.state === 'atk' ? f.atk : null, hit = a && a.active && f.st >= a.active[0] - 0.02 && f.st <= a.active[1] + 0.04, give = hit ? 8 : 6;
 
@@ -409,6 +411,7 @@
   const LKEYS = Object.keys(LIM);
   const FREE = { launch: 1, down: 1, getup: 1, droll: 1, dpick: 1, win: 1, dead: 1 };
   const PS = new WeakMap();
+  (ND.onLook || (ND.onLook = [])).push((f) => { PS.delete(f); });
   const SAYA_PULL = 12, SAYA_T = [0.07, 0.3];
 
   function handOnSaya(D0, back) {

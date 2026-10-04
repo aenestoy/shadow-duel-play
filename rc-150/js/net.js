@@ -75,7 +75,7 @@
       v.setUint32(o, p.hash[0]); v.setUint32(o + 4, parseInt(p.hash[1].slice(0, 8), 16) >>> 0); v.setUint32(o + 8, parseInt(p.hash[1].slice(8, 16), 16) >>> 0);
       o += 12;
     }
-    for (let i = 0; i < n; i++, o += 3) { const x = p.inputs[i] & 0xfffff; v.setUint8(o, x >> 16); v.setUint16(o + 1, x & 0xffff); }
+    for (let i = 0; i < n; i++, o += 3) { const x = p.inputs[i] & 0x3fffff; v.setUint8(o, x >> 16); v.setUint16(o + 1, x & 0xffff); }
     return b;
   }
   function decode(b) {
@@ -168,7 +168,7 @@
         dig: [FNV0, FNV0, FNV0], digAt: new Map(),
       };
       for (let i = 0; i < D; i++) S.L[i] = 0;
-      G.newMatch('online', { c1: o.chars[0], c2: o.chars[1], arena: o.arena, seed: o.seed, side: S.side, ctrls: S.ctrls, looks: o.looks || null });
+      G.newMatch('online', { c1: o.chars[0], c2: o.chars[1], arena: o.arena, seed: o.seed, side: S.side, ctrls: S.ctrls, looks: o.looks || null, speed: o.speed });
 
 
       const T = window.__ndNetTest;
@@ -296,7 +296,7 @@
       if (S.nextLocal <= t + S.D) {
         const I = ND.input, v = I.adLocked ? 0 : I.p1.frame();
         S.L[S.nextLocal++] = v;
-        while (S.nextLocal <= t + S.D) S.L[S.nextLocal++] = v & 0x3ff;
+        while (S.nextLocal <= t + S.D) S.L[S.nextLocal++] = v & 0x2003ff;
       }
       const c0 = now();
       if (this.needSave(t)) this.saveCost(this.save(t));
@@ -325,7 +325,7 @@
       S.st.hashes++; S.st.hashMs += now() - c0;
     },
     apply(t) {
-      const l = S.L[t], r = S.R[t] !== undefined ? S.R[t] : S.rRecv ? S.R[S.rRecv - 1] & 0x3ff : 0;
+      const l = S.L[t], r = S.R[t] !== undefined ? S.R[t] : S.rRecv ? S.R[S.rRecv - 1] & 0x2003ff : 0;
       S.used[t] = r;
       S.ctrls[S.side].applyFrame(l);
       S.ctrls[1 - S.side].applyFrame(r);
@@ -377,7 +377,7 @@
 
 
     digest(t) {
-      const a = S.side === 0 ? S.L[t] : S.R[t], b = S.side === 0 ? S.R[t] : S.L[t], x = (a | 0) & 0xfffff, y = (b | 0) & 0xfffff, d = S.dig;
+      const a = S.side === 0 ? S.L[t] : S.R[t], b = S.side === 0 ? S.R[t] : S.L[t], x = (a | 0) & 0x3fffff, y = (b | 0) & 0x3fffff, d = S.dig;
       d[0] = fnv(d[0], x); d[1] = fnv(d[1], y); d[2] = fnv(fnv(d[2], x), y);
       if ((t + 1) % HASH_EVERY === 0) {
         S.digAt.set(t + 1, d.map(hex8));
@@ -399,7 +399,7 @@
       if (!S) return '';
       const n = S.flushed, pack = (arr) => {
         const out = [];
-        for (let i = 0; i < n;) { const v = (arr[i] | 0) & 0xfffff; let k = 1; while (i + k < n && ((arr[i + k] | 0) & 0xfffff) === v) k++; out.push(v.toString(36) + ',' + k.toString(36)); i += k; }
+        for (let i = 0; i < n;) { const v = (arr[i] | 0) & 0x3fffff; let k = 1; while (i + k < n && ((arr[i + k] | 0) & 0x3fffff) === v) k++; out.push(v.toString(36) + ',' + k.toString(36)); i += k; }
         return out.join(';');
       };
       const p1 = S.side === 0 ? S.L : S.R, p2 = S.side === 0 ? S.R : S.L;

@@ -588,6 +588,10 @@ window.ND = window.ND || {};
   const adFns = new Set(), muteFns = new Set();
   const want = { loaded: false, play: false };
   let firstPlay = false;
+
+
+  let loadHidden = document.visibilityState === 'hidden';
+  document.addEventListener('visibilitychange', () => { if (!want.loaded && document.visibilityState === 'hidden') loadHidden = true; });
   const mark = (n) => { try { performance.mark(n); } catch (e) {                      } };
   const P = ND.portal = {
     name: ND.portalName,
@@ -595,6 +599,7 @@ window.ND = window.ND || {};
     inAd: false,
     muted: false,
     get sdk() { const a = api(); return !!(a && a.sdk); },
+    get loadHidden() { return loadHidden; },
 
 
     loadingFinished() { if (!want.loaded) mark('nd-loading-finished'); want.loaded = true; const a = api(); if (a) a.loadingFinished(); },
@@ -883,7 +888,7 @@ window.ND = window.ND || {};
 
 
 
-    MIX: { swing: 1.5, clang: 1.5, cut: 4.6, thud: 3.3, step: 0.8, whistle: 4.5, tick: 7, whoosh: 1.8, ui: 1, grind: 1.8, amb: 0.8 },
+    MIX: { swing: 1.5, clang: 1.5, cut: 4.6, thud: 3.3, step: 0.8, whistle: 4.5, tick: 7, whoosh: 1.8, ui: 1, grind: 1.8, amb: 0.8, punch: 3, smack: 26 },
     swoosh(power = 1, pan = 0) {
       const k = this.vr(0.12), d = (0.16 + 0.12 * power) * this.vr(0.1), m = this.MIX.swing * this.vr(0.12);
       this.noise({ type: 'bandpass', f0: (500 + 300 * power) * k, f1: (2600 + 900 * power) * k, q: 1.4, dur: d, gain: (0.22 + 0.2 * power) * m, attack: d * 0.55, send: 0.12, pan });
@@ -915,6 +920,37 @@ window.ND = window.ND || {};
       const m = this.MIX.thud * this.vr(0.1);
       this.tone({ freq: 110 * this.vr(0.1), freq1: 38, dur: 0.28, gain: 0.6 * power * m, send: 0.1, pan });
       this.noise({ type: 'lowpass', f0: 500 * this.vr(0.2), dur: 0.14, gain: 0.35 * power * m, send: 0.05, pan });
+    },
+
+
+
+
+
+
+    punch(raw = 8, pan = 0, heavy = false) {
+      if (this.punchLog && !this.quiet) this.punchLog.push({ k: heavy ? 'punch-heavy' : 'punch', t: ND.simClock || 0 });
+      if (!this.ready || this.quiet) return;
+      const m = this.MIX.punch, p = clamp(0.8 + raw / 30, 0.85, 1.45) * (heavy ? 1.35 : 1), k = this.vr(0.08) * (heavy ? 0.86 : 1);
+      const dt = 0.002 + Math.random() * 0.004;
+      this.noise({ type: 'bandpass', f0: 2600 * k, q: 0.8, dur: 0.02, gain: 0.85 * p * m, attack: 0.0005, send: 0.04, pan });
+      this.noise({ type: 'bandpass', f0: 950 * k, q: 1.1, dur: 0.06, gain: 1.1 * p * m, attack: 0.0008, send: 0.06, pan });
+      this.tone({ freq: 170 * k, freq1: 72 * k, glide: 0.06, dur: heavy ? 0.17 : 0.11, gain: 0.75 * p * m, attack: 0.0015, send: 0.05, pan, delay: dt });
+      const V = ND.voice, body = V && V.buffer ? V.buffer('bo-b', Math.random() < 0.5 ? 'body1' : 'body2') : null;
+      if (body) this.sample(body, { gain: 0.55 * p * m * this.vr(0.1), rate: this.vr(0.07) * (heavy ? 0.9 : 1), pan, send: 0.06, delay: dt * 0.5 });
+      if (heavy) {
+        this.noise({ type: 'lowpass', f0: 170, dur: 0.2, gain: 0.7 * p * m, attack: 0.004, send: 0.08, pan, delay: dt });
+        this.duck(3, 0.25);
+      }
+    },
+
+
+    smack(p = 1, pan = 0, parry = false) {
+      if (this.punchLog && !this.quiet) this.punchLog.push({ k: parry ? 'smack-parry' : 'smack', t: ND.simClock || 0 });
+      if (!this.ready || this.quiet) return;
+      const m = this.MIX.smack, k = this.vr(0.1);
+      this.noise({ type: 'highpass', f0: (parry ? 3400 : 2600) * k, dur: 0.012, gain: 0.035 * p * m, attack: 0.0005, send: 0.1, pan });
+      this.noise({ type: 'bandpass', f0: (parry ? 2000 : 1500) * k, q: 1.6, dur: parry ? 0.04 : 0.055, gain: 1.0 * p * m, attack: 0.0008, send: 0.12, pan });
+      this.noise({ type: 'bandpass', f0: 620 * k, q: 1.2, dur: 0.03, gain: 0.3 * p * m, attack: 0.001, send: 0.05, pan });
     },
 
 

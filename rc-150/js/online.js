@@ -22,7 +22,11 @@
   if (!G || !NET) return;
   const $ = (id) => document.getElementById(id);
   const C = ND.CONFIG || {};
-  const PROTO = 1;
+
+
+
+  const hostSpeed = () => { const v = ND.AI_KNOBS && ND.AI_KNOBS.duelSpeed, d = ND.duel && ND.duel.SPEED0 || 0.85; return v >= 0.7 && v <= 1 ? v : d; };
+  const PROTO = /[?&]duel=0(&|$)/.test(location.search || '') ? 1 : 2;
   const ABC = 'ABCDEFGHJKMNPQRSTUVWXYZ';
   const ROOM_TTL = 10 * 60 * 1000;
   const FIND_MS = 8000, CONNECT_MS = 20000, PING_MS = 500;
@@ -475,7 +479,7 @@
   function maybeStart() {
     const r = R;
     if (!r || r.role !== 'host' || !r.connected || !r.ready || !r.peerReady || !charOk(r.peerPick) || screen !== 'room') return;
-    const m = { t: 'start', m: (++r.matchNo) & 255, seed: rnd32() | 0, chars: [r.pick, r.peerPick], arena: r.arena, delay: delayFor(r.rtt) };
+    const m = { t: 'start', m: (++r.matchNo) & 255, seed: rnd32() | 0, chars: [r.pick, r.peerPick], arena: r.arena, delay: delayFor(r.rtt), speed: hostSpeed() };
     ctlSend(m);
     begin(m);
   }
@@ -484,7 +488,7 @@
     const r = R;
     if (!r || r.role !== 'host' || !r.rematch || !r.peerRematch || !r.connected || screen !== 'end') return;
     const last = r.last;
-    const m = { t: 'start', m: (++r.matchNo) & 255, seed: rnd32() | 0, chars: last.chars, arena: last.arena, delay: delayFor(r.rtt) };
+    const m = { t: 'start', m: (++r.matchNo) & 255, seed: rnd32() | 0, chars: last.chars, arena: last.arena, delay: delayFor(r.rtt), speed: hostSpeed() };
     ctlSend(m);
     begin(m);
   }
@@ -501,6 +505,7 @@
     if ($('first')) $('first').hidden = true;
     NET.begin({
       side: r.side, seed: m.seed, chars: m.chars, arena: m.arena, match: m.m, delay: m.delay, rtt: r.rtt,
+      speed: +m.speed >= 0.7 && +m.speed <= 1 ? +m.speed : ND.duel && ND.duel.SPEED0 || 0.85,
       send: (b) => sendIn(b, r), sendCtl: (o) => ctlSend(o, r),
       onStatus: (kind, info) => waitUi(kind, info),
       onEnd: (res) => matchOver(r, res),

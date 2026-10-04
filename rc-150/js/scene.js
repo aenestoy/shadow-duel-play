@@ -1017,6 +1017,7 @@
       if (th.floorStyle) this['floor_' + th.floorStyle](ctx);
       else this.floorJoints(ctx);
       if (th.weather === 'rain' && !noSplash) this.drawSplashes(ctx);
+      if (!noSplash && ND.duel && ND.duel.arenaFloor) ND.duel.arenaFloor(ctx);
       if (th.fence) for (const s of [-1, 1]) {
         ctx.fillStyle = th.fence;
         if (th.fenceStyle === 'broken') {
@@ -1126,6 +1127,7 @@
       ctx.drawImage(gpu ? B.sf : B.c, 0, 0, bw, bh, 0, 0, W, H);
       cam.world(ctx);
       if (this.theme.weather === 'rain') this.drawSplashes(ctx);
+      if (ND.duel && ND.duel.arenaFloor) ND.duel.arenaFloor(ctx);
       fx.drawDecals(ctx);
       PM('backLow');
     },

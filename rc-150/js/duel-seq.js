@@ -442,8 +442,10 @@
       const c = seqOf();
       if (!c) return draw0.call(this, ctx, layer);
       heldShift(c, HS);
-      for (const h of HS) { h[0].x += h[1]; h[0].y += h[2]; }
-      try { return draw0.call(this, ctx, layer); } finally { for (const h of HS) { h[0].x -= h[1]; h[0].y -= h[2]; } }
+
+
+      for (const h of HS) { h[3] = h[0].x; h[4] = h[0].y; h[0].x += h[1]; h[0].y += h[2]; }
+      try { return draw0.call(this, ctx, layer); } finally { for (const h of HS) { h[0].x = h[3]; h[0].y = h[4]; } }
     };
 
     ND.props.drawPos = (q) => {

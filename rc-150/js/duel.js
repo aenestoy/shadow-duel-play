@@ -44,22 +44,30 @@
   { const q = (/[?&]duelroster=([a-z,]+)/.exec(location.search || '') || [])[1]; for (const id of q ? q.split(',') : ROSTER_LIST) ROSTER[id] = 1; }
 
 
-  const MODES = { cpu: 1, watch: 1, '2p': 1, attract: 1, train: 1, arcade: 1, tourney: 1, dan: 1, rival: 1 };
+
+  const MODES = { cpu: 1, watch: 1, '2p': 1, attract: 1, train: 1, arcade: 1, tourney: 1, dan: 1, rival: 1, online: 1, shadow: 1 };
 
 
 
 
 
   const SPQ = (/[?&]speed=([\d.]+)/.exec(location.search || '') || [])[1];
+
+
+  const SPEED0 = 0.85;
+  const spOk = (v) => v >= 0.7 && v <= 1;
   {
     ND.timeScale = (g) => {
       if (!g || !g.F || !g.F[0] || !g.F[0].dz) return 1;
-      const v = SPQ != null ? +SPQ : ND.AI_KNOBS && ND.AI_KNOBS.duelSpeed != null ? ND.AI_KNOBS.duelSpeed : typeof window !== 'undefined' && window.__duelSpeedDefault ? +window.__duelSpeedDefault : 1;
-      return v >= 0.7 && v <= 1 ? v : 1;
+
+
+      if (g.mode === 'online') return spOk(D.matchSpeed) ? D.matchSpeed : SPEED0;
+      const v = SPQ != null ? +SPQ : ND.AI_KNOBS && ND.AI_KNOBS.duelSpeed != null ? ND.AI_KNOBS.duelSpeed : typeof window !== 'undefined' && window.__duelSpeedDefault ? +window.__duelSpeedDefault : SPEED0;
+      return spOk(v) ? v : SPEED0;
     };
   }
   const D = ND.duel = {
-    on: true, ROSTER, MODES,
+    on: true, ROSTER, MODES, SPEED0,
 
     T: {
       chainNeed: 7, parryPts: 2, blockPts: 1, chainIdle: 4.5,
@@ -80,7 +88,8 @@
   function dzNew() {
     return {
       armed: true, chain: 0, chainT: 9, gs: 0, gsT: 0, bk: null, cine: null, sword: null, realWpn: null, realP: null,
-      roll: 0, rollGrab: false, lastMove: null, disarmT: 0, offLine: 0, pp: pose.copy(PO.stance), oneHand: null, pickTwo: false,
+      roll: 0, rollGrab: false, pass: false, passV: 0, lastMove: null, disarmT: 0, offLine: 0, pp: pose.copy(PO.stance), oneHand: null, pickTwo: false,
+      finArm: null, finKeys: null, finTier: 0, finBind: null,
     };
   }
 
@@ -363,13 +372,27 @@
   D.guardTarget = guardTarget;
 
 
+
+
+
+
+  { const sc0 = FP.setChar; if (sc0) FP.setChar = function () { const r = sc0.apply(this, arguments); for (const fn of ND.onLook || []) { try { fn(this); } catch (e) {                       } } this._anim = null; return r; }; }
+  const NOPROPS = /[?&]props=0(&|$)/.test(location.search || '');
+  { const nm0 = G.newMatch; G.newMatch = function (mode, opts) { D.matchSpeed = mode === 'online' && opts && spOk(+opts.speed) ? +opts.speed : SPEED0; return nm0.apply(this, arguments); }; }
   const reset0 = FP.reset;
   FP.reset = function (x) {
     if (this.dz && !this.dz.armed) rearm(this, true);
     const r = reset0.call(this, x);
     this.dz = canDuel(this) ? dzNew() : undefined;
+
+
+
+    const g = ND.game, PR = ND.props;
+    if (PR && g && g.F && this === g.F[1] && !PR.flag && (!NOPROPS || g.mode === 'online')) { const want = !!(g.F[0].dz && g.F[1].dz); if (want !== !!PR.live) D.propsOn(want); }
     return r;
   };
+  const isInvP = FP.isInv;
+  FP.isInv = function () { return isInvP.call(this) || (this.dz && D.passing && D.passing(this) && this.st < 0.36); };
   const gainKi0 = FP.gainKi;
   FP.gainKi = function (v) { return gainKi0.call(this, this.dz && !this.dz.armed ? v * T.uaKi : v); };
   const sheathed0 = FP.sheathed;
@@ -431,6 +454,8 @@
       if (free && f.onGround && c.has('throw', 0.2) && D.canPick(f)) { c.take('throw'); startPick(f); return; }
       if (s === 'air' && !f.airUsed && c.has('heavy', 0.2) && f.y < -50 && f.canAtk()) { c.take('heavy'); f.airUsed = true; f.startAtk('ua_stomp'); }
     }
+
+    if (s === 'air' && !f.airUsed && D.kicksOn && D.kicksOn(f) && c.has('kick', 0.2) && f.canAtk()) { c.take('kick'); f.airUsed = true; f.chainN = 0; f.startAtk(z.armed ? 'dk_fly' : 'ua_air'); }
   }
 
 
@@ -466,6 +491,10 @@
     if (s === 'droll') { rollStep(f, dt); return; }
 
     if (s === 'dodge' && !z.armed && !f.back && f.st <= dt + 1e-9 && rollToSword(f)) { startRoll(f); return; }
+
+
+
+    if (s === 'dodge' && !f.back && f.st <= dt + 1e-9 && passOk(f)) { startRoll(f, true); return; }
 
     const guarding = s === 'guard' || s === 'block' || s === 'parry';
     if (guarding) {
@@ -565,6 +594,13 @@
   }
 
 
+  const checkKick0 = FP.checkKick;
+  FP.checkKick = function (a) {
+    if (this.dz && a && a.low && this.opp && !this.opp.onGround && this.opp.y < -24) return;
+    return checkKick0.call(this, a);
+  };
+
+
   const CHQ = {}; { const q = (/[?&]chdmg=([a-z0-9:.,]+)/.exec(location.search || '') || [])[1]; if (q) for (const kv of q.split(',')) { const [c, v] = kv.split(':'); CHQ[c] = +v; } }
   const CPQ = {}; { const q = (/[?&]cpudmg=([a-z0-9:.,]+)/.exec(location.search || '') || [])[1]; if (q) for (const kv of q.split(',')) { const [c, v] = kv.split(':'); CPQ[c] = +v; } }
   const takeHit0 = FP.takeHit;
@@ -575,8 +611,8 @@
     if (from && from.dz && !from.dz.armed && a && !a.special) raw *= T.uaDmg;
 
 
-    if (from && from.ch && T.chDmg[from.ch.id]) raw *= T.chDmg[from.ch.id];
-    if (from && from.ch && CHQ[from.ch.id]) raw *= CHQ[from.ch.id];
+    { const ON = G.mode === 'online', CD = (ON && ND.AI_KNOBS0 ? ND.AI_KNOBS0.duelChDmg : ND.AI_KNOBS && ND.AI_KNOBS.duelChDmg) || T.chDmg; if (from && from.ch && CD[from.ch.id]) raw *= CD[from.ch.id]; }
+    if (from && from.ch && CHQ[from.ch.id] && G.mode !== 'online') raw *= CHQ[from.ch.id];
 
 
 
@@ -593,7 +629,10 @@
       if (was === 'gbreak' && heavy && rnd() < T.breakDisarm) disarm(this, from, kdir, 'break');
 
 
-      else if (was === 'atk' && from && from.dz && !from.dz.armed && a && a.kind === 'kick' && /^(ftF|knF)$/.test(a.limb || '') &&
+
+
+
+      else if (was === 'atk' && from && from.dz && a && a.kind === 'kick' && (a.disarmKick ? !!(atk0 && (atk0.heavyClass || (atk0.active && atk0.active[0] >= 0.3))) : (!from.dz.armed && /^(ftF|knF)$/.test(a.limb || ''))) &&
         atk0 && atk0.kind === 'blade' && atk0.active && st0 < atk0.active[0] && disarm(this, from, kdir, 'break')) {
         stat('kickDisarms');
       }
@@ -650,6 +689,25 @@
     } else pose.seq([[0, f.entry], [0.16, P0, E.outCubic], [T.pickDur, P0]], t, f.pose);
     if (t >= T.pickDur + (f.mem.got != null ? 0.1 : 0)) f.setState('move');
   }
+
+
+  D.kickUp = (f, ph) => {
+    const s = D.swordOf(f), z = f.dz;
+    if (!s || z.armed) return;
+    s.grip(PT);
+    if (ph === 'flick') {
+      if (!s.resting() || Math.abs(PT.x - f.x) > T.pickR + 16) return;
+
+      if (s.y > -20) s.y = -20;
+      const tf = 0.16 / ((f.ch.spd || 1) * (f.aspd || 1)), gx = f.x + f.dir * 30 - PT.x, gy = f.y - 100 - PT.y;
+      s.mode = 'fly'; s.bounces = 1; s.kup = f.serial; s.vx = gx / tf; s.vy = Math.min(gy / tf - 950 * tf, -380); s.va = -f.dir * 9;
+
+      { s.pt(1, PT2); const ty = PT2.y; s.pt(-s.hl / s.bl, PT2); const lo = Math.max(ty, PT2.y); if (lo > -4) s.y -= lo + 4; }
+      au.swoosh(0.5, f.pan); fx.dust(PT.x, 0, 4, 0.4);
+      return;
+    }
+    if (s.kup === f.serial && s.mode === 'fly' && Math.abs(PT.x - f.x) < 110 && PT.y < f.y - 30) { rearm(f, false); stat('kickUps'); }
+  };
   function rollToSword(f) {
     const sw = D.swordOf(f), d = f.ddir || f.dir;
     if (!sw || !sw.resting || !sw.resting()) return false;
@@ -657,26 +715,48 @@
     const dx = (PT.x - f.x) * d;
     return dx > 20 && dx < 300;
   }
-  function startRoll(f) {
+  function startRoll(f, pass) {
     const d = f.ddir || f.dir;
     f.setState('droll', { ddir: d });
-    f.dz.rollGrab = false;
-    stat('rolls');
+    f.dz.rollGrab = false; f.dz.pass = !!pass;
+
+
+    if (pass && f.opp) f.dz.passV = clamp((Math.abs(f.opp.x - f.x) + PASS.beyond) / 0.383, 280, 720);
+    stat(pass ? 'passes' : 'rolls');
   }
+
+  const PASS = { near: 175, beyond: 70, h: 165, t0: 0.02, t1: 0.36 };
+  function passOk(f) {
+    const o = f.opp, d = f.ddir || f.dir;
+    if (!o || o.dead || !f.onGround || !o.onGround || o.state === 'down' || o.state === 'getup' || o.state === 'launch' || f.dz.cine || (o.dz && o.dz.cine) || G.lock) return false;
+    const dx = (o.x - f.x) * d;
+    return dx > 0 && dx < PASS.near && Math.abs(o.x + d * PASS.beyond) < ND.ARENA - 30;
+  }
+  D.PASS = PASS;
+
+
+  D.passing = (f) => !!(f && f.dz && f.state === 'droll' && f.dz.pass && f.st < T.rollDur - 0.05);
   function rollStep(f, dt) {
     const z = f.dz, t = f.st, R = T.rollDur;
     const k = t < 0.3 ? 1 : Math.max(0, 1 - (t - 0.3) * 6);
-    f.vx = f.ddir * 600 * k;
+    f.vx = f.ddir * (z.pass ? z.passV || 600 : 600) * k;
 
     const u = clamp((t - 0.04) / 0.3, 0, 1);
     f.roll = u > 0 && u < 1 ? f.ddir * f.dir * TAU * E.inOutSine(u) : 0;
     pose.seq([[0, f.entry], [0.06, PO.ua_roll || PO.dodgeF, E.outCubic], [0.32, PO.ua_roll || PO.dodgeF], [R, f.P.stance, E.inOut]], t, f.pose);
+
+
+
+    if (z.pass) { const ua = clamp((t - PASS.t0) / (PASS.t1 - PASS.t0), 0, 1); f.y = ua > 0 && ua < 1 ? -PASS.h * Math.sin(Math.PI * ua) : 0; }
 
     const s = D.swordOf(f);
     if (s && s.resting() && t > 0.1 && t < 0.36) { s.grip(PT); if (Math.abs(PT.x - f.x) < 34) z.rollGrab = true; }
     if (t >= R) {
       f.roll = 0;
       if (z.rollGrab && D.swordOf(f)) { rearm(f, false); stat('rollPickups'); }
+      if (z.pass && f.opp) f.dir = f.opp.x >= f.x ? 1 : -1;
+      if (z.pass) f.y = 0;
+      z.pass = false;
       f.setState('move');
     }
   }
@@ -901,7 +981,7 @@
 
 
   D.propsOn = (on) => { const PR = ND.props; if (!PR) return false; if (on) PR.enable({ cpu: true }); else if (PR.disable) PR.disable(); return !!PR.live; };
-  if (!/[?&]props=0(&|$)/.test(location.search || '')) D.propsOn(true);
+
 
 
   D.resetStats = () => { D.stats = {}; return D.stats; };

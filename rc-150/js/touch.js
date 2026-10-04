@@ -23,6 +23,10 @@
 
 
 
+
+
+
+
 (function (ND) {
   'use strict';
   const $ = (id) => document.getElementById(id);
@@ -32,9 +36,9 @@
 
   const ACTS = ['light', 'heavy', 'dodge', 'guard', 'kick', 'throw', 'special'];
   const DPAD = ['dl', 'dr', 'du', 'dd'];
-  const IDS = ACTS.concat(['stick'], DPAD, ['pause']);
+  const IDS = ACTS.concat(['stick'], DPAD, ['pause', 'ctx']);
 
-  const BASE = { light: 1.3, heavy: 1, dodge: 0.85, guard: 1, kick: 1, throw: 0.85, special: 0.95, stick: 2.3, dl: 0.95, dr: 0.95, du: 0.95, dd: 0.95, pause: 0.56 };
+  const BASE = { light: 1.3, heavy: 1, dodge: 0.85, guard: 1, kick: 1, throw: 0.85, special: 0.95, stick: 2.3, dl: 0.95, dr: 0.95, du: 0.95, dd: 0.95, pause: 0.56, ctx: 0.8 };
 
   const KEEP = { stick: 1, pause: 1 };
 
@@ -53,16 +57,16 @@
 
     right: {
       full: { light: ['R', 0.95, 0.9, 1.3], heavy: ['R', 2.4, 0.62, 1], dodge: ['R', 3.65, 0.52, 0.85], guard: ['R', 0.8, 2.25, 1],
-        kick: ['R', 2.05, 1.85, 1], throw: ['R', 3.2, 1.35, 0.85], special: ['R', 4.45, 1.25, 0.95] },
+        kick: ['R', 2.05, 1.85, 1], throw: ['R', 3.2, 1.35, 0.85], special: ['R', 4.45, 1.25, 0.95], ctx: ['R', 1.66, 2.8, 0.8] },
       simple: { light: ['R', 0.98, 0.95, 1.45], heavy: ['R', 2.47, 0.68, 1.05], guard: ['R', 0.88, 2.52, 1.15], special: ['R', 2.25, 1.98, 1.02],
-        dodge: ['R', 3.72, 0.58, 0.9], kick: ['R', 2.05, 1.85, 1], throw: ['R', 3.25, 1.6, 0.85] },
+        dodge: ['R', 3.72, 0.58, 0.9], kick: ['R', 2.05, 1.85, 1], throw: ['R', 3.25, 1.6, 0.85], ctx: ['R', 1.9, 2.95, 0.8] },
     },
 
     split: {
       full: { light: ['R', 0.95, 0.9, 1.3], heavy: ['R', 2.4, 0.62, 1], dodge: ['R', 3.65, 0.52, 0.85], special: ['R', 0.8, 2.25, 1],
-        kick: ['R', 2.05, 1.85, 1], throw: ['R', 3.25, 1.6, 0.85], guard: ['L', 3.75, 0.8, 1.1] },
+        kick: ['R', 2.05, 1.85, 1], throw: ['R', 3.25, 1.6, 0.85], guard: ['L', 3.75, 0.8, 1.1], ctx: ['R', 1.66, 2.8, 0.8] },
       simple: { light: ['R', 0.98, 0.95, 1.45], heavy: ['R', 2.3, 1.75, 1.1], special: ['R', 0.95, 2.55, 1.05], dodge: ['R', 2.55, 0.55, 0.95],
-        guard: ['L', 3.75, 0.8, 1.15], kick: ['R', 3.3, 1.2, 1], throw: ['R', 3.4, 2.45, 0.85] },
+        guard: ['L', 3.75, 0.8, 1.15], kick: ['R', 3.3, 1.2, 1], throw: ['R', 3.4, 2.45, 0.85], ctx: ['R', 1.95, 3.05, 0.8] },
     },
   };
 
@@ -198,7 +202,8 @@
     return q;
   }
 
-  const liveIds = (move) => ACTS.concat(move === 'dpad' ? DPAD : ['stick'], ['pause']);
+
+  const liveIds = (move) => ACTS.concat(move === 'dpad' ? DPAD : ['stick'], ['pause', 'ctx']);
   const hits = (a, b, pad = 2) => Math.hypot(a.cx - b.cx, a.cy - b.cy) < (a.d + b.d) / 2 + pad;
 
   function freeSpot(q, others, S, tb) {
@@ -523,6 +528,8 @@
 
     IDS, ACTS, DPAD, BASE, KEEP, RMIN, RMAX, OMIN, DLOOK, PPOS, measure, tbPx, resolve, presetPx, keepIn, freeSpot, hits, liveIds, toLayout, setLeft, stickZone, dpadRing,
     geo: () => geo,
+
+    saved: () => !!(geo && prefs.lay && prefs.lay[geo.S.shape]),
   };
   apply();
 

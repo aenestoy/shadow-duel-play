@@ -29,6 +29,7 @@
 
 
   const ACTS = ['left', 'right', 'up', 'guard', 'light', 'heavy', 'kick', 'throw', 'dodge', 'special'];
+  const CTX_EDGE = 1 << 30;
   const BIT = {}; ACTS.forEach((a, i) => (BIT[a] = 1 << i));
   const GUARD_MIN = 180;
 
@@ -61,7 +62,7 @@
         if (this.maskAlias && src[0] === 't' && !this.mask[this.maskAlias]) this.buffer(this.maskAlias);
         return;
       }
-      this.edges |= BIT[a] || 0;
+      this.edges |= BIT[a] || (a === 'ctx' ? CTX_EDGE : 0);
       this.buffer(a);
       if (a === 'guard') this.gT = now();
       else if (ENDS_GX[a]) this.gx = null;
@@ -119,19 +120,25 @@
 
     frame() {
       this.step();
-      let v = this.edges << 10;
+      const ce = this.edges & CTX_EDGE;
+      let v = (this.edges & ~CTX_EDGE) << 10;
       this.edges = 0;
       for (let i = 0; i < ACTS.length; i++) if (this.held(ACTS[i])) v |= 1 << i;
+
+
+      if (ce) v |= 1 << 20;
+      if (this.held('ctx')) v |= 1 << 21;
       return v;
     }
   }
 
   class FrameCtrl extends Ctrl {
     clear() { super.clear(); this.hm = 0; }
-    held(a) { return (this.hm & (BIT[a] || 0)) !== 0; }
+    held(a) { return a === 'ctx' ? !!this.hc : (this.hm & (BIT[a] || 0)) !== 0; }
     applyFrame(v) {
       for (let i = 0; i < ACTS.length; i++) if (v & (1 << (10 + i))) this.buffer(ACTS[i]);
-      this.hm = v & 0x3ff;
+      if (v & (1 << 20)) this.buffer('ctx');
+      this.hm = v & 0x3ff; this.hc = (v & (1 << 21)) !== 0;
     }
   }
   Ctrl.ACTS = ACTS; Ctrl.BIT = BIT;

@@ -14,6 +14,34 @@
 
   const OPEN = { guard: 0, parry: 0, dodge: 0, rally: 0, smart: 0, aggr: 0.12 };
 
+
+
+
+
+  const hints = ND.hints = {
+    FADE: 250, hidT: -1e9, obs: null,
+    watch() {
+      if (this.obs) return;
+      const b = $('banner');
+      if (!b || typeof MutationObserver === 'undefined') return;
+      let up = b.classList.contains('show');
+      this.obs = new MutationObserver(() => { const now = b.classList.contains('show'); if (up && !now) this.hidT = performance.now(); up = now; });
+      this.obs.observe(b, { attributes: true, attributeFilter: ['class'] });
+    },
+
+
+    bannerUp() {
+      this.watch();
+      const b = $('banner'), now = performance.now();
+      if (b && b.classList.contains('show')) { this.hidT = now; return true; }
+      return now - this.hidT < this.FADE;
+    },
+    coachUp() { const c = $('coach'); return !!(c && !c.hidden); },
+    ctxUp() { const h = $('tCtxHint'); return !!(h && h.classList.contains('show')); },
+
+    wait(who) { return this.bannerUp() || (who === 'coach' ? this.ctxUp() : this.coachUp()); },
+  };
+
   const coach = ND.coach = {
     on: false, i: 0, t: 0, done: false, guardT: 0, sawAtk: 0, parries0: 0, steps: STEPS,
 
@@ -58,6 +86,8 @@
       const f1 = G.F[0], S = this.steps, step = S[this.i];
       if (!step) { this.stop(); return; }
       if (this.shown !== step + (ND.touch && ND.touch.active ? 't' : 'k')) {
+
+        if ((!this.shown || el.hidden) && hints.wait('coach')) return;
         this.shown = step + (ND.touch && ND.touch.active ? 't' : 'k');
         el.innerHTML = `<b>${this.i + 1}/${S.length}</b><span>${this.text(step)}</span>`;
         el.hidden = false; el.classList.remove('in'); void el.offsetWidth; el.classList.add('in');
@@ -219,6 +249,7 @@
         return;
       }
       if ((this.cool -= dt) > 0) return;
+      if (hints.wait('coach')) return;
       const id = this.want(f1, f2, this.device());
       if (id) { this.parries0 = f1.parries || 0; this.show(id); }
     },

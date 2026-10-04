@@ -319,12 +319,15 @@
     on: false, cpu: false, arena: null, rs: 1, t: 0, nid: 1, items: [], shards: [],
     tasks: [null, null], brain: [{ cd: 1.5 }, { cd: 2.5 }], dizzy: [0, 0], fy: [0, 0], fvy: [0, 0],
   };
+  const lowDebris = () => (ND.game && ND.game.mode === 'online') || !!(ND.gfx && (ND.gfx.tier === 'low' || ND.gfx.mobile));
   const P = ND.props = {
     on: false, S, KINDS, ARENA_SETS, MAT,
     get items() { return S.items; },
     get shards() { return S.shards; },
-    debrisCap: () => (ND.gfx && (ND.gfx.tier === 'low' || ND.gfx.mobile) ? 26 : 48),
-    debrisKeep: () => (ND.gfx && (ND.gfx.tier === 'low' || ND.gfx.mobile) ? 3.5 : 6),
+
+
+    debrisCap: () => (lowDebris() ? 26 : 48),
+    debrisKeep: () => (lowDebris() ? 3.5 : 6),
     listeners: [],
     stats: { breaks: 0, maxShards: 0 },
   };
@@ -423,16 +426,17 @@
       let i0 = 0, i1 = -1;
       for (let i = 1; i < n; i++) if (CV[i * 3 + 2] > CV[i0 * 3 + 2]) i0 = i;
       for (let i = 0; i < n; i++) if (i !== i0 && (i1 < 0 || CV[i * 3 + 2] > CV[i1 * 3 + 2])) i1 = i;
-      const ids = i1 >= 0 ? [i0, i1] : [i0];
+      const nIds = i1 >= 0 ? 2 : 1;
       for (let it = 0; it < 3; it++) {
-        for (const i of ids) {
+        for (let q = 0; q < nIds; q++) {
+          const i = q === 0 ? i0 : i1;
           const rx = CV[i * 3], ry = CV[i * 3 + 1];
           const vcy = b.vy + b.w * rx, vcx = b.vx - b.w * ry;
           if (vcy <= 0) continue;
           if (it === 0) imp = Math.max(imp, vcy);
 
           const e = vcy > 120 ? mat.e : 0, rn = -rx, kn = 1 / m + (rn * rn) / I;
-          const jn = ((1 + e) * vcy) / kn / ids.length;
+          const jn = ((1 + e) * vcy) / kn / nIds;
           b.vy -= jn / m; b.w += (rn * jn) / I;
 
           const rt = -ry, kt = 1 / m + (rt * rt) / I, vt = b.vx - b.w * ry;
@@ -538,7 +542,7 @@
           if (P.hurt(p, (imp - K._mat.brk) * K._mat.dk + (p.owner >= 0 && p.tt < 2 ? 1 : 0), 'shatter', ix, iy, p.vx * 0.002, -1)) continue;
         }
         if (pres() && imp > 90 && (vy0 > 90 || Math.abs(p.w) > 3)) snd(p, 'land', Math.min(1.2, imp / 500));
-        if (imp > 150 && p.owner >= 0) p.owner = -1;
+        if (imp > 150 && p.owner >= 0 && p.k !== 'table') p.owner = -1;
       }
       p.spin = p.w;
 
@@ -746,7 +750,7 @@
 
   function flyingHits(p, f, h) {
     const K = KINDS[p.k], sp = Math.hypot(p.vx, p.vy);
-    if (f.dead || sp < 230 || (p.owner === f.id && p.tt < 0.6) || (p.hitF === f.id && p.hitT > S.t - 0.4)) return;
+    if (f.dead || sp < 230 || (p.owner === f.id && (p.tt < 0.6 || p.k === 'table')) || (p.hitF === f.id && p.hitT > S.t - 0.4)) return;
     if (!f.j || !f.j.hip) return;
     const hb = ND.hurtboxes(f.j), rad = K._r * 0.7;
     let hit = null;
