@@ -756,3 +756,91 @@
     return r;
   };
 })(window.ND);
+
+
+
+
+
+(function (ND) {
+  'use strict';
+  const D = ND.duel, FP = ND.Fighter && ND.Fighter.prototype, G = ND.game, au = ND.audio;
+  if (!D || !FP || !G || !au) return;
+  const bladeless = (f) => !!(f && (f.dz ? f.dz.armed === false : false) || (f && f.wpn && (f.wpn.fist || f.wpn.none)));
+  const soft = (a, b) => !!(a && b && (a.dz || b.dz) && (bladeless(a) || bladeless(b)));
+  const S = D.softSound = { on: 0, env: 0, log: null };
+  const smack = (p, pan, hi) => { au.noise({ type: 'bandpass', f0: (hi ? 1900 : 1150) * au.vr(0.15), q: 1.1, dur: hi ? 0.035 : 0.05, gain: (hi ? 0.55 : 0.4) * p, attack: 0.001, send: 0.08, pan }); };
+  const body = {
+    clang(power = 1, pan = 0) { if (S.log) S.log.push('body-block'); const p = Math.min(1.4, 0.5 + 0.45 * power); au.thud(p, pan); smack(p, pan, false); },
+    parry(pan = 0) { if (S.log) S.log.push('body-parry'); au.thud(0.7, pan); smack(1.1, pan, true); },
+    kShing() { if (S.log) S.log.push('body-noshing'); },
+  };
+  const real = { clang: au.clang, parry: au.parry, kShing: au.kShing };
+  for (const k of ['clang', 'parry', 'kShing']) {
+    if (typeof real[k] !== 'function') continue;
+    au[k] = function () {
+
+
+      if (S.on > 0 || (S.env === 0 && G.F && G.F.some((f) => f.dz && bladeless(f)))) return body[k].apply(this, arguments);
+      if (S.log) S.log.push('metal-' + k + (S.trace ? ' @ ' + String(new Error().stack).split(String.fromCharCode(10)).slice(2, 5).map((l) => l.trim().split('/js/').pop()).join(' < ') : ''));
+      return real[k].apply(this, arguments);
+    };
+  }
+  const scoped = (fn, pair) => function () {
+    const on = soft.apply(null, pair(this, arguments));
+    if (on) S.on++;
+    try { return fn.apply(this, arguments); } finally { if (on) S.on--; }
+  };
+  const envScope = (fn) => function () { S.env++; try { return fn.apply(this, arguments); } finally { S.env--; } };
+  if (D.DuelSword && D.DuelSword.prototype.update) D.DuelSword.prototype.update = envScope(D.DuelSword.prototype.update);
+  if (D.arenaStep) D.arenaStep = envScope(D.arenaStep);
+  if (ND.props && ND.props.step) ND.props.step = envScope(ND.props.step);
+  if (ND.KAESHI && ND.KAESHI.sound) { const ks0 = ND.KAESHI.sound; ND.KAESHI.sound = function (f, kind) { if (kind !== 'ground') return ks0.apply(this, arguments); S.env++; try { return ks0.apply(this, arguments); } finally { S.env--; } }; }
+  if (FP.blocked) FP.blocked = scoped(FP.blocked, (f) => [f, f.opp]);
+  if (FP.clash) FP.clash = scoped(FP.clash, (f) => [f, f.opp]);
+  if (G.startLock) G.startLock = scoped(G.startLock, (g, a) => [a[0], a[1]]);
+  if (G.endLock) G.endLock = scoped(G.endLock, (g) => [g.F[0], g.F[1]]);
+})(window.ND);
+
+
+
+
+
+
+(function (ND) {
+  'use strict';
+  if (typeof window === 'undefined' || !window.__ndTestBuild || typeof document === 'undefined') return;
+  const G = ND.game, KEY = 'sd_test_speed', STEPS = [1, 0.75, 0.5];
+  let mul = 1;
+  try { const v = +localStorage.getItem(KEY); if (STEPS.includes(v)) mul = v; } catch (e) {                    }
+  const local = () => !!(G && G.mode && G.mode !== 'online' && G.mode !== 'shadow');
+  const ts0 = ND.timeScale;
+  ND.timeScale = function (g) { const v = ts0 ? ts0(g) : 1; return local() ? v * mul : v; };
+  const el = document.createElement('div');
+  el.id = 'tbHud';
+  el.style.cssText = 'position:fixed;left:6px;bottom:28px;z-index:2147483647;font:600 11px/1.3 system-ui,sans-serif;color:#cfe8ff;background:rgba(0,0,0,.6);padding:3px 7px;border-radius:4px;display:flex;gap:8px;align-items:center';
+  const txt = document.createElement('span'), btn = document.createElement('button');
+  btn.type = 'button';
+  btn.style.cssText = 'font:700 11px/1 system-ui,sans-serif;color:#1b140c;background:#ffd27a;border:0;border-radius:4px;padding:3px 6px;cursor:pointer';
+  const label = () => { btn.textContent = local() ? `Hız ${String(mul).replace('.', ',')}×` : '1×, çevrimiçi'; btn.disabled = !local(); };
+  btn.onclick = (e) => { e.stopPropagation(); mul = STEPS[(STEPS.indexOf(mul) + 1) % STEPS.length]; try { localStorage.setItem(KEY, String(mul)); } catch (er) {                    } label(); };
+  el.append(txt, btn);
+  const put = () => { if (document.body) document.body.appendChild(el); else setTimeout(put, 200); };
+  put();
+  const TIER = { low: 'Düşük', medium: 'Orta', high: 'Yüksek' };
+  const T = [];
+  let last = 0, shown = 0;
+  const frame = (t) => {
+    if (last) T.push([t, t - last]);
+    last = t;
+    while (T.length && T[0][0] < t - 2000) T.shift();
+    if (t - shown > 500) {
+      shown = t;
+      const n1 = T.filter((q) => q[0] >= t - 1000).length, worst = T.reduce((m, q) => Math.max(m, q[1]), 0);
+      const tier = ND.gfx ? TIER[ND.gfx.tier] || ND.gfx.tier : '?', dev = (ND.gfx && ND.gfx.mobile) || (ND.touch && ND.touch.mobile) ? 'telefon' : 'bilgisayar';
+      txt.textContent = `${n1} fps · en yavaş ${Math.round(worst)} ms · ${tier} · ${dev}`;
+      label();
+    }
+    requestAnimationFrame(frame);
+  };
+  requestAnimationFrame(frame);
+})(window.ND);

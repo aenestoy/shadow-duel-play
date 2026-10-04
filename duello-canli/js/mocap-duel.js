@@ -588,7 +588,9 @@
     if (!noPair && MD.sep && so0 && s.pairAt !== clk) {
       if (so0.tickedAt !== clk) tick(o, true);
       s.pairAt = so0.pairAt = clk;
-      if (so0.tickedAt === clk && so0.rig.P) { kickStop(f, s, o, so0); kickStop(o, so0, f, s); bladeStop(f, s, o, so0); bladeStop(o, so0, f, s); const ox0 = (s.ox || 0) * 1e3 + (so0.ox || 0); apart(f, s, o, so0); if ((s.ox || 0) * 1e3 + (so0.ox || 0) !== ox0) { bladeStop(f, s, o, so0); bladeStop(o, so0, f, s); apart(f, s, o, so0); } secondStop(f, s, o, so0); secondStop(o, so0, f, s); chainStop(f, s, o, so0); chainStop(o, so0, f, s); }
+
+
+      if (so0.tickedAt === clk && so0.rig.P && !(D.passing && (D.passing(f) || D.passing(o)))) { kickStop(f, s, o, so0); kickStop(o, so0, f, s); bladeStop(f, s, o, so0); bladeStop(o, so0, f, s); const ox0 = (s.ox || 0) * 1e3 + (so0.ox || 0); apart(f, s, o, so0); if ((s.ox || 0) * 1e3 + (so0.ox || 0) !== ox0) { bladeStop(f, s, o, so0); bladeStop(o, so0, f, s); apart(f, s, o, so0); } secondStop(f, s, o, so0); secondStop(o, so0, f, s); chainStop(f, s, o, so0); chainStop(o, so0, f, s); }
     }
 
 

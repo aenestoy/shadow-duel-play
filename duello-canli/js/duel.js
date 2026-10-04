@@ -52,18 +52,22 @@
 
 
   const SPQ = (/[?&]speed=([\d.]+)/.exec(location.search || '') || [])[1];
+
+
+  const SPEED0 = 0.85;
+  const spOk = (v) => v >= 0.7 && v <= 1;
   {
     ND.timeScale = (g) => {
       if (!g || !g.F || !g.F[0] || !g.F[0].dz) return 1;
 
 
-      if (g.mode === 'online') return D.matchSpeed >= 0.7 && D.matchSpeed <= 1 ? D.matchSpeed : 1;
-      const v = SPQ != null ? +SPQ : ND.AI_KNOBS && ND.AI_KNOBS.duelSpeed != null ? ND.AI_KNOBS.duelSpeed : typeof window !== 'undefined' && window.__duelSpeedDefault ? +window.__duelSpeedDefault : 1;
-      return v >= 0.7 && v <= 1 ? v : 1;
+      if (g.mode === 'online') return spOk(D.matchSpeed) ? D.matchSpeed : SPEED0;
+      const v = SPQ != null ? +SPQ : ND.AI_KNOBS && ND.AI_KNOBS.duelSpeed != null ? ND.AI_KNOBS.duelSpeed : typeof window !== 'undefined' && window.__duelSpeedDefault ? +window.__duelSpeedDefault : SPEED0;
+      return spOk(v) ? v : SPEED0;
     };
   }
   const D = ND.duel = {
-    on: true, ROSTER, MODES,
+    on: true, ROSTER, MODES, SPEED0,
 
     T: {
       chainNeed: 7, parryPts: 2, blockPts: 1, chainIdle: 4.5,
@@ -374,7 +378,7 @@
 
   { const sc0 = FP.setChar; if (sc0) FP.setChar = function () { const r = sc0.apply(this, arguments); for (const fn of ND.onLook || []) { try { fn(this); } catch (e) {                       } } this._anim = null; return r; }; }
   const NOPROPS = /[?&]props=0(&|$)/.test(location.search || '');
-  { const nm0 = G.newMatch; G.newMatch = function (mode, opts) { D.matchSpeed = mode === 'online' && opts && +opts.speed >= 0.7 && +opts.speed <= 1 ? +opts.speed : 1; return nm0.apply(this, arguments); }; }
+  { const nm0 = G.newMatch; G.newMatch = function (mode, opts) { D.matchSpeed = mode === 'online' && opts && spOk(+opts.speed) ? +opts.speed : SPEED0; return nm0.apply(this, arguments); }; }
   const reset0 = FP.reset;
   FP.reset = function (x) {
     if (this.dz && !this.dz.armed) rearm(this, true);
@@ -721,7 +725,7 @@
     stat(pass ? 'passes' : 'rolls');
   }
 
-  const PASS = { near: 175, beyond: 70 };
+  const PASS = { near: 175, beyond: 70, h: 165, t0: 0.02, t1: 0.36 };
   function passOk(f) {
     const o = f.opp, d = f.ddir || f.dir;
     if (!o || o.dead || !f.onGround || !o.onGround || o.state === 'down' || o.state === 'getup' || o.state === 'launch' || f.dz.cine || (o.dz && o.dz.cine) || G.lock) return false;
@@ -741,12 +745,17 @@
     f.roll = u > 0 && u < 1 ? f.ddir * f.dir * TAU * E.inOutSine(u) : 0;
     pose.seq([[0, f.entry], [0.06, PO.ua_roll || PO.dodgeF, E.outCubic], [0.32, PO.ua_roll || PO.dodgeF], [R, f.P.stance, E.inOut]], t, f.pose);
 
+
+
+    if (z.pass) { const ua = clamp((t - PASS.t0) / (PASS.t1 - PASS.t0), 0, 1); f.y = ua > 0 && ua < 1 ? -PASS.h * Math.sin(Math.PI * ua) : 0; }
+
     const s = D.swordOf(f);
     if (s && s.resting() && t > 0.1 && t < 0.36) { s.grip(PT); if (Math.abs(PT.x - f.x) < 34) z.rollGrab = true; }
     if (t >= R) {
       f.roll = 0;
       if (z.rollGrab && D.swordOf(f)) { rearm(f, false); stat('rollPickups'); }
       if (z.pass && f.opp) f.dir = f.opp.x >= f.x ? 1 : -1;
+      if (z.pass) f.y = 0;
       z.pass = false;
       f.setState('move');
     }

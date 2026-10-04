@@ -146,7 +146,7 @@
       for (const f of Object.keys(FIELDS)) lv[f] = e[f];
       lv.tick[0] = e.tick[0]; lv.tick[1] = e.tick[1];
     }
-    K.apprenticePlusK = E.apprenticePlusK; K.kiWait = E.kiWait; K.duelK = E.duelK; K.duelSoft = E.duelSoft; if (E.duelSpeed != null) K.duelSpeed = E.duelSpeed; else delete K.duelSpeed; if (!GK0) GK0 = { v: K.duelGhostK, f: K.finDmg }; if (E.finDmg != null) K.finDmg = E.finDmg; else if (GK0.f != null) K.finDmg = GK0.f; else delete K.finDmg; if (E.duelGhostK != null) K.duelGhostK = E.duelGhostK; else if (GK0.v != null) K.duelGhostK = GK0.v; else delete K.duelGhostK; if (!KCH0) KCH0 = Object.assign({}, K.duelKch || {}); K.duelKch = Object.assign({}, KCH0, E.duelKch || {});
+    K.apprenticePlusK = E.apprenticePlusK; K.kiWait = E.kiWait; K.duelK = E.duelK; K.duelSoft = E.duelSoft; if (!GK0) GK0 = { v: K.duelGhostK, f: K.finDmg, s: K.duelSpeed }; if (E.duelSpeed != null) K.duelSpeed = E.duelSpeed; else if (GK0.s != null) K.duelSpeed = GK0.s; else delete K.duelSpeed; if (!GK0) GK0 = { v: K.duelGhostK, f: K.finDmg }; if (E.finDmg != null) K.finDmg = E.finDmg; else if (GK0.f != null) K.finDmg = GK0.f; else delete K.finDmg; if (E.duelGhostK != null) K.duelGhostK = E.duelGhostK; else if (GK0.v != null) K.duelGhostK = GK0.v; else delete K.duelGhostK; if (!KCH0) KCH0 = Object.assign({}, K.duelKch || {}); K.duelKch = Object.assign({}, KCH0, E.duelKch || {});
     if (!KDM0) KDM0 = Object.assign({}, K.duelDmg || {}); K.duelDmg = Object.assign({}, KDM0, E.duelDmg || {});
     if (!KCD0) KCD0 = Object.assign({}, K.duelChDmg || {}); K.duelChDmg = Object.assign({}, KCD0, E.duelChDmg || {});
     if (!KK00) KK00 = Object.assign({}, K.duelK0ch || {}); K.duelK0ch = Object.assign({}, KK00, E.duelK0ch || {});

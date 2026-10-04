@@ -208,7 +208,9 @@
   async function find(keep) {
     if (busyCall) return;
     flashMsg = '';
-    const ranked = identity() !== 'guest';
+
+
+    const ranked = identity() !== 'guest' && !window.__ndTestBuild;
     busyCall = true;
     let r;
     try {
@@ -695,7 +697,7 @@
     try {
       NET.begin({
         side: x.side, seed: L.seed | 0, chars: [c0, c1], arena: L.arena, match: matchNo, delay: delayFor(K.rtt), rtt: K.rtt,
-        speed: +L.speed >= 0.7 && +L.speed <= 1 ? +L.speed : 1,
+        speed: +L.speed >= 0.7 && +L.speed <= 1 ? +L.speed : ND.duel && ND.duel.SPEED0 || 0.85,
         looks: Array.isArray(L.looks) ? L.looks.map((l) => (typeof l === 'string' && ND.rewards && ND.rewards.get(l) ? l : null)) : null,
         send: (b) => sendIn(b), sendCtl: (o) => ctlSend(o),
         onStatus: (kind, info) => waitUi(kind, info),
