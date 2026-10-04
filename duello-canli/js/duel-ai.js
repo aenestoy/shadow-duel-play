@@ -31,7 +31,14 @@
 
 
   const K0Q = (/[?&]duelk0=([\d.]+)/.exec(location.search || '') || [])[1];
-  const kAt = (id, key) => (key !== '0' ? kOf(id) : K0Q != null ? +K0Q : KN.duelK0ch && KN.duelK0ch[id] != null ? KN.duelK0ch[id] : kOf(id));
+
+
+  const LVK = { 0.5: 'duelKAch', 1: 'duelKUch' };
+  const kAt = (id, key) => {
+    if (key === '0') return K0Q != null ? +K0Q : KN.duelK0ch && KN.duelK0ch[id] != null ? KN.duelK0ch[id] : kOf(id);
+    const M = LVK[key] && KN[LVK[key]];
+    return KQ == null && M && M[id] != null ? M[id] : kOf(id);
+  };
   const SOFT = {};
   const BELOW = { 0: () => SOFT, 0.5: () => LV[0], 1: () => LV[0.5], 2: () => LV[1], 3: () => LV[2] };
   const soften = () => {
@@ -56,9 +63,33 @@
   { const d0 = ND.aiDerive; ND.aiDerive = function () { const r = d0 && d0.apply(this, arguments); for (const o of DUEL_LV.values()) o.__k = kAt(o.__id, o.__key); duelDerive(); return r; }; }
   soften();
   const CACHE = new Map();
+
+
+
+
+  const GCACHE = new WeakMap();
+  const GKQ = (/[?&]ghostk=([\d.]+)/.exec(location.search || '') || [])[1];
+  const mixLv = (A, B, u) => { const o = {}; for (const f of Object.keys(B)) { const x = A[f], y = B[f]; if (Array.isArray(y) && Array.isArray(x)) o[f] = y.map((v, i) => x[i] + (v - x[i]) * u); else if (typeof y === 'number' && typeof x === 'number') o[f] = x + (y - x) * u; } return o; };
+  function ghostLevel(lv, id) {
+    let o = GCACHE.get(lv);
+    if (o) return o;
+    const t = typeof lv.__t === 'number' ? lv.__t : 0;
+    const a = t <= 1 ? mixLv(SOFT, LV[0.5], Math.max(0, t)) : mixLv(LV[0.5], LV[1], Math.min(1, t - 1));
+    const k = (t < 0.5 ? kAt(id, '0') : kOf(id)) * (GKQ != null ? +GKQ : KN.duelGhostK ?? 1);
+    o = { name: lv.name };
+    for (const f of Object.keys(lv)) {
+      if (f === 'name') continue;
+      if (Array.isArray(lv[f]) && Array.isArray(a[f])) o[f] = lv[f].map((v, i) => a[f][i] + (v - a[f][i]) * k);
+      else if (typeof lv[f] === 'number' && typeof a[f] === 'number') o[f] = a[f] + (lv[f] - a[f]) * k;
+      else o[f] = lv[f];
+    }
+    GCACHE.set(lv, o);
+    return o;
+  }
   D.duelLevel = (lv, id) => {
     if (!lv || typeof lv !== 'object') return lv;
     const key = Object.keys(LV).find((k) => LV[k] === lv), ck = (id || '') + '|' + key;
+    if (key == null) return ghostLevel(lv, id);
     let o = CACHE.get(ck);
     if (!o) {
       o = { name: lv.name };

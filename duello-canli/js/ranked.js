@@ -26,7 +26,9 @@
   if (!G || !NET) return;
   const $ = (id) => document.getElementById(id);
   const C = ND.CONFIG || {};
-  const PROTO = 1;
+
+
+  const PROTO = /[?&]duel=0(&|$)/.test(location.search || '') ? 1 : 2;
   const POLL_MS = 2000, POLL_FIRST = 1500, POLL_MATCH = 1000, BEAT_MS = 15000, WARM_AFTER = 20000, QUEUE_MAX = 10 * 60 * 1000;
   const GATHER_MS = 1500, CONNECT_MS = 14000, RESULT_MS = 150000, VS_MS = 2600;
   const ARENAS = ['temple', 'rain', 'snow', 'village', 'market', 'waterfall', 'castle'];
@@ -693,6 +695,7 @@
     try {
       NET.begin({
         side: x.side, seed: L.seed | 0, chars: [c0, c1], arena: L.arena, match: matchNo, delay: delayFor(K.rtt), rtt: K.rtt,
+        speed: +L.speed >= 0.7 && +L.speed <= 1 ? +L.speed : 1,
         looks: Array.isArray(L.looks) ? L.looks.map((l) => (typeof l === 'string' && ND.rewards && ND.rewards.get(l) ? l : null)) : null,
         send: (b) => sendIn(b), sendCtl: (o) => ctlSend(o),
         onStatus: (kind, info) => waitUi(kind, info),

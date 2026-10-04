@@ -112,7 +112,10 @@
 
 
 
-  const handsBusy = (f) => armed(f) && !!(ND.mocap && ND.mocap.isKatana && f.wpn && !ND.mocap.isKatana(f.wpn));
+
+
+  const KAT = { katana: 1, nodachi: 1, kodachi: 1, ninjato: 1 };
+  const handsBusy = (f) => armed(f) && !!(f.wpn && f.wpn.type && !(KAT[f.wpn.type] && !f.wpn.twin));
   D.handsBusy = handsBusy;
   { const cu0 = P.canUse; P.canUse = function (f, p, act) { if (act === 'grab' && f && f.dz && handsBusy(f)) return false; return cu0.apply(this, arguments); }; }
   const topOf = (p) => { const K = KINDS[p.k]; return K.top || K.h * 0.85; };
@@ -593,11 +596,16 @@
     return start(f, e.a, e.p);
   }
 
+
+
   const CTX = D.envCtx = { pending: 0, key: 'KeyQ' };
+  const ctxPress = () => { const c = ND.input && ND.input.p1; if (!c) { CTX.pending = 1; return; } c.press('ctx', 'ctxbtn'); c.release('ctx', 'ctxbtn'); };
+  D.envCtxPress = ctxPress;
   function contextual(f) {
     const z = f.dz;
     if (!z || f.dead || G.phase !== 'fight') { CTX.pending = 0; return; }
-    if (CTX.pending) { CTX.pending = 0; z.envQ = 0.3; CTX.pressT = 0.2; }
+    const mine = f.ctrl && f.ctrl.take ? f.ctrl.take('ctx', 0.3) : false;
+    if (mine || (CTX.pending && f.ctrl === (ND.input && ND.input.p1))) { CTX.pending = 0; z.envQ = 0.3; CTX.pressT = 0.2; }
     if (!(z.envQ > 0)) return;
     if (!free(f) || S.tasks[f.id] || z.cine) return;
     const hold = (f.ctrl && f.ctrl.axis ? f.ctrl.axis() : 0) * (Math.sign(f.opp.x - f.x) || f.dir);
@@ -1054,14 +1062,14 @@
     document.head.appendChild(st);
     const b = document.createElement('button');
     b.id = 'tCtx'; b.type = 'button'; b.tabIndex = -1; b.setAttribute('aria-label', D.tr ? D.tr('Use it') : 'Use it');
-    const press = (e) => { e.preventDefault(); e.stopPropagation(); CTX.pending = 1; CTX.taps = (CTX.taps || 0) + 1; b.classList.add('on'); };
+    const press = (e) => { e.preventDefault(); e.stopPropagation(); ctxPress(); CTX.taps = (CTX.taps || 0) + 1; b.classList.add('on'); };
     const up = (e) => { e.stopPropagation(); b.classList.remove('on'); };
     b.addEventListener('pointerdown', press); b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up);
     b.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
     document.getElementById('app').appendChild(b);
     const h = document.createElement('div'); h.id = 'tCtxHint'; document.getElementById('app').appendChild(h);
     UI.el = b; UI.hint = h;
-    window.addEventListener('keydown', (e) => { if (e.code === CTX.key && !e.repeat && duelOn()) { CTX.pending = 1; b.classList.add('on'); } });
+    window.addEventListener('keydown', (e) => { if (e.code === CTX.key && !e.repeat && duelOn()) { ctxPress(); b.classList.add('on'); } });
     window.addEventListener('keyup', (e) => { if (e.code === CTX.key) b.classList.remove('on'); });
     window.addEventListener('resize', () => { UI.placedFor = ''; });
   }
@@ -1069,7 +1077,10 @@
 
   function uiPlace() {
     const b = UI.el, app = document.getElementById('app'), W = app.clientWidth, H = app.clientHeight;
-    const key = W + 'x' + H + (touchOn() ? 't' : 'k');
+
+
+    let lay = ''; try { lay = ND.touchUI && ND.touchUI.prefs ? JSON.stringify(ND.touchUI.prefs) : ''; } catch (e) { lay = ''; }
+    const key = W + 'x' + H + (touchOn() ? 't' : 'k') + lay;
     if (UI.placedFor === key) return;
     UI.placedFor = key;
     const R = app.getBoundingClientRect();
@@ -1088,7 +1099,8 @@
     for (const c of acts) for (let k = 0; k < 16; k++) {
       const a = (k / 16) * Math.PI * 2, x = c.x + Math.cos(a) * (c.r + r + 8), y = c.y + Math.sin(a) * (c.r + r + 8);
       if (!ok(x, y)) continue;
-      const score = (light ? Math.hypot(light.x - x, light.y - y) : 0) + Math.max(0, W * 0.55 - x) * 2;
+
+      const score = (light ? Math.hypot(light.x - x, light.y - y) : 0) + (light && light.x < W / 2 ? Math.max(0, x - W * 0.45) : Math.max(0, W * 0.55 - x)) * 2;
       if (!best || score < best.s) best = { x, y, s: score };
     }
     if (!best) best = { x: W - r - 10, y: r + 60 };

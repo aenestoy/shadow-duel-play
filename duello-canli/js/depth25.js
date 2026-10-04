@@ -154,6 +154,7 @@
   const ZN = { hip: 0, neck: 0, sh: 0, head: 0, elF: W + 1, haF: W, tip: W, pom: W, elB: -W - 1, haB: -W, knF: 7, ftF: 7, knB: -7, ftB: -7 };
   const KEYS = Object.keys(ZN);
   const POSE = new WeakMap(), TRAIL = new WeakMap();
+  (ND.onLook || (ND.onLook = [])).push((f) => { SHS.delete(f); POSE.delete(f); TRAIL.delete(f); });
 
   function loc(f, p, z) { return v3((p.x - f.x) * (f.dir < 0 ? -1 : 1), p.y, z); }
 

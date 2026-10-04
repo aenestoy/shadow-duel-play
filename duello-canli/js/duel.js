@@ -44,7 +44,8 @@
   { const q = (/[?&]duelroster=([a-z,]+)/.exec(location.search || '') || [])[1]; for (const id of q ? q.split(',') : ROSTER_LIST) ROSTER[id] = 1; }
 
 
-  const MODES = { cpu: 1, watch: 1, '2p': 1, attract: 1, train: 1, arcade: 1, tourney: 1, dan: 1, rival: 1 };
+
+  const MODES = { cpu: 1, watch: 1, '2p': 1, attract: 1, train: 1, arcade: 1, tourney: 1, dan: 1, rival: 1, online: 1, shadow: 1 };
 
 
 
@@ -54,6 +55,9 @@
   {
     ND.timeScale = (g) => {
       if (!g || !g.F || !g.F[0] || !g.F[0].dz) return 1;
+
+
+      if (g.mode === 'online') return D.matchSpeed >= 0.7 && D.matchSpeed <= 1 ? D.matchSpeed : 1;
       const v = SPQ != null ? +SPQ : ND.AI_KNOBS && ND.AI_KNOBS.duelSpeed != null ? ND.AI_KNOBS.duelSpeed : typeof window !== 'undefined' && window.__duelSpeedDefault ? +window.__duelSpeedDefault : 1;
       return v >= 0.7 && v <= 1 ? v : 1;
     };
@@ -363,7 +367,13 @@
   D.guardTarget = guardTarget;
 
 
+
+
+
+
+  { const sc0 = FP.setChar; if (sc0) FP.setChar = function () { const r = sc0.apply(this, arguments); for (const fn of ND.onLook || []) { try { fn(this); } catch (e) {                       } } this._anim = null; return r; }; }
   const NOPROPS = /[?&]props=0(&|$)/.test(location.search || '');
+  { const nm0 = G.newMatch; G.newMatch = function (mode, opts) { D.matchSpeed = mode === 'online' && opts && +opts.speed >= 0.7 && +opts.speed <= 1 ? +opts.speed : 1; return nm0.apply(this, arguments); }; }
   const reset0 = FP.reset;
   FP.reset = function (x) {
     if (this.dz && !this.dz.armed) rearm(this, true);
@@ -373,7 +383,7 @@
 
 
     const g = ND.game, PR = ND.props;
-    if (PR && g && g.F && this === g.F[1] && !PR.flag && !NOPROPS) { const want = !!(g.F[0].dz && g.F[1].dz); if (want !== !!PR.live) D.propsOn(want); }
+    if (PR && g && g.F && this === g.F[1] && !PR.flag && (!NOPROPS || g.mode === 'online')) { const want = !!(g.F[0].dz && g.F[1].dz); if (want !== !!PR.live) D.propsOn(want); }
     return r;
   };
   const isInvP = FP.isInv;
@@ -587,8 +597,8 @@
     if (from && from.dz && !from.dz.armed && a && !a.special) raw *= T.uaDmg;
 
 
-    if (from && from.ch && T.chDmg[from.ch.id]) raw *= T.chDmg[from.ch.id];
-    if (from && from.ch && CHQ[from.ch.id]) raw *= CHQ[from.ch.id];
+    { const ON = G.mode === 'online', CD = (ON && ND.AI_KNOBS0 ? ND.AI_KNOBS0.duelChDmg : ND.AI_KNOBS && ND.AI_KNOBS.duelChDmg) || T.chDmg; if (from && from.ch && CD[from.ch.id]) raw *= CD[from.ch.id]; }
+    if (from && from.ch && CHQ[from.ch.id] && G.mode !== 'online') raw *= CHQ[from.ch.id];
 
 
 
