@@ -770,8 +770,9 @@
   const S = D.softSound = { on: 0, env: 0, log: null };
   const smack = (p, pan, hi) => { au.noise({ type: 'bandpass', f0: (hi ? 1900 : 1150) * au.vr(0.15), q: 1.1, dur: hi ? 0.035 : 0.05, gain: (hi ? 0.55 : 0.4) * p, attack: 0.001, send: 0.08, pan }); };
   const body = {
-    clang(power = 1, pan = 0) { if (S.log) S.log.push('body-block'); const p = Math.min(1.4, 0.5 + 0.45 * power); au.thud(p, pan); smack(p, pan, false); },
-    parry(pan = 0) { if (S.log) S.log.push('body-parry'); au.thud(0.7, pan); smack(1.1, pan, true); },
+
+    clang(power = 1, pan = 0) { if (S.log) S.log.push('body-block'); const p = Math.min(1.4, 0.6 + 0.4 * power); if (au.smack) au.smack(p, pan, false); else { au.thud(p, pan); smack(p, pan, false); } },
+    parry(pan = 0) { if (S.log) S.log.push('body-parry'); if (au.smack) au.smack(1.2, pan, true); else { au.thud(0.7, pan); smack(1.1, pan, true); } },
     kShing() { if (S.log) S.log.push('body-noshing'); },
   };
   const real = { clang: au.clang, parry: au.parry, kShing: au.kShing };

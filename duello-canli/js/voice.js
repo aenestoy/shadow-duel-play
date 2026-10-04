@@ -75,7 +75,8 @@
     },
 
     preload(ids) {
-      const sets = ['announcer', ...ids.filter((id) => ROSTER.includes(id))];
+
+      const sets = ['announcer', ...Object.keys(BOF), ...ids.filter((id) => ROSTER.includes(id))];
       return Promise.all([...new Set(sets)].map((s) => this.loadSet(s)));
     },
     loadSet(set) {

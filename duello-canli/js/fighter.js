@@ -1334,7 +1334,14 @@
       else if (blunt) { au.thud(0.8 + raw / 22, pan); au.tone({ freq: 150 + raw * 2, freq1: 60, dur: 0.18, gain: 0.12 + raw * 0.006, send: 0.2, pan }); }
       const fm = ND.flair ? ND.flair.hitBegin(from) : -1;
       if (blunt) { fx.dust(x, y, 4 + (raw / 4 | 0), 0.7); fx.spark(x, y, Math.atan2(-0.4, kdir), 8, 0.6, '235,225,205'); }
-      else if (a.kind === 'kick') { au.thud(1, pan); fx.dust(x, y, 4, 0.4); }
+
+      else if (a.kind === 'kick') {
+        const heavy = !!(a.knock || a.launch || a.spike || a.special || a.counter || a.fin && a.knock || raw >= 13);
+        if (au.punch) au.punch(raw, pan, heavy); else au.thud(1, pan);
+        fx.dust(x, y, 4, 0.4);
+        fx.spark(x, y, Math.atan2(-0.35, kdir), heavy ? 12 : 8, heavy ? 0.75 : 0.55, '255,246,226');
+        fx.ring(x, y, '255,240,215', heavy ? 46 : 30);
+      }
       else if (a.kind === 'shuriken') { au.cut(0.45, pan); }
       else au.cut(0.7 + raw / 25, pan);
       if (!blunt && (blade || a.kind === 'shuriken' || a.kind === 'arrow')) fx.blood(x, y, kdir, -0.25, (blade ? 10 : 4) + raw, 0.8 + raw / 22);
@@ -1426,7 +1433,8 @@
       const rn = ND.game.rally.n;
 
       const staff = !isKick && (this.ch.blunt || o.ch.blunt);
-      if (isKick) au.thud(0.8, pan);
+
+      if (isKick) { if (au.smack) au.smack(0.85 + (a.post || 0) / 90, pan); else au.thud(0.8, pan); }
       else if (!(staff && au.bo?.block?.(0.8 + a.post / 60 + rn * 0.05, pan, !(this.ch.blunt && o.ch.blunt), 1 + Math.min(rn, 8) * 0.03))) au.clang(0.6 + a.post / 60 + rn * 0.05, pan, 1 + Math.min(rn, 8) * 0.06);
       if (rn >= 2 && !isKick) { fx.spark(x, y, -Math.PI / 2, 8 + rn * 3, 1 + rn * 0.08); fx.ring(x, y, '255,236,190', 50 + rn * 10); }
       if (!a.special) this.vx = -this.dir * 120;
