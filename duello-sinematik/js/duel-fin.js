@@ -63,7 +63,7 @@
       { t: 0.8, op: 'sheathe' }, { t: 0.98, op: 'fx', k: 'click' },
     ] });
   def('akane:2', {
-    dur: 1.9, trig: { stun: 1.6, kb: 300 }, card: { k: '燕返し', n: 'TSUBAME-GAESHI' },
+    dur: 1.9, trig: { stun: 1.6, kb: 300 }, card: { k: '返し斬り', n: 'KAESHI-GIRI' },
     ops: [
       { t: 0, op: 'slow', v: 0.4, d: 0.22 }, { t: 0, op: 'cam', on: 'mid', z: 2.08, y: -118, cut: 1 }, { t: 0, op: 'fx', k: 'ink', a: 0.6, len: 0.16 },
       { t: 0.3, op: 'mv', m: 'ak_tsubame', spd: 0.85, hits: [{ dmg: 4, stun: 1.6, kb: 260 }, { dmg: 5, knock: 1, kb: 420, lift: 1.0 }] },
@@ -145,6 +145,244 @@
       { t: 0.7, op: 'cam', on: 'mid', z: 2.35, y: -116, cut: 1 }, { t: 0.95, op: 'slow', v: 0.35, d: 0.32 }, { t: 0.98, op: 'fx', k: 'card' },
       { t: 0.98, op: 'cam', on: 'V', z: 2.0, y: -106 },
     ] });
+
+
+
+  const sl = (t, v, d) => ({ t, op: 'slow', v, d });
+  const cm = (t, on, z, y, cut) => ({ t, op: 'cam', on, z, y, cut: cut ? 1 : 0 });
+  const fxo = (t, k, o) => Object.assign({ t, op: 'fx', k }, o || {});
+  const mv = (t, m, spd, hits) => ({ t, op: 'mv', m, spd, hits: hits || [] });
+  const ps = (t, keys, who) => ({ t, op: 'pose', who: who || 'A', keys });
+  const H = (dmg, o) => Object.assign({ dmg, stun: 2, kb: 160 }, o || {});
+  const KO = (dmg, o) => Object.assign({ dmg, knock: 1, kb: 420, lift: 1 }, o || {});
+
+
+  def('aoi:1', { dur: 1.15, trig: { knock: 1, kb: 360, mul: 1.15, lift: 0.7 }, card: { k: '突風', n: 'TOPPU' }, ops: [
+    sl(0, 0.32, 0.26), cm(0, 'mid', 2.0, -118, 1), fxo(0, 'ink', { a: 0, len: 0.2 }),
+    cm(0.44, 'A', 2.3, -124, 1), ps(0.44, [[0.16, 'ao_hB', 'outQuart'], [0.4, 'ao_hB'], [0.68, '@stance', 'inOut']]), fxo(0.48, 'petals', { n: 10, col: 'rgb(190,225,255)' })] });
+  def('aoi:2', { dur: 1.8, trig: { stun: 1.8, kb: 220 }, card: { k: '疾風', n: 'HAYATE' }, ops: [
+    sl(0, 0.4, 0.2), cm(0, 'A', 2.1, -118, 1),
+    mv(0.22, 'ao_l2', 1, [H(3, { kb: 200 })]), mv(0.5, 'ao_s2', 1, [H(3, { kb: 160 }), KO(4, { kb: 480, lift: 0.8 })]),
+    cm(0.62, 'mid', 1.85, -122, 1), sl(0.72, 0.36, 0.38), fxo(0.72, 'ink', { a: -0.1, len: 0.24 }), fxo(0.78, 'card'),
+    ps(1.15, [[0.2, 'ao_hB', 'outQuart'], [0.55, '@stance', 'inOut']])] });
+  def('aoi:3', { dur: 2.6, trig: { stun: 2.4, kb: 200 }, card: { k: '風の刃', n: 'KAZE NO HA' }, ops: [
+    sl(0, 0.4, 0.2), cm(0, 'mid', 2.0, -118, 1),
+    mv(0.2, 'ao_s1', 1, [H(2, { kb: 140 }), H(2, { kb: 140 }), H(2, { kb: 200 })]),
+    { t: 0.85, op: 'glide', gap: 280, d: 0.3 }, cm(0.88, 'A', 2.35, -120, 1), sl(0.9, 0.5, 0.3), fxo(0.95, 'petals', { n: 12, col: 'rgb(190,225,255)' }),
+    mv(1.2, 'sp_aoi', 1), cm(1.42, 'mid', 1.55, -122, 1),
+    { t: 1.62, op: 'hit', h: KO(8, { kb: 560, lift: 0.7 }) }, sl(1.62, 0.3, 0.45), fxo(1.62, 'ink', { a: 0.05, len: 0.3, w: 1.2 }), fxo(1.7, 'card')] });
+  def('aoi:u', { dur: 1.5, trig: { stun: 1.5, kb: 420 }, card: { k: '突き蹴り', n: 'TSUKI-GERI' }, ops: [
+    sl(0, 0.45, 0.16), cm(0, 'A', 2.15, -120, 1),
+    mv(0.2, 'ua_lunge', 1.1, [H(3, { stun: 1.5, kb: 360 })]), mv(0.56, 'ua_front', 1, [KO(4, { kb: 480, lift: 0.8 })]),
+    cm(0.7, 'V', 2.0, -108, 1), sl(0.8, 0.36, 0.3), fxo(0.84, 'card')] });
+
+
+  def('kuro:1', { dur: 1.35, trig: { knock: 1, kb: 420, mul: 1.2, lift: 0.9 }, card: { k: '一刀', n: 'ITTO' }, ops: [
+    sl(0, 0.28, 0.32), cm(0, 'V', 2.05, -100, 1), fxo(0, 'ink', { a: 0.9, len: 0.24, w: 1.2 }),
+    cm(0.5, 'A', 1.9, -100, 1), ps(0.5, [[0.3, 'ks_zanLow', 'inOutSine'], [0.6, 'ks_zanLow'], [0.85, '@stance', 'inOut']]), fxo(0.78, 'thud')] });
+  def('kuro:2', { dur: 2.0, trig: { stun: 2, kb: 260 }, card: { k: '岩砕き', n: 'IWA-KUDAKI' }, ops: [
+    sl(0, 0.4, 0.2), cm(0, 'mid', 1.85, -112, 1),
+    mv(0.24, 'd_kesaL', 1, [H(4, { kb: 220 })]), mv(0.7, 'fk_s2', 1, [KO(6, { kb: 520, lift: 0.8 })]),
+    cm(0.82, 'V', 1.95, -100, 1), sl(0.98, 0.32, 0.4), fxo(0.98, 'ink', { a: 0.1, len: 0.26, w: 1.3 }), fxo(0.98, 'thud'), fxo(1.05, 'card')] });
+  def('kuro:3', { dur: 2.9, trig: { stun: 2.6, kb: 220 }, card: { k: '山砕き', n: 'YAMA KUDAKI' }, ops: [
+    sl(0, 0.4, 0.2), cm(0, 'mid', 1.8, -112, 1),
+    mv(0.2, 'fk_s1', 1, [H(3, { kb: 160 }), H(3, { kb: 300 })]),
+    { t: 1.0, op: 'glide', gap: 230, d: 0.25 }, cm(1.05, 'A', 1.75, -150, 1), sl(1.25, 0.45, 0.5),
+    mv(1.25, 'sp_kuro', 1, [KO(9, { kb: 380, lift: 1.3 })]),
+    cm(1.78, 'mid', 1.6, -96, 1), fxo(1.8, 'thud'), fxo(1.8, 'ink', { a: 1.4, len: 0.26, w: 1.4 }), sl(1.8, 0.3, 0.45), fxo(1.86, 'card')] });
+  def('kuro:u', { dur: 1.7, trig: { stun: 1.7, kb: 300 }, card: { k: '背負い投げ', n: 'SEOI-NAGE' }, ops: [
+    sl(0, 0.45, 0.18), cm(0, 'mid', 2.05, -114, 1),
+    mv(0.2, 'ua_ram', 0.9, [H(4, { stun: 1.7, kb: 220 })]), mv(0.78, 'ua_upper', 0.9, [KO(5, { kb: 300, lift: 1.5 })]),
+    cm(0.95, 'V', 1.7, -150, 1), sl(1.05, 0.34, 0.35), fxo(1.1, 'card'), fxo(1.4, 'thud')] });
+
+
+  def('yuki:1', { dur: 1.05, trig: { knock: 1, kb: 330, mul: 1.15, lift: 0.8 }, card: { k: '雪月', n: 'SETSUGETSU' }, ops: [
+    sl(0, 0.34, 0.24), cm(0, 'V', 2.2, -110, 1), fxo(0, 'ink', { a: -0.35, len: 0.18 }),
+    cm(0.38, 'A', 2.4, -126, 1), ps(0.4, [[0.12, 'ks_zanHi', 'outQuart'], [0.36, 'ks_zanHi'], [0.6, '@stance', 'inOut']]), fxo(0.42, 'petals', { n: 12, col: 'rgb(240,246,255)' })] });
+  def('yuki:2', { dur: 1.7, trig: { stun: 1.7, kb: 220 }, card: { k: '狐火', n: 'KITSUNE-BI' }, ops: [
+    sl(0, 0.4, 0.18), cm(0, 'A', 2.2, -118, 1),
+    mv(0.2, 'fd_fl', 1, [H(3, { kb: 240 })]), mv(0.48, 'fd_s1', 1, [H(3, { kb: 160 }), KO(4, { kb: 460, lift: 1 })]),
+    cm(0.56, 'mid', 2.0, -120, 1), sl(0.74, 0.36, 0.36), fxo(0.74, 'ink', { a: -0.7, len: 0.2 }), fxo(0.8, 'card'), fxo(0.8, 'petals', { n: 10, col: 'rgb(255,190,120)' })] });
+  def('yuki:3', { dur: 2.3, trig: { stun: 2.2, kb: 200 }, card: { k: '吹雪', n: 'FUBUKI' }, ops: [
+    sl(0, 0.45, 0.16), cm(0, 'mid', 2.0, -118, 1),
+    mv(0.18, 'fd_fl', 1, [H(3, { kb: 300 })]), cm(0.44, 'A', 2.45, -120, 1), fxo(0.44, 'petals', { n: 16, col: 'rgb(240,246,255)' }),
+    mv(0.5, 'sp_yuki', 1, [H(2, { kb: 90 }), H(2, { kb: 90 }), H(2, { kb: 90 }), H(2, { kb: 90 }), KO(4, { kb: 480, lift: 1.1 })]),
+    cm(0.82, 'mid', 1.75, -120, 1), sl(0.9, 0.34, 0.45), fxo(0.92, 'ink', { a: -0.4, len: 0.26 }), fxo(0.98, 'card'), fxo(1.0, 'petals', { n: 14, col: 'rgb(240,246,255)' })] });
+  def('yuki:u', { dur: 1.5, trig: { stun: 1.5, kb: 380 }, card: { k: '飛び膝', n: 'TOBI-HIZA' }, ops: [
+    sl(0, 0.45, 0.16), cm(0, 'mid', 2.1, -118, 1),
+    mv(0.18, 'ua_jab', 1.3, [H(2, { stun: 1.5, kb: 300, part: 'head' })]), mv(0.42, 'ua_flyknee', 1, [KO(5, { kb: 460, lift: 1.2 })]),
+    cm(0.55, 'V', 1.9, -150, 1), sl(0.7, 0.34, 0.32), fxo(0.75, 'card')] });
+
+
+  def('hana:1', { dur: 1.1, trig: { knock: 1, kb: 320, mul: 1.15, lift: 0.8 }, card: { k: '桜散', n: 'SAKURA-CHIRI' }, ops: [
+    sl(0, 0.32, 0.26), cm(0, 'mid', 2.05, -116, 1), fxo(0, 'ink', { a: 0.5, len: 0.16 }), fxo(0, 'petals', { n: 10 }),
+    cm(0.42, 'A', 2.3, -122, 1), ps(0.44, [[0.14, 'ks_chiburi', 'outQuart'], [0.36, 'ks_chiburi'], [0.6, '@stance', 'inOut']]), fxo(0.5, 'petals', { n: 14 })] });
+  def('hana:2', { dur: 1.7, trig: { stun: 1.7, kb: 220 }, card: { k: '花三連', n: 'HANA SANREN' }, ops: [
+    sl(0, 0.4, 0.18), cm(0, 'A', 2.2, -118, 1),
+    mv(0.18, 'ft_fl', 1, [H(3, { kb: 240 })]), mv(0.44, 'ft_s1', 1, [H(3, { kb: 160 }), KO(4, { kb: 460, lift: 0.9 })]),
+    fxo(0.5, 'petals', { n: 10 }), cm(0.6, 'mid', 1.95, -120, 1), sl(0.72, 0.36, 0.36), fxo(0.72, 'ink', { a: 0.6, len: 0.2 }), fxo(0.78, 'card')] });
+  def('hana:3', { dur: 2.4, trig: { stun: 2.2, kb: 220 }, card: { k: '花吹雪', n: 'HANAFUBUKI' }, ops: [
+    sl(0, 0.42, 0.18), cm(0, 'mid', 2.0, -118, 1),
+    mv(0.18, 'ft_fl', 1, [H(3, { kb: 300 })]), cm(0.42, 'mid', 1.7, -124, 1), fxo(0.45, 'petals', { n: 18 }),
+    mv(0.48, 'sp_hana', 1, [H(2, { kb: 100 }), H(2, { kb: 100 }), H(2, { kb: 100 }), H(2, { kb: 100 }), KO(4, { kb: 480, lift: 1.1 })]),
+    sl(1.06, 0.34, 0.45), fxo(1.06, 'ink', { a: 0.3, len: 0.26 }), fxo(1.1, 'card'), fxo(1.12, 'petals', { n: 20 })] });
+  def('hana:u', { dur: 1.5, trig: { stun: 1.5, kb: 380 }, card: { k: '回転肘', n: 'KAITEN-HIJI' }, ops: [
+    sl(0, 0.45, 0.16), cm(0, 'A', 2.2, -118, 1),
+    mv(0.18, 'ua_elbow', 1.2, [H(3, { stun: 1.5, kb: 320 })]), mv(0.5, 'ua_bf', 1, [KO(4, { kb: 460, lift: 0.9 })]),
+    cm(0.6, 'mid', 2.0, -116, 1), sl(0.72, 0.36, 0.3), fxo(0.76, 'card'), fxo(0.76, 'petals', { n: 10 })] });
+
+
+  def('tetsu:1', { dur: 1.3, trig: { knock: 1, kb: 400, mul: 1.2, lift: 0.8 }, card: { k: '鉄壁', n: 'TEPPEKI' }, ops: [
+    sl(0, 0.3, 0.3), cm(0, 'mid', 1.75, -104, 1), fxo(0, 'ink', { a: 0.15, len: 0.26, w: 1.2 }),
+    cm(0.48, 'A', 1.95, -108, 1), ps(0.5, [[0.22, 'sp_tzEnd', 'outCubic'], [0.5, 'sp_tzEnd'], [0.8, '@stance', 'inOut']]), fxo(0.72, 'thud')] });
+  def('tetsu:2', { dur: 1.9, trig: { stun: 1.9, kb: 240 }, card: { k: '薙刀払い', n: 'NAGINATA-BARAI' }, ops: [
+    sl(0, 0.4, 0.2), cm(0, 'mid', 1.8, -110, 1),
+    mv(0.22, 'fn_fl', 1, [H(4, { kb: 260 })]), mv(0.62, 'fn_bl', 1, [KO(5, { kb: 300, lift: 1.2 })]),
+    cm(0.78, 'V', 1.9, -96, 1), sl(0.86, 0.34, 0.4), fxo(0.86, 'ink', { a: 0.05, len: 0.28, w: 1.2 }), fxo(0.92, 'card')] });
+  def('tetsu:3', { dur: 2.8, trig: { stun: 2.6, kb: 220 }, card: { k: '鉄の渦', n: 'TETSU NO UZU' }, ops: [
+    sl(0, 0.4, 0.2), cm(0, 'mid', 1.75, -112, 1),
+    mv(0.2, 'fn_s1', 1, [H(3, { kb: 160 }), H(3, { kb: 280 })]),
+    cm(1.0, 'mid', 1.5, -118, 1), mv(1.05, 'sp_tetsu', 1, [H(2, { kb: 120 }), H(2, { kb: 120 }), H(2, { kb: 120 }), H(2, { kb: 120 }), KO(4, { kb: 520, lift: 1 })]),
+    sl(1.9, 0.32, 0.45), fxo(1.9, 'ink', { a: -0.1, len: 0.3, w: 1.3 }), fxo(1.95, 'card'), fxo(1.95, 'thud')] });
+  def('tetsu:u', { dur: 1.6, trig: { stun: 1.6, kb: 360 }, card: { k: '鉄掌', n: 'TESSHO' }, ops: [
+    sl(0, 0.45, 0.18), cm(0, 'mid', 2.0, -112, 1),
+    mv(0.2, 'ua_knee', 1, [H(3, { stun: 1.6, kb: 300 })]), mv(0.6, 'ua_cHeavy', 0.9, [KO(5, { kb: 520, lift: 0.8 })]),
+    cm(0.72, 'V', 1.9, -108, 1), sl(0.82, 0.34, 0.32), fxo(0.86, 'card'), fxo(0.86, 'thud')] });
+
+
+  def('ren:1', { dur: 1.2, trig: { knock: 1, kb: 400, mul: 1.15, lift: 1 }, card: { k: '鬼哭', n: 'KIKOKU' }, ops: [
+    sl(0, 0.3, 0.26), cm(0, 'V', 2.0, -116, 1), fxo(0, 'ink', { a: -0.6, len: 0.2 }),
+    cm(0.46, 'A', 2.25, -130, 1), ps(0.48, [[0.16, 'sp_onA', 'outQuart'], [0.44, 'sp_onA'], [0.7, '@stance', 'inOut']]), fxo(0.52, 'roar')] });
+  def('ren:2', { dur: 1.8, trig: { stun: 1.8, kb: 220 }, card: { k: '鬼蹴り', n: 'ONI-GERI' }, ops: [
+    sl(0, 0.4, 0.18), cm(0, 'mid', 2.05, -118, 1),
+    mv(0.2, 'rn_l2', 1, [H(3, { kb: 220 })]), mv(0.44, 'rn_l3', 1, [H(3, { kb: 220 })]), mv(0.72, 'rn_s2', 1, [KO(4, { kb: 500, lift: 1 })]),
+    cm(0.5, 'A', 2.3, -118, 1), cm(0.86, 'mid', 1.9, -122, 1), sl(0.88, 0.36, 0.36), fxo(0.88, 'ink', { a: -0.3, len: 0.2 }), fxo(0.94, 'card')] });
+  def('ren:3', { dur: 2.7, trig: { stun: 2.6, kb: 220 }, card: { k: '鬼の怒り', n: 'ONI NO IKARI' }, ops: [
+    sl(0, 0.4, 0.2), cm(0, 'mid', 2.0, -118, 1),
+    mv(0.2, 'rn_s1', 1, [H(3, { kb: 160 }), H(3, { kb: 320 })]),
+    fxo(0.92, 'roar'), cm(0.92, 'A', 2.3, -128, 1), { t: 0.92, op: 'glide', gap: 240, d: 0.22 },
+    mv(1.12, 'sp_ren', 1, [KO(9, { kb: 300, lift: 1.5 })]), cm(1.6, 'V', 1.7, -170, 1),
+    sl(1.82, 0.32, 0.45), fxo(1.82, 'ink', { a: -1.2, len: 0.26 }), fxo(1.88, 'card')] });
+  def('ren:u', { dur: 1.6, trig: { stun: 1.6, kb: 360 }, card: { k: '鉄山靠', n: 'TETSUZAN-KO' }, ops: [
+    sl(0, 0.45, 0.16), cm(0, 'mid', 2.05, -116, 1),
+    mv(0.18, 'ua_cross', 1.1, [H(3, { stun: 1.6, kb: 300, part: 'head' })]), fxo(0.42, 'roar'), mv(0.46, 'ua_ki', 1, [KO(6, { kb: 560, lift: 0.8 })]),
+    cm(0.7, 'V', 1.95, -110, 1), sl(0.8, 0.34, 0.32), fxo(0.84, 'card')] });
+
+
+  def('kage:1', { dur: 1.2, trig: { knock: 1, kb: 340, mul: 1.15, lift: 0.8 }, card: { k: '影走り', n: 'KAGE-BASHIRI' }, ops: [
+    sl(0, 0.32, 0.26), cm(0, 'V', 2.1, -110, 1), fxo(0, 'ink', { a: -0.2, len: 0.2 }), { t: 0.05, op: 'dim', v: 0.4 },
+    cm(0.44, 'A', 2.35, -122, 1), ps(0.46, [[0.16, 'sp_kbSeal', 'outQuart'], [0.44, 'sp_kbSeal'], [0.7, '@stance', 'inOut']]), fxo(0.6, 'smoke')] });
+  def('kage:2', { dur: 1.8, trig: { stun: 1.8, kb: 220 }, card: { k: '影縫い', n: 'KAGE-NUI' }, ops: [
+    sl(0, 0.4, 0.18), cm(0, 'A', 2.15, -118, 1), { t: 0, op: 'dim', v: 0.35 },
+    mv(0.18, 'kg_l2', 1, [H(3, { kb: 220 })]), mv(0.42, 'kg_l3', 1, [H(3, { kb: 260 })]), mv(0.76, 'kg_s2', 1, [KO(4, { kb: 460, lift: 0.9 })]),
+    cm(0.86, 'mid', 1.95, -118, 1), sl(0.98, 0.36, 0.38), fxo(0.98, 'ink', { a: 0.2, len: 0.22 }), fxo(1.02, 'card')] });
+  def('kage:3', { dur: 2.5, trig: { stun: 2.4, kb: 220 }, card: { k: '影分身', n: 'KAGE BUNSHIN' }, ops: [
+    sl(0, 0.4, 0.18), cm(0, 'mid', 2.0, -118, 1), { t: 0, op: 'dim', v: 0.45 },
+    mv(0.18, 'kg_s1', 1, [H(2, { kb: 140 }), H(2, { kb: 140 }), H(2, { kb: 240 })]),
+    fxo(0.84, 'smoke'), mv(0.86, 'sp_kage', 1, [KO(9, { kb: 440, lift: 1 })]), cm(1.0, 'V', 2.1, -116, 1),
+    sl(1.32, 0.3, 0.45), fxo(1.32, 'ink', { a: 0.3, len: 0.26 }), fxo(1.38, 'card'), cm(1.6, 'mid', 1.8, -118, 1)] });
+  def('kage:u', { dur: 1.5, trig: { stun: 1.5, kb: 300 }, card: { k: '影肘', n: 'KAGE-HIJI' }, ops: [
+    sl(0, 0.45, 0.16), cm(0, 'mid', 2.05, -116, 1), { t: 0, op: 'dim', v: 0.4 },
+    fxo(0.2, 'smoke'), { t: 0.26, op: 'blink', gap: 110 }, fxo(0.26, 'smoke'), cm(0.26, 'mid', 2.2, -116, 1),
+    mv(0.32, 'ua_cSpin', 1, [KO(5, { kb: 440, lift: 0.9 })]),
+    sl(0.6, 0.34, 0.32), fxo(0.64, 'card')] });
+
+
+  def('tora:1', { dur: 1.2, trig: { knock: 1, kb: 360, mul: 1.15, lift: 0.8 }, card: { k: '虎爪', n: 'TORA-ZUME' }, ops: [
+    sl(0, 0.32, 0.26), cm(0, 'V', 2.05, -110, 1), fxo(0, 'ink', { a: 0.7, len: 0.2 }),
+    cm(0.44, 'A', 2.1, -140, 1), ps(0.46, [[0.16, 'tr_spin', 'inOutSine'], [0.3, 'tr_spin2', 'inOutSine'], [0.44, 'tr_spin', 'inOutSine'], [0.7, '@stance', 'inOut']]), fxo(0.5, 'chain')] });
+  def('tora:2', { dur: 1.9, trig: { stun: 1.9, kb: 200 }, card: { k: '鎖縛り', n: 'KUSARI SHIBARI' }, ops: [
+    sl(0, 0.4, 0.2), cm(0, 'mid', 1.95, -118, 1),
+    mv(0.2, 'tr_l2', 1, [H(3, { kb: 120 })]), fxo(0.3, 'chain'), mv(0.62, 'fc_s2', 1, [KO(5, { kb: 480, lift: 0.9 })]),
+    cm(0.7, 'A', 2.2, -118, 1), cm(0.9, 'mid', 1.85, -120, 1), sl(0.92, 0.34, 0.38), fxo(0.92, 'ink', { a: 0.4, len: 0.22 }), fxo(0.98, 'card')] });
+  def('tora:3', { dur: 2.8, trig: { stun: 2.6, kb: 220 }, card: { k: '鎖竜巻', n: 'KUSARI TATSUMAKI' }, ops: [
+    sl(0, 0.4, 0.2), cm(0, 'mid', 1.95, -118, 1),
+    mv(0.2, 'fc_s1', 1, [H(3, { kb: 160 }), H(3, { kb: 260 })]),
+    cm(0.98, 'A', 1.7, -150, 1), fxo(1.0, 'chain'),
+    mv(1.0, 'sp_tora', 1, [H(2, { kb: 80 }), H(2, { kb: 80 }), H(2, { kb: 80 }), H(2, { kb: 80 }), KO(4, { kb: 420, lift: 1.4 })]),
+    cm(1.9, 'V', 1.75, -160, 1), sl(2.05, 0.32, 0.4), fxo(2.05, 'ink', { a: -0.9, len: 0.24 }), fxo(2.1, 'card')] });
+  def('tora:u', { dur: 1.5, trig: { stun: 1.5, kb: 340 }, card: { k: '虎足払い', n: 'TORA-BARAI' }, ops: [
+    sl(0, 0.45, 0.16), cm(0, 'mid', 2.05, -110, 1),
+    mv(0.18, 'ua_jab', 1.3, [H(2, { stun: 1.5, kb: 280, part: 'head' })]), mv(0.42, 'ua_sweep', 1, [KO(4, { kb: 260, lift: 1.3 })]),
+    cm(0.56, 'V', 2.0, -96, 1), sl(0.66, 0.34, 0.32), fxo(0.7, 'card')] });
+
+
+  def('jin:1', { dur: 1.45, trig: { knock: 1, kb: 360, mul: 1.15, lift: 0.9 }, card: { k: '一礼', n: 'ICHIREI' }, ops: [
+    sl(0, 0.32, 0.26), cm(0, 'V', 2.0, -108, 1), fxo(0, 'ink', { a: 1.0, len: 0.2 }),
+    cm(0.5, 'A', 2.2, -122, 1), ps(0.52, [[0.3, 'jn_bow', 'inOutSine'], [0.66, 'jn_bow'], [0.92, '@stance', 'inOut']])] });
+  def('jin:2', { dur: 1.9, trig: { stun: 1.9, kb: 220 }, card: { k: '三節', n: 'SANSETSU' }, ops: [
+    sl(0, 0.4, 0.2), cm(0, 'mid', 1.95, -116, 1),
+    mv(0.2, 'jn_l2', 1, [H(3, { kb: 240 })]), mv(0.54, 'jn_l3', 1, [KO(5, { kb: 460, lift: 1 })]),
+    cm(0.64, 'A', 2.2, -120, 1), sl(0.76, 0.36, 0.36), fxo(0.76, 'ink', { a: 0.9, len: 0.2 }), fxo(0.82, 'card'),
+    ps(1.2, [[0.24, 'jn_bow', 'inOutSine'], [0.6, '@stance', 'inOut']])] });
+  def('jin:3', { dur: 2.9, trig: { stun: 2.6, kb: 220 }, card: { k: '金剛輪舞', n: 'KONGO RINBU' }, ops: [
+    sl(0, 0.4, 0.2), cm(0, 'mid', 1.9, -118, 1),
+    mv(0.2, 'fb_s1', 1, [H(3, { kb: 160 }), H(3, { kb: 280 })]),
+    cm(0.98, 'mid', 1.6, -120, 1), mv(1.0, 'sp_jin', 1, [H(2, { kb: 110 }), H(2, { kb: 110 }), H(2, { kb: 110 }), H(2, { kb: 110 }), KO(4, { kb: 460, lift: 1.3 })]),
+    sl(1.95, 0.32, 0.4), fxo(1.95, 'ink', { a: -1.0, len: 0.24 }), fxo(2.0, 'card'),
+    cm(2.2, 'A', 2.1, -122, 1), ps(2.25, [[0.24, 'jn_bow', 'inOutSine'], [0.5, 'jn_bow']])] });
+  def('jin:u', { dur: 1.6, trig: { stun: 1.6, kb: 320 }, card: { k: '三連拳', n: 'SANRENKEN' }, ops: [
+    sl(0, 0.45, 0.16), cm(0, 'A', 2.1, -118, 1),
+    mv(0.2, 'ua_cFin', 0.9, [H(2, { stun: 1.6, kb: 200, part: 'head' }), H(2, { stun: 1.6, kb: 220 }), KO(4, { kb: 460, lift: 1 })]),
+    cm(0.5, 'mid', 2.0, -118, 1), sl(0.62, 0.34, 0.32), fxo(0.66, 'card')] });
+
+
+  def('tsubame:1', { dur: 1.3, trig: { knock: 1, kb: 340, mul: 1.15, lift: 0.8 }, card: { k: '燕翔', n: 'ENSHO' }, ops: [
+    sl(0, 0.32, 0.26), cm(0, 'V', 2.05, -110, 1), fxo(0, 'ink', { a: -0.3, len: 0.18 }),
+    cm(0.46, 'A', 2.2, -128, 1), ps(0.48, [[0.2, 'ts_aim', 'outCubic'], [0.55, 'ts_aim'], [0.8, '@stance', 'inOut']])] });
+  def('tsubame:2', { dur: 1.8, trig: { stun: 1.8, kb: 220 }, card: { k: '疾燕', n: 'SHITSUEN' }, ops: [
+    sl(0, 0.4, 0.18), cm(0, 'mid', 2.05, -118, 1),
+    mv(0.2, 'fs_fl', 1, [H(3, { kb: 240 })]), mv(0.46, 'fs_s1', 1, [H(3, { kb: 160 }), KO(4, { kb: 460, lift: 1 })]),
+    cm(0.56, 'A', 2.25, -124, 1), sl(0.74, 0.36, 0.36), fxo(0.74, 'ink', { a: -0.6, len: 0.2 }), fxo(0.8, 'card')] });
+  def('tsubame:3', { dur: 2.6, trig: { stun: 2.6, kb: 220 }, card: { k: '燕返し', n: 'TSUBAME GAESHI' }, ops: [
+    sl(0, 0.4, 0.18), cm(0, 'mid', 2.0, -118, 1),
+    mv(0.18, 'fs_fl', 1, [H(3, { kb: 300 })]), { t: 0.5, op: 'glide', gap: 300, d: 0.32 }, cm(0.55, 'A', 2.1, -150, 1),
+    mv(0.86, 'sp_tsubame', 1), sl(1.05, 0.4, 0.35),
+    { t: 1.52, op: 'hit', h: H(3, { kb: 120 }) }, { t: 1.62, op: 'hit', h: KO(6, { kb: 420, lift: 1.1 }) },
+    cm(1.5, 'V', 1.85, -130, 1), sl(1.62, 0.3, 0.42), fxo(1.62, 'ink', { a: 0.2, len: 0.24 }), fxo(1.68, 'card')] });
+  def('tsubame:u', { dur: 1.5, trig: { stun: 1.5, kb: 340 }, card: { k: '燕蹴', n: 'TSUBAME-GERI' }, ops: [
+    sl(0, 0.45, 0.16), cm(0, 'mid', 2.05, -118, 1),
+    mv(0.18, 'ua_knee', 1.1, [H(3, { stun: 1.5, kb: 260 })]), mv(0.5, 'ua_upper', 1, [KO(4, { kb: 260, lift: 1.5 })]),
+    cm(0.62, 'V', 1.8, -160, 1), sl(0.72, 0.34, 0.32), fxo(0.76, 'card')] });
+
+
+  def('shura:1', { dur: 1.3, trig: { knock: 1, kb: 420, mul: 1.2, lift: 0.9 }, card: { k: '修羅', n: 'SHURA' }, ops: [
+    sl(0, 0.3, 0.28), cm(0, 'V', 2.0, -108, 1), fxo(0, 'ink', { a: 0.8, len: 0.22, w: 1.2 }),
+    cm(0.48, 'A', 2.15, -130, 1), ps(0.5, [[0.18, 'sp_shRoar', 'outQuart'], [0.5, 'sp_shRoar'], [0.78, '@stance', 'inOut']]), fxo(0.54, 'roar'), fxo(0.54, 'smoke', { col: 'rgba(120,20,24,' })] });
+  def('shura:2', { dur: 1.9, trig: { stun: 1.9, kb: 220 }, card: { k: '羅刹', n: 'RASETSU' }, ops: [
+    sl(0, 0.4, 0.2), cm(0, 'mid', 1.95, -116, 1),
+    mv(0.2, 'fk_s1', 1, [H(3, { kb: 160 }), H(3, { kb: 280 })]), mv(0.98, 'rn_s2', 1, [KO(4, { kb: 500, lift: 1 })]),
+    cm(1.0, 'A', 2.2, -120, 1), sl(1.1, 0.34, 0.38), fxo(1.1, 'ink', { a: 0.4, len: 0.22 }), fxo(1.16, 'card')] });
+  def('shura:3', { dur: 3.0, trig: { stun: 2.8, kb: 220 }, card: { k: '阿修羅', n: 'ASHURA RASETSU' }, ops: [
+    sl(0, 0.4, 0.2), cm(0, 'mid', 1.95, -118, 1), { t: 0.1, op: 'dim', v: 0.45 },
+    mv(0.2, 'fk_dh', 1, [H(4, { kb: 300 })]), fxo(0.72, 'roar'), fxo(0.74, 'smoke', { col: 'rgba(120,20,24,' }),
+    mv(0.76, 'sp_shura', 1, [H(3, { kb: 120 }), H(3, { kb: 120 }), KO(5, { kb: 480, lift: 1.1 })]),
+    cm(1.25, 'V', 2.05, -118, 1), cm(1.65, 'mid', 1.8, -118, 1), cm(2.0, 'V', 1.9, -110, 1),
+    sl(2.0, 0.3, 0.42), fxo(2.0, 'ink', { a: -0.5, len: 0.26, w: 1.2 }), fxo(2.06, 'card')] });
+  def('shura:u', { dur: 1.6, trig: { stun: 1.6, kb: 320 }, card: { k: '鬼体当', n: 'ONI-TAIATARI' }, ops: [
+    sl(0, 0.45, 0.16), cm(0, 'mid', 2.05, -116, 1),
+    mv(0.18, 'ua_bf', 1, [H(3, { stun: 1.6, kb: 260 })]), fxo(0.5, 'roar'), mv(0.56, 'ua_ram', 1, [KO(5, { kb: 540, lift: 0.8 })]),
+    cm(0.7, 'V', 1.95, -110, 1), sl(0.8, 0.34, 0.32), fxo(0.84, 'card')] });
+
+
+
+
+  const kneel = (t) => ps(t, [[0.22, 'kneel', 'outCubic'], [1.2, 'kneel']], 'V');
+  const crown = (id, card, pose, extra) => def(id + ':b', { dur: 1.7, crown: true, card, ops: [
+    sl(0, 0.45, 0.25), cm(0, 'mid', 2.25, -112, 1), kneel(0.05), ps(0.1, pose), fxo(0.9, 'card'), cm(0.85, 'mid', 2.05, -116), ...(extra || [])] });
+  crown('akane', { k: '鞘鳴り', n: 'SAYANARI' }, [[0.3, 'chiburi', 'outQuart'], [0.6, 'chiburi'], [1.1, 'ak_stance', 'inOut']], [{ t: 0.8, op: 'sheathe' }, fxo(1.2, 'click')]);
+  crown('aoi', { k: '風止み', n: 'KAZE-YAMI' }, [[0.3, 'ao_hB', 'outQuart'], [1.3, 'ao_hB']], [fxo(0.4, 'petals', { n: 8, col: 'rgb(190,225,255)' })]);
+  crown('kuro', { k: '山の影', n: 'YAMA NO KAGE' }, [[0.35, 'ks_oRaise', 'outCubic'], [1.3, 'ks_oRaise']], [fxo(0.5, 'thud')]);
+  crown('yuki', { k: '雪化粧', n: 'YUKIGESHO' }, [[0.25, 'ks_zanTsuki', 'outQuart'], [1.3, 'ks_zanTsuki']], [fxo(0.3, 'petals', { n: 14, col: 'rgb(240,246,255)' })]);
+  crown('hana', { k: '花散らし', n: 'HANA-CHIRASHI' }, [[0.25, 'ks_chiburi', 'outQuart'], [1.3, 'ks_chiburi']], [fxo(0.3, 'petals', { n: 16 })]);
+  crown('tetsu', { k: '鉄城', n: 'TETSUJO' }, [[0.35, 'sp_tzEnd', 'outCubic'], [1.3, 'sp_tzEnd']], [fxo(0.5, 'thud')]);
+  crown('ren', { k: '鬼笑い', n: 'ONI-WARAI' }, [[0.25, 'sp_onA', 'outQuart'], [1.3, 'sp_onA']], [fxo(0.3, 'roar')]);
+  crown('kage', { k: '影法師', n: 'KAGEBOSHI' }, [[0.25, 'sp_kbSeal', 'outQuart'], [1.3, 'sp_kbSeal']], [fxo(0.15, 'smoke'), { t: 0.2, op: 'blink', gap: 120 }, fxo(0.2, 'smoke'), { t: 0.1, op: 'dim', v: 0.45 }]);
+  crown('tora', { k: '虎の睨み', n: 'TORA NO NIRAMI' }, [[0.2, 'tr_spin', 'inOutSine'], [0.4, 'tr_spin2', 'inOutSine'], [0.6, 'tr_spin', 'inOutSine'], [0.8, 'tr_spin2', 'inOutSine'], [1.3, 'tr_stance', 'inOut']], [fxo(0.2, 'chain'), fxo(0.7, 'chain')]);
+  crown('jin', { k: '合掌', n: 'GASSHO' }, [[0.35, 'jn_bow', 'inOutSine'], [1.3, 'jn_bow']]);
+  crown('mai', { k: '扇閉じ', n: 'OGI-TOJI' }, [[0.25, 'mi_hA', 'outQuart'], [0.8, 'mi_hA'], [1.2, 'mi_stance', 'inOut']], [fxo(0.3, 'petals', { n: 12 }), fxo(1.0, 'snap')]);
+  crown('tsubame', { k: '残心', n: 'ZANSHIN' }, [[0.3, 'ts_aim', 'outCubic'], [1.3, 'ts_aim']]);
+  crown('shura', { k: '阿修羅王', n: 'ASHURA-O' }, [[0.25, 'sp_shRoar', 'outQuart'], [1.3, 'sp_shRoar']], [fxo(0.3, 'roar'), fxo(0.3, 'smoke', { col: 'rgba(120,20,24,' })]);
 
 
   def('_:any', { dur: 0.9, trig: { knock: 1, kb: 300, mul: 1.1 }, ops: [{ t: 0, op: 'slow', v: 0.35, d: 0.28 }, { t: 0, op: 'cam', on: 'V', z: 2.19, y: -112, cut: 1 }, { t: 0, op: 'fx', k: 'ink', a: -0.2, len: 0.18 }] });
@@ -259,11 +497,26 @@
   }
   D.startFin = startFin;
 
+  function startCrown(A, V) {
+    const key = A.ch.id + ':b';
+    if (!SC[key] || G.phase !== 'fight' || A.dead || V.dead || A.dz.cine || V.dz.cine || G.lock || A.dz.propT > 0) return false;
+    const c = { fin: true, crown: true, tier: 4, key, un: false, t: 0, i: 0, q: [], A, V, def: A, att: V, done: false, gl: null, cam: null, mvS: -1, skip: false };
+    A.dz.cine = V.dz.cine = c;
+    A.locked = V.locked = true;
+    c.canSkip = G.mode !== 'online' && !!(D.finCanSkip && D.finCanSkip(c)); c.t0 = ND.simClock || 0;
+    A.dir = V.x >= A.x ? 1 : -1; V.dir = -A.dir; A.vx = V.vx = 0;
+    stat('starts'); stat('crown');
+    if (D.finFx) D.finFx('start', c, null);
+    step(c, 0);
+    return true;
+  }
+  D.startCrown = startCrown;
+
   const easeOf = (n) => (n && E[n]) || undefined;
   const PK = [];
   function poseKeys(f, keys) {
     PK.length = 0; PK.push([0, f.entry]);
-    for (const [t, p, e] of keys) PK.push([t, PO[p] || f.P[p] || PO.stance, easeOf(e)]);
+    for (const [t, p, e] of keys) PK.push([t, p[0] === '@' ? f.P[p.slice(1)] || PO.stance : PO[p] || PO.stance, easeOf(e)]);
     return PK;
   }
 
@@ -291,6 +544,14 @@
         D._finScript = true;
         try { f.setState(o.st || 'dfinp', { zp: PO[o.keys[o.keys.length - 1][1]] || f.P.stance, dur: 9 }); } finally { D._finScript = false; }
         f.dz.finKeys = o.keys;
+        return;
+      }
+      case 'blink': {
+
+        const side = A.x <= V.x ? 1 : -1, L = ND.ARENA - 30;
+        let nx = V.x + side * (o.gap || 110);
+        if (Math.abs(nx) > L) nx = V.x - side * (o.gap || 110);
+        A.x = nx; A.vx = 0; A.dir = V.x >= A.x ? 1 : -1;
         return;
       }
       case 'glide': {
@@ -405,6 +666,10 @@
       const o = this.opp, wait = isFin(z.cine) || (o && (o.state === 'down' || o.state === 'getup' || o.state === 'launch' || o.dead));
       if (wait && z.chainT > t0) z.chainT = t0;
       if (!(z.chain > 0)) z.finTier = 0;
+
+      const bc = z.cine && !z.cine.fin && z.cine.ph ? z.cine : null;
+      if (bc && bc.def === this) z.finBind = bc;
+      else if (z.finBind && !z.cine) { const b0 = z.finBind; z.finBind = null; if (b0.done && b0.ok && b0.outcome === 'disarm' && FIN.on) startCrown(this, this.opp); }
     }
     const c = z && z.cine;
     if (isFin(c) && c.A === this) step(c, dt);

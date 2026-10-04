@@ -85,7 +85,7 @@
     return {
       armed: true, chain: 0, chainT: 9, gs: 0, gsT: 0, bk: null, cine: null, sword: null, realWpn: null, realP: null,
       roll: 0, rollGrab: false, pass: false, passV: 0, lastMove: null, disarmT: 0, offLine: 0, pp: pose.copy(PO.stance), oneHand: null, pickTwo: false,
-      finArm: null, finKeys: null, finTier: 0,
+      finArm: null, finKeys: null, finTier: 0, finBind: null,
     };
   }
 
