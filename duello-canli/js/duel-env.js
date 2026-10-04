@@ -1135,10 +1135,20 @@
     b.style.translate = `${(best.x - r).toFixed(1)}px ${(best.y - r).toFixed(1)}px`;
     UI.x = best.x; UI.y = best.y; UI.r = r;
   }
+
+
+
   function uiHint() {
+    if (UI.hinted || UI.hintWant) return;
     let seen = false;
-    try { seen = localStorage.getItem('sd.duel.ctxHint') === '1'; localStorage.setItem('sd.duel.ctxHint', '1'); } catch (e) { seen = UI.hinted; }
-    if (seen || UI.hinted) return;
+    try { seen = localStorage.getItem('sd.duel.ctxHint') === '1'; } catch (e) { seen = false; }
+    if (seen) { UI.hinted = true; return; }
+    UI.hintWant = true;
+  }
+  function uiHintTry() {
+    if (!UI.hintWant || !UI.on || (ND.hints && ND.hints.wait('ctx'))) return;
+    UI.hintWant = false;
+    try { localStorage.setItem('sd.duel.ctxHint', '1'); } catch (e) {                                       }
     UI.hinted = true;
     const h = UI.hint, app = document.getElementById('app');
     h.textContent = touchOn() || !D.tr || (ND.i18n && ND.i18n.lang !== 'en') ? (D.tr ? D.tr('Something to use is in reach: tap this button.') : 'Something to use is in reach: tap this button.') + (touchOn() ? '' : ` (${KEYNAME})`) : `Something to use is in reach: press ${KEYNAME}.`;
@@ -1165,6 +1175,7 @@
 
     if (on && UI.hide) on = false;
     if (on !== UI.on) { UI.on = on; UI.el.classList.toggle('show', on); if (on && !CTX.force) uiHint(); }
+    uiHintTry();
   }
   D.envUi = { icons: ICONS, update: () => uiUpdate(), place: () => { UI.placedFor = ''; uiPlace(); }, state: () => ({ on: UI.on, x: UI.x, y: UI.y, r: UI.r, ic: UI.ic, t: CTX.shownT || 0 }) };
 

@@ -891,10 +891,13 @@
     for (let i = 0; i < F.length; i++) {
       const f = F[i]; if (!f || f.dead || f.hidden) continue;
       const P = points(f);
-      const edge = (ND.ARENA || 900) + 80;
+      const edge = (ND.ARENA || 900) + 80, end = (ND.ARENA || 900) + 120, k = c.s * c.z || 1;
       for (let q = 0; q < P.length; q += 3) {
         const m = (P[q + 2] ? -60 : M) + ex, sx = c.sx(P[q]) - c.shx, sy = c.sy(P[q + 1]) - c.shy;
-        if (sy < m || sy > c.H - m || (Math.abs(P[q]) < edge && (sx < m || sx > c.W - m))) return false;
+
+
+        const side = Math.abs(P[q]) < edge && Math.abs(P[q]) + Math.max(0, m) / k < end;
+        if (sy < m || sy > c.H - m || (side && (sx < m || sx > c.W - m))) return false;
       }
     }
     return true;
@@ -914,10 +917,13 @@
     if (fz != null) { const z2 = Math.min(z, fz + (dt || 0) * 0.5); V.z = Math.max(lo, z2); if (V.z >= z) fz = null; }
     const clampX = () => { const l = limAt(cam, Math.min(V.z, cam.z || V.z)); V.x = l > 0 ? Math.max(-l, Math.min(l, V.x)) : 0; };
     clampX();
-    if (F && !fits(V, F)) {
+
+
+    const ex = 0.08 * cam.H;
+    if (F && !fits(V, F, ex)) {
       const [a, b] = span(F);
       if (a < b) { V.x = (a + b) / 2; clampX(); }
-      for (let i = 0; i < 16 && !fits(V, F) && V.z > lo; i++) { V.z = Math.max(lo, V.z * 0.95); if (a < b) V.x = (a + b) / 2; clampX(); }
+      for (let i = 0; i < 16 && !fits(V, F, ex) && V.z > lo; i++) { V.z = Math.max(lo, V.z * 0.95); if (a < b) V.x = (a + b) / 2; clampX(); }
       if (V.z < z) fz = V.z;
     }
     T.x = V.x; T.y = y; T.z = V.z;
@@ -1001,10 +1007,18 @@
           let t = 0;
           for (const q of [0.02, 0.05, 0.1, 0.2, 0.35, 0.5, 0.75, 1]) if (at(x0 + (T.x - x0) * q, Math.exp(lz0 + (lzT - lz0) * q), 0)) { t = q; break; }
 
-          if (t) { kx = x0; kz = Math.exp(lz0); this.x = x0 + (T.x - x0) * t; this.z = Math.exp(lz0 + (lzT - lz0) * t); }
+
+
+          if (t) {
+            const fr1 = Math.max(0.1, Math.min(3, h * 60)), mx = (60 / (this.s * this.z || 1)) * fr1, mz = 0.06 * fr1;
+            const dx = Math.max(-mx, Math.min(mx, (T.x - x0) * t)), dz = Math.max(-mz, Math.min(mz, (lzT - lz0) * t));
+            kx = x0; kz = Math.exp(lz0); this.x = x0 + dx; this.z = Math.exp(lz0 + dz);
+          }
         }
       }
     }
+
+    { const zf = zMin(this); if (this.z < zf) this.z = zf; }
     this.clampToScene();
     vx = own ? (kx != null ? kx : this.x) - lx : 0; vz = own ? Math.log((kx != null ? kz : this.z) / lz) : 0;
     lx = this.x; ly = this.y; lz = this.z;
