@@ -3,3 +3,4 @@
 2026-10-04 02:35  57000826  Mai's 4 counter cinematics (fan snap, petals, spins, wind); each tier plays once per chain, chain builds on to the bind; ?duel=1 CINE buttons play the player's ninja
 2026-10-04 02:40  f2a671f7  Mai added (CINE: MAI button on ?duel=1 switches ninja); each tier once per chain, chain builds to the bind
 2026-10-04 03:18  fd5571c2  All 13 ninjas: 3 counter tiers + unarmed each, and each one's bind crown; hint in 18 languages. ?duel=1: CINE: <ninja> switches
+2026-10-04 04:17  01f10b00  13 ninjas: counter tiers 一二三 + unarmed + bind crown; damage x0.7; lighter on slow phones; ?duel=1 CINE buttons (ninja / tiers / BIND)

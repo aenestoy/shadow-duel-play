@@ -39,7 +39,12 @@
   const clamp = (v, r) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(r[1], Math.max(r[0], v)) : undefined);
 
 
+
+  const NIN = ['akane', 'aoi', 'kuro', 'yuki', 'ren', 'kage', 'shura', 'tetsu', 'jin', 'tsubame', 'hana', 'mai', 'tora'];
   const DEF = { levels: {}, apprenticePlusK: K.apprenticePlusK, kiWait: K.kiWait, duelK: K.duelK, duelSoft: K.duelSoft,
+    duelSpeed: K.duelSpeed ?? 1, duelGhostK: K.duelGhostK ?? 1,
+    duelKch: Object.assign({}, K.duelKch), duelK0ch: Object.assign({}, K.duelK0ch), duelKAch: Object.assign({}, K.duelKAch), duelKUch: Object.assign({}, K.duelKUch),
+    duelDmg: Object.assign({}, K.duelDmg), duelChDmg: Object.assign({}, K.duelChDmg),
     journey: { levels: J.ladder.levels.slice(), ai: J.ladder.ai.slice(), hp: J.ladder.hp.slice() } };
   for (const l of LEVEL_KEYS) {
     const d = DEF.levels[l] = {};
@@ -81,16 +86,18 @@
     if (sp !== undefined) t.duelSpeed = sp;
     const ds = clamp(o.duelSoft, [0, 1]);
     if (ds !== undefined) t.duelSoft = ds;
+    const gk = clamp(o.duelGhostK, [0, 1]);
+    if (gk !== undefined) t.duelGhostK = gk;
 
-    if (isObj(o.duelKch)) { const m = {}; for (const [id, v] of Object.entries(o.duelKch)) { const c = /^[a-z]{2,12}$/.test(id) ? clamp(v, [0, 1]) : undefined; if (c !== undefined) m[id] = c; } if (Object.keys(m).length) t.duelKch = m; }
+    if (isObj(o.duelKch)) { const m = {}; for (const [id, v] of Object.entries(o.duelKch)) { const c = NIN.includes(id) ? clamp(v, [0, 1]) : undefined; if (c !== undefined) m[id] = c; } if (Object.keys(m).length) t.duelKch = m; }
 
-    if (isObj(o.duelK0ch)) { const m = {}; for (const [id, v] of Object.entries(o.duelK0ch)) { const c = /^[a-z]{2,12}$/.test(id) ? clamp(v, [0, 1]) : undefined; if (c !== undefined) m[id] = c; } if (Object.keys(m).length) t.duelK0ch = m; }
+    if (isObj(o.duelK0ch)) { const m = {}; for (const [id, v] of Object.entries(o.duelK0ch)) { const c = NIN.includes(id) ? clamp(v, [0, 1]) : undefined; if (c !== undefined) m[id] = c; } if (Object.keys(m).length) t.duelK0ch = m; }
 
-    for (const key of ['duelKAch', 'duelKUch']) if (isObj(o[key])) { const m = {}; for (const [id, v] of Object.entries(o[key])) { const c = /^[a-z]{2,12}$/.test(id) ? clamp(v, [0, 1]) : undefined; if (c !== undefined) m[id] = c; } if (Object.keys(m).length) t[key] = m; }
+    for (const key of ['duelKAch', 'duelKUch']) if (isObj(o[key])) { const m = {}; for (const [id, v] of Object.entries(o[key])) { const c = NIN.includes(id) ? clamp(v, [0, 1]) : undefined; if (c !== undefined) m[id] = c; } if (Object.keys(m).length) t[key] = m; }
 
-    if (isObj(o.duelChDmg)) { const m = {}; for (const [id, v] of Object.entries(o.duelChDmg)) { const c = /^[a-z]{2,12}$/.test(id) ? clamp(v, [0.5, 2]) : undefined; if (c !== undefined) m[id] = c; } if (Object.keys(m).length) t.duelChDmg = m; }
+    if (isObj(o.duelChDmg)) { const m = {}; for (const [id, v] of Object.entries(o.duelChDmg)) { const c = NIN.includes(id) ? clamp(v, [0.5, 2]) : undefined; if (c !== undefined) m[id] = c; } if (Object.keys(m).length) t.duelChDmg = m; }
 
-    if (isObj(o.duelDmg)) { const m = {}; for (const [id, v] of Object.entries(o.duelDmg)) { const c = /^[a-z]{2,12}$/.test(id) ? clamp(v, [0.5, 2]) : undefined; if (c !== undefined) m[id] = c; } if (Object.keys(m).length) t.duelDmg = m; }
+    if (isObj(o.duelDmg)) { const m = {}; for (const [id, v] of Object.entries(o.duelDmg)) { const c = NIN.includes(id) ? clamp(v, [0.5, 2]) : undefined; if (c !== undefined) m[id] = c; } if (Object.keys(m).length) t.duelDmg = m; }
     if (isObj(o.journey)) {
 
       const per = (a, fn) => (Array.isArray(a) ? Array.from({ length: N }, (_, i) => (i < a.length ? fn(a[i]) : undefined)) : null);
@@ -109,7 +116,7 @@
 
   function effective(t) {
     t = t || {};
-    const E = { levels: {}, apprenticePlusK: t.apprenticePlusK ?? DEF.apprenticePlusK, kiWait: t.kiWait ?? DEF.kiWait, duelK: t.duelK ?? DEF.duelK, duelSoft: t.duelSoft ?? DEF.duelSoft, duelSpeed: t.duelSpeed ?? null, duelKch: t.duelKch || null, duelK0ch: t.duelK0ch || null, duelKAch: t.duelKAch || null, duelKUch: t.duelKUch || null, duelDmg: t.duelDmg || null, duelChDmg: t.duelChDmg || null, journey: {} };
+    const E = { levels: {}, apprenticePlusK: t.apprenticePlusK ?? DEF.apprenticePlusK, kiWait: t.kiWait ?? DEF.kiWait, duelK: t.duelK ?? DEF.duelK, duelSoft: t.duelSoft ?? DEF.duelSoft, duelSpeed: t.duelSpeed ?? null, duelGhostK: t.duelGhostK ?? null, duelKch: t.duelKch || null, duelK0ch: t.duelK0ch || null, duelKAch: t.duelKAch || null, duelKUch: t.duelKUch || null, duelDmg: t.duelDmg || null, duelChDmg: t.duelChDmg || null, journey: {} };
     for (const l of LEVEL_KEYS) {
       const o = (t.levels && t.levels[l]) || {};
       E.levels[l] = Object.assign({}, DEF.levels[l], o, { tick: (o.tick || DEF.levels[l].tick).slice() });
@@ -122,14 +129,14 @@
   }
 
 
-  let KCH0 = null, KDM0 = null, KK00 = null, KCD0 = null, KKA0 = null, KKU0 = null;
+  let KCH0 = null, KDM0 = null, KK00 = null, KCD0 = null, KKA0 = null, KKU0 = null, GK0 = null;
   function applyLevels(E) {
     for (const l of LEVEL_KEYS) {
       const lv = L[l], e = E.levels[l];
       for (const f of Object.keys(FIELDS)) lv[f] = e[f];
       lv.tick[0] = e.tick[0]; lv.tick[1] = e.tick[1];
     }
-    K.apprenticePlusK = E.apprenticePlusK; K.kiWait = E.kiWait; K.duelK = E.duelK; K.duelSoft = E.duelSoft; if (E.duelSpeed != null) K.duelSpeed = E.duelSpeed; else delete K.duelSpeed; if (!KCH0) KCH0 = Object.assign({}, K.duelKch || {}); K.duelKch = Object.assign({}, KCH0, E.duelKch || {});
+    K.apprenticePlusK = E.apprenticePlusK; K.kiWait = E.kiWait; K.duelK = E.duelK; K.duelSoft = E.duelSoft; if (E.duelSpeed != null) K.duelSpeed = E.duelSpeed; else delete K.duelSpeed; if (!GK0) GK0 = { v: K.duelGhostK }; if (E.duelGhostK != null) K.duelGhostK = E.duelGhostK; else if (GK0.v != null) K.duelGhostK = GK0.v; else delete K.duelGhostK; if (!KCH0) KCH0 = Object.assign({}, K.duelKch || {}); K.duelKch = Object.assign({}, KCH0, E.duelKch || {});
     if (!KDM0) KDM0 = Object.assign({}, K.duelDmg || {}); K.duelDmg = Object.assign({}, KDM0, E.duelDmg || {});
     if (!KCD0) KCD0 = Object.assign({}, K.duelChDmg || {}); K.duelChDmg = Object.assign({}, KCD0, E.duelChDmg || {});
     if (!KK00) KK00 = Object.assign({}, K.duelK0ch || {}); K.duelK0ch = Object.assign({}, KK00, E.duelK0ch || {});

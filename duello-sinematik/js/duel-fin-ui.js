@@ -33,6 +33,11 @@
         cam.punch(5 + 2 * c.tier);
         break;
       }
+      case 'cut': {
+        const L = ND.ARENA - 260, x = Math.max(-L, Math.min(L, D.finCamX(c, o.on)));
+        cam.x = x; cam.y = o.y || -112; cam.z = Math.min(o.z || 1.35, D.lite ? 1.6 : 9);
+        break;
+      }
       case 'ink': {
         const dir = A.x <= V.x ? 1 : -1;
         U.strokes.push({ x: V.x - dir * 6, y: V.y - (o.y || 112), a: (o.a || 0) * dir, len: o.len || 0.4, w: o.w || 1, col, age: 0, life: 0.6, seed: (c.t * 977) % 1 });
@@ -53,7 +58,7 @@
         au.noise({ type: 'bandpass', f0: 3200, f1: 1800, q: 2, dur: 0.07, gain: 0.18, send: 0.2, pan: A.pan });
         au.noise({ type: 'bandpass', f0: 3600, f1: 2000, q: 2, dur: 0.07, gain: 0.16, send: 0.2, pan: A.pan, delay: 0.06 });
         break;
-      case 'petals': {
+      case 'petals': { if (D.lite) break;
         const n = o.n || 10, acc = o.col || (A.col && A.col.accent) || col;
         for (let i = 0; i < n; i++) U.petals.push({ x: A.x + (Math.random() - 0.5) * 220, y: A.y - 60 - Math.random() * 140, vx: (Math.random() - 0.5) * 120, vy: -40 - Math.random() * 60, a: Math.random() * 6.28, va: (Math.random() - 0.5) * 8, age: 0, life: 1 + Math.random() * 0.8, col: acc });
         break;
@@ -68,7 +73,7 @@
       case 'chain':
         for (let i = 0; i < 5; i++) au.tone({ freq: 2400 + i * 180, dur: 0.07, gain: 0.05, send: 0.3, pan: A.pan, delay: i * 0.07, type: 'square' });
         break;
-      case 'smoke': {
+      case 'smoke': { if (D.lite) break;
         const sc = o.col || 'rgba(20,18,28,';
         for (let i = 0; i < 9; i++) U.smoke.push({ x: A.x + (Math.random() - 0.5) * 70, y: A.y - 30 - Math.random() * 150, r: 16 + Math.random() * 18, vx: (Math.random() - 0.5) * 50, vy: -20 - Math.random() * 30, age: 0, life: 0.6 + Math.random() * 0.4, col: sc });
         au.noise({ type: 'bandpass', f0: 900, f1: 300, q: 1, dur: 0.3, gain: 0.18, send: 0.4, pan: A.pan });
@@ -120,6 +125,14 @@
   }
   function active() { const F = G.F; if (!F) return null; for (const f of F) { const c = D.finOf && D.finOf(f); if (c) return c; } return null; }
 
+
+
+
+  const follow0 = cam.follow;
+  cam.follow = function (dt, fa, fb, focus) {
+    if (focus && D.lite && active() && focus.z > 1.6) focus = { x: focus.x, y: focus.y, z: 1.6 };
+    return follow0.call(this, dt, fa, fb, focus);
+  };
 
   const text0 = fx.text;
   fx.text = function () { if (active()) return; return text0.apply(this, arguments); };
@@ -247,10 +260,13 @@
       setTimeout(label, 300);
     };
     bar.appendChild(nb); setTimeout(label, 600);
+    const bb = document.createElement('button'); bb.type = 'button'; bb.textContent = 'CINE BIND';
+    bb.onclick = (e) => { e.stopPropagation(); const g = ND.game; if (g.phase !== 'fight' || !g.F) return; const [A, V] = g.F; for (const f of g.F) { if (f.dz && f.dz.cine) f.dz.cine = null; f.setState('move'); f.hp = f.maxHp; } if (!A.dz.armed) D.rearm(A, true); if (!V.dz.armed) D.rearm(V, true); A.x = -60; V.x = 60; A.dir = 1; V.dir = -1; D.startBind(A, V); };
     for (const [label, tier] of [['CINE 一', '1'], ['CINE 二', '2'], ['CINE 三', '3'], ['CINE 素手', 'u']]) {
       const b = document.createElement('button'); b.type = 'button'; b.textContent = label;
       b.onclick = (e) => { e.stopPropagation(); const g = ND.game; if (g.phase === 'fight' && g.F) D.finDemo(tier, g.F[0].ch.id); };
       bar.appendChild(b);
     }
+    bar.appendChild(bb);
   }, 250);
 })(window.ND);

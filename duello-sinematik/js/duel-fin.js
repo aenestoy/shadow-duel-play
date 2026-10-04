@@ -28,7 +28,8 @@
   const FIN = D.FIN = {
     on: !OFF,
     win: 1.0,
-    gap: 128, gapUa: 104, gapDown: 40,
+    dmgK: 0.7,
+    gap: 128, gapUa: 104, gapDown: 72,
     tierOf: (pts) => (pts <= 0 ? 0 : pts <= 2 ? 1 : pts <= 4 ? 2 : 3),
     stats: null,
   };
@@ -448,11 +449,14 @@
     const part = h.part || 'body', y = V.y - (part === 'head' ? 150 : 108), x = V.x - dir * 18;
     const kind = trig && trig.kind ? trig.kind : A.state === 'atk' && A.atk ? A.atk.kind || 'blade' : A.dz.armed ? 'blade' : 'kick';
     const a2 = { dmg: 0, post: 0, kb: h.kb || 0, stun: h.stun || 0.5, kind, knock: !!h.knock, lift: h.lift || 1, fin: true, blunt: trig ? trig.blunt : A.state === 'atk' && A.atk ? A.atk.blunt : undefined };
-    const target = h.raw != null ? null : Math.max(1, Math.round((h.dmg || 0) / 100 * V.maxHp));
+
+
+    const dk = G.mode === 'online' || G.mode === 'shadow' ? FIN.dmgK : ND.AI_KNOBS && ND.AI_KNOBS.finDmg > 0 ? ND.AI_KNOBS.finDmg : FIN.dmgK;
+    const target = h.raw != null ? null : Math.max(1, Math.round((h.dmg || 0) * dk / 100 * V.maxHp));
     const hp0 = V.hp;
     if (h.fall) {
 
-      const t2 = Math.max(0, Math.round((h.dmg || 0) / 100 * V.maxHp));
+      const t2 = Math.max(0, Math.round((h.dmg || 0) * dk / 100 * V.maxHp));
       V.hp = Math.max(0, V.hp - t2); V.damageTaken += hp0 - V.hp; V.sinceHit = 0;
       if (V.hp <= 0) { V.die(A, a2, x, y, kdir); return; }
       V.setState('launch', { wallBounced: false }); V.onGround = false;
@@ -567,7 +571,7 @@
       case 'cam':
         c.cam = { on: o.on, z: o.z, y: o.y };
 
-        if (o.cut && !G.simOnly && !c.skip) { const x = clamp(camX(c, o.on), -ND.ARENA + 260, ND.ARENA - 260); cam.x = x; cam.y = o.y || -112; cam.z = o.z || 1.35; }
+        if (o.cut && !c.skip && D.finFx) D.finFx('cut', c, o);
         return;
       case 'dim': if (!c.skip) G.dim = Math.max(G.dim || 0, o.v); return;
       case 'sheathe': if (A.wpn && A.wpn.iai) A.dz.drawn = false; return;
@@ -575,7 +579,7 @@
       case 'fx': if (!c.skip && D.finFx) D.finFx(o.k, c, o); return;
     }
   }
-  const camX = (c, on) => { const A = c.A, V = c.V; return on === 'A' ? A.x * 0.75 + V.x * 0.25 : on === 'V' ? V.x * 0.75 + A.x * 0.25 : (A.x + V.x) / 2; };
+  const camX = D.finCamX = (c, on) => { const A = c.A, V = c.V; return on === 'A' ? A.x * 0.75 + V.x * 0.25 : on === 'V' ? V.x * 0.75 + A.x * 0.25 : (A.x + V.x) / 2; };
 
   function step(c, dt) {
     if (c.done) return;
@@ -705,7 +709,7 @@
     const a = ATK[m] || ATK.light1;
     A.setState('atk', { atk: a, atkName: m, keys: [[0, A.entry]].concat(a.keys) });
     const W = a.hits && a.hits.length ? a.hits[0] : a.active || [0.1, 0.2];
-    A.st = W[0];
+    A.st = W[0]; A.dz.drawn = true;
     A.dz.finArm = null;
     startFin(A, V, tier === 'u' ? 1 : +tier, a.dmg * A.ch.dmg, a, V.x - 20, V.y - 110, 'body', 1);
     return true;
