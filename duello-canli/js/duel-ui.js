@@ -902,22 +902,64 @@
   const span = (F) => { let a = 1e9, b = -1e9; for (const f of F) { if (!f || f.dead || f.hidden) continue; const P = points(f); for (let q = 0; q < P.length; q += 3) { if (P[q] < a) a = P[q]; if (P[q] > b) b = P[q]; } } return [a, b]; };
 
   const zMin = (c) => c.W / (2 * c.s * ((ND.ARENA || 900) + 120));
-  cam.frameFighters = function (F, dt) {
-    if (!F) return;
-    if (fits(this, F)) { if (this.fz != null) { this.fz += (dt || 0) * 0.5; if (this.fz > 4) this.fz = null; } return; }
-    const [a, b] = span(F);
-    if (a < b) { const x0 = this.x; this.x = (a + b) / 2; this.clampToScene(); if (fits(this, F)) return; if (Math.abs(this.x - x0) < 1) this.x = x0; }
-    const lo = zMin(this) * 1.02;
-    for (let i = 0; i < 14 && !fits(this, F) && this.z > lo; i++) { this.z = Math.max(lo, this.z * 0.94); this.x = a < b ? (a + b) / 2 : this.x; this.clampToScene(); }
+  const limAt = (c, z) => (ND.ARENA || 900) + 120 - c.W / (2 * c.s * z);
 
-    this.fz = this.z;
+
+
+  const V = Object.create(cam), T = { x: 0, y: 0, z: 1 };
+  let fz = null;
+  const fitTarget = (F, x, y, z, dt) => {
+    V.shx = V.shy = 0; V.y = y; V.z = z; V.x = x;
+    const lo = zMin(cam) * 1.02;
+    if (fz != null) { const z2 = Math.min(z, fz + (dt || 0) * 0.5); V.z = Math.max(lo, z2); if (V.z >= z) fz = null; }
+    const clampX = () => { const l = limAt(cam, Math.min(V.z, cam.z || V.z)); V.x = l > 0 ? Math.max(-l, Math.min(l, V.x)) : 0; };
+    clampX();
+    if (F && !fits(V, F)) {
+      const [a, b] = span(F);
+      if (a < b) { V.x = (a + b) / 2; clampX(); }
+      for (let i = 0; i < 16 && !fits(V, F) && V.z > lo; i++) { V.z = Math.max(lo, V.z * 0.95); if (a < b) V.x = (a + b) / 2; clampX(); }
+      if (V.z < z) fz = V.z;
+    }
+    T.x = V.x; T.y = y; T.z = V.z;
+    return T;
+  };
+  cam.frameFighters = function (F) { const t = fitTarget(F, this.x, this.y, this.z, 0); this.x = t.x; this.z = t.z; };
+
+  let cutHooked = false, cutNow = false;
+
+
+
+
+  const P = { x: 0, y: 0, z: 1 }, A = { x: 0, y: 0, z: 1 };
+  let lx = null, ly = 0, lz = 1;
+  const hookCut = () => {
+    const D = ND.duel; if (cutHooked || !D || !D.finFx) return;
+    cutHooked = true;
+    const ff = D.finFx;
+    D.finFx = function (k) { const r = ff.apply(this, arguments); if (k === 'cut' && G && G.F) { fz = null; cam.frameFighters(G.F); cutNow = true; } return r; };
   };
   cam.follow = function (dt, fa, fb, focus) {
-    const r = f0.apply(this, arguments);
-    const held = focus && G && G.F && G.phase === 'fight';
-    if (!held) this.fz = null; else if (this.fz != null && this.z > this.fz) this.z = this.fz;
+    hookCut();
+    const live = G && (G.phase === 'fight' || G.phase === 'intro');
+    if (!live || cutNow) { P.x = P.y = 0; P.z = 1; A.x = A.y = 0; A.z = 1; }
+    else if (lx != null) {
+      const dx = this.x - lx, dy = this.y - ly, kz = this.z / lz;
+      if (Math.abs(dx) > 1e-3 || Math.abs(dy) > 1e-3 || Math.abs(kz - 1) > 1e-5) { P.x += dx; P.y += dy; P.z *= kz; this.x = lx; this.y = ly; this.z = lz; }
+    }
+    cutNow = false;
+    this.x -= A.x; this.y -= A.y; this.z /= A.z;
+
+
+    const held = focus && G && G.F && G.phase === 'fight' && G.mode !== 'attract';
+    if (!held) fz = null;
+    const tgt = held ? fitTarget(G.F, focus.x, focus.y, focus.z, dt) : focus;
+    const r = f0.call(this, dt, fa, fb, tgt);
+    const h = Math.max(0, Math.min(0.1, dt || 0)), out = Math.exp(-h / 0.3), inn = 1 - Math.exp(-h * 14);
+    P.x *= out; P.y *= out; P.z = 1 + (P.z - 1) * out;
+    A.x += (P.x - A.x) * inn; A.y += (P.y - A.y) * inn; A.z += (P.z - A.z) * inn;
+    this.x += A.x; this.y += A.y; this.z *= A.z;
     this.clampToScene();
-    if (held) this.frameFighters(G.F, dt);
+    lx = this.x; ly = this.y; lz = this.z;
     return r;
   };
 })(window.ND);
