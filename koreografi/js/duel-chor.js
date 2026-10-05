@@ -72,7 +72,7 @@
 
   def('ren', [x('A', 'L2', 'block', L())],
     [x('V', 'L1', 'block'), x('A', 'L2', 'block'), x('V', 'FL', 'back'), x('A', 'L3', 'hit', E8)],
-    [x('V', 'L1', 'parry'), x('A', 'FL', 'block'), x('V', 'L2', 'block'), c('L1', 'L1'), x('A', 'L1', 'block'), x('V', 'L3', 'back'), x('A', 'L3', 'hit', E8)]);
+    [x('V', 'L1', 'parry'), x('A', 'L2', 'block'), x('V', 'L2', 'block'), c('L1', 'L1'), x('A', 'L1', 'block'), x('V', 'L3', 'back'), x('A', 'L3', 'hit', E8)]);
 
   def('kage', [x('A', 'BL', 'block', L())],
     [x('V', 'L1', 'back'), x('A', 'BL', 'block'), x('V', 'L2', 'parry'), x('A', 'L2', 'hit', E8)],
@@ -159,7 +159,7 @@
       const att = who(b.att), def = att === A ? V : A, m = moveOf(att, b.m), a = ATK[m];
       if (!a) continue;
 
-      const want = b.want || (a.kind === 'kick' ? 104 : a.kind === 'shoot' ? 300 : a.kind === 'whip' ? 150 : 162);
+      const want = b.want || (a.kind === 'kick' ? 112 : a.kind === 'shoot' ? 300 : a.kind === 'whip' ? 150 : 162);
       acts.push({ t, k: 'close', f: att, want, dur: 0.17 });
       t += 0.18;
       const W = hitOf(a);
@@ -301,6 +301,12 @@
     { const P = fx.parts; if (P) for (let i = P.length - 1; i >= 0; i--) if (P[i].k === 'r') P.splice(i, 1); }
     const pn = S.pin;
     if (pn) { if (pn.f.serial !== pn.serial) S.pin = null; else { const d = (pn.f.x - pn.x0) * pn.f.dir; if (d > 28) pn.f.x = pn.x0 + pn.f.dir * 28; } }
+
+
+    if (A.onGround && V.onGround && A.state !== 'clash') {
+      const d = V.x - A.x, ad = Math.abs(d), MIN = 98;
+      if (ad < MIN) { const sd = d === 0 ? A.dir : Math.sign(d), push = (MIN - ad) / 2; A.x -= sd * push; V.x += sd * push; }
+    }
     const cp = S.cap;
     if (cp) { if (cp.f.serial !== cp.serial) S.cap = null; else { const d = (cp.x0 - cp.f.x) * cp.f.dir; if (d > cp.max) { cp.f.x = cp.x0 - cp.f.dir * cp.max; cp.f.vx = 0; } } }
     S.rt += g.STEP;
@@ -399,6 +405,44 @@
     }
     return follow0.call(this, dt, fa, fb, focus);
   };
+
+
+
+
+  const LIFT = new WeakMap(), LK = { u: 0, t: 0 };
+  const hexRgb = (h) => { const m = /^#?([0-9a-f]{6})$/i.exec(h || ''); if (!m) return null; const v = parseInt(m[1], 16); return [(v >> 16) & 255, (v >> 8) & 255, v & 255]; };
+  function liftOf(f) {
+    let L = LIFT.get(f);
+    if (L && L.col === f.col) return L.c;
+    const cl = hexRgb(f.col && f.col.cloth), ac = hexRgb(f.col && f.col.accent);
+    const lum = cl ? (0.2126 * cl[0] + 0.7152 * cl[1] + 0.0722 * cl[2]) / 255 : 1;
+    let c = null;
+    if (lum < 0.22 && ac) { const m = (k) => Math.round(ac[k] * 0.55 + 205 * 0.45); c = [m(0), m(1), m(2)]; }
+    LIFT.set(f, { col: f.col, c });
+    return c;
+  }
+  const scene = ND.scene;
+  if (scene && scene.lightFighter) {
+    const lf0 = scene.lightFighter;
+    scene.lightFighter = function (c, f, x0, y0, x1, y1) {
+      const r = lf0.apply(this, arguments);
+      let on = !!SB;
+      if (!on && G.F) for (const g of G.F) { const k = D.finOf(g); if (k && (CH.handled(k) || eligible(k))) on = true; }
+
+      const now = ND.scene ? ND.scene.t : 0, dt = clamp(now - (LK.t || now), 0, 0.1); LK.t = now;
+      LK.u = clamp((LK.u || 0) + (on ? 1 : -1) * dt * 3.5, 0, 1);
+      const col = LK.u > 0 && f && f.ch ? liftOf(f) : null, K = ease(LK.u);
+      if (col) {
+        const op = c.globalCompositeOperation, a0 = c.globalAlpha;
+        c.globalCompositeOperation = 'source-atop'; c.globalAlpha = 1;
+        const g = c.createLinearGradient(0, y0, 0, y1);
+        g.addColorStop(0, `rgba(${col[0]},${col[1]},${col[2]},${(0.24 * K).toFixed(3)})`); g.addColorStop(0.55, `rgba(${col[0]},${col[1]},${col[2]},${(0.14 * K).toFixed(3)})`); g.addColorStop(1, `rgba(${col[0]},${col[1]},${col[2]},${(0.06 * K).toFixed(3)})`);
+        c.fillStyle = g; c.fillRect(x0, y0, x1 - x0, y1 - y0);
+        c.globalCompositeOperation = op; c.globalAlpha = a0;
+      }
+      return r;
+    };
+  }
   const finFx0 = D.finFx;
 
   if (finFx0) D.finFx = function (k, c, o) { if ((k === 'cut' || k === 'ink') && (CH.handled(c) || eligible(c))) return false; return finFx0.call(this, k, c, o); };
