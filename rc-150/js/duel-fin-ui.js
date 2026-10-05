@@ -72,13 +72,23 @@
         for (let i = 0; i < 5; i++) au.tone({ freq: 2400 + i * 180, dur: 0.07, gain: 0.05, send: 0.3, pan: A.pan, delay: i * 0.07, type: 'square' });
         break;
       case 'smoke': { if (D.lite) break;
-        const sc = o.col || 'rgba(20,18,28,';
-        for (let i = 0; i < 9; i++) U.smoke.push({ x: A.x + (Math.random() - 0.5) * 70, y: A.y - 30 - Math.random() * 150, r: 16 + Math.random() * 18, vx: (Math.random() - 0.5) * 50, vy: -20 - Math.random() * 30, age: 0, life: 0.6 + Math.random() * 0.4, col: sc });
+
+
+        const sc = o.col || 'rgba(20,18,28,', tone = o.tone || null;
+        for (let i = 0; i < 9; i++) U.smoke.push({ x: A.x + (Math.random() - 0.5) * 70, y: A.y - 30 - Math.random() * 150, r: 16 + Math.random() * 18, vx: (Math.random() - 0.5) * 50, vy: -20 - Math.random() * 30, age: 0, life: 0.6 + Math.random() * 0.4, col: sc, tone });
         au.noise({ type: 'bandpass', f0: 900, f1: 300, q: 1, dur: 0.3, gain: 0.18, send: 0.4, pan: A.pan });
         break;
       }
     }
   };
+
+
+  function toneSmoke(ctx, p, u2) {
+    const x = cam.sx(p.x), y = cam.sy(p.y), R = (p.r + 20 * u2) * cam.k, a = 0.6 * (1 - u2);
+    ctx.fillStyle = `rgba(18,10,24,${(a * 0.8).toFixed(3)})`; ctx.beginPath(); ctx.arc(x, y, R, 0, 6.283); ctx.fill();
+    ctx.fillStyle = `rgba(42,24,56,${a.toFixed(3)})`; ctx.beginPath(); ctx.arc(x - R * 0.08, y - R * 0.1, R * 0.72, 0, 6.283); ctx.fill();
+    ctx.fillStyle = `rgba(86,58,118,${(a * 0.5).toFixed(3)})`; ctx.beginPath(); ctx.arc(x - R * 0.26, y - R * 0.3, R * 0.3, 0, 6.283); ctx.fill();
+  }
 
 
 
@@ -167,7 +177,7 @@
       ctx.fillStyle = 'rgba(4,4,8,.85)'; ctx.fillRect(0, 0, cam.W, h); ctx.fillRect(0, cam.H - h, cam.W, h);
     }
     for (let i = U.gathers.length - 1; i >= 0; i--) { const g = U.gathers[i]; g.age += rdt; if (g.age >= g.life) { U.gathers.splice(i, 1); continue; } drawGather(ctx, g); }
-    for (let i = U.smoke.length - 1; i >= 0; i--) { const p = U.smoke[i]; p.age += rdt; if (p.age >= p.life) { U.smoke.splice(i, 1); continue; } p.x += p.vx * rdt; p.y += p.vy * rdt; const u2 = p.age / p.life; ctx.fillStyle = p.col + (0.55 * (1 - u2)).toFixed(3) + ')'; ctx.beginPath(); ctx.arc(cam.sx(p.x), cam.sy(p.y), (p.r + 20 * u2) * cam.k, 0, 6.283); ctx.fill(); }
+    for (let i = U.smoke.length - 1; i >= 0; i--) { const p = U.smoke[i]; p.age += rdt; if (p.age >= p.life) { U.smoke.splice(i, 1); continue; } p.x += p.vx * rdt; p.y += p.vy * rdt; const u2 = p.age / p.life; if (p.tone) { toneSmoke(ctx, p, u2); continue; } ctx.fillStyle = p.col + (0.55 * (1 - u2)).toFixed(3) + ')'; ctx.beginPath(); ctx.arc(cam.sx(p.x), cam.sy(p.y), (p.r + 20 * u2) * cam.k, 0, 6.283); ctx.fill(); }
     for (let i = U.petals.length - 1; i >= 0; i--) { const p = U.petals[i]; p.age += rdt; if (p.age >= p.life) { U.petals.splice(i, 1); continue; } p.vy += 60 * rdt; p.x += (p.vx + Math.sin(p.age * 5 + p.a) * 40) * rdt; p.y += p.vy * rdt; p.a += p.va * rdt; drawPetal(ctx, p); }
     for (let i = U.strokes.length - 1; i >= 0; i--) { const s = U.strokes[i]; s.age += rdt; if (s.age >= s.life) { U.strokes.splice(i, 1); continue; } drawStroke(ctx, s); }
     hintStep(); drawHint(ctx, u, rdt);

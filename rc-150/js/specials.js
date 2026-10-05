@@ -458,7 +458,7 @@
         slashArc({ x: mx, y: f.y - 150, r: d / 2 + 30, mid: Math.PI / 2, span: 1.1, w: 10, sx: 1, sy: 0.42, rotA: -0.06 * s, col: '255,180,120', core: '255,255,255', life: 0.35, grow: 0.12 });
         for (let i = 0; i < 26; i++) {
           const u = rand(-1, 1), x = mx + u * d / 2, y = f.y - 150 + (1 - u * u) * (d / 2 + 30) * 0.42 * 0.98;
-          part({ k: i % 3 ? 'ember' : 'petal', x, y, vx: rand(-40, 40), vy: rand(-60, 30), g: i % 3 ? -60 : 90, drag: 1.2, flut: i % 3 ? 0 : 6, life: rand(0.7, 1.3), sz: i % 3 ? rand(1.2, 2.4) : rand(4, 6), c: i % 3 ? '255,110,60' : '214,40,40', fadeIn: true, delay: 0 });
+          part({ k: i % 3 ? 'ember' : 'petal', x, y, vx: rand(-40, 40), vy: rand(-60, 30), g: i % 3 ? -60 : 90, drag: 1.2, flut: i % 3 ? 0 : 6, life: rand(0.7, 1.3), sz: i % 3 ? rand(1.2, 2.4) : rand(4, 6), c: i % 3 ? '255,110,60' : '255,176,196', fadeIn: true, delay: 0 });
         }
       }],
     ],
@@ -472,7 +472,7 @@
       snd.akaneHit(f.pan);
       glow(x, y, 120, '255,60,45', 0.35);
       fx.ring(x, y, '255,90,70', 120);
-      burst(22, () => ({ k: 'petal', x, y, vx: f.dir * rand(60, 460), vy: rand(-380, 60), g: 260, drag: 1.4, flut: 6, life: rand(0.8, 1.5), sz: rand(4, 7), c: Math.random() < 0.5 ? '214,36,40' : '240,80,70' }));
+      burst(22, () => ({ k: 'petal', x, y, vx: f.dir * rand(60, 460), vy: rand(-380, 60), g: 260, drag: 1.4, flut: 6, life: rand(0.8, 1.5), sz: rand(4, 7), c: Math.random() < 0.5 ? '255,176,196' : '250,206,218' }));
       burst(20, () => ({ k: 'ember', x, y, vx: f.dir * rand(100, 600), vy: rand(-300, 100), g: -80, drag: 2, life: rand(0.5, 1), sz: rand(1.2, 2.6), c: '255,140,80' }));
     },
   };
@@ -809,6 +809,9 @@
 
   const SH_COL = '225,24,48', SH_HOT = '255,120,110';
 
+
+  const shSmokeC = () => { const q = Math.random(); return q < 0.5 ? '42,24,56' : q < 0.85 ? '18,10,24' : '86,58,118'; };
+
   const mkShMark = (ctx) => stops(ctx.createRadialGradient(0, 0, 0, 0, 0, 70), [0, `rgba(${SH_COL},.9)`, 1, `rgba(${SH_COL},0)`]);
   const mkShSpark = (ctx) => stops(ctx.createRadialGradient(0, 0, 0, 0, 0, 1), [0, `rgba(${SH_COL},.6)`, 1, `rgba(${SH_COL},0)`]);
   const mkShAura = (ctx) => stops(ctx.createRadialGradient(0, 0, 8, 0, 0, 115), [0, `rgba(${SH_COL},.9)`, 0.5, 'rgba(160,10,30,.25)', 1, 'rgba(120,0,20,0)']);
@@ -867,7 +870,7 @@
       au.thud(last ? 1.5 : 1.1, f.pan); snd.ring(last ? 220 : 330, f.pan, 0.05, 0.9);
       glow(x, y, last ? 150 : 100, SH_COL, last ? 0.45 : 0.3);
       fx.ring(x, y, SH_HOT, last ? 150 : 100);
-      burst(last ? 26 : 14, () => ({ k: 'ember', x, y, vx: Math.sign(o.x - f.x) * rand(80, 520), vy: rand(-360, 80), g: -40, drag: 2, life: rand(0.4, 0.9), sz: rand(1.3, 2.8), c: Math.random() < 0.6 ? '255,60,70' : '255,150,120' }));
+      burst(last ? 26 : 14, () => ({ k: 'ember', x, y, vx: Math.sign(o.x - f.x) * rand(80, 520), vy: rand(-360, 80), g: -40, drag: 2, life: rand(0.4, 0.9), sz: rand(1.3, 2.8), c: Math.random() < 0.6 ? '255,130,70' : '255,190,130' }));
       if (i === 1 && o.dir !== (f.x > o.x ? 1 : -1)) fx.text(o.x, -180, 'ARKADAN!', '#ff8a8a');
       if (last) { au.taiko(1.4); cam.punch(12); fx.text(o.x, -240, '羅刹!', '#ff5a6a'); }
     },
@@ -939,11 +942,11 @@
       fx.dust(f.x, 0, 14, 1.6);
     }
     shuraArms(f, i);
-    burst(i === 2 ? 20 : 10, () => ({ k: 'ember', x: x + rand(-40, 60) * f.dir, y: y + rand(-60, 40), vx: f.dir * rand(60, 360), vy: rand(-300, 40), g: -30, drag: 2, life: rand(0.4, 0.8), sz: rand(1.2, 2.4), c: '255,70,80' }));
+    burst(i === 2 ? 20 : 10, () => ({ k: 'ember', x: x + rand(-40, 60) * f.dir, y: y + rand(-60, 40), vx: f.dir * rand(60, 360), vy: rand(-300, 40), g: -30, drag: 2, life: rand(0.4, 0.8), sz: rand(1.2, 2.4), c: '255,130,80' }));
   }
   function shuraSmoke(x, y, appear) {
-    burst(appear ? 9 : 18, () => { const a = rand(0, TAU), sp = rand(60, appear ? 260 : 280); return { k: 'smoke', x: x + rand(-20, 20), y: y - rand(10, 170), vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.5 - 40, drag: 3, life: appear ? rand(0.3, 0.55) : rand(0.45, 0.85), sz: rand(9, appear ? 15 : 19), grow: 1.3, c: Math.random() < 0.55 ? '70,8,16' : '26,10,14', a: appear ? 0.5 : 0.68 }; });
-    burst(12, () => ({ k: 'ember', x: x + rand(-30, 30), y: y - rand(20, 160), vx: rand(-90, 90), vy: rand(-150, -20), drag: 2, life: rand(0.3, 0.7), sz: rand(1, 2.2), c: '255,50,60' }));
+    burst(appear ? 9 : 18, () => { const a = rand(0, TAU), sp = rand(60, appear ? 260 : 280); return { k: 'smoke', x: x + rand(-20, 20), y: y - rand(10, 170), vx: Math.cos(a) * sp, vy: Math.sin(a) * sp * 0.5 - 40, drag: 3, life: appear ? rand(0.3, 0.55) : rand(0.45, 0.85), sz: rand(9, appear ? 15 : 19), grow: 1.3, c: shSmokeC(), a: appear ? 0.5 : 0.68 }; });
+    burst(12, () => ({ k: 'ember', x: x + rand(-30, 30), y: y - rand(20, 160), vx: rand(-90, 90), vy: rand(-150, -20), drag: 2, life: rand(0.3, 0.7), sz: rand(1, 2.2), c: '196,140,255' }));
     fx.ring(x, y - 90, SH_COL, appear ? 70 : 90);
   }
 
@@ -1026,7 +1029,7 @@
       out: 0.35, until: shEndT + 0.2,
       step(dt) {
         const f = this.f;
-        if (this.fade === 0 && !f.hidden && Math.random() < dt * 36) part({ k: Math.random() < 0.35 ? 'smoke' : 'ember', x: f.x + rand(-28, 28), y: f.y - rand(10, 150), vx: rand(-30, 30), vy: rand(-190, -50), g: -40, drag: 1, life: rand(0.4, 0.8), sz: rand(1.3, 2.6), grow: 0.8, c: Math.random() < 0.6 ? '220,20,45' : '120,10,22', a: 0.8 });
+        if (this.fade === 0 && !f.hidden && Math.random() < dt * 36) { const sm = Math.random() < 0.35; part({ k: sm ? 'smoke' : 'ember', x: f.x + rand(-28, 28), y: f.y - rand(10, 150), vx: rand(-30, 30), vy: rand(-190, -50), g: -40, drag: 1, life: rand(0.4, 0.8), sz: rand(1.3, 2.6), grow: 0.8, c: sm ? shSmokeC() : Math.random() < 0.6 ? '255,96,64' : '255,150,90', a: 0.8 }); }
       },
       draw(ctx) {
         const f = this.f;

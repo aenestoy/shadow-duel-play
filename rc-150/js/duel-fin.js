@@ -349,14 +349,14 @@
 
   def('shura:1', { dur: 1.3, trig: { knock: 1, kb: 420, mul: 1.2, lift: 0.9 }, card: { k: '修羅', n: 'SHURA' }, ops: [
     sl(0, 0.3, 0.28), cm(0, 'V', 2.0, -108, 1), fxo(0, 'ink', { a: 0.8, len: 0.22, w: 1.2 }),
-    cm(0.48, 'A', 2.15, -130, 1), ps(0.5, [[0.18, 'sp_shRoar', 'outQuart'], [0.5, 'sp_shRoar'], [0.78, '@stance', 'inOut']]), fxo(0.54, 'roar'), fxo(0.54, 'smoke', { col: 'rgba(120,20,24,' })] });
+    cm(0.48, 'A', 2.15, -130, 1), ps(0.5, [[0.18, 'sp_shRoar', 'outQuart'], [0.5, 'sp_shRoar'], [0.78, '@stance', 'inOut']]), fxo(0.54, 'roar'), fxo(0.54, 'smoke', { tone: 'asura' })] });
   def('shura:2', { dur: 1.9, trig: { stun: 1.9, kb: 220 }, card: { k: '羅刹', n: 'RASETSU' }, ops: [
     sl(0, 0.4, 0.2), cm(0, 'mid', 1.95, -116, 1),
     mv(0.2, 'fk_s1', 1, [H(3, { kb: 160 }), H(3, { kb: 280 })]), mv(0.98, 'rn_s2', 1, [KO(4, { kb: 500, lift: 1 })]),
     cm(1.0, 'A', 2.2, -120, 1), sl(1.1, 0.34, 0.38), fxo(1.1, 'ink', { a: 0.4, len: 0.22 }), fxo(1.16, 'card')] });
   def('shura:3', { dur: 3.0, trig: { stun: 2.8, kb: 220 }, card: { k: '阿修羅', n: 'ASHURA RASETSU' }, ops: [
     sl(0, 0.4, 0.2), cm(0, 'mid', 1.95, -118, 1), { t: 0.1, op: 'dim', v: 0.45 },
-    mv(0.2, 'fk_dh', 1, [H(4, { kb: 300 })]), fxo(0.72, 'roar'), fxo(0.74, 'smoke', { col: 'rgba(120,20,24,' }),
+    mv(0.2, 'fk_dh', 1, [H(4, { kb: 300 })]), fxo(0.72, 'roar'), fxo(0.74, 'smoke', { tone: 'asura' }),
     mv(0.76, 'sp_shura', 1, [H(3, { kb: 120 }), H(3, { kb: 120 }), KO(5, { kb: 480, lift: 1.1 })]),
     cm(1.25, 'V', 2.05, -118, 1), cm(1.65, 'mid', 1.8, -118, 1), cm(2.0, 'V', 1.9, -110, 1),
     sl(2.0, 0.3, 0.42), fxo(2.0, 'ink', { a: -0.5, len: 0.26, w: 1.2 }), fxo(2.06, 'card')] });
@@ -383,7 +383,7 @@
   crown('jin', { k: '合掌', n: 'GASSHO' }, [[0.35, 'jn_bow', 'inOutSine'], [1.3, 'jn_bow']]);
   crown('mai', { k: '扇閉じ', n: 'OGI-TOJI' }, [[0.25, 'mi_hA', 'outQuart'], [0.8, 'mi_hA'], [1.2, 'mi_stance', 'inOut']], [fxo(0.3, 'petals', { n: 12 }), fxo(1.0, 'snap')]);
   crown('tsubame', { k: '残心', n: 'ZANSHIN' }, [[0.3, 'ts_aim', 'outCubic'], [1.3, 'ts_aim']]);
-  crown('shura', { k: '阿修羅王', n: 'ASHURA-O' }, [[0.25, 'sp_shRoar', 'outQuart'], [1.3, 'sp_shRoar']], [fxo(0.3, 'roar'), fxo(0.3, 'smoke', { col: 'rgba(120,20,24,' })]);
+  crown('shura', { k: '阿修羅王', n: 'ASHURA-O' }, [[0.25, 'sp_shRoar', 'outQuart'], [1.3, 'sp_shRoar']], [fxo(0.3, 'roar'), fxo(0.3, 'smoke', { tone: 'asura' })]);
 
 
   def('_:any', { dur: 0.9, trig: { knock: 1, kb: 300, mul: 1.1 }, ops: [{ t: 0, op: 'slow', v: 0.35, d: 0.28 }, { t: 0, op: 'cam', on: 'V', z: 2.19, y: -112, cut: 1 }, { t: 0, op: 'fx', k: 'ink', a: -0.2, len: 0.18 }] });
