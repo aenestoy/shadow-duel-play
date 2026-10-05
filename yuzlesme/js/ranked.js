@@ -1624,7 +1624,9 @@
 
     const meSnap = Object.assign({}, v.me || {}, me && !me.guest ? { name: me.nick || (v.me && v.me.name), tier: me.tier, placement: me.placement, games: me.games, rating: me.rating,
       title_id: me.title_id != null ? me.title_id : v.me && v.me.title_id, finals: (v.me && v.me.finals) || me.badges } : { guest: !!(me && me.guest) || !!(v.me && v.me.guest) });
-    delete meSnap.player_id;
+
+    delete meSnap.player_id; delete meSnap.plate;
+    try { if (ND.pass && ND.pass.syncState && ND.pass.level && !meSnap.guest) { const ss = ND.pass.syncState(); meSnap.plate = { lv: ND.pass.level().lv, eq: ss.eq, jc: ss.jc }; } } catch (e) {                }
     const opp = v.opp || {};
     const mineSide = ND.rankVs.sideOf(meSnap, { you: true, ninja: P[mine], look: looks[mine], season });
     const oppSide = ND.rankVs.sideOf(opp, { ninja: P[other], look: looks[other], season, ghost: !!x.ghost, name: x.ghost ? ghostLabel(opp, L) : null });
@@ -1633,7 +1635,7 @@
     if (ND.pass && ND.pass.matchFlair) ND.pass.matchFlair(x.side, v.opp);
     vsUi = ND.rankVs.open(box, {
       sides: [mineSide, oppSide], season, top: a ? a.name : '', arenaKanji: a ? a.kanji : '', tag: v.ranked ? L.ranked : L.unranked,
-      plates: [meSnap.plate ? null : plate(meSnap), opp.plate || x.ghost ? null : plate(opp)],
+      plates: [null, opp.plate || x.ghost || opp.guest ? null : plate(opp)],
       status: () => (x.ghost ? { text: '影 ' + (L.ghostReady || ''), ok: true } : K && K.connected ? { text: ND.rankVs.t(4), ok: true } : L.connecting),
     });
     if (vsUi) vsUi.mid = x.id;

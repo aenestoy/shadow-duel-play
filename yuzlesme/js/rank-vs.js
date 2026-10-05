@@ -141,6 +141,7 @@
     font-family: var(--display); color: var(--text); user-select: none; -webkit-user-select: none; }
   .rvs::before { content: ''; position: absolute; left: 50%; top: -10%; bottom: -10%; width: 2px; z-index: 0; pointer-events: none;
     background: linear-gradient(180deg, rgba(217,179,108,0), rgba(246,223,166,.55) 45%, rgba(217,179,108,0)); transform: rotate(12deg); }
+  body:has(#mocap-credit) .rvs { padding-bottom: 20px; } /* (the motion capture licence line stays readable under the cards) */
   .rvs-top { position: relative; z-index: 3; justify-self: center; max-width: 100%; display: flex; gap: 8px; align-items: center; min-width: 0;
     font: 600 12px/1.3 var(--display); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
   .rvs-top > * { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
@@ -274,7 +275,7 @@
     const nr = el('div', 'rvs-nmr');
     if (m.lv) nr.append(latin(el('b', 'rvs-lv', tx(5) + ' ' + m.lv)));
     const nm = el('span', 'rvs-nm', m.name); nm.dir = 'auto'; nm.setAttribute('translate', 'no'); nm.title = m.name;
-    nr.append(nm);
+    if (!(m.you && m.name === '—')) nr.append(nm);
     if (m.you) nr.append(el('span', 'rvs-you', L.you || 'You'));
     if (m.ghost) { const a = el('span', 'rvs-ai', '影 ' + (L.aiTag || 'AI')); nr.append(a); }
     add(nr);
@@ -323,7 +324,8 @@
     const p = m.prev, c = el('div', 'rvs-prev');
     if (p.first || p.none) {
       c.classList.add('empty');
-      c.append(el('span', null, p.first ? tx(1) : tx(0, p.season) + ' · ' + tx(2)));
+      if (p.none) c.append(el('small', null, tx(0, p.season)));
+      c.append(el('span', null, p.first ? tx(1) : tx(2)));
       return c;
     }
     const T = tierInfo(p.tier), e = emblem(p.tier, { size: 26, glow: false, anim: false });

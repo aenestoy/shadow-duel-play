@@ -1,1 +1,2 @@
 2026-10-05 11:59  5b01a9e1  ranked versus screen, first look (made-up players; tap for the next pair)
+2026-10-05 12:11  49108df3  versus screen: two-line season chip, own plate from the save, licence line clear
