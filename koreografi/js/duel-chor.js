@@ -744,9 +744,12 @@
     if (S && S.human) {
       for (const w of S.wins) {
         if (!w.open || w.cancel || (w.ok === false) || S.t > w.hit + 0.1) continue;
-        const f = w.f, X = cam.sx(f.x), Y = cam.sy(f.y - 320),
-           T0 = w.ws - CUE, u = clamp((w.we - S.t) / Math.max(0.05, w.we - T0), 0, 1);
-        const lit = S.t >= w.ws, held = w.ok === true, R = (19 + 42 * u) * u0;
+        const f = w.f, T0 = w.ws - CUE, u = clamp((w.we - S.t) / Math.max(0.05, w.we - T0), 0, 1);
+        const lit = S.t >= w.ws, held = w.ok === true, R = (19 + 42 * u) * u0, RM = 61 * u0;
+
+
+        let X = cam.sx(f.x), Y = cam.sy(f.y - 236) - RM - 10 * u0;
+        if (Y - RM < cam.H * 0.09) { const side = f.x >= f.opp.x ? 1 : -1; X = clamp(X + side * (RM + 46 * u0), RM + 4, cam.W - RM - 4); Y = Math.max(cam.H * 0.09 + RM, cam.sy(f.y - 200)); }
         ctx.lineWidth = (lit ? 5 : 3) * u0;
         ctx.strokeStyle = held ? 'rgba(140,240,160,.95)' : lit ? 'rgba(255,214,110,.95)' : 'rgba(255,255,255,.75)';
         ctx.beginPath(); ctx.arc(X, Y, R, 0, 6.283); ctx.stroke();
