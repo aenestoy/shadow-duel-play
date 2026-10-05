@@ -1,1 +1,2 @@
 2026-10-06 00:56  5cac73df  season rewards showcase, first look (made-up standing)
+2026-10-06 01:15  5fc8bb77  season rewards showcase: compact ladder, all languages fit

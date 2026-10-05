@@ -109,7 +109,7 @@
   .rwd-r .n { font: 600 14px/1.15 var(--display); letter-spacing: .05em; color: var(--tc, var(--text)); white-space: nowrap; }
   .rwd-r .n i { display: block; font: 700 9.5px/1.2 var(--display); font-style: normal; letter-spacing: .12em; text-transform: uppercase; color: var(--gold-hi, var(--gold)); }
   .rwd-r .g { display: flex; flex-wrap: wrap; gap: 3px 5px; min-width: 0; }
-  .rwd-c { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; padding: 1px 6px; border: 1px solid rgba(255,255,255,.14); border-radius: 3px; font: 500 11.5px/1.45 var(--body); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rwd-c { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; padding: 1px 6px; border: 1px solid rgba(255,255,255,.14); border-radius: 3px; font: 500 11.5px/1.3 var(--body); overflow-wrap: anywhere; box-sizing: border-box; padding-block: 2px; }
   .rwd-c.t { color: var(--tc); border-color: var(--tc); font-family: var(--display); font-weight: 600; letter-spacing: .03em; }
   .rwd-c b { font: 700 11px/1 var(--jp); }
   .rwd-c i { flex: none; width: 10px; height: 10px; border-radius: 2px; background: linear-gradient(135deg, var(--a), var(--a) 50%, var(--b) 50%); }
@@ -130,6 +130,10 @@
     .rwd-n { display: none; }
     .rwd-l { gap: 3px; }
     .rwd-me { font-size: 10.5px; }
+  }
+  @media (max-height: 380px) {
+    #rk.overlay:has(.rk-card.rwd) { padding-block: 4px; } #rk .rk-card.rwd { gap: 4px; padding-top: 8px; padding-bottom: 8px; } .rwd-l { gap: 2px; }
+    .rwd-r { padding: 1px 6px; } .rwd-r .k { width: 22px; height: 22px; } .rwd-r .k svg { width: 22px; height: 22px; }
   }
   `;
   function css() {
@@ -185,7 +189,9 @@
       const P = plan(f), chips = [];
       chips.push(chip(titleName(season, f), 't', TCOL[f], owns('title_s' + season + '_' + SLUG[f])));
       if (P.crest) { const s = chip(tx(3, null, FAMS[f][1]), '', null, owns('badge_s' + season + '_' + SLUG[f])); const b = el('b', null, FAMS[f][0][0]); b.style.color = TCOL[f]; s.prepend(b); chips.push(s); }
-      for (const kk of P.colors) chips.push(colourChip(kk, kk === 'shogun' ? 5 : 4));
+
+      if (P.colors.length > 1) { const s2 = chip(tx(4, null, 'Daimyō · Shōgun'), '', null, owns(COSTUME_ID.daimyo) && owns(COSTUME_ID.shogun)); for (const kk of P.colors.slice().reverse()) { const i = el('i'); i.style.setProperty('--a', PALS[kk].cloth); i.style.setProperty('--b', PALS[kk].wrap); s2.prepend(i); } chips.push(s2); }
+      else for (const kk of P.colors) chips.push(colourChip(kk, kk === 'shogun' ? 5 : 4));
       const b = row('f' + f, TOP[f], FAMS[f][1], null, chips, TCOL[f]);
       if (f === myFam) {
         b.classList.add('me');
@@ -201,7 +207,7 @@
     const so = el('p', 'rwd-so');
     if (me.guest || !me.season) so.textContent = tx(16);
     else if (!placed) so.textContent = me.placement > 0 ? tx(10, me.placement) + ' · ' + tx(12) : tx(12);
-    else so.textContent = tx(11, null, titleName(season, peakFam) + (plan(peakFam).crest ? ' · ' + tx(3, null, FAMS[peakFam][1]) : '') + plan(peakFam).colors.map((kk) => ' · ' + tx(4, null, FAMS[kk === 'shogun' ? 5 : 4][1])).join(''));
+    else { const cs = plan(peakFam).colors; so.textContent = tx(11, null, titleName(season, peakFam) + (plan(peakFam).crest ? ' · ' + tx(3, null, FAMS[peakFam][1]) : '') + (cs.length ? ' · ' + tx(4, null, cs.map((kk) => FAMS[kk === 'shogun' ? 5 : 4][1]).join(' · ')) : '')); }
     c.append(so, el('p', 'rwd-n', tx(1)));
     function show() {
       rows.forEach((b) => b.setAttribute('aria-pressed', String(b._key === ui.sel)));

@@ -41,6 +41,7 @@
 
 
 
+
 (function (ND) {
   'use strict';
   if (!ND || typeof document === 'undefined') return;
@@ -71,8 +72,8 @@
                 linear-gradient(145deg, var(--fr1), var(--fr0) 38%, var(--fr2) 62%, var(--fr1)) border-box;
     box-shadow: 0 0 0 1px rgba(0,0,0,.55), 0 6px 22px rgba(0,0,0,.5), 0 0 18px var(--frg); }
   .cst > canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; z-index: 1; }
-  .cst > .cst-pt { position: absolute; left: 0; top: 0; width: 100%; height: 100%; z-index: 1; display: none; object-fit: cover; object-position: 50% 25%; pointer-events: none;
-    -webkit-mask-image: radial-gradient(ellipse 72% 78% at 50% 42%, #000 58%, transparent 100%); mask-image: radial-gradient(ellipse 72% 78% at 50% 42%, #000 58%, transparent 100%); }
+  .cst > .cst-pt { position: absolute; left: 50%; top: 0; height: 100%; width: auto; max-width: 100%; aspect-ratio: 4 / 5; transform: translateX(-50%); z-index: 1; display: none; object-fit: cover; object-position: 50% 30%; pointer-events: none;
+    -webkit-mask-image: radial-gradient(ellipse 62% 70% at 50% 62%, #000 62%, transparent 100%); mask-image: radial-gradient(ellipse 62% 70% at 50% 62%, #000 62%, transparent 100%); }
   .cst.pt > .cst-pt { display: block; } .cst.pt > canvas { visibility: hidden; }
   .cst > .cst-c { position: absolute; width: 24px; height: 24px; z-index: 3; pointer-events: none; }
   .cst > .cst-c svg { display: block; width: 100%; height: 100%; }
