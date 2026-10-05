@@ -94,6 +94,8 @@
     const fd = clamp(o.finDmg, [0.3, 1.5]);
     if (fd !== undefined) t.finDmg = fd;
 
+    if (o.finChor === 0 || o.finChor === 1) t.finChor = o.finChor;
+
     if (isObj(o.duelKch)) { const m = {}; for (const [id, v] of Object.entries(o.duelKch)) { const c = NIN.includes(id) ? clamp(v, [0, 1]) : undefined; if (c !== undefined) m[id] = c; } if (Object.keys(m).length) t.duelKch = m; }
 
 
@@ -126,7 +128,7 @@
 
   function effective(t) {
     t = t || {};
-    const E = { levels: {}, apprenticePlusK: t.apprenticePlusK ?? DEF.apprenticePlusK, kiWait: t.kiWait ?? DEF.kiWait, duelK: t.duelK ?? DEF.duelK, duelSoft: t.duelSoft ?? DEF.duelSoft, duelSpeed: t.duelSpeed ?? null, duelGhostK: t.duelGhostK ?? null, finDmg: t.finDmg ?? null, duelKch: t.duelKch || null, duelK0ch: t.duelK0ch || null, duelKAch: t.duelKAch || null, duelKUch: t.duelKUch || null, duelBindPlay: t.duelBindPlay || null, duelBindPlayCh: t.duelBindPlayCh || null, duelDmg: t.duelDmg || null, duelChDmg: t.duelChDmg || null, journey: {} };
+    const E = { levels: {}, apprenticePlusK: t.apprenticePlusK ?? DEF.apprenticePlusK, kiWait: t.kiWait ?? DEF.kiWait, duelK: t.duelK ?? DEF.duelK, duelSoft: t.duelSoft ?? DEF.duelSoft, duelSpeed: t.duelSpeed ?? null, duelGhostK: t.duelGhostK ?? null, finDmg: t.finDmg ?? null, finChor: t.finChor ?? null, duelKch: t.duelKch || null, duelK0ch: t.duelK0ch || null, duelKAch: t.duelKAch || null, duelKUch: t.duelKUch || null, duelBindPlay: t.duelBindPlay || null, duelBindPlayCh: t.duelBindPlayCh || null, duelDmg: t.duelDmg || null, duelChDmg: t.duelChDmg || null, journey: {} };
     for (const l of LEVEL_KEYS) {
       const o = (t.levels && t.levels[l]) || {};
       E.levels[l] = Object.assign({}, DEF.levels[l], o, { tick: (o.tick || DEF.levels[l].tick).slice() });
@@ -146,7 +148,7 @@
       for (const f of Object.keys(FIELDS)) lv[f] = e[f];
       lv.tick[0] = e.tick[0]; lv.tick[1] = e.tick[1];
     }
-    K.apprenticePlusK = E.apprenticePlusK; K.kiWait = E.kiWait; K.duelK = E.duelK; K.duelSoft = E.duelSoft; if (!GK0) GK0 = { v: K.duelGhostK, f: K.finDmg, s: K.duelSpeed }; if (E.duelSpeed != null) K.duelSpeed = E.duelSpeed; else if (GK0.s != null) K.duelSpeed = GK0.s; else delete K.duelSpeed; if (!GK0) GK0 = { v: K.duelGhostK, f: K.finDmg }; if (E.finDmg != null) K.finDmg = E.finDmg; else if (GK0.f != null) K.finDmg = GK0.f; else delete K.finDmg; if (E.duelGhostK != null) K.duelGhostK = E.duelGhostK; else if (GK0.v != null) K.duelGhostK = GK0.v; else delete K.duelGhostK; if (!KCH0) KCH0 = Object.assign({}, K.duelKch || {}); K.duelKch = Object.assign({}, KCH0, E.duelKch || {});
+    K.apprenticePlusK = E.apprenticePlusK; K.kiWait = E.kiWait; K.duelK = E.duelK; K.duelSoft = E.duelSoft; if (!GK0) GK0 = { v: K.duelGhostK, f: K.finDmg, s: K.duelSpeed }; if (E.duelSpeed != null) K.duelSpeed = E.duelSpeed; else if (GK0.s != null) K.duelSpeed = GK0.s; else delete K.duelSpeed; if (!GK0) GK0 = { v: K.duelGhostK, f: K.finDmg }; if (E.finDmg != null) K.finDmg = E.finDmg; else if (GK0.f != null) K.finDmg = GK0.f; else delete K.finDmg; if (E.finChor != null) K.finChor = E.finChor; else delete K.finChor; if (E.duelGhostK != null) K.duelGhostK = E.duelGhostK; else if (GK0.v != null) K.duelGhostK = GK0.v; else delete K.duelGhostK; if (!KCH0) KCH0 = Object.assign({}, K.duelKch || {}); K.duelKch = Object.assign({}, KCH0, E.duelKch || {});
     if (!KDM0) KDM0 = Object.assign({}, K.duelDmg || {}); K.duelDmg = Object.assign({}, KDM0, E.duelDmg || {});
     if (!KCD0) KCD0 = Object.assign({}, K.duelChDmg || {}); K.duelChDmg = Object.assign({}, KCD0, E.duelChDmg || {});
     if (!KK00) KK00 = Object.assign({}, K.duelK0ch || {}); K.duelK0ch = Object.assign({}, KK00, E.duelK0ch || {});
