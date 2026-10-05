@@ -156,7 +156,12 @@
         t = end + b.gap;
         continue;
       }
-      const att = who(b.att), def = att === A ? V : A, m = moveOf(att, b.m), a = ATK[m];
+
+
+      const att = who(b.att), def = att === A ? V : A;
+      let m = moveOf(att, b.m);
+      if (att === V && ATK[m] && ATK[m].kind === 'kick' && b.m !== 'kick') m = moveOf(V, 'L1');
+      const a = ATK[m];
       if (!a) continue;
 
       const want = b.want || (a.kind === 'kick' ? 112 : a.kind === 'shoot' ? 300 : a.kind === 'whip' ? 150 : 162);
@@ -167,7 +172,7 @@
 
       acts.push({ t: end, k: 'settle', f: att }, { t: end, k: 'settle', f: def });
       if (b.def !== 'hit') acts.push({ t: Math.max(0, t - 0.25), k: 'guardOn', f: def, def: b.def });
-      acts.push({ t, k: 'atk', f: att, m, spd: b.spd, hold: b.def === 'back' });
+      acts.push({ t, k: 'atk', f: att, m, spd: b.spd, hold: b.def === 'back', def: b.def });
       if (b.def === 'parry') acts.push({ t: hit - 0.05, k: 'tap', f: def });
       if (b.def === 'back') acts.push({ t: hit - 0.2, k: 'back', f: def, until: Math.max(hit + (a.kind === 'whip' ? 0.5 : 0.2), t + W[W.length - 1][1] / kOf(att, b.spd) + 0.12) });
       acts.push({ t: hit - 0.01, k: 'slow', v: b.def === 'hit' ? 0.4 : 0.35, d: 0.24 });
@@ -241,6 +246,7 @@
         f.setState('atk', { atk: a, atkName: o.m, keys: [[0, f.entry]].concat(a.keys), aspd: o.spd });
 
         SB.pin = o.hold ? { f, x0: f.x, serial: f.serial } : null;
+        SB.def = o.def || null;
         return;
       }
       case 'slow': G.slowT = o.d; G.slowV = o.v; return;
@@ -304,7 +310,8 @@
 
 
     if (A.onGround && V.onGround && A.state !== 'clash') {
-      const d = V.x - A.x, ad = Math.abs(d), MIN = 98;
+      const lunging = (f) => S.def !== 'hit' && f.state === 'atk' && f.atk && f.atk.kind !== 'kick' && (f.atk.lunge || f.atk.thrust);
+      const d = V.x - A.x, ad = Math.abs(d), MIN = lunging(A) || lunging(V) ? 132 : 98;
       if (ad < MIN) { const sd = d === 0 ? A.dir : Math.sign(d), push = (MIN - ad) / 2; A.x -= sd * push; V.x += sd * push; }
     }
     const cp = S.cap;
@@ -364,12 +371,17 @@
   if (ND.props && ND.props.step) { const ps0 = ND.props.step; ND.props.step = function () { if (SB) return; return ps0.apply(this, arguments); }; }
 
 
+
+
+  CH.viaTick = /[?&]chortick=1(&|$)/.test(Q);
   const tick0 = G.tick;
   G.tick = function (present = true) {
+    const drive = !!(this.inBatch || CH.viaTick);
     if (SB) {
-      if (present !== false && !this.simOnly) { sandboxStep(this, tick0); return; }
+      if (drive && present !== false && !this.simOnly) { sandboxStep(this, tick0); return; }
       finish(this);
     }
+    if (!drive) return tick0.call(this, present);
     const r = tick0.call(this, present);
     if (present !== false && !this.simOnly && CH.seen.size && this.F) {
 
