@@ -841,19 +841,25 @@ try { (function (list) {
   .fr-goal strong { font: 700 14px/1.15 var(--display); letter-spacing: .1em; color: var(--gold-hi); overflow-wrap: anywhere; }
   .fr-goal small { font: 500 12px/1.25 var(--display); letter-spacing: .04em; color: var(--text); overflow-wrap: anywhere; }
   .fr-bar { display: block; height: 5px; margin-top: 3px; background: rgba(255,255,255,.12); position: relative; overflow: hidden; }
-  .fr-bar::after { content: ''; position: absolute; inset: 0 auto 0 0; width: var(--p); background: linear-gradient(90deg, var(--gold), var(--gold-hi)); }
+  .fr-bar::after { content: ''; position: absolute; inset: 0 auto 0 0; width: var(--p); background: linear-gradient(90deg, var(--gold), var(--gold-hi)); animation: frGrow 1.2s .5s ease-out backwards; }
+  @keyframes frGrow { from { width: var(--p0, var(--p)); } to { width: var(--p); } }
+  /* a new player's simple result (guided fights): the score grid, honor rows, leaderboard behind DETAILS */
+  #end.fr-simple #endStats, #end.fr-simple #endScore, #end.fr-simple #endHonor, #end.fr-simple #endLb { display: none; }
+  .fr-det { justify-self: center; margin: 4px 0 0; padding: 4px 10px; background: none; border: 0; color: var(--muted); font: 500 12px/1.2 var(--display); letter-spacing: .12em; text-transform: uppercase; cursor: pointer; }
+  .fr-det:hover { color: var(--gold-hi); }
+  #end:not(.fr-on) .fr-det { display: none; }
   .fr-back { display: grid; gap: 4px; padding: 7px 10px; border: 1px solid rgba(120,210,150,.55); background: rgba(10,30,20,.55); }
   .fr-back b { font: 700 14px/1.1 var(--display); letter-spacing: .12em; color: #9fe6b4; }
   .fr-back span { font: 500 12.5px/1.3 var(--display); letter-spacing: .03em; overflow-wrap: anywhere; }
   .fr-back .fr-sign { margin-top: 4px; padding: 8px 10px; font-size: 13px; white-space: normal; line-height: 1.2; }
   .fr-stay { display: block; text-align: center; font: 500 11px/1.2 var(--display); letter-spacing: .08em; color: var(--muted); order: 9; }
   .btn.fr-cd { position: relative; overflow: hidden; }
-  .btn.fr-cd .fr-cdn { display: inline-grid; place-items: center; min-width: 1.6em; height: 1.6em; margin-left: .55em; border-radius: 50%; background: rgba(5,6,12,.55); font-style: normal; font-weight: 700; vertical-align: middle; }
+  .btn.fr-cd .fr-cdn { display: inline-grid; place-items: center; min-width: 1.6em; height: 1.6em; margin-inline-start: .55em; border-radius: 50%; background: rgba(5,6,12,.55); font-style: normal; font-weight: 700; vertical-align: middle; }
   .btn.fr-cd::after { content: ''; position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; background: var(--gold-hi); transform-origin: left; animation: frCd var(--fr-cd, 5s) linear forwards; }
   @keyframes frCd { from { transform: scaleX(1); } to { transform: scaleX(0); } }
   #vsGo.fr-cd .fr-cdn { background: rgba(255,255,255,.18); }
   /* (a guided fight: the way out stays, quieter) */
-  #end.fr-on #bEndMenu { padding-block: 7px; font-size: 13px; opacity: .72; }
+  #end.fr-on #bEndMenu { justify-self: center; padding: 4px 10px; min-width: 0; background: none; border: 0; box-shadow: none; font-size: 12px; letter-spacing: .14em; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
   /* the menu: CONTINUE JOURNEY (the last journey, unfinished) */
   .mode.fr-cont { position: relative; overflow: hidden; border-color: var(--gold); background: linear-gradient(90deg, rgba(217,179,108,.22), rgba(200,30,48,.1) 70%); }
   .mode.fr-cont strong { font-size: 20px; letter-spacing: .12em; color: var(--gold-hi); }
@@ -2604,6 +2610,6 @@ try { (function (list) {
 <!-- 1.4: "new version ready" note on the bare main menu (js/update-note.js; every build: version.json next to this page,
      on CrazyGames the studio server's answer) -->
 <script  src="js/update-note.js"></script>
-<div id="wipTag" style="position:fixed;left:6px;bottom:6px;z-index:2147483647;font:600 11px/1.3 system-ui,sans-serif;color:#ffd27a;background:rgba(0,0,0,.6);padding:3px 7px;border-radius:4px;pointer-events:none;max-width:70vw">WIP 01:01 — 1.5.2 ilk dakikalar: tek raunt ilk dövüş, sonraki dövüş geri sayımı, yarın gel, menüde yan çevir</div>
+<div id="wipTag" style="position:fixed;left:6px;bottom:6px;z-index:2147483647;font:600 11px/1.3 system-ui,sans-serif;color:#ffd27a;background:rgba(0,0,0,.6);padding:3px 7px;border-radius:4px;pointer-events:none;max-width:70vw">WIP 02:34 — sade sonuç ekranı (tek hedef, Ayrıntı düğmesi, küçük Ana menü), ipucu bildirimi yok, tek raunt işareti</div>
 </body>
 </html>

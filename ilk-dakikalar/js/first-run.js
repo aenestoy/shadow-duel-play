@@ -136,9 +136,11 @@
     roundBegun() { if (ff) { ff.round = true; once('ff_r1_start'); } },
 
     tomorrowXp() {
-      const X = ND.LEVEL && ND.LEVEL.XP, p = P(), d = p && p.lv && p.lv.d;
+      const X = ND.LEVEL && ND.LEVEL.XP, p = P(), d = p && p.lv && p.lv.d, t = today();
       const base = X ? X.firstWin : 100, per = X ? X.streak : 15, max = X ? X.streakMax : 6;
-      const s = d && typeof d.s === 'number' ? d.s : 1;
+
+
+      const s0 = d && typeof d.s === 'number' ? d.s : 0, s = d && d.k === t ? s0 : d && d.k === t - 1 ? s0 + 1 : 1;
       return base + per * Math.min(max, Math.max(0, s));
     },
 
@@ -181,12 +183,7 @@
     const tag = document.createElement('i'); tag.className = 'fr-cdn'; tag.setAttribute('aria-hidden', 'true');
     btn.appendChild(tag); btn.classList.add('fr-cd');
     btn.style.setProperty('--fr-cd', sec + 's');
-    let hint = null;
-    if (o.hintIn) {
-      hint = document.createElement('small'); hint.className = 'fr-stay';
-      hint.textContent = tr(touchUI() ? 'Tap anywhere to stay' : 'Click anywhere to stay');
-      o.hintIn.appendChild(hint);
-    }
+    const hint = null;
     let left = sec * 1000, last = Date.now();
     const c = cd = { btn, tag, hint, stat: !!o.stat, iv: 0 };
     const show = () => { tag.textContent = String(Math.max(1, Math.ceil(left / 1000))); };
@@ -221,11 +218,15 @@
     btns.insertBefore(el, btns.firstChild);
     return el;
   }
+
+  let goal0 = null;
+  const pctOf = (v) => (Math.max(0.03, Math.min(1, v)) * 100).toFixed(1) + '%';
   function goalHtml() {
     const g = FR.goal();
     if (!g) return '';
+    const p0 = goal0 && goal0.name === g.name ? goal0.pct : g.pct;
     return `<div class="fr-goal"><b class="fr-k" style="color:${esc(g.color || '#f1d69c')}">${esc(g.kanji)}</b><span><strong>${esc(tr('NEW NINJA: {0}', g.name))}</strong>` +
-      `<small>${esc(g.text)}</small><i class="fr-bar" style="--p:${(Math.max(0.04, Math.min(1, g.pct)) * 100).toFixed(1)}%"></i></span></div>`;
+      `<small>${esc(g.text)}</small><i class="fr-bar" style="--p0:${pctOf(p0)};--p:${pctOf(g.pct)}"></i></span></div>`;
   }
   function backHtml() {
     const CG = ND.cgAccount, A = (ND.STR && ND.STR.acct) || {};
@@ -264,12 +265,22 @@
     if (ND.save.commit) ND.save.commit();
     if (ND.ranked && ND.ranked.syncEntry) ND.ranked.syncEntry();
     const last = n >= GUIDE_N, boss = R.fights[R.i] && R.fights[R.i].boss;
+
+
+
+    const end = $('end'), E = (ND.STR && ND.STR.end) || {}, O = (ND.STR && ND.STR.onb) || {};
+    end.classList.add('fr-on', 'fr-simple');
+    if (won && E.winSub && R.fightPts) $('endSub').textContent = E.winSub(R.i + 1, R.fights.length, R.fightPts[R.i] || 0);
+    if (E.menu) $('bEndMenu').textContent = E.menu;
+    const dlg = end.querySelector('.dialog');
+    let det = $('frDet');
+    if (!det && dlg) { det = document.createElement('button'); det.id = 'frDet'; det.type = 'button'; det.className = 'fr-det'; dlg.insertBefore(det, dlg.querySelector('.btns')); }
+    if (det) { det.textContent = (O.more || 'Details') + ' ▾'; det.hidden = false; det.onclick = (e) => { e.stopPropagation(); end.classList.toggle('fr-simple'); }; }
     let html = goalHtml();
     if (last && promise()) html += backHtml();
     if (!html && last) return;
     box.innerHTML = html; box.hidden = !html;
     wireSign(box);
-    $('end').classList.toggle('fr-on', true);
     if (last || boss) return;
 
     const btn = $('bRematch');
@@ -368,6 +379,16 @@
   try { window.addEventListener('resize', gateCheck); window.addEventListener('orientationchange', () => setTimeout(gateCheck, 120)); } catch (e) {              }
 
 
+
+  FR.demo = (which) => {
+    if (which === 'gate') { gateEl().hidden = false; return; }
+    if (which === 'gate-off') { const g = $('rotGate'); if (g) g.hidden = true; return; }
+    if (which === 'note') { showNote(backHtml(), 60000); return; }
+    if (which === 'ready') { showNote(`<b>${esc(tr('DAILY REWARD READY'))}</b><span>${esc(tr('Win a fight today: +{0} XP', FR.todayXp()))}</span>`, 60000); return; }
+    if (which === 'cont') { menuCard(); }
+  };
+
+
   let menuFromFight = false, wasMenu = false, vsCd = false;
   function install() {
     const G = ND.game, A = ND.arcade;
@@ -385,7 +406,10 @@
       };
     };
 
-    wrap(G, 'start', function () { matchStart(this); }, function () { cdStop(); const ms = $('end'); if (ms) ms.classList.remove('fr-on'); leftMatch('quit'); ff = null; });
+    wrap(G, 'start', function () { matchStart(this); goal0 = FR.guided() ? FR.goal() : null; }, function () { cdStop(); const ms = $('end'); if (ms) ms.classList.remove('fr-on', 'fr-simple'); const d = $('frDet'); if (d) d.hidden = true; leftMatch('quit'); ff = null; });
+
+    const CT = ND.coach && ND.coach.tips;
+    if (CT) for (const k of ['afterWin', 'afterFight']) { const f = CT[k]; if (typeof f === 'function') CT[k] = function () { return FR.guided() ? false : f.apply(this, arguments); }; }
     wrap(G, 'matchEnd', null, function (w) { matchEnd(this, w); });
 
     wrap(A, 'onMatchEnd', function (args, r, wasGuided) { if (this.G.mode === 'arcade') guidedEnd(this, wasGuided, args[0] === this.G.F[0]); }, function () { return FR.guided(); });
@@ -405,7 +429,7 @@
     const end = $('end'), vs = $('vs'), menu = $('menu');
     if (pendingCd && end && !end.hidden && G.phase === 'end') {
       const c = pendingCd; pendingCd = null;
-      cdStart(c.btn, NEXT_S, { stat: true, hintIn: c.box, live: () => G.phase === 'end' && !end.hidden });
+      cdStart(c.btn, NEXT_S, { stat: true, live: () => G.phase === 'end' && !end.hidden });
     }
     if (pendingCd && G.phase !== 'end') pendingCd = null;
     if (vsCd && G.phase === 'vs' && vs && !vs.hidden) {

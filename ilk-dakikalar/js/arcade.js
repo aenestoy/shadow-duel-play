@@ -1242,7 +1242,7 @@
 
 
       if (R.i === 0 && !save.p.coached) {
-        if (ND.tutor) { if (!ND.tutor.on) ND.tutor.start(this.G, { first: true, oneRound }); }
+        if (ND.tutor) { if (!ND.tutor.on) ND.tutor.start(this.G, oneRound ? { first: true, oneRound } : { first: true }); }
         else if (ND.coach) { save.p.coached = true; save.commit(); ND.coach.start(); }
       }
       this.refreshGoal();

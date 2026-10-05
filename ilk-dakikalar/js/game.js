@@ -1619,7 +1619,8 @@
         const am = E.a, cap = Math.max(f.ch.ammo, f.ammo);
         if (am._n !== f.ammo || am._c !== cap) { am._n = f.ammo; am._c = cap; am.innerHTML = Array.from({ length: cap }, (_, k) => `<b class="${k < f.ammo ? 'on' : ''}"></b>`).join(''); }
         const wb = E.w.children;
-        for (let k = 0; k < wb.length; k++) tog(wb[k], 'on', k < this.wins[i]);
+
+        for (let k = 0, need = this.winsNeed || 2; k < wb.length; k++) { tog(wb[k], 'on', k < this.wins[i]); const off = k >= need; if (wb[k]._off !== off) { wb[k]._off = off; wb[k].style.display = off ? 'none' : ''; } }
       }
       const tt = this.mode === 'train' ? '∞' : Math.ceil(this.timer), te = HUD_T.timer || (HUD_T.timer = $('timer'));
       if (te._t !== tt) { te._t = tt; te.textContent = tt; $('clock').classList.toggle('urgent', tt <= 10); }

@@ -1,1 +1,2 @@
 2026-10-06 01:01  fdc76d18  1.5.2 ilk dakikalar: tek raunt ilk dövüş, sonraki dövüş geri sayımı, yarın gel, menüde yan çevir
+2026-10-06 02:34  bc23f2e3  sade sonuç ekranı (tek hedef, Ayrıntı düğmesi, küçük Ana menü), ipucu bildirimi yok, tek raunt işareti
