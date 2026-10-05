@@ -39,7 +39,8 @@
     shogun: { cloth: '#15120f', clothHi: '#2c2620', clothDark: '#0a0807', wrap: '#ffd35a', wrapDark: '#a07818', accent: '#ffe08a', accentDark: '#9a7420', ui: '#ffd35a', hakama: '#0f0c0a', hakamaDark: '#070605', rim: 'rgba(255,220,120,.7)', rimDim: 'rgba(200,160,60,.36)' },
   };
   const COSTUME_ID = { daimyo: 'costume_rank_daimyo', shogun: 'costume_rank_shogun' };
-  const plan = (f) => ({ title: true, crest: f >= 2, colors: f >= 4 ? ['daimyo'].concat(f >= 5 ? ['shogun'] : []) : [] });
+
+  const plan = (f) => ({ title: true, crest: f >= 2, colors: f === 5 ? ['shogun'] : f === 4 ? ['daimyo'] : [] });
 
 
 
@@ -84,6 +85,19 @@
 
   const CSS = `
   #rk .rk-card.rwd { width: min(1000px, 100%); }
+  #mranked .rkc-head { display: flex; align-items: center; gap: 4px 10px; }
+  #mranked .rkc-head > strong { flex: 1 1 auto; min-width: 0; }
+  #mranked .rkc-rw { flex: none; display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; border: 1px solid rgba(255,211,90,.55); border-radius: 3px;
+    background: rgba(255,211,90,.08); color: #f1d69c; font: 600 12px/1.2 var(--display); letter-spacing: .06em; cursor: pointer; white-space: nowrap; }
+  #mranked .rkc-rw b { font: 700 14px/1 var(--jp); color: #ffd35a; }
+  #mranked .rkc-rw i { font-style: normal; color: var(--gold); }
+  #mranked .rkc-rw:hover, #mranked .rkc-rw:focus-visible { background: rgba(255,211,90,.2); border-color: #ffd35a; }
+  #app.touch #mranked .rkc-rw { min-height: 32px; }
+  /* (short and narrow screens: the head row keeps its height; upright phones: the seal and the arrow only, the name read out) */
+  @media (max-height: 430px) { #mranked .rkc-rw { padding: 1px 7px; font-size: 11px; } #app.touch #mranked .rkc-rw { min-height: 0; } }
+  /* (upright phones: a small tab hanging on the card's top edge, outside the flow: the card keeps its height, so SINGLE
+     MATCH and PLAY WITH A FRIEND stay on the first screen) */
+  @media (max-width: 520px) { #mranked.rkc { position: relative; overflow: visible; } #mranked .rkc-rw { position: absolute; z-index: 2; top: -12px; right: 14px; height: 24px; padding: 0 9px; background: #2a1012; box-shadow: 0 2px 6px rgba(0,0,0,.5); } #mranked .rkc-rw span { display: none; } #app.touch #mranked .rkc-rw { min-height: 0; } }
   .btn.rwd-go { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
   .btn.rwd-go svg { flex: none; }
   #rk .rk-card.rwd > .rk-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; }
@@ -189,9 +203,7 @@
       const P = plan(f), chips = [];
       chips.push(chip(titleName(season, f), 't', TCOL[f], owns('title_s' + season + '_' + SLUG[f])));
       if (P.crest) { const s = chip(tx(3, null, FAMS[f][1]), '', null, owns('badge_s' + season + '_' + SLUG[f])); const b = el('b', null, FAMS[f][0][0]); b.style.color = TCOL[f]; s.prepend(b); chips.push(s); }
-
-      if (P.colors.length > 1) { const s2 = chip(tx(4, null, 'Daimyō · Shōgun'), '', null, owns(COSTUME_ID.daimyo) && owns(COSTUME_ID.shogun)); for (const kk of P.colors.slice().reverse()) { const i = el('i'); i.style.setProperty('--a', PALS[kk].cloth); i.style.setProperty('--b', PALS[kk].wrap); s2.prepend(i); } chips.push(s2); }
-      else for (const kk of P.colors) chips.push(colourChip(kk, kk === 'shogun' ? 5 : 4));
+      for (const kk of P.colors) chips.push(colourChip(kk, kk === 'shogun' ? 5 : 4));
       const b = row('f' + f, TOP[f], FAMS[f][1], null, chips, TCOL[f]);
       if (f === myFam) {
         b.classList.add('me');
@@ -234,6 +246,18 @@
   function stop() { if (ui && ui.stage) ui.stage.destroy(); ui = null; }
 
 
+  function cardEntry(onOpen) {
+    css();
+    const b = el('button', 'rkc-rw'); b.type = 'button'; b.id = 'mrankedRw';
+    const k = el('b', null, '賞'); k.setAttribute('aria-hidden', 'true');
+    b.append(k, el('span', null, tx(0)), el('i', null, '›'));
+    b.setAttribute('aria-label', tx(0)); b.title = tx(0);
+    b.onclick = (e) => { e.stopPropagation(); onOpen(); };
+    b.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') e.stopPropagation(); };
+    return b;
+  }
+  const relabel = (b) => { const s = b && b.querySelector('span'); if (s) { s.textContent = tx(0); b.setAttribute('aria-label', tx(0)); b.title = tx(0); } };
+
   function entry(onOpen) {
     css();
     const b = el('button', 'btn rwd-go'); b.type = 'button';
@@ -243,7 +267,7 @@
     return b;
   }
 
-  ND.rankRewards = { render, stop, entry, plan, PALS, COSTUME_ID, FAMS, SLUG, titleName, texts: TX, t: tx };
+  ND.rankRewards = { render, stop, entry, cardEntry, relabel, plan, PALS, COSTUME_ID, FAMS, SLUG, titleName, texts: TX, t: tx };
 
   if (QS.get('rwdemo') === '1') {
     const go = () => setTimeout(() => safe(() => { if (ND.ranked && ND.ranked.demo) { const f = doc.getElementById('fMenu'); if (f && doc.getElementById('first') && !doc.getElementById('first').hidden) f.click(); ND.ranked.demo('rewards'); } }), 500);

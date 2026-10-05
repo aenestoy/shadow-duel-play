@@ -137,8 +137,8 @@
 
 
   const CSS = `
-  .rvs { --ph: 128px; position: absolute; inset: 0; z-index: 2; box-sizing: border-box; overflow: hidden; display: grid;
-    grid-template-rows: auto minmax(0, 1fr); gap: 8px; padding: 10px max(12px, var(--sl, 0px)) 12px max(12px, var(--sr, 0px));
+  .rvs { --ph: 128px; position: absolute; inset: 0 var(--sr, 0px) 0 var(--sl, 0px); z-index: 2; box-sizing: border-box; overflow: hidden; display: grid;
+    grid-template-rows: auto minmax(0, 1fr); gap: 8px; padding: 10px 12px 12px;
     background: linear-gradient(100deg, var(--c0a) 0%, rgba(0,0,0,0) 44%), linear-gradient(-100deg, var(--c1a) 0%, rgba(0,0,0,0) 44%),
                 radial-gradient(ellipse at 50% 55%, rgba(14,15,26,.9), rgba(4,5,9,.98) 78%);
     font-family: var(--display); color: var(--text); user-select: none; -webkit-user-select: none; }

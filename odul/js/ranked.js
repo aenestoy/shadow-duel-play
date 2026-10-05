@@ -1974,9 +1974,19 @@
     b.onclick = (e) => { if (e.target && e.target.closest && e.target.closest('#mrankedFind')) return; go(); };
     b.onkeydown = (e) => { if (e.target === b && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); go(); } };
     b.querySelector('#mrankedFind').onclick = (e) => { e.stopPropagation(); try { if (ND.audio) { ND.audio.init(); ND.audio.ui(); } } catch (x) {                    } findFromMenu(); };
+
+    if (ND.rankRewards && ND.rankRewards.cardEntry) b.querySelector('.rkc-head').append(ND.rankRewards.cardEntry(() => { try { if (ND.audio) { ND.audio.init(); ND.audio.ui(); } } catch (x) {                    } openRewards(); }));
     if (anchor) anchor.before(b); else $('mplay').after(b);
     decorateEntry();
     syncMenuEntry();
+  }
+
+  function openRewards() {
+    if (!available()) return;
+    if ((X && !X.done) || Q) { open(); return; }
+    show('rewards');
+    if (!me) loadMe();
+    if (ND.rewards) ND.rewards.refresh();
   }
 
 
@@ -1995,6 +2005,7 @@
     const L = M(), C2 = CL(), st = b.querySelector('.rk-mt'), ms = b.querySelector('.rk-ms'), k = b.querySelector('.rk-seal-m');
     const stand = b.querySelector('.rkc-stand'), topBox = b.querySelector('.rkc-top'), fb = b.querySelector('#mrankedFind');
     if (st) st.textContent = L.title;
+    if (ND.rankRewards && ND.rankRewards.relabel) ND.rankRewards.relabel(b.querySelector('#mrankedRw'));
     if (ms) ms.textContent = me && me.season ? L.season(me.season.id) + ' · ' + seasonLeft() : '';
     b.classList.toggle('has-season', !!(ms && ms.textContent));
     const player = !!(me && !me.guest), played = player && ((me.games | 0) > 0 || (me.wins | 0) + (me.losses | 0) + (me.draws | 0) > 0);
