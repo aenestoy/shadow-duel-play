@@ -436,9 +436,9 @@
       case 'arena': if (r.role === 'guest' && arenaOk(m.a)) { r.arena = m.a; r.ready = false; render(); } break;
       case 'ready': r.peerReady = !!m.on; render(); maybeStart(); break;
       case 'start': if (r.role === 'guest') begin(m); break;
-      case 'go': NET.peerReady(m.m); break;
+      case 'go': if (r.vsT) r.earlyGo = m.m; else NET.peerReady(m.m); break;
       case 'rematch': r.peerRematch = !!m.on; if (screen === 'end') renderEnd(); maybeRematch(); break;
-      case 'lobby': toLobby(false); break;
+      case 'lobby': if (r.vsT) { clearTimeout(r.vsT); r.vsT = 0; } toLobby(false); break;
       case 'end': {
 
         const S = NET.active && NET.session();
@@ -448,6 +448,7 @@
       case 'pause': NET.peerPause(m.m, m.at, m.why); break;
       case 'resume': NET.peerResume(m.m); break;
       case 'leave':
+        if (r.vsT) { clearTimeout(r.vsT); r.vsT = 0; show('room'); }
         if (screen === 'match' && NET.active) { NET.end('left', r.side); r.connected = false; return; }
         r.connected = false; clearInterval(r.pingT);
         if (r.role === 'host' && screen === 'room') { resetPeer(r); r.err = M().friendLeft; render(); }
@@ -494,9 +495,46 @@
   }
 
 
+
+
+
+
+  const FRIEND_VS_MS = 2000;
+  let vsUi = null;
+  function closeVs() { if (vsUi) { vsUi.close(); vsUi = null; } const h = $('onlVs'); if (h) h.hidden = true; }
+  function friendVs(r, m) {
+    if (r.vsShown || !ND.rankVs || !ND.charStage || /[?&]vs=old(&|$)/.test(location.search)) return false;
+    r.vsShown = true;
+    try {
+      hideAll(); screen = 'vs';
+      if ($('first')) $('first').hidden = true;
+      $('menu').hidden = true;
+      let host = $('onlVs');
+      if (!host) { host = document.createElement('div'); host.id = 'onlVs'; host.style.cssText = 'position:absolute;inset:0;z-index:30'; $('app').appendChild(host); }
+      host.hidden = false;
+      const L = M(), me = r.side, id = (i) => ND.CHARS[i].id, looks = [false, m.chars[0] === m.chars[1]];
+      let plate = null;
+      try { if (ND.pass && ND.pass.syncState && ND.pass.level) { const ss = ND.pass.syncState(); plate = { lv: ND.pass.level().lv, eq: ss.eq, jc: ss.jc }; } } catch (e) { plate = null; }
+      const nick = ND.leaderboard && ND.leaderboard.getName ? ND.leaderboard.getName() : '';
+      const sides = [ND.rankVs.sideOf({ name: nick || '—', plate }, { you: true, ninja: id(m.chars[me]), look: looks[me], noRank: true }),
+        ND.rankVs.sideOf({ name: L.friend }, { ninja: id(m.chars[1 - me]), look: looks[1 - me], noRank: true })];
+      const a = ND.ARENAS.find((x) => x.id === m.arena);
+      vsUi = ND.rankVs.open(host, { sides, top: a ? a.name : '', arenaKanji: a ? a.kanji : '', tag: L.title, status: { text: ND.rankVs.t(4), ok: true } });
+      if (!vsUi) { closeVs(); return false; }
+    } catch (e) { closeVs(); return false; }
+    r.vsT = setTimeout(() => { r.vsT = 0; if (R === r && screen === 'vs') doBegin(r, m); }, FRIEND_VS_MS);
+    return true;
+  }
+
+
   function begin(m) {
     const r = R;
     if (!r || !charOk(m.chars && m.chars[0]) || !charOk(m.chars[1]) || !arenaOk(m.arena)) return;
+    if (friendVs(r, m)) return;
+    doBegin(r, m);
+  }
+  function doBegin(r, m) {
+    closeVs();
     r.matchNo = m.m; r.last = { chars: m.chars.slice(), arena: m.arena };
     r.rematch = r.peerRematch = false; r.ready = r.peerReady = false; r.result = null; r.away = false;
     hideAll();
@@ -510,6 +548,7 @@
       onStatus: (kind, info) => waitUi(kind, info),
       onEnd: (res) => matchOver(r, res),
     });
+    if (r.earlyGo != null) { NET.peerReady(r.earlyGo); r.earlyGo = null; }
     NET.setHidden(document.hidden);
     clearInterval(r.keepT);
     r.keepT = setInterval(() => { if (R === r && NET.active) { syncAway(); NET.keepalive(); } }, 250);
@@ -643,7 +682,7 @@
     if (b) { b.querySelector('strong').textContent = L.title; b.querySelector('span').textContent = L.menuSub; }
   }
   function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
-  function hideAll() { ['onl', 'onlEnd', 'onlConfirm'].forEach((id) => { const e = $(id); if (e) e.hidden = true; }); }
+  function hideAll() { closeVs(); ['onl', 'onlEnd', 'onlConfirm'].forEach((id) => { const e = $(id); if (e) e.hidden = true; }); }
   function show(which) {
     build();
     screen = which;
@@ -916,6 +955,7 @@
 
   function onKey(e) {
     const I = ND.input;
+    if (screen === 'vs') return true;
     if (screen === 'match' && G.mode === 'online') {
       if (I.isPause(e) || I.isBack(e)) { confirmLeave($('onlConfirm').hidden); return true; }
       if (!$('onlConfirm').hidden) return !I.isEditable(e.target) && e.code !== 'Tab' && e.code !== 'Enter' && e.code !== 'Space';

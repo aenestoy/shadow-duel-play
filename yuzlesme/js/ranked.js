@@ -1623,7 +1623,7 @@
     const season = v.season || (me && me.season && me.season.id) || 0, looks = vsLooks(x);
 
     const meSnap = Object.assign({}, v.me || {}, me && !me.guest ? { name: me.nick || (v.me && v.me.name), tier: me.tier, placement: me.placement, games: me.games, rating: me.rating,
-      title_id: me.title_id != null ? me.title_id : v.me && v.me.title_id, finals: (v.me && v.me.finals) || me.badges } : { guest: !!(me && me.guest) || !!(v.me && v.me.guest) });
+      title_id: me.title_id != null ? me.title_id : v.me && v.me.title_id, finals: (v.me && v.me.finals) || me.finals, badges: me.badges } : { guest: !!(me && me.guest) || !!(v.me && v.me.guest) });
 
     delete meSnap.player_id; delete meSnap.plate;
     try { if (ND.pass && ND.pass.syncState && ND.pass.level && !meSnap.guest) { const ss = ND.pass.syncState(); meSnap.plate = { lv: ND.pass.level().lv, eq: ss.eq, jc: ss.jc }; } } catch (e) {                }

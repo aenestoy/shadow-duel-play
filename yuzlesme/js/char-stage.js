@@ -23,6 +23,9 @@
 
 
 
+
+
+
 (function (ND) {
   'use strict';
   if (!ND || typeof document === 'undefined') return;
@@ -109,13 +112,36 @@
       const d = acc; acc = 0;
       for (const s of [...live]) {
         if (!s.el.isConnected) { s.destroy(); continue; }
-        if (!s.f) continue;
+        if (!s.f || !s.el.getClientRects().length) continue;
 
         for (let r = d, t = now / 1000 - d; r > 1e-6; ) { const h = Math.min(1 / 60, r); r -= h; t += h; safe(() => g.stepPv(s.f, h, t + s.id * 1.3)); }
-        safe(() => g.drawPv(s.cv, s.f));
+        safe(() => drawFighter(s.cv, s.f, s.zoom, s.foot));
       }
     }
     if (live.size) raf = requestAnimationFrame(frame);
+  }
+
+
+
+  function drawFighter(c, pv, zoom, foot) {
+    const g = G();
+    if (!g || !pv) return false;
+    if (!(zoom > 0) || zoom === 1) return g.drawPv(c, pv);
+    const r = c.getBoundingClientRect(), dpr = Math.min(g.dprCap || 2, window.devicePixelRatio || 1);
+    if (r.width < 2 || r.height < 2) return false;
+    const pc = c.__pv2d || (c.__pv2d = c.getContext('2d', { willReadFrequently: true }));
+    const W = Math.max(1, Math.round(r.width * dpr)), H = Math.max(1, Math.round(r.height * dpr));
+    if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
+    pc.setTransform(1, 0, 0, 1, 0, 0); pc.clearRect(0, 0, W, H);
+    const gr = pc.createRadialGradient(W / 2, H * 0.58, 10, W / 2, H * 0.58, H * 0.62);
+    gr.addColorStop(0, pv.col.ui + '55'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    pc.fillStyle = gr; pc.fillRect(0, 0, W, H);
+    const k = (H / 220) * zoom, fy = foot > 0 && foot <= 1 ? foot : 0.95;
+    pc.setTransform(k, 0, 0, k, W / 2 - (pv.ch.blade > 110 ? 20 : 0) * k * pv.dir, H * fy);
+    pc.fillStyle = 'rgba(0,0,0,.45)'; pc.beginPath(); pc.ellipse(0, 3, 50, 7, 0, 0, 6.283); pc.fill();
+    pv.draw(pc, false);
+    if (ND.eyeGlow) ND.eyeGlow(pc, pv.j, pv.col, pv.ch.acc);
+    return true;
   }
 
 
@@ -138,7 +164,7 @@
     for (const k of ['a', 'b', 'c', 'd']) { const c = doc.createElement('span'); c.className = 'cst-c ' + k; c.setAttribute('aria-hidden', 'true'); el.append(c); }
     if (safe(() => ND.alive && ND.alive.level && ND.alive.level() === 'off')) el.classList.add('still');
     const s = {
-      el, cv, f: null, id: o.id | 0, key: '', dead: false,
+      el, cv, f: null, id: o.id | 0, key: '', dead: false, zoom: o.zoom || 1, foot: o.foot || 0,
       set(p) {
         p = p || {};
         const id = p.ninja || o.ninja, ch = ND.CHARS && (ND.CHARS.find((c) => c.id === id) || ND.CHARS[0]);
@@ -153,7 +179,7 @@
         el.dataset.ninja = ch.id; el.dataset.look = String(look);
         el.style.setProperty('--nc', (s.f.col && s.f.col.ui) || ch.col.ui);
         if (!s.dead) { live.add(s); kick(); }
-        safe(() => G() && G().drawPv && G().drawPv(cv, s.f));
+        safe(() => drawFighter(cv, s.f, s.zoom, s.foot));
         return s;
       },
       setTier(t) { setFrame(el, t); return s; },
@@ -170,5 +196,5 @@
     return s;
   }
 
-  ND.charStage = { create, fam, TCOL, CORNER, frameCss: css, setFrame };
+  ND.charStage = { create, fam, TCOL, CORNER, frameCss: css, setFrame, drawFighter };
 })(window.ND);

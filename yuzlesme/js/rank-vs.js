@@ -85,12 +85,15 @@
       m.rating = Number.isFinite(+s.rating) && s.rating != null && !m.placement ? Math.round(+s.rating) : null;
     }
 
-    const fin = (Array.isArray(s.finals) ? s.finals : Array.isArray(s.badges) ? s.badges : []).filter(finOk)
+
+
+    const hasFin = Array.isArray(s.finals);
+    const fin = (hasFin ? s.finals : Array.isArray(s.badges) ? s.badges : []).filter(finOk)
       .map((f) => ({ season: f.season | 0, tier: Math.max(0, Math.min(15, (f.tier != null ? f.tier : f.peak) | 0)), peak: f.peak != null ? Math.max(0, Math.min(15, f.peak | 0)) : null, place: f.place > 0 ? f.place | 0 : null }))
       .sort((a, b) => b.season - a.season);
-    if (!guest && !ghost) {
+    if (!guest && !ghost && !o.noRank) {
       if (!(m.season > 1)) m.prev = { first: true };
-      else { const f = fin.find((x) => x.season === m.season - 1); m.prev = f ? { season: f.season, tier: f.tier, place: f.place } : { season: m.season - 1, none: true }; }
+      else if (hasFin) { const f = fin.find((x) => x.season === m.season - 1); m.prev = f ? { season: f.season, tier: f.tier, place: f.place } : { season: m.season - 1, none: true }; }
     }
     m.fin = fin;
 

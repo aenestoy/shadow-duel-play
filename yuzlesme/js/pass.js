@@ -1070,6 +1070,8 @@
     const keep = { pf: ((pov.querySelector('.pf-body') || {}).scrollTop) || 0, ov: pov.scrollTop };
     const sec = [];
 
+    if (ND.charPreview && ND.charStage) sec.push(`<section class="pf-wide pf-char"><h3>${esc(ND.charPreview.head())}</h3><div id="pfCharIn"></div></section>`);
+
     const titles = owned(st, 'title');
     sec.push(`<section class="pf-title pf-wide"><h3>${esc(H2.title || t.heads.titles)}${DOT} <small>${esc(t.tapEquip)}</small></h3><div class="ps-chips">` +
       (titles.length ? `<button type="button" class="ps-chip none" data-eq="title:" aria-pressed="${!st.eq.title}">—</button>` + titles.map((id) =>
@@ -1119,6 +1121,7 @@
     $('profIn').innerHTML = head(L, st, t,
       `<button class="btn ps-go" type="button" id="profPass"><b>影</b>${esc(t.passTab || t.name)}</button><button class="btn" type="button" id="profClose">${esc(t.close)}</button>`) +
       `<div class="ps-prof pf-body">${sec.join('')}</div>`;
+    if (ND.charPreview && $('pfCharIn')) ND.charPreview.mount($('pfCharIn'));
     $('profClose').onclick = () => close();
     $('profPass').onclick = () => { if (ND.audio && ND.audio.ui) ND.audio.ui(); open('pass'); };
     pov.querySelectorAll('[data-eq]').forEach((b) => (b.onclick = () => {
