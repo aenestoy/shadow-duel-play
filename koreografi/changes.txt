@@ -3,3 +3,4 @@
 2026-10-05 23:16  df523df7  Koreografi: 7 kılıçlı ninja hazır (Akane, Aoi, Kuro, Yuki, Ren, Kage, Şura); koyu kostümler sinematikte kendi renginde hafif aydınlanır
 2026-10-05 23:42  1b01d74d  Koreografi: 13 ninjanin hepsi hazir (silahlilar: Tetsu, Jin, Tsubame, Hana, Mai, Tora)
 2026-10-06 01:40  94d0acbb  Koreografi son: 13 ninja, yumuşak kamera, kesme yok, koyu kostümler aydınlanır
+2026-10-06 02:11  16cb5c91  Kacis: sinematikte rakip her pencerede savunursa kurtulur; her ninjada 4 farkli koreografi
