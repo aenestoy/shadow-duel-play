@@ -943,7 +943,7 @@
     const D = ND.duel; if (cutHooked || !D || !D.finFx) return;
     cutHooked = true;
     const ff = D.finFx;
-    D.finFx = function (k) { const r = ff.apply(this, arguments); if (k === 'cut' && G && G.F) { fz = null; cam.frameFighters(G.F); cutNow = true; } return r; };
+    D.finFx = function (k) { const r = ff.apply(this, arguments); if (k === 'cut' && r !== false && G && G.F) { fz = null; cam.frameFighters(G.F); cutNow = true; } return r; };
   };
   cam.follow = function (dt, fa, fb, focus) {
     hookCut();

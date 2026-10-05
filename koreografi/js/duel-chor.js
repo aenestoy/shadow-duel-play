@@ -401,20 +401,42 @@
 
 
   function twoShot(A, V) {
-    const lo = Math.min(A.x, V.x) - 112, hi = Math.max(A.x, V.x) + 112;
-    const z = clamp(cam.W / (cam.s * (hi - lo)), 1.3, 2.4);
-    return { x: (A.x + V.x) / 2, y: -100, z };
+
+    const reach = (f) => 112 + Math.max(0, ((f.wpn && f.wpn.blade) || 90) + ((f.wpn && f.wpn.handle) || 24) - 120) * 0.7;
+    const [L, R] = A.x <= V.x ? [A, V] : [V, A];
+    const lo = L.x - reach(L), hi = R.x + reach(R);
+    let z = clamp(cam.W / (cam.s * (hi - lo)), 1.0, 2.4);
+
+    const len = (f) => ((f.wpn && f.wpn.blade) || 90) + ((f.wpn && f.wpn.handle) || 24);
+    const top = Math.min(A.y, V.y) - 236 - Math.max(0, Math.max(len(A), len(V)) - 120) * 0.9, Y = -100, room = cam.gy - cam.H * 0.08;
+    if (room > 0 && (Y - top) * cam.s * z > room) z = Math.max(0.9, room / (cam.s * (Y - top)));
+    return { x: (A.x + V.x) / 2, y: Y, z };
+  }
+
+
+  const SPR = { on: false, x: 0, vx: 0, z: 0, vz: 0 }, W0 = 9;
+  function spring(T, dt) {
+    if (!SPR.on) { SPR.on = true; SPR.x = T.x; SPR.z = T.z; SPR.vx = SPR.vz = 0; }
+    const h = Math.min(0.05, Math.max(0, dt || 0)), n = Math.max(1, Math.ceil(h / 0.005)), k = h / n;
+    for (let i = 0; i < n; i++) {
+
+      const AM = 18000 / Math.max(0.5, cam.s * SPR.z), ax = clamp(W0 * W0 * (T.x - SPR.x) - 2 * W0 * SPR.vx, -AM, AM);
+      SPR.vx += ax * k; SPR.x += SPR.vx * k;
+      SPR.vz += (W0 * W0 * (T.z - SPR.z) - 2 * W0 * SPR.vz) * k; SPR.z += SPR.vz * k;
+    }
+    return { x: SPR.x, y: T.y, z: SPR.z };
   }
   const follow0 = cam.follow;
   cam.follow = function (dt, fa, fb, focus) {
     const F = G.F;
-    if (SB) focus = twoShot(SB.A, SB.V);
+    let T = null;
+    if (SB) T = twoShot(SB.A, SB.V);
     else if (focus && F) {
       let c = null; for (const f of F) { const k = D.finOf(f); if (k && (CH.handled(k) || eligible(k))) c = k; }
-      if (c) {
-        focus = twoShot(c.A, c.V);
-      }
+      if (c) T = twoShot(c.A, c.V);
     }
+    CH.camOn = !!T;
+    if (T) focus = spring(T, dt); else SPR.on = false;
     return follow0.call(this, dt, fa, fb, focus);
   };
 
