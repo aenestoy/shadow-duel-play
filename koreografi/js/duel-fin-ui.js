@@ -103,7 +103,7 @@
 
     const F = G.F; if (!F || G.phase !== 'fight' || G.mode === 'attract' || G.mode === 'watch' || (ND.tutor && ND.tutor.on)) return;
     const me = F.find((f) => G.isHuman && G.isHuman(f) && f.dz);
-    if (!me || U.hint) return;
+    if (!me || U.hint || (D.chor && D.chor.cur)) return;
     const z = me.dz, tier = D.FIN.tierOf(z.chain);
     if (z.chain > 0 && U.hintChain === 0 && hintN[0] < 3 && !z.cine) { hintN[0]++; saveHint(); U.hint = { s: 'Block or parry, then strike back at once!', age: 0, life: 3 }; }
     else if (tier >= 2 && tier > (z.finTier || 0) && z.chainT <= D.FIN.win && hintN[1] < 2 && !z.cine) { hintN[1]++; saveHint(); U.hint = { s: 'Defend more for a stronger counter: 一 二 三', age: 0, life: 3 }; }
@@ -111,7 +111,7 @@
   }
   function drawHint(ctx, u, rdt) {
     const h = U.hint; if (!h) return;
-    h.age += rdt; if (h.age >= h.life || active()) { U.hint = null; return; }
+    h.age += rdt; if (h.age >= h.life || active() || (D.chor && D.chor.cur)) { U.hint = null; return; }
     const a = h.age < 0.2 ? h.age / 0.2 : h.age > h.life - 0.4 ? (h.life - h.age) / 0.4 : 1;
     const tch = !!(ND.touch && ND.touch.active), k = tch ? Math.max(u, (G.pxr || 1) * 0.8) : Math.max(u, 0.85), s = D.tr ? D.tr(h.s) : h.s, sz = Math.round(15 * k);
     ctx.font = `600 ${sz}px "Source Sans 3", "Noto Serif JP", sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
