@@ -85,19 +85,19 @@
         if (e.kind !== 'costume' || (e.ninjas && !e.ninjas.includes(id)) || !safe(() => R.palette(ch, e.id))) continue;
         const v = 'rw:' + e.id;
         if (e.builtin === 'champion') champCat = true;
-        out.push({ v, name: R.name(e), owned: has(v), how: e.builtin === 'champion' ? tx(12) : tx(13), rank: true });
+        out.push({ v, name: R.name(e), owned: has(v), how: e.builtin === 'champion' ? tx(12) : tx(13), rank: true, champ: e.builtin === 'champion' });
       }
     }
 
-    if (!champCat && ND.ranked && ND.costumeKey && ND.costumeKey('champion', id)) out.push({ v: 'cos:champion', name: tx(17), owned: false, how: tx(12), rank: true });
+    if (!champCat && ND.ranked && ND.costumeKey && ND.costumeKey('champion', id)) out.push({ v: 'cos:champion', name: tx(17), owned: false, how: tx(12), rank: true, champ: true });
     return out;
   }
 
 
   const CSS = `
-  .cpv { display: grid; grid-template-columns: minmax(220px, 40%) minmax(0, 1fr); gap: 12px 16px; align-items: start; }
-  .cpv-l { display: grid; gap: 6px; min-width: 0; }
-  .cpv-st { position: relative; height: clamp(190px, 48vh, 380px); min-width: 0; }
+  .pf-char { padding-top: 10px; }
+  .cpv { display: grid; grid-template-columns: minmax(220px, 40%) minmax(0, 1fr); grid-template-areas: "st r" "w r"; gap: 6px 16px; align-items: start; }
+  .cpv-st { grid-area: st; position: relative; height: clamp(220px, 50vh, 400px); min-width: 0; }
   .cpv-st .cst { position: absolute; inset: 0; cursor: pointer; touch-action: pan-y; }
   .cpv-st .cst > canvas { height: calc(100% - 34px); }
   .cpv-ar { position: absolute; top: calc(50% - 34px); z-index: 5; width: 40px; height: 52px; display: grid; place-items: center; padding: 0; border: 1px solid rgba(255,255,255,.18);
@@ -112,32 +112,43 @@
   .cpv-pv { position: absolute; top: 12px; right: 12px; z-index: 4; padding: 3px 7px; border: 1px dashed #ffc79a; background: rgba(6,7,12,.75); color: #ffc79a;
     font: 700 10.5px/1.2 var(--display); letter-spacing: .12em; text-transform: uppercase; pointer-events: none; }
   .cpv-tap { position: absolute; top: 12px; right: 12px; z-index: 4; color: var(--muted); font: 500 11px/1.2 var(--body); pointer-events: none; opacity: .8; }
-  .cpv-worn { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-height: 22px; font: 600 12.5px/1.3 var(--body); }
+  .cpv-worn { grid-area: w; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 2px 0 4px; font: 600 12.5px/1.45 var(--body); }
   .cpv-worn .lv { padding: 1px 5px; border: 1px solid var(--pf, var(--gold)); color: var(--gold-hi, var(--gold)); font: 700 11px/1.35 var(--display); letter-spacing: .08em; }
   .cpv-worn .ic { display: inline-grid; place-items: center; width: 20px; height: 20px; border: 1px solid currentColor; border-radius: 50%; font: 700 11px/1 var(--jp); }
   .cpv-worn .fr { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-weight: 500; }
   .cpv-worn .fr i { width: 12px; height: 12px; border: 2px solid var(--pf); box-sizing: border-box; }
-  .cpv-r { display: grid; gap: 8px; min-width: 0; align-content: start; }
-  .cpv-r h4 { margin: 0; display: flex; align-items: baseline; gap: 8px; min-width: 0; font: 600 11.5px/1.2 var(--display); letter-spacing: .14em; text-transform: uppercase; color: #d9c2ff; }
-  .cpv-r h4 span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 13px/1.2 var(--body); letter-spacing: 0; text-transform: none; color: var(--text); }
-  .cpv-g { display: grid; grid-template-columns: repeat(auto-fill, minmax(82px, 1fr)); gap: 6px; }
-  .cpv-t { position: relative; display: grid; justify-items: center; align-content: start; gap: 3px; min-width: 0; padding: 4px 3px 5px; box-sizing: border-box;
+  .cpv-r { grid-area: r; display: grid; gap: 8px; min-width: 0; align-content: start; }
+  .cpv-r h4 { margin: 0; display: flex; align-items: baseline; gap: 8px; min-width: 0; font: 600 11.5px/1.3 var(--display); letter-spacing: .14em; text-transform: uppercase; color: #d9c2ff; }
+  .cpv-r h4 span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 13px/1.3 var(--body); letter-spacing: 0; text-transform: none; color: var(--text); }
+  .cpv-g { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; }
+  .cpv-t { position: relative; display: grid; grid-template-rows: auto auto; justify-items: center; align-content: start; gap: 3px; min-width: 0; padding: 3px 3px 5px; box-sizing: border-box;
     border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.035); color: var(--text); cursor: pointer; font: inherit; }
-  .cpv-t canvas { width: 62px; height: 70px; display: block; }
-  .cpv-t small { max-width: 100%; font: 500 10.5px/1.15 var(--body); text-align: center; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+  .cpv-t canvas { width: 100%; height: 100px; display: block; }
+  .cpv-t small { max-width: 100%; font: 500 11px/1.25 var(--body); text-align: center; overflow-wrap: anywhere; }
   .cpv-t[aria-pressed="true"] { border-color: var(--gold); background: rgba(217,179,108,.16); box-shadow: 0 0 10px -4px var(--gold); }
   .cpv-t[aria-pressed="true"]::after { content: '✓'; position: absolute; top: 2px; right: 4px; color: #7be08f; font: 700 13px/1 var(--display); }
-  .cpv-t.cpv-lock canvas { opacity: .5; filter: grayscale(.55); }
-  .cpv-t.cpv-lock::before { content: '🔒'; position: absolute; top: 3px; left: 4px; font-size: 11px; }
+  .cpv-t.cpv-lock canvas { opacity: .55; filter: grayscale(.5); }
+  .cpv-t.cpv-lock::before { content: '🔒'; position: absolute; z-index: 1; top: 3px; left: 4px; font-size: 11px; }
   .cpv-t.cpv-lock.cpv-rank { border-color: rgba(255,211,90,.35); }
   .cpv-t.cpv-sel { outline: 2px dashed #ffc79a; outline-offset: -3px; }
-  .cpv-how { margin: 0; min-height: 1.3em; color: #ffc79a; font: 500 12.5px/1.3 var(--body); }
+  .cpv-r h4 .h { display: none; color: #ffc79a; }
+  .cpv-how { margin: 0; color: #ffc79a; font: 500 12.5px/1.35 var(--body); }
   .cpv-how:empty { display: none; }
-  @media (max-width: 640px) { .cpv { grid-template-columns: minmax(0, 1fr); } .cpv-st { height: clamp(220px, 40vh, 320px); } }
+  @media (max-width: 640px) { .cpv { grid-template-columns: minmax(0, 1fr); grid-template-areas: "st" "w" "r"; } .cpv-st { height: clamp(260px, 44vh, 360px); } }
+  /* phones on their side: the section fits the profile's body without scrolling; the costumes in one row that scrolls
+     sideways (its far end fades while there is more), what is worn under them */
   @media (max-height: 460px) and (orientation: landscape) {
-    .cpv { grid-template-columns: minmax(200px, 38%) minmax(0, 1fr); gap: 8px 12px; }
-    .cpv-st { height: clamp(160px, calc(100vh - 178px), 200px); } .cpv-g { grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); }
-    .cpv-t canvas { width: 54px; height: 60px; }
+    .pf-char { padding-top: 4px; } .pf-char > h3 { display: none; }
+    .cpv { grid-template-columns: minmax(200px, 38%) minmax(0, 1fr); grid-template-areas: "st r" "st w"; grid-template-rows: auto 1fr; gap: 4px 12px; }
+    .cpv-st { height: clamp(170px, calc(100vh - 160px), 220px); }
+    .cpv-g { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 84px; overflow-x: auto; overscroll-behavior-x: contain; touch-action: pan-x; padding-bottom: 2px; }
+    .cpv-g.more { -webkit-mask-image: linear-gradient(90deg, #000 82%, transparent); mask-image: linear-gradient(90deg, #000 82%, transparent); }
+    .cpv-g.less { -webkit-mask-image: linear-gradient(90deg, transparent, #000 18%); mask-image: linear-gradient(90deg, transparent, #000 18%); }
+    .cpv-g.more.less { -webkit-mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent); mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent); }
+    .cpv-t canvas { height: 84px; }
+    .cpv-t small { font-size: 10.5px; }
+    .cpv-worn { align-self: end; }
+    .cpv-how { display: none; } .cpv-r h4 .h { display: block; } .cpv-r h4 .h ~ .w, .cpv-r h4 .w:has(~ .h) { display: none; }
   }
   `;
   function css() {
@@ -158,21 +169,20 @@
   function build() {
     css();
     const el = doc.createElement('div'); el.className = 'cpv';
-    const L = doc.createElement('div'); L.className = 'cpv-l';
     const box = doc.createElement('div'); box.className = 'cpv-st';
     const list = unlocked();
     const g = ND.game, cur = g && g.sel && ND.CHARS[g.sel.c[0]];
     const start = Math.max(0, list.findIndex((c) => cur && c.id === cur.id));
     const ch = list[start] || list[0];
-    const stage = ND.charStage.create({ ninja: ch.id, look: S() ? S().look(ch.id) : false, dir: 1, tier: null, id: 0, cls: 'cpv-cst' });
+
+    const stage = ND.charStage.create({ ninja: ch.id, look: S() ? S().look(ch.id) : false, dir: 1, tier: null, id: 0, cls: 'cpv-cst', zoom: 1.2, foot: 0.96 });
     box.append(stage.el);
     const prev = doc.createElement('button'), next = doc.createElement('button');
     prev.type = next.type = 'button'; prev.className = 'cpv-ar p'; next.className = 'cpv-ar n'; prev.textContent = '‹'; next.textContent = '›';
     box.append(prev, next);
     const worn = doc.createElement('div'); worn.className = 'cpv-worn';
-    L.append(box, worn);
     const R = doc.createElement('div'); R.className = 'cpv-r';
-    el.append(L, R);
+    el.append(box, R, worn);
     ui = { el, box, stage, prev, next, worn, R, list, i: Math.max(0, start), preview: null, move: 0, thumb: null, tier: ui ? ui.tier : undefined };
     prev.onclick = (e) => { e.stopPropagation(); go(-1); };
     next.onclick = (e) => { e.stopPropagation(); go(1); };
@@ -213,14 +223,19 @@
   function ch() { return ui.list[ui.i] || ui.list[0]; }
   function refresh(newNinja) {
     if (!ui) return;
-    const c = ch(), sv = S(), now = sv ? sv.look(c.id) : false, look = ui.preview != null ? ui.preview : now;
+    const c = ch(), sv = S(), now = sv ? sv.look(c.id) : false;
+
+
+    const looks = looksOf(c.id);
+    if (ui.preview != null && !looks.some((l) => l.v === ui.preview)) { const alt = String(ui.preview) === 'cos:champion' || String(ui.preview).startsWith('rw:') ? looks.find((l) => l.champ && !l.owned) : null; ui.preview = alt ? alt.v : null; }
+    const look = ui.preview != null ? ui.preview : now;
     ui.stage.set({ ninja: c.id, look });
     ui.stage.setTier(rankTier());
 
     ui.box.querySelectorAll('.cpv-cr, .cpv-pv, .cpv-nm').forEach((x) => x.remove());
     const t = rankTier();
     if (t != null && ND.rankEmblem && ND.rankEmblem.el) { const cr = doc.createElement('div'); cr.className = 'cpv-cr'; const e = safe(() => ND.rankEmblem.el(t, { size: 46, glow: true, anim: true })); if (e) { e.setAttribute('aria-hidden', 'true'); cr.append(e); ui.stage.el.append(cr); } }
-    if (ui.preview != null) { const p = doc.createElement('div'); p.className = 'cpv-pv'; p.textContent = tx(3); ui.stage.el.append(p); }
+    if (ui.preview != null) { const old = ui.stage.el.querySelector('.cpv-tap'); if (old) old.remove(); const p = doc.createElement('div'); p.className = 'cpv-pv'; p.textContent = tx(3); ui.stage.el.append(p); }
     else if (!ui.tapped) { ui.tapped = true; const p = doc.createElement('div'); p.className = 'cpv-tap'; p.textContent = tx(14); ui.stage.el.append(p); }
     const nm = doc.createElement('div'); nm.className = 'cpv-nm';
     nm.innerHTML = `<b aria-hidden="true">${esc(c.kanji)}</b><span lang="en" translate="no">${esc(nice(c.name))}</span><small>${ui.i + 1} / ${ui.list.length}</small>`;
@@ -229,12 +244,12 @@
     ui.prev.setAttribute('aria-label', tx(15)); ui.next.setAttribute('aria-label', tx(16));
     ui.prev.hidden = ui.next.hidden = ui.list.length < 2;
     ui.stage.el.setAttribute('aria-label', nice(c.name) + ' · ' + tx(14));
-
-    const looks = looksOf(c.id);
     const cur = looks.find((l) => l.v === now) || looks[0];
     const pv = ui.preview != null ? looks.find((l) => l.v === ui.preview) : null;
 
-    ui.R.innerHTML = `<h4>${esc(tx(1))}<span>${esc(tx(2))}: ${esc(cur ? cur.name : '')}</span></h4><p class="cpv-how" aria-live="polite">${pv && !pv.owned ? '🔒 ' + esc(pv.name) + ' — ' + esc(pv.how || '') : ''}</p><div class="cpv-g" role="group" aria-label="${esc(tx(1))}"></div>`;
+
+    const how = pv && !pv.owned ? '🔒 ' + esc(pv.name) + ' — ' + esc(pv.how || '') : '';
+    ui.R.innerHTML = `<h4>${esc(tx(1))}<span class="w">${esc(tx(2))}: ${esc(cur ? cur.name : '')}</span>${how ? `<span class="h" aria-hidden="true">${how}</span>` : ''}</h4><p class="cpv-how" aria-live="polite">${how}</p><div class="cpv-g" role="group" aria-label="${esc(tx(1))}"></div>`;
     const grid = ui.R.querySelector('.cpv-g');
     for (const l of looks) {
       const b = doc.createElement('button');
@@ -242,7 +257,7 @@
       b.setAttribute('aria-pressed', String(l.owned && l.v === now));
       b.title = l.owned ? l.name : l.name + ' — ' + (l.how || '');
       const cv = doc.createElement('canvas'); cv.setAttribute('aria-hidden', 'true');
-      const sm = doc.createElement('small'); sm.textContent = l.name;
+      const sm = doc.createElement('small'); sm.textContent = shortName(l, c);
       b.append(cv, sm);
       b.onclick = () => {
         if (l.owned) { ui.preview = null; if (sv) sv.setLook(c.id, l.v); safe(() => ND.audio && ND.audio.ui && ND.audio.ui()); safe(() => ND.game && ND.game.phase === 'select' && ND.game.refreshSelect && ND.game.refreshSelect()); }
@@ -255,6 +270,20 @@
     }
     worn();
     thumbs(c);
+
+    const more = () => { const over = grid.scrollWidth > grid.clientWidth + 2; grid.classList.toggle('more', over && grid.scrollLeft + grid.clientWidth < grid.scrollWidth - 2); grid.classList.toggle('less', over && grid.scrollLeft > 2); };
+    grid.addEventListener('scroll', more, { passive: true });
+    requestAnimationFrame(more);
+    const on = grid.querySelector('.cpv-sel') || grid.querySelector('[aria-pressed="true"]');
+    if (on) requestAnimationFrame(() => { if (grid.scrollWidth > grid.clientWidth + 2) { grid.scrollLeft = Math.max(0, on.offsetLeft - grid.clientWidth / 2 + on.offsetWidth / 2); more(); } });
+  }
+
+  function shortName(l, c) {
+    const N = nice(c.name), s = String(l.name || '');
+    let out = s;
+    if (out.endsWith(' · ' + N)) out = out.slice(0, -(N.length + 3));
+    else if (out.startsWith(N + ' · ')) out = out.slice(N.length + 3);
+    return out.trim() || s;
   }
 
   function worn() {
@@ -287,7 +316,7 @@
           else f.setChar(c, look);
           f.reset(0); f.dir = 1; f.pvPose = null;
           for (let k = 0; k < 6; k++) g.stepPv(f, 1 / 60, k / 60);
-          g.drawPv(cv, f);
+          ND.charStage.drawFighter(cv, f, 1.45, 0.975);
         });
       }
     };
