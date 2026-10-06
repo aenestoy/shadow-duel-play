@@ -68,8 +68,14 @@ window.ND = window.ND || {};
     medium: { scale: 1, msaa: 4, hq: false, rays: true, motes: 0.5, bloom: 1, grain: false, shadows: false, reflect: true, reflectMin: 0.08, weather: 1, tol: 0.4, snap: true, still: true, ltol: 0.06, lband: 1.35, dpr: MOBILE ? 1.25 : 1.5 },
     low: { scale: 1, msaa: 2, hq: false, rays: false, motes: 0, bloom: 0, grain: false, shadows: false, reflect: false, weather: 2, tol: 0.5, snap: true, still: true, ltol: 0.06, lband: 1.35, dpr: 1 },
   };
+
+
+
+  const R3D_PHONE = MOBILE && (() => { try { return /[?&]r3d=1(&|$)/.test(location.search || ''); } catch (e) { return false; } })();
+  if (R3D_PHONE) { for (const t in TIERS) TIERS[t].msaa = 0; for (const t in PRESET) PRESET[t].msaa = 0; }
   const fns = [];
   const G = ND.gfx = {
+    r3dPhone: R3D_PHONE,
     levels: LEVELS,
     tiers: ['high', 'medium', 'low'],
     mobile: MOBILE,

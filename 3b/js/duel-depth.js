@@ -39,7 +39,8 @@
     const s = f.state, z = f.dz;
     out[0] = 0; out[1] = 0; out[2] = 1; out[3] = 1;
     if (s === 'atk' && f.atk && f.atk.z3) {
-      const Z = f.atk.z3, t = f.st;
+
+      const S5 = f._anim, Z = f.atk.z3, t = S5 && S5.swgT != null && S5.swg && S5.swg.ser === f.serial ? S5.swgT : f.st;
       if (t <= Z[0][0]) { for (let i = 0; i < 4; i++) out[i] = Z[0][i + 1]; return out; }
       for (let k = 1; k < Z.length; k++) {
         if (t <= Z[k][0]) {
@@ -500,7 +501,10 @@
     if (!WEIGHT) { P.p = null; return; }
     const k = Math.max(dt, 1e-4) * 120 * (act ? 1.6 : 1);
     if (P.p && Math.abs(f.x - P.x) < 80 && !(S && S.ok === false)) {
+
+      const sweep = !!(S && S.swgOn);
       for (const q of LKEYS) {
+        if (sweep && (q === 'sw' || q === 'ax' || q === 'ay')) continue;
         const lim = LIM[q] * k, d = D0[q] - P.p[q];
         if (d > lim) D0[q] = P.p[q] + lim; else if (d < -lim) D0[q] = P.p[q] - lim;
       }

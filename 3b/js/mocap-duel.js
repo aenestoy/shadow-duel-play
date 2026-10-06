@@ -96,6 +96,103 @@
 
 
 
+
+
+
+
+  const CW = new Map();
+  function swingStart(seg) {
+    const key = seg.join(':');
+    if (CW.has(key)) return CW.get(key);
+    const Cl = C(seg[0]), c0 = seg[1], cH = seg[2];
+    let cw = c0;
+    if (Cl) {
+      const f0 = Mo.newFrame(), f1 = Mo.newFrame(), dc = 0.005, sp = [];
+      for (let c = c0; c < cH - 1e-9; c += dc) {
+        Mo.sample(Cl, c, f0); Mo.sample(Cl, c + dc, f1);
+        const a = f0.d.bu, b = f1.d.bu;
+        sp.push(Math.acos(clamp(a[0] * b[0] + a[1] * b[1] + a[2] * b[2], -1, 1)));
+      }
+      const peak = Math.max(...sp, 1e-6);
+      let i = sp.length - 1;
+      while (i > 0 && sp[i - 1] > peak * 0.25) i--;
+      cw = c0 + i * dc;
+    }
+    CW.set(key, cw);
+    return cw;
+  }
+
+
+  const TURNS = new Map();
+  function clipTurns(seg) {
+    const key = seg.join(':');
+    if (TURNS.has(key)) return TURNS.get(key);
+    const Cl = C(seg[0]), cW = swingStart(seg), f0 = Mo.newFrame(), f1 = Mo.newFrame(), out = [0, 0];
+    if (Cl) for (let c = seg[1]; c < seg[2] - 1e-9; c += 0.005) {
+      Mo.sample(Cl, c, f0); Mo.sample(Cl, c + 0.005, f1);
+      const a = f0.d.bu, b = f1.d.bu;
+      out[c < cW ? 0 : 1] += Math.acos(clamp(a[0] * b[0] + a[1] * b[1] + a[2] * b[2], -1, 1));
+    }
+    TURNS.set(key, out);
+    return out;
+  }
+  if (ND.anim) ND.anim.swingTurns = (f) => {
+    if (!MD.ready || D.lite || !f.dz || f.state !== 'atk' || !f.atk || !isArmed(f)) return null;
+    const seg = segOf(f.atk, f.atkName || f.atk.name || '');
+    return seg && seg[0] !== 'drawFwd' && C(seg[0]) ? clipTurns(seg) : null;
+  };
+
+
+
+
+
+  function rigSwing(f, s, rg, dir, aim, wa) {
+    const S = f._anim, P = S && S.swg, R = rg.P;
+    if (!P || P.ser !== f.serial || !R || !R.armed || !isArmed(f)) { s.rsw = null; return false; }
+    if (!(P.st === 'go' || P.st === 'land') || !P.toJ || (R.inside && f.wpn && f.wpn.iai)) { s.rsw = null; return false; }
+    let W = s.rsw;
+    if (!W || W.ser !== P.ser || W.k !== P.k) {
+      const u0 = R.blade.u, h0 = R.haR, sh = R.shR, J = P.toJ;
+      const bx = J.tip[0] - J.ha[0], by = J.tip[1] - J.ha[1], bl = Math.hypot(bx, by) || 1;
+      const a0 = Math.atan2(u0[1], u0[0]), a1 = Math.atan2(by / bl, bx / bl);
+
+      let d = a1 - a0; d += 2 * Math.PI * Math.round(((P.ref != null ? P.ref : P.d) - d) / (2 * Math.PI));
+      const r0 = [h0[0] - sh[0], h0[1] - sh[1]], r1 = [J.ha[0] - J.sh[0], J.ha[1] - J.sh[1]];
+      W = s.rsw = { ser: P.ser, k: P.k, a0, d, z0: u0[2], z1: 0.25, r0, r1, hz0: h0[2] - sh[2], hz1: Math.min(14, Math.max(-6, h0[2] - sh[2])) };
+    }
+    const u = P.st === 'land' ? 1 : clamp((f.st - P.ts) / Math.max(1e-4, P.tc - P.ts), 0, 1), e = u * (0.7 + 0.3 * u);
+    const th = W.a0 + W.d * e;
+
+    const z = W.z0 + (W.z1 - W.z0) * Math.min(1, u / 0.4);
+    const c = Math.sqrt(Math.max(0, 1 - z * z)), uu = [Math.cos(th) * c, Math.sin(th) * c, z];
+    const ra = Math.hypot(W.r0[0], W.r0[1]), rb = Math.hypot(W.r1[0], W.r1[1]);
+    const ta = Math.atan2(W.r0[1], W.r0[0]), dt0 = Math.atan2(W.r1[1], W.r1[0]) - ta, dw = dt0 - 2 * Math.PI * Math.round(dt0 / (2 * Math.PI));
+    const rr = ra + (rb - ra) * e, tt = ta + dw * e, sh = R.shR;
+    const h = [sh[0] + Math.cos(tt) * rr, sh[1] + Math.sin(tt) * rr, sh[2] + W.hz0 + (W.hz1 - W.hz0) * e];
+    O3.e = null;
+    if (aim && wa > 0) { O3.h = lerp(h, aim.h, wa); O3.u = nlerp(uu, aim.u, wa); }
+    else { O3.h = h; O3.u = uu; }
+    O3.w = 1;
+
+
+    O3.out = true;
+    return true;
+  }
+  function swingPlan(f) {
+    const S = f._anim, P = S && S.swg;
+    return P && P.ser === f.serial && P.tc > 0 && P.ts > 0 && P.tc > P.ts ? P : null;
+  }
+  function warpF(seg, a, f) {
+    const P = swingPlan(f), t = f.st;
+    if (!P || seg[0] === 'drawFwd') return warp(seg, a, t);
+    const [, c0, cH, c1] = seg, cW = swingStart(seg), dur = Math.max(a.dur || 0.5, P.tc + 0.05);
+    if (t <= P.ts) return c0 + (cW - c0) * clamp(t / P.ts, 0, 1);
+    if (t <= P.tc) return cW + (cH - cW) * clamp((t - P.ts) / (P.tc - P.ts), 0, 1);
+    return cH + (c1 - cH) * clamp((t - P.tc) / Math.max(1e-3, dur - P.tc), 0, 1);
+  }
+
+
+
   const ACTS = ['fSlipSake', 'fRugPull', 'fStoolPick', 'fRunJumpOver', 'fDiveRoll', 'fDiveRollB', 'fStepstoolJump', 'fStepstoolUp', 'fLadderUp', 'fLadderDown',
     'fCartwheel', 'fBackflip', 'fHandspring', 'fKickSide'];
   const CLIPS = [...new Set(Object.values(SEG).map((s) => s[0]).concat(['idle', 'walk', 'backWalk', 'run', 'blockIdle', 'blockedImpact', 'crouchBlockIdle', 'crouchBlockedImpact',
@@ -134,6 +231,8 @@
 
 
   const Z0 = [0, 0, 1];
+  const GLV = [0, 0];
+  function glideOf(f) { const S = f._anim; GLV[0] = S && S.ok && f.dz ? S.rox || 0 : 0; GLV[1] = S && S.ok && f.dz ? S.roy || 0 : 0; return GLV; }
   function keyedFrame(f, out) {
     const S = A3.pose3d(f, true);
     if (!S) return out;
@@ -147,7 +246,8 @@
     d.cf = norm([d.sl[2], 0, -d.sl[0]]); d.hf = d.cf.slice();
     const j = f.viewJ();
 
-    out.hip = [hip[0], hip[1] - f.y, 0];
+    const GLk = glideOf(f);
+    out.hip = [hip[0] - GLk[0] * (f.dir < 0 ? -1 : 1), hip[1] - f.y - GLk[1], 0];
     out.armed = S.armed && !S.sheathed ? 1 : 0;
     out.inside = S.sheathS > 0.01 && !S.sheathed ? 1 : 0;
     out.vis = out.inside ? (1 - S.sheathS) * (f.wpn.blade || 96) : null;
@@ -203,7 +303,7 @@
 
       const seg = segOf(a, armed ? f.atkName || a.name || '' : atkId(a));
       if (seg && !armed && C(seg[0]) && C(seg[0]).sword !== 'none') return { key: 'keyed', src: keyed, fade: 0.08 };
-      if (seg && (seg[0] !== 'drawFwd' || f.wpn.iai)) return { key: 'atk:' + f.serial + ':' + seg[0], src: clip(seg[0], () => warp(seg, a, f.st), armed ? null : { post: unarm }), fade: 0.06, seg, a };
+      if (seg && (seg[0] !== 'drawFwd' || f.wpn.iai)) return { key: 'atk:' + f.serial + ':' + seg[0], src: clip(seg[0], () => warpF(seg, a, f), armed ? null : { post: unarm }), fade: 0.06, seg, a };
       return { key: 'keyed', src: keyed, fade: 0.08 };
     }
     switch (st) {
@@ -333,6 +433,7 @@
   const O3 = {};
   function override(f, s, dt) {
     const rg = s.rig, dir = f.dir < 0 ? -1 : 1;
+    O3.out = false;
 
 
     let BG = D.bindGeom ? D.bindGeom(f) : null;
@@ -360,6 +461,9 @@
     s.cw = s.cw == null || dt <= 0 ? wcT : s.cw + (wcT - s.cw) * Math.min(1, dt / 0.035);
 
     const wa = aimW(f), aim = wa > 0.01 ? aimAt(f, s, rg, dir) : null;
+
+
+    if (rigSwing(f, s, rg, dir, aim, wa)) { oxComp(s, dir); rg.ovr = O3; s.ovPrev = { h: O3.h.slice(), u: O3.u.slice() }; return; }
     const wc = aim ? 0 : s.cw > 0.01 ? s.cw : 0, wf = wc > 0 || aim ? 0 : drawFlatW(f, s);
     if (!aim && wc <= 0 && wf <= 0) { rg.ovr = null; s.ovPrev = null; return; }
     if (aim) { O3.h = aim.h; O3.u = aim.u; O3.w = wa; MD.stats.aim = (MD.stats.aim || 0) + 1; }
@@ -367,7 +471,7 @@
       const j = f.viewJ();
       if (!j || !j.haF || !j.tip) { rg.ovr = null; s.ovPrev = null; return; }
       const P = rg.P, hz = P ? P.haR[2] : 11;
-      const h = [(j.haF.x - f.x) * dir, j.haF.y, hz];
+      const h = [(j.haF.x - f.x - glideOf(f)[0]) * dir, j.haF.y - GLV[1], hz];
       let bx = (j.tip.x - j.haF.x) * dir, by = j.tip.y - j.haF.y; const bl = Math.hypot(bx, by) || 1;
       O3.h = h; O3.u = norm([bx / bl, by / bl, P ? P.blade.u[2] * 0.35 : 0]); O3.w = wc;
       MD.stats.contact++;
@@ -390,7 +494,14 @@
 
     const t = f.st, W = a.hits && a.hits.length ? a.hits : [a.active];
     let best = 0;
-    for (const [a0, a1] of W) { const k = clamp((t - (a0 - 0.08)) / 0.07, 0, 1) * clamp(1 - (t - a1) / 0.1, 0, 1); if (k > best) best = k; }
+
+
+    const SP = swingPlan(f), fr2 = SP ? 3 * (ND.game ? ND.game.STEP * (ND.game.tz || 1) * (ND.game.slow || 1) : 1 / 120) * (f.ch.spd || 1) * (f.aspd || 1) : 0;
+    for (let i = 0; i < W.length; i++) {
+      const [a0, a1] = W[i];
+      const k = (SP && i === 0 ? clamp((t - (SP.tc - fr2)) / fr2, 0, 1) : clamp((t - (a0 - 0.08)) / 0.07, 0, 1)) * clamp(1 - (t - a1) / 0.1, 0, 1);
+      if (k > best) best = k;
+    }
 
 
 
@@ -479,7 +590,7 @@
       w = k * k * (3 - 2 * k);
     }
     const so = o ? ST.get(o) : null, P = rg.P;
-    if (w <= 0.01 || !P || !so || !so.rig.P) { rg.fist = null; s.reach = (s.reach || 0) * Math.exp(-Math.max(0, dt) / 0.08); if (s.reach < 0.3) s.reach = 0; rg.x = f.x + (s.ox || 0) + (s.reach || 0) * dir; return; }
+    if (w <= 0.01 || !P || !so || !so.rig.P) { rg.fist = null; s.reach = (s.reach || 0) * Math.exp(-Math.max(0, dt) / 0.08); if (s.reach < 0.3) s.reach = 0; rg.x = f.x + (s.ox || 0) + glideOf(f)[0] + (s.reach || 0) * dir; return; }
 
     if (s.fistSer !== f.serial) { s.fistSer = f.serial; s.fistSide = P.haR[0] >= P.haL[0] ? 'R' : 'L'; }
     const S = s.fistSide, Q = so.rig.P, pj = (q) => Mo.project(so.rig, q), towards = f.x < o.x ? -1 : 1;
@@ -487,7 +598,7 @@
     if (FIST_HEAD[atkId(a)]) { const h = pj(Q.head); Tw = { x: h.x + towards * 20, y: h.y + 2 }; }
     else { const h = pj(Q.hip), n = pj(Q.neck); Tw = { x: h.x + (n.x - h.x) * 0.72 + towards * (TORSO_R + 7), y: h.y + (n.y - h.y) * 0.72 }; }
 
-    const sh = P['sh' + S], baseX = f.x + (s.ox || 0);
+    const sh = P['sh' + S], baseX = f.x + (s.ox || 0) + glideOf(f)[0];
     const need = Math.hypot((Tw.x - baseX) * dir - sh[0], Tw.y - sh[1]) - 55;
     const want = clamp(need, 0, 40) * w;
     s.reach = dt > 0 && s.reach != null ? s.reach + (want - s.reach) * Math.min(1, dt / 0.03) : want;
@@ -538,10 +649,25 @@
   function tick(f, noPair) {
     const s = stateOf(f), rg = s.rig;
     const clk = ND.simClock || 0;
-    if (s.clk === clk && rg.P && s.tickedAt === clk) return s;
+    if (s.clk === clk && rg.P && s.tickedAt === clk) {
+
+      if (ND.game && ND.game.hitstopT > 0 && !s.frz) s.frz = { ser: f.serial, state: f.state, st: f.st, x: f.x, y: f.y };
+      return s;
+    }
+
+
+
+    const G0 = ND.game, Z = s.frz;
+    if (G0 && G0.hitstopT > 0 && rg.P && Z && Z.ser === f.serial && Z.state === f.state && Z.st === f.st && Math.abs(Z.x - f.x) < 12 && Z.y === f.y && !f.dead) {
+
+      if (Z.x !== f.x) { rg.x += f.x - Z.x; Z.x = f.x; }
+      s.clk = clk; s.tickedAt = clk; s.pairAt = clk;
+      return s;
+    }
     let dt = s.clk == null ? 0 : clk - s.clk;
     if (dt < 0 || dt > 0.25) { dt = 0; rg.layers.length = 0; rg.lock.R = rg.lock.L = null; rg.prevF = null; s.ox = 0; s.act = null; s.actTail = null; }
     s.clk = clk;
+    s.x0 = rg.x; s.y0 = rg.y; s.d0 = rg.dir;
 
     const sp = Math.abs(f.vx);
     s.walkT += dt * Math.max(0.6, sp / 120); s.idleT = (s.idleT || 0) + dt;
@@ -569,7 +695,10 @@
 
 
     if (s.ox) { const bind = f.state === 'dbind' || (f.dz && f.dz.cine && !f.dz.cine.done && !f.dz.cine.fin); s.ox *= Math.exp(-Math.max(0, dt) / (bind ? 0.04 : 0.22)); if (Math.abs(s.ox) < 0.2) s.ox = 0; }
-    rg.x = f.x + (s.ox || 0); rg.dir = f.dir < 0 ? -1 : 1; rg.vx = f.vx;
+
+
+    const GL = glideOf(f).slice();
+    rg.x = f.x + (s.ox || 0) + GL[0]; rg.dir = f.dir < 0 ? -1 : 1; rg.vx = f.vx;
     rg.noSword = !isArmed(f);
 
 
@@ -583,7 +712,7 @@
 
     if (d.src.along && Math.abs(s.mx || 0) > 30) rg.dir = s.mx < 0 ? -1 : 1;
 
-    rg.y = d.src.y != null ? d.src.y : f.y;
+    rg.y = (d.src.y != null ? d.src.y : f.y) + GL[1];
 
     const st = f.state, a = st === 'atk' ? f.atk : null;
     const segK = d.seg && /kick|Kick|front|round/.test(d.seg[0] + (MOVE[f.atkName] || ''));
@@ -605,8 +734,12 @@
     override(f, s, dt);
     fistAim(f, s, dt);
     bodyGap(f, s, dt);
+
+    if (rg.P && rg.P.hip) { s.Pp = copyP(rg.P, s.Pp); s.xp = s.x0; s.yp = s.y0; s.dp = s.d0; s.ppClk = s.pClk; }
     rg.update(dt);
+    s.pClk = clk;
     s.tickedAt = clk;
+    s.frz = G0 && G0.hitstopT > 0 ? { ser: f.serial, state: f.state, st: f.st, x: f.x, y: f.y } : null;
 
     const o = f.opp, so0 = o && o.dz && !o.dead && !o.hidden ? stateOf(o) : null;
     if (!noPair && MD.sep && so0 && s.pairAt !== clk) {
@@ -1151,23 +1284,78 @@
 
   MD.actOf = (f) => { const s = ST.get(f); return s && s.act ? s.act.id : s && s.actTail ? s.actTail.id + ' (end)' : null; };
   MD.actLegs = (f) => { const s = ST.get(f); return s && s.act ? s.act.legs : s && s.actTail ? s.actTail.legs : null; };
+
+
+  MD.poseNow = (f) => { const s = ST.get(f); if (!s || !s.rig.P) return null; const Pi = interpP(s, s.rig); return Pi ? { P: Pi, x: s.xi, y: s.yi, dir: s.rig.dir } : { P: s.rig.P, x: s.rig.x, y: s.rig.y, dir: s.rig.dir }; };
   MD.rigOf = (f) => { const s = ST.get(f); return s ? s.rig : null; };
 
-  MD.pose = (f) => { if (!MD.ready || !f || !f.dz || f.dead || f.hidden || D.lite) return null; const s = tick(f); if (!s || !s.rig.P) return null; if (finStruckArmed(f)) bladeUp(s.rig.P); return s.rig; };
+
+
+  const RV = new WeakMap();
+  MD.pose = (f) => {
+    if (!MD.ready || !f || !f.dz || f.dead || f.hidden || D.lite) return null;
+    const s = tick(f); if (!s || !s.rig.P) return null;
+    if (finStruckArmed(f)) bladeUp(s.rig.P);
+    const Pi = interpP(s, s.rig);
+    if (!Pi) return s.rig;
+    let v = RV.get(s.rig); if (!v) RV.set(s.rig, (v = Object.create(s.rig)));
+    v.P = Pi; v.x = s.xi; v.y = s.yi;
+    return v;
+  };
   MD.sourceOf = (f) => { const s = ST.get(f); const l = s && s.rig.layers[s.rig.layers.length - 1]; return l ? l.key : null; };
 
 
   const FP = ND.Fighter.prototype, draw0 = FP.draw;
+
+
+  function copyP(P, Q) {
+    Q = Q || {};
+    for (const k in P) {
+      const v = P[k];
+      if (Array.isArray(v) && v.length === 3 && typeof v[0] === 'number') { const a = Q[k] && Q[k].length === 3 ? Q[k] : (Q[k] = [0, 0, 0]); a[0] = v[0]; a[1] = v[1]; a[2] = v[2]; }
+      else if (v && typeof v === 'object' && !Array.isArray(v) && (k === 'blade' || k === 'saya')) { const o = Q[k] && typeof Q[k] === 'object' && !Array.isArray(Q[k]) ? Q[k] : (Q[k] = {}); for (const q in v) { const w = v[q]; if (Array.isArray(w) && w.length === 3) { const a = o[q] && o[q].length === 3 ? o[q] : (o[q] = [0, 0, 0]); a[0] = w[0]; a[1] = w[1]; a[2] = w[2]; } else o[q] = w; } }
+      else Q[k] = v;
+    }
+    return Q;
+  }
+  const lerp3 = (a, b, w, o) => { o[0] = a[0] + (b[0] - a[0]) * w; o[1] = a[1] + (b[1] - a[1]) * w; o[2] = a[2] + (b[2] - a[2]) * w; return o; };
+  const UNIT = { u: 1, e: 1 };
+  function interpP(s, rg) {
+    const I = ND.interp, A = s.Pp, B = rg.P;
+    if (!I || !I.on || !A || !B || !(s.pClk > s.ppClk) || s.dp !== rg.dir || Math.abs(rg.x - s.xp) > 120) { if (I && I.on) MD.stats.noInterp = (MD.stats.noInterp || 0) + 1; return null; }
+    const w = clamp((I.tr - s.ppClk) / (s.pClk - s.ppClk), 0, 1);
+    if (w >= 1) return null;
+    const O = s.Pi || (s.Pi = {});
+    for (const k in B) {
+      const b = B[k], a = A[k];
+      if (Array.isArray(b) && b.length === 3 && a && a.length === 3) O[k] = lerp3(a, b, w, O[k] && O[k].length === 3 && O[k] !== b ? O[k] : [0, 0, 0]);
+      else if (b && typeof b === 'object' && !Array.isArray(b) && (k === 'blade' || k === 'saya') && a) {
+        const o = O[k] && O[k] !== b ? O[k] : (O[k] = {});
+        for (const q in b) {
+          const bq = b[q], aq = a[q];
+          if (Array.isArray(bq) && bq.length === 3 && aq && aq.length === 3) { const r = lerp3(aq, bq, w, o[q] && o[q] !== bq && o[q].length === 3 ? o[q] : (o[q] = [0, 0, 0])); if (UNIT[q]) { const l = Math.hypot(r[0], r[1], r[2]) || 1; r[0] /= l; r[1] /= l; r[2] /= l; } o[q] = r; }
+          else o[q] = bq;
+        }
+      } else O[k] = b;
+    }
+    s.xi = s.xp + (rg.x - s.xp) * w; s.yi = s.yp + (rg.y - s.yp) * w;
+    return O;
+  }
   FP.draw = function (ctx, reflect, layer) {
     if (reflect || !MD.ready || !this.dz || this.dead || this.hidden || D.lite) return draw0.call(this, ctx, reflect, layer);
     const s = tick(this);
     if (!s || !s.rig.P) return draw0.call(this, ctx, reflect, layer);
     if (finStruckArmed(this)) bladeUp(s.rig.P);
-    Mo.draw(ctx, s.rig, {});
+    const rg = s.rig, Pi = interpP(s, rg);
+    if (!Pi) { Mo.draw(ctx, rg, {}); return; }
+    const P0 = rg.P, x0 = rg.x, y0 = rg.y;
+    MD.stats.interp = (MD.stats.interp || 0) + 1;
+    rg.P = Pi; rg.x = s.xi; rg.y = s.yi;
+    try { Mo.draw(ctx, rg, {}); } finally { rg.P = P0; rg.x = x0; rg.y = y0; }
   };
 
 
-  const build0 = Mo.Rig.prototype.build;
+  const build0 = Mo.Rig.prototype.build, FIST_OUT = !/[?&]fistout=0(&|$)/.test(Q);
   Mo.Rig.prototype.build = function (F, dt) {
     if (this.noSword && F) { F.armed = 0; F.inside = 0; F.tw = 0; }
     const P = build0.call(this, F, dt);
@@ -1179,6 +1367,24 @@
       Pf['el' + S] = r.m; Pf['ha' + S] = r.e;
       if (Pf['wr' + S]) Pf['wr' + S] = madd(r.e, norm(sub(r.e, r.m)), -Mo.L20.hd);
       Pf['fist' + S] = true;
+    }
+
+
+
+    { const Pq = P || this.P;
+      if (Pq && Pq.haL && Pq.hip && Pq.neck && Pq.shL && !(Pq.gripL > 0.5) && FIST_OUT) {
+        const a = Pq.hip, b = Pq.chest || Pq.neck, h = Pq.haL, ab = sub(b, a), t = clamp(dot(sub(h, a), ab) / (dot(ab, ab) || 1), 0, 1), c = madd(a, ab, t);
+        let d = sub(h, c); const dl = len(d), R0 = 13;
+        if (dl < R0) {
+
+          d = dl > 0.5 ? mul(d, 1 / dl) : norm([1, 0, 0.4]);
+          if (d[0] < 0.2) d = norm([Math.max(0.2, d[0]) + 0.6, d[1] * 0.5, d[2]]);
+          const T = madd(c, d, R0), pole = sub(Pq.elL, lerp(Pq.shL, Pq.haL, 0.5));
+          const r = Mo.ik3(Pq.shL, T, L.uArm, Pq.wrL ? Mo.L20.fw + Mo.L20.hd : L.fArm, pole);
+          Pq.elL = r.m; Pq.haL = r.e; if (Pq.wrL) Pq.wrL = lerp(r.m, r.e, Mo.L20.fw / (Mo.L20.fw + Mo.L20.hd));
+          MD.stats.fistOut = (MD.stats.fistOut || 0) + 1;
+        }
+      }
     }
 
     const Q = P || this.P;

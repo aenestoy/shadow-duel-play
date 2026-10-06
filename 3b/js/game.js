@@ -42,6 +42,7 @@
 
   const grainFill = () => { if (!grainPat && performance.now() - grainAt > 5000) { grainAt = performance.now(); makeGrain(); } return grainPat; };
   const QS = new URLSearchParams(location.search);
+  const INTERP = QS.get('interp') !== '0', CAMGLIDE = QS.get('camglide') !== '0';
 
 
 
@@ -1280,6 +1281,8 @@
 
 
       const tz = this.tz = ND.tutor && ND.tutor.on ? ND.tutor.pre(this, STEP) * (ND.timeScale ? ND.timeScale(this) : 1) : ND.timeScale ? ND.timeScale(this) : 1;
+
+      if (present) { const c = this.camP || (this.camP = {}); c.x = cam.x; c.y = cam.y; c.z = cam.z; c.shx = cam.shx; c.shy = cam.shy; c.clk = ND.simClock || 0; }
       ND.simClock = (ND.simClock || 0) + STEP * tz;
       this.presPart = false;
       if (present) { try { this.update(STEP); } finally { this.presPart = false; } return; }
@@ -1293,11 +1296,12 @@
     advance(rdt) {
       if (this.preparing) return 0;
 
-      if (this.mode === 'online' && ND.net && ND.net.active) return ND.net.frame(rdt);
+      if (this.mode === 'online' && ND.net && ND.net.active) { this.iaClk = -1; return ND.net.frame(rdt); }
       const STEP = this.STEP, SLACK = 0.2;
       this.acc = Math.min(this.acc + rdt, 0.1);
       let n = Math.floor(this.acc / STEP + SLACK);
-      if (n <= 0) return 0;
+
+      if (n <= 0) { this.ia = Math.max(0, Math.min(1, (this.acc + SLACK * STEP) / STEP)); this.iaClk = ND.simClock; return 0; }
       this.acc -= n * STEP;
 
 
@@ -1310,6 +1314,8 @@
         }
       } finally { this.inBatch = false; }
       if (this.mode !== 'attract' && this.phase !== 'select' && this.phase !== 'vs' && this.phase !== 'ending' && this.phase !== 'replay') this.hud();
+
+      this.ia = this.paused ? 1 : Math.max(0, Math.min(1, (this.acc + SLACK * STEP) / STEP)); this.iaClk = ND.simClock;
       return 1;
     },
 
@@ -1341,7 +1347,47 @@
       ctx.drawImage(lc, 0, 0, w, h, sx0, sy0, w, h);
     },
 
+
+
+
+
+
+
+
+
+    camGlide(k0) {
+      const G = this.cg || (this.cg = { x: 0, y: 0, z: 0, px: NaN, py: 0, pz: 1, clk: 0, ph: '' });
+      const now = ND.simClock || 0, dt = Math.max(0, Math.min(0.1, now - G.clk));
+      if (G.px === G.px && this.phase === 'fight' && G.ph === 'fight' && CAMGLIDE) {
+        const jx = (cam.x - G.px) * cam.k, jz = Math.log(cam.z / G.pz);
+        if (Math.abs(jx) > 60 || Math.abs(jz) > 0.06 || Math.abs((cam.y - G.py) * cam.k) > 60) { G.x += G.px - cam.x; G.y += G.py - cam.y; G.z -= jz; }
+      } else { G.x = G.y = G.z = 0; }
+      const q = Math.exp(-dt / 0.06); G.x *= q; G.y *= q; G.z *= q;
+      if (Math.abs(G.x) * cam.k < 0.3 && Math.abs(G.y) * cam.k < 0.3 && Math.abs(G.z) < 0.002) G.x = G.y = G.z = 0;
+      G.px = cam.x; G.py = cam.y; G.pz = cam.z; G.clk = now; G.ph = this.phase;
+      if (G.x || G.y || G.z) { cam.x += G.x; cam.y += G.y; cam.z *= Math.exp(G.z); }
+    },
     render() {
+      const I = ND.interp || (ND.interp = { on: false, tr: 0, n: 0 });
+      I.on = INTERP && this.iaClk === ND.simClock && this.ia < 1 && this.phase !== 'replay';
+      I.n++;
+      const k0 = { x: cam.x, y: cam.y, z: cam.z, shx: cam.shx, shy: cam.shy };
+      this.camGlide(k0);
+      if (!I.on) { try { return this.render0(); } finally { cam.x = k0.x; cam.y = k0.y; cam.z = k0.z; } }
+      I.tr = ND.simClock - (1 - this.ia) * this.STEP * (this.tz || 1);
+      const c = this.camP, g0 = { x: cam.x, y: cam.y, z: cam.z };
+      if (c && c.clk < ND.simClock) {
+        const w = Math.max(0, Math.min(1, (I.tr - c.clk) / (ND.simClock - c.clk)));
+
+        if (Math.abs(k0.x - c.x) * cam.k < 120 && Math.abs(k0.z / c.z - 1) < 0.08) {
+          cam.x = g0.x + (c.x - k0.x) * (1 - w); cam.y = g0.y + (c.y - k0.y) * (1 - w); cam.z = g0.z * (1 + (c.z / k0.z - 1) * (1 - w));
+          cam.shx = c.shx + (k0.shx - c.shx) * w; cam.shy = c.shy + (k0.shy - c.shy) * w;
+        }
+      }
+      try { return this.render0(); } finally { cam.x = k0.x; cam.y = k0.y; cam.z = k0.z; cam.shx = k0.shx; cam.shy = k0.shy; I.on = false; }
+    },
+    render0() {
+      const cd = this.camDrawn || (this.camDrawn = {}); cd.x = cam.x; cd.y = cam.y; cd.k = cam.k;
       ND.beginBakeFrame?.();
 
       fx.quiet = this.mode === 'attract' || !!this.paused || this.phase === 'end' || !!(ND.portal && ND.portal.inAd);

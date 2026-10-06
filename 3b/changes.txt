@@ -1,1 +1,2 @@
 2026-10-06 16:15  32090092  3B önizleme: 13 ninja Sifu tarzı, kendi silahlarıyla
+2026-10-06 18:31  68533284  Dövüş düzeltmeleri: kılıç savuruşu yolunu izliyor (ışınlanmıyor), kılıç kendi gövdesinden geçmiyor, sol yumruk göğse gömülmüyor, Kuro'nun şapkası yüzü kapatmıyor, kın kısaldı, kılıç temasındaki büyük kama yok, telefonda kenar yumuşatma kapalı

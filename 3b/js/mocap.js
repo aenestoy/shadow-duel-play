@@ -350,6 +350,8 @@
         P.elR = r.m; P.haR = r.e;
         const u = O.u ? nlerp(P.blade.u, O.u, O.w) : P.blade.u, e0 = O.e ? nlerp(P.blade.e, O.e, O.w) : P.blade.e;
         P.blade = { h: P.haR, u, e: norm(sub(e0, mul(u, dot(e0, u)))) };
+
+        if (O.out) { P.inside = false; P.bladeVis = null; this.bk = null; }
       }
       if (P.armed && !P.inside && this.readable !== false && Mo.readable) readableBlade(P.blade, (this.look.wpn || L).blade, P, this);
 

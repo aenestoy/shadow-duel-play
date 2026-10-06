@@ -1695,7 +1695,8 @@
     }
 
 
-    viewJ() { const S = this._anim; return this.dead ? this.rag.j : S && S.ok ? S.j : this.j; }
+
+    viewJ() { const S = this._anim; return this.dead ? this.rag.j : S && S.ok ? (ND.interp && ND.interp.on && ND.anim.interpJ ? ND.anim.interpJ(this, S) : S.j) : this.j; }
     draw(ctx, reflect, layer) {
       const j = this.viewJ();
       if (!j.hip || this.hidden) return;

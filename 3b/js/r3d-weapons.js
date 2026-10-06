@@ -374,7 +374,9 @@
     if (KATANA[kind] || kind === 'tanto') {
       katanaParts(K, 'main', w, F, kind);
       if (w.twin) { katanaParts(K, 'sec', w, F, kind); sayaParts(K, 'saya', w.blade + 6, 2.6, F); sayaParts(K, 'saya2', w.blade + 6, 2.6, F); }
-      else sayaParts(K, 'saya', w.blade + 6, kind === 'nodachi' ? 3.6 : kind === 'kodachi' ? 3 : 3.3, F);
+
+
+      else sayaParts(K, 'saya', w.iai ? w.blade * 0.8 + 6 : w.blade + 6, kind === 'nodachi' ? 3.6 : kind === 'kodachi' ? 3 : 3.3, F);
       K.lie = kind === 'tanto' ? 2.4 : 5.5;
       if (kind === 'nodachi') for (const s of ['strap', 'strap2', 'strap3']) K.part(s, [[tube([[0, 1.1], [1, 1.1]], 6, 0.4, true, 1.5), F.strap || F.sageo || '#2a2420', 6, 0.4]]);
     } else if (kind === 'naginata') { naginataParts(K, w, F); K.lie = 4.2; }
@@ -955,11 +957,17 @@ void main(){
         const own = g === f, caps = own ? [[q.hip, q.neck, 10], [q.head, q.head, 10]] : [[q.hip, q.neck, 11], [q.head, q.head, 11], [q.hipF, q.knF, 9], [q.knF, q.ftF, 8], [q.hipB, q.knB, 9], [q.knB, q.ftB, 8]];
         for (const [nm, a0, a1] of segs) for (const [a, b, r] of caps) {
           if (nm === 'sec' && own && A.sec[2]) { o.handIn = 1; continue; }
-          let m = 1e9; for (let i = 0; i <= 12; i++) m = Math.min(m, segDist(lerp(a0, a1, i / 12), a, b)); if (m < r - 2) { if (nm === 'sec') { penSec = Math.max(penSec, r - m); if (own) o.secOwn = 1; } else pen = Math.max(pen, r - m); } }
+          let m = 1e9; for (let i = 0; i <= 12; i++) m = Math.min(m, segDist(lerp(a0, a1, i / 12), a, b)); if (m < r - 2) { if (nm === 'sec') { penSec = Math.max(penSec, r - m); if (own) o.secOwn = 1; } else { pen = Math.max(pen, r - m); if (own) o.penOwn = Math.max(o.penOwn || 0, r - m); } } }
 
         if (A.chain && !own) for (const P of A.chain) for (const [a, b, r] of caps.slice(0, 2)) { const m = segDist(P, a, b); if (m < r - 2.5) penChain = Math.max(penChain, r - m); }
       }
-      o.pen = +pen.toFixed(1); o.penSec = +penSec.toFixed(1); o.penChain = +penChain.toFixed(1);
+
+      let penLeg = 0;
+      { const q = R3.pose && R3.pose(f); if (q) for (const [nm, a0, a1] of segs) { if (nm !== 'main') continue; for (const [a, b, r] of [[q.hipF, q.knF, 9], [q.knF, q.ftF, 8], [q.hipB, q.knB, 9], [q.knB, q.ftB, 8]]) { let m = 1e9; for (let i = 0; i <= 12; i++) m = Math.min(m, segDist(lerp(a0, a1, i / 12), a, b)); if (m < r - 2) penLeg = Math.max(penLeg, r - m); } } }
+
+      let fist = 0;
+      { const q = R3.pose && R3.pose(f); if (q && q.haB && q.hip && q.neck) { const m = segDist(q.haB, q.hip, q.neck); if (m < 10) fist = 10 - m; } }
+      o.pen = +pen.toFixed(1); o.penSec = +penSec.toFixed(1); o.penChain = +penChain.toFixed(1); o.penLeg = +penLeg.toFixed(1); o.fist = +fist.toFixed(1); o.st = f.state;
       out.push(o);
     }
     return out;

@@ -306,7 +306,50 @@
 
 
   const SK = new WeakMap(), SWAY = new WeakMap();
-  function skeleton(f) {
+
+
+
+
+
+  const CLEAR = !/[?&]r3dclear=0(&|$)/.test(Q), CLR = new WeakMap();
+  function segDist3(p, a, b) { const ab = sub(b, a), t = clamp(dot(sub(p, a), ab) / (dot(ab, ab) || 1), 0, 1); return len(sub(p, madd(a, ab, t))); }
+  function ownPen(o, h, u, BL) {
+    let m = -1e9;
+    const caps = [[o.hip, o.neck, 11], [o.hipF, o.knF, 9], [o.hipB, o.knB, 9]];
+    for (let i = 2; i <= 12; i++) { const p = madd(h, u, 8 + ((BL - 8) * i) / 12); for (const [a, b, r] of caps) if (a && b) m = Math.max(m, r - segDist3(p, a, b)); }
+    return m;
+  }
+  function bladeClear(f, o) {
+    const S = CLR.get(f) || { a: 0, ax: null };
+    CLR.set(f, S);
+    const A = f.state === 'atk' ? f.atk : null, W0 = A && (A.hits && A.hits.length ? A.hits : A.active ? [A.active] : null);
+    const hitting = !!(W0 && W0.some((q) => f.st >= q[0] - 0.05 && f.st <= q[1] + 0.12));
+    const BL = (f.wpn && f.wpn.blade) || 96;
+
+    const meet = { lock: 1, dbind: 1, block: 1, parry: 1, clash: 1, recoil: 1 }[f.state] || (f.opp && { lock: 1, dbind: 1 }[f.opp.state]) || (ND.duel && ND.duel.bindGeom && ND.duel.bindGeom(f));
+    if (!CLEAR || !o.inHand || o.inside || o.noSword || hitting || meet || f.dead || !o.bh || !o.bu || f.wpn.fist || f.wpn.none || f.wpn.type === 'tessen' || f.wpn.type === 'yumi' || f.wpn.type === 'kusarigama') { S.a *= 0.6; if (Math.abs(S.a) < 0.01) S.a = 0; return; }
+    const h = o.bh, u0 = o.bu;
+
+
+    let ax = cross(u0, EZ); if (len(ax) < 0.2) ax = cross(u0, EY); ax = norm(ax);
+    const p0 = ownPen(o, h, u0, BL);
+    let best = 0;
+    if (p0 > 2) {
+      let bc = 1e9;
+      for (let i = 1; i <= 16; i++) for (const sg of [1, -1]) {
+        const a = sg * i * 0.08, pn = ownPen(o, h, rotAx(u0, ax, a), BL);
+        if (pn <= 0) { const c = Math.abs(a) + Math.abs(a - S.a) * 0.5; if (c < bc) { bc = c; best = a; } }
+      }
+    }
+
+    const k = Math.abs(best) > Math.abs(S.a) ? 0.6 : 0.25;
+    S.a += (best - S.a) * k;
+    if (Math.abs(S.a) < 0.005) { S.a = 0; return; }
+    o.bu = norm(rotAx(u0, ax, S.a)); if (o.be) o.be = norm(rotAx(o.be, ax, S.a));
+    R3.nClear = (R3.nClear || 0) + 1;
+  }
+  function skeleton(f) { const o = skeleton0(f); if (o) bladeClear(f, o); return o; }
+  function skeleton0(f) {
     let o = SK.get(f); if (!o) SK.set(f, (o = {}));
     const MD = ND.duel && ND.duel.mocap, rg = MD && MD.pose ? MD.pose(f) : null;
     if (rg && rg.P) {
@@ -558,14 +601,22 @@
     out.nv = 0; out.ni = 0;
     let T = TRAILS.get(f); if (!T) TRAILS.set(f, (T = []));
     const clk = ND.simClock || 0, A = f.state === 'atk' ? f.atk : null;
-    const live = !!(k && k.inHand && k.bladeVis > 0.5 && A && A.kind === 'blade' && A.active && f.st > A.active[0] - 0.05 && f.st < A.active[1] + 0.1);
+
+
+
+    const live = !!(k && k.inHand && k.bladeVis > 0.5 && A && A.kind === 'blade' && A.active && f.st > A.active[0] - 0.05 && f.st < A.active[1] + 0.06 && !f.hitDone && f.state === 'atk');
     if (T.length && (clk < T[T.length - 1].t || clk - T[T.length - 1].t > 0.3)) T.length = 0;
-    if (live && (!T.length || T[T.length - 1].t !== clk)) T.push({ t: clk, b: madd(k.bh, k.bu, R.BL * 0.25), p: madd(k.bh, k.bu, R.BL + 3) });
-    while (T.length && (clk - T[0].t > 0.075 || T.length > 24)) T.shift();
+    if (!live) T.length = 0;
+    if (live && (!T.length || T[T.length - 1].t !== clk)) {
+      const s = { t: clk, b: madd(k.bh, k.bu, R.BL * 0.45), p: madd(k.bh, k.bu, R.BL + 3), u: norm(k.bu) }, q = T[T.length - 1];
+      if (q && dot(q.u, s.u) < 0.64) T.length = 0;
+      T.push(s);
+    }
+    while (T.length && (clk - T[0].t > 0.06 || T.length > 24)) T.shift();
     const n = T.length;
     if (n < 2) return;
     for (let i = 0; i < n; i++) {
-      const s = T[i], a = Math.pow((i + 1) / n, 2) * 0.6;
+      const s = T[i], a = Math.pow((i + 1) / n, 2) * 0.45;
       const k3 = out.nv * 3, kc = out.nv * 4;
       out.P[k3] = s.b.x; out.P[k3 + 1] = s.b.y; out.P[k3 + 2] = s.b.z;
       out.P[k3 + 3] = s.p.x; out.P[k3 + 4] = s.p.y; out.P[k3 + 5] = s.p.z;
@@ -1160,6 +1211,7 @@ void main(){
     let p = sub(pole, mul(u, dot(pole, u))); p = len(p) < 1e-4 ? v3(0, -1, 0) : norm(p);
     return { e: madd(madd(s, u, a), p, h), w: add(s, d) };
   }
+  const HAT = { kasa: 1, oni: 1 }, HAT_PITCH = 0.12;
   function hdPose(f, k, F) {
     const M = F.M, X = M.ix, dir = k.dir, x0 = k.x0;
     F.x0 = x0; F.dir = dir;
@@ -1192,10 +1244,18 @@ void main(){
       hset(F, X.spine, hcarry(F, X.hips, M.B[X.spine].p0), DBGT || Rs, sc);
       hset(F, X.chest, hcarry(F, X.spine, M.B[X.chest].p0), DBGT || Rc, sc);
     }
-    const Rhd = m3basis(sub(head, neck), hf);
+
+
+    let hu = norm(sub(head, neck)), hfx = hf;
+    if (HAT[f.ch && f.ch.acc]) {
+      const a = Math.atan2(hu.x, hu.y), lim = HAT_PITCH;
+      if (a > lim) { const r = Math.hypot(hu.x, hu.y); hu = norm(v3(Math.sin(lim) * r, Math.cos(lim) * r, hu.z)); }
+      if (hf.y < -0.2) hfx = norm(v3(hf.x, -0.2, hf.z));
+    }
+    const Rhd = m3basis(hu, hfx);
 
     const nk = hcarry(F, X.chest, M.B[X.neck].p0), nl = M.B[X.neck].len;
-    haim(F, X.neck, nk, madd(nk, norm(sub(head, neck)), nl), EX, norm(add(cf, hf)), false);
+    haim(F, X.neck, nk, madd(nk, hu, nl), EX, norm(add(cf, hfx)), false);
     hset(F, X.head, hcarry(F, X.neck, M.B[X.head].p0), Rhd, 1);
 
     if (M.sayaA && k.saya) {

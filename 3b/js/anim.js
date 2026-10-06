@@ -63,7 +63,7 @@
   function mk(f) {
     return {
       p: pose.copy(f.pose), prevT: pose.copy(f.pose), from: pose.copy(f.pose), pa: {}, pb: {}, lj: {}, lt: {},
-      j: {}, sk: null, sl4: null, ed: 1, cb: 0, cbv: 0, cbs: f.state, cbn: f.serial, pw: 0, psw: NaN, tx: NaN, ty: NaN, tvx: 0, tvy: 0, shw: 1, sht: 0, cok: false, mw: 0, mt: null, iw: 0, ov: [0, 0, 0, 0], ovi: false, ovs: f.state, ovn: f.serial, ow: 0, wb: 0, ft: null, fpx: NaN, cu: 0, cuDur: 0, gw: 1, gp: NaN, gv: 0, gs: 1, gsb: 1, wc: null, wch: null, sy: [0, 0, 0], sv: [0, 0, 0], sx: [0, 0, 0], sinit: false, ws: 0, sl: [0, 0], slv: [0, 0], sla: [NaN, NaN], prevState: f.state, prevSerial: f.serial, ok: false, stamp: -1, chain: null,
+      j: {}, rox: 0, roy: 0, rpx: NaN, rpy: NaN, sk: null, sl4: null, ed: 1, cb: 0, cbv: 0, cbs: f.state, cbn: f.serial, pw: 0, psw: NaN, tx: NaN, ty: NaN, tvx: 0, tvy: 0, shw: 1, sht: 0, cok: false, mw: 0, mt: null, iw: 0, ov: [0, 0, 0, 0], ovi: false, ovs: f.state, ovn: f.serial, ow: 0, wb: 0, ft: null, fpx: NaN, cu: 0, cuDur: 0, gw: 1, gp: NaN, gv: 0, gs: 1, gsb: 1, wc: null, wch: null, sy: [0, 0, 0], sv: [0, 0, 0], sx: [0, 0, 0], sinit: false, ws: 0, sl: [0, 0], slv: [0, 0], sla: [NaN, NaN], prevState: f.state, prevSerial: f.serial, ok: false, stamp: -1, chain: null,
     };
   }
 
@@ -632,9 +632,153 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+  const SWING = { on: !(typeof location !== 'undefined' && /[?&]swing=0(&|$)/.test(location.search || '')), lead: 6, min: 3, share: 0.6 };
+  A.SWING = SWING;
+  const ARMK = ['sw', 'ax', 'ay'];
+  const SP = {}, SJ = {}, SJ0 = {}, STO = {};
+
+  function stepMt(f) {
+    const G = ND.game;
+    return (G ? G.STEP * (G.tz || 1) * (G.slow || 1) : 1 / 120) * (f.ch.spd || 1) * (f.aspd || 1);
+  }
+
+
+
+  const LAND = { t: 0, tx: 0 };
+  function landAt(f, k, mt) {
+    const o = f.opp, a = f.atk, keys = f.keys;
+    if (!o || o.dead || o.hidden || !keys || !a || !(mt > 0) || (o.isInv && o.isInv())) return null;
+    const W = a.hits ? a.hits[0] : a.active;
+    if (!W) return null;
+    const hb = ND.hurtboxes(o.j), og = o.wpn && o.wpn.dual && o.j.pom ? o.j.pom : o.j.haF;
+    const guard = o.state === 'guard' || o.state === 'block' || o.state === 'parry';
+    const gap = Math.abs(o.x - f.x) < 70 ? 0.2 : 1;
+
+
+    let t = Math.max(f.st - mt, W[0] - 2 * mt), have = false, px = 0, py = 0, qx = 0, qy = 0;
+    for (let i = 0; i < 90 && t + mt <= W[1] + 1e-6; i++, t += mt) {
+      pose.seq(keys, t, SP);
+      ND.solve(SP, f.x + f.dir * lungeAt(f, a, f.st, t) * gap, f.y, f.dir, SJ, f.wpn);
+      const hx = SJ.haF.x, hy = SJ.haF.y, tx = SJ.tip.x, ty = SJ.tip.y;
+      if (have && t + mt >= W[0] - 1e-6) {
+        for (let s = 1; s <= 4; s++) {
+          const u = s / 4, ax = px + (hx - px) * u, ay = py + (hy - py) * u, bx = qx + (tx - qx) * u, by = qy + (ty - qy) * u;
+          let hit = guard && o.j.tip && segSeg(ax, ay, bx, by, og.x, og.y, o.j.tip.x, o.j.tip.y).d < 10;
+          if (!hit) for (const h of hb) if (segSeg(ax, ay, bx, by, h[0], h[1], h[2], h[3]).d < h[4]) { hit = true; break; }
+          if (hit) { LAND.t = t + mt; LAND.tx = t - mt + mt * u; return LAND; }
+        }
+      }
+      px = hx; py = hy; qx = tx; qy = ty; have = true;
+    }
+    return null;
+  }
+
+  function nextCut(list, t) { for (const k of list) if (k.h0 < 1e8 && t <= k.t1 + 0.02) return k; return null; }
+
+  function swing(S, f, D, T, list, hold) {
+    const at = f.state === 'atk' ? f.atk : null;
+
+
+    const fin = ND.duel && ND.duel.finOf && ND.duel.finOf(f);
+    const k = SWING.on && at && at.kind === 'blade' && !f.wpn.twin && !at.zone && !fin ? nextCut(list, f.st) : null;
+    let P = S.swg;
+    S.swgT = null;
+    if (!k) { S.swg = null; return false; }
+    if (!P || P.ser !== f.serial || P.k !== k) {
+      if (hold) return false;
+      P = S.swg = { ser: f.serial, k, st: 'wait', ts: 0, tc: 0, n: 0, from: {}, to: {}, d: 0 };
+    }
+    const mt = stepMt(f), fr = 2 * mt;
+    if (P.st === 'wait') {
+      if (!hold) {
+
+        const tl = landAt(f, k, mt);
+        P.tc = tl ? tl.t : k.t1; P.tx = tl ? tl.tx : k.t1;
+
+        const CC = ND.duel && ND.duel.chor && ND.duel.chor.cur;
+        if (CC && CC.final && CC.A === f && CC.fin && CC.fin.st > 0 && CC.fin.st < P.tc) { P.tc = P.tx = CC.fin.st; }
+
+
+        pose.seq(f.keys, P.tc, STO);
+
+        const tw2 = A.swingTurns ? A.swingTurns(f) : null;
+        const back = tw2 ? tw2[0] : Math.abs(k.A.sw - f.keys[0][1].sw), fwd = (tw2 ? tw2[1] : Math.abs(STO.sw - k.A.sw)) + 0.3;
+        const n = Math.max(SWING.min, Math.min(SWING.lead, Math.round((P.tc / fr) * (fwd / (fwd + back)))));
+        P.n = n; P.ts = Math.min(k.t0, P.tc - n * fr);
+      }
+      if (f.st + mt * 0.5 < P.ts) {
+
+
+        if (P.ts < k.t0 && P.ts > 0) {
+
+          let tw = k.t0;
+          for (let i = 1; i < f.keys.length; i++) if (f.keys[i][0] === k.t0 && f.keys[i - 1][1] === f.keys[i][1]) tw = f.keys[i - 1][0];
+          S.swgT = Math.min(tw, (f.st * tw) / P.ts);
+          pose.seq(f.keys, S.swgT, STO);
+          for (const q of ARMK) D[q] += STO[q] - T[q];
+
+
+        }
+        return false;
+      }
+      if (hold) return false;
+
+      P.st = 'go'; P.ts = f.st;
+      for (const q of ARMK) P.from[q] = S.lastD ? S.lastD[q] : D[q];
+      pose.seq(f.keys, P.tx, STO);
+      for (const q of ARMK) P.to[q] = STO[q];
+
+
+      ND.solve(STO, 0, 0, 1, SJ0, f.wpn);
+      P.toJ = { sh: [SJ0.sh.x, SJ0.sh.y], ha: [SJ0.haF.x, SJ0.haF.y], tip: [SJ0.tip.x, SJ0.tip.y] };
+
+
+      const ref = P.ref = P.to.sw - k.A.sw;
+      let d = P.to.sw - P.from.sw;
+      d += TAU * Math.round((ref - d) / TAU);
+      P.d = d;
+    }
+    if (P.st !== 'go' && P.st !== 'land') return false;
+
+    if (!hold && f.st >= P.tc + mt * 0.5) { P.st = 'done'; return false; }
+
+    const G = ND.game;
+    if (!hold && G && G.hitstopT > 0 && f.st < P.tc - mt * 0.5) { P.st = 'done'; S.swgCatch = true; return false; }
+    if (f.st >= P.tc - mt * 0.5) P.st = 'land';
+    const u = clamp((f.st - P.ts) / Math.max(1e-4, P.tc - P.ts), 0, 1), e = u * (0.7 + 0.3 * u);
+    S.swgT = k.t0 + (P.tc - k.t0) * e;
+    D.sw = P.from.sw + P.d * e;
+
+    const ra = Math.hypot(P.from.ax, P.from.ay), rb = Math.hypot(P.to.ax, P.to.ay);
+    if (ra > 8 && rb > 8) {
+      const ta = Math.atan2(P.from.ay, P.from.ax), dt0 = wrap(Math.atan2(P.to.ay, P.to.ax) - ta);
+      const r = ra + (rb - ra) * e, th = ta + dt0 * e;
+      D.ax = Math.cos(th) * r; D.ay = Math.sin(th) * r;
+    } else { D.ax = P.from.ax + (P.to.ax - P.from.ax) * e; D.ay = P.from.ay + (P.to.ay - P.from.ay) * e; }
+    return true;
+  }
+  A.landAt = landAt;
+
+
+
+
   A.present = function (f, dt, hold, rj) {
     const S = f._anim || (f._anim = mk(f));
     S.stamp = ND.simClock;
+
+    if (!hold && S.ok && S.j.hip) { copyJ(S.j, S.jp || (S.jp = {})); S.jpClk = S.jClk; }
+    if (!hold) S.jClk = ND.simClock;
     if (f.dead || !A.on) { S.ok = false; if (!hold) f.cloth(rj || f.j, dt); return; }
     const T = f.pose, D = S.p, G = ND.game;
     if (!hold) {
@@ -648,6 +792,8 @@
       }
       S.prevState = f.state; S.prevSerial = f.serial;
       pose.copy(T, S.prevT);
+
+      if (S.ok) S.lastD = pose.copy(D, S.lastD || {});
     }
     pose.copy(T, D);
     if (f.state === 'win' && ND.flair) ND.flair.winPose(f, D);
@@ -705,6 +851,12 @@
       if (e > ACT_MAX) { const k = ACT_MAX / e; for (const q of KEYS) D[q] = T[q] + (D[q] - T[q]) * k; }
     }
 
+    const swg = swing(S, f, D, T, list, hold);
+    if (S.swgCatch) {
+      S.swgCatch = false;
+      if (S.lastD) { pose.copy(S.lastD, S.from); S.cu = 0; S.cuDur = G && G.hitstopT > 0 ? Math.min(0.04, G.hitstopT * 0.6) : 0.05; }
+    }
+
     if (S.cuDur > 0) {
       S.cu += dt;
       const u = S.cu / S.cuDur;
@@ -717,7 +869,7 @@
 
     const fs = M.iai && f.wpn.iai ? iaiDraw(at, list, f.st, D).fs : 1;
 
-    const contact = act || !!CONTACT[f.state] || S.cuDur > 0 || !!f.roll;
+    const contact = act || swg || !!CONTACT[f.state] || S.cuDur > 0 || !!f.roll;
     const soon = !!(at && at.active && f.st < at.active[0] - 0.02 && f.st > at.active[0] - 0.08);
     if (!hold) {
       const h = Math.max(dt, 1e-4), om = TAU * W.f, z = M.settle ? W.zs : W.z, X = S.sx, Y = S.sy, V = S.sv;
@@ -748,6 +900,7 @@
     D.sw += S.cb;
 
 
+    S.swgOn = swg;
     if (A.preSolve) A.preSolve(f, D, S, dt, hold, act);
 
     const g0 = D.grip, gx0 = D.gx, gy0 = D.gy, gEnd = M.grip && f.wpn.type !== 'bo' && f.wpn.type !== 'naginata';
@@ -827,8 +980,53 @@
       }
     }
     j._slF = S.sl[0]; j._slB = S.sl[1];
+
+
+
+    if (!hold) {
+      const G2 = ND.game, o = f.opp;
+      if (S.rpx === S.rpx && G2 && G2.phase === 'fight') {
+        const jx = f.x - S.rpx - (f.vx || 0) * dt, jy = f.y - S.rpy - (f.vy || 0) * dt;
+        const crossed = o && Math.sign(S.rpx - o.x) !== Math.sign(f.x - o.x);
+        if (!crossed && Math.abs(jx) < 400 && Math.abs(jy) < 300 && (Math.abs(jx) > 24 || Math.abs(jy) > 24)) { S.rox -= jx; S.roy -= jy; }
+      } else { S.rox = 0; S.roy = 0; }
+      S.rpx = f.x; S.rpy = f.y;
+      const q = Math.exp(-Math.max(0, dt) / 0.12); S.rox *= q; S.roy *= q;
+      if (Math.abs(S.rox) < 0.2) S.rox = 0;
+      if (Math.abs(S.roy) < 0.2) S.roy = 0;
+    }
+
+    if ((S.rox || S.roy) && f.dz) for (const k of RKEYS) { const p = j[k]; if (p) { p.x += S.rox; p.y += S.roy; } }
     S.ok = true;
     if (!hold) f.cloth(j, dt);
+  };
+
+
+
+  const PKEYS = ['hip', 'neck', 'sh', 'head', 'elF', 'haF', 'tip', 'pom', 'elB', 'haB', 'knF', 'ftF', 'knB', 'ftB', 'shB', 'hipF', 'hipB', 'chest', 'wrF', 'wrB'];
+  function copyJ(a, b) {
+    for (const k of PKEYS) { const p = a[k]; if (!p) { b[k] = null; continue; } const q = b[k] || (b[k] = { x: 0, y: 0 }); q.x = p.x; q.y = p.y; }
+    b.hang = a.hang;
+    return b;
+  }
+  A.interpJ = function (f, S) {
+    const I = ND.interp, J = S.j, P = S.jp;
+    if (!P || !P.hip || !J.hip || !(S.jClk > S.jpClk)) return J;
+    if (S.jiN === I.n && S.ji) return S.ji;
+    const w = clamp((I.tr - S.jpClk) / (S.jClk - S.jpClk), 0, 1);
+    if (w >= 1 || Math.hypot(J.hip.x - P.hip.x, J.hip.y - P.hip.y) > 120) return J;
+    const O = S.ji || (S.ji = {});
+    for (const k in J) O[k] = J[k];
+    for (const k of PKEYS) {
+      const a = P[k], b = J[k];
+      if (!a || !b) continue;
+      const q = S.jiP ? S.jiP[k] || (S.jiP[k] = { x: 0, y: 0 }) : null;
+      if (!q) { S.jiP = {}; return A.interpJ(f, S); }
+      q.x = a.x + (b.x - a.x) * w; q.y = a.y + (b.y - a.y) * w; O[k] = q;
+    }
+    if (P.hang != null && J.hang != null) O.hang = P.hang + wrap(J.hang - P.hang) * w;
+    S.jiN = I.n;
+    return O;
   };
 
   A.hold = function (f, dt) {
