@@ -1142,7 +1142,19 @@ void main(){
     if (CUT && CUT.mouth) { M.sayaA = T(v3(...CUT.mouth)); M.sayaU = norm(v3(...CUT.u)); }
 
     if (CUT && CUT.back && CUT.back.top) M.sayaBk = [T(v3(...CUT.back.top)), T(v3(...CUT.back.bot))];
+    M.kostum = await dressLoad(id);
     return M;
+  }
+
+
+  async function dressLoad(id) {
+    if (!ND.r3dCostume || /[?&]r3dcos=0(&|$)/.test(Q)) return null;
+    try {
+      const [mr, jr] = await Promise.all([fetch('uc-boyut/model/' + id + '-kostum.png'), fetch('uc-boyut/model/' + id + '-kostum.json')]);
+      if (!mr.ok || !jr.ok) return null;
+      const meta = await jr.json(), img = await createImageBitmap(await mr.blob(), { colorSpaceConversion: 'none', premultiplyAlpha: 'none' });
+      return { meta, img, bytes: +(mr.headers.get('content-length') || 0) };
+    } catch (e) { console.warn('[r3d] costume regions', id, e && e.message); return null; }
   }
   function m4inv(m) {
     const a = Array.from(m), inv = new Array(16);
@@ -1569,6 +1581,34 @@ void main(){
   }
   const ROOT = new Float32Array(16);
 
+
+
+  const DRESSN = 2, DRESS = [];
+  function dressTex(gl, M, img, t, f) {
+    const CR = ND.r3dCostume, K = M.kostum;
+    if (!CR || !K || !f || !f.col || f.col === f.ch.col) return null;
+    let D = DRESS.find((d) => d.gl === gl && d.M === M && d.col === f.col);
+    if (!D) {
+      const P = CR.plan(K.meta, f.ch.col, f.col), key = CR.planKey(P);
+      if (!P) return null;
+      D = DRESS.find((d) => d.gl === gl && d.M === M && d.key === key);
+      if (!D) {
+        if (!K.tex || K.gl !== gl) { K.tex = CR.mapTex(gl, K.img); K.gl = gl; }
+        const an = GLB_LOOK.aniso && (gl.getExtension('EXT_texture_filter_anisotropic') || gl.getExtension('WEBKIT_EXT_texture_filter_anisotropic'));
+        const t0 = performance.now();
+        const tex = CR.bake(gl, t, img.width, img.height, K.tex, K.img.width, K.img.height, P, an ? { ext: an, n: Math.min(4, gl.getParameter(an.MAX_TEXTURE_MAX_ANISOTROPY_EXT)) } : null);
+        R3.dressMs = performance.now() - t0; R3.dressN = (R3.dressN || 0) + 1;
+        if (!tex) return null;
+        D = { gl, M, key, tex, col: f.col, used: 0 };
+        DRESS.push(D);
+
+        while (DRESS.length > DRESSN) { let o = -1; for (let i = 0; i < DRESS.length; i++) if (DRESS[i] !== D && (o < 0 || DRESS[i].used < DRESS[o].used)) o = i; DRESS[o].gl.deleteTexture(DRESS[o].tex); DRESS.splice(o, 1); }
+      } else D.col = f.col;
+    }
+    D.used = R3.frames;
+    return D.tex;
+  }
+
   function hdRun(gl, w, h, list, inkPx, vp, reflect) {
     if (!GLH || GLH.gl !== gl) hdInit(gl);
     const { p, U } = GLH;
@@ -1611,6 +1651,7 @@ void main(){
                 if (an) gl.texParameterf(gl.TEXTURE_2D, an.TEXTURE_MAX_ANISOTROPY_EXT, Math.min(4, gl.getParameter(an.MAX_TEXTURE_MAX_ANISOTROPY_EXT)));
                 GLH.tex.set(img, t);
               }
+              if (M.kostum) t = dressTex(gl, M, img, t, E.f) || t;
               gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, t); gl.activeTexture(gl.TEXTURE0);
             }
             gl.uniform1f(U.uHasTex, img ? 1 : 0);
@@ -1632,7 +1673,15 @@ void main(){
   const LIGHT = { L: new Float32Array(16), LC: new Float32Array(12), keyD: [0, 0, 0], keyC: [0, 0, 0], keyA: 0, shade: [1, 1, 1], ink: [0.04, 0.035, 0.05] };
   const FR = { list: [], fit: 1, W: 0, H: 0 };
 
-  function eligible(f) { return f && !f.hidden && !(f.col && (f.col.costume || f.col.atlas)) && f.viewJ && f.ch; }
+
+
+  function dressOk(f) {
+    if (!f.col || !f.ch || f.col === f.ch.col) return true;
+    const id = f.ch.id, M = HDM[id];
+    if (!GLB.includes(id)) return !(f.col.costume || f.col.atlas);
+    return M ? !!M.kostum : HDL[id] !== 'failed';
+  }
+  function eligible(f) { return f && !f.hidden && dressOk(f) && f.viewJ && f.ch; }
   function rigOf(f) {
     let R = RIGS.get(f);
     if (R && R.ch === f.ch && R.col === f.col && R.wpn === (f.wpn || ND.LEN)) return R;
@@ -1853,6 +1902,8 @@ void main(){
   };
   if ((LOD === 'hd' && typeof DecompressionStream !== 'undefined') || GLB.length) { hdWant('akane'); hdWant('kuro'); }
   R3.hdDebug = (f) => { const F = HDF.get(f); if (!F) return null; const o = {}; for (const n of ['hips','spine','chest','neck','head','thigh.R','shin.R','foot.R','upper.R']) { const i = F.M.ix[n], b = F.b[i], B = F.M.B[i]; o[n] = { p: [b.p.x, b.p.y, b.p.z].map(Math.round), p0: [B.p0.x, B.p0.y, B.p0.z].map(Math.round), s: +b.s.toFixed(2), len: Math.round(B.len), up: [b.Rw[3], b.Rw[4], b.Rw[5]].map((v) => +v.toFixed(2)) }; } return o; };
+
+  R3.hdReady = (id) => !!HDM[id] || HDL[id] === 'failed';
   R3.info = () => Object.assign({ tris: R3.tris, cpuMs: +(R3.cpuMs || 0).toFixed(3), glMs: +(R3.gpuCallMs || 0).toFixed(3) }, R3.last || {});
 
 
