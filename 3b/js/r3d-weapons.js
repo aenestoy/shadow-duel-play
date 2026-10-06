@@ -376,7 +376,7 @@
       if (w.twin) { katanaParts(K, 'sec', w, F, kind); sayaParts(K, 'saya', w.blade + 6, 2.6, F); sayaParts(K, 'saya2', w.blade + 6, 2.6, F); }
 
 
-      else sayaParts(K, 'saya', w.iai ? w.blade * 0.8 + 6 : w.blade + 6, kind === 'nodachi' ? 3.6 : kind === 'kodachi' ? 3 : 3.3, F);
+      else sayaParts(K, 'saya', w.iai ? w.blade * 0.62 + 6 : w.blade + 6, kind === 'nodachi' ? 3.6 : kind === 'kodachi' ? 3 : 3.3, F);
       K.lie = kind === 'tanto' ? 2.4 : 5.5;
       if (kind === 'nodachi') for (const s of ['strap', 'strap2', 'strap3']) K.part(s, [[tube([[0, 1.1], [1, 1.1]], 6, 0.4, true, 1.5), F.strap || F.sageo || '#2a2420', 6, 0.4]]);
     } else if (kind === 'naginata') { naginataParts(K, w, F); K.lie = 4.2; }
