@@ -277,7 +277,8 @@
 
 
 
-  function finStruckArmed(f) { const c = D.finOf && D.finOf(f); return !!(c && c.un && c.V === f && isArmed(f)); }
+
+  function finStruckArmed(f) { const c = D.finOf && D.finOf(f); return !!(((c && c.un && c.V === f) || (D.chor && D.chor.punched && D.chor.punched(f))) && isArmed(f)); }
   function lowBlade(fr) {
     if (!fr.armed || fr.inside) return;
     const u = fr.d.bu;

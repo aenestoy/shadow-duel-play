@@ -69,7 +69,7 @@
 
 
 
-  CH.WIN = { 1: [1.5, 1.5], 2: [2.5, 2.8], 3: [3.0, 3.5] };
+  CH.WIN = { 1: [1.5, 2.0], 2: [2.5, 2.8], 3: [3.0, 3.5] };
   const winDmg = (tier) => { const T = (ND.AI_KNOBS && ND.AI_KNOBS.finWin) || CH.WIN, v = T[tier] || T[String(tier)] || CH.WIN[tier]; return [clamp(+v[0] || 0, 0, 20), clamp(+v[1] || 0, 0, 20)]; };
   const h32 = (s) => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
   const prng = (seed) => () => { seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
@@ -100,13 +100,84 @@
     low: { W: [x('A', 'dk_spin', 'block', { spd: 0.6 }), x('A', 'd_kakato', 'block', { spd: 0.6 }), x('A', 'dk_wrist', 'block', { spd: 0.6 })], open: [x('A', 'dk_sweep', 'back', { spd: 0.6 }), x('A', 'd_ashibarai', 'back', { spd: 0.6 })] },
   };
   const OWN = { tora: { trap: [x('A', 'tr_hook', 'hit', { want: 150 })] }, mai: { trap: [x('A', 'mi_heavy', 'block')] }, jin: { low: [x('A', 'd_ashibarai', 'back', { spd: 0.6 })] } };
+
+
+
+
+
+
+  const s6 = { spd: 0.6 };
+  const NIN = {
+    aoi: {
+      body: { W: [x('A', 'ao_kaze', 'hit', s6), x('A', 'ao_heavy', 'block')], O: [x('A', 'ao_fl', 'back'), x('A', 'd_hiza', 'block', { spd: 0.6, want: 104 })] },
+      trap: { W: [x('A', 'ao_s2', 'block'), x('A', 'dk_wrist', 'hit', s6), x('A', 'ua_elbow', 'hit', { spd: 0.6, want: 88 })], O: [x('A', 'ao_l1', 'parry')] },
+      low: { W: [x('A', 'ao_up', 'block'), x('A', 'dk_spin', 'block', s6)], O: [x('A', 'dk_sweep', 'back', s6)] },
+    },
+    kuro: {
+      body: { W: [x('A', 'kr_yama', 'hit', s6), x('A', 'd_taiatari', 'hit', { spd: 0.6, want: 96, near: 70 })], O: [x('A', 'kr_iwa', 'block')] },
+      trap: { W: [x('A', 'd_kote', 'hit'), x('A', 'd_hiza', 'hit', { spd: 0.6, want: 104 }), x('A', 'dk_wrist', 'hit', s6)], O: [x('A', 'kr_nagi', 'block')] },
+      low: { W: [x('A', 'd_suneR', 'back'), x('A', 'd_ashibarai', 'back', s6)], O: [x('A', 'kr_kuruma', 'back')] },
+    },
+    yuki: {
+      body: { W: [x('A', 'yk_kitsune', 'hit', s6), x('A', 'd_hiza', 'hit', { spd: 0.6, want: 104 })], O: [x('A', 'throw', 'deflect')] },
+      trap: { W: [x('A', 'fd_s1', 'block'), x('A', 'ua_elbow', 'hit', { spd: 0.6, want: 88 }), x('A', 'ua_cross', 'hit', { spd: 0.6, want: 92 })], O: [x('A', 'throw', 'deflect')] },
+      low: { W: [x('A', 'fd_bl', 'back'), x('A', 'dk_sweep', 'back', s6)], O: [x('A', 'dk_spin', 'block', s6)] },
+    },
+    hana: {
+      body: { W: [x('A', 'hn_sakura', 'hit', s6), x('A', 'd_hiza', 'hit', { spd: 0.6, want: 104 })], O: [x('A', 'ft_fl', 'back')] },
+      trap: { W: [x('A', 'ft_s1', 'block'), x('A', 'ua_cross', 'hit', { spd: 0.6, want: 92 }), x('A', 'ua_elbow', 'hit', { spd: 0.6, want: 88 })], O: [x('A', 'ua_jab', 'block', { spd: 0.6, want: 96 })] },
+      low: { W: [x('A', 'ft_bl', 'back'), x('A', 'dk_spin', 'block', s6)], O: [x('A', 'dk_sweep', 'back', s6)] },
+    },
+    tetsu: {
+      body: { W: [x('A', 'tt_vault', 'hit', s6), x('A', 'd_taiatari', 'hit', { spd: 0.6, want: 96, near: 70 })], O: [x('A', 'fn_fl', 'back')] },
+      trap: { W: [x('A', 'fn_bh', 'block'), x('A', 'dk_wrist', 'hit', s6)], O: [x('A', 'fn_s1', 'block')] },
+      low: { W: [x('A', 'fn_bl', 'back'), x('A', 'd_ashibarai', 'back', s6)], O: [x('A', 'dk_sweep', 'back', s6)] },
+    },
+    ren: {
+      body: { W: [x('A', 'rn_oni', 'hit', s6), x('A', 'rn_l3', 'hit', s6)], O: [x('A', 'rn_fl', 'block', { spd: 0.6, want: 96, near: 70 })] },
+      trap: { W: [x('A', 'rn_bl', 'hit', { spd: 0.6, want: 90, near: 66 }), x('A', 'rn_l2', 'hit', s6), x('A', 'ua_cross', 'hit', { spd: 0.6, want: 92 })], O: [x('A', 'rn_l2', 'block', s6)] },
+      low: { W: [x('A', 'rn_s2', 'block', s6), x('A', 'rn_bh', 'block', s6)], O: [x('A', 'dk_sweep', 'back', s6)] },
+    },
+    kage: {
+      body: { W: [x('A', 'kg_kage', 'hit', s6), x('A', 'kg_bh', 'hit', s6)], O: [x('A', 'kg_bl', 'block')] },
+      trap: { W: [x('A', 'kg_s2', 'block'), x('A', 'ua_elbow', 'hit', { spd: 0.6, want: 88 })], O: [x('A', 'kg_bl', 'block')] },
+      low: { W: [x('A', 'kg_l3', 'block'), x('A', 'dk_sweep', 'back', s6)], O: [x('A', 'throw', 'deflect')] },
+    },
+    shura: {
+      body: { W: [x('A', 'sh_ashura', 'hit', s6), x('A', 'rn_fl', 'hit', { spd: 0.6, want: 96, near: 70 })], O: [x('A', 'rn_bh', 'block', s6)] },
+      trap: { W: [x('A', 'rn_bl', 'hit', { spd: 0.6, want: 90, near: 66 }), x('A', 'ua_elbow', 'hit', { spd: 0.6, want: 88 })], O: [x('A', 'L1', 'block')] },
+      low: { W: [x('A', 'rn_s2', 'block', s6), x('A', 'dk_sweep', 'back', s6)], O: [x('A', 'd_ashibarai', 'back', s6)] },
+    },
+    tora: {
+      body: { W: [x('A', 'tr_kusari', 'hit', s6), x('A', 'd_hiza', 'hit', { spd: 0.6, want: 104 })], O: [x('A', 'tr_l2', 'back')] },
+      trap: { W: [x('A', 'tr_hook', 'hit', { want: 220 }), x('A', 'tr_s1', 'block'), x('A', 'tr_s2', 'block')], O: [x('A', 'tr_l1', 'block')] },
+      low: { W: [x('A', 'dk_sweep', 'back', s6), x('A', 'tr_heavy', 'block', { want: 220 })], O: [x('A', 'tr_l2', 'back')] },
+    },
+    jin: {
+      body: { W: [x('A', 'jn_tenbin', 'hit', s6), x('A', 'd_taiatari', 'hit', { spd: 0.6, want: 96, near: 70 })], O: [x('A', 'jn_dash', 'back')] },
+      trap: { W: [x('A', 'jn_l3', 'block'), x('A', 'dk_wrist', 'hit', s6), x('A', 'jn_l1', 'block')], O: [x('A', 'jn_throw', 'deflect')] },
+      low: { W: [x('A', 'd_ashibarai', 'back', s6), x('A', 'fb_bl', 'back')], O: [x('A', 'jn_heavy', 'block')] },
+    },
+    mai: {
+      body: { W: [x('A', 'mi_ogi', 'hit', s6), x('A', 'd_kakato', 'block', s6)], O: [x('A', 'mi_heavy', 'block')] },
+      trap: { W: [x('A', 'mi_l3', 'block'), x('A', 'mi_heavy', 'block'), x('A', 'ua_elbow', 'hit', { spd: 0.6, want: 88 })], O: [x('A', 'mi_l1', 'block')] },
+      low: { W: [x('A', 'fm_bl', 'back'), x('A', 'dk_spin', 'block', s6)], O: [x('A', 'dk_sweep', 'back', s6)] },
+    },
+    tsubame: {
+      body: { W: [x('A', 'ts_tsubame', 'hit', { spd: 0.6, want: 92, near: 70 }), x('A', 'd_hiza', 'hit', { spd: 0.6, want: 104 })], O: [x('A', 'dk_spin', 'block', s6)] },
+      trap: { W: [x('A', 'ua_elbow', 'hit', { spd: 0.6, want: 88 }), x('A', 'fs_s1', 'block'), x('A', 'dk_wrist', 'hit', s6)], O: [x('A', 'ts_shot', 'block', { spd: 0.7 })] },
+      low: { W: [x('A', 'fs_bl', 'back'), x('A', 'dk_sweep', 'back', s6)], O: [x('A', 'fs_fl', 'back')] },
+    },
+  };
+  CH.NIN = NIN;
   const KINDS = ['blade', 'body', 'trap', 'low'];
 
-  const winnable = (b) => b && b.k === 'x' && b.att === 'A' && b.m !== 'BL' && !(ATK[b.m] && ATK[b.m].kind === 'feint');
+  const winnable = (b) => b && b.k === 'x' && b.att === 'A' && b.m !== 'BL' && !(ATK[b.m] && (ATK[b.m].kind === 'feint' || ATK[b.m].kind === 'throw'));
   function choreo(id, tier, ci) {
     const P = POOL[id], kind = KINDS[ci], r = prng(h32(id + ':' + tier + ':' + ci)), pick = (L) => L[Math.floor(r() * L.length)];
-    const KW = kind === 'blade' ? P.A : KIND[kind].W.concat((OWN[id] && OWN[id][kind]) || []);
-    const KO = kind === 'blade' ? [P.C] : KIND[kind].open.concat(((OWN[id] && OWN[id][kind]) || []).filter((b) => b.def !== 'hit'));
+    const N = NIN[id] && NIN[id][kind];
+    const KW = N ? N.W : kind === 'blade' ? P.A : KIND[kind].W.concat((OWN[id] && OWN[id][kind]) || []);
+    const KO = N ? N.O : kind === 'blade' ? [P.C] : KIND[kind].open.concat(((OWN[id] && OWN[id][kind]) || []).filter((b) => b.def !== 'hit'));
     const sigWin = winnable(P.sig);
     const opening = [];
 
@@ -125,7 +196,7 @@
   }
 
   const CONT = {
-    held: [() => [x('V', 'L1', 'parry')], () => [c('L1', 'L1')], () => [x('V', 'FL', 'back')]],
+    held: [() => [x('V', 'L1', 'parry')], (S) => [cp(POOL[S.ch.id].C)], () => [x('V', 'FL', 'back')]],
     hit: [() => [stagger(200, 0.45)], (S) => [stagger(140, 0.62), cp(S.ch.W[0], { def: 'block' })], () => [stagger(280, 0.5), step('A', 70, 0.32)]],
   };
   const ENDS = { held: ['out', 'answer', 'clash'], hit: ['reel', 'zanshin', 'spun'] };
@@ -187,10 +258,11 @@
     try { r = (ND.MOVES && ND.MOVES[f.ch.id] && ND.MOVES[f.ch.id](f, n)) || n; } catch (e) { r = n; } finally { f.chainN = c0; }
     if (n === 'kick' && !(ATK[r] && ATK[r].kind === 'kick' && r !== 'kick')) r = ATK.d_hiza ? 'd_hiza' : 'kick';
     const a = ATK[r];
-    if (!a || a.special || !/^(blade|kick|whip|shoot|gust|feint)$/.test(a.kind || 'blade')) return 'light1';
+    if (!a || a.special || !/^(blade|kick|whip|shoot|gust|feint|throw)$/.test(a.kind || 'blade')) return 'light1';
     return r;
   }
   CH.moveOf = moveOf;
+  CH.punched = (f) => !!(SB && SB.punched && SB.punched.f === f && SB.t <= SB.punched.until);
   const hitOf = (a) => (a.hits && a.hits.length ? a.hits : a.active ? [a.active] : [[0.1, 0.2]]);
 
 
@@ -199,7 +271,7 @@
 
   function planBeat(S, b, t, acts, wi) {
     const A = S.A, V = S.V, who = (w) => (w === 'A' ? A : V);
-    if (b.k === 'stagger') { acts.push({ t, k: 'stagger', kb: b.kb }); return t + b.dur; }
+    if (b.k === 'stagger') { acts.push({ t, k: 'stagger', kb: b.kb }); S.reelT = t; return t + b.dur; }
     if (b.k === 'step') { acts.push({ t, k: 'step', f: who(b.who), d: b.d, dur: b.dur }); return t + b.dur; }
     if (b.k === 'c') {
 
@@ -223,31 +295,40 @@
     const a = ATK[m];
     if (!a) return t;
 
-    const want = b.want || (a.kind === 'kick' ? 112 : a.kind === 'shoot' ? 300 : a.kind === 'whip' ? 150 : 162);
-    acts.push({ t, k: 'close', f: att, want, dur: 0.17 });
+    const want = b.want || (a.kind === 'kick' ? 112 : a.kind === 'shoot' ? 300 : a.kind === 'throw' ? 260 : a.kind === 'whip' ? 150 : wi != null ? 128 : 162);
+    const W = hitOf(a), proj = /^(shoot|throw)$/.test(a.kind || '');
+
+    if (def === V && (wi != null || b.def !== 'hit') && S.reelT != null) {
+      const ready = t + 0.18 + W[0][0] / kOf(att, b.spd) - (wi != null ? 0.05 + winLen(def) : 0.2), need = S.reelT + 0.78;
+      if (ready < need) t += need - ready;
+    }
+    acts.push({ t, k: 'close', f: att, want, dur: 0.17, away: /^(whip|throw)$/.test(a.kind || '') });
     t += 0.18;
-    const W = hitOf(a);
-    const hit = t + W[W.length - 1][0] / kOf(att, b.spd), end = Math.min(t + (a.dur || 0.5) / kOf(att, b.spd), hit + (b.rec || (a.kind === 'shoot' ? 0.6 : a.kind === 'whip' ? 0.5 : 0.34)));
+
+    const hit = a.kind === 'throw' ? t + (a.release || 0.17) / kOf(att, b.spd) + Math.max(0, want - 50) / (a.proj === 'stone' ? 980 : 1150) : t + W[W.length - 1][0] / kOf(att, b.spd);
+    const end = Math.min(Math.max(t + (a.dur || 0.5) / kOf(att, b.spd), a.kind === 'throw' ? hit + 0.2 : 0), hit + (b.rec || (a.kind === 'shoot' ? 0.6 : a.kind === 'whip' ? 0.5 : 0.34)));
 
     acts.push({ t: end, k: 'settle', f: att }, { t: end, k: 'settle', f: def });
     const win = wi != null;
-    acts.push({ t, k: 'atk', f: att, m, spd: b.spd, hold: !win && b.def === 'back', def: win ? null : b.def });
+    acts.push({ t, k: 'atk', f: att, m, spd: b.spd, hold: !win && b.def === 'back', def: win ? 'win' : b.def, near: b.near || 0 });
     acts.push({ t: hit - 0.01, k: 'slow', v: b.def === 'hit' ? 0.4 : 0.35, d: 0.24 });
     const until = Math.max(hit + (a.kind === 'whip' ? 0.5 : 0.2), t + W[W.length - 1][1] / kOf(att, b.spd) + 0.12);
     if (win) {
-      const we = hit - 0.05, ws = we - winLen(def);
+
+      const hit0 = t + W[0][0] / kOf(att, b.spd), we = hit0 - 0.05, ws = we - winLen(def);
 
       const how = a.trip || a.low ? 'back' : a.kind === 'blade' ? 'parry' : 'block';
-      S.wins.push({ i: wi, ws, we, hit, end, f: def, att, m, how, until, fin: false, ok: null, open: false, cancel: false });
-      acts.push({ t: ws - CUE, k: 'cue', wi });
-      acts.push({ t: Math.max(hit + 0.12, end - 0.12), k: 'guardOff', f: def });
-      acts.push({ t: hit - 0.03, k: 'watch', f: def, att }, { t: end - 0.005, k: 'check', f: def, att, m, wi });
+
+      S.wins.push({ i: wi, ws, we, hit, hit0, end, f: def, att, m, how, until, rel: hit + (proj ? 0.45 : 0.12), fin: false, ok: null, open: false, cancel: false });
+      acts.push({ t: ws - CUE, k: 'cue', wi }, { t: hit0 + 0.025, k: 'land', wi });
+      acts.push({ t: Math.max(hit + (proj ? 0.45 : 0.12), end - 0.12), k: 'guardOff', f: def, t0: t });
+      acts.push({ t: hit0 - 0.03, k: 'watch', f: def, att }, { t: end - 0.005, k: 'check', f: def, att, m, wi });
       acts.push({ t: end, k: 'branch', wi });
     } else {
       if (b.def !== 'hit') acts.push({ t: Math.max(0, t - 0.25), k: 'guardOn', f: def, def: b.def });
-      if (b.def === 'parry') acts.push({ t: hit - 0.05, k: 'tap', f: def });
+      if (b.def === 'parry') acts.push({ t: hit - 0.05, k: 'tap', f: def, until });
       if (b.def === 'back') acts.push({ t: hit - 0.2, k: 'back', f: def, until });
-      acts.push({ t: Math.max(hit + 0.12, end - 0.12), k: 'guardOff', f: def });
+      acts.push({ t: Math.max(hit + (proj ? 0.45 : 0.12), end - 0.12), k: 'guardOff', f: def, t0: t });
       acts.push({ t: hit - 0.03, k: 'watch', f: def, att }, { t: end - 0.005, k: 'check', f: def, att, want: b.def, m });
     }
     return end + b.gap;
@@ -275,7 +356,7 @@
     const ci = pickCont(S, wi, held);
     S.path.push((held ? 'Y' : 'N') + ci);
     if (wi < 2) {
-      let t = t0;
+      let t = t0 + (held ? 0.18 : 0);
       for (const b of CONT[held ? 'held' : 'hit'][ci](S)) t = planBeat(S, b, t, acts);
       if (wi === 0) t = planBeat(S, S.ch.W[1], t, acts, 1);
       else t = planFinal(S, t, acts);
@@ -289,7 +370,7 @@
     let t = t0 + 0.12;
     if (held) {
       if (e === 'answer') t = planBeat(S, x('V', 'L1', 'block'), t, acts);
-      else if (e === 'clash') t = planBeat(S, c('L1', 'L1'), t, acts);
+      else if (e === 'clash') t = planBeat(S, cp(POOL[S.ch.id].C), t, acts);
       acts.push({ t: t + 0.04, k: 'escOut', dur: 0.45 }, { t: t + 0.18, k: 'settle', f: S.A });
       S.dur = t + 0.66;
     } else {
@@ -357,12 +438,12 @@
       else if (pressed && t <= w.we + 1e-9) {
         w.ok = true; w.at = t;
         if (w.how === 'back') { V.setState('dodge', { ddir: -V.dir, back: true }); S.inv = { f: V, until: w.until }; S.cap = { f: V, x0: V.x, serial: V.serial, max: 64 }; }
-        else { press(V, 'guard'); w.tapAt = w.how === 'parry' ? w.hit - 0.05 : -1; }
+        else { press(V, 'guard'); w.tapAt = w.how === 'parry' ? (w.hit0 || w.hit) - 0.05 : -1; }
       } else if (t > w.we) { w.ok = false; w.at = t; }
     }
     for (const w of S.wins) {
       if (w.ok && w.tapAt > 0 && S.t >= w.tapAt) { w.tapAt = 0; release(V, 'guard'); press(V, 'guard'); }
-      if (w.ok && !w.done && S.t >= w.hit + 0.12) { w.done = true; if (!w.fin) release(V, 'guard'); }
+      if (w.ok && !w.done && S.t >= (w.rel || w.hit + 0.12)) { w.done = true; if (!w.fin) release(V, 'guard'); }
     }
   }
 
@@ -440,6 +521,15 @@
         return;
       }
       case 'branch': branch(SB, o.wi); return;
+      case 'land': {
+
+        const w = SB.wins.find((q) => q.i === o.wi), d = w && w.f, a2 = w && w.att;
+        if (!w || w.ok || !d || ['hurt', 'stagger', 'launch', 'down'].includes(d.state)) return;
+
+        const dir = a2.x <= d.x ? 1 : -1, a0 = ATK[w.m], a = a0 && /^(blade|kick|whip)$/.test(a0.kind || 'blade') ? a0 : ATK.light1;
+        d.takeHit(8, a, a2, d.x - dir * 18, d.y - 110, 'body', dir);
+        return;
+      }
       case 'escOut': {
 
         const ex = escapeTo(SB);
@@ -449,10 +539,17 @@
       }
       case 'stagger': V.setState('stagger'); V.vx = -V.dir * o.kb; return;
       case 'step': SB.glides.push({ f: o.f, x0: o.f.x, x1: o.f.x + o.f.dir * o.d, t0: SB.t, d: o.dur }); return;
-      case 'close': { const f = o.f, d = Math.abs(f.opp.x - f.x); if (d > o.want + 12) SB.glides.push({ f, x0: f.x, x1: f.x + f.dir * (d - o.want), t0: SB.t, d: o.dur }); return; }
-      case 'guardOn': press(o.f, 'guard'); return;
-      case 'guardOff': release(o.f, 'guard'); return;
-      case 'tap': release(o.f, 'guard'); press(o.f, 'guard'); return;
+      case 'close': {
+        const f = o.f, d = Math.abs(f.opp.x - f.x), L = (ND.ARENA || 900) - 30;
+        if (d > o.want + 12) SB.glides.push({ f, x0: f.x, x1: f.x + f.dir * (d - o.want), t0: SB.t, d: o.dur });
+
+        else if (o.away && d < o.want - 24) SB.glides.push({ f, x0: f.x, x1: clamp(f.x - f.dir * (o.want - d), -L, L), t0: SB.t, d: o.dur + 0.06 });
+        return;
+      }
+      case 'guardOn': press(o.f, 'guard'); SB.gOn = { f: o.f, t: o.t }; return;
+
+      case 'guardOff': if (SB.gOn && SB.gOn.f === o.f && SB.gOn.t > Math.max(0, (o.t0 || 0) - 0.25) + 1e-6) return; release(o.f, 'guard'); return;
+      case 'tap': release(o.f, 'guard'); press(o.f, 'guard'); SB.tap = { f: o.f, until: o.until || 0 }; return;
       case 'back': { const f = o.f; release(f, 'guard'); f.setState('dodge', { ddir: -f.dir, back: true }); SB.inv = { f, until: o.until }; SB.cap = { f, x0: f.x, serial: f.serial, max: 64 }; return; }
       case 'atk': {
         const f = o.f, a = ATK[o.m];
@@ -461,6 +558,7 @@
 
         SB.pin = o.hold ? { f, x0: f.x, serial: f.serial } : null;
         SB.def = o.def || null;
+        SB.near = o.near ? { f, d: o.near } : null;
         return;
       }
       case 'slow': G.slowT = o.d; G.slowV = o.v; return;
@@ -478,6 +576,7 @@
           : o.want === 'block' ? (has('block') || has('parry') || (ATK[o.m] && ATK[o.m].kind === 'feint')) && !has('hurt')
             : o.want === 'back' ? !has('hurt') && !has('stagger') && !has('launch') && !has('down')
               : o.want === 'guarded' ? (has('parry') || has('block')) && !has('hurt') && !has('stagger')
+              : o.want === 'deflect' ? (has('guard') || has('block') || has('parry')) && !has('hurt') && !has('stagger')
               : o.want === 'hit' ? has('hurt') || has('stagger') : o.want === 'clash' ? has('clash') && SB.seenA.has('clash') : true;
         SB.watch = null;
         CH.beats.push({ key: SB.c.key, v: SB.vi, att: o.att.ch.id, m: o.m, want: o.want, got: s0, ok, win: o.wi != null, path: SB.path.join('') });
@@ -488,12 +587,16 @@
         const F = SB.fin;
 
         for (const f of [A, V]) { release(f, 'guard'); if (f.state !== 'move') f.setState('move'); }
-        SB.glides.push({ f: A, x0: A.x, x1: F.x, t0: SB.t, d: o.dur, face: 1 }, { f: V, x0: V.x, x1: F.vx, t0: SB.t, d: o.dur, face: 1 });
+
+
+        const swapped = Math.sign(V.x - A.x) !== Math.sign(F.vx - F.x);
+        if (swapped) { A.hidden = true; if (fx.dust) fx.dust(A.x, 0, 10, 1.2); }
+        SB.glides.push({ f: A, x0: A.x, x1: F.x, t0: SB.t, d: o.dur, face: 1, hide: swapped }, { f: V, x0: V.x, x1: F.vx, t0: SB.t, d: o.dur, face: 1 });
         return;
       }
       case 'final': {
         const F = SB.fin;
-        A.x = F.x; V.x = F.vx; A.dir = F.dir; V.dir = F.vdir; A.vx = V.vx = 0;
+        A.x = F.x; V.x = F.vx; A.dir = F.dir; V.dir = F.vdir; A.vx = V.vx = 0; A.hidden = false;
         A.setState('atk', { atk: F.atk, atkName: F.atkName, keys: [[0, A.entry]].concat(F.atk.keys), aspd: o.spd });
         SB.final = true;
         return;
@@ -508,30 +611,37 @@
 
     for (let i = S.glides.length - 1; i >= 0; i--) {
       const gl = S.glides[i], u = clamp((S.t - gl.t0) / Math.max(0.01, gl.d), 0, 1);
-      if (gl.f.state !== 'move' && gl.f.state !== 'stagger') { S.glides.splice(i, 1); continue; }
+      if (gl.f.state !== 'move' && gl.f.state !== 'stagger') { S.glides.splice(i, 1); if (gl.hide) gl.f.hidden = false; continue; }
       const nx = gl.x0 + (gl.x1 - gl.x0) * ease(u);
       gl.f.vx = (nx - gl.f.x) / Math.max(1e-4, g.STEP);
       gl.f.x = nx;
       if (gl.face) gl.f.dir = gl.f.opp.x >= gl.f.x ? 1 : -1;
-      if (u >= 1) { gl.f.vx = 0; S.glides.splice(i, 1); }
+      if (u >= 1) { gl.f.vx = 0; S.glides.splice(i, 1); if (gl.hide) { gl.f.hidden = false; if (fx.dust) fx.dust(gl.f.x, 0, 10, 1.2); } }
     }
     g.timer = S.timer;
     for (const f of [A, V]) { f.posture = 0; f.dz.chain = 0; f.dz.finArm = null; }
     windows(S);
+
+
+    const tp = S.tap;
+    if (tp) { const f = tp.f; if (S.t > tp.until || f.state !== 'guard') S.tap = null; else if (f.ctrl.since('guard') > (ND.parryWin ? ND.parryWin(f) : 0.17) * 0.6) { release(f, 'guard'); press(f, 'guard'); } }
     tick0.call(g, true);
     if (S.watch) { S.seen.add(S.watch.f.state); S.seenA.add(S.watch.att.state); }
 
-    if (ND.cine) { ND.cine.rings.length = 0; ND.cine.slashes.length = 0; ND.cine.banner = null; }
+    if (ND.cine) { ND.cine.rings.length = 0; ND.cine.slashes.length = 0; ND.cine.banner = null; if (ND.cine.combos) ND.cine.combos[0] = ND.cine.combos[1] = null; if (ND.cine.nums) ND.cine.nums.length = 0; }
     A.counterUntil = V.counterUntil = 0;
     { const P = fx.parts; if (P) for (let i = P.length - 1; i >= 0; i--) if (P[i].k === 'r') P.splice(i, 1); }
     const pn = S.pin;
     if (pn) { if (pn.f.serial !== pn.serial) S.pin = null; else { const d = (pn.f.x - pn.x0) * pn.f.dir; if (d > 28) pn.f.x = pn.x0 + pn.f.dir * 28; } }
 
 
-    if (A.onGround && V.onGround && A.state !== 'clash') {
-      const lunging = (f) => S.def !== 'hit' && f.state === 'atk' && f.atk && f.atk.kind !== 'kick' && (f.atk.lunge || f.atk.thrust);
+    if (A.onGround && V.onGround && A.state !== 'clash' && !A.hidden && !V.hidden) {
+
+
+      const lunging = (f) => f.state === 'atk' && f.atk && f.atk.kind !== 'kick' && (((f.atk.lunge || f.atk.thrust) && S.def !== 'hit' && S.def !== 'win') || (f.atk.lunge && f.atk.lunge[2] >= 500 && (f.atk.thrust || f.atk.lunge[2] >= 700)));
       const close = (f) => f.state === 'atk' && /^ua_/.test(f.atkName || '');
-      const d = V.x - A.x, ad = Math.abs(d), MIN = lunging(A) || lunging(V) ? 132 : close(A) || close(V) ? 76 : 98;
+      const nr = S.near && S.near.f.state === 'atk' ? S.near.d : 1e9;
+      const d = V.x - A.x, ad = Math.abs(d), MIN = Math.min(nr, lunging(A) || lunging(V) ? 132 : close(A) || close(V) ? 76 : 98);
       if (ad < MIN) { const sd = d === 0 ? A.dir : Math.sign(d), push = (MIN - ad) / 2; A.x -= sd * push; V.x += sd * push; }
     }
     const cp = S.cap;
@@ -580,11 +690,17 @@
       PRE.V = this; PRE.clock = ND.simClock || 0; PRE.hp = this.hp; PRE.ghost = this.ghost; PRE.damageTaken = this.damageTaken; PRE.posture = this.posture; PRE.sinceHit = this.sinceHit;
     }
     if (!SB) return takeHit0.apply(this, arguments);
+
+
+    if (from && a && a.kind === 'kick' && /^(haF|haB|elF|elB|head)$/.test(a.limb || '')) SB.punched = { f: this, until: SB.t + 0.7 };
     const hp = this.hp, gh = this.ghost, dt = this.damageTaken, args = Array.prototype.slice.call(arguments);
     if (args[1] && typeof args[1] === 'object') args[1] = Object.assign({}, args[1], { knock: false, launch: false, spike: false, trip: false, lift: 0 });
     this.hp = this.maxHp * 50;
     try { return takeHit0.apply(this, args); } finally { this.hp = hp; this.ghost = gh; this.damageTaken = dt; }
   };
+
+  const blocked0 = FP.blocked;
+  FP.blocked = function (a) { if (!SB || !a) return blocked0.apply(this, arguments); const args = Array.prototype.slice.call(arguments); args[0] = Object.assign({}, a, { post: 0, crush: false, gcrush: 0 }); return blocked0.apply(this, args); };
 
   const isInv0 = FP.isInv;
   FP.isInv = function () { if (SB && SB.inv && SB.inv.f === this && SB.t <= SB.inv.until) return true; return isInv0.apply(this, arguments); };
@@ -631,11 +747,14 @@
 
 
 
-  const PV = new WeakMap();
+  const PV = new WeakMap(), JK = ['head', 'haF', 'haB', 'ftF', 'ftB', 'knF', 'knB', 'tip', 'hip'];
   function ahead(f, dt) {
     let p = PV.get(f);
 
-    const b = f.dead ? null : f.bounds(), bt = b ? b[1] : f.y - 236, b0 = b ? b[0] : f.x - 80, b2 = b ? b[2] : f.x + 80;
+
+    const j = f.dead ? null : f.viewJ();
+    let bt = f.y - 236, b0 = f.x - 60, b2 = f.x + 60;
+    if (j) for (const k of JK) { const q = j[k]; if (q && q.x === q.x && q.y === q.y && Math.abs(q.x - f.x) < 400) { if (q.x - 30 < b0) b0 = q.x - 30; if (q.x + 30 > b2) b2 = q.x + 30; if (q.y - 34 < bt) bt = q.y - 34; } }
     if (!p) PV.set(f, (p = { x: f.x, top: bt, vx: 0, vt: 0 }));
     if (dt > 1e-4) {
       const k = 1 - Math.exp(-dt / 0.08);
@@ -649,21 +768,33 @@
 
     const reach = (f) => 112 + Math.max(0, ((f.wpn && f.wpn.blade) || 90) + ((f.wpn && f.wpn.handle) || 24) - 120) * 0.7;
     const pa = ahead(A, dt), pv = ahead(V, dt);
-    const lo = Math.min(A.x - reach(A), pa.x - reach(A), V.x - reach(V), pv.x - reach(V), pa.b0 - 20, pv.b0 - 20);
-    const hi = Math.max(A.x + reach(A), pa.x + reach(A), V.x + reach(V), pv.x + reach(V), pa.b2 + 20, pv.b2 + 20);
+
+
+    const EE = (ND.ARENA || 900) + 120;
+    const lo = Math.max(-EE, Math.min(A.x - reach(A), pa.x - reach(A), V.x - reach(V), pv.x - reach(V), pa.b0 - 20, pv.b0 - 20));
+    const hi = Math.min(EE, Math.max(A.x + reach(A), pa.x + reach(A), V.x + reach(V), pv.x + reach(V), pa.b2 + 20, pv.b2 + 20));
     let z = clamp(cam.W / (cam.s * (hi - lo)), 1.0, 2.4);
 
 
     const len = (f) => ((f.wpn && f.wpn.blade) || 90) + ((f.wpn && f.wpn.handle) || 24);
     const top = Math.min(Math.min(A.y, V.y) - 236 - Math.max(0, Math.max(len(A), len(V)) - 120) * 0.9, pa.top - 30, pv.top - 30), Y = -100, room = cam.gy - cam.H * 0.08;
     if (room > 0 && (Y - top) * cam.s * z > room) z = Math.max(0.8, room / (cam.s * (Y - top)));
-    return { x: (lo + hi) / 2, y: Y, z };
+
+
+    const E = (ND.ARENA || 900) + 120, mid = (lo + hi) / 2;
+    for (let k = 0; k < 40 && z > 0.8; k++) {
+      const half = cam.W / (2 * cam.s * z), lim = Math.max(0, E - half), cx = clamp(mid, -lim, lim);
+      if (cx - lo <= half + 0.5 && hi - cx <= half + 0.5) break;
+      z *= 0.97;
+    }
+    z = Math.max(0.8, z);
+    { const half = cam.W / (2 * cam.s * z), lim = Math.max(0, E - half); return { x: clamp(mid, -lim, lim), y: Y, z }; }
   }
 
 
   const SPR = { on: false, x: 0, vx: 0, z: 0, vz: 0 }, W0 = 9;
   function spring(T, dt) {
-    if (!SPR.on) { SPR.on = true; SPR.x = T.x; SPR.z = T.z; SPR.vx = SPR.vz = 0; }
+    if (!SPR.on) { SPR.on = true; SPR.x = cam.x; SPR.z = cam.z; SPR.vx = SPR.vz = 0; }
     const h = Math.min(0.05, Math.max(0, dt || 0)), n = Math.max(1, Math.ceil(h / 0.005)), k = h / n;
     for (let i = 0; i < n; i++) {
 

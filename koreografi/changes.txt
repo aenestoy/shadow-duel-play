@@ -6,3 +6,4 @@
 2026-10-06 02:11  16cb5c91  Kacis: sinematikte rakip her pencerede savunursa kurtulur; her ninjada 4 farkli koreografi
 2026-10-06 02:16  c2bcb163  Kacis: zamanlama halkasi ekran icinde
 2026-10-06 02:57  5cddc756  Dallanma: Akane 12 koreografi x 3 pencere, her pencereden sonra 3 farkli devam
+2026-10-06 10:14  996a788a  dallanan sinematik 13 ninja (DEF: YOU ile kendin savun)

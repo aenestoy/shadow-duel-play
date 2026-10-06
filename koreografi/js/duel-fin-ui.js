@@ -297,20 +297,23 @@
 
     const who = () => [...new Set(Object.keys(D.FIN_SCRIPTS).map((k) => k.split(':')[0]).filter((id) => id !== '_'))];
     const nb = document.createElement('button'); nb.type = 'button';
-    const cur = () => (ND.game.F && ND.game.F[0] ? ND.game.F[0].ch.id : 'akane');
-    const label = () => { nb.textContent = 'CINE: ' + cur().toUpperCase(); };
-    nb.onclick = (e) => {
-      e.stopPropagation(); const L = who(), i = (L.indexOf(cur()) + 1) % L.length, id = L[i];
-      const ix = (c) => ND.CHARS.findIndex((x) => x.id === c);
-      ND.game.start('cpu', { c1: ix(id), c2: ix(id === 'kuro' ? 'akane' : 'kuro'), arena: 'temple' });
-      setTimeout(label, 300);
-    };
-    bar.appendChild(nb); setTimeout(label, 600);
+
+
+    let you = false;
+    const ninja = () => { const F = ND.game.F; return F && F[0] ? (you && F[1] ? F[1] : F[0]).ch.id : 'akane'; };
+    const cur = ninja;
+    const label = () => { nb.textContent = 'CINE: ' + cur().toUpperCase(); db.textContent = you ? 'DEF: YOU' : 'DEF: CPU'; };
+    const ix = (c) => ND.CHARS.findIndex((x) => x.id === c);
+    const go = (id) => { const op = id === 'kuro' ? 'akane' : 'kuro'; ND.game.start('cpu', you ? { c1: ix(op), c2: ix(id), arena: 'temple' } : { c1: ix(id), c2: ix(op), arena: 'temple' }); setTimeout(label, 300); };
+    nb.onclick = (e) => { e.stopPropagation(); const L = who(), i = (L.indexOf(cur()) + 1) % L.length; go(L[i]); };
+    const db = document.createElement('button'); db.type = 'button';
+    db.onclick = (e) => { e.stopPropagation(); const id = cur(); you = !you; go(id); };
+    bar.appendChild(nb); bar.appendChild(db); setTimeout(label, 600);
     const bb = document.createElement('button'); bb.type = 'button'; bb.textContent = 'CINE BIND';
     bb.onclick = (e) => { e.stopPropagation(); const g = ND.game; if (g.phase !== 'fight' || !g.F) return; const [A, V] = g.F; for (const f of g.F) { if (f.dz && f.dz.cine) f.dz.cine = null; f.setState('move'); f.hp = f.maxHp; } if (!A.dz.armed) D.rearm(A, true); if (!V.dz.armed) D.rearm(V, true); A.x = -60; V.x = 60; A.dir = 1; V.dir = -1; D.startBind(A, V); };
     for (const [label, tier] of [['CINE 一', '1'], ['CINE 二', '2'], ['CINE 三', '3'], ['CINE 素手', 'u']]) {
       const b = document.createElement('button'); b.type = 'button'; b.textContent = label;
-      b.onclick = (e) => { e.stopPropagation(); const g = ND.game; if (g.phase === 'fight' && g.F) D.finDemo(tier, g.F[0].ch.id); };
+      b.onclick = (e) => { e.stopPropagation(); const g = ND.game; if (g.phase === 'fight' && g.F) D.finDemo(tier, cur()); };
       bar.appendChild(b);
     }
     bar.appendChild(bb);
