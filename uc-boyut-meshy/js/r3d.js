@@ -1358,7 +1358,7 @@ void main(){
 precision highp float;
 layout(location=0) in vec3 aP; layout(location=1) in vec4 aN; layout(location=2) in vec4 aC; layout(location=3) in vec4 aS; layout(location=4) in vec4 aW; layout(location=5) in float aM; layout(location=6) in vec2 aUV;
 uniform vec4 uB[${(32 + 3) * 3}];
-uniform mat4 uVP, uRoot; uniform float uInk; uniform vec2 uView;
+uniform mat4 uVP, uRoot; uniform float uInk, uInkZ; uniform vec2 uView;
 uniform vec3 uTone[7]; uniform vec3 uMat[7];
 out vec3 vN; out vec3 vW; out vec4 vC; out vec2 vUV; flat out vec3 vTone; flat out vec3 vMat;
 void main(){
@@ -1380,7 +1380,7 @@ void main(){
     vec2 d = cn.xy * c.w - c.xy * cn.w;
     float l = length(d);
     if (l > 1e-8) c.xy += (d / l) * (uInk * max(aN.w, 0.0)) * (2.0 / uView) * c.w;
-    c.z += 0.0004 * c.w;
+    c.z += uInkZ * c.w;
   }
   int m = int(aM + 0.5);
   vTone = uTone[m]; vMat = uMat[m]; vUV = aUV;
@@ -1389,7 +1389,7 @@ void main(){
   const FSH = `#version 300 es
 precision highp float;
 in vec3 vN; in vec3 vW; in vec4 vC; in vec2 vUV; flat in vec3 vTone; flat in vec3 vMat;
-uniform sampler2D uTex; uniform float uHasTex, uBackDim;
+uniform sampler2D uTex; uniform float uHasTex, uBackDim, uSoft;
 uniform float uInk; uniform vec3 uInkC;
 uniform vec3 uKeyD, uKeyC, uShade, uEye, uLift; uniform float uFlash, uKeyA;
 uniform vec4 uL[4]; uniform vec3 uLC[4];
@@ -1400,6 +1400,24 @@ void main(){
   if (vMat.z > 0.5) { o = vec4(base, 1.0); return; }
   vec3 n = normalize(vN); bool back = !gl_FrontFacing; if (back) n = -n;
   vec3 V = normalize(uEye - vW);
+  if (uSoft > 1.5) { o = vec4(base, 1.0); return; } // (tools: the texture alone, unlit - the model's own painting)
+  if (uSoft > 0.5) {
+    // (a painted texture keeps its own painting: soft light only - no tone steps, no highlight, no rim speckles on the
+    // model's busy normals; the key light's colour, the lanterns, a faint rim in the arena's colour)
+    float dk = dot(n, uKeyD);
+    vec3 cs = base * mix(0.74, 1.04, smoothstep(-0.55, 0.85, dk)) * mix(uShade, vec3(1.0), 0.6) + base * uKeyC * uKeyA * 0.7 * max(dk, 0.0);
+    for (int k = 0; k < 4; k++) {
+      vec4 L = uL[k];
+      if (L.w <= 0.0) continue;
+      vec3 v = L.xyz - vW; float dist = length(v);
+      float I = L.w * (dist < 234.0 ? mix(0.42, 0.12, dist / 234.0) : mix(0.12, 0.0, clamp((dist - 234.0) / 286.0, 0.0, 1.0)));
+      cs += uLC[k] * I * (0.35 + 0.65 * smoothstep(-0.3, 0.6, dot(n, v / max(dist, 1.0)))) * base * 1.2;
+    }
+    float rs = smoothstep(0.78, 0.95, 1.0 - max(dot(n, V), 0.0));
+    cs += rs * (uKeyC * 0.08 + uLift * 0.7);
+    cs *= mix(0.8, 1.0, clamp(vW.y / 70.0, 0.0, 1.0));
+    o = vec4(mix(cs, vec3(1.0, 0.96, 0.94), uFlash * 0.38), 1.0); return;
+  }
   float d = dot(n, uKeyD), fw = max(fwidth(d), 1e-3) * 1.2;
   float t = mix(vTone.z, vTone.y, smoothstep(-0.16 - fw, -0.08 + fw, d));
   t = mix(t, vTone.x, smoothstep(0.38 - fw, 0.46 + fw, d));
@@ -1422,6 +1440,12 @@ void main(){
   col = mix(col, vec3(1.0, 0.96, 0.94), uFlash * 0.38);
   o = vec4(col, 1.0);
 }`;
+
+
+
+  const GQ = (k, d) => { const m = new RegExp('[?&]' + k + '=([\\w.]+)').exec(Q); return m ? m[1] : d; };
+  const OLDLOOK = GQ('r3dglook', '') === 'old';
+  const GLB_LOOK = { ink: GQ('r3dgink', OLDLOOK ? 'old' : 'sil'), soft: GQ('r3dgsoft', OLDLOOK ? '0' : '1') === '1', flat: GQ('r3dgsoft', '') === '2', cull: GQ('r3dgcull', '0') === '1', aniso: GQ('r3dganiso', OLDLOOK ? '0' : '1') === '1', inkZ: +GQ('r3dginkz', '0.006'), inkK: +GQ('r3dginkk', '1.3') };
   let GLH = null;
   function hdInit(gl) {
     const sh = (t, src) => { const s = gl.createShader(t); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error('r3d HD shader: ' + gl.getShaderInfoLog(s)); return s; };
@@ -1429,7 +1453,7 @@ void main(){
     gl.attachShader(p, sh(gl.VERTEX_SHADER, VSH)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, FSH)); gl.linkProgram(p);
     if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error('r3d HD link: ' + gl.getProgramInfoLog(p));
     const U = {};
-    for (const k of ['uBackDim', 'uTex', 'uHasTex', 'uB', 'uVP', 'uRoot', 'uInk', 'uView', 'uTone', 'uMat', 'uInkC', 'uKeyD', 'uKeyC', 'uShade', 'uEye', 'uLift', 'uFlash', 'uKeyA', 'uL', 'uLC']) U[k] = gl.getUniformLocation(p, k);
+    for (const k of ['uSoft', 'uInkZ', 'uBackDim', 'uTex', 'uHasTex', 'uB', 'uVP', 'uRoot', 'uInk', 'uView', 'uTone', 'uMat', 'uInkC', 'uKeyD', 'uKeyC', 'uShade', 'uEye', 'uLift', 'uFlash', 'uKeyA', 'uL', 'uLC']) U[k] = gl.getUniformLocation(p, k);
     gl.useProgram(p);
     const tone = new Float32Array(21), mat = new Float32Array(21);
     MATP.forEach((m, i) => { tone.set(m.slice(0, 3), i * 3); mat.set([m[3], m[4], m[5]], i * 3); });
@@ -1463,18 +1487,23 @@ void main(){
     gl.uniform3fv(U.uShade, LIGHT.shade); gl.uniform3fv(U.uEye, EYE);
     gl.uniform4fv(U.uL, LIGHT.L); gl.uniform3fv(U.uLC, LIGHT.LC);
     let tris = 0;
-    for (let pass = reflect ? 1 : 0; pass < 2; pass++) {
-      gl.uniform1f(U.uInk, pass === 0 ? inkPx : 0);
-      for (const E of list) {
-        const F = E.hd, M = F.M, o = hdVao(gl, M);
+
+
+
+    for (const E of list) {
+      const F = E.hd, M = F.M, o = hdVao(gl, M), sil = M.glb && GLB_LOOK.ink === 'sil', noInk = M.glb && GLB_LOOK.ink === 'off';
+      const order = reflect ? [1] : sil ? [1, 0] : noInk ? [1] : [0, 1];
+      for (const pass of order) {
+        gl.uniform1f(U.uInk, pass === 0 ? inkPx * (M.glb && GLB_LOOK.ink !== 'old' ? GLB_LOOK.inkK : 1) : 0);
+        gl.uniform1f(U.uInkZ, pass === 0 && sil ? GLB_LOOK.inkZ : 0.0004);
+        gl.uniform1f(U.uSoft, M.glb ? (GLB_LOOK.flat ? 2 : GLB_LOOK.soft ? 1 : 0) : 0);
         ROOT.fill(0); ROOT[0] = F.dir; ROOT[5] = 1; ROOT[10] = 1; ROOT[15] = 1; ROOT[12] = F.x0;
         gl.uniformMatrix4fv(U.uRoot, false, ROOT);
         gl.uniform4fv(U.uB, F.U);
         gl.uniform3fv(U.uLift, E.lift); gl.uniform1f(U.uFlash, reflect ? 0 : E.flash);
 
         gl.frontFace((F.dir < 0) !== !!reflect ? gl.CW : gl.CCW);
-
-        if (pass === 0) { gl.enable(gl.CULL_FACE); gl.cullFace(gl.FRONT); } else gl.disable(gl.CULL_FACE);
+        if (pass === 0) { gl.enable(gl.CULL_FACE); gl.cullFace(gl.FRONT); } else if (M.glb && GLB_LOOK.cull) { gl.enable(gl.CULL_FACE); gl.cullFace(gl.BACK); } else gl.disable(gl.CULL_FACE);
         gl.uniform1f(U.uBackDim, M.glb ? 1 : 0.45);
         gl.bindVertexArray(o.vao);
         if (M.draws) {
@@ -1482,7 +1511,14 @@ void main(){
             const img = d.tex != null ? M.imgs[d.tex] : null;
             if (img) {
               let t = GLH.tex.get(img);
-              if (!t) { t = gl.createTexture(); gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, t); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img); gl.generateMipmap(gl.TEXTURE_2D); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); GLH.tex.set(img, t); }
+              if (!t) {
+                t = gl.createTexture(); gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, t); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img); gl.generateMipmap(gl.TEXTURE_2D); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+                const an = GLB_LOOK.aniso && (gl.getExtension('EXT_texture_filter_anisotropic') || gl.getExtension('WEBKIT_EXT_texture_filter_anisotropic'));
+                if (an) gl.texParameterf(gl.TEXTURE_2D, an.TEXTURE_MAX_ANISOTROPY_EXT, Math.min(4, gl.getParameter(an.MAX_TEXTURE_MAX_ANISOTROPY_EXT)));
+                GLH.tex.set(img, t);
+              }
               gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, t); gl.activeTexture(gl.TEXTURE0);
             }
             gl.uniform1f(U.uHasTex, img ? 1 : 0);
