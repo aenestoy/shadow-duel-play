@@ -1,1 +1,2 @@
 2026-10-07 10:24  c6183bf3  1.5.1 + donma yok (yalniz silah dusunce ve son vurusta agir cekim)
+2026-10-07 10:41  26fb36ce  1.5.1 + donma yok; ?speed=0.4-1 deneme hizi

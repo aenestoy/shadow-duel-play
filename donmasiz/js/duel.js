@@ -62,6 +62,8 @@
 
 
       if (g.mode === 'online') return spOk(D.matchSpeed) ? D.matchSpeed : SPEED0;
+
+      if (SPQ != null && +SPQ >= 0.4 && +SPQ <= 1) return +SPQ;
       const v = SPQ != null ? +SPQ : ND.AI_KNOBS && ND.AI_KNOBS.duelSpeed != null ? ND.AI_KNOBS.duelSpeed : typeof window !== 'undefined' && window.__duelSpeedDefault ? +window.__duelSpeedDefault : SPEED0;
       return spOk(v) ? v : SPEED0;
     };
