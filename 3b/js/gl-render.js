@@ -63,12 +63,13 @@ window.ND = window.ND || {};
       }
       return `#version 300 es
       precision highp float; precision highp int;
-      uniform sampler2D u_scene; uniform vec2 u_size; uniform ivec2 u_q; uniform ivec2 u_e; uniform int u_H;
+      uniform sampler2D u_scene; uniform vec2 u_size; uniform ivec2 u_q; uniform ivec2 u_e; uniform int u_H; uniform float u_m;
       out vec4 o;
       vec3 qz(vec3 c){ return ${q}; }
       vec3 bright(float x4, float y4){
         vec2 p = vec2((x4 + 0.5) * u_size.x / float(u_q.x), (y4 + 0.5) * u_size.y / float(u_q.y));
-        vec3 c = qz(texture(u_scene, vec2(p.x / u_size.x, 1.0 - p.y / u_size.y)).rgb);
+        vec4 t = texture(u_scene, vec2(p.x / u_size.x, 1.0 - p.y / u_size.y));
+        vec3 c = qz(t.rgb * mix(1.0, t.a, u_m));
         c = qz(c * c); return qz(c * c);
       }
       vec3 b8(int ix, int iy){
@@ -100,11 +101,12 @@ window.ND = window.ND || {};
       return `#version 300 es
       precision highp float; precision highp int;
       uniform sampler2D u_scene; uniform sampler2D u_glow; uniform sampler2D u_grain;
-      uniform vec2 u_size; uniform vec2 u_gs; uniform vec2 u_e; uniform float u_bloom; uniform ivec2 u_off; uniform float u_grainA;
+      uniform vec2 u_size; uniform vec2 u_gs; uniform vec2 u_e; uniform float u_bloom; uniform ivec2 u_off; uniform float u_grainA; uniform float u_m;
       out vec4 o;
       void main(){
         ivec2 p = ivec2(gl_FragCoord.xy);
-        vec3 c = texelFetch(u_scene, p, 0).rgb;
+        vec4 sc = texelFetch(u_scene, p, 0);
+        vec3 c = sc.rgb;
         float dx = gl_FragCoord.x, dy = u_size.y - gl_FragCoord.y; // device position (pixel centre)
         // glow picture rect (M, M, e.x, e.y) stretched over the screen, bilinear; vertical taps here
         float gx = ${M}.0 + dx * u_e.x / u_size.x;
@@ -118,7 +120,7 @@ window.ND = window.ND || {};
         ivec2 d = ivec2(int(dx) - u_off.x + 128, int(dy) - u_off.y + 128) % 128;
         float n = texelFetch(u_grain, ivec2(d.x, d.y), 0).r;
         vec3 ov = mix(2.0 * c * n, 1.0 - 2.0 * (1.0 - c) * (1.0 - n), step(vec3(0.5), c));
-        o = vec4(mix(c, ov, u_grainA), 1.0);
+        o = vec4(mix(c, ov, u_grainA * mix(1.0, sc.a, u_m)), 1.0);
       }`;
     };
 
@@ -139,12 +141,13 @@ window.ND = window.ND || {};
 
     const liteFS = `#version 300 es
       precision highp float; precision highp int;
-      uniform sampler2D u_scene; uniform vec2 u_size; uniform ivec2 u_q; uniform ivec2 u_e8; uniform ivec2 u_e16;
+      uniform sampler2D u_scene; uniform vec2 u_size; uniform ivec2 u_q; uniform ivec2 u_e8; uniform ivec2 u_e16; uniform float u_m;
       out vec4 o;
       vec3 qz(vec3 c){ return ${q}; }
       vec3 bright(float x4, float y4){
         vec2 p = vec2((x4 + 0.5) * u_size.x / float(u_q.x), (y4 + 0.5) * u_size.y / float(u_q.y));
-        vec3 c = qz(texture(u_scene, vec2(p.x / u_size.x, 1.0 - p.y / u_size.y)).rgb);
+        vec4 t = texture(u_scene, vec2(p.x / u_size.x, 1.0 - p.y / u_size.y));
+        vec3 c = qz(t.rgb * mix(1.0, t.a, u_m));
         c = qz(c * c); return qz(c * c);
       }
       // bilinear copy of an a×b picture into c×d (drawImage scaling, edges clamped): source position of (ix, iy)
@@ -183,11 +186,11 @@ window.ND = window.ND || {};
       finalProg = E.compile(QVS, finalFS(false));
       smallProg = E.compile(QVS, finalFS(true));
       vblurProg = E.compile(QVS, vblurFS());
-      SU = {}; for (const k of ['u_scene', 'u_glow', 'u_grain', 'u_size', 'u_gs', 'u_e', 'u_bloom', 'u_off', 'u_grainA']) SU[k] = gl.getUniformLocation(smallProg, k);
+      SU = {}; for (const k of ['u_scene', 'u_glow', 'u_grain', 'u_size', 'u_gs', 'u_e', 'u_bloom', 'u_off', 'u_grainA', 'u_m']) SU[k] = gl.getUniformLocation(smallProg, k);
       VU = { u_glow: gl.getUniformLocation(vblurProg, 'u_glow'), u_gs: gl.getUniformLocation(vblurProg, 'u_gs') };
       glow2Tex = null; glow2Fb = null;
-      GU = {}; for (const k of ['u_scene', 'u_size', 'u_q', 'u_e', 'u_H']) GU[k] = gl.getUniformLocation(glowProg, k);
-      FU = {}; for (const k of ['u_scene', 'u_glow', 'u_grain', 'u_size', 'u_gs', 'u_e', 'u_bloom', 'u_off', 'u_grainA']) FU[k] = gl.getUniformLocation(finalProg, k);
+      GU = {}; for (const k of ['u_scene', 'u_size', 'u_q', 'u_e', 'u_H', 'u_m']) GU[k] = gl.getUniformLocation(glowProg, k);
+      FU = {}; for (const k of ['u_scene', 'u_glow', 'u_grain', 'u_size', 'u_gs', 'u_e', 'u_bloom', 'u_off', 'u_grainA', 'u_m']) FU[k] = gl.getUniformLocation(finalProg, k);
 
       const g = opts.grain;
       grainTex = E.tex2d(128, 128, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, gl.NEAREST, null);
@@ -195,7 +198,7 @@ window.ND = window.ND || {};
       glowTex = null; glowFb = null; glowW = glowH = 0;
       liteProg = E.compile(QVS, liteFS);
       liteFinalProg = E.compile(QVS, liteFinalFS);
-      LU = {}; for (const k of ['u_scene', 'u_size', 'u_q', 'u_e8', 'u_e16']) LU[k] = gl.getUniformLocation(liteProg, k);
+      LU = {}; for (const k of ['u_scene', 'u_size', 'u_q', 'u_e8', 'u_e16', 'u_m']) LU[k] = gl.getUniformLocation(liteProg, k);
       LFU = {}; for (const k of ['u_scene', 'u_glow', 'u_size', 'u_bloom']) LFU[k] = gl.getUniformLocation(liteFinalProg, k);
       liteTex = null; liteFb = null; liteW = liteH = 0;
     }
@@ -236,6 +239,9 @@ window.ND = window.ND || {};
       gl.disable(gl.BLEND); gl.disable(gl.DEPTH_TEST); gl.disable(gl.STENCIL_TEST); gl.disable(gl.SCISSOR_TEST);
       gl.colorMask(true, true, true, true);
       const mode = p.mode == null ? 2 : p.mode;
+
+
+      const um = ND.r3d && ND.r3d.maskOn && ND.r3d.maskOn() ? 1 : 0;
       if (mode === 0) {
         gl.bindFramebuffer(gl.READ_FRAMEBUFFER, E.targets[1].fbTex); gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
         gl.blitFramebuffer(0, 0, W, H, 0, 0, W, H, gl.COLOR_BUFFER_BIT, gl.NEAREST);
@@ -248,7 +254,7 @@ window.ND = window.ND || {};
         gl.bindFramebuffer(gl.FRAMEBUFFER, liteFb); gl.viewport(0, 0, w16, h16);
         gl.useProgram(liteProg);
         gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, scene);
-        gl.uniform1i(LU.u_scene, 0); gl.uniform2f(LU.u_size, W, H); gl.uniform2i(LU.u_q, w4, h4); gl.uniform2i(LU.u_e8, w8, h8); gl.uniform2i(LU.u_e16, w16, h16);
+        gl.uniform1i(LU.u_scene, 0); gl.uniform1f(LU.u_m, um); gl.uniform2f(LU.u_size, W, H); gl.uniform2i(LU.u_q, w4, h4); gl.uniform2i(LU.u_e8, w8, h8); gl.uniform2i(LU.u_e16, w16, h16);
         E.quad();
         gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, W, H);
         gl.useProgram(liteFinalProg);
@@ -266,7 +272,7 @@ window.ND = window.ND || {};
       gl.bindFramebuffer(gl.FRAMEBUFFER, glowFb); gl.viewport(0, 0, gw, gh);
       gl.useProgram(glowProg);
       gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, scene);
-      gl.uniform1i(GU.u_scene, 0); gl.uniform2f(GU.u_size, W, H); gl.uniform2i(GU.u_q, bw, bh); gl.uniform2i(GU.u_e, ew, eh); gl.uniform1i(GU.u_H, gh);
+      gl.uniform1i(GU.u_scene, 0); gl.uniform1f(GU.u_m, um); gl.uniform2f(GU.u_size, W, H); gl.uniform2i(GU.u_q, bw, bh); gl.uniform2i(GU.u_e, ew, eh); gl.uniform1i(GU.u_H, gh);
       E.quad();
 
       if (small) {
@@ -284,7 +290,7 @@ window.ND = window.ND || {};
       gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, small ? glow2Tex : glowTex);
       gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, grainTex);
       gl.activeTexture(gl.TEXTURE0);
-      gl.uniform1i(FP.u_scene, 0); gl.uniform1i(FP.u_glow, 1); gl.uniform1i(FP.u_grain, 2);
+      gl.uniform1i(FP.u_scene, 0); gl.uniform1i(FP.u_glow, 1); gl.uniform1i(FP.u_grain, 2); gl.uniform1f(FP.u_m, um);
       gl.uniform2f(FP.u_size, W, H); gl.uniform2f(FP.u_gs, gw, gh); gl.uniform2f(FP.u_e, ew, eh);
       gl.uniform1f(FP.u_bloom, p.bloom); gl.uniform2i(FP.u_off, p.grainX | 0, p.grainY | 0); gl.uniform1f(FP.u_grainA, p.grain === false ? 0 : 0.07);
       E.quad();

@@ -3,3 +3,4 @@
 2026-10-06 18:34  0e8e063d  Dövüş düzeltmeleri: kılıç savuruşu yolunu izliyor (ışınlanmıyor), kılıç kendi gövdesinden geçmiyor, sol yumruk göğse gömülmüyor, Kuro'nun şapkası yüzü kapatmıyor, kın kısaldı, kılıç temasındaki büyük kama yok, telefonda kenar yumuşatma kapalı
 2026-10-06 20:44  2a0099e3  3B: yeni Yuki/Hana/Mai/Tsubame, bütün kostümler 3B
 2026-10-07 09:08  fd257011  3B + donma yok (yalniz silah dusunce ve son vurusta agir cekim)
+2026-10-07 15:28  a6472f72  3B: Akane yeni kumas + yuz (uretim hatti v1)

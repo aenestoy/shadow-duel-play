@@ -811,11 +811,13 @@ uniform float uInk; uniform vec3 uInkC;
 uniform vec3 uKeyD, uKeyC, uShade, uEye, uSame; uniform float uKeyA, uFlash;
 uniform vec4 uL[4]; uniform vec3 uLC[4];
 uniform vec4 uClipP, uClipN;
+uniform float uLook, uMask; // (js/r3d.js LOOK: 0 painted, 1 toon, 2 full toon; uMask: alpha 0 = no glow / grain over it)
 out vec4 o;
 void main(){
   int m = int(vM + 0.5);
   if (uClipN.w > 0.5 && m == 1 && dot(vW - uClipP.xyz, uClipN.xyz) > 0.0) discard;
-  if (uInk > 0.0) { o = vec4(uInkC, 1.0); return; }
+  float oa = 1.0 - uMask;
+  if (uInk > 0.0) { o = vec4(uInkC, oa); return; }
   vec3 n = normalize(vN); if (!gl_FrontFacing) n = -n;
   vec3 V = normalize(uEye - vW);
   vec3 base = vC.rgb;
@@ -831,6 +833,28 @@ void main(){
   }
   float dk = dot(n, uKeyD), sky = 0.5 + 0.5 * n.y;
   vec3 kc = normalize(uKeyC + vec3(0.6)) * 1.732;
+  if (uLook > 0.5) {
+    // the toon looks: flat bands as on the bodies; steel two flat greys (the sky's and the floor's) and one hard line
+    float fw = max(fwidth(dk), 1e-3) * 0.75, lit = smoothstep(-0.05 - fw, -0.05 + fw, dk);
+    vec3 sh = mix(uShade, vec3(1.0), 0.45) * vec3(0.6, 0.61, 0.76);
+    vec3 col = base * mix(sh, vec3(1.0), lit);
+    if (m == 1) {
+      vec3 R = reflect(-V, n); float ry = R.y, fr = max(fwidth(ry), 1e-3) * 0.75;
+      col = mix(vec3(0.34, 0.37, 0.46), vec3(0.86, 0.9, 0.98), smoothstep(0.05 - fr, 0.05 + fr, ry));
+      float hl = dot(R, uKeyD), fh = max(fwidth(hl), 1e-3) * 0.75;
+      col = mix(col, vec3(1.0), smoothstep(0.93 - fh, 0.93 + fh, hl));
+    }
+    for (int k = 0; k < 4; k++) {
+      vec4 L = uL[k];
+      if (L.w <= 0.0) continue;
+      vec3 v = L.xyz - vW; float dist = length(v);
+      float I = L.w * (dist < 234.0 ? mix(0.42, 0.12, dist / 234.0) : mix(0.12, 0.0, clamp((dist - 234.0) / 286.0, 0.0, 1.0)));
+      float nd = dot(n, v / max(dist, 1.0)), fl = max(fwidth(nd), 1e-3) * 0.75;
+      col += uLC[k] * I * smoothstep(0.15 - fl, 0.15 + fl, nd) * (base * 1.25 + (m == 1 ? 0.2 : 0.0));
+    }
+    col *= mix(0.84, 1.0, clamp(vW.y / 60.0, 0.0, 1.0));
+    o = vec4(mix(col, vec3(1.0, 0.96, 0.94), uFlash * 0.38), oa); return;
+  }
   float diff = smoothstep(-0.3, 0.95, dk);
   vec3 shade = mix(uShade, vec3(1.0), 0.55);
   vec3 col = base * (mix(0.4, 0.74, sky) * shade + 0.62 * diff * mix(vec3(1.0), kc, 0.35));
@@ -854,7 +878,7 @@ void main(){
   }
   col += smoothstep(0.82, 0.98, 1.0 - max(dot(n, V), 0.0)) * uKeyC * 0.08;
   col *= mix(0.78, 1.0, clamp(vW.y / 60.0, 0.0, 1.0));
-  o = vec4(mix(col, vec3(1.0, 0.96, 0.94), uFlash * 0.38), 1.0);
+  o = vec4(mix(col, vec3(1.0, 0.96, 0.94), uFlash * 0.38), oa);
 }`;
   let GLW = null;
   function glInit(gl) {
@@ -863,7 +887,7 @@ void main(){
     gl.attachShader(p, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, FS)); gl.linkProgram(p);
     if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error('r3d weapons link: ' + gl.getProgramInfoLog(p));
     const U = {};
-    for (const k of ['uM', 'uVP', 'uInk', 'uView', 'uInkC', 'uKeyD', 'uKeyC', 'uShade', 'uEye', 'uSame', 'uKeyA', 'uFlash', 'uL', 'uLC', 'uClipP', 'uClipN']) U[k] = gl.getUniformLocation(p, k);
+    for (const k of ['uM', 'uVP', 'uInk', 'uView', 'uInkC', 'uKeyD', 'uKeyC', 'uShade', 'uEye', 'uSame', 'uKeyA', 'uFlash', 'uL', 'uLC', 'uClipP', 'uClipN', 'uLook', 'uMask']) U[k] = gl.getUniformLocation(p, k);
     GLW = { gl, p, U, vao: new Map() };
   }
   function vaoOf(gl, K) {
@@ -889,15 +913,17 @@ void main(){
     gl.uniformMatrix4fv(U.uVP, false, vp); gl.uniform2f(U.uView, w, h);
     gl.uniform3fv(U.uInkC, LIGHT.ink); gl.uniform3fv(U.uKeyD, LIGHT.keyD); gl.uniform3fv(U.uKeyC, LIGHT.keyC); gl.uniform1f(U.uKeyA, LIGHT.keyA);
     gl.uniform3fv(U.uShade, LIGHT.shade); gl.uniform3fv(U.uEye, EYE); gl.uniform4fv(U.uL, LIGHT.L); gl.uniform3fv(U.uLC, LIGHT.LC);
+    const LK = R3.lookOf ? R3.lookOf() : null;
+    gl.uniform1f(U.uLook, LK && LK.id !== 3 ? LK.id : 0);
     const list = [];
     for (const E of FRl) if (E.W) list.push([E.W, E.flash || 0]);
     for (const K of W.arrows || []) list.push([K, 0]);
     let tris = 0;
     gl.enable(gl.CULL_FACE);
-    const passes = reflect ? [1] : [0, 1];
+    const passes = reflect || (LK && !LK.ink) ? [1] : [0, 1];
     for (const pass of passes) {
       gl.cullFace(reflect ? gl.FRONT : pass === 0 ? gl.FRONT : gl.BACK);
-      gl.uniform1f(U.uInk, pass === 0 ? Math.max(1, inkPx * INKK) : 0);
+      gl.uniform1f(U.uInk, pass === 0 ? Math.max(1, (LK && R3.inkW ? R3.inkW(inkPx) : inkPx) * INKK) : 0);
       for (const [K, fl] of list) {
         const o = vaoOf(gl, K);
         gl.uniform4fv(U.uM, K.M); gl.uniform1f(U.uFlash, reflect ? 0 : fl); gl.uniform3fv(U.uSame, K.same || [0.1, 0.1, 0.1]);

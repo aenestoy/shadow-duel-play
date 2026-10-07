@@ -922,6 +922,7 @@ void main(){
 
   const GLBQ = /[?&]r3dglb=([a-z,]+)/.exec(Q), GLB = GLBQ ? GLBQ[1].split(',') : [];
   const NONRM = /[?&]r3dnrm=0(&|$)/.test(Q);
+  const NOCLOTH = /[?&]r3dcloth=0(&|$)/.test(Q), MAXB = 48;
   const HEIGHT = { akane: 180, kuro: 187 };
   const ROLE = [
     ['hips', ['hips', 'pelvis', 'hip']], ['spine', ['spine', 'spine0', 'spine00', 'abdomen']], ['spine1', ['spine1', 'spine01']],
@@ -1024,11 +1025,14 @@ void main(){
     const T = (p) => { const d = sub(p, o0); return v3(dot(d, Fw) * K, dot(d, Up) * K, dot(d, Rt) * K); };
     const Tn = (d) => v3(dot(d, Fw), dot(d, Up), dot(d, Rt));
 
+
+
+    for (let j = 0; j < nj; j++) { const nm = String(J.nodes[skin.joints[j]].name || ''); if (/^sd_/.test(nm) && !NOCLOTH) jRole[j] = nm; }
     const keep = new Array(nj).fill(false);
     for (let j = 0; j < nj; j++) if (jRole[j]) keep[j] = true;
     const fold = (j) => { while (j >= 0 && !keep[j]) j = jParent[j]; return j < 0 ? role.hips : j; };
     const kept = []; for (let j = 0; j < nj; j++) if (keep[j]) kept.push(j);
-    if (kept.length > 32) throw new Error('too many bones');
+    if (kept.length > MAXB - 6) throw new Error('too many bones');
     const newIx = {}; kept.forEach((j, i) => (newIx[j] = i));
     const B = kept.map((j) => {
       const m = bind[j], cx = norm(v3(m[0], m[1], m[2])), cy = norm(v3(m[4], m[5], m[6])), cz = norm(v3(m[8], m[9], m[10]));
@@ -1139,8 +1143,24 @@ void main(){
       armRest[s] = { l1: len(sub(f.p0, u.p0)), l2: len(sub(h.p0, f.p0)), out: len(out1) > 0.5 ? norm(out1) : v3(-1, 0, 0) };
     }
     const headSet = []; for (let i = 0; i < B.length; i++) { let q = i; while (q >= 0 && B[q].name !== 'head') q = B[q].parent; if (q >= 0) headSet.push(i); }
-    const M = { glb: true, id, B, ix, nb: B.length, P: out, N, C, SI, SW, MT, UV, I: I.subarray(0, io), draws, imgs, tris: io / 3, cutSword: !!CUT, bytes: buf.byteLength, grip, armRest, headSet, fing: FING,
+    const NS = glbSmooth(out, N, I.subarray(0, io), nv);
+    const M = { glb: true, id, B, ix, nb: B.length, P: out, N, NS, C, SI, SW, MT, UV, I: I.subarray(0, io), draws, imgs, tris: io / 3, cutSword: !!CUT, bytes: buf.byteLength, grip, armRest, headSet, fing: FING,
       hc0: madd(B[ix.head].p0, EY, 9), hasSaya: false, springs: [], extra: {} };
+
+    const CLX = SX.sdCloth;
+    if (CLX && !NOCLOTH) {
+      const cl = {};
+      if (CLX.skirt) {
+        const S = CLX.skirt;
+        cl.skirt = { legR: S.legR * K, shinR: S.shinR * K, k: S.k, damp: S.damp, grav: S.grav, max: S.max, chains: S.chains.filter((c) => ix[c.a] != null && ix[c.b] != null).map((c) => ({ a: ix[c.a], b: ix[c.b], tail: T(v3(...c.tail)), aff: c.aff })) };
+        for (const c of cl.skirt.chains) { const A = B[c.a], Bb = B[c.b]; A.d0 = norm(sub(Bb.p0, A.p0)); A.len = len(sub(Bb.p0, A.p0)); Bb.d0 = norm(sub(c.tail, Bb.p0)); Bb.len = len(sub(c.tail, Bb.p0)); }
+      }
+      if (CLX.sleeves) {
+        cl.sleeves = CLX.sleeves.filter((q) => ix[q.bone] != null).map((q) => ({ ...q, i: ix[q.bone], tail: T(v3(...q.tail)) }));
+        for (const q of cl.sleeves) { const b = B[q.i]; b.d0 = norm(sub(q.tail, b.p0)); b.len = len(sub(q.tail, b.p0)); }
+      }
+      M.cloth = cl;
+    }
     M.W0 = B[ix.hips].p0; M.spineLen = len(sub(B[ix.neck].p0, M.W0));
 
     M.toModel = T; M.toModelN = Tn; M.jointIx = {};
@@ -1263,6 +1283,7 @@ void main(){
     return { e: madd(madd(s, u, a), p, h), w: add(s, d) };
   }
   const HAT = { kasa: 1, oni: 1 }, HAT_PITCH = 0.12;
+  const FACE_ON = !/[?&]r3dface=0(&|$)/.test(Q), FACE_PITCH = 0.2, FACE_TURN = 0.62;
   function hdPose(f, k, F) {
     const M = F.M, X = M.ix, dir = k.dir, x0 = k.x0;
     F.x0 = x0; F.dir = dir;
@@ -1302,6 +1323,15 @@ void main(){
       const a = Math.atan2(hu.x, hu.y), lim = HAT_PITCH;
       if (a > lim) { const r = Math.hypot(hu.x, hu.y); hu = norm(v3(Math.sin(lim) * r, Math.cos(lim) * r, hu.z)); }
       if (hf.y < -0.2) hfx = norm(v3(hf.x, -0.2, hf.z));
+    }
+
+
+
+    if (M.glb && FACE_ON && !HAT[f.ch && f.ch.acc]) {
+      const a = Math.atan2(hu.x, hu.y);
+      if (a > FACE_PITCH) { const r = Math.hypot(hu.x, hu.y); hu = norm(v3(Math.sin(FACE_PITCH) * r, Math.cos(FACE_PITCH) * r, hu.z)); }
+      let q = hfx; if (q.y < -0.12) q = v3(q.x, -0.12, q.z);
+      hfx = norm(add(norm(q), v3(0, 0, FACE_TURN)));
     }
     const Rhd = m3basis(hu, hfx);
 
@@ -1410,6 +1440,7 @@ void main(){
     for (const s in M.fing || {}) { const Fg = M.fing[s]; done[Fg.f1] = done[Fg.f2] = done[Fg.th] = 1; }
     const follow = (i) => { if (done[i]) return; const pi = M.B[i].parent; follow(pi); hset(F, i, hcarry(F, pi, M.B[i].p0), F.b[pi].Rd, 1); done[i] = 1; };
     for (let i = 0; i < M.nb; i++) follow(i);
+    clothStep(F, f, k);
     hdSprings(F, f, k);
 
     const z = cross(e, u);
@@ -1444,6 +1475,70 @@ void main(){
   const HEADK = HQ ? +HQ[1] : 0.8, STAND = SQ ? +SQ[1] : 0.35;
   const CQ = /[?&]r3dclav=([\d.]+)/.exec(Q), CLAV = CQ ? +CQ[1] : 0.33;
   const PQ = /[?&]r3dpelvis=([\d.]+)/.exec(Q), PELV = PQ ? +PQ[1] : 0.45;
+
+
+
+
+
+  function clothStep(F, f, k) {
+    const M = F.M, CL = M.cloth;
+    if (!CL) return;
+    const X = M.ix, dir = F.dir, ox = F.x0, clk = ND.simClock || 0;
+    let steps = 0;
+    if (F.cclk == null || !F.cs) { F.cclk = clk; F.cs = { ch: [], sl: [] }; }
+    else { steps = Math.round((clk - F.cclk) * 120); if (steps < 0 || steps > 30) { steps = 0; F.cclk = clk; F.cs = { ch: [], sl: [] }; } else F.cclk += steps / 120; }
+    const toW = (p) => v3(ox + p.x * dir, p.y, p.z), toL = (p) => v3((p.x - ox) * dir, p.y, p.z), dt = 1 / 120;
+    const hipsRd = F.b[X.hips].Rd;
+    const verlet = (st, T, kk, damp, grav) => { const vel = mul(sub(st.P, st.Pp), damp), acc = madd(v3(0, -grav, 0), sub(T, st.P), kk); st.Pp = st.P; st.P = madd(add(st.P, vel), acc, dt * dt); };
+    const keepLen = (P, H, l) => madd(H, norm(sub(P, H)), l);
+    const capAng = (P, H, T, l, mx) => { let d = norm(sub(P, H)); const dr = norm(sub(T, H)), ang = Math.acos(clamp(dot(d, dr), -1, 1)); if (ang > mx) { const ax = cross(dr, d); if (len(ax) > 1e-6) d = rotAx(dr, norm(ax), mx); } return madd(H, d, l); };
+    if (CL.skirt) {
+      const S = CL.skirt, caps = [];
+      for (const s of ['L', 'R']) {
+        const hp = toW(F.b[X['thigh.' + s]].p), kn = toW(F.b[X['shin.' + s]].p), an = toW(F.b[X['foot.' + s]].p);
+        caps.push([hp, kn, S.legR], [kn, an, S.shinR]);
+      }
+      const push = (P) => { for (const [a, b, r] of caps) { const ab = sub(b, a), t = clamp(dot(sub(P, a), ab) / (dot(ab, ab) || 1), 0, 1), q = madd(a, ab, t), d = sub(P, q), l = len(d); if (l < r && l > 1e-4) P = madd(q, d, r / l); } return P; };
+
+      const lg = {};
+      for (const s of ['L', 'R']) {
+        const kn0 = hcarry(F, X.hips, M.B[X['shin.' + s]].p0), an0 = hcarry(F, X.hips, M.B[X['foot.' + s]].p0);
+        lg[s] = { dk: sub(F.b[X['shin.' + s]].p, kn0), da: sub(F.b[X['foot.' + s]].p, an0) };
+      }
+      S.chains.forEach((c, n) => {
+        const A = M.B[c.a], Bb = M.B[c.b];
+        const head = hcarry(F, X.hips, A.p0);
+        let Tm = hcarry(F, X.hips, Bb.p0), Tt = hcarry(F, X.hips, c.tail);
+        for (const s of ['L', 'R']) { const w = c.aff[s] || 0; if (w > 0) { Tm = madd(Tm, lg[s].dk, w); Tt = madd(Tt, lg[s].da, w); } }
+        const Hw = toW(head), TmW = toW(Tm), TtW = toW(Tt);
+        let st = F.cs.ch[n];
+        if (!st) st = F.cs.ch[n] = { m: { P: TmW, Pp: TmW }, t: { P: TtW, Pp: TtW } };
+        for (let i = 0; i < steps; i++) {
+          verlet(st.m, TmW, S.k, S.damp, S.grav); verlet(st.t, TtW, S.k, S.damp, S.grav);
+          st.m.P = capAng(push(keepLen(st.m.P, Hw, A.len)), Hw, TmW, A.len, S.max);
+          st.t.P = keepLen(push(keepLen(st.t.P, st.m.P, Bb.len)), st.m.P, Bb.len);
+          st.t.P = capAng(st.t.P, st.m.P, add(st.m.P, sub(TtW, TmW)), Bb.len, S.max);
+        }
+
+        const Pm = capAng(push(keepLen(st.m.P, Hw, A.len)), Hw, TmW, A.len, S.max), Pt = keepLen(push(keepLen(st.t.P, Pm, Bb.len)), Pm, Bb.len);
+        const r0 = v3(A.R0[0], A.R0[1], A.R0[2]), r1 = m3v(hipsRd, r0);
+        haim(F, c.a, head, toL(Pm), r0, r1, false);
+        haim(F, c.b, toL(Pm), toL(Pt), v3(Bb.R0[0], Bb.R0[1], Bb.R0[2]), r1, false);
+      });
+    }
+    for (const [n, q] of (CL.sleeves || []).entries()) {
+      const B = M.B[q.i], pi = B.parent, head = hcarry(F, pi, B.p0);
+      const dRest = norm(m3v(F.b[pi].Rd, B.d0)), want = norm(lerp(dRest, v3(0, -1, 0), q.hang));
+      const Hw = toW(head), TW = toW(madd(head, want, B.len));
+      let st = F.cs.sl[n];
+      if (!st) st = F.cs.sl[n] = { P: TW, Pp: TW };
+      const RW = toW(madd(head, dRest, B.len));
+      for (let i = 0; i < steps; i++) { verlet(st, TW, q.k, q.damp, q.grav); st.P = capAng(keepLen(st.P, Hw, B.len), Hw, RW, B.len, q.max); }
+      const P = capAng(keepLen(st.P, Hw, B.len), Hw, RW, B.len, q.max);
+      const r0 = v3(B.R0[0], B.R0[1], B.R0[2]);
+      haim(F, q.i, head, toL(P), r0, m3v(F.b[pi].Rd, r0), false);
+    }
+  }
 
 
   function hdSprings(F, f, k) {
@@ -1483,14 +1578,16 @@ void main(){
   }
   const VSH = `#version 300 es
 precision highp float;
-layout(location=0) in vec3 aP; layout(location=1) in vec4 aN; layout(location=2) in vec4 aC; layout(location=3) in vec4 aS; layout(location=4) in vec4 aW; layout(location=5) in float aM; layout(location=6) in vec2 aUV;
-uniform vec4 uB[${(32 + 3) * 3}];
-uniform mat4 uVP, uRoot; uniform float uInk, uInkZ; uniform vec2 uView;
+layout(location=0) in vec3 aP; layout(location=1) in vec4 aN; layout(location=2) in vec4 aC; layout(location=3) in vec4 aS; layout(location=4) in vec4 aW; layout(location=5) in float aM; layout(location=6) in vec2 aUV; layout(location=7) in vec4 aNs;
+uniform vec4 uB[${(MAXB + 3) * 3}];
+uniform mat4 uVP, uRoot; uniform float uInk, uInkZ, uInkU; uniform vec2 uView;
 uniform vec3 uTone[7]; uniform vec3 uMat[7];
-out vec3 vN; out vec3 vW; out vec4 vC; out vec2 vUV; flat out vec3 vTone; flat out vec3 vMat;
+out vec3 vN; out vec3 vNs; out vec3 vW; out vec4 vC; out vec2 vUV; flat out vec3 vTone; flat out vec3 vMat;
 void main(){
   vec4 p = vec4(aP, 1.0); vec3 n0 = aN.xyz;
-  vec3 w = vec3(0.0), n = vec3(0.0);
+  // (the smoothed normal, js glbSmooth: the toon looks' light bands and the even ink edge; none: the model's own)
+  vec3 s0 = dot(aNs.xyz, aNs.xyz) > 0.01 ? aNs.xyz : n0;
+  vec3 w = vec3(0.0), n = vec3(0.0), ns = vec3(0.0);
   for (int j = 0; j < 4; j++) {
     float wt = aW[j];
     if (wt <= 0.0) continue;
@@ -1498,34 +1595,101 @@ void main(){
     vec4 r0 = uB[b], r1 = uB[b + 1], r2 = uB[b + 2];
     w += wt * vec3(dot(r0, p), dot(r1, p), dot(r2, p));
     n += wt * vec3(dot(r0.xyz, n0), dot(r1.xyz, n0), dot(r2.xyz, n0));
+    ns += wt * vec3(dot(r0.xyz, s0), dot(r1.xyz, s0), dot(r2.xyz, s0));
   }
   vec4 W = uRoot * vec4(w, 1.0);
   n = normalize(mat3(uRoot) * n);
+  ns = normalize(mat3(uRoot) * ns);
   vec4 c = uVP * W;
   if (uInk > 0.0) {
-    vec4 cn = uVP * vec4(n, 0.0);
+    // (uInkU > 0, the looks' ink: the same width everywhere along the smoothed normal; else the model's own share)
+    vec3 ne = uInkU > 0.0 ? ns : n;
+    vec4 cn = uVP * vec4(ne, 0.0);
     vec2 d = cn.xy * c.w - c.xy * cn.w;
     float l = length(d);
-    if (l > 1e-8) c.xy += (d / l) * (uInk * max(aN.w, 0.0)) * (2.0 / uView) * c.w;
+    if (l > 1e-8) c.xy += (d / l) * (uInk * (uInkU > 0.0 ? uInkU : max(aN.w, 0.0))) * (2.0 / uView) * c.w;
     c.z += uInkZ * c.w;
   }
   int m = int(aM + 0.5);
   vTone = uTone[m]; vMat = uMat[m]; vUV = aUV;
-  gl_Position = c; vN = n; vW = W.xyz; vC = aC;
+  gl_Position = c; vN = n; vNs = ns; vW = W.xyz; vC = aC;
 }`;
   const FSH = `#version 300 es
 precision highp float;
-in vec3 vN; in vec3 vW; in vec4 vC; in vec2 vUV; flat in vec3 vTone; flat in vec3 vMat;
-uniform sampler2D uTex, uNrm; uniform float uHasTex, uHasNrm, uBackDim, uSoft, uOldLook;
+in vec3 vN; in vec3 vNs; in vec3 vW; in vec4 vC; in vec2 vUV; flat in vec3 vTone; flat in vec3 vMat;
+uniform sampler2D uTex, uNrm, uFlat; uniform float uHasTex, uHasNrm, uBackDim, uSoft, uOldLook;
 uniform float uInk; uniform vec3 uInkC;
 uniform vec3 uKeyD, uKeyC, uShade, uEye, uLift; uniform float uFlash, uKeyA;
 uniform vec4 uL[4]; uniform vec3 uLC[4];
+// the look (js LOOK, ?r3dlook=): 0 painted (Sifu), 1 toon, 2 full toon; the flat-colour picture's share (js flatTex),
+// the texture's level bias (sharper painting), the colours' saturation, the rim's strength
+uniform float uLook, uHasFlat, uFlatK, uBias, uSat, uRim, uMask; uniform vec2 uView;
 out vec4 o;
+// (alpha: 1 - uMask; the post passes leave the fighters out of the glow and the film grain where it is 0, js/gl-render.js)
 void main(){
-  if (uInk > 0.0) { o = vec4(uInkC, 1.0); return; }
-  vec3 base = uHasTex > 0.5 ? texture(uTex, vUV).rgb * vC.rgb : vC.rgb;
-  if (vMat.z > 0.5) { o = vec4(base, 1.0); return; }
+  float oa = 1.0 - uMask;
+  if (uInk > 0.0) { o = vec4(uInkC, oa); return; }
+  vec3 tx = vec3(1.0);
+  if (uHasTex > 0.5) { tx = texture(uTex, vUV, uBias).rgb; if (uHasFlat > 0.5) tx = mix(tx, texture(uFlat, vUV, uBias).rgb, uFlatK); }
+  vec3 base = tx * vC.rgb;
+  if (uSat != 1.0) { float lb = dot(base, vec3(0.2126, 0.7152, 0.0722)); base = clamp(mix(vec3(lb), base, uSat), 0.0, 1.0); }
+  if (vMat.z > 0.5) { o = vec4(base, oa); return; }
   vec3 n = normalize(vN); bool back = !gl_FrontFacing; if (back) n = -n;
+  if (uLook > 0.5) {
+    // the stylised looks, all lit from the smoothed normal (no relief map: its busy folds would break flat tones into
+    // specks); tone edges a pixel wide (fwidth): crisp, never stair-stepped
+    //   1 CEL (B): strictly two tones per colour - lit / shadow - with a hard edge, a cool shadow, a light rim
+    //   2 COMIC (C): bold colour, hard near-black shadow shapes crossed by screen hatching, a hard white rim
+    //   3 SOFT (D): painterly anime - no ink, soft wrapped light, bright clean colours, a soft sky fill and rim
+    vec3 g = normalize(vNs); if (back) g = -g;
+    vec3 V = normalize(uEye - vW);
+    int lk = int(uLook + 0.5);
+    float d = dot(g, uKeyD), fw = max(fwidth(d), 1e-3) * 0.75;
+    vec3 kc = normalize(uKeyC + vec3(0.6)) * 1.732;
+    float fr = 1.0 - max(dot(g, V), 0.0), fwr = max(fwidth(fr), 1e-3) * 0.75;
+    vec3 col;
+    if (lk == 3) {
+      float wr = 0.5 + 0.5 * d;
+      vec3 sky = mix(vec3(0.62, 0.66, 0.86), vec3(0.95, 0.93, 1.0), 0.5 + 0.5 * g.y);
+      col = base * (sky * 0.5 + mix(vec3(1.0), kc, 0.22) * 0.68 * smoothstep(0.35, 0.8, wr));
+      for (int k = 0; k < 4; k++) {
+        vec4 L = uL[k];
+        if (L.w <= 0.0) continue;
+        vec3 v = L.xyz - vW; float dist = length(v);
+        float I = L.w * (dist < 234.0 ? mix(0.42, 0.12, dist / 234.0) : mix(0.12, 0.0, clamp((dist - 234.0) / 286.0, 0.0, 1.0)));
+        col += uLC[k] * I * smoothstep(-0.2, 0.7, dot(g, v / max(dist, 1.0))) * base * 1.1;
+      }
+      col += smoothstep(0.55, 1.0, fr) * mix(vec3(0.75, 0.82, 1.0), kc, 0.3) * 0.22 * uRim;
+      col = col * 1.06 + 0.02;
+    } else {
+      bool comic = lk == 2;
+      float t0 = comic ? 0.06 : -0.06;
+      float lit = smoothstep(t0 - fw, t0 + fw, d);
+      vec3 sh = comic ? vec3(0.3, 0.29, 0.4) : mix(uShade, vec3(1.0), 0.45) * vec3(0.58, 0.6, 0.78);
+      col = base * mix(sh, mix(vec3(1.0), kc, 0.15) * (comic ? 1.08 : 1.0), lit);
+      if (comic) {
+        // hatching across the shadow (screen lines, about 5 px apart at 1080 rows), heavier where it is darkest
+        float px = gl_FragCoord.x + gl_FragCoord.y, per = max(3.0, 5.0 * uView.y / 1080.0);
+        float hw = mix(0.18, 0.42, smoothstep(t0, -0.6, d));
+        float hl = 1.0 - smoothstep(hw - 0.12, hw + 0.12, abs(fract(px / per) - 0.5) * 2.0);
+        col = mix(col, base * 0.08, hl * (1.0 - lit) * 0.85);
+      }
+      for (int k = 0; k < 4; k++) {
+        vec4 L = uL[k];
+        if (L.w <= 0.0) continue;
+        vec3 v = L.xyz - vW; float dist = length(v);
+        float I = L.w * (dist < 234.0 ? mix(0.42, 0.12, dist / 234.0) : mix(0.12, 0.0, clamp((dist - 234.0) / 286.0, 0.0, 1.0)));
+        float nd = dot(g, v / max(dist, 1.0)), fl = max(fwidth(nd), 1e-3) * 0.75;
+        col += uLC[k] * I * smoothstep(0.15 - fl, 0.15 + fl, nd) * base * 1.25;
+      }
+      float rw = comic ? 0.7 : 0.76;
+      float rim = smoothstep(rw - fwr, rw + fwr, fr) * mix(0.1, 1.0, smoothstep(0.0, 0.4, d)) * uRim;
+      col = mix(col, comic ? vec3(1.0, 0.98, 0.94) : mix(vec3(0.8, 0.86, 1.0), kc * 0.7, 0.3) * (0.55 + 0.45 * base), rim * (comic ? 0.9 : 0.8));
+    }
+    col += uLift * smoothstep(0.7, 0.8, fr);
+    col *= mix(0.88, 1.0, clamp(vW.y / 70.0, 0.0, 1.0));
+    o = vec4(mix(col, vec3(1.0, 0.96, 0.94), uFlash * 0.38), oa); return;
+  }
   if (uHasNrm > 0.5) {
     // the baked relief (tangent space of the model's UVs, Blender's: green toward the picture's top, so -v here): the
     // tangent frame from the screen derivatives of the position and the UVs (no tangents in the file)
@@ -1540,7 +1704,7 @@ void main(){
   vec3 V = normalize(uEye - vW);
   // (tools: the texture alone, unlit - the model's own painting. 2 only: until 2026-10-06 this caught 3 too, so the
   // studio light below never ran and every outside model was drawn unlit - flat, "faded", the owner's word)
-  if (uSoft > 1.5 && uSoft < 2.5) { o = vec4(base, 1.0); return; }
+  if (uSoft > 1.5 && uSoft < 2.5) { o = vec4(base, oa); return; }
   if (uSoft > 2.5) {
     // (the model's own look, as a model viewer shows it under an even studio light: the texture's painting kept bright
     // and clean - a sky / floor fill, a soft key from the arena's main light in its colour, the lanterns a little)
@@ -1560,7 +1724,17 @@ void main(){
     }
     ce += smoothstep(0.8, 0.96, 1.0 - max(dot(n, V), 0.0)) * (uKeyC * 0.06 + uLift * 0.6);
     if (uOldLook < 0.5) { vec3 x = max(ce - 0.82, 0.0); ce = min(ce, vec3(0.82)) + 0.18 * (1.0 - exp(-x / 0.18)); }
-    o = vec4(mix(ce, vec3(1.0, 0.96, 0.94), uFlash * 0.38), 1.0); return;
+    if (uRim > 0.0) {
+      // (the painted look at its crispest, ?r3dlook=sifu: a thin moonlit edge on the key light's side from the smoothed
+      // normal - a dark coat stays readable against the night without the glow that used to haze it - and a breath of
+      // night-blue in the darkest paint, so black cloth keeps its folds)
+      vec3 g = normalize(vNs); if (back) g = -g;
+      float fr = 1.0 - max(dot(g, V), 0.0), fwr = max(fwidth(fr), 1e-3) * 0.75;
+      float rim = smoothstep(0.74 - fwr, 0.74 + fwr, fr) * mix(0.15, 1.0, smoothstep(0.0, 0.4, dot(g, uKeyD))) * uRim;
+      ce = mix(ce, mix(vec3(0.74, 0.8, 0.96), kc * 0.6, 0.3) * (0.5 + 0.5 * base), rim * 0.5);
+      ce += vec3(0.018, 0.022, 0.036) * (1.0 - smoothstep(0.0, 0.25, dot(ce, vec3(0.333))));
+    }
+    o = vec4(mix(ce, vec3(1.0, 0.96, 0.94), uFlash * 0.38), oa); return;
   }
   if (uSoft > 0.5) {
     // (a painted texture keeps its own painting: soft light only - no tone steps, no highlight, no rim speckles on the
@@ -1577,7 +1751,7 @@ void main(){
     float rs = smoothstep(0.78, 0.95, 1.0 - max(dot(n, V), 0.0));
     cs += rs * (uKeyC * 0.08 + uLift * 0.7);
     cs *= mix(0.8, 1.0, clamp(vW.y / 70.0, 0.0, 1.0));
-    o = vec4(mix(cs, vec3(1.0, 0.96, 0.94), uFlash * 0.38), 1.0); return;
+    o = vec4(mix(cs, vec3(1.0, 0.96, 0.94), uFlash * 0.38), oa); return;
   }
   float d = dot(n, uKeyD), fw = max(fwidth(d), 1e-3) * 1.2;
   float t = mix(vTone.z, vTone.y, smoothstep(-0.16 - fw, -0.08 + fw, d));
@@ -1599,7 +1773,7 @@ void main(){
   if (back) col *= uBackDim;
   col *= mix(0.72, 1.0, clamp(vW.y / 70.0, 0.0, 1.0));
   col = mix(col, vec3(1.0, 0.96, 0.94), uFlash * 0.38);
-  o = vec4(col, 1.0);
+  o = vec4(col, oa);
 }`;
 
 
@@ -1607,6 +1781,277 @@ void main(){
   const GQ = (k, d) => { const m = new RegExp('[?&]' + k + '=([\\w.]+)').exec(Q); return m ? m[1] : d; };
   const OLDLOOK = GQ('r3dglook', '') === 'old';
   const GLB_LOOK = { ink: GQ('r3dgink', OLDLOOK ? 'old' : 'sil'), soft: GQ('r3dgsoft', OLDLOOK ? '0' : '3') === '1', flat: GQ('r3dgsoft', '') === '2', env: GQ('r3dgsoft', OLDLOOK ? '0' : '3') === '3', cull: GQ('r3dgcull', '0') === '1', aniso: GQ('r3dganiso', OLDLOOK ? '0' : '1') === '1', inkZ: +GQ('r3dginkz', '0.006'), inkK: +GQ('r3dginkk', '1.3') };
+
+
+
+
+
+
+
+
+
+
+  const LOOKS = {
+    sifu: { id: 0, flatK: 0, sat: 1, bias: -0.5, ink: 0.95, inkMin: 1.25, z: 0.006, rim: 1, palSat: 1, palFloor: 0, edge: 0 },
+    toon: { id: 1, flatK: 1, sat: 1.1, bias: -0.35, ink: 1.6, inkMin: 1.6, z: 0.004, rim: 0.85, palSat: 1.12, palFloor: 0.26, edge: 0 },
+    comic: { id: 2, flatK: 1, sat: 1.3, bias: -0.25, ink: 3, inkMin: 2.5, z: 0.0012, rim: 1, palSat: 1.45, palFloor: 0.3, edge: 2.5 },
+    soft: { id: 3, flatK: 0.85, sat: 1.15, bias: -0.35, ink: 0, inkMin: 0, z: 0.006, rim: 1, palSat: 1.15, palFloor: 0.32, edge: 0 },
+  };
+  LOOKS.anime = LOOKS.comic; LOOKS.cel = LOOKS.toon;
+  const LOOKQ = GQ('r3dlook', 'sifu'), LOOK = OLDLOOK ? null : LOOKS[LOOKQ] || LOOKS.sifu;
+  const LOOKN = { 0: 'sifu', 1: 'toon', 2: 'comic', 3: 'soft' };
+  const NOMASK = GQ('r3dmask', '1') === '0';
+  R3.look = LOOK ? LOOKN[LOOK.id] : 'old';
+  R3.lookOf = () => LOOK;
+  R3.maskOn = () => !!(LOOK && !NOMASK && R3.prep);
+
+  R3.inkW = (base) => (LOOK ? clamp(LOOK.ink * cam.k * RIG.zoom * FR.fit, LOOK.inkMin, 7) : base);
+
+
+
+
+
+
+
+  const FLAT = new Map();
+  let FLATP = null;
+  const OK = (r, g, b) => {
+    const li = (c) => (c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+    r = li(r); g = li(g); b = li(b);
+    const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b), m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b), q = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+    return [0.2104542553 * l + 0.793617785 * m - 0.0040720468 * q, 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * q, 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * q];
+  };
+  const OKinv = (L, a, b) => {
+    const l = Math.pow(L + 0.3963377774 * a + 0.2158037573 * b, 3), m = Math.pow(L - 0.1055613458 * a - 0.0638541728 * b, 3), q = Math.pow(L - 0.0894841775 * a - 1.291485548 * b, 3);
+    const r = 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * q, g = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * q, bb = -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * q;
+    const en = (c) => clamp(c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(Math.max(c, 0), 1 / 2.4) - 0.055, 0, 1);
+    return [en(r), en(g), en(bb)];
+  };
+  const FW_L = 0.63, FW_C = 2;
+  const FLAT_GLSL = `
+vec3 lin(vec3 c){ return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), c)); }
+vec3 feat(vec3 c){
+  c = lin(c);
+  vec3 lms = vec3(0.4122214708 * c.r + 0.5363325363 * c.g + 0.0514459929 * c.b, 0.2119034982 * c.r + 0.6806995451 * c.g + 0.1073969566 * c.b, 0.0883024619 * c.r + 0.2817188376 * c.g + 0.6299787005 * c.b);
+  lms = pow(max(lms, vec3(0.0)), vec3(1.0 / 3.0));
+  vec3 ok = vec3(0.2104542553 * lms.x + 0.793617785 * lms.y - 0.0040720468 * lms.z, 1.9779984951 * lms.x - 2.428592205 * lms.y + 0.4505937099 * lms.z, 0.0259040371 * lms.x + 0.7827717662 * lms.y - 0.808675766 * lms.z);
+  return vec3(ok.x * ${FW_L.toFixed(3)}, ok.y * ${FW_C.toFixed(3)}, ok.z * ${FW_C.toFixed(3)});
+}`;
+  function flatInit(gl) {
+    const sh = (t, src) => { const x = gl.createShader(t); gl.shaderSource(x, src); gl.compileShader(x); if (!gl.getShaderParameter(x, gl.COMPILE_STATUS)) throw new Error('r3d flat shader: ' + gl.getShaderInfoLog(x)); return x; };
+    const prog = (fs) => { const q = gl.createProgram(); gl.attachShader(q, sh(gl.VERTEX_SHADER, '#version 300 es\nlayout(location=0) in vec2 a; void main(){ gl_Position = vec4(a, 0.0, 1.0); }')); gl.attachShader(q, sh(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(q); if (!gl.getProgramParameter(q, gl.LINK_STATUS)) throw new Error('r3d flat link: ' + gl.getProgramInfoLog(q)); return q; };
+    const samp = prog(`#version 300 es
+precision highp float; precision highp int;
+uniform sampler2D uS; uniform ivec2 uStep; out vec4 o;
+void main(){ ivec2 q = ivec2(gl_FragCoord.xy) * uStep + uStep / 2; o = texelFetch(uS, q, 0); }`);
+    const bake = prog(`#version 300 es
+precision highp float; precision highp int;
+uniform sampler2D uS; uniform int uN, uK, uE; uniform vec3 uF[16]; uniform vec3 uC[16]; out vec4 o;
+${FLAT_GLSL}
+int near(vec3 c){ vec3 f = feat(c); int bi = 0; float bd = 1e9; for (int i = 0; i < 16; i++) { if (i >= uN) break; vec3 d = f - uF[i]; float e = dot(d, d); if (e < bd) { bd = e; bi = i; } } return bi; }
+void main(){
+  ivec2 sz = textureSize(uS, 0), p = ivec2(gl_FragCoord.xy) * uK;
+  float v[16]; for (int i = 0; i < 16; i++) v[i] = 0.0;
+  // (a 9 x 9 texel neighbourhood, every second texel: thin painted streaks - a highlight along a fold, a stray
+  // hair - go to the colour round them; the centre counts more, so small real shapes keep their place)
+  for (int dy = -2; dy <= 2; dy++) for (int dx = -2; dx <= 2; dx++) {
+    ivec2 q = clamp(p + ivec2(dx, dy) * 2, ivec2(0), sz - 1);
+    int k = near(texelFetch(uS, q, 0).rgb);
+    int r = max(abs(dx), abs(dy));
+    v[k] += r == 0 ? 3.0 : r == 1 ? 1.5 : 1.0;
+  }
+  int b = 0; float bv = -1.0; for (int i = 0; i < 16; i++) { if (i >= uN) break; if (v[i] > bv) { bv = v[i]; b = i; } }
+  // (the comic look: an ink line along the borders between two colour regions - the sash's edge, the collar, the
+  // sleeve's cuff - uE texels to each side; only where the other colour is a real region: 2 of 8 samples agree)
+  if (uE > 0) {
+    int dif = 0;
+    for (int k = 0; k < 8; k++) {
+      float a = float(k) * 0.785398;
+      ivec2 q = clamp(p + ivec2(round(vec2(cos(a), sin(a)) * float(uE * uK))), ivec2(0), sz - 1);
+      if (near(texelFetch(uS, q, 0).rgb) != b) dif++;
+    }
+    if (dif >= 3) { o = vec4(uC[b] * 0.1 + vec3(0.02, 0.018, 0.03), 1.0); return; }
+  }
+  o = vec4(uC[b], 1.0);
+}`);
+    const vao = gl.createVertexArray(); gl.bindVertexArray(vao);
+    const vb = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vb); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    gl.bindVertexArray(null);
+    FLATP = { gl, samp, bake, vao, fb: gl.createFramebuffer(), U: { sS: gl.getUniformLocation(samp, 'uS'), sStep: gl.getUniformLocation(samp, 'uStep'), bS: gl.getUniformLocation(bake, 'uS'), bN: gl.getUniformLocation(bake, 'uN'), bK: gl.getUniformLocation(bake, 'uK'), bE: gl.getUniformLocation(bake, 'uE'), bF: gl.getUniformLocation(bake, 'uF'), bC: gl.getUniformLocation(bake, 'uC') } };
+  }
+
+
+  function palette(px, n, k, look) {
+    const F = new Float32Array(n * 3), Lk = new Float32Array(n);
+    for (let i = 0; i < n; i++) { const q = OK(px[i * 4] / 255, px[i * 4 + 1] / 255, px[i * 4 + 2] / 255); Lk[i] = q[0]; F[i * 3] = q[0] * FW_L; F[i * 3 + 1] = q[1] * FW_C; F[i * 3 + 2] = q[2] * FW_C; }
+    const d2 = (i, c) => { const a = F[i * 3] - c[0], b = F[i * 3 + 1] - c[1], e = F[i * 3 + 2] - c[2]; return a * a + b * b + e * e; };
+
+    const cell = new Map();
+    for (let i = 0; i < n; i++) { const key = Math.round(F[i * 3] / 0.05) + ',' + Math.round(F[i * 3 + 1] / 0.05) + ',' + Math.round(F[i * 3 + 2] / 0.05); const c = cell.get(key); if (c) c.n++; else cell.set(key, { n: 1, i }); }
+    const cand = [...cell.values()].filter((c) => c.n >= n * 0.003).map((c) => c.i);
+    const C = [];
+    { let bi = 0, bn = -1; for (const c of cell.values()) if (c.n > bn) { bn = c.n; bi = c.i; } C.push([F[bi * 3], F[bi * 3 + 1], F[bi * 3 + 2]]); }
+    while (C.length < k) {
+      let bi = -1, bd = -1;
+      for (const i of cand) { let m = 1e9; for (const c of C) m = Math.min(m, d2(i, c)); if (m > bd) { bd = m; bi = i; } }
+      if (bi < 0 || bd < 0.0025) break;
+      C.push([F[bi * 3], F[bi * 3 + 1], F[bi * 3 + 2]]);
+    }
+    const A = new Uint8Array(n);
+    for (let it = 0; it < 10; it++) {
+      const S = C.map(() => [0, 0, 0, 0]);
+      for (let i = 0; i < n; i++) { let b = 0, bd = 1e9; for (let c = 0; c < C.length; c++) { const e = d2(i, C[c]); if (e < bd) { bd = e; b = c; } } A[i] = b; const t = S[b]; t[0] += F[i * 3]; t[1] += F[i * 3 + 1]; t[2] += F[i * 3 + 2]; t[3]++; }
+      for (let c = 0; c < C.length; c++) if (S[c][3]) C[c] = [S[c][0] / S[c][3], S[c][1] / S[c][3], S[c][2] / S[c][3]];
+    }
+
+
+    {
+      const sh = C.map((_, c) => { let m = 0; for (let i = 0; i < n; i++) if (A[i] === c) m++; return m / n; });
+      const ok = C.map((c) => [c[0] / FW_L, c[1] / FW_C, c[2] / FW_C]), ch = ok.map((q) => Math.hypot(q[1], q[2])), hu = ok.map((q) => Math.atan2(q[2], q[1]));
+      const dh = (a, b) => { let d = Math.abs(a - b) % (2 * Math.PI); return d > Math.PI ? 2 * Math.PI - d : d; };
+      const gone = new Array(C.length).fill(false), ord = C.map((_, c) => c).sort((a, b) => sh[b] - sh[a]);
+      const skin = (c) => ok[c][0] > 0.6 && ch[c] > 0.03 && ch[c] < 0.13 && hu[c] > 0.5 && hu[c] < 1.25;
+      for (const i of ord) {
+        if (gone[i]) continue;
+        for (const j of ord) {
+          if (j === i || gone[j] || sh[j] > sh[i]) continue;
+          const sameHue = ch[i] > 0.05 && ch[j] > 0.04 && Math.abs(ok[i][0] - ok[j][0]) < 0.36 && dh(hu[i], hu[j]) < (ok[j][0] < ok[i][0] ? 0.6 : 0.35);
+          const blend = sh[j] < 0.02 && (ch[j] < 0.05 || ord.some((q) => q !== j && !gone[q] && sh[q] > sh[j] && ch[q] > 0.05 && dh(hu[q], hu[j]) < 0.45));
+
+          const greys = ch[i] < 0.045 && ch[j] < 0.045 && Math.abs(ok[i][0] - ok[j][0]) < 0.16;
+          if ((sameHue || blend || greys) && skin(i) === skin(j)) gone[j] = true;
+        }
+      }
+
+
+      for (const j of ord) {
+        if (gone[j] || sh[j] > 0.06 || skin(j)) continue;
+        const big = ord.filter((q) => q !== j && !gone[q] && sh[q] > sh[j]);
+        for (let a = 0; a < big.length && !gone[j]; a++) for (let b = a + 1; b < big.length; b++) {
+          const P = C[big[a]], Qc = C[big[b]], X = C[j], d = [Qc[0] - P[0], Qc[1] - P[1], Qc[2] - P[2]], L2 = d[0] * d[0] + d[1] * d[1] + d[2] * d[2];
+          if (L2 < 1e-6) continue;
+          const t = ((X[0] - P[0]) * d[0] + (X[1] - P[1]) * d[1] + (X[2] - P[2]) * d[2]) / L2;
+          if (t < 0.12 || t > 0.88) continue;
+          const e = [P[0] + d[0] * t - X[0], P[1] + d[1] * t - X[1], P[2] + d[2] * t - X[2]];
+          if (Math.sqrt(e[0] * e[0] + e[1] * e[1] + e[2] * e[2]) < 0.28 * Math.sqrt(L2)) { gone[j] = true; break; }
+        }
+      }
+      const keep = C.filter((_, c) => !gone[c]);
+      C.length = 0; C.push(...keep);
+      for (let it = 0; it < 4; it++) {
+        const S = C.map(() => [0, 0, 0, 0]);
+        for (let i = 0; i < n; i++) { let b = 0, bd = 1e9; for (let c = 0; c < C.length; c++) { const e = d2(i, C[c]); if (e < bd) { bd = e; b = c; } } A[i] = b; const t = S[b]; t[0] += F[i * 3]; t[1] += F[i * 3 + 1]; t[2] += F[i * 3 + 2]; t[3]++; }
+        for (let c = 0; c < C.length; c++) if (S[c][3]) C[c] = [S[c][0] / S[c][3], S[c][1] / S[c][3], S[c][2] / S[c][3]];
+      }
+    }
+
+
+    const out = [];
+    for (let c = 0; c < C.length; c++) {
+      const mem = []; for (let i = 0; i < n; i++) if (A[i] === c) mem.push(i);
+      if (!mem.length) continue;
+      mem.sort((a, b) => Lk[a] - Lk[b]);
+      const lo = Math.floor(mem.length * 0.45), hi = Math.max(lo + 1, Math.floor(mem.length * 0.9));
+      let L = 0, a = 0, b = 0;
+      for (let j = lo; j < hi; j++) { const i = mem[j]; L += Lk[i]; a += F[i * 3 + 1] / FW_C; b += F[i * 3 + 2] / FW_C; }
+      const m = hi - lo; L /= m; a /= m; b /= m;
+      a *= look.palSat; b *= look.palSat;
+      if (L < look.palFloor) L = look.palFloor - (look.palFloor - L) * 0.35;
+      out.push({ f: C[c], rgb: OKinv(L, a, b), share: mem.length / n });
+    }
+    return out;
+  }
+  function flatDrop(t) { const e = FLAT.get(t); if (e && e.tex) e.gl.deleteTexture(e.tex); FLAT.delete(t); }
+  function flatTex(gl, src, w, h) {
+    let e = FLAT.get(src);
+    if (e) return e.tex;
+    e = { gl, tex: null }; FLAT.set(src, e);
+    const t0 = performance.now();
+
+    const fb0 = gl.getParameter(gl.FRAMEBUFFER_BINDING), vp0 = gl.getParameter(gl.VIEWPORT), sc = gl.isEnabled(gl.SCISSOR_TEST), dt = gl.isEnabled(gl.DEPTH_TEST), cf = gl.isEnabled(gl.CULL_FACE), bl = gl.isEnabled(gl.BLEND);
+    try {
+      if (!FLATP || FLATP.gl !== gl) flatInit(gl);
+      const P = FLATP, U = P.U;
+      gl.disable(gl.SCISSOR_TEST); gl.disable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE); gl.disable(gl.BLEND);
+      gl.bindVertexArray(P.vao); gl.bindFramebuffer(gl.FRAMEBUFFER, P.fb);
+
+      const SN = 160, step = Math.max(1, Math.floor(Math.min(w, h) / SN));
+      const st = gl.createTexture(); gl.activeTexture(gl.TEXTURE6); gl.bindTexture(gl.TEXTURE_2D, st);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, SN, SN, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, st, 0);
+      gl.viewport(0, 0, SN, SN);
+      gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, src);
+      gl.useProgram(P.samp); gl.uniform1i(U.sS, 5); gl.uniform2i(U.sStep, step, step);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      const px = new Uint8Array(SN * SN * 4); gl.readPixels(0, 0, SN, SN, gl.RGBA, gl.UNSIGNED_BYTE, px);
+      gl.deleteTexture(st);
+      const pal = palette(px, SN * SN, 12, LOOK).slice(0, 16);
+
+      const K = ND.gfx && ND.gfx.mobile && Math.min(w, h) > 1024 ? 2 : 1, fw = Math.max(1, Math.floor(w / K)), fh = Math.max(1, Math.floor(h / K));
+      const ft = gl.createTexture(); gl.activeTexture(gl.TEXTURE6); gl.bindTexture(gl.TEXTURE_2D, ft);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, fw, fh, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, ft, 0);
+      gl.viewport(0, 0, fw, fh);
+      gl.useProgram(P.bake); gl.uniform1i(U.bS, 5); gl.uniform1i(U.bN, pal.length); gl.uniform1i(U.bK, K); gl.uniform1i(U.bE, Math.max(0, Math.round((LOOK.edge || 0) * Math.min(w, h) / 2048 / K)));
+      const UF = new Float32Array(48), UC = new Float32Array(48);
+      pal.forEach((q, i) => { UF.set(q.f, i * 3); UC.set(q.rgb, i * 3); });
+      gl.uniform3fv(U.bF, UF); gl.uniform3fv(U.bC, UC);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, null, 0);
+      gl.bindTexture(gl.TEXTURE_2D, ft); gl.generateMipmap(gl.TEXTURE_2D); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+      const an = gl.getExtension('EXT_texture_filter_anisotropic') || gl.getExtension('WEBKIT_EXT_texture_filter_anisotropic');
+      if (an) gl.texParameterf(gl.TEXTURE_2D, an.TEXTURE_MAX_ANISOTROPY_EXT, Math.min(4, gl.getParameter(an.MAX_TEXTURE_MAX_ANISOTROPY_EXT)));
+      e.tex = ft; e.pal = pal.map((q) => ({ rgb: q.rgb.map((x) => Math.round(x * 255)), share: +q.share.toFixed(3) }));
+      R3.flatMs = (R3.flatMs || 0) + performance.now() - t0; R3.flatN = (R3.flatN || 0) + 1; (R3.flatPal = R3.flatPal || []).push(e.pal);
+    } catch (err) { console.warn('[r3d] flat picture:', err && err.message); e.tex = null; }
+    gl.bindTexture(gl.TEXTURE_2D, null); gl.activeTexture(gl.TEXTURE0);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fb0); gl.viewport(vp0[0], vp0[1], vp0[2], vp0[3]);
+    if (sc) gl.enable(gl.SCISSOR_TEST); if (dt) gl.enable(gl.DEPTH_TEST); if (cf) gl.enable(gl.CULL_FACE); if (bl) gl.enable(gl.BLEND);
+    return e.tex;
+  }
+
+
+
+  function glbSmooth(P, N, I, nv, rounds = 8) {
+    const rep = new Int32Array(nv), cellOf = new Map();
+    for (let v = 0; v < nv; v++) {
+      const key = Math.round(P[v * 3] * 20) + ',' + Math.round(P[v * 3 + 1] * 20) + ',' + Math.round(P[v * 3 + 2] * 20);
+      let L = cellOf.get(key); if (!L) cellOf.set(key, (L = []));
+      let r = -1;
+      for (const u of L) if (N[u * 4] * N[v * 4] + N[u * 4 + 1] * N[v * 4 + 1] + N[u * 4 + 2] * N[v * 4 + 2] > 0.2 * 127 * 127) { r = u; break; }
+      if (r < 0) { L.push(v); r = v; }
+      rep[v] = r;
+    }
+    const deg = new Int32Array(nv + 1);
+    for (let t = 0; t < I.length; t += 3) for (let k = 0; k < 3; k++) deg[rep[I[t + k]] + 1] += 2;
+    for (let v = 0; v < nv; v++) deg[v + 1] += deg[v];
+    const nb = new Int32Array(deg[nv]), fill = deg.slice(0, nv);
+    for (let t = 0; t < I.length; t += 3) for (let k = 0; k < 3; k++) { const a = rep[I[t + k]]; nb[fill[a]++] = rep[I[t + (k + 1) % 3]]; nb[fill[a]++] = rep[I[t + (k + 2) % 3]]; }
+    let A = new Float32Array(nv * 3), B = new Float32Array(nv * 3);
+    for (let v = 0; v < nv; v++) { const r = rep[v]; A[r * 3] += N[v * 4]; A[r * 3 + 1] += N[v * 4 + 1]; A[r * 3 + 2] += N[v * 4 + 2]; }
+    const nz = (X, r) => { const l = Math.hypot(X[r * 3], X[r * 3 + 1], X[r * 3 + 2]) || 1; X[r * 3] /= l; X[r * 3 + 1] /= l; X[r * 3 + 2] /= l; };
+    for (let v = 0; v < nv; v++) if (rep[v] === v) nz(A, v);
+    for (let it = 0; it < rounds; it++) {
+      for (let v = 0; v < nv; v++) {
+        if (rep[v] !== v) continue;
+        let x = A[v * 3] * 2, y = A[v * 3 + 1] * 2, z = A[v * 3 + 2] * 2;
+        for (let j = deg[v]; j < deg[v + 1]; j++) { const u = nb[j]; x += A[u * 3]; y += A[u * 3 + 1]; z += A[u * 3 + 2]; }
+        B[v * 3] = x; B[v * 3 + 1] = y; B[v * 3 + 2] = z; nz(B, v);
+      }
+      const T = A; A = B; B = T;
+    }
+    const NS = new Int8Array(nv * 4);
+    for (let v = 0; v < nv; v++) {
+      const r = rep[v];
+      let x = A[r * 3], y = A[r * 3 + 1], z = A[r * 3 + 2];
+
+      if (x * N[v * 4] + y * N[v * 4 + 1] + z * N[v * 4 + 2] < 0) { x = N[v * 4] / 127; y = N[v * 4 + 1] / 127; z = N[v * 4 + 2] / 127; }
+      NS[v * 4] = Math.round(x * 127); NS[v * 4 + 1] = Math.round(y * 127); NS[v * 4 + 2] = Math.round(z * 127); NS[v * 4 + 3] = 127;
+    }
+    return NS;
+  }
   let GLH = null;
   function hdInit(gl) {
     const sh = (t, src) => { const s = gl.createShader(t); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error('r3d HD shader: ' + gl.getShaderInfoLog(s)); return s; };
@@ -1614,12 +2059,12 @@ void main(){
     gl.attachShader(p, sh(gl.VERTEX_SHADER, VSH)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, FSH)); gl.linkProgram(p);
     if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error('r3d HD link: ' + gl.getProgramInfoLog(p));
     const U = {};
-    for (const k of ['uSoft', 'uInkZ', 'uBackDim', 'uTex', 'uHasTex', 'uNrm', 'uHasNrm', 'uOldLook', 'uB', 'uVP', 'uRoot', 'uInk', 'uView', 'uTone', 'uMat', 'uInkC', 'uKeyD', 'uKeyC', 'uShade', 'uEye', 'uLift', 'uFlash', 'uKeyA', 'uL', 'uLC']) U[k] = gl.getUniformLocation(p, k);
+    for (const k of ['uSoft', 'uInkZ', 'uInkU', 'uBackDim', 'uTex', 'uHasTex', 'uNrm', 'uHasNrm', 'uOldLook', 'uB', 'uVP', 'uRoot', 'uInk', 'uView', 'uTone', 'uMat', 'uInkC', 'uKeyD', 'uKeyC', 'uShade', 'uEye', 'uLift', 'uFlash', 'uKeyA', 'uL', 'uLC', 'uFlat', 'uLook', 'uHasFlat', 'uFlatK', 'uBias', 'uSat', 'uRim', 'uMask']) U[k] = gl.getUniformLocation(p, k);
     gl.useProgram(p);
     const tone = new Float32Array(21), mat = new Float32Array(21);
     MATP.forEach((m, i) => { tone.set(m.slice(0, 3), i * 3); mat.set([m[3], m[4], m[5]], i * 3); });
     gl.uniform3fv(U.uTone, tone); gl.uniform3fv(U.uMat, mat);
-    gl.uniform1i(U.uTex, 3); gl.uniform1i(U.uNrm, 4); gl.uniform1f(U.uOldLook, /[?&]r3dgold=1(&|$)/.test(Q) ? 1 : 0);
+    gl.uniform1i(U.uTex, 3); gl.uniform1i(U.uNrm, 4); gl.uniform1i(U.uFlat, 5); gl.uniform1f(U.uOldLook, /[?&]r3dgold=1(&|$)/.test(Q) ? 1 : 0);
     GLH = { gl, p, U, vao: new Map(), tex: new Map() };
   }
   function hdVao(gl, M) {
@@ -1630,7 +2075,7 @@ void main(){
     const at = (data, loc, size, type, normd) => { const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, size, type, normd, 0, 0); };
     if (M.UV) at(M.UV, 6, 2, gl.FLOAT, false);
     o.it = M.I instanceof Uint32Array ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT;
-    at(M.P, 0, 3, gl.FLOAT, false); at(M.N, 1, 4, gl.BYTE, true); at(M.C, 2, 4, gl.UNSIGNED_BYTE, true); at(M.SI, 3, 4, gl.UNSIGNED_BYTE, false); at(M.SW, 4, 4, gl.UNSIGNED_BYTE, true); at(M.MT, 5, 1, gl.UNSIGNED_BYTE, false);
+    at(M.P, 0, 3, gl.FLOAT, false); at(M.N, 1, 4, gl.BYTE, true); at(M.NS || M.N, 7, 4, gl.BYTE, true); at(M.C, 2, 4, gl.UNSIGNED_BYTE, true); at(M.SI, 3, 4, gl.UNSIGNED_BYTE, false); at(M.SW, 4, 4, gl.UNSIGNED_BYTE, true); at(M.MT, 5, 1, gl.UNSIGNED_BYTE, false);
     const ib = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, M.I, gl.STATIC_DRAW);
     gl.bindVertexArray(null);
     GLH.vao.set(M, o);
@@ -1659,7 +2104,7 @@ void main(){
         D = { gl, M, key, tex, col: f.col, used: 0 };
         DRESS.push(D);
 
-        while (DRESS.length > DRESSN) { let o = -1; for (let i = 0; i < DRESS.length; i++) if (DRESS[i] !== D && (o < 0 || DRESS[i].used < DRESS[o].used)) o = i; DRESS[o].gl.deleteTexture(DRESS[o].tex); DRESS.splice(o, 1); }
+        while (DRESS.length > DRESSN) { let o = -1; for (let i = 0; i < DRESS.length; i++) if (DRESS[i] !== D && (o < 0 || DRESS[i].used < DRESS[o].used)) o = i; flatDrop(DRESS[o].tex); DRESS[o].gl.deleteTexture(DRESS[o].tex); DRESS.splice(o, 1); }
       } else D.col = f.col;
     }
     D.used = R3.frames;
@@ -1675,17 +2120,23 @@ void main(){
     gl.uniform3fv(U.uKeyD, LIGHT.keyD); gl.uniform3fv(U.uKeyC, LIGHT.keyC); gl.uniform1f(U.uKeyA, LIGHT.keyA);
     gl.uniform3fv(U.uShade, LIGHT.shade); gl.uniform3fv(U.uEye, EYE);
     gl.uniform4fv(U.uL, LIGHT.L); gl.uniform3fv(U.uLC, LIGHT.LC);
+    const LK = LOOK || { id: 0, flatK: 0, sat: 1, bias: 0, rim: 0 };
+    gl.uniform1f(U.uLook, LK.id); gl.uniform1f(U.uFlatK, LK.flatK); gl.uniform1f(U.uBias, LK.bias); gl.uniform1f(U.uSat, LK.sat); gl.uniform1f(U.uRim, LK.rim);
+    gl.uniform1f(U.uMask, !reflect && R3.maskOn() ? 1 : 0); gl.uniform1f(U.uHasFlat, 0);
     let tris = 0;
 
 
 
     for (const E0 of list) for (const MM of [E0.hd.M, piecesOf(E0.hd.M, E0.f)]) {
       if (!MM) continue;
-      const E = E0, F = E.hd, M = MM, o = hdVao(gl, M), sil = M.glb && GLB_LOOK.ink === 'sil', noInk = M.glb && GLB_LOOK.ink === 'off';
+      const E = E0, F = E.hd, M = MM, o = hdVao(gl, M), sil = M.glb && GLB_LOOK.ink === 'sil', noInk = M.glb && (GLB_LOOK.ink === 'off' || !!(LOOK && !LOOK.ink));
       const order = reflect ? [1] : sil ? [1, 0] : noInk ? [1] : [0, 1];
       for (const pass of order) {
-        gl.uniform1f(U.uInk, pass === 0 ? inkPx * (M.glb && GLB_LOOK.ink !== 'old' ? GLB_LOOK.inkK : 1) : 0);
-        gl.uniform1f(U.uInkZ, pass === 0 && sil ? GLB_LOOK.inkZ : 0.0004);
+
+        const lk = M.glb && LOOK && sil;
+        gl.uniform1f(U.uInk, pass === 0 ? (lk ? R3.inkW(inkPx) : inkPx * (M.glb && GLB_LOOK.ink !== 'old' ? GLB_LOOK.inkK : 1)) : 0);
+        gl.uniform1f(U.uInkU, pass === 0 && lk ? 1 : 0);
+        gl.uniform1f(U.uInkZ, pass === 0 && sil ? (lk ? LOOK.z : GLB_LOOK.inkZ) : 0.0004);
         gl.uniform1f(U.uSoft, M.glb ? (GLB_LOOK.flat ? 2 : GLB_LOOK.env ? 3 : GLB_LOOK.soft ? 1 : 0) : 0);
         ROOT.fill(0); ROOT[0] = F.dir; ROOT[5] = 1; ROOT[10] = 1; ROOT[15] = 1; ROOT[12] = F.x0;
         gl.uniformMatrix4fv(U.uRoot, false, ROOT);
@@ -1710,6 +2161,10 @@ void main(){
                 GLH.tex.set(img, t);
               }
               if (M.kostum) t = dressTex(gl, M, img, t, E.f) || t;
+
+              const ft = pass === 1 && LOOK && LOOK.flatK > 0 ? flatTex(gl, t, img.width, img.height) : null;
+              if (ft) { gl.useProgram(p); gl.bindVertexArray(o.vao); gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, ft); }
+              gl.uniform1f(U.uHasFlat, ft ? 1 : 0);
               gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, t); gl.activeTexture(gl.TEXTURE0);
             }
             gl.uniform1f(U.uHasTex, img ? 1 : 0);
@@ -1727,7 +2182,7 @@ void main(){
             gl.uniform1f(U.uHasNrm, nimg ? 1 : 0);
             gl.drawElements(gl.TRIANGLES, d.count, o.it, d.start * (o.it === gl.UNSIGNED_INT ? 4 : 2));
           }
-          gl.uniform1f(U.uHasTex, 0); gl.uniform1f(U.uHasNrm, 0);
+          gl.uniform1f(U.uHasTex, 0); gl.uniform1f(U.uHasNrm, 0); gl.uniform1f(U.uHasFlat, 0);
         } else gl.drawElements(gl.TRIANGLES, o.n, gl.UNSIGNED_SHORT, 0);
         tris += o.n / 3;
       }
