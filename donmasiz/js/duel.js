@@ -68,8 +68,21 @@
       return spOk(v) ? v : SPEED0;
     };
   }
+
+
+
+
+
+
+
+
+
+
+
+  const AKQ = (/[?&]atkspeed=([\d.]+)/.exec(location.search || '') || [])[1];
+  const AK = AKQ != null && +AKQ >= 0.4 && +AKQ < 1 ? +AKQ : 1;
   const D = ND.duel = {
-    on: true, ROSTER, MODES, SPEED0,
+    on: true, ROSTER, MODES, SPEED0, AK,
 
     T: {
       chainNeed: 7, parryPts: 2, blockPts: 1, chainIdle: 4.5,
@@ -82,6 +95,26 @@
     env: null,
   };
   const T = D.T;
+
+
+  const akOn = () => AK !== 1 && G.mode !== 'online' && G.mode !== 'shadow' && !(ND.tutor && ND.tutor.on);
+  D.akFor = (f) => (f && f.dz && akOn() ? AK : 1);
+  if (AK !== 1) {
+
+    ND.atkSlow = (f) => {
+      if (!f || !f.dz || !akOn()) return 1;
+      if (f.state === 'atk') return AK;
+      const c = f.dz.cine;
+      return c && c.fin && !c.crown && !c.done && c.A === f ? AK : 1;
+    };
+    const ss0 = FP.setState;
+    FP.setState = function (s, extra) {
+      const r = ss0.call(this, s, extra);
+      if (this.dz && this.reK !== undefined) this.reK = 1;
+      if (s === 'atk' && this.dz && akOn()) this.aspd *= AK;
+      return r;
+    };
+  }
   D.active = (f) => !!(f && f.dz);
   const canDuel = (f) => !!(MODES[G.mode] && f && f.ch && ROSTER[f.ch.id] && f.opp && f.opp.ch && ROSTER[f.opp.ch.id]);
   const stat = (k, v = 1) => { const S = D.stats; if (S) S[k] = (S[k] || 0) + v; };

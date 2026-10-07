@@ -371,7 +371,7 @@
 
     if (f.ch.id === 'kuro' && f.dz && f.dz.lastMove === 'd_tsuki' && d < THRUST_MIN) { f.x = Math.max(-ND.ARENA, Math.min(ND.ARENA, o.x - s * THRUST_MIN)); return; }
     if (d <= reach || d > reach + 90) return;
-    const step = Math.min(d - reach, 1500 * dt);
+    const step = Math.min(d - reach, 1500 * (ND.atkSlow ? dt * ND.atkSlow(f) : dt));
     f.x = Math.max(-ND.ARENA, Math.min(ND.ARENA, f.x + s * step));
   }
   FP.update = function (dt) {

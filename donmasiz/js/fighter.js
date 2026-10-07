@@ -525,26 +525,28 @@
 
     route(a, name = this.atkName, landed = this.mem.landed) {
       const c = this.ctrl, R = ND.routesFor ? ND.routesFor(this, name) : null;
+
+      const BUF = ND.atkSlow ? COMBO.buf / ND.atkSlow(this) : COMBO.buf;
       if (!R) {
 
         if (!a || !a.next) return null;
-        if (c.take('light', COMBO.buf)) return a.next;
-        if (c.take('heavy', COMBO.buf)) return 'heavy';
-        if (c.take('kick', COMBO.buf)) return 'kick';
+        if (c.take('light', BUF)) return a.next;
+        if (c.take('heavy', BUF)) return 'heavy';
+        if (c.take('kick', BUF)) return 'kick';
         return null;
       }
       if (R.hit && landed == null) return null;
       let best = -1, bestTo = null, bestT = Infinity;
       for (let i = 0; i < 3; i++) {
         const b = BTNS[i];
-        if (!c.has(b, COMBO.buf)) continue;
+        if (!c.has(b, BUF)) continue;
         const d = this.dirFor(b);
         const to = (d > 0 && R[FWD[i]]) || (d < 0 && R[BACK[i]]) || R[b];
         if (!to) continue;
         if (c.buf[b] < bestT) { bestT = c.buf[b]; best = i; bestTo = to; }
       }
       if (best < 0) return null;
-      c.take(BTNS[best], COMBO.buf);
+      c.take(BTNS[best], BUF);
       return bestTo;
     }
 
@@ -825,6 +827,11 @@
       }
 
 
+
+
+
+
+      if (ND.atkSlow) { if (this.state === 'atk') dt *= ND.atkSlow(this); else if (this.reK !== 1 && this.reK > 0 && (this.state === 'hurt' || this.state === 'block' || this.state === 'launch')) dt *= this.reK; }
 
       if (this.onGround && this.y < -0.5 && !(this.state === 'atk' && this.atk.arc)) { this.onGround = false; this.vy = Math.max(this.vy, 0); }
       if (!this.onGround) this.vy += GRAV * dt * (this.state === 'launch' && this.jug ? 1 + COMBO.jugGrav * this.jug : 1);
@@ -1360,20 +1367,25 @@
       if (armor) { this.jit = 0.18; if (this.atk.onArmor) this.atk.onArmor(this, from, x, y); return; }
       const wasAir = !this.onGround || this.y < -20;
       if (wasAir) this.jug++;
+      const reK = ND.atkSlow ? ND.atkSlow(from) : 1;
       if (a.launch || a.spike) {
 
         const pop = Math.max(0.35, 1 - COMBO.jugPop * this.jug);
         this.setState('launch', { wallBounced: false }); this.onGround = false;
         this.vy = a.spike ? 900 : COMBO.launchV * (a.lift || 1) * pop; this.vx = kdir * a.kb * 0.35;
+        if (reK !== 1) this.reK = reK;
         if (a.launch && !wasAir) fx.text(this.x, -200, (ND.TXT && ND.TXT.launch) || 'HAVAYA!', '#d9dbe6');
       } else if (a.knock || wasAir) {
         const pop = wasAir ? Math.max(0.35, 1 - COMBO.jugPop * (this.jug - 1)) : 1;
         this.setState('launch', { wallBounced: false }); this.onGround = false;
         this.vy = (a.knock ? -460 : -260) * (a.lift || 1) * pop; this.vx = kdir * a.kb * 0.75 * (a.special ? 1.6 : 1);
+        if (reK !== 1) this.reK = reK;
         if (a.knock && !a.special) fx.text(this.x, -200, 'YERE SERİLDİ', '#d9dbe6');
       } else {
         const sm = this.ch.stunMul || 1, ender = this.comboN >= 3 && !a.chain && !a.counter ? COMBO.enderStun : 1;
-        this.setState('hurt', { dur: a.stun * sm * ender, hurtPose: (a.hurt && PO[a.hurt]) || (part === 'head' ? PO.hurt : PO.hurt2) });
+
+        this.setState('hurt', { dur: reK !== 1 ? a.stun * sm * ender / reK : a.stun * sm * ender, hurtPose: (a.hurt && PO[a.hurt]) || (part === 'head' ? PO.hurt : PO.hurt2) });
+        if (reK !== 1) this.reK = reK;
         this.vx = kdir * a.kb * (0.4 + 0.6 * sm);
       }
     }
@@ -1395,6 +1407,7 @@
 
     blocked(a, x, y, isKick, fromX) {
       const o = this.opp, pan = o.pan;
+      const ak = ND.atkSlow ? ND.atkSlow(this) : 1;
 
       const source = { from: this, serial: this.serial, counter: !!a.counter };
       this.hitDone = true;
@@ -1450,7 +1463,8 @@
         fx.text(o.x, -205, 'DENGE KIRILDI!', '#ff9b7a');
         au.clang(1.3, pan, 0.7); cam.punch(9); ND.game.hitstop(0.13);
       } else {
-        o.setState('block', { dur: kickRules ? 0.38 : 0.16 + a.post * 0.004 });
+        o.setState('block', { dur: ak !== 1 ? (kickRules ? 0.38 : 0.16 + a.post * 0.004) / ak : kickRules ? 0.38 : 0.16 + a.post * 0.004 });
+        if (ak !== 1) o.reK = ak;
         if (!kickRules && !midFlurry) o.openCounter(CWIN.block, 'block', source);
       }
     }

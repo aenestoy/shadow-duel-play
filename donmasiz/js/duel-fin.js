@@ -566,7 +566,7 @@
         c.gl = { a0: A.x, v0: V.x, a1: ax, v1: vx, t0: c.t, d: o.d };
         return;
       }
-      case 'slow': if (!c.skip) { G.slowT = o.d; G.slowV = o.v; } return;
+      case 'slow': if (!c.skip) { G.slowT = ND.atkSlow ? o.d / ND.atkSlow(A) : o.d; G.slowV = o.v; } return;
       case 'cam':
         c.cam = { on: o.on, z: o.z, y: o.y };
 
@@ -584,12 +584,15 @@
     if (c.done) return;
     const A = c.A, V = c.V;
     if (G.phase !== 'fight' || A.dead || V.dead) { endFin(c); return; }
-    c.t += dt;
+
+
+    const ck = ND.atkSlow ? ND.atkSlow(A) : 1;
+    c.t += ck !== 1 ? dt * ck : dt;
     const S = SC[c.key];
     while (c.i < S.ops.length && S.ops[c.i].t <= c.t + 1e-9) run(c, S.ops[c.i++]);
     while (c.q.length && c.q[0].t <= c.t + 1e-9) { const b = c.q.shift(); blow(c, b.h); if (V.dead) { endFin(c); return; } }
 
-    for (const f of [A, V]) if (f.dz.finKeys && (f.state === 'zanshin' || f.state === 'dfinp')) { pose.seq(poseKeys(f, f.dz.finKeys), f.st, f.pose); f.vx = 0; }
+    for (const f of [A, V]) if (f.dz.finKeys && (f.state === 'zanshin' || f.state === 'dfinp')) { pose.seq(poseKeys(f, f.dz.finKeys), ck !== 1 ? f.st * ck : f.st, f.pose); f.vx = 0; }
     if (c.gl) {
       const g = c.gl, u = E.inOutSine(clamp((c.t - g.t0) / Math.max(0.01, g.d), 0, 1));
       A.x = g.a0 + (g.a1 - g.a0) * u; V.x = g.v0 + (g.v1 - g.v0) * u; A.vx = 0; V.vx = 0;

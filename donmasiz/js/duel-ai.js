@@ -264,7 +264,7 @@
         if (rnd() < 0.2 + 0.55 * sm) this.kq = { act: 'jump', at: Math.max(this.t + lv.react, t0 + a.active[0] / k - 0.14), until: t0 + a.active[1] / k };
       } else if (D.kicksOn && D.kicksOn(me) && me.dz.armed && a.kind === 'blade' && a.active && !a.special && !a.counter && dist < 170 && (a.heavyClass || a.active[0] >= 0.3)) {
 
-        const kw = ND.ATK.dk_wrist.active[0] / me.ch.spd, due = t0 + a.active[0] / k - kw - 0.02;
+        const kw = ND.ATK.dk_wrist.active[0] / (D.AK !== 1 ? me.ch.spd * D.akFor(me) : me.ch.spd), due = t0 + a.active[0] / k - kw - 0.02;
         if (due - this.t > lv.react && rnd() < 0.15 * sm) this.kq = { act: 'wrist', at: Math.max(this.t + lv.react, due - 0.05), until: due };
       }
     }

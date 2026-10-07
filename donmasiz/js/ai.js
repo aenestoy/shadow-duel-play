@@ -162,6 +162,8 @@
           this.pending = { act: 'guard', at: Math.max(this.t, w0 - (parry ? rand(0.03, 0.08) : rand(0.12, 0.2))), until: startAt + (a.active[1] / k) + 0.14 };
         } else if (threat) {
           const r = rnd(), startAt = this.t - o.st;
+
+          const ak = ND.atkSlow ? ND.atkSlow(o) : 1;
           let act = 'none';
           if (a.kind === 'kick') act = r < lv.dodge + 0.25 ? 'dodge' : r < lv.dodge + 0.25 + lv.smart * 0.4 ? 'jab' : 'guard';
           else if (r < lv.parry) act = 'parry';
@@ -170,10 +172,10 @@
           else if (r < lv.parry + lv.dodge * 0.6 + lv.guard * 0.8) act = 'guard';
           let at = startAt + lv.react + rand(0, 0.05);
           if (act === 'parry') {
-            const ideal = startAt + a.active[0] - rand(0.04, 0.1);
+            const ideal = startAt + (ak !== 1 ? a.active[0] / ak : a.active[0]) - rand(0.04, 0.1);
             if (ideal >= at) at = ideal; else act = 'guard';
           }
-          this.pending = { act, at, until: startAt + (a.active ? a.active[1] : a.dur) + 0.12 };
+          this.pending = { act, at, until: startAt + (a.active ? a.active[1] : a.dur) / ak + 0.12 };
         }
       }
 
