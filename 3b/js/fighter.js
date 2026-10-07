@@ -1000,7 +1000,7 @@
     counterJuice(a, x, y, dmg) {
       const G = ND.game, last = !a.hits || this.hitIdx >= a.hits.length - 1;
 
-      G.hitstop((G.hitstopT || 0) + (last ? (a.fin ? 0.1 : 0.085) : 0.03));
+      G.hitstop((G.hitstopT || 0) + (last ? (a.fin ? 0.1 : 0.085) : 0.03), 'strong');
       if (G.phase === 'fight') {
         const k = last ? (a.fin ? 1.1 : 1.06) : 1.025;
         cam.z = Math.min(2.2, cam.z * k); cam.x += (x - cam.x) * (last ? 0.16 : 0.06); cam.y += (y - cam.y) * 0.08;
@@ -1352,7 +1352,8 @@
       } else fx.flash(x, y, 0, 26, '255,240,220');
       if (fm >= 0) ND.flair.hitEnd(from, fm, x, y, kdir, raw);
       cam.punch(2 + raw * 0.4);
-      ND.game.hitstop(0.05 + raw * 0.0045);
+
+      ND.game.hitstop(0.05 + raw * 0.0045, this.hp <= 0 ? 'final' : a.heavyClass || a.counter || a.special || a.knock || a.launch || a.fin ? 'strong' : 'light');
       ND.game.onHit && ND.game.onHit(from, this, dmg);
       if (this.comboHits >= 2 && from) this.comboFx(from, a);
       if (this.hp <= 0) return this.die(from, a, x, y, kdir);

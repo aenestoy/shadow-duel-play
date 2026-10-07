@@ -706,13 +706,14 @@
         cur = prev; D.hitCur = prev;
       }
     };
-    G.hitstop = function (t) {
+
+    G.hitstop = function (t, cls) {
       if (cur) {
         const sc = D.hitRawScaled;
         if (sc != null && Math.abs(t - (0.05 + sc * 0.0045)) < 1e-6) t = 0.05 + cur.base * 0.0045;
         t = Math.max(t * (cur.big ? 1.3 : 1.15), cur.big ? 0.15 : 0.09);
       }
-      return hs0.call(this, t);
+      return hs0.call(this, t, cls);
     };
     cam.punch = function (amt) {
       if (cur) {

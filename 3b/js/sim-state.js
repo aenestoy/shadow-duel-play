@@ -26,6 +26,11 @@
 
 
 
+  const DIP_KEYS = ['dipT', 'dipV'];
+  const dipOn = () => { const v = G.hsVariant ? G.hsVariant() : null; return v === 'b' || v === 'd'; };
+
+
+
   const SKIP = { _bake: 1, _dopt: 1, _litFn: 1, _trailFn: 1, _bb: 1, _ropes: 1, _ropesCol: 1, _ropesTails: 1, _ropesSash: 1, _pd: 1, comboTxt: 1,
     tails: 1, sash: 1, trail: 1, ghosts: 1, _anim: 1 };
 
@@ -100,6 +105,7 @@
     statics();
     const R = roots(), memo = rootMemo(R), g = {};
     for (const k of GAME_KEYS) g[k] = copy(G[k], memo);
+    for (const k of DIP_KEYS) g[k] = G[k];
     return {
       v: 1, nAi: G.ais.length, objs: R.map((o) => saveObj(o, memo)), g,
       simClock: ND.simClock, rng: ND.rng.s, sceneT: ND.scene.t, wind: ND.scene.wind,
@@ -111,6 +117,7 @@
     const R = roots(), memo = rootMemo(R);
     R.forEach((o, i) => loadObj(o, S.objs[i], memo));
     for (const k of GAME_KEYS) G[k] = copy(S.g[k], memo);
+    for (const k of DIP_KEYS) G[k] = S.g[k];
     ND.simClock = S.simClock; ND.rng.s = S.rng; ND.scene.t = S.sceneT; ND.scene.wind = S.wind;
     if (S.props && ND.props) ND.props.load(S.props);
   };
@@ -176,7 +183,7 @@
     part('f1', inner(R[0])); part('f2', inner(R[1]));
     part('ctrl', (v) => { for (const c of [R[2], R[3]]) { const h = hasher(); h.val(c); v(h.hex()); } });
     part('ai', (v) => { for (let i = 4; i < R.length; i++) inner(R[i])(v); });
-    part('game', (v) => { for (const k of GAME_KEYS) { v(k); v(G[k]); } });
+    part('game', (v) => { for (const k of GAME_KEYS) { v(k); v(G[k]); } if (dipOn()) for (const k of DIP_KEYS) { v(k); v(G[k]); } });
     part('clock', (v) => { v(ND.simClock); v(ND.rng.s); v(ND.scene.t); v(ND.scene.wind); });
     return out;
   };
@@ -187,6 +194,7 @@
     const h = hasher(), R = roots();
     for (const o of R) h.val(o);
     for (const k of GAME_KEYS) { h.val(k); h.val(G[k]); }
+    if (dipOn()) for (const k of DIP_KEYS) { h.val(k); h.val(G[k]); }
     h.val(ND.simClock); h.val(ND.rng.s); h.val(ND.scene.t); h.val(ND.scene.wind);
     if (ND.props && ND.props.live) h.val(ND.props.hash());
     return h.hex();

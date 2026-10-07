@@ -132,6 +132,8 @@
   function disarm(f, by, kx, how) {
     const z = f.dz;
     if (!z || !z.armed || f.dead) return false;
+
+    if (ND.game && ND.game.hitstop) ND.game.hitstop(0.12, 'disarm');
     const j = f.j, h = j.haF, t = j.tip;
     const ang = Math.atan2(t.y - h.y, t.x - h.x);
     const side = how === 'bind' ? (rnd() < 0.55 ? -f.dir : f.dir) : kx || -f.dir;

@@ -921,6 +921,7 @@ void main(){
 
 
   const GLBQ = /[?&]r3dglb=([a-z,]+)/.exec(Q), GLB = GLBQ ? GLBQ[1].split(',') : [];
+  const NONRM = /[?&]r3dnrm=0(&|$)/.test(Q);
   const HEIGHT = { akane: 180, kuro: 187 };
   const ROLE = [
     ['hips', ['hips', 'pelvis', 'hip']], ['spine', ['spine', 'spine0', 'spine00', 'abdomen']], ['spine1', ['spine1', 'spine01']],
@@ -1114,7 +1115,9 @@ void main(){
         I[io + kept] = a + vo; I[io + kept + 1] = b + vo; I[io + kept + 2] = c + vo; kept += 3;
       }
       const bt = pr.mat && pr.mat.pbrMetallicRoughness && pr.mat.pbrMetallicRoughness.baseColorTexture;
-      draws.push({ start: io, count: kept, tex: bt ? J.textures[bt.index].source : null });
+
+      const nt = pr.mat && pr.mat.normalTexture;
+      draws.push({ start: io, count: kept, tex: bt ? J.textures[bt.index].source : null, nrm: nt && !NONRM ? J.textures[nt.index].source : null });
       vo += pr.cnt; io += kept;
     }
 
@@ -1139,6 +1142,10 @@ void main(){
     const M = { glb: true, id, B, ix, nb: B.length, P: out, N, C, SI, SW, MT, UV, I: I.subarray(0, io), draws, imgs, tris: io / 3, cutSword: !!CUT, bytes: buf.byteLength, grip, armRest, headSet, fing: FING,
       hc0: madd(B[ix.head].p0, EY, 9), hasSaya: false, springs: [], extra: {} };
     M.W0 = B[ix.hips].p0; M.spineLen = len(sub(B[ix.neck].p0, M.W0));
+
+    M.toModel = T; M.toModelN = Tn; M.jointIx = {};
+    for (let j = 0; j < nj; j++) M.jointIx[normName(J.nodes[skin.joints[j]].name)] = newIx[fold(j)];
+    M.pieces = {};
     if (CUT && CUT.mouth) { M.sayaA = T(v3(...CUT.mouth)); M.sayaU = norm(v3(...CUT.u)); }
 
     if (CUT && CUT.back && CUT.back.top) M.sayaBk = [T(v3(...CUT.back.top)), T(v3(...CUT.back.bot))];
@@ -1155,6 +1162,38 @@ void main(){
       const meta = await jr.json(), img = await createImageBitmap(await mr.blob(), { colorSpaceConversion: 'none', premultiplyAlpha: 'none' });
       return { meta, img, bytes: +(mr.headers.get('content-length') || 0) };
     } catch (e) { console.warn('[r3d] costume regions', id, e && e.message); return null; }
+  }
+
+
+
+
+  function piecesOf(M, f) {
+    const c = f && f.col && f.col.costume;
+    if (!c || !M.toModel || /[?&]r3dek=0(&|$)/.test(Q)) return null;
+    const key = String(c).replace('_' + M.id, '');
+    let E = M.pieces[key];
+    if (E === undefined) {
+      E = M.pieces[key] = null;
+      R3.ekPending = (R3.ekPending || 0) + 1;
+      fetch('uc-boyut/model/' + M.id + '-ek-' + key + '.json').then((r) => (r.ok ? r.json() : null)).then(async (d) => {
+        if (!d) return;
+        const b64 = (s, T) => { const b = Uint8Array.from(atob(s), (x) => x.charCodeAt(0)); return new T(b.buffer, 0, b.byteLength / T.BYTES_PER_ELEMENT); };
+        const pos = b64(d.pos, Float32Array), nrm = b64(d.nrm, Int8Array), uv = b64(d.uv, Float32Array), jj = b64(d.j, Uint8Array), ww = b64(d.w, Uint8Array);
+        const I = b64(d.idx, d.n < 65536 ? Uint16Array : Uint32Array), n = d.n;
+        const bi = d.bones.map((b) => M.jointIx[normName(b)]);
+        if (bi.some((x) => x == null)) throw new Error('bones ' + d.bones.join(' '));
+        const P = new Float32Array(n * 3), N = new Int8Array(n * 4), C = new Uint8Array(n * 4).fill(255), SI = new Uint8Array(n * 4), SW = new Uint8Array(n * 4), MT = new Uint8Array(n).fill(6);
+        for (let i = 0; i < n; i++) {
+          const p = M.toModel(v3(pos[i * 3], pos[i * 3 + 1], pos[i * 3 + 2])), q = norm(M.toModelN(v3(nrm[i * 3] / 127, nrm[i * 3 + 1] / 127, nrm[i * 3 + 2] / 127)));
+          P[i * 3] = p.x; P[i * 3 + 1] = p.y; P[i * 3 + 2] = p.z;
+          N[i * 4] = Math.round(q.x * 127); N[i * 4 + 1] = Math.round(q.y * 127); N[i * 4 + 2] = Math.round(q.z * 127); N[i * 4 + 3] = 64;
+          for (let k = 0; k < 4; k++) { SI[i * 4 + k] = bi[jj[i * 4 + k]]; SW[i * 4 + k] = ww[i * 4 + k]; }
+        }
+        const img = await createImageBitmap(new Blob([Uint8Array.from(atob(d.png), (x) => x.charCodeAt(0))], { type: 'image/png' }));
+        M.pieces[key] = { glb: true, piece: key, P, N, C, SI, SW, MT, UV: uv, I, draws: [{ start: 0, count: I.length, tex: 0 }], imgs: [img], tris: I.length / 3 };
+      }).catch((e) => console.warn('[r3d] costume pieces', M.id, key, e && e.message)).finally(() => { R3.ekPending--; });
+    }
+    return E;
   }
   function m4inv(m) {
     const a = Array.from(m), inv = new Array(16);
@@ -1477,7 +1516,7 @@ void main(){
   const FSH = `#version 300 es
 precision highp float;
 in vec3 vN; in vec3 vW; in vec4 vC; in vec2 vUV; flat in vec3 vTone; flat in vec3 vMat;
-uniform sampler2D uTex; uniform float uHasTex, uBackDim, uSoft;
+uniform sampler2D uTex, uNrm; uniform float uHasTex, uHasNrm, uBackDim, uSoft, uOldLook;
 uniform float uInk; uniform vec3 uInkC;
 uniform vec3 uKeyD, uKeyC, uShade, uEye, uLift; uniform float uFlash, uKeyA;
 uniform vec4 uL[4]; uniform vec3 uLC[4];
@@ -1487,14 +1526,31 @@ void main(){
   vec3 base = uHasTex > 0.5 ? texture(uTex, vUV).rgb * vC.rgb : vC.rgb;
   if (vMat.z > 0.5) { o = vec4(base, 1.0); return; }
   vec3 n = normalize(vN); bool back = !gl_FrontFacing; if (back) n = -n;
+  if (uHasNrm > 0.5) {
+    // the baked relief (tangent space of the model's UVs, Blender's: green toward the picture's top, so -v here): the
+    // tangent frame from the screen derivatives of the position and the UVs (no tangents in the file)
+    vec3 t = texture(uNrm, vUV).xyz * 2.0 - 1.0; t.y = -t.y;
+    vec3 dp1 = dFdx(vW), dp2 = dFdy(vW); vec2 du1 = dFdx(vUV), du2 = dFdy(vUV);
+    vec3 a1 = cross(dp2, n), a2 = cross(n, dp1);
+    vec3 T = a1 * du1.x + a2 * du2.x, B = a1 * du1.y + a2 * du2.y;
+    float im = inversesqrt(max(max(dot(T, T), dot(B, B)), 1e-20));
+    vec3 pn = mat3(T * im, B * im, n) * t;
+    if (dot(pn, pn) > 1e-6) n = normalize(pn);
+  }
   vec3 V = normalize(uEye - vW);
-  if (uSoft > 1.5) { o = vec4(base, 1.0); return; } // (tools: the texture alone, unlit - the model's own painting)
+  // (tools: the texture alone, unlit - the model's own painting. 2 only: until 2026-10-06 this caught 3 too, so the
+  // studio light below never ran and every outside model was drawn unlit - flat, "faded", the owner's word)
+  if (uSoft > 1.5 && uSoft < 2.5) { o = vec4(base, 1.0); return; }
   if (uSoft > 2.5) {
     // (the model's own look, as a model viewer shows it under an even studio light: the texture's painting kept bright
     // and clean - a sky / floor fill, a soft key from the arena's main light in its colour, the lanterns a little)
+    // (owner, 2026-10-06: "faded" - the light was nearly all ambient (0.66-0.9 + 0.28 key), so a white kimono went past
+    // 1.0 flat white and the relief barely read: less ambient, more key, and a soft shoulder below white, so the
+    // painting's own light and dark and the normal map's folds show; ?r3dgold=1 the earlier light)
     float dk = dot(n, uKeyD), sky = 0.5 + 0.5 * n.y;
     vec3 kc = normalize(uKeyC + vec3(0.6)) * 1.732;
-    vec3 ce = base * (mix(0.66, 0.9, sky) + 0.28 * max(dk, 0.0) * mix(vec3(1.0), kc, 0.35));
+    vec3 ce = uOldLook > 0.5 ? base * (mix(0.66, 0.9, sky) + 0.28 * max(dk, 0.0) * mix(vec3(1.0), kc, 0.35))
+      : base * (mix(0.56, 0.82, sky) + 0.38 * max(dk, 0.0) * mix(vec3(1.0), kc, 0.35));
     for (int k = 0; k < 4; k++) {
       vec4 L = uL[k];
       if (L.w <= 0.0) continue;
@@ -1503,6 +1559,7 @@ void main(){
       ce += uLC[k] * I * 0.6 * max(dot(n, v / max(dist, 1.0)), 0.0) * base;
     }
     ce += smoothstep(0.8, 0.96, 1.0 - max(dot(n, V), 0.0)) * (uKeyC * 0.06 + uLift * 0.6);
+    if (uOldLook < 0.5) { vec3 x = max(ce - 0.82, 0.0); ce = min(ce, vec3(0.82)) + 0.18 * (1.0 - exp(-x / 0.18)); }
     o = vec4(mix(ce, vec3(1.0, 0.96, 0.94), uFlash * 0.38), 1.0); return;
   }
   if (uSoft > 0.5) {
@@ -1557,12 +1614,12 @@ void main(){
     gl.attachShader(p, sh(gl.VERTEX_SHADER, VSH)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, FSH)); gl.linkProgram(p);
     if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error('r3d HD link: ' + gl.getProgramInfoLog(p));
     const U = {};
-    for (const k of ['uSoft', 'uInkZ', 'uBackDim', 'uTex', 'uHasTex', 'uB', 'uVP', 'uRoot', 'uInk', 'uView', 'uTone', 'uMat', 'uInkC', 'uKeyD', 'uKeyC', 'uShade', 'uEye', 'uLift', 'uFlash', 'uKeyA', 'uL', 'uLC']) U[k] = gl.getUniformLocation(p, k);
+    for (const k of ['uSoft', 'uInkZ', 'uBackDim', 'uTex', 'uHasTex', 'uNrm', 'uHasNrm', 'uOldLook', 'uB', 'uVP', 'uRoot', 'uInk', 'uView', 'uTone', 'uMat', 'uInkC', 'uKeyD', 'uKeyC', 'uShade', 'uEye', 'uLift', 'uFlash', 'uKeyA', 'uL', 'uLC']) U[k] = gl.getUniformLocation(p, k);
     gl.useProgram(p);
     const tone = new Float32Array(21), mat = new Float32Array(21);
     MATP.forEach((m, i) => { tone.set(m.slice(0, 3), i * 3); mat.set([m[3], m[4], m[5]], i * 3); });
     gl.uniform3fv(U.uTone, tone); gl.uniform3fv(U.uMat, mat);
-    gl.uniform1i(U.uTex, 3);
+    gl.uniform1i(U.uTex, 3); gl.uniform1i(U.uNrm, 4); gl.uniform1f(U.uOldLook, /[?&]r3dgold=1(&|$)/.test(Q) ? 1 : 0);
     GLH = { gl, p, U, vao: new Map(), tex: new Map() };
   }
   function hdVao(gl, M) {
@@ -1622,8 +1679,9 @@ void main(){
 
 
 
-    for (const E of list) {
-      const F = E.hd, M = F.M, o = hdVao(gl, M), sil = M.glb && GLB_LOOK.ink === 'sil', noInk = M.glb && GLB_LOOK.ink === 'off';
+    for (const E0 of list) for (const MM of [E0.hd.M, piecesOf(E0.hd.M, E0.f)]) {
+      if (!MM) continue;
+      const E = E0, F = E.hd, M = MM, o = hdVao(gl, M), sil = M.glb && GLB_LOOK.ink === 'sil', noInk = M.glb && GLB_LOOK.ink === 'off';
       const order = reflect ? [1] : sil ? [1, 0] : noInk ? [1] : [0, 1];
       for (const pass of order) {
         gl.uniform1f(U.uInk, pass === 0 ? inkPx * (M.glb && GLB_LOOK.ink !== 'old' ? GLB_LOOK.inkK : 1) : 0);
@@ -1655,9 +1713,21 @@ void main(){
               gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, t); gl.activeTexture(gl.TEXTURE0);
             }
             gl.uniform1f(U.uHasTex, img ? 1 : 0);
+
+            const nimg = d.nrm != null && pass === 1 ? M.imgs[d.nrm] : null;
+            if (nimg) {
+              let t = GLH.tex.get(nimg);
+              if (!t) {
+                t = gl.createTexture(); gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, t); gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, nimg); gl.generateMipmap(gl.TEXTURE_2D); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+                GLH.tex.set(nimg, t);
+              }
+              gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, t); gl.activeTexture(gl.TEXTURE0);
+            }
+            gl.uniform1f(U.uHasNrm, nimg ? 1 : 0);
             gl.drawElements(gl.TRIANGLES, d.count, o.it, d.start * (o.it === gl.UNSIGNED_INT ? 4 : 2));
           }
-          gl.uniform1f(U.uHasTex, 0);
+          gl.uniform1f(U.uHasTex, 0); gl.uniform1f(U.uHasNrm, 0);
         } else gl.drawElements(gl.TRIANGLES, o.n, gl.UNSIGNED_SHORT, 0);
         tris += o.n / 3;
       }

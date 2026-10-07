@@ -42,6 +42,8 @@
 
   const grainFill = () => { if (!grainPat && performance.now() - grainAt > 5000) { grainAt = performance.now(); makeGrain(); } return grainPat; };
   const QS = new URLSearchParams(location.search);
+
+  const HITSTOP_Q = /^(a|b|c|ac|d|today)$/.test(QS.get('hitstop') || '') ? QS.get('hitstop') : null, DIP_V = 0.3;
   const INTERP = QS.get('interp') !== '0', CAMGLIDE = QS.get('camglide') !== '0';
 
 
@@ -436,7 +438,50 @@
     sel: { c: [charIdx(saved.c1, 0), charIdx(saved.c2, 1)], arena: saved.arena ?? 'temple', ready: [false, false] },
     F, pv: null, pvIds: ['pv1', 'pv2'],
 
-    hitstop(t) { this.hitstopT = Math.max(this.hitstopT, t); },
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    hsVariant() {
+      if (this.mode === 'online' || (ND.net && ND.net.active)) return null;
+      if (HITSTOP_Q) return HITSTOP_Q === 'today' ? null : HITSTOP_Q;
+      const F2 = this.F || F;
+      return F2 && F2[0] && F2[1] && F2[0].dz && F2[1].dz ? 'd' : null;
+    },
+    hitstop(t, cls) {
+
+      const HITSTOP = this.hsVariant();
+      if (HITSTOP === 'd') {
+        if (cls !== 'disarm' && cls !== 'final' && cls !== 'ko') return;
+        this.dipV = DIP_V; this.dipT = Math.max(this.dipT || 0, Math.max(t, 0.12) / (1 - DIP_V));
+        return;
+      }
+      if (cls === 'ko') cls = 'strong';
+      if (cls === 'final') cls = 'strong';
+      if (cls === 'disarm') { if (HITSTOP !== 'c' && HITSTOP !== 'ac') return; cls = 'strong'; }
+      if (HITSTOP) {
+        const strong = cls ? cls === 'strong' : t >= 0.12 - 1e-9;
+        if (HITSTOP === 'a') t *= 0.5;
+        else if (HITSTOP === 'c') { if (!strong) return; }
+        else if (HITSTOP === 'ac') t = strong ? t * 0.42 : Math.min(t, 0.025);
+        else if (HITSTOP === 'b') {
+
+          this.dipV = DIP_V; this.dipT = Math.max(this.dipT || 0, t / (1 - DIP_V));
+          return;
+        }
+      }
+      this.hitstopT = Math.max(this.hitstopT, t);
+    },
 
 
     start(mode, opts = {}) {
@@ -524,7 +569,7 @@
     newMatch(mode, opts = {}) {
       ND.rng.seed(opts.seed | 0);
       ND.simClock = 0; this.clock = 0; this.recOdd = false; scene.t = 0;
-      this.slowV = 0.35; this.cineX = 0; this.loser = null;
+      this.slowV = 0.35; this.cineX = 0; this.loser = null; this.dipT = 0; this.dipV = DIP_V;
       this.recording = false;
       for (const f of F) {
         const fresh = new ND.Fighter(f.id, f.ctrl);
@@ -756,7 +801,7 @@
       this.phase = 'ko'; this.pt = 0; this.loser = loser; this.winner = winner;
       this.koIndex = this.recN;
       F.forEach((f) => (f.locked = true));
-      this.slow = 0.2; cam.punch(12); this.hitstop(0.22);
+      this.slow = 0.2; cam.punch(12); this.hitstop(0.22, 'ko');
       au.ko(); music('ko');
     },
     onSpecial(f) {
@@ -1198,7 +1243,9 @@
       if (this.slowT > 0) { this.slowT -= rdt; if (this.phase === 'fight') this.slow = this.slowT > 0 ? this.slowV : 1; }
       if (this.cineT > 0) this.cineT -= rdt;
       this.dim = Math.max(0, this.dim - rdt * 1.6);
-      const gdt = rdt * this.slow * tz;
+      let gdt = rdt * this.slow * tz;
+
+      if (this.dipT > 0) { this.dipT -= rdt * tz; gdt *= this.dipV; if (!(this.dipT > 0)) this.dipT = 0; }
       this.phaseUpdate(rdt, gdt);
       if (sim) scene.advance(gdt); else scene.update(gdt);
       let fdt = gdt;
