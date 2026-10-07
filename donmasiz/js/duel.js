@@ -80,7 +80,10 @@
 
 
   const AKQ = (/[?&]atkspeed=([\d.]+)/.exec(location.search || '') || [])[1];
-  const AK = AKQ != null && +AKQ >= 0.4 && +AKQ < 1 ? +AKQ : 1;
+
+
+  const AK0 = 0.7;
+  const AK = AKQ == null ? AK0 : +AKQ >= 0.4 && +AKQ < 1 ? +AKQ : 1;
   const D = ND.duel = {
     on: true, ROSTER, MODES, SPEED0, AK,
 
