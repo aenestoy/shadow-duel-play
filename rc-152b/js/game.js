@@ -2477,6 +2477,8 @@
   $('bResume').onclick = () => setPause(false);
 
   if ($('bPMoves')) $('bPMoves').onclick = () => { if (game.paused) game.openMoves(); };
+
+  if ($('bPCtrl')) $('bPCtrl').onclick = () => { if (game.paused && ND.settingsUI && ND.settingsUI.open) { unlockAudio(); au.ui(); ND.settingsUI.open('controls'); } };
   $('bRestart').onclick = () => {
     if (game.mode === 'shadow') return;
     setPause(false);
