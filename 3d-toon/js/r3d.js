@@ -2666,7 +2666,7 @@ void main(){
   if (UCB && /[?&]ucbgo=1(&|$)/.test(Q)) {
     const ix = (c) => ND.CHARS.findIndex((x) => x.id === c), t0 = performance.now();
     const tag = document.createElement('div');
-    tag.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 58px);z-index:2147483646;font:600 12px/1.3 system-ui,sans-serif;color:#ffd27a;background:rgba(0,0,0,.65);padding:3px 8px;border-radius:4px;pointer-events:none;white-space:nowrap';
+    tag.style.cssText = 'position:fixed;left:calc(env(safe-area-inset-left,0px) + 6px);top:calc(env(safe-area-inset-top,0px) + 54px);z-index:2147483646;font:600 12px/1.3 system-ui,sans-serif;color:#ffd27a;background:rgba(0,0,0,.65);padding:3px 8px;border-radius:4px;pointer-events:none;white-space:nowrap';
     tag.textContent = 'Akane 3D toon · ' + (/[?&]ucbm=lod2(&|$)/.test(Q) ? '15k (akane-lod2.glb)' : '30k (akane.glb)') + ' · loading';
     document.body.appendChild(tag);
     const go = setInterval(() => {
@@ -2676,15 +2676,26 @@ void main(){
       tag.textContent = tag.textContent.replace(' · loading', HDM.akane ? '' : ' · MODEL FAILED: ' + (R3.hdWhy || '?'));
       for (const id of ['first', 'menu']) { const e = document.getElementById(id); if (e) e.hidden = true; }
       G.start('cpu', { c1: ix('akane'), c2: ix('kuro'), arena: 'temple' });
-      const name = tag.textContent;
-      let last = performance.now(), T = [];
+
+
+
+
+      const name = tag.textContent.replace(' · loading', '');
+      tag.style.font = '700 15px/1.25 system-ui,sans-serif'; tag.style.padding = '3px 8px';
+      let last = performance.now(), T = [], low = null;
       const loop = (now) => { T.push(now - last); last = now; requestAnimationFrame(loop); };
       requestAnimationFrame(loop);
+      let wasEnd = false;
       setInterval(() => {
         if (!T.length) return;
-        const s = T.slice().sort((a, b) => a - b), sum = T.reduce((a, b) => a + b, 0), p95 = s[Math.min(s.length - 1, Math.floor(s.length * 0.95))];
-        tag.textContent = name + ' · ' + Math.round((1000 * T.length) / sum) + ' fps · p95 ' + p95.toFixed(1) + ' ms';
+        const fps = Math.round((1000 * T.length) / T.reduce((a, b) => a + b, 0));
         T = [];
+        const ph = G.phase, inFight = ph === 'fight' && !document.hidden;
+        if ((ph === 'intro' || ph === 'prepare') && wasEnd) { low = null; }
+        wasEnd = ph === 'end' || ph === 'select' ? true : ph === 'fight' ? false : wasEnd;
+        if (inFight && (low == null || fps < low)) low = fps;
+        const col = (v) => (v != null && v < 30 ? '#ff6b6b' : '#ffd27a');
+        tag.innerHTML = name + '<br>' + '<span style="color:' + col(fps) + '">' + fps + ' fps</span> · lowest <span style="color:' + col(low) + '">' + (low == null ? '-' : low + ' fps') + '</span>';
       }, 1000);
     }, 200);
   }
