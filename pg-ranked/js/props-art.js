@@ -38,12 +38,17 @@
 		x.stroke();
 	}
 	function rr(x, x0, y0, w, h, r) {
+		const Q = Math.PI / 2;
 		x.beginPath();
 		x.moveTo(x0 + r, y0);
-		x.arcTo(x0 + w, y0, x0 + w, y0 + h, r);
-		x.arcTo(x0 + w, y0 + h, x0, y0 + h, r);
-		x.arcTo(x0, y0 + h, x0, y0, r);
-		x.arcTo(x0, y0, x0 + w, y0, r);
+		x.lineTo(x0 + w - r, y0);
+		x.arc(x0 + w - r, y0 + r, r, -Q, 0);
+		x.lineTo(x0 + w, y0 + h - r);
+		x.arc(x0 + w - r, y0 + h - r, r, 0, Q);
+		x.lineTo(x0 + r, y0 + h);
+		x.arc(x0 + r, y0 + h - r, r, Q, 2 * Q);
+		x.lineTo(x0, y0 + r);
+		x.arc(x0 + r, y0 + r, r, 2 * Q, 3 * Q);
 		x.closePath();
 	}
 	function lines(x, col, lw, L) {

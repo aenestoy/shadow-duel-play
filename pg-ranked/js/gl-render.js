@@ -43,11 +43,26 @@ window.ND = window.ND || {};
 		});
 		const E = R.exec;
 		let lost = false, error = "", checked = false, lastReason = "", frames = 0, fallbacks = 0, streak = 0;
-		const MAX_STREAK = opts.auto ? 180 : Infinity;
+		const MAX_STREAK = opts.auto ? 180 : Infinity, MAX_PAUSES = 3;
+		let pauses = 0, pauseUntil = 0, goodSince = 0, said = 0;
+		const say = (msg) => {
+			if (said++ < 12) console.info("[ND.gl] " + msg);
+		};
 		const refuse = (why) => {
 			lastReason = why;
 			fallbacks++;
-			if (++streak >= MAX_STREAK && !error) error = "switched off: " + streak + " frames in a row fell back (" + why + ")";
+			goodSince = 0;
+			if (++streak === 1) say("frame drawn with Canvas 2D: " + why);
+			if (streak >= MAX_STREAK && !error) {
+				if (pauses >= MAX_PAUSES) error = "switched off: " + streak + " frames in a row fell back (" + why + "), after " + pauses + " pauses";
+				else {
+					const ms = 4e3 << pauses;
+					pauses++;
+					pauseUntil = performance.now() + ms;
+					say("paused " + ms / 1e3 + " s: " + streak + " frames in a row fell back (" + why + ")");
+				}
+				streak = 0;
+			}
 			return false;
 		};
 		let glowProg = null, finalProg = null, grainTex = null, glowTex = null, glowFb = null, glowW = 0, glowH = 0, GU = {}, FU = {};
@@ -515,7 +530,7 @@ window.ND = window.ND || {};
 			gl,
 			R,
 			get ready() {
-				return !lost && !error && !gl.isContextLost() && E.ready;
+				return !lost && !error && !gl.isContextLost() && E.ready && (!pauseUntil || performance.now() >= pauseUntil);
 			},
 			get error() {
 				return error;
@@ -563,6 +578,13 @@ window.ND = window.ND || {};
 					}
 					frames++;
 					streak = 0;
+					if (pauses) {
+						if (!goodSince) goodSince = frames;
+						else if (frames - goodSince > 1800) {
+							pauses = 0;
+							goodSince = 0;
+						}
+					}
 					api.last = Object.assign({}, rec, R.stats);
 					const T = E.targets, pm = p.mode == null ? 2 : p.mode;
 					api.last.targets = [T[0] && R.stats.passes > 1 ? [
@@ -729,6 +751,8 @@ window.ND = window.ND || {};
 					frames,
 					fallbacks,
 					streak,
+					pauses,
+					paused: pauseUntil > performance.now(),
 					samples: E.samples,
 					auto: !!opts.auto
 				};
