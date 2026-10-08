@@ -2692,6 +2692,17 @@ void main(){
       const REP = { id: Math.random().toString(36).slice(2, 12) + Date.now().toString(36), model: /[?&]ucbm=lod2(&|$)/.test(Q) ? '15k' : '30k', ua: navigator.userAgent, scr: [screen.width, screen.height, devicePixelRatio, innerWidth, innerHeight], gpu: '', tier: '', s: [], matches: 0 };
       try { const c = document.createElement('canvas').getContext('webgl'); const x = c && c.getExtension('WEBGL_debug_renderer_info'); REP.gpu = x ? c.getParameter(x.UNMASKED_RENDERER_WEBGL) : c ? c.getParameter(c.RENDERER) : 'no webgl'; } catch (e) { REP.gpu = '?'; }
       let sent = 0, ok = false;
+
+
+
+
+      REP.log = []; REP.mode = '';
+      for (const k of ['info', 'warn', 'error']) {
+        const o = console[k].bind(console);
+        console[k] = (...a) => { try { const t = a.map((x) => (x && x.message) || String(x)).join(' '); if (/\[(ND\.gl|r3d)\]|WebGL|context/i.test(t) && REP.log.length < 30) REP.log.push(Math.round(performance.now() / 100) / 10 + 's ' + t.slice(0, 300)); } catch (e) {            } o(...a); };
+      }
+      addEventListener('error', (e) => { if (REP.log.length < 30) REP.log.push(Math.round(performance.now() / 100) / 10 + 's error ' + String(e.message).slice(0, 200)); });
+      document.addEventListener('webglcontextlost', (e) => { REP.lost = (REP.lost || 0) + 1; if (REP.log.length < 30) REP.log.push(Math.round(performance.now() / 100) / 10 + 's webglcontextlost ' + ((e.target && e.target.id) || '')); }, true);
       const send = () => {
         if (REP.s.length === sent) return;
         sent = REP.s.length; REP.tier = (ND.gfx && ND.gfx.tier) || ''; REP.low = low; REP.under30 = REP.s.filter((v) => v < 30).length;
@@ -2709,9 +2720,10 @@ void main(){
         if ((ph === 'intro' || ph === 'prepare') && wasEnd) { low = null; REP.matches++; }
         wasEnd = ph === 'end' || ph === 'select' ? true : ph === 'fight' ? false : wasEnd;
         if (inFight && (low == null || fps < low)) low = fps;
-        if (inFight && REP.s.length < 1200) REP.s.push(fps);
+        const gl = G.rendererMode === 'gl';
+        if (inFight && REP.s.length < 1200) { REP.s.push(fps); REP.mode += gl ? 'g' : 'c'; }
         const col = (v) => (v != null && v < 30 ? '#ff6b6b' : '#ffd27a');
-        tag.innerHTML = name + (ok ? ' · ✓' : '') + '<br>' + '<span style="color:' + col(fps) + '">' + fps + ' fps</span> · lowest <span style="color:' + col(low) + '">' + (low == null ? '-' : low + ' fps') + '</span>';
+        tag.innerHTML = name + (ok ? ' · ✓' : '') + (gl ? '' : ' · <span style="color:#ff6b6b">3D OFF</span>') + '<br>' + '<span style="color:' + col(fps) + '">' + fps + ' fps</span> · lowest <span style="color:' + col(low) + '">' + (low == null ? '-' : low + ' fps') + '</span>';
       }, 1000);
     }, 200);
   }
