@@ -755,6 +755,7 @@
 
 
   const AK = new Map();
+  const AKS = { has: (K) => { for (const v of AK.values()) if (v === K) return true; return false; } };
   function arrowKit(col) {
     const key = (col && col.accent) || '#a33';
     let K = AK.get(key);
@@ -893,13 +894,14 @@ void main(){
   function vaoOf(gl, K) {
     let o = GLW.vao.get(K);
     if (o) return o;
-    o = { vao: gl.createVertexArray(), n: K.I.length, it: K.I instanceof Uint32Array ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT };
+    o = { vao: gl.createVertexArray(), n: K.I.length, it: K.I instanceof Uint32Array ? gl.UNSIGNED_INT : gl.UNSIGNED_SHORT, b: [] };
     gl.bindVertexArray(o.vao);
     for (const [a, sz, loc] of [[K.P, 3, 0], [K.N, 3, 1], [K.C, 4, 2], [K.A, 1, 3]]) {
       const b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, a, gl.STATIC_DRAW);
       gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, sz, gl.FLOAT, false, 0, 0);
+      o.b.push(b);
     }
-    const ib = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, K.I, gl.STATIC_DRAW);
+    const ib = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, K.I, gl.STATIC_DRAW); o.b.push(ib);
     gl.bindVertexArray(null);
     GLW.vao.set(K, o);
     return o;
@@ -921,6 +923,8 @@ void main(){
     const list = [];
     for (const E of FRl) if (E.W) list.push([E.W, E.flash || 0]);
     for (const K of W.arrows || []) list.push([K, 0]);
+
+    if (!reflect && GLW.vao.size > 6) for (const [K, o] of GLW.vao) if (!list.some((x) => x[0] === K) && !AKS.has(K)) { gl.deleteVertexArray(o.vao); for (const b of o.b) gl.deleteBuffer(b); GLW.vao.delete(K); }
     let tris = 0;
     gl.enable(gl.CULL_FACE);
     const passes = reflect || (LK && !LK.ink) ? [1] : [0, 1];
@@ -1002,6 +1006,7 @@ void main(){
     return out;
   };
   W.info = () => Object.assign({ tris: W.tris }, W.last || {});
+  W.lose = () => { GLW = null; };
   W._sec = (f) => SEC.get(f);
   W._buildKit = buildKit;
 

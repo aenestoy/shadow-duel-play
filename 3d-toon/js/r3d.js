@@ -32,7 +32,6 @@
   ND.r3dQ = Q;
   if (!/[?&]r3d=1(&|$)/.test(Q)) return;
   const UCB = /[?&]ucb=toon(&|$)/.test(Q);
-  const UCBM = UCB && /[?&]ucbm=lod2(&|$)/.test(Q) ? '-lod2' : '';
   const G = ND.game, D25 = ND.depth25, cam = ND.cam, scene = ND.scene;
   if (!G || !D25 || !cam || !scene) return;
 
@@ -923,7 +922,8 @@ void main(){
   const HDM = {}, HDL = {}, HD_IDS = ['akane', 'kuro'];
   const MATN = ['cloth', 'gloss', 'skin', 'hair', 'metal', 'flat'];
   const MATP = [[1.08, 0.97, 0.78, 0.2, 1, 0], [1.08, 0.95, 0.7, 0.55, 1, 0], [1.04, 0.98, 0.84, 0, 0.6, 0], [1.0, 0.92, 0.72, 0.3, 1, 0], [1.18, 0.95, 0.68, 1.6, 1.2, 0], [1, 1, 1, 0, 0, 1],
-    [1.04, 0.92, 0.74, 0.12, 0.75, 0]];
+    [1.04, 0.92, 0.74, 0.12, 0.75, 0],
+    [1.04, 0.92, 0.74, 0.12, 0.75, 0], [1.04, 0.92, 0.74, 0.12, 0.75, 0], [1.04, 0.92, 0.74, 0.12, 0.75, 0]];
   async function hdLoad(id) {
     const res = await fetch('uc-boyut-test/model/' + id + '.sd3d');
     if (!res.ok) throw new Error(id + ': ' + res.status);
@@ -1010,8 +1010,16 @@ void main(){
   const normName = (n) => String(n || '').toLowerCase().replace(/^.*[:|]/, '').replace(/^(mixamorig|bip0?1|def|cc_base)/, '').replace(/[^a-z0-9]/g, '');
   async function glbLoad(id) {
 
-    const res = await fetch('uc-boyut/model/' + id + (id === 'akane' && /[?&]ucbm=lod2(&|$)/.test(Q) ? '-lod2' : '') + '.glb');
+
+
+
+
+    const lod = /[?&]ucbm=lod2(&|$)/.test(Q) ? '-lod2' : '';
+    const names = [...new Set(LOOK && LOOK.pic ? [id + lod + '-toon', id + '-toon', id + lod, id] : [id + (id === 'akane' ? lod : '')])];
+    let res = null, file = '';
+    for (const n of names) { res = await fetch('uc-boyut/model/' + n + '.glb'); file = n; if (res.ok) break; }
     if (!res.ok) throw new Error(id + '.glb: ' + res.status);
+    const sfx = file.startsWith(id + '-lod2') ? '-lod2' : '';
     const buf = await res.arrayBuffer(), dv = new DataView(buf);
     if (dv.getUint32(0, true) !== 0x46546c67) throw new Error('not a GLB');
     let off = 12, J = null, BIN = null;
@@ -1021,7 +1029,8 @@ void main(){
       else if (ty === 0x004e4942) BIN = new Uint8Array(buf, off + 8, ln);
       off += 8 + ln;
     }
-    if ((J.extensionsRequired || []).length) throw new Error('needs ' + J.extensionsRequired.join(', ') + ' (re-export without compression)');
+    const xr = (J.extensionsRequired || []).filter((x) => x !== 'KHR_mesh_quantization');
+    if (xr.length) throw new Error('needs ' + xr.join(', ') + ' (re-export without compression)');
     const CT = { 5120: Int8Array, 5121: Uint8Array, 5122: Int16Array, 5123: Uint16Array, 5125: Uint32Array, 5126: Float32Array };
     const NC = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4, MAT4: 16 };
     const acc = (i) => {
@@ -1031,6 +1040,9 @@ void main(){
       const rd = { 5120: (o) => d.getInt8(o), 5121: (o) => d.getUint8(o), 5122: (o) => d.getInt16(o, true), 5123: (o) => d.getUint16(o, true), 5125: (o) => d.getUint32(o, true), 5126: (o) => d.getFloat32(o, true) }[a.componentType];
       const nm = a.normalized ? { 5120: 127, 5121: 255, 5122: 32767, 5123: 65535 }[a.componentType] : 1;
       for (let k = 0; k < a.count; k++) for (let c = 0; c < nc; c++) out[k * nc + c] = rd(o0 + k * stride + c * es) / nm;
+
+      const sq = a.extras && a.extras.sdQ;
+      if (sq) for (let k = 0; k < a.count; k++) for (let c = 0; c < nc; c++) out[k * nc + c] = sq.o[c] + out[k * nc + c] * sq.s[c];
       return out;
     };
     const skin = J.skins && J.skins[0];
@@ -1193,17 +1205,20 @@ void main(){
       vo += pr.cnt; io += kept;
     }
 
-    const imgs = await Promise.all((J.images || []).map(async (im) => {
+
+
+    let flat = null;
+    if (LOOK && LOOK.pic) {
+      const r = await fetch('uc-boyut/model/' + id + sfx + '-' + LOOK.pic + '.png');
+      if (r.ok) flat = await createImageBitmap(await r.blob());
+      else console.warn('[r3d] no ' + id + sfx + '-' + LOOK.pic + '.png: the model own picture');
+    }
+    const imgs = flat ? [flat] : await Promise.all((J.images || []).map(async (im) => {
       if (im.bufferView == null) return null;
       const bv = J.bufferViews[im.bufferView];
-
-      if (LOOK && LOOK.pic && id === 'akane') {
-        const r = await fetch('uc-boyut/model/' + id + UCBM + '-' + LOOK.pic + '.png');
-        if (r.ok) return createImageBitmap(await r.blob());
-        console.warn('[r3d] no ' + id + '-' + LOOK.pic + '.png: the model own picture');
-      }
       return createImageBitmap(new Blob([BIN.subarray(bv.byteOffset || 0, (bv.byteOffset || 0) + bv.byteLength)], { type: im.mimeType || 'image/png' }));
     }));
+    if (flat) for (const d of draws) { d.tex = 0; d.nrm = null; }
 
     const grip = {}, armRest = {};
     for (const s of ['R', 'L']) {
@@ -1220,7 +1235,7 @@ void main(){
 
 
 
-    if (LOOK && LOOK.pic && id === 'akane' && GQ('ucbweb', '1') !== '0') {
+    if (flat && GQ('ucbweb', '1') !== '0') {
       const side = new Int8Array(B.length);
       for (const [n, sg] of [['thigh.L', -1], ['shin.L', -1], ['foot.L', -1], ['toe.L', -1], ['thigh.R', 1], ['shin.R', 1], ['foot.R', 1], ['toe.R', 1]]) if (ix[n] != null) side[ix[n]] = sg;
       for (let b2 = 0; b2 < B.length; b2++) if (!side[b2]) { let q = B[b2].parent; while (q >= 0 && !side[q]) q = B[q].parent; if (q >= 0) side[b2] = side[q]; }
@@ -1245,18 +1260,30 @@ void main(){
 
 
     let P2 = out, N2 = N, C2 = C, SI2 = SI, SW2 = SW, MT2 = MT, UV2 = UV, I2 = I.subarray(0, io), nv2 = nv;
-    if (LOOK && LOOK.pic && id === 'akane') {
+    if (flat) {
       try {
-        const r = await fetch('uc-boyut/model/' + id + UCBM + '-' + LOOK.pic + '.json');
+        const r = await fetch('uc-boyut/model/' + id + sfx + '-' + LOOK.pic + '.json');
         const TD = r.ok ? await r.json() : null;
         if (TD) {
           const tb = Uint8Array.from(atob(TD.tri), (ch) => ch.charCodeAt(0)), n = io;
           P2 = new Float32Array(n * 3); N2 = new Int8Array(n * 4); const NS2 = new Int8Array(n * 4); C2 = new Uint8Array(n * 4); SI2 = new Uint8Array(n * 4); SW2 = new Uint8Array(n * 4); MT2 = new Uint8Array(n); UV2 = new Float32Array(n * 2);
+
+
+
+
+          const cl = TD.cls ? Uint8Array.from(atob(TD.cls), (ch) => ch.charCodeAt(0)) : null;
+          const PN = cl ? partNormals(out, N, I, origT, cl, io, nv, B, ix, SI, SW, NS) : null;
           for (let k = 0; k < n; k++) {
-            const v = I[k], t = origT[(k / 3) | 0], b = tb[t] != null ? tb[t] : 128, pc = TD.pal[b & 127] || [255, 255, 255];
+            const v = I[k], t = origT[(k / 3) | 0], b = tb[t] != null ? tb[t] : 128, pc = TD.pal[b & 127] || [255, 255, 255], part = cl ? cl[t] : 0;
             for (let c = 0; c < 3; c++) P2[k * 3 + c] = out[v * 3 + c];
-            for (let c = 0; c < 4; c++) { N2[k * 4 + c] = N[v * 4 + c]; NS2[k * 4 + c] = NS[v * 4 + c]; SI2[k * 4 + c] = SI[v * 4 + c]; SW2[k * 4 + c] = SW[v * 4 + c]; }
-            MT2[k] = MT[v]; UV2[k * 2] = UV[v * 2]; UV2[k * 2 + 1] = UV[v * 2 + 1];
+            const ns = part === 1 ? PN.hair : part === 2 ? PN.hakama : NS;
+            for (let c = 0; c < 4; c++) { N2[k * 4 + c] = N[v * 4 + c]; NS2[k * 4 + c] = ns[v * 4 + c]; SI2[k * 4 + c] = SI[v * 4 + c]; SW2[k * 4 + c] = SW[v * 4 + c]; }
+            MT2[k] = part ? 6 + part : MT[v]; UV2[k * 2] = UV[v * 2]; UV2[k * 2 + 1] = UV[v * 2 + 1];
+            if (part === 2 && !(b & 128)) {
+              const k0 = k - (k % 3), a0 = I[k0], a1 = I[k0 + 1], a2 = I[k0 + 2], H = PLEATS / 2;
+              const seam = Math.abs(PN.pu[a0] - PN.pu[a1]) > H || Math.abs(PN.pu[a1] - PN.pu[a2]) > H || Math.abs(PN.pu[a0] - PN.pu[a2]) > H;
+              UV2[k * 2] = PN.pu[v]; UV2[k * 2 + 1] = seam ? 0 : PN.pk[v];
+            }
 
             if (b & 128) { C2[k * 4] = C2[k * 4 + 1] = C2[k * 4 + 2] = 255; C2[k * 4 + 3] = 255; } else { C2[k * 4] = pc[0]; C2[k * 4 + 1] = pc[1]; C2[k * 4 + 2] = pc[2]; C2[k * 4 + 3] = 0; }
           }
@@ -1265,7 +1292,7 @@ void main(){
         }
       } catch (e) { console.warn('[r3d] ' + id + '-' + LOOK.pic + '.json: ' + (e && e.message)); }
     }
-    const M = { glb: true, id, B, ix, nb: B.length, P: P2, N: N2, NS, C: C2, SI: SI2, SW: SW2, MT: MT2, UV: UV2, I: I2, draws, imgs, tris: io / 3, cutSword: !!CUT, bytes: buf.byteLength, grip, armRest, headSet, fing: FING,
+    const M = { glb: true, id, file, flat: !!flat, B, ix, nb: B.length, P: P2, N: N2, NS, C: C2, SI: SI2, SW: SW2, MT: MT2, UV: UV2, I: I2, draws, imgs, tris: io / 3, cutSword: !!CUT, bytes: buf.byteLength, grip, armRest, headSet, fing: FING,
       hc0: madd(B[ix.head].p0, EY, 9), hasSaya: false, springs: [], extra: {} };
 
     const CLX = SX.sdCloth;
@@ -1701,9 +1728,9 @@ void main(){
 precision highp float;
 layout(location=0) in vec3 aP; layout(location=1) in vec4 aN; layout(location=2) in vec4 aC; layout(location=3) in vec4 aS; layout(location=4) in vec4 aW; layout(location=5) in float aM; layout(location=6) in vec2 aUV; layout(location=7) in vec4 aNs;
 uniform vec4 uB[${(MAXB + 3) * 3}];
-uniform mat4 uVP, uRoot; uniform float uInk, uInkZ, uInkU, uDarkPush, uHasTex; uniform vec2 uView; uniform sampler2D uTex;
-uniform vec3 uTone[7]; uniform vec3 uMat[7];
-out vec3 vN; out vec3 vNs; out vec3 vW; out vec4 vC; out vec2 vUV; flat out vec3 vTone; flat out vec3 vMat;
+uniform mat4 uVP, uRoot; uniform float uInk, uInkZ, uInkU, uDarkPush, uHakPush, uHasTex; uniform vec2 uView; uniform sampler2D uTex;
+uniform vec3 uTone[10]; uniform vec3 uMat[10];
+out vec3 vN; out vec3 vNs; out vec3 vW; out vec4 vC; out vec2 vUV; flat out vec3 vTone; flat out vec3 vMat; flat out float vPart;
 void main(){
   vec4 p = vec4(aP, 1.0); vec3 n0 = aN.xyz;
   // (the smoothed normal, js glbSmooth: the toon looks' light bands and the even ink edge; none: the model's own)
@@ -1735,12 +1762,15 @@ void main(){
   // (?ucb=toon: the darkest paint - the hair - a hair's breadth toward the camera: Meshy's hair lies on the kimono and
   // the ribbon, and where the posed body pressed them through it they showed as white and red specks in the hair)
   if (uDarkPush > 0.0 && uHasTex > 0.5) { vec3 tc = textureLod(uTex, aUV, 2.0).rgb; if (dot(tc, vec3(0.2126, 0.7152, 0.0722)) < 0.06) c.z -= uDarkPush * c.w; }
-  vTone = uTone[m]; vMat = uMat[m]; vUV = aUV;
+  // (?ucb=toon: the hakama ~2 units toward the camera - the sleeves' ends and the kosode, pressed into it where the body
+  // bends, showed through as white flecks along the obi; a sleeve really in front of it is far more than that away)
+  if (m == 8 && uInk <= 0.0) c.z -= uHakPush * c.w;
+  vTone = uTone[m]; vMat = uMat[m]; vUV = aUV; vPart = float(m);
   gl_Position = c; vN = n; vNs = ns; vW = W.xyz; vC = aC;
 }`;
   const FSH = `#version 300 es
 precision highp float;
-in vec3 vN; in vec3 vNs; in vec3 vW; in vec4 vC; in vec2 vUV; flat in vec3 vTone; flat in vec3 vMat;
+in vec3 vN; in vec3 vNs; in vec3 vW; in vec4 vC; in vec2 vUV; flat in vec3 vTone; flat in vec3 vMat; flat in float vPart;
 uniform sampler2D uTex, uNrm, uFlat; uniform float uHasTex, uHasNrm, uBackDim, uSoft, uOldLook;
 uniform float uInk; uniform vec3 uInkC;
 uniform vec3 uKeyD, uKeyC, uShade, uEye, uLift; uniform float uFlash, uKeyA;
@@ -1791,10 +1821,27 @@ void main(){
       float t0 = comic ? 0.06 : -0.06;
       float lit = smoothstep(t0 - fw, t0 + fw, d);
       vec3 sh = comic ? vec3(0.3, 0.29, 0.4) : mix(uShade, vec3(1.0), 0.45) * vec3(0.58, 0.6, 0.78);
+      // (?ucb=toon: skin's shadow warm - the cool one turned the neck, the heels and the hands lavender)
+      if (uStep3 > 0.0 && base.r > base.b + 0.08 && base.g > 0.55) sh = vec3(0.86, 0.68, 0.66);
       col = base * mix(sh, mix(vec3(1.0), kc, 0.15) * (comic ? 1.08 : 1.0), lit);
+      int part = int(vPart + 0.5) - 6;
+      // (?ucb=toon parts, the side file's cls: 1 the hair - flat dark brown and one lighter step from its calm smoothed
+      // surface, nothing else on it (no shadow tint, no third step, no rim); 2 the hakama - pleat lines, darker on the
+      // shadow side, on its flat triangles (vUV: the turn round the leg in pleats, the lines' strength), and its inside
+      // (the back faces seen between the legs) one dark red: the two legs read apart)
+      if (uStep3 > 0.0 && part == 1) {
+        float hl = smoothstep(0.3 - fw, 0.3 + fw, d);
+        col = base * 1.12 + vec3(0.075, 0.05, 0.035) * hl;
+      }
+      if (uStep3 > 0.0 && part == 2 && vC.a < 0.5) {
+        float pu = abs(fract(vUV.x) - 0.5) * 2.0, pw = max(fwidth(vUV.x) * 2.0, 1e-3);
+        float line = 1.0 - smoothstep(0.08, 0.08 + pw, 1.0 - pu);
+        col *= mix(1.0, mix(0.8, 0.66, 1.0 - lit), line * vUV.y);
+      }
+      if (uStep3 > 0.0 && part == 2 && back) col = base * vec3(0.42, 0.4, 0.46);
       // (?ucb=toon: a third, darker step where the model's own surface turns well away from the light - the folds and
-      // pleats the smoothed normal leaves out; a hard edge too)
-      if (uStep3 > 0.0 && dot(base, vec3(0.2126, 0.7152, 0.0722)) > 0.08) { float dd = dot(n, uKeyD), f3 = max(fwidth(dd), 1e-3) * 0.75; col *= mix(vec3(0.72, 0.7, 0.8), vec3(1.0), smoothstep(-0.42 - f3, -0.42 + f3, dd) * uStep3 + (1.0 - uStep3)); }
+      // pleats the smoothed normal leaves out; a hard edge too. Not on the hair and the hakama: their own light above)
+      if (uStep3 > 0.0 && part != 1 && part != 2 && dot(base, vec3(0.2126, 0.7152, 0.0722)) > 0.08) { float dd = dot(n, uKeyD), f3 = max(fwidth(dd), 1e-3) * 0.75; col *= mix(vec3(0.72, 0.7, 0.8), vec3(1.0), smoothstep(-0.42 - f3, -0.42 + f3, dd) * uStep3 + (1.0 - uStep3)); }
       if (comic) {
         // hatching across the shadow (screen lines, about 5 px apart at 1080 rows), heavier where it is darkest
         float px = gl_FragCoord.x + gl_FragCoord.y, per = max(3.0, 5.0 * uView.y / 1080.0);
@@ -1935,7 +1982,7 @@ void main(){
 
 
 
-  LOOKS.ucb = Object.assign({}, LOOKS.toon, { k: 9, fwc: 3, skinHu: [0.2, 1.3], flatK: 0, sat: 1, bias: 0, pic: 'duz', step3: 1, darkPush: +GQ('ucbpush', '0'), z: +GQ('ucbinkz', '0.008') });
+  LOOKS.ucb = Object.assign({}, LOOKS.toon, { k: 9, fwc: 3, skinHu: [0.2, 1.3], flatK: 0, sat: 1, bias: 0, pic: 'duz', step3: 1, darkPush: +GQ('ucbpush', '0'), hakPush: +GQ('ucbhakpush', '0.0018'), z: +GQ('ucbinkz', '0.008') });
   LOOKS.anime = LOOKS.comic; LOOKS.cel = LOOKS.toon;
   const LOOKQ = GQ('r3dlook', 'sifu'), LOOK = OLDLOOK ? null : LOOKS[LOOKQ] || LOOKS.sifu;
   const LOOKN = { 0: 'sifu', 1: 'toon', 2: 'comic', 3: 'soft' };
@@ -2154,7 +2201,43 @@ void main(){
 
 
 
-  function glbSmooth(P, N, I, nv, rounds = 8) {
+
+
+
+
+
+
+  const PLEATS = 12;
+  function partNormals(P, N, I, origT, cl, io, nv, B, ix, SI, SW, NS) {
+    const hairI = [], isP = new Uint8Array(nv);
+    for (let k = 0; k < io; k += 3) { const pt = cl[origT[k / 3]]; if (pt === 1) hairI.push(I[k], I[k + 1], I[k + 2]); if (pt) for (let e = 0; e < 3; e++) isP[I[k + e]] = Math.max(isP[I[k + e]], pt); }
+    const hair = hairI.length ? glbSmooth(P, N, Uint32Array.from(hairI), nv, 40, false) : NS;
+    const hakama = NS.slice(), pu = new Float32Array(nv), pk = new Float32Array(nv);
+    const side = new Int8Array(B.length);
+    for (const [n, sg] of [['thigh.L', -1], ['shin.L', -1], ['foot.L', -1], ['toe.L', -1], ['thigh.R', 1], ['shin.R', 1], ['foot.R', 1], ['toe.R', 1]]) if (ix[n] != null) side[ix[n]] = sg;
+    const legs = {};
+    for (const sd of ['L', 'R']) { const a = B[ix['thigh.' + sd]].p0, b = B[ix['foot.' + sd]].p0; legs[sd] = { a, u: norm(sub(b, a)), l: len(sub(b, a)) }; }
+    const hc = B[ix.hips].p0, yC = (legs.L.a.y + legs.R.a.y) / 2 - 6;
+    const away = (p, L) => { const t = clamp(dot(sub(p, L.a), L.u), 0, L.l), r = sub(p, madd(L.a, L.u, t)); return sub(r, mul(L.u, dot(r, L.u))); };
+    for (let v = 0; v < nv; v++) {
+      if (isP[v] !== 2) continue;
+      const p = v3(P[v * 3], P[v * 3 + 1], P[v * 3 + 2]);
+      let l = 0, r = 0; for (let c = 0; c < 4; c++) { const sg = side[SI[v * 4 + c]]; if (sg < 0) l += SW[v * 4 + c]; else if (sg > 0) r += SW[v * 4 + c]; }
+
+      const near = Math.abs(p.z - legs.L.a.z) < Math.abs(p.z - legs.R.a.z) ? legs.L : legs.R;
+      const leg = l > r ? legs.L : r > l ? legs.R : near;
+      const rl = norm(away(p, leg)), rh = norm(v3(p.x - hc.x, 0, p.z - hc.z));
+      const k = clamp((yC + 8 - p.y) / 16, 0, 1), rr = norm(add(mul(rh, 1 - k), mul(rl, k)));
+
+
+      const ins = leg === legs.L ? (legs.R.a.z > legs.L.a.z ? 1 : -1) : (legs.L.a.z > legs.R.a.z ? 1 : -1);
+      pu[v] = (Math.atan2(rl.x, -ins * rl.z) / (2 * Math.PI)) * PLEATS; pk[v] = clamp((yC - 4 - p.y) / 14, 0, 1);
+      const s0 = v3(NS[v * 4] / 127, NS[v * 4 + 1] / 127, NS[v * 4 + 2] / 127), q = norm(add(mul(rr, 0.8), mul(s0, 0.2)));
+      hakama[v * 4] = Math.round(q.x * 127); hakama[v * 4 + 1] = Math.round(q.y * 127); hakama[v * 4 + 2] = Math.round(q.z * 127); hakama[v * 4 + 3] = 127;
+    }
+    return { hair, hakama, pu, pk };
+  }
+  function glbSmooth(P, N, I, nv, rounds = 8, keepSide = true) {
     const rep = new Int32Array(nv), cellOf = new Map();
     for (let v = 0; v < nv; v++) {
       const key = Math.round(P[v * 3] * 20) + ',' + Math.round(P[v * 3 + 1] * 20) + ',' + Math.round(P[v * 3 + 2] * 20);
@@ -2187,7 +2270,7 @@ void main(){
       const r = rep[v];
       let x = A[r * 3], y = A[r * 3 + 1], z = A[r * 3 + 2];
 
-      if (x * N[v * 4] + y * N[v * 4 + 1] + z * N[v * 4 + 2] < 0) { x = N[v * 4] / 127; y = N[v * 4 + 1] / 127; z = N[v * 4 + 2] / 127; }
+      if (keepSide && x * N[v * 4] + y * N[v * 4 + 1] + z * N[v * 4 + 2] < 0) { x = N[v * 4] / 127; y = N[v * 4 + 1] / 127; z = N[v * 4 + 2] / 127; }
       NS[v * 4] = Math.round(x * 127); NS[v * 4 + 1] = Math.round(y * 127); NS[v * 4 + 2] = Math.round(z * 127); NS[v * 4 + 3] = 127;
     }
     return NS;
@@ -2199,9 +2282,9 @@ void main(){
     gl.attachShader(p, sh(gl.VERTEX_SHADER, VSH)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, FSH)); gl.linkProgram(p);
     if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error('r3d HD link: ' + gl.getProgramInfoLog(p));
     const U = {};
-    for (const k of ['uSoft', 'uInkZ', 'uInkU', 'uBackDim', 'uTex', 'uHasTex', 'uNrm', 'uHasNrm', 'uOldLook', 'uB', 'uVP', 'uRoot', 'uInk', 'uView', 'uTone', 'uMat', 'uInkC', 'uKeyD', 'uKeyC', 'uShade', 'uEye', 'uLift', 'uFlash', 'uKeyA', 'uL', 'uLC', 'uFlat', 'uLook', 'uHasFlat', 'uFlatK', 'uBias', 'uSat', 'uRim', 'uMask', 'uStep3', 'uDarkPush']) U[k] = gl.getUniformLocation(p, k);
+    for (const k of ['uSoft', 'uInkZ', 'uInkU', 'uHakPush', 'uBackDim', 'uTex', 'uHasTex', 'uNrm', 'uHasNrm', 'uOldLook', 'uB', 'uVP', 'uRoot', 'uInk', 'uView', 'uTone', 'uMat', 'uInkC', 'uKeyD', 'uKeyC', 'uShade', 'uEye', 'uLift', 'uFlash', 'uKeyA', 'uL', 'uLC', 'uFlat', 'uLook', 'uHasFlat', 'uFlatK', 'uBias', 'uSat', 'uRim', 'uMask', 'uStep3', 'uDarkPush']) U[k] = gl.getUniformLocation(p, k);
     gl.useProgram(p);
-    const tone = new Float32Array(21), mat = new Float32Array(21);
+    const tone = new Float32Array(30), mat = new Float32Array(30);
     MATP.forEach((m, i) => { tone.set(m.slice(0, 3), i * 3); mat.set([m[3], m[4], m[5]], i * 3); });
     gl.uniform3fv(U.uTone, tone); gl.uniform3fv(U.uMat, mat);
     gl.uniform1i(U.uTex, 3); gl.uniform1i(U.uNrm, 4); gl.uniform1i(U.uFlat, 5); gl.uniform1f(U.uOldLook, /[?&]r3dgold=1(&|$)/.test(Q) ? 1 : 0);
@@ -2261,7 +2344,7 @@ void main(){
     gl.uniform3fv(U.uShade, LIGHT.shade); gl.uniform3fv(U.uEye, EYE);
     gl.uniform4fv(U.uL, LIGHT.L); gl.uniform3fv(U.uLC, LIGHT.LC);
     const LK = LOOK || { id: 0, flatK: 0, sat: 1, bias: 0, rim: 0 };
-    gl.uniform1f(U.uLook, LK.id); gl.uniform1f(U.uFlatK, LK.flatK); gl.uniform1f(U.uBias, LK.bias); gl.uniform1f(U.uSat, LK.sat); gl.uniform1f(U.uRim, LK.rim); gl.uniform1f(U.uStep3, LK.step3 || 0); gl.uniform1f(U.uDarkPush, LK.darkPush || 0);
+    gl.uniform1f(U.uLook, LK.id); gl.uniform1f(U.uFlatK, LK.flatK); gl.uniform1f(U.uBias, LK.bias); gl.uniform1f(U.uSat, LK.sat); gl.uniform1f(U.uRim, LK.rim); gl.uniform1f(U.uStep3, LK.step3 || 0); gl.uniform1f(U.uDarkPush, LK.darkPush || 0); gl.uniform1f(U.uHakPush, reflect ? 0 : LK.hakPush || 0);
     gl.uniform1f(U.uMask, !reflect && R3.maskOn() ? 1 : 0); gl.uniform1f(U.uHasFlat, 0);
     let tris = 0;
 
@@ -2301,10 +2384,10 @@ void main(){
 
 
 
-                if (LOOK && LOOK.pic && M.id === 'akane') { gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); if (an) gl.texParameterf(gl.TEXTURE_2D, an.TEXTURE_MAX_ANISOTROPY_EXT, 1); }
+                if (M.flat) { gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); if (an) gl.texParameterf(gl.TEXTURE_2D, an.TEXTURE_MAX_ANISOTROPY_EXT, 1); }
 
 
-                if (LOOK && LOOK.pic && M.id === 'akane') {
+                if (M.flat) {
                   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAX_LEVEL, 2);
                   if (GQ('ucbfilt', '') === 'near') { gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST); }
                 }
@@ -2400,8 +2483,29 @@ void main(){
     return fl > 0 && h.n <= 3 ? 0.12 / 0.38 : 0;
   }
 
+
+
+
+
+  const WATCHED = new WeakSet();
+  function watchLoss(gl) {
+    const cv = gl.canvas;
+    if (!cv || WATCHED.has(cv) || !cv.addEventListener) return;
+    WATCHED.add(cv);
+    cv.addEventListener('webglcontextlost', () => {
+      R3.lost = (R3.lost || 0) + 1;
+      GLS = null; GLH = null; FLATP = null; FLAT.clear(); DRESS.length = 0;
+      for (const id in HDM) { const K = HDM[id] && HDM[id].kostum; if (K) { K.tex = null; K.gl = null; } }
+      if (R3.wpn && R3.wpn.lose) R3.wpn.lose();
+      if (ND.r3dCostume && ND.r3dCostume.lose) ND.r3dCostume.lose(gl);
+      console.info('[r3d] WebGL context lost (' + R3.lost + '): the 3D fighters are uploaded again when it comes back');
+    });
+    cv.addEventListener('webglcontextrestored', () => { R3.restored = (R3.restored || 0) + 1; console.info('[r3d] WebGL context restored: 3D fighters again'); });
+  }
+
   function run(gl, w, h) {
     const t0 = performance.now();
+    watchLoss(gl);
     if (!GLS || GLS.gl !== gl) {
       try { glInit(gl); } catch (e) { R3.why = String(e && e.message); R3.on = false; console.warn('[r3d] off:', R3.why); return; }
     }
@@ -2487,6 +2591,8 @@ void main(){
     }
     gl.depthMask(true); gl.disable(gl.BLEND);
     gl.bindVertexArray(null);
+
+    if (GLS.rigs.size > 4) for (const [R, o] of GLS.rigs) if (!FR.list.some((E) => E.R === R)) { gl.deleteVertexArray(o.vao); for (const b of o.b) gl.deleteBuffer(b); gl.deleteBuffer(o.ib); GLS.rigs.delete(R); }
     R3.tris = tris; R3.gpuCallMs = performance.now() - t0;
   }
 
@@ -2512,7 +2618,7 @@ void main(){
       if (!S) return;
       POSES.set(f, S);
       const E = { R, f, rope: PER[i].rope, trail: PER[i].trail, lift: liftCol(f, liftOn), flash: hitTint(f), hd: null };
-      if (LOD === 'hd' || GLB.includes(f.ch.id)) { hdWant(f.ch.id); const M = HDM[f.ch.id]; if (M) { E.hd = hdFig(f, M); hdPose(f, S, E.hd); if (M.glb && !R3.wpn) { weaponPose(R, S); E.weapon = true; } } }
+      if (LOD === 'hd' || GLB.includes(f.ch.id)) { const M = HDM[f.ch.id]; if (M) { E.hd = hdFig(f, M); hdPose(f, S, E.hd); if (M.glb && !R3.wpn) { weaponPose(R, S); E.weapon = true; } } }
       if (E.hd) E.rope.nv = E.rope.ni = 0; else ropes(f, S, E.rope);
       streak(f, S, R, E.trail);
       FR.list.push(E);
@@ -2575,10 +2681,23 @@ void main(){
     R3.last = { lod: FR.list.map((E) => (E.hd ? 'hd' : 'simple')).join(','), pitch: +(RIG.pitch / DEG).toFixed(2), yaw: +(RIG.yaw / DEG).toFixed(2), eye: +RIG.eye.toFixed(1), dist: +RIG.dist.toFixed(0), zoom: +RIG.zoom.toFixed(3), fit: +FR.fit.toFixed(3), shot: RIG.shot };
     return true;
   };
-  if ((LOD === 'hd' && typeof DecompressionStream !== 'undefined') || GLB.length) { hdWant('akane'); hdWant('kuro'); }
+
+
+
+
+  if ((LOD === 'hd' && typeof DecompressionStream !== 'undefined') || GLB.length) {
+    const pm0 = G.prepareMatch;
+    G.prepareMatch = function () {
+      const ids = R3.on ? (this.F || []).map((f) => f && f.ch && f.ch.id).filter(Boolean) : [];
+      ids.forEach(hdWant);
+      const P = ND.prepare, ps0 = P && P.start, t0 = performance.now();
+      if (P && ids.length) P.start = function (jobs, done) { if (Array.isArray(jobs)) jobs.unshift(() => ids.every((id) => !HDL[id] || HDM[id] || HDL[id] === 'failed') || performance.now() - t0 > 12000); return ps0.call(this, jobs, done); };
+      try { return pm0.apply(this, arguments); } finally { if (P && ids.length) P.start = ps0; }
+    };
+  }
   R3.hdDebug = (f) => { const F = HDF.get(f); if (!F) return null; const o = {}; for (const n of ['hips','spine','chest','neck','head','thigh.R','shin.R','foot.R','upper.R']) { const i = F.M.ix[n], b = F.b[i], B = F.M.B[i]; o[n] = { p: [b.p.x, b.p.y, b.p.z].map(Math.round), p0: [B.p0.x, B.p0.y, B.p0.z].map(Math.round), s: +b.s.toFixed(2), len: Math.round(B.len), up: [b.Rw[3], b.Rw[4], b.Rw[5]].map((v) => +v.toFixed(2)) }; } return o; };
 
-  R3.hdReady = (id) => !!HDM[id] || HDL[id] === 'failed';
+  R3.hdReady = (id) => { hdWant(id); return !!HDM[id] || HDL[id] === 'failed'; };
   R3.info = () => Object.assign({ tipS: R3.tipSmoothed || 0, yawC: R3.yawClamped || 0, yawLast: R3.yawLast, tris: R3.tris, cpuMs: +(R3.cpuMs || 0).toFixed(3), glMs: +(R3.gpuCallMs || 0).toFixed(3) }, R3.last || {});
 
 
@@ -2667,20 +2786,21 @@ void main(){
     const ix = (c) => ND.CHARS.findIndex((x) => x.id === c), t0 = performance.now();
     const tag = document.createElement('div');
     tag.style.cssText = 'position:fixed;left:calc(env(safe-area-inset-left,0px) + 6px);top:calc(env(safe-area-inset-top,0px) + 54px);z-index:2147483646;font:600 12px/1.3 system-ui,sans-serif;color:#ffd27a;background:rgba(0,0,0,.65);padding:3px 8px;border-radius:4px;pointer-events:none;white-space:nowrap';
-    tag.textContent = 'Akane 3D toon · ' + (/[?&]ucbm=lod2(&|$)/.test(Q) ? '15k (akane-lod2.glb)' : '30k (akane.glb)') + ' · loading';
+    tag.textContent = 'Akane 3D toon · ' + (/[?&]ucbm=lod2(&|$)/.test(Q) ? '15k' : '30k') + ' · loading';
     document.body.appendChild(tag);
     const go = setInterval(() => {
-      const ready = G.F && ND.CHARS && ND.duel && (!ND.duel.mocap || ND.duel.mocap.ready || ND.duel.mocap.error) && (HDM.akane || HDL.akane === 'failed') && (HDM.kuro || HDL.kuro === 'failed');
+
+      const ready = G.F && ND.CHARS && ND.duel && (!ND.duel.mocap || ND.duel.mocap.ready || ND.duel.mocap.error);
       if (!ready && performance.now() - t0 < 25000) return;
       clearInterval(go);
-      tag.textContent = tag.textContent.replace(' · loading', HDM.akane ? '' : ' · MODEL FAILED: ' + (R3.hdWhy || '?'));
       for (const id of ['first', 'menu']) { const e = document.getElementById(id); if (e) e.hidden = true; }
       G.start('cpu', { c1: ix('akane'), c2: ix('kuro'), arena: 'temple' });
+      const failed = () => (HDL.akane === 'failed' ? ' · MODEL FAILED: ' + (R3.hdWhy || '?') : '');
 
 
 
 
-      const name = tag.textContent.replace(' · loading', '');
+      const name0 = tag.textContent.replace(' · loading', '');
       tag.style.font = '700 15px/1.25 system-ui,sans-serif'; tag.style.padding = '3px 8px';
       let last = performance.now(), T = [], low = null;
       const loop = (now) => { T.push(now - last); last = now; requestAnimationFrame(loop); };
@@ -2723,6 +2843,7 @@ void main(){
         const gl = G.rendererMode === 'gl';
         if (inFight && REP.s.length < 1200) { REP.s.push(fps); REP.mode += gl ? 'g' : 'c'; }
         const col = (v) => (v != null && v < 30 ? '#ff6b6b' : '#ffd27a');
+        const name = name0 + failed() + (HDM.akane ? ' · ' + HDM.akane.file + '.glb ' + (HDM.akane.bytes / 1e6).toFixed(1) + ' MB' : '');
         tag.innerHTML = name + (ok ? ' · ✓' : '') + (gl ? '' : ' · <span style="color:#ff6b6b">3D OFF</span>') + '<br>' + '<span style="color:' + col(fps) + '">' + fps + ' fps</span> · lowest <span style="color:' + col(low) + '">' + (low == null ? '-' : low + ' fps') + '</span>';
       }, 1000);
     }, 200);
@@ -2743,7 +2864,7 @@ void main(){
       const now = performance.now(), D = ND.duel;
       DEMO.step = st.k + (st.tier ? ' ' + st.tier : '');
       if (st.k === 'wait') {
-        const ready = G.F && ND.CHARS && D && D.finDemo && (!D.mocap || D.mocap.ready || D.mocap.error) && (HDM.akane || !GLB.includes('akane')) && (HDM.kuro || HDL.kuro === 'failed' || LOD !== 'hd');
+        const ready = G.F && ND.CHARS && D && D.finDemo && (!D.mocap || D.mocap.ready || D.mocap.error);
         if (ready || now > 25000) fresh();
         return;
       }

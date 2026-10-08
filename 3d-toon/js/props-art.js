@@ -33,7 +33,17 @@
 
   const path = (x, pts) => { x.beginPath(); x.moveTo(pts[0][0], pts[0][1]); for (let i = 1; i < pts.length; i++) x.lineTo(pts[i][0], pts[i][1]); x.closePath(); };
   function fillLine(x, fill, lw = 1.4, line = INK) { x.fillStyle = fill; x.fill(); x.lineWidth = lw; x.strokeStyle = line; x.stroke(); }
-  function rr(x, x0, y0, w, h, r) { x.beginPath(); x.moveTo(x0 + r, y0); x.arcTo(x0 + w, y0, x0 + w, y0 + h, r); x.arcTo(x0 + w, y0 + h, x0, y0 + h, r); x.arcTo(x0, y0 + h, x0, y0, r); x.arcTo(x0, y0, x0 + w, y0, r); x.closePath(); }
+
+
+  function rr(x, x0, y0, w, h, r) {
+    const Q = Math.PI / 2;
+    x.beginPath(); x.moveTo(x0 + r, y0);
+    x.lineTo(x0 + w - r, y0); x.arc(x0 + w - r, y0 + r, r, -Q, 0);
+    x.lineTo(x0 + w, y0 + h - r); x.arc(x0 + w - r, y0 + h - r, r, 0, Q);
+    x.lineTo(x0 + r, y0 + h); x.arc(x0 + r, y0 + h - r, r, Q, 2 * Q);
+    x.lineTo(x0, y0 + r); x.arc(x0 + r, y0 + r, r, 2 * Q, 3 * Q);
+    x.closePath();
+  }
   function lines(x, col, lw, L) { x.strokeStyle = col; x.lineWidth = lw; x.beginPath(); for (const l of L) { x.moveTo(l[0], l[1]); x.lineTo(l[2], l[3]); } x.stroke(); }
 
   function rs(seed) { let s = seed | 0; return () => { s = (s + 0x6d2b79f5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }

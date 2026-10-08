@@ -226,6 +226,7 @@ void main(){
     return ok ? out : null;
   }
   const CR = { rgb2lab, lab2rgb, hexLab, stops, plan, planKey, bake, mapTex, MAXS };
+  CR.lose = (gl) => { PROG.delete(gl); };
   if (root.ND) root.ND.r3dCostume = CR;
   root.R3DCOSTUME = CR;
 })(typeof window !== 'undefined' ? window : globalThis);

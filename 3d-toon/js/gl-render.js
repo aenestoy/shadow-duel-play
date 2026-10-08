@@ -42,8 +42,22 @@ window.ND = window.ND || {};
     const E = R.exec;
     let lost = false, error = '', checked = false, lastReason = '', frames = 0, fallbacks = 0, streak = 0;
 
-    const MAX_STREAK = opts.auto ? 180 : Infinity;
-    const refuse = (why) => { lastReason = why; fallbacks++; if (++streak >= MAX_STREAK && !error) error = 'switched off: ' + streak + ' frames in a row fell back (' + why + ')'; return false; };
+
+
+
+    const MAX_STREAK = opts.auto ? 180 : Infinity, MAX_PAUSES = 3;
+    let pauses = 0, pauseUntil = 0, goodSince = 0, said = 0;
+    const say = (msg) => { if (said++ < 12) console.info('[ND.gl] ' + msg); };
+    const refuse = (why) => {
+      lastReason = why; fallbacks++; goodSince = 0;
+      if (++streak === 1) say('frame drawn with Canvas 2D: ' + why);
+      if (streak >= MAX_STREAK && !error) {
+        if (pauses >= MAX_PAUSES) error = 'switched off: ' + streak + ' frames in a row fell back (' + why + '), after ' + pauses + ' pauses';
+        else { const ms = 4000 << pauses; pauses++; pauseUntil = performance.now() + ms; say('paused ' + ms / 1000 + ' s: ' + streak + ' frames in a row fell back (' + why + ')'); }
+        streak = 0;
+      }
+      return false;
+    };
     let glowProg = null, finalProg = null, grainTex = null, glowTex = null, glowFb = null, glowW = 0, glowH = 0, GU = {}, FU = {};
     const M = 10;
     const taps = (opts.glowTaps || []).map((t) => t.slice());
@@ -352,7 +366,7 @@ window.ND = window.ND || {};
     const loseExt = () => loseX || (loseX = gl.isContextLost() ? null : gl.getExtension('WEBGL_lose_context'));
     const api = {
       canvas, gl, R,
-      get ready() { return !lost && !error && !gl.isContextLost() && E.ready; },
+      get ready() { return !lost && !error && !gl.isContextLost() && E.ready && (!pauseUntil || performance.now() >= pauseUntil); },
       get error() { return error; },
       get lastReason() { return lastReason; },
 
@@ -377,6 +391,7 @@ window.ND = window.ND || {};
           if (api.queueLimit > 0 && inflight.length < 16) { const f = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0); if (f) inflight.push(f); }
           if (!checked) { const code = gl.getError(); if (code !== gl.NO_ERROR) throw Error('GL error ' + code); checked = true; }
           frames++; streak = 0;
+          if (pauses) { if (!goodSince) goodSince = frames; else if (frames - goodSince > 1800) { pauses = 0; goodSince = 0; } }
           api.last = Object.assign({}, rec, R.stats);
 
           const T = E.targets, pm = p.mode == null ? 2 : p.mode;
@@ -437,7 +452,7 @@ window.ND = window.ND || {};
           version: gl.getParameter(gl.VERSION), ...R.info(), memory: R.memory(),
         };
       },
-      status() { return { ready: api.ready, error, lastReason, frames, fallbacks, streak, samples: E.samples, auto: !!opts.auto }; },
+      status() { return { ready: api.ready, error, lastReason, frames, fallbacks, streak, pauses, paused: pauseUntil > performance.now(), samples: E.samples, auto: !!opts.auto }; },
       setSamples(n) { E.setSamples(n); },
 
 
