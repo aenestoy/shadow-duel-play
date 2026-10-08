@@ -1857,7 +1857,9 @@
 			label: "Avis de confidentialité",
 			noticeNet: "Jeu en ligne : ton pseudo, tes scores et tes matchs classés sont enregistrés sur le serveur du jeu.",
 			more: "Détails",
-			details: "Enregistré sur le serveur du jeu : un identifiant aléatoire créé sur cet appareil, le pseudo que tu choisis, tes scores, ton niveau et tes résultats classés (pas de compte, d'e-mail ni de vrai nom). Les pseudos et les scores sont publics dans les classements. Dans un match classé, ton appareil se connecte à celui de ton adversaire, directement ou via un serveur relais, donc chacun peut voir l'adresse IP de l'autre ; notre serveur n'en garde qu'une forme brouillée de façon irréversible (hachée), pour que les matchs restent équitables."
+			details: "Enregistré sur le serveur du jeu : un identifiant aléatoire créé sur cet appareil, le pseudo que tu choisis, tes scores, ton niveau et tes résultats classés (pas de compte, d'e-mail ni de vrai nom). Les pseudos et les scores sont publics dans les classements. Dans un match classé, ton appareil se connecte à celui de ton adversaire, directement ou via un serveur relais, donc chacun peut voir l'adresse IP de l'autre ; notre serveur n'en garde qu'une forme brouillée de façon irréversible (hachée), pour que les matchs restent équitables.",
+			computer: "Si aucun adversaire n'est disponible, tu peux affronter un adversaire contrôlé par l'ordinateur.",
+			contact: "Pour faire supprimer tes données, écris à {0} en indiquant ton pseudo."
 		} });
 		merge(EN.STR, {
 			menu: { trainDrill: "Exercice de parade" },

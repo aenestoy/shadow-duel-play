@@ -1,6 +1,15 @@
 (function(ND) {
 	"use strict";
 	const PAGE = "privacy.html";
+	const CONTACT = "[CONTACT E-MAIL]";
+	const detailsText = () => {
+		const T = S();
+		return [
+			T.details,
+			T.computer,
+			T.contact ? T.contact.replace("{0}", CONTACT) : ""
+		].filter(Boolean).join(" ");
+	};
 	const NOTICE_V = 1;
 	const S = () => ND.STR && ND.STR.priv || {};
 	const isTr = () => !!ND.i18n && ND.i18n.lang === "tr";
@@ -34,14 +43,14 @@
 			a.textContent = label(a.dataset.priv);
 		});
 		document.querySelectorAll("[data-priv-text]").forEach((n) => {
-			n.textContent = S().details || "";
+			n.textContent = detailsText();
 		});
 		if (el) {
 			const t = el.querySelector(".pn-text"), ok = el.querySelector(".pn-ok"), more = el.querySelector(".pn-more"), mt = el.querySelector(".pn-more-text");
 			if (t) t.textContent = (allowed() ? S().notice : S().noticeNet || S().notice) || "";
 			if (ok) ok.textContent = S().ok || "OK";
 			if (more) more.textContent = S().more || "Details";
-			if (mt) mt.textContent = S().details || "";
+			if (mt) mt.textContent = detailsText();
 			el.setAttribute("aria-label", S().label || "");
 		}
 	}
@@ -141,7 +150,7 @@
 			const more = document.createElement("p");
 			more.className = "pn-more-text";
 			more.hidden = true;
-			more.textContent = S().details || "";
+			more.textContent = detailsText();
 			const mb = document.createElement("button");
 			mb.type = "button";
 			mb.className = "mini pn-more";
@@ -259,7 +268,7 @@
 			const d = document.createElement("span");
 			d.className = "priv-text";
 			d.setAttribute("data-priv-text", "");
-			d.textContent = S().details || "";
+			d.textContent = detailsText();
 			d.hidden = true;
 			box.appendChild(d);
 			const sync = () => {

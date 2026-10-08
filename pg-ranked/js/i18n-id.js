@@ -1857,7 +1857,9 @@
 			label: "Pemberitahuan privasi",
 			noticeNet: "Main online: nama panggilan, skor, dan pertandingan peringkatmu disimpan di server game.",
 			more: "Detail",
-			details: "Yang disimpan di server game: ID acak yang dibuat di perangkat ini, nama panggilan pilihanmu, skor, level, dan hasil peringkatmu (tanpa akun, email, atau nama asli). Nama panggilan dan skor terlihat publik di papan peringkat. Dalam pertandingan peringkat, perangkatmu terhubung ke perangkat lawan secara langsung atau lewat server relai, jadi tiap pihak bisa melihat alamat IP pihak lain; server kami hanya menyimpan bentuk acaknya yang tidak bisa dikembalikan (hash) agar pertandingan tetap adil."
+			details: "Yang disimpan di server game: ID acak yang dibuat di perangkat ini, nama panggilan pilihanmu, skor, level, dan hasil peringkatmu (tanpa akun, email, atau nama asli). Nama panggilan dan skor terlihat publik di papan peringkat. Dalam pertandingan peringkat, perangkatmu terhubung ke perangkat lawan secara langsung atau lewat server relai, jadi tiap pihak bisa melihat alamat IP pihak lain; server kami hanya menyimpan bentuk acaknya yang tidak bisa dikembalikan (hash) agar pertandingan tetap adil.",
+			computer: "Jika tidak ada lawan, kamu bisa dipasangkan dengan lawan yang dikendalikan komputer.",
+			contact: "Untuk menghapus datamu, tulis ke {0} dengan menyebutkan nama panggilanmu."
 		} });
 		merge(EN.STR, {
 			menu: { trainDrill: "Latihan tangkis" },

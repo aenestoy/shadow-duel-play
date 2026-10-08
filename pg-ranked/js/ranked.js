@@ -392,8 +392,14 @@
 		boardFallback();
 		if (screen === "home") render();
 	}
+	let nameSkip = false;
+	const nameAsk = () => identity() === "guest" && !nameSkip && !window.__ndTestBuild && !(ND.cgAccount && ND.cgAccount.available) && !!(LB() && !LB().nameLocked && typeof LB().saveName === "function" && ND.lbUI);
 	async function find(keep) {
 		if (busyCall) return;
+		if (!keep && !(Q || X && !X.done) && nameAsk()) {
+			show("name");
+			return;
+		}
 		flashMsg = "";
 		const ranked = identity() !== "guest" && !window.__ndTestBuild;
 		busyCall = true;
@@ -700,6 +706,7 @@
 		if (screen === "found" && was === "found") renderFound();
 	}
 	const ghostOk = () => !!(ND.ghost && typeof ND.ghost.level === "function");
+	const marked = (x) => !!(x && x.ghost && !x.plain);
 	const ghostLabel = (o, L = M()) => o && o.house ? L.ghostHouseName(o.name || "—") : L.ghostName(o && o.name || "—");
 	const GHOST_GO_MS = 3e3;
 	const aiTag = () => {
@@ -754,7 +761,7 @@
 				on: why === "early",
 				why
 			});
-			q.ghostAt = Date.now() + (why === "early" ? Math.max(1, +r.wait_s || 1) * 1e3 : 2e4);
+			q.ghostAt = Date.now() + (why === "early" ? Math.max(1, +r.wait_s || 1) * 1e3 + Math.random() * 2500 : 2e4);
 			if (screen === "queue") renderQueue();
 		}).catch(() => {
 			q.ghostBusy = false;
@@ -781,8 +788,16 @@
 		stopAsk();
 		const w = Math.max(0, Math.min(1, +o.weight || 0));
 		stat("rk_found_shadow_" + waitTag(q.since));
+		const plain = !!o.plain;
+		const hh = (s) => {
+			let h = 2166136261;
+			for (const ch of String(s)) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+			return h >>> 0;
+		};
+		const seed = hh(o.nick || o.id);
 		const x = X = {
 			ghost: true,
+			plain,
 			id: o.id,
 			token: o.token,
 			side: 0,
@@ -805,11 +820,18 @@
 				status: "found",
 				side: 0,
 				ranked: true,
-				ghost: true,
+				ghost: !plain,
 				weight: w,
-				accept_ms: +window.__rkGhostGoMs || GHOST_GO_MS,
+				accept_ms: plain ? 12e3 : +window.__rkGhostGoMs || GHOST_GO_MS,
 				pick_ms: 15e3,
-				opp: {
+				opp: plain ? {
+					name: String(o.nick || "—"),
+					tier: o.tier == null ? null : o.tier | 0,
+					placement: 0,
+					rating: +o.rating > 0 ? Math.round(+o.rating) : null,
+					dan: +o.dan > 0 ? +o.dan | 0 : 1 + seed % 12,
+					touch: o.touch != null ? !!o.touch : !!(seed & 16)
+				} : {
 					name: String(o.nick || "—"),
 					ghost: true,
 					house: !!o.house,
@@ -818,17 +840,18 @@
 					flair: o.flair && typeof o.flair === "object" ? o.flair : null
 				},
 				chars: Array.isArray(o.chars) ? o.chars.filter((c) => typeof c === "string") : [],
-				picked: [false, true],
+				picked: [false, !plain],
 				live: null,
 				result: null
-			}
+			},
+			fakeRtt: 35 + seed % 70
 		};
 		alertFound();
 		show("found");
 		const tick = () => {
 			if (X !== x || x.accepted) return;
 			if (Date.now() - x.viewAt >= x.view.accept_ms) {
-				ghostAccept(true);
+				ghostAccept(!x.plain);
 				return;
 			}
 			x.timer = later(tick, 500);
@@ -853,9 +876,22 @@
 		}
 		x.accepted = true;
 		stopQueue(true);
-		x.view.status = "picking";
-		x.viewAt = Date.now();
-		show("pick");
+		const go = () => {
+			if (X !== x) return;
+			x.view.status = "picking";
+			x.viewAt = Date.now();
+			show("pick");
+			if (x.plain) x.timer = later(() => {
+				if (X === x && x.view.picked) {
+					x.view.picked[1] = true;
+					if (screen === "pick") renderPick();
+				}
+			}, 2500 + Math.random() * 5e3);
+		};
+		if (x.plain) {
+			render();
+			x.timer = later(go, 700 + Math.random() * 1600);
+		} else go();
 	}
 	async function ghostStart(x) {
 		let r = null;
@@ -1622,6 +1658,10 @@
   .rk-st.rk-shield { color: #9fd0ff; font-weight: 600; }
   .rk-st.rk-honor { color: var(--gold); font-weight: 600; }
   .rk-err { color: #ffb4a8; font-size: 14px; }
+  /* 1.5.3: the guest's name step (renderName) */
+  .rk-name { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 6px 0 2px; }
+  .rk-name input { flex: 1 1 180px; min-width: 0; max-width: 320px; box-sizing: border-box; padding: 10px 12px; font: 600 18px/1.2 var(--body); color: var(--text); background: rgba(0,0,0,.35); border: 1px solid var(--gold, #d9b36c); border-radius: 6px; }
+  #rk .rk-card.name .rk-btns .btn.primary .rkc-fast { display: block; margin-top: 3px; font: 500 11px/1.1 var(--body); letter-spacing: .02em; text-transform: none; opacity: .9; }
   .rk-lbl { font: 500 11px/1 var(--display); letter-spacing: .2em; text-transform: uppercase; color: var(--muted); }
   .rk-badge { display: inline-flex; align-items: baseline; gap: 6px; padding: 5px 10px; border: 1px solid var(--tc, var(--line)); color: var(--tc, var(--text)); font: 600 16px/1 var(--display); letter-spacing: .06em; white-space: nowrap; }
   .rk-badge b { font: 700 20px/1 var(--jp); }
@@ -2050,6 +2090,7 @@
 		if (!built || !screen) return;
 		if (screen === "home") renderHome();
 		else if (screen === "rules") renderRules();
+		else if (screen === "name") renderName();
 		else if (screen === "rewards") renderRewards();
 		else if (screen === "queue") renderQueue();
 		else if (screen === "found") renderFound();
@@ -2196,7 +2237,7 @@
 		flashMsg = "";
 		c.append(err);
 		const row = el("div", "rk-btns");
-		const fb = btn(id === "guest" ? L.findUnranked : L.find, "primary", () => find());
+		const fb = btn(id === "guest" && !nameAsk() ? L.findUnranked : L.find, "primary", () => find());
 		fb.id = "rkFind";
 		if (busyCall) fb.disabled = true;
 		row.append(fb);
@@ -2293,6 +2334,138 @@
 		rulesFirst = false;
 		show("home");
 	}
+	const NAME_WORDS = [
+		"Ronin",
+		"Kage",
+		"Kitsune",
+		"Tengu",
+		"Raiden",
+		"Kaze",
+		"Okami",
+		"Ryu",
+		"Tora",
+		"Hayabusa",
+		"Kumo",
+		"Yami",
+		"Hoshi",
+		"Sora",
+		"Taka",
+		"Akari"
+	];
+	let nameDraft = "", nameErr = "", nameBusy = false;
+	function suggestName() {
+		const ok = (n) => {
+			const L = LB();
+			return !L || !L.checkName || L.checkName(n).ok;
+		};
+		for (let i = 0; i < 20; i++) {
+			const n = NAME_WORDS[Math.random() * NAME_WORDS.length | 0] + (10 + (Math.random() * 990 | 0));
+			if (ok(n)) return n;
+		}
+		return "Ronin" + (100 + (Math.random() * 900 | 0));
+	}
+	function nameCancel() {
+		nameSkip = true;
+		nameDraft = "";
+		nameErr = "";
+		show("home");
+	}
+	async function nameGo(value) {
+		if (nameBusy) return;
+		const L = LB(), T = L && ND.STR && ND.STR.lb || {};
+		nameBusy = true;
+		nameErr = "";
+		render();
+		let r;
+		try {
+			r = await L.saveName(value);
+		} catch (e) {
+			r = {
+				ok: false,
+				code: "error"
+			};
+		}
+		nameBusy = false;
+		const a = adapter();
+		if (!r || !r.ok || r.offline || !(a && a.pid)) {
+			nameDraft = value;
+			nameErr = (r && r.offline ? (M().err || TR.err).network : T.nickErr && r && T.nickErr[r.code] || T.nickErrDef) || (M().err || TR.err).other;
+			if (screen === "name") render();
+			return;
+		}
+		nameDraft = "";
+		me = null;
+		await loadMe();
+		if (screen !== "name") return;
+		show("home");
+		find();
+	}
+	function renderName() {
+		const L = M(), c = card(false);
+		c.classList.add("name");
+		c.append(head("名", FTR("Your fighter name"), FTR("Rivals and the leaderboards see this name")));
+		if (!nameDraft) nameDraft = suggestName();
+		const form = el("form", "rk-name");
+		const inp = el("input");
+		inp.type = "text";
+		inp.id = "rkName";
+		inp.maxLength = 16;
+		inp.autocomplete = "off";
+		inp.spellcheck = false;
+		inp.value = nameDraft;
+		inp.setAttribute("enterkeyhint", "go");
+		inp.setAttribute("aria-label", FTR("Your fighter name"));
+		inp.lang = "en";
+		inp.addEventListener("keydown", (e) => {
+			e.stopPropagation();
+			if (e.key === "Escape") {
+				e.preventDefault();
+				nameCancel();
+			}
+		});
+		inp.addEventListener("keyup", (e) => e.stopPropagation());
+		inp.addEventListener("input", () => {
+			nameDraft = inp.value;
+			if (nameErr) {
+				nameErr = "";
+				const e2 = $("rkNameErr");
+				if (e2) e2.textContent = "";
+			}
+		});
+		const reroll = el("button", "btn mini", FTR("Another name"));
+		reroll.type = "button";
+		reroll.id = "rkNameNew";
+		reroll.onclick = () => {
+			try {
+				if (ND.audio) ND.audio.ui();
+			} catch (e) {}
+			nameDraft = suggestName();
+			nameErr = "";
+			render();
+		};
+		form.append(inp, reroll);
+		form.onsubmit = (e) => {
+			e.preventDefault();
+			nameGo(inp.value);
+		};
+		c.append(form);
+		const err = el("p", "rk-err", nameErr);
+		err.id = "rkNameErr";
+		err.setAttribute("role", "alert");
+		c.append(err);
+		const row = el("div", "rk-btns");
+		const go = btn(FTR("FIGHT"), "primary", () => nameGo(inp.value));
+		go.id = "rkNameGo";
+		go.disabled = nameBusy;
+		const fs2 = el("small", "rkc-fast", FTR("Match in seconds"));
+		go.append(fs2);
+		row.append(go, btn(L.cancel, "", () => nameCancel()));
+		c.append(row);
+		setTimeout(() => {
+			const b = $("rkNameGo");
+			if (b && screen === "name" && !nameBusy) b.focus();
+		}, 0);
+	}
 	function renderRules() {
 		const L = M(), c = card(true), T0 = (k) => L[k] != null ? L[k] : TR[k];
 		c.classList.add("rules");
@@ -2363,7 +2536,6 @@
 		sec(T0("rSeason"), T0("rSeasonLine")(days, S ? seasonLeft() : L.endsIn(days)), T0("rSeasonEnd")(RULES.placeNext), T0("rReward")(names.length ? names.join(", ") : T0("rRewardAny"), RULES.minPlayers));
 		sec(T0("rBoard"), T0("rBoardLine")(boardGames()));
 		sec(T0("rFighters"), T0("rFightersLine"));
-		right.append(el("p", "rk-ai", T0("aiNote")));
 		const row = el("div", "rk-btns");
 		const ok = btn(rulesFirst ? T0("gotIt") : L.back, "primary", () => rulesDone());
 		ok.id = "rkRulesOk";
@@ -2501,7 +2673,7 @@
 	}
 	function renderFound() {
 		if (screen !== "found" || !X) return;
-		if (X.ghost) {
+		if (marked(X)) {
 			renderGhostFound();
 			return;
 		}
@@ -2513,9 +2685,9 @@
 		const row = el("div", "rk-btns");
 		if (X.accepted) row.append(el("p", "rk-st", L.waitOpp));
 		else {
-			const a = btn(L.accept, "primary", () => accept(true));
+			const a = btn(L.accept, "primary", () => X.ghost ? ghostAccept(true) : accept(true));
 			a.id = "rkAccept";
-			row.append(a, btn(L.decline, "", () => accept(false)));
+			row.append(a, btn(L.decline, "", () => X.ghost ? ghostAccept(false) : accept(false)));
 		}
 		c.append(row);
 		clearTimeout(renderFound.t);
@@ -2542,7 +2714,7 @@
 		}
 		body.append(side);
 		c.append(body);
-		if (X.ghost) {
+		if (marked(X)) {
 			const g = el("p", "rk-st rk-ghost-in");
 			g.append(ghostMark(true), el("span", null, ghostLabel(v.opp, L) + " · " + L.ghostReady), aiTag());
 			side.append(g);
@@ -2727,8 +2899,8 @@
 			ninja: P[other],
 			look: looks[other],
 			season,
-			ghost: !!x.ghost,
-			name: x.ghost ? ghostLabel(opp, L) : null
+			ghost: marked(x),
+			name: marked(x) ? ghostLabel(opp, L) : null
 		});
 		const plate = (o) => ND.pass && ND.pass.plateData ? ND.pass.plateData(o) : null;
 		const a = ND.ARENAS.find((q) => q.id === v.live.arena);
@@ -2740,8 +2912,11 @@
 			arenaKanji: a ? a.kanji : "",
 			tag: v.ranked ? L.ranked : L.unranked,
 			plates: [null, opp.plate || x.ghost || opp.guest ? null : plate(opp)],
-			status: () => x.ghost ? {
+			status: () => marked(x) ? {
 				text: "影 " + (L.ghostReady || ""),
+				ok: true
+			} : x.ghost ? {
+				text: ND.rankVs.t(4),
 				ok: true
 			} : K && K.connected ? {
 				text: ND.rankVs.t(4),
@@ -2773,7 +2948,7 @@
 			if (p && !p.guest && (p.tier != null || p.placement > 0)) d.append(badge(p.tier, p.placement, true, { size: 26 }));
 			return d;
 		};
-		const mine = X.side, on = v.opp && v.opp.name ? X.ghost ? ghostLabel(v.opp, L) : v.opp.name : "", mp = me && !me.guest ? me : null;
+		const mine = X.side, on = v.opp && v.opp.name ? marked(X) ? ghostLabel(v.opp, L) : v.opp.name : "", mp = me && !me.guest ? me : null;
 		vs.append(f(P[0], mine === 0 ? L.you : on, mine === 0 ? mp : v.opp), el("span", "v", "対"), f(P[1], mine === 1 ? L.you : on, mine === 1 ? mp : v.opp));
 		if (ND.pass && ND.pass.matchFlair) ND.pass.matchFlair(X.side, v.opp);
 		if (ND.flair) {
@@ -2783,8 +2958,8 @@
 		c.append(vs);
 		const a = ND.ARENAS.find((x) => x.id === v.live.arena);
 		c.append(el("p", "rk-st", (a ? a.name : "") + " · " + (v.ranked ? L.ranked : L.unranked)));
-		if (X.ghost) c.append(ghostMark(true));
-		else if (!(K && K.connected)) c.append(el("p", "rk-st", L.connecting));
+		if (marked(X)) c.append(ghostMark(true));
+		else if (!X.ghost && !(K && K.connected)) c.append(el("p", "rk-st", L.connecting));
 	}
 	function renderResult() {
 		if (screen !== "result" || !X) return;
@@ -2800,10 +2975,10 @@
 		} else if (w === -1) title = L.draw;
 		else if (w === side) title = L.win;
 		else if (w === 1 - side) title = L.lose;
-		if (!why) why = res.self ? x.ghost ? L.ghostLeft : L.youLeft : res.reason === "left" ? L.oppLeft : R && R.verdict === "silent" && w === side ? L.silent : "";
-		const oppName = v.opp && v.opp.name ? x.ghost ? ghostLabel(v.opp, L) : v.opp.name : "";
+		if (!why) why = res.self ? marked(x) ? L.ghostLeft : L.youLeft : res.reason === "left" ? L.oppLeft : R && R.verdict === "silent" && w === side ? L.silent : "";
+		const oppName = v.opp && v.opp.name ? marked(x) ? ghostLabel(v.opp, L) : v.opp.name : "";
 		c.append(head(w === side && R ? "勝" : "試", title, (res.wins ? L.rounds(res.wins[side] | 0, res.wins[1 - side] | 0) + " · " : "") + oppName));
-		if (x.ghost) {
+		if (marked(x)) {
 			const g = el("p", "rk-st rk-ghost-in");
 			g.append(ghostMark(true), el("span", null, oppName), aiTag());
 			c.append(g);
@@ -2885,6 +3060,11 @@
 	}
 	function hudPing() {
 		const e = $("rkPing");
+		if (e && X && X.plain && X.ghost) {
+			const ms = X.fakeRtt + (Math.random() * 9 | 0) - 4;
+			e.textContent = "Ping " + ms + " ms";
+			return;
+		}
 		if (e && X && X.ghost) {
 			e.textContent = "影 " + M().ghostTag + " · " + (M().aiTag || TR.aiTag);
 			return;
@@ -3018,6 +3198,7 @@
 			if (I.isEditable(e.target)) return false;
 			if (I.isBack(e) && !e.repeat) {
 				if (screen === "home") close();
+				else if (screen === "name") nameCancel();
 				else if (screen === "rewards") show("home");
 				else if (screen === "rules") rulesDone();
 				else if (screen === "queue") {
@@ -3533,7 +3714,7 @@
 		}
 		if (fb) {
 			const label = Q ? C2.searching : X && !X.done ? C2.resume : C2.findMatch;
-			const fast = !Q && !(X && !X.done) && (kind === "new" || kind === "player");
+			const fast = !Q && !(X && !X.done) && (kind === "new" || kind === "player" || kind === "guest" && nameAsk());
 			fb.textContent = label;
 			if (fast) {
 				const sm = el("small", "rkc-fast", FTR("Match in seconds"));
@@ -3636,12 +3817,12 @@
 		const dlg = $("end") && $("end").querySelector(".dialog"), btns = dlg && dlg.querySelector(".btns");
 		if (!btns) return;
 		css();
-		const fast = identity() !== "guest";
+		const fast = identity() !== "guest" || nameAsk();
 		const c = document.createElement("div");
 		c.id = "rkPush";
 		c.innerHTML = "<b class=\"rp-k\" aria-hidden=\"true\">戦</b><div class=\"rp-t\"><b></b><span></span>" + (fast ? "<small></small>" : "") + "</div>" + "<div class=\"rp-b\"><button class=\"btn rp-go\" type=\"button\"></button><button class=\"btn rp-no\" type=\"button\"></button></div>";
 		c.querySelector(".rp-t b").textContent = FTR("Ready for real rivals?");
-		c.querySelector(".rp-t span").textContent = FTR("Real players and their shadows, a rank to climb, season rewards");
+		c.querySelector(".rp-t span").textContent = FTR("Rivals, a rank to climb, season rewards");
 		if (fast) c.querySelector(".rp-t small").textContent = FTR("Match in seconds");
 		c.querySelector(".rp-go").textContent = FTR("TRY RANKED");
 		c.querySelector(".rp-no").textContent = FTR("Not now");
@@ -3706,6 +3887,13 @@
 			key: PUSH_KEY
 		},
 		find: () => find(),
+		nameCancel: () => {
+			if (screen === "name") nameCancel();
+		},
+		nameGo: (n) => nameGo(n != null ? n : ($("rkName") || {}).value || nameDraft),
+		skipName: () => {
+			nameSkip = true;
+		},
 		syncEntry: () => syncMenuEntry(),
 		cancel: () => {
 			stopQueue(true);
@@ -3729,10 +3917,12 @@
 		ghostAccept: (ok) => ghostAccept(ok !== false),
 		labels: () => M(),
 		get shadowTag() {
+			if (X && X.plain && X.ghost && X.view.opp) return String(X.view.opp.name || "").slice(0, 20);
 			return X && X.ghost && X.view.opp ? ("影 " + ghostLabel(X.view.opp)).slice(0, 26) + " · " + (M().aiTag || TR.aiTag) : null;
 		},
 		state: () => ({
 			screen,
+			nameAsk: nameAsk(),
 			identity: identity(),
 			server: serverHas(),
 			queue: Q ? {
@@ -3748,6 +3938,7 @@
 				status: X.view.status,
 				ranked: X.view.ranked,
 				ghost: !!X.ghost,
+				plain: !!X.plain,
 				weight: X.ghost ? X.view.weight : null,
 				opp: X.view.opp,
 				live: X.view.live || null,

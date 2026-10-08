@@ -1857,7 +1857,9 @@
 			label: "Datenschutzhinweis",
 			noticeNet: "Online-Spiel: Dein Spitzname, deine Punkte und deine Ranglistenspiele werden auf dem Server des Spiels gespeichert.",
 			more: "Details",
-			details: "Auf dem Server des Spiels gespeichert: eine zufällige Kennung, die auf diesem Gerät erzeugt wird, der Spitzname, den du wählst, deine Punkte, dein Level und deine Ranglistenergebnisse (kein Konto, keine E-Mail, kein echter Name). Spitznamen und Punkte sind in den Bestenlisten öffentlich. In einem Ranglistenspiel verbindet sich dein Gerät direkt oder über einen Relay-Server mit dem deines Gegners, daher kann jede Seite die IP-Adresse der anderen sehen; unser Server speichert davon nur eine unumkehrbar umgewandelte (gehashte) Form, damit die Spiele fair bleiben."
+			details: "Auf dem Server des Spiels gespeichert: eine zufällige Kennung, die auf diesem Gerät erzeugt wird, der Spitzname, den du wählst, deine Punkte, dein Level und deine Ranglistenergebnisse (kein Konto, keine E-Mail, kein echter Name). Spitznamen und Punkte sind in den Bestenlisten öffentlich. In einem Ranglistenspiel verbindet sich dein Gerät direkt oder über einen Relay-Server mit dem deines Gegners, daher kann jede Seite die IP-Adresse der anderen sehen; unser Server speichert davon nur eine unumkehrbar umgewandelte (gehashte) Form, damit die Spiele fair bleiben.",
+			computer: "Wenn kein Gegner verfügbar ist, kannst du gegen einen computergesteuerten Gegner antreten.",
+			contact: "Um deine Daten löschen zu lassen, schreib mit deinem Spitznamen an {0}."
 		} });
 		merge(EN.STR, {
 			menu: { trainDrill: "Parier-Übung" },

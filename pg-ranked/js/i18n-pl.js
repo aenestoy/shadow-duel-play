@@ -1869,7 +1869,9 @@
 			label: "Informacja o prywatności",
 			noticeNet: "Gra online: twój pseudonim, wyniki i mecze rankingowe są zapisywane na serwerze gry.",
 			more: "Szczegóły",
-			details: "Na serwerze gry zapisywane są: losowy identyfikator utworzony na tym urządzeniu, wybrany przez ciebie pseudonim, twoje wyniki, poziom i wyniki meczów rankingowych (bez konta, e-maila i prawdziwego imienia). Pseudonimy i wyniki są publiczne w rankingach. W meczu rankingowym twoje urządzenie łączy się z urządzeniem przeciwnika bezpośrednio lub przez serwer przekaźnikowy, więc każda strona może zobaczyć adres IP drugiej; nasz serwer przechowuje tylko jego nieodwracalnie przekształconą (zahaszowaną) postać, aby mecze były uczciwe."
+			details: "Na serwerze gry zapisywane są: losowy identyfikator utworzony na tym urządzeniu, wybrany przez ciebie pseudonim, twoje wyniki, poziom i wyniki meczów rankingowych (bez konta, e-maila i prawdziwego imienia). Pseudonimy i wyniki są publiczne w rankingach. W meczu rankingowym twoje urządzenie łączy się z urządzeniem przeciwnika bezpośrednio lub przez serwer przekaźnikowy, więc każda strona może zobaczyć adres IP drugiej; nasz serwer przechowuje tylko jego nieodwracalnie przekształconą (zahaszowaną) postać, aby mecze były uczciwe.",
+			computer: "Jeśli żaden przeciwnik nie jest dostępny, możesz zagrać z przeciwnikiem sterowanym przez komputer.",
+			contact: "Aby usunąć swoje dane, napisz na {0}, podając swój pseudonim."
 		} });
 		merge(EN.STR, {
 			menu: { trainDrill: "Ćwiczenie parowania" },

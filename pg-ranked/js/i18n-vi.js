@@ -1857,7 +1857,9 @@
 			label: "Thông báo quyền riêng tư",
 			noticeNet: "Chơi trực tuyến: biệt danh, điểm số và các trận xếp hạng của bạn được lưu trên máy chủ của trò chơi.",
 			more: "Chi tiết",
-			details: "Được lưu trên máy chủ trò chơi: một mã ngẫu nhiên tạo trên thiết bị này, biệt danh bạn chọn, điểm số, cấp độ và kết quả xếp hạng của bạn (không có tài khoản, email hay tên thật). Biệt danh và điểm số được công khai trên bảng xếp hạng. Trong trận xếp hạng, thiết bị của bạn kết nối với thiết bị của đối thủ trực tiếp hoặc qua một máy chủ chuyển tiếp, nên mỗi bên có thể thấy địa chỉ IP của bên kia; máy chủ của chúng tôi chỉ giữ một dạng đã biến đổi không thể đảo ngược (băm) để giữ các trận đấu công bằng."
+			details: "Được lưu trên máy chủ trò chơi: một mã ngẫu nhiên tạo trên thiết bị này, biệt danh bạn chọn, điểm số, cấp độ và kết quả xếp hạng của bạn (không có tài khoản, email hay tên thật). Biệt danh và điểm số được công khai trên bảng xếp hạng. Trong trận xếp hạng, thiết bị của bạn kết nối với thiết bị của đối thủ trực tiếp hoặc qua một máy chủ chuyển tiếp, nên mỗi bên có thể thấy địa chỉ IP của bên kia; máy chủ của chúng tôi chỉ giữ một dạng đã biến đổi không thể đảo ngược (băm) để giữ các trận đấu công bằng.",
+			computer: "Nếu không có đối thủ, bạn có thể được ghép với đối thủ do máy tính điều khiển.",
+			contact: "Để xóa dữ liệu của bạn, hãy viết tới {0} kèm biệt danh."
 		} });
 		merge(EN.STR, {
 			menu: { trainDrill: "Tập gạt đòn" },

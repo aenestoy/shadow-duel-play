@@ -1857,7 +1857,9 @@
 			label: "Privacy notice",
 			noticeNet: "Online play: your nickname, scores and ranked matches are saved on the game's server.",
 			more: "Details",
-			details: "Saved on the game's server: a random ID made on this device, the nickname you choose, your scores, level and ranked results (no account, e-mail or real name). Nicknames and scores are public on the leaderboards. In a ranked match your device connects to your opponent's, directly or through a relay server, so each side can see the other's IP address; our server keeps only a scrambled (one-way hashed) form of it, to keep matches fair."
+			details: "Saved on the game's server: a random ID made on this device, the nickname you choose, your scores, level and ranked results (no account, e-mail or real name). Nicknames and scores are public on the leaderboards. In a ranked match your device connects to your opponent's, directly or through a relay server, so each side can see the other's IP address; our server keeps only a scrambled (one-way hashed) form of it, to keep matches fair.",
+			computer: "If no opponent is available, you may be matched with a computer-controlled opponent.",
+			contact: "To have your data removed, write to {0} with your nickname."
 		} });
 		merge(EN.STR, {
 			menu: { trainDrill: "Parry drill" },

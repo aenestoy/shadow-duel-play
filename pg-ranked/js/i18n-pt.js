@@ -1857,7 +1857,9 @@
 			label: "Aviso de privacidade",
 			noticeNet: "Jogo online: seu apelido, suas pontuações e suas partidas ranqueadas ficam salvos no servidor do jogo.",
 			more: "Detalhes",
-			details: "Fica salvo no servidor do jogo: um ID aleatório criado neste dispositivo, o apelido que você escolher, suas pontuações, seu nível e seus resultados ranqueados (sem conta, e-mail ou nome real). Apelidos e pontuações são públicos nos rankings. Numa partida ranqueada, seu dispositivo se conecta ao do adversário, diretamente ou por um servidor de retransmissão, então cada lado pode ver o endereço IP do outro; nosso servidor guarda só uma forma embaralhada de modo irreversível (hash), para manter as partidas justas."
+			details: "Fica salvo no servidor do jogo: um ID aleatório criado neste dispositivo, o apelido que você escolher, suas pontuações, seu nível e seus resultados ranqueados (sem conta, e-mail ou nome real). Apelidos e pontuações são públicos nos rankings. Numa partida ranqueada, seu dispositivo se conecta ao do adversário, diretamente ou por um servidor de retransmissão, então cada lado pode ver o endereço IP do outro; nosso servidor guarda só uma forma embaralhada de modo irreversível (hash), para manter as partidas justas.",
+			computer: "Se não houver adversário disponível, você pode enfrentar um adversário controlado pelo computador.",
+			contact: "Para apagar seus dados, escreva para {0} informando seu apelido."
 		} });
 		merge(EN.STR, {
 			menu: { trainDrill: "Treino de aparar" },

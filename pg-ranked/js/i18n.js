@@ -1259,7 +1259,9 @@
 		label: "Gizlilik bildirimi",
 		noticeNet: "Çevrimiçi oyun: takma adın, skorların ve dereceli maçların oyunun sunucusunda kaydedilir.",
 		more: "Ayrıntılar",
-		details: "Oyunun sunucusunda kaydedilenler: bu cihazda oluşturulan rastgele bir kimlik, seçtiğin takma ad, skorların, seviyen ve dereceli sonuçların (hesap, e-posta ya da gerçek ad yok). Takma adlar ve skorlar sıralamalarda herkese açıktır. Dereceli maçta cihazın rakibininkine doğrudan ya da bir aktarma sunucusu üzerinden bağlanır; bu yüzden iki taraf birbirinin IP adresini görebilir. Sunucumuz bunun yalnızca geri çevrilemez biçimde karıştırılmış hâlini, maçları adil tutmak için saklar."
+		details: "Oyunun sunucusunda kaydedilenler: bu cihazda oluşturulan rastgele bir kimlik, seçtiğin takma ad, skorların, seviyen ve dereceli sonuçların (hesap, e-posta ya da gerçek ad yok). Takma adlar ve skorlar sıralamalarda herkese açıktır. Dereceli maçta cihazın rakibininkine doğrudan ya da bir aktarma sunucusu üzerinden bağlanır; bu yüzden iki taraf birbirinin IP adresini görebilir. Sunucumuz bunun yalnızca geri çevrilemez biçimde karıştırılmış hâlini, maçları adil tutmak için saklar.",
+		computer: "Rakip bulunamazsa bilgisayarın yönettiği bir rakiple eşleşebilirsin.",
+		contact: "Verilerinin silinmesi için takma adınla birlikte {0} adresine yaz."
 	});
 	if (!ND.I18N_MANUAL) {
 		const first = initialLang();

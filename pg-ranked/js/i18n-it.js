@@ -1857,7 +1857,9 @@
 			label: "Avviso sulla privacy",
 			noticeNet: "Gioco online: il tuo nickname, i tuoi punteggi e le tue partite classificate vengono salvati sul server del gioco.",
 			more: "Dettagli",
-			details: "Salvati sul server del gioco: un ID casuale creato su questo dispositivo, il nickname che scegli, i tuoi punteggi, il tuo livello e i risultati delle classificate (nessun account, e-mail o nome reale). Nickname e punteggi sono pubblici nelle classifiche. In una partita classificata il tuo dispositivo si collega a quello dell'avversario, direttamente o tramite un server di inoltro, quindi ciascuno può vedere l'indirizzo IP dell'altro; il nostro server ne conserva solo una forma trasformata in modo irreversibile (hash), per mantenere le partite corrette."
+			details: "Salvati sul server del gioco: un ID casuale creato su questo dispositivo, il nickname che scegli, i tuoi punteggi, il tuo livello e i risultati delle classificate (nessun account, e-mail o nome reale). Nickname e punteggi sono pubblici nelle classifiche. In una partita classificata il tuo dispositivo si collega a quello dell'avversario, direttamente o tramite un server di inoltro, quindi ciascuno può vedere l'indirizzo IP dell'altro; il nostro server ne conserva solo una forma trasformata in modo irreversibile (hash), per mantenere le partite corrette.",
+			computer: "Se non ci sono avversari disponibili, potresti affrontare un avversario controllato dal computer.",
+			contact: "Per far cancellare i tuoi dati, scrivi a {0} indicando il tuo nickname."
 		} });
 		merge(EN.STR, {
 			menu: { trainDrill: "Esercizio parate" },

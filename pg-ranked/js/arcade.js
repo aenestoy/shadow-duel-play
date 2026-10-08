@@ -1120,6 +1120,44 @@
 		playgama: 1
 	};
 	const MIRROR_MAX = 4e5;
+	const KV_PORTALS = { playgama: 1 };
+	const KV_KEYS = [
+		KEY,
+		"golge-duellosu-funnel",
+		"nd-rkpush",
+		"sd.duel.ctxHint",
+		"sd_fin_hint",
+		"nd-loadtip"
+	];
+	const kvOn = () => !!KV_PORTALS[ND.portalName];
+	let kvRestoring = false;
+	const kvBag = () => {
+		const o = {};
+		for (const k of KV_KEYS) {
+			const v = rawGet(k);
+			if (typeof v === "string" && v.length <= 2e4) o[k] = v;
+		}
+		return o;
+	};
+	const withKv = (v) => {
+		try {
+			const o = JSON.parse(v);
+			if (o && typeof o === "object") {
+				o._kv = kvBag();
+				return JSON.stringify(o);
+			}
+		} catch (e) {}
+		return v;
+	};
+	function kvRestore(kv) {
+		if (!kv || typeof kv !== "object") return;
+		kvRestoring = true;
+		try {
+			for (const k of KV_KEYS) if (typeof kv[k] === "string" && kv[k].length <= 2e4) rawSet(k, kv[k]);
+		} finally {
+			kvRestoring = false;
+		}
+	}
 	let mirrorT = 0;
 	const mirror = (k, v) => {
 		const P = ND.portal;
@@ -1127,10 +1165,36 @@
 		clearTimeout(mirrorT);
 		mirrorT = setTimeout(() => {
 			try {
-				P.save(k, v);
+				P.save(k, k === PKEY && kvOn() ? withKv(v) : v);
 			} catch (e) {}
 		}, 500);
 	};
+	let kvT = 0;
+	if (kvOn() && ls && typeof Storage === "function" && ls instanceof Storage) {
+		const set0 = Storage.prototype.setItem, rem0 = Storage.prototype.removeItem;
+		const touched = (s, k) => {
+			if (s === ls && !kvRestoring && KV_KEYS.includes(String(k))) {
+				clearTimeout(kvT);
+				kvT = setTimeout(() => {
+					try {
+						ND.save.commit();
+					} catch (e) {}
+				}, 1500);
+			}
+		};
+		try {
+			Storage.prototype.setItem = function(k, v) {
+				const r = set0.call(this, k, v);
+				touched(this, k);
+				return r;
+			};
+			Storage.prototype.removeItem = function(k) {
+				const r = rem0.call(this, k);
+				touched(this, k);
+				return r;
+			};
+		} catch (e) {}
+	}
 	const START_CHARS = [
 		"akane",
 		"aoi",
@@ -1448,7 +1512,10 @@
 				} catch (e) {
 					r = null;
 				}
+				const kv = r && typeof r === "object" ? r._kv : null;
+				if (r && typeof r === "object") delete r._kv;
 				if (r && typeof r === "object" && (r.ts || 0) > (this.p.ts || 0)) {
+					if (kvOn()) kvRestore(kv);
 					rawSet(PKEY, JSON.stringify(r));
 					this._p = null;
 					if (ND.arcade && ND.arcade.G) ND.arcade.refreshMenu();

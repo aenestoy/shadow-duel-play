@@ -1857,7 +1857,9 @@
 			label: "Aviso de privacidad",
 			noticeNet: "Juego en línea: tu apodo, tus puntuaciones y tus partidas clasificatorias se guardan en el servidor del juego.",
 			more: "Detalles",
-			details: "Se guarda en el servidor del juego: un identificador aleatorio creado en este dispositivo, el apodo que elijas, tus puntuaciones, tu nivel y tus resultados clasificatorios (sin cuenta, correo ni nombre real). Los apodos y las puntuaciones son públicos en las clasificaciones. En una partida clasificatoria tu dispositivo se conecta con el de tu rival, directamente o a través de un servidor de retransmisión, así que cada lado puede ver la dirección IP del otro; nuestro servidor solo guarda una forma transformada de manera irreversible (hash) para que las partidas sean justas."
+			details: "Se guarda en el servidor del juego: un identificador aleatorio creado en este dispositivo, el apodo que elijas, tus puntuaciones, tu nivel y tus resultados clasificatorios (sin cuenta, correo ni nombre real). Los apodos y las puntuaciones son públicos en las clasificaciones. En una partida clasificatoria tu dispositivo se conecta con el de tu rival, directamente o a través de un servidor de retransmisión, así que cada lado puede ver la dirección IP del otro; nuestro servidor solo guarda una forma transformada de manera irreversible (hash) para que las partidas sean justas.",
+			computer: "Si no hay ningún rival disponible, puedes enfrentarte a un rival controlado por el ordenador.",
+			contact: "Para que se borren tus datos, escribe a {0} indicando tu apodo."
 		} });
 		merge(EN.STR, {
 			menu: { trainDrill: "Práctica de desvío" },
