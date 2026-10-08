@@ -2686,16 +2686,32 @@ void main(){
       const loop = (now) => { T.push(now - last); last = now; requestAnimationFrame(loop); };
       requestAnimationFrame(loop);
       let wasEnd = false;
+
+
+
+      const REP = { id: Math.random().toString(36).slice(2, 12) + Date.now().toString(36), model: /[?&]ucbm=lod2(&|$)/.test(Q) ? '15k' : '30k', ua: navigator.userAgent, scr: [screen.width, screen.height, devicePixelRatio, innerWidth, innerHeight], gpu: '', tier: '', s: [], matches: 0 };
+      try { const c = document.createElement('canvas').getContext('webgl'); const x = c && c.getExtension('WEBGL_debug_renderer_info'); REP.gpu = x ? c.getParameter(x.UNMASKED_RENDERER_WEBGL) : c ? c.getParameter(c.RENDERER) : 'no webgl'; } catch (e) { REP.gpu = '?'; }
+      let sent = 0, ok = false;
+      const send = () => {
+        if (REP.s.length === sent) return;
+        sent = REP.s.length; REP.tier = (ND.gfx && ND.gfx.tier) || ''; REP.low = low; REP.under30 = REP.s.filter((v) => v < 30).length;
+        REP.avg = Math.round(REP.s.reduce((a, b) => a + b, 0) / REP.s.length);
+        const body = JSON.stringify(REP);
+        try { fetch('https://sd-fps-rapor.aenestoy.workers.dev/r', { method: 'POST', body, keepalive: true, headers: { 'Content-Type': 'text/plain' } }).then((r) => { ok = r.ok; }).catch(() => { ok = false; }); } catch (e) {            }
+      };
+      setInterval(send, 5000);
+      addEventListener('pagehide', () => { try { sent = -1; REP.tier = (ND.gfx && ND.gfx.tier) || ''; navigator.sendBeacon('https://sd-fps-rapor.aenestoy.workers.dev/r', JSON.stringify(REP)); } catch (e) {            } });
       setInterval(() => {
         if (!T.length) return;
         const fps = Math.round((1000 * T.length) / T.reduce((a, b) => a + b, 0));
         T = [];
         const ph = G.phase, inFight = ph === 'fight' && !document.hidden;
-        if ((ph === 'intro' || ph === 'prepare') && wasEnd) { low = null; }
+        if ((ph === 'intro' || ph === 'prepare') && wasEnd) { low = null; REP.matches++; }
         wasEnd = ph === 'end' || ph === 'select' ? true : ph === 'fight' ? false : wasEnd;
         if (inFight && (low == null || fps < low)) low = fps;
+        if (inFight && REP.s.length < 1200) REP.s.push(fps);
         const col = (v) => (v != null && v < 30 ? '#ff6b6b' : '#ffd27a');
-        tag.innerHTML = name + '<br>' + '<span style="color:' + col(fps) + '">' + fps + ' fps</span> · lowest <span style="color:' + col(low) + '">' + (low == null ? '-' : low + ' fps') + '</span>';
+        tag.innerHTML = name + (ok ? ' · ✓' : '') + '<br>' + '<span style="color:' + col(fps) + '">' + fps + ' fps</span> · lowest <span style="color:' + col(low) + '">' + (low == null ? '-' : low + ' fps') + '</span>';
       }, 1000);
     }, 200);
   }
