@@ -822,7 +822,31 @@ window.ND = window.ND || {};
         this.moveTo(x, y); this.lineTo(x + w, y); this.lineTo(x + w, y + h); this.lineTo(x, y + h); this.closePath();
       }
       roundRect(x, y, w, h) { this.rect(x, y, w, h); fail('roundRect'); }
-      arcTo() { fail('arcTo'); }
+
+
+
+      arcTo(x1, y1, x2, y2, r) {
+        if (!(Number.isFinite(x1) && Number.isFinite(y1) && Number.isFinite(x2) && Number.isFinite(y2) && Number.isFinite(r))) return;
+        if (r < 0) throw new DOMException('The radius provided is negative.', 'IndexSizeError');
+        if (!this.open) { this.moveTo(x1, y1); return; }
+
+        const det = this.a * this.d - this.b * this.c;
+        if (!det) { this.lineTo(x1, y1); return; }
+        const X = this.px[this.n - 1] - this.e, Y = this.py[this.n - 1] - this.f;
+        const x0 = (this.d * X - this.c * Y) / det, y0 = (this.a * Y - this.b * X) / det;
+        let ax = x0 - x1, ay = y0 - y1, bx = x2 - x1, by = y2 - y1;
+        const la = Math.hypot(ax, ay), lb = Math.hypot(bx, by);
+        if (!r || la < 1e-9 || lb < 1e-9) { this.lineTo(x1, y1); return; }
+        ax /= la; ay /= la; bx /= lb; by /= lb;
+        const cr = ax * by - ay * bx;
+        if (Math.abs(cr) < 1e-9) { this.lineTo(x1, y1); return; }
+        const half = Math.acos(Math.max(-1, Math.min(1, ax * bx + ay * by))) / 2, d = r / Math.tan(half);
+        const tx = x1 + ax * d, ty = y1 + ay * d, ux = x1 + bx * d, uy = y1 + by * d;
+        const mx = ax + bx, my = ay + by, ml = Math.hypot(mx, my), k = r / Math.sin(half) / ml;
+        const cx = x1 + mx * k, cy = y1 + my * k;
+        this.lineTo(tx, ty);
+        this.ellipse(cx, cy, r, r, 0, Math.atan2(ty - cy, tx - cx), Math.atan2(uy - cy, ux - cx), cr > 0);
+      }
       isPointInPath() { return false; }
 
       _blend() {
