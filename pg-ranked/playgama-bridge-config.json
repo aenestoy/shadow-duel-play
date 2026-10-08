@@ -1,0 +1,23 @@
+{
+  "advertisement": {
+    "minimumDelayBetweenInterstitial": 60
+  },
+  "leaderboards": [
+    {
+      "id": "tourney"
+    },
+    {
+      "id": "arcade"
+    }
+  ],
+  "saas": {
+    "publicToken": "cmuhmo0xe06vrlc0ho36xuru0",
+    "leaderboards": {
+      "platforms": [
+        "playgama",
+        "playgama_sandbox",
+        "qa_tool"
+      ]
+    }
+  }
+}
