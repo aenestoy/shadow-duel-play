@@ -43,8 +43,10 @@
 
   function fillKeys() {
     const keys = document.querySelector('#menu aside .keys'), pad = document.querySelector('#menu aside .kbnote');
-    const k = $('setKeys'), p = $('setPad');
+    const k = $('setKeys'), p = $('setPad'), th = $('setTouchHelp'), mt = document.querySelector('#menu aside .touch-help');
     if (k) { k.textContent = ''; if (keys) k.appendChild(keys.cloneNode(true)); }
+
+    if (th) { th.textContent = ''; if (mt) th.appendChild(mt.cloneNode(true)); }
     if (p) { p.textContent = ''; if (pad) { const c = pad.cloneNode(true); c.className = ''; p.appendChild(c); } }
   }
 

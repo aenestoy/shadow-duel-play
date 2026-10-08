@@ -215,6 +215,22 @@ try { (function (list) {
   @keyframes lockBar { from { transform: scaleX(1); } to { transform: scaleX(0); } }
   @keyframes keyTap { from { transform: translateY(0); } to { transform: translateY(2px); } }
   @keyframes mashPop { from { transform: translateX(-50%) scale(.7); opacity: 0; } to { transform: translateX(-50%) scale(1); opacity: 1; } }
+  /* 1.5.2: the key legend in a fight on a computer (js/key-legend.js) - a row at the bottom edge, under the fighters */
+  #keyLegend { position: absolute; left: 50%; bottom: 6px; transform: translateX(-50%); z-index: 3; display: flex; justify-content: center; gap: 4px 14px; max-width: calc(100% - 24px);
+    padding: 4px 10px; border-radius: 6px; background: rgba(6,7,12,.55); pointer-events: none; transition: opacity .6s ease; white-space: nowrap; }
+  #keyLegend.duo { left: 12px; right: 12px; transform: none; max-width: none; justify-content: space-between; }
+  #keyLegend .kl-g { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 3px 11px; }
+  #keyLegend .kl-i { display: inline-flex; align-items: center; gap: 3px; font: 600 12px/1 var(--display); letter-spacing: .06em; text-transform: uppercase; color: #e9e2cf; }
+  #keyLegend kbd { min-width: 18px; padding: 2px 5px; font-size: 11px; border-bottom-width: 2px; }
+  #keyLegend em { font-style: normal; margin-left: 2px; color: #d8cfb8; }
+  #keyLegend.dim { opacity: .3; }
+  #keyLegend.lock { opacity: 1; }
+  #keyLegend.lock .kl-i[data-a="light"] kbd, #keyLegend.lock .kl-i[data-a="heavy"] kbd { border-color: var(--gold-hi); color: #fff3c4; box-shadow: 0 0 10px rgba(255,211,90,.7); }
+  #app.touch #keyLegend { display: none; }
+  @media (max-width: 1000px), (max-height: 560px) { #keyLegend { gap: 2px 9px; padding: 3px 8px; } #keyLegend .kl-g { gap: 2px 8px; } #keyLegend .kl-i { font-size: 10.5px; } #keyLegend kbd { min-width: 15px; padding: 1px 4px; font-size: 10px; } }
+  #keyLegend.duo .kl-g { max-width: 48%; justify-content: flex-start; }
+  #keyLegend.duo .kl-g + .kl-g { justify-content: flex-end; }
+  .set-touchhelp { margin-bottom: 10px; }
   #replayTag { position: absolute; top: calc(9% + 14px); left: 16px; font: 600 14px/1 var(--display); letter-spacing: .3em; color: var(--gold-hi); pointer-events: none; display: flex; gap: 10px; align-items: center; }
   #replayTag b { font-family: var(--jp); font-size: 22px; letter-spacing: 0; }
   #replayTag small { color: var(--muted); letter-spacing: .12em; font-weight: 500; font-size: 11px; }
@@ -2371,6 +2387,7 @@ try { (function (list) {
         <button class="btn primary" id="bResume">Devam et</button>
         <button class="btn set-btn" id="bSettings" type="button" data-set-open aria-haspopup="dialog"><svg class="set-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle class="t" cx="12" cy="12" r="8.6"/><circle cx="12" cy="12" r="5.6"/></svg><span data-s="set.title">Ayarlar</span></button>
         <button class="btn" id="bPMoves" type="button" data-s="sel.moves" aria-haspopup="dialog">Hareketler</button>
+        <button class="btn" id="bPCtrl" type="button" data-s="set.tabs.controls" aria-haspopup="dialog">Kontroller</button>
         <button class="btn" id="bRestart">Maçı yeniden başlat</button>
         <button class="btn" id="bMenu">Ana menü</button>
       </div>
@@ -2412,6 +2429,7 @@ try { (function (list) {
               <button class="tog" id="tHints" aria-pressed="true"><i></i><span data-t="touch.hints">Tuş ipuçları</span></button>
             </div>
             <div class="tset" id="setTset"></div>
+            <div class="set-touchhelp" id="setTouchHelp" data-i18n-skip></div>
             <div class="set-kb">
               <p class="set-note" data-s="set.touchNote"></p>
               <h3 data-s="set.keys">Klavye</h3>
@@ -2583,6 +2601,8 @@ try { (function (list) {
 <script  src="js/i18n.js?v=comfort-1"></script>
 <script  src="js/lang-ui.js"></script>
 <script  src="js/settings.js"></script>
+<!-- 1.5.2: the key legend at the bottom of a fight on a computer (js/key-legend.js: the game's own bindings, H hides it) -->
+<script  src="js/key-legend.js"></script>
 <script  src="js/privacy.js"></script>
 <script  src="js/gl2d.js?v=hitch-1"></script>
 <script  src="js/gl-render.js?v=hitch-1"></script>
