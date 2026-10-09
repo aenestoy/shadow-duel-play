@@ -8,9 +8,11 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { Cloth } from './cloth.js';
+import { ClothCheck, checkClip, worstEdges, worstOther, worstSquash } from './kontrol.js';
 
 const Q = new URLSearchParams(location.search);
-const REC = Q.get('rec') === '1', DBG = Q.get('dbg') || '';
+const REC = Q.get('rec') === '1', DBG = Q.get('dbg') || '', MODEL = Q.get('model') || 'kumas', DBGS = new Set(DBG.split(','));
 if (REC) document.body.classList.add('rec');
 const $ = (id) => document.getElementById(id);
 const CHILD = { Hips: 'Spine', Spine: 'Spine1', Spine1: 'Spine2', Spine2: 'Neck', Neck: 'Head', Head: 'HeadTop_End' };
@@ -39,7 +41,7 @@ floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
 const lines = new THREE.GridHelper(60, 60, 0xc4c2bc, 0xc9c7c1); lines.position.y = 0.001; scene.add(lines);
 
 function resize() {
-  const w = REC ? 1280 : view.clientWidth, h = REC ? 720 : view.clientHeight;
+  const w = REC ? +(Q.get('recw') || 1280) : view.clientWidth, h = REC ? +(Q.get('rech') || 720) : view.clientHeight;
   renderer.setSize(w, h, !REC); camera.aspect = w / h; camera.updateProjectionMatrix();
   if (REC) { renderer.domElement.style.width = w + 'px'; renderer.domElement.style.height = h + 'px'; }
 }
@@ -174,17 +176,21 @@ function hakamaFix(sk, RA) {
 }
 
 async function loadAkane() {
-  const g = await loader.loadAsync('model/akane-toon.glb');
+  // (?model=onceki: the rig as it was - the cut hip, no cloth bones - for the before / after check)
+  const OLD = MODEL === 'onceki';
+  const g = await loader.loadAsync('model/' + (OLD ? 'akane-toon' : 'akane-kumas') + '.glb');
   const root = g.scene;
-  let sk = null; root.traverse((o) => { if (o.isSkinnedMesh) sk = o; });
+  let sk = null; const props = {};
+  root.traverse((o) => { if (!o.isSkinnedMesh) return; if (o.name === 'saya' || o.name === 'tsuka') props[o.name] = o; else if (!sk || o.geometry.attributes.position.count > sk.geometry.attributes.position.count) sk = o; });
   // (the game's own look for the simple Akane, akane-detay.webp - Meshy's painting cleaned, its painted shine taken out;
   // ?look=mat: the plain matte one - on its own islands, each triangle corner's place in akane-detay-uv.bin, uint16
-  // u v per corner in the file's triangle order - the game's &ucbmat=1 look, no painted shine)
-  const [tex, ub] = await Promise.all([new THREE.TextureLoader().loadAsync('model/akane-' + (Q.get('look') === 'mat' ? 'mat' : 'detay') + '.webp'), fetch('model/akane-detay-uv.bin').then((r) => (r.ok ? r.arrayBuffer() : null))]);
+  // u v per corner in the file's triangle order - the game's &ucbmat=1 look, no painted shine; akane-kumas.glb has its
+  // own corner file, akane-kumas-uv.bin, for the cloth it got back at the hip)
+  const [tex, ub, rb] = await Promise.all([new THREE.TextureLoader().loadAsync('model/akane-' + (Q.get('look') === 'mat' ? 'mat' : 'detay') + '.webp'), fetch('model/' + (OLD ? 'akane-detay-uv.bin' : 'akane-kumas-uv.bin')).then((r) => (r.ok ? r.arrayBuffer() : null)), OLD ? fetch('model/akane-bolge.bin').then((r) => (r.ok ? r.arrayBuffer() : null)) : null]);
   tex.flipY = false; tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
-  // (the file's positions are packed by tools/fighter3d/glb-slim.mjs: int16 in a unit box with the real offset / scale per
-  // axis in the accessor's extras.sdQ - the game unpacks them, three.js does not; left packed she was 1.8x too wide and
-  // 4.3x too deep, the bones sitting at her back)
+  // (the old file's positions are packed by tools/fighter3d/glb-slim.mjs: int16 in a unit box with the real offset / scale
+  // per axis in the accessor's extras.sdQ - the game unpacks them, three.js does not; left packed she was 1.8x too wide
+  // and 4.3x too deep, the bones sitting at her back. akane-kumas.glb keeps plain float positions.)
   {
     const J = g.parser.json, ai = J.meshes[0].primitives[0].attributes.POSITION, sq = J.accessors[ai].extras && J.accessors[ai].extras.sdQ;
     const P = sk.geometry.attributes.position;
@@ -195,27 +201,65 @@ async function loadAkane() {
       sk.geometry.computeBoundingBox(); sk.geometry.computeBoundingSphere();
     }
   }
+  // (each corner's part for the cloth check: 0 body, 1 hakama, 2 sleeve, 3 ponytail, 4 head hair - in the file, or for
+  // the old file from akane-bolge.bin, per vertex of its own order)
+  if (OLD && rb) { const R = new Uint8Array(rb); if (R.length === sk.geometry.attributes.position.count) sk.geometry.setAttribute('_region', new THREE.BufferAttribute(R, 1)); }
   const geo = sk.geometry.toNonIndexed(), n = geo.attributes.position.count, U = ub ? new Uint16Array(ub) : null;
   if (U && U.length === n * 2) { const uv = new Float32Array(n * 2); for (let i = 0; i < n * 2; i++) uv[i] = U[i] / 65535; geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); }
   else console.warn('[klip] uv file does not match: the model own UVs');
   sk.geometry = geo;
 
   sk.material = new THREE.MeshLambertMaterial({ map: tex });
+  // (?dbg=region: each part in its own colour - body grey, hakama red, sleeve blue, ponytail green, head hair yellow)
+  if (/region/.test(DBG) && geo.attributes._region) {
+    const R = geo.attributes._region.array, C = new Float32Array(n * 3), pal = [[0.6, 0.6, 0.6], [0.85, 0.1, 0.1], [0.15, 0.35, 0.95], [0.1, 0.8, 0.2], [0.95, 0.85, 0.1]];
+    for (let i = 0; i < n; i++) C.set(pal[R[i]] || [1, 0, 1], i * 3);
+    geo.setAttribute('color', new THREE.BufferAttribute(C, 3)); sk.material = new THREE.MeshLambertMaterial({ vertexColors: true });
+  }
+  // (?dbg=bone: each corner coloured by the bone that moves it most - the new weights; debug only)
+  if (/bone/.test(DBG)) {
+    const SI = geo.attributes.skinIndex, SW = geo.attributes.skinWeight, C = new Float32Array(n * 3), col = new THREE.Color();
+    for (let i = 0; i < n; i++) { let bj = 0, bw = -1; for (let c = 0; c < 4; c++) { const w = SW.getComponent(i, c); if (w > bw) { bw = w; bj = SI.getComponent(i, c); } } col.setHSL(((bj * 0.618) % 1), 0.75, 0.3 + 0.4 * bw); C.set([col.r, col.g, col.b], i * 3); }
+    geo.setAttribute('color', new THREE.BufferAttribute(C, 3)); sk.material = new THREE.MeshLambertMaterial({ vertexColors: true });
+  }
   // ("Etek yere girmesin": the hakama's wide hem is rigid with the shins, so in wide stances and crouches its front sinks
   // through the floor; this option only lays such corners on the floor - drawing only, off by default)
   const hem = { value: -1e9 };
-  sk.material.onBeforeCompile = (sh) => { sh.uniforms.uHem = hem; sh.vertexShader = 'uniform float uHem;\n' + sh.vertexShader.replace('#include <skinning_vertex>', '#include <skinning_vertex>\n transformed.y = max(transformed.y, uHem);'); };
+  // (?hide=1,3: a look under the cloth - the corners of those parts are not drawn; debug only)
+  const hide = (Q.get('hide') || '').split(',').filter(Boolean).map(Number), hasReg = !!sk.geometry.attributes._region;
+  sk.material.onBeforeCompile = (sh) => {
+    sh.uniforms.uHem = hem;
+    let vs = 'uniform float uHem;\n' + sh.vertexShader.replace('#include <skinning_vertex>', '#include <skinning_vertex>\n transformed.y = max(transformed.y, uHem);');
+    if (hide.length && hasReg) {
+      vs = 'attribute float _region;\nvarying float vReg;\n' + vs.replace('#include <begin_vertex>', '#include <begin_vertex>\n vReg = _region;');
+      sh.fragmentShader = 'varying float vReg;\n' + sh.fragmentShader.replace('void main() {', 'void main() {\n' + hide.map((h) => `if (abs(vReg - ${h}.0) < 0.5) discard;`).join('\n'));
+    }
+    sh.vertexShader = vs;
+  };
   HEM = hem;
   sk.castShadow = true; sk.frustumCulled = false;
+  // her own scabbard and hilt (akane-kumas.glb), painted with akane-saya.webp
+  if (props.saya) {
+    const st = await new THREE.TextureLoader().loadAsync('model/akane-saya.webp'); st.flipY = false; st.colorSpace = THREE.SRGBColorSpace; st.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    const pm = new THREE.MeshLambertMaterial({ map: st });
+    for (const o of Object.values(props)) { o.material = pm; o.castShadow = true; o.frustumCulled = false; }
+  }
   scene.add(root);
   const T = prepModel(root, boneMap(root));
-  if (DBG !== 'noweb') hakamaFix(sk, T.restPos.find((r) => r.m === sk).a);
+  T.body = sk; T.hilt = props.tsuka || null; T.ownSaya = props.saya || null;
+  // the two weight sets of akane-kumas.glb: the cloth bones' (JOINTS_0 / WEIGHTS_0) and the rig before (_OLDJ / _OLDW);
+  // the game's hakama fix (below) belongs to the old one
+  const GA = sk.geometry.attributes;
+  T.wNew = { i: GA.skinIndex, w: GA.skinWeight };
+  T.wOld = GA._oldj ? { i: GA._oldj, w: GA._oldw } : T.wNew;
+  if (!DBGS.has('noweb')) { useWeights(T, T.wOld); hakamaFix(sk, T.restPos.find((r) => r.m === sk).a); useWeights(T, T.wNew); }
+  T.sdCloth = (g.parser.json.scenes[0].extras || {}).sdCloth || null;
   T.sword = katana(); T.bones.RightHand.add(T.sword); T.swordSize = 1;
   // the scabbard, as the game hangs it (js/r3d.js sayaA / sayaU from the file's scene extras sdSaya: the mouth in the file's
-  // metres, the direction in the model's frame x forward, y up, z its right), on the hips; it also covers the place on her
-  // left hip where Meshy's fused scabbard was cut out of the hakama
+  // metres, the direction in the model's frame x forward, y up, z its right), on the hips - only for the old file, which
+  // had Meshy's own scabbard cut out
   const SY = (g.parser.json.scenes[0].extras || {}).sdSaya;
-  if (SY) {
+  if (SY && !T.ownSaya) {
     const mouth = new THREE.Vector3(...SY.mouth), u = new THREE.Vector3(-SY.u[2], SY.u[1], SY.u[0]).normalize();
     const sy = new THREE.Group(), blk = new THREE.MeshLambertMaterial({ color: 0x1b1a1c }), gold = new THREE.MeshLambertMaterial({ color: 0x8a7444 });
     const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.019, 0.016, 0.78, 12), blk); tube.position.y = -0.39;
@@ -229,6 +273,10 @@ async function loadAkane() {
     T.bones.Hips.add(sy); T.saya = sy;
   }
   return T;
+}
+function useWeights(T, set) {
+  const G = T.body.geometry; if (G.attributes.skinIndex === set.i) return;
+  G.setAttribute('skinIndex', set.i); G.setAttribute('skinWeight', set.w);
 }
 async function loadXBot() {
   const g = await loader.loadAsync('xbot.glb');
@@ -265,7 +313,7 @@ function retarget(c, T, inPlace) {
     const ch = CHILD[b] && R[CHILD[b]] ? V3(R[CHILD[b]]) : null;
     mdir[b] = ch ? ch.sub(V3(R[b])).normalize() : T.dir0[b].clone();
     Ca[b] = KEEP[b] ? Ca[KEEP[b]].clone() : new THREE.Quaternion().setFromUnitVectors(T.dir0[b], mdir[b]);
-    if (TRUNK.has(b) && DBG === 'trunkown') Ca[b].identity();
+    if (TRUNK.has(b) && DBGS.has('trunkown')) Ca[b].identity();
   }
   const loc = {}, W = {}, D = new THREE.Quaternion(), inv = new THREE.Quaternion();
   for (const b of names) loc[b] = new Float32Array(n * 4);
@@ -296,7 +344,7 @@ function retarget(c, T, inPlace) {
     names.forEach((b, bi) => {
       const k = (bi * n + f) * 4;
       D.set(c.dq[k] / 32767, c.dq[k + 1] / 32767, c.dq[k + 2] / 32767, c.dq[k + 3] / 32767).normalize();
-      if (DBG === 'tpose') D.identity();
+      if (DBGS.has('tpose')) D.identity();
       W[b] = D.clone().multiply(Ca[b]).multiply(T.W0[b]);
     });
     const rise = { Left: riseM(f, 'Left'), Right: riseM(f, 'Right') };
@@ -305,7 +353,7 @@ function retarget(c, T, inPlace) {
       // a foot on the floor stays flat on it (only its heading follows Mixamo's), fading out as it lifts 3-12 cm:
       // Akane's sandals are about three times Mixamo's foot, so his ankle's tilt drove the long sole through the floor
       // or lifted her off it
-      const cw = DBG === 'noplant' ? 0 : Math.min(1, Math.max(0, 1 - (rise[sd] - 0.03) / 0.09));
+      const cw = DBGS.has('noplant') ? 0 : Math.min(1, Math.max(0, 1 - (rise[sd] - 0.03) / 0.09));
       if (cw > 0) {
         const dl = W[F].clone().multiply(T.W0[F].clone().invert());
         fw.set(0, 0, 1).applyQuaternion(dl);
@@ -313,7 +361,7 @@ function retarget(c, T, inPlace) {
         W[F].slerp(flat, cw);
       }
       // (the toes stay as they are in the sandal: her toe joint sits near the heel of the long sole)
-      if (T.bones[TB] && DBG !== 'toes') W[TB] = W[F].clone().multiply(T.W0[F].clone().invert()).multiply(T.W0[TB]);
+      if (T.bones[TB] && !DBGS.has('toes')) W[TB] = W[F].clone().multiply(T.W0[F].clone().invert()).multiply(T.W0[TB]);
     }
     for (const b of names) {
       if (!T.bones[b]) continue;
@@ -326,7 +374,7 @@ function retarget(c, T, inPlace) {
     // (model space, the model's root at the origin as when prepared; then the hips' parent's own space)
     const wp = T.hips0.clone().add(hp.sub(h0).multiplyScalar(s));
     // the floor: Akane's lowest sole point rises above its rest height as much as Mixamo's does (scaled)
-    if (DBG !== 'nofloor') {
+    if (!DBGS.has('nofloor')) {
       const fkA = (end) => { const ch = CHAIN[end], pa = wp.clone(); for (let i = 1; i < ch.length; i++) pa.add(T.off[ch[i]].clone().applyQuaternion(W[ch[i - 1]])); return pa; };
       // (each foot matched on its own - a lifted foot's long sandal pointing down must not lift her - and the two
       // blended toward the foot Mixamo has lower, softly, so the choice never jumps; only while a foot is near the
@@ -354,7 +402,7 @@ function retarget(c, T, inPlace) {
     const wp = wps[f].clone(); wp.y += w ? a / w : 0;
     // a sandal that would go through the floor turns up at the ankle just enough to clear it (her sandals are about
     // three times Mixamo's foot: a pointed foot in a kick or a step drove the long sole under the floor)
-    if (DBG !== 'noclear') for (const sd of ['Left', 'Right']) {
+    if (!DBGS.has('noclear')) for (const sd of ['Left', 'Right']) {
       const F = sd + 'Foot', so = T.sole[sd] || []; if (!so.length || !Wf[f][F]) continue;
       const Q = Wf[f], ank = wp.clone();
       for (const [b, pb] of [[sd + 'UpLeg', 'Hips'], [sd + 'Leg', sd + 'UpLeg'], [F, sd + 'Leg']]) ank.add(T.off[b].clone().applyQuaternion(Q[pb]));
@@ -386,9 +434,10 @@ function retarget(c, T, inPlace) {
 
 // ---- state
 let A = null, X = null, cur = null, rtA = null, rtX = null, t = 0, playing = true, speed = 1, viewMode = 'side';
-const opt = { sword: true, inPlace: true, xbot: false, hem: false };
+const opt = { sword: true, inPlace: true, xbot: false, hem: false, cloth: Q.get('kumas') !== '0' };
+let CLOTH = null, CFG = null; // (cloth.js on akane-kumas.glb's cloth bones; kumas.json)
 function applyPose(T, rt, time) {
-  if (!T || !rt || DBG === 'bind') return;
+  if (!T || !rt || DBGS.has('bind')) return;
   const fr = Math.min(Math.max(time * rt.fps, 0), rt.n - 1), f0 = Math.floor(fr), f1 = Math.min(f0 + 1, rt.n - 1), a = fr - f0;
   const q0 = new THREE.Quaternion(), q1 = new THREE.Quaternion();
   for (const [b, arr] of Object.entries(rt.loc)) {
@@ -398,6 +447,40 @@ function applyPose(T, rt, time) {
   const P = rt.pos; T.bones.Hips.position.set(P[f0 * 3] + (P[f1 * 3] - P[f0 * 3]) * a, P[f0 * 3 + 1] + (P[f1 * 3 + 1] - P[f0 * 3 + 1]) * a, P[f0 * 3 + 2] + (P[f1 * 3 + 2] - P[f0 * 3 + 2]) * a);
   T.sword.visible = opt.sword && cur && cur.group === 'kilic';
   T.sword.position.copy(rt.sw.p); T.sword.quaternion.copy(rt.sw.q); T.sword.scale.setScalar((T.swordSize || 1) / T.handScale);
+  // (her own hilt sits in the scabbard only while the sword is not in her hand: never two swords)
+  if (T.hilt) T.hilt.visible = !T.sword.visible;
+}
+// the body at clip time `time` and the cloth simulated up to it in fixed 1/60 s steps of clip time from the clip's start
+// (a jump back - a loop, the slider - starts it again from the start: a frame always looks the same)
+let clothKey = '';
+function poseAkane(time) {
+  if (!CLOTH || !opt.cloth || DBGS.has('bind')) { applyPose(A, rtA, time); return; }
+  const h = CLOTH.h, want = Math.max(0, Math.floor(time / h + 1e-6)), key = cur.id + '|' + opt.inPlace;
+  if (key !== clothKey || want < CLOTH.steps) {
+    applyPose(A, rtA, 0); A.root.updateMatrixWorld(true);
+    CLOTH.reset(); CLOTH.settle(CFG.settle || 45); CLOTH.steps = 0; CLOTH.time = 0; clothKey = key;
+  }
+  while (CLOTH.steps < want) { applyPose(A, rtA, (CLOTH.steps + 1) * h); A.root.updateMatrixWorld(true); CLOTH.step(); }
+  applyPose(A, rtA, time); A.root.updateMatrixWorld(true); CLOTH.apply();
+  if (/chains/.test(DBG)) drawChains();
+}
+// (?dbg=chains: the cloth chains' points as lines - yellow - and the body capsules' axes - cyan; debug only)
+let chainLines = null;
+function drawChains() {
+  const P = [], C = [];
+  for (const c of CLOTH.chains) for (let i = 1; i < c.n; i++) { P.push(...c.x[i - 1].toArray(), ...c.x[i].toArray()); C.push(1, 0.9, 0, 1, 0.9, 0); }
+  for (const c of CLOTH.caps) { P.push(...c.p.toArray(), ...c.q.toArray()); C.push(0, 0.9, 1, 0, 0.9, 1); }
+  if (!chainLines) { chainLines = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ vertexColors: true, depthTest: false })); chainLines.renderOrder = 9; scene.add(chainLines); }
+  chainLines.geometry.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); chainLines.geometry.setAttribute('color', new THREE.Float32BufferAttribute(C, 3));
+}
+function setCloth(on) {
+  opt.cloth = on && !!CLOTH;
+  if (!A || !A.wNew) return;
+  useWeights(A, opt.cloth || !A.wOld ? A.wNew : A.wOld);
+  if (!opt.cloth && CLOTH) CLOTH.rest();
+  clothKey = '';
+  const el = $('kumas'); if (el) el.checked = opt.cloth;
+  const lb = $('kumas-l'); if (lb) lb.textContent = 'Kumaş fiziği: ' + (opt.cloth ? 'açık' : 'kapalı');
 }
 function rebuild() {
   if (!cur) return;
@@ -434,7 +517,7 @@ function select(id, keepTime = false) {
   for (const el of document.querySelectorAll('.it')) el.classList.toggle('sel', el.dataset.id === id);
   const el = document.querySelector('.it.sel'); if (el && !REC) el.scrollIntoView({ block: 'nearest' });
   if (!REC) history.replaceState(null, '', '#' + encodeURIComponent(id));
-  applyPose(A, rtA, t); applyPose(X, rtX, t); follow(true);
+  poseAkane(t); applyPose(X, rtX, t); follow(true);
 }
 
 function buildList() {
@@ -467,6 +550,7 @@ for (const b of document.querySelectorAll('#speeds button')) b.onclick = () => {
 $('slider').oninput = () => { setPlaying(false); t = +$('slider').value / (cur ? cur.fps : 30); };
 $('side-v').onclick = () => setView('side'); $('front-v').onclick = () => setView('front');
 $('sword').onchange = () => { opt.sword = $('sword').checked; };
+if ($('kumas')) $('kumas').onchange = () => setCloth($('kumas').checked);
 $('hem').onchange = () => { opt.hem = $('hem').checked; setHem(); };
 function setHem() { if (HEM && A) HEM.value = opt.hem ? -A.root.position.y + 0.004 : -1e9; }
 $('inplace').onchange = () => { opt.inPlace = $('inplace').checked; rebuild(); };
@@ -490,7 +574,7 @@ function frame() {
   const dt = Math.min(clock.getDelta(), 0.1);
   if (cur && playing) { t += dt * speed; const D = dur(); if (t > D) t = D > 0 ? t % (D + 1 / cur.fps) : 0; }
   if (cur) {
-    applyPose(A, rtA, t); if (X && opt.xbot) applyPose(X, rtX, t);
+    poseAkane(t); if (X && opt.xbot) applyPose(X, rtX, t);
     const f = Math.min(Math.round(t * cur.fps), cur.frames - 1);
     if (!$('slider').matches(':active')) $('slider').value = String(f);
     $('fr').textContent = 'kare ' + (f + 1) + ' / ' + cur.frames;
@@ -508,6 +592,10 @@ function frame() {
   try {
     [DATA, A] = await Promise.all([fetch('klipler.json').then((r) => r.json()), loadAkane()]);
   } catch (e) { $('msg').textContent = 'Yüklenemedi: ' + e.message; throw e; }
+  try { CFG = await fetch('kumas.json').then((r) => r.json()); } catch (e) { CFG = null; }
+  if (A.sdCloth && CFG) { CLOTH = new Cloth(A, A.sdCloth, CFG); console.log('[kumas] cloth chains', CLOTH.chains.length, 'ring links', CLOTH.ring.length); }
+  else if ($('kumas')) $('kumas').closest('label').style.display = 'none';
+  setCloth(opt.cloth);
   $('msg').remove();
   const per = DATA.groups.map((g) => g.label + ' ' + DATA.clips.filter((c) => c.group === g.id).length).join(' · ');
   $('count').textContent = DATA.clips.length + ' klip — ' + per;
@@ -519,9 +607,17 @@ function frame() {
   if (!REC) requestAnimationFrame(frame);
   // (recording / test hooks: tools/klip-galeri/rec.mjs drives the page frame by frame)
   window.__kg = {
+    ck: () => window.__ck || (window.__ck = new ClothCheck(A, CFG)), cloth: () => CLOTH, worstSquash: (k) => worstSquash(window.__ck || (window.__ck = new ClothCheck(A, CFG)), k), worstOther: (k) => worstOther(window.__ck || (window.__ck = new ClothCheck(A, CFG)), k), worstEdges: (k, m) => worstEdges(window.__ck || (window.__ck = new ClothCheck(A, CFG)), k, m),
+    setCloth: (on) => setCloth(on), clothCost: () => (CLOTH ? { steps: CLOTH.steps, ms: CLOTH.cost } : null),
+    // (the cloth check, one clip: every frame, physics on or off - kontrol.js)
+    clothCheck: (id, on) => {
+      setCloth(on); select(id); setPlaying(false);
+      if (!window.__ck) window.__ck = new ClothCheck(A, CFG);
+      return checkClip(window.__ck, cur, on, (f) => { t = f / cur.fps; poseAkane(t); A.root.updateMatrixWorld(true); }, CLOTH);
+    },
     ready: true, dbg: () => ({ THREE, A, X, cur, rtA, CHILD, camera, controls, renderer, scene }), clips: () => DATA.clips.map((c) => ({ id: c.id, name: c.name, group: c.group, frames: c.frames, fps: c.fps })),
     select: (id) => { select(id); setPlaying(false); },
-    at: (f) => { t = f / cur.fps; applyPose(A, rtA, t); if (X && opt.xbot) applyPose(X, rtX, t); follow(true); renderer.render(scene, camera); key.position.set(controls.target.x - 2.5, 4.5, controls.target.z + 3); key.target.position.set(controls.target.x, 0, controls.target.z); controls.update(); renderer.render(scene, camera); },
+    at: (f) => { t = f / cur.fps; poseAkane(t); if (X && opt.xbot) applyPose(X, rtX, t); follow(true); renderer.render(scene, camera); key.position.set(controls.target.x - 2.5, 4.5, controls.target.z + 3); key.target.position.set(controls.target.x, 0, controls.target.z); controls.update(); renderer.render(scene, camera); },
     view: (m) => setView(m), opt: (k, v) => { opt[k] = v; if (k === 'inPlace') rebuild(); if (k === 'hem') setHem(); },
     // (Akane against X Bot at the current frame: per bone the world angle between their bone directions - a joint to its
     // child joint - and for the hips and the head between their turns from their own rest (facing and up))

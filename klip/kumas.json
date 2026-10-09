@@ -1,0 +1,105 @@
+{
+ "why": "Cloth physics settings for the gallery's Akane (cloth.js). stiff: per point down the chain, the share of the way back to the rigid pose each 1/60 s step; damp: velocity lost per step; gravity: 1 = real, measured against the bind pose; maxAngle: the furthest a bone may turn from its rigid direction; margin: added to the body capsules for this cloth; ringMax / ringMin: how far neighbouring skirt chains may drift apart / together (x their rest distance). legFollow: how much the skirt's target follows the thighs (each chain the thigh on its side, the centre chains both), so the knees stay covered; legSide sharpens which thigh a chain follows.",
+ "hz": 60,
+ "iterations": 3,
+ "gravity": 9.81,
+ "floor": 0,
+ "capsules": {
+  "thigh": 0.085,
+  "shin": 0.055,
+  "upperArm": 0.05,
+  "foreArm": 0.042,
+  "hips": 0.11,
+  "torso": 0.115,
+  "chest": 0.11,
+  "neck": 0.055,
+  "head": 0.105,
+  "headUp": 0.075
+ },
+ "groups": {
+  "hakama": {
+   "stiff": [
+    0.5,
+    0.42,
+    0.35
+   ],
+   "damp": 0.14,
+   "gravity": 1.0,
+   "maxAngle": 60,
+   "margin": 0.04,
+   "ringMax": 3,
+   "ringMin": 0.2,
+   "floorGap": 0.025,
+   "collide": [
+    "LeftThigh",
+    "RightThigh",
+    "LeftShin",
+    "RightShin"
+   ],
+   "maxBend": 60,
+   "legFollow": 1.0,
+   "legSide": 2.0,
+   "goalOld": true,
+   "lenRange": [
+    0.55,
+    1.2
+   ]
+  },
+  "sleeve": {
+   "stiff": [
+    0.008,
+    0.008
+   ],
+   "damp": 0.2,
+   "gravity": 1.0,
+   "maxAngle": 0,
+   "margin": 0.05,
+   "floorGap": 0.03,
+   "notOwn": true,
+   "collide": [
+    "Torso",
+    "Chest",
+    "Head",
+    "Neck",
+    "Hips",
+    "LeftThigh",
+    "RightThigh",
+    "LeftUpperArm",
+    "RightUpperArm",
+    "LeftForeArm",
+    "RightForeArm"
+   ],
+   "hinge": true,
+   "gravityMode": "absolute",
+   "maxBend": 25,
+   "hingeSwing": 30
+  },
+  "hair": {
+   "stiff": [
+    0.2,
+    0.06,
+    0.03,
+    0.025
+   ],
+   "damp": 0.1,
+   "gravity": 1.0,
+   "maxAngle": [
+    25,
+    55,
+    80,
+    95
+   ],
+   "margin": 0.03,
+   "floorGap": 0.03,
+   "collide": [
+    "Head",
+    "Neck",
+    "Torso",
+    "Chest",
+    "LeftUpperArm",
+    "RightUpperArm"
+   ],
+   "maxBend": 40
+  }
+ }
+}
