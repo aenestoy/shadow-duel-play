@@ -103,12 +103,12 @@ function prepModel(root, bones) {
   T.P0 = {}; for (const [n, b] of Object.entries(bones)) T.P0[n] = b.getWorldPosition(new THREE.Vector3());
   const RP = restPositions(root);
   T.floor = Math.min(...RP.map(({ a }) => { let mn = 1e9; for (let i = 1; i < a.length; i += 3) mn = Math.min(mn, a[i]); return mn; }));
-  // (each foot's sole: its heel and toe-tip corners, in the foot bone's frame - Akane's sandals are long, ~3x Mixamo's foot)
+  // (each foot's sole: its heel, its two sides and its toe tip, in the foot bone's frame - Akane's sandals are long, ~3x Mixamo's foot)
   T.sole = {};
   for (const sd of ['Left', 'Right']) {
     const fb = bones[sd + 'Foot']; if (!fb) continue;
     const names = new Set([sd + 'Foot', sd + 'ToeBase', sd + 'Toe_End']);
-    let heel = null, tip = null;
+    let heel = null, tip = null, inS = null, outS = null;
     for (const { m, a } of RP) {
       const SI = m.geometry.attributes.skinIndex, SW = m.geometry.attributes.skinWeight;
       for (let i = 0; i < a.length / 3; i++) {
@@ -117,10 +117,13 @@ function prepModel(root, bones) {
         const z = a[i * 3 + 2];
         if (!heel || z < heel.z) heel = new THREE.Vector3(a[i * 3], a[i * 3 + 1], z);
         if (!tip || z > tip.z) tip = new THREE.Vector3(a[i * 3], a[i * 3 + 1], z);
+        const x = a[i * 3];
+        if (!inS || x < inS.x) inS = new THREE.Vector3(x, a[i * 3 + 1], z);
+        if (!outS || x > outS.x) outS = new THREE.Vector3(x, a[i * 3 + 1], z);
       }
     }
     const P0 = fb.getWorldPosition(new THREE.Vector3()), qi = fb.getWorldQuaternion(new THREE.Quaternion()).invert();
-    T.sole[sd] = [heel, tip].filter(Boolean).map((p) => ({ off: p.clone().sub(P0).applyQuaternion(qi), y0: p.y }));
+    T.sole[sd] = [heel, inS, outS, tip].filter(Boolean).map((p) => ({ off: p.clone().sub(P0).applyQuaternion(qi), y0: p.y }));
   }
   T.restPos = RP;
   // (the grip: the middle of the right hand's own corners, in the hand bone's frame - Akane's hands are big, the bone
@@ -184,6 +187,11 @@ async function loadAkane() {
   sk.geometry = geo;
 
   sk.material = new THREE.MeshLambertMaterial({ map: tex });
+  // ("Etek yere girmesin": the hakama's wide hem is rigid with the shins, so in wide stances and crouches its front sinks
+  // through the floor; this option only lays such corners on the floor - drawing only, off by default)
+  const hem = { value: -1e9 };
+  sk.material.onBeforeCompile = (sh) => { sh.uniforms.uHem = hem; sh.vertexShader = 'uniform float uHem;\n' + sh.vertexShader.replace('#include <skinning_vertex>', '#include <skinning_vertex>\n transformed.y = max(transformed.y, uHem);'); };
+  HEM = hem;
   sk.castShadow = true; sk.frustumCulled = false;
   scene.add(root);
   const T = prepModel(root, boneMap(root));
@@ -202,7 +210,7 @@ async function loadXBot() {
 }
 
 // ---- clips
-let DATA = null;
+let DATA = null, HEM = null;
 function decode(c) {
   if (c.dq) return c;
   const b = (s) => { const r = atob(s), a = new Uint8Array(r.length); for (let i = 0; i < r.length; i++) a[i] = r.charCodeAt(i); return new Int16Array(a.buffer); };
@@ -247,7 +255,7 @@ function retarget(c, T, inPlace) {
     if (R[TE]) e = Math.min(e, fkM(f, TB, V3(R[TE]).sub(V3(R[TB]))).y - R[TE][1]);
     return e;
   };
-  const yAx = new THREE.Vector3(0, 1, 0), fw = new THREE.Vector3();
+  const yAx = new THREE.Vector3(0, 1, 0), fw = new THREE.Vector3(), corr = [], cRaw = new Float32Array(n), wps = [], Wf = [], clear = {};
   for (let f = 0; f < n; f++) {
     Dq.f = f;
     names.forEach((b, bi) => {
@@ -285,13 +293,50 @@ function retarget(c, T, inPlace) {
     // the floor: Akane's lowest sole point rises above its rest height as much as Mixamo's does (scaled)
     if (DBG !== 'nofloor') {
       const fkA = (end) => { const ch = CHAIN[end], pa = wp.clone(); for (let i = 1; i < ch.length; i++) pa.add(T.off[ch[i]].clone().applyQuaternion(W[ch[i - 1]])); return pa; };
-      let eA = 1e9;
+      // (each foot matched on its own - a lifted foot's long sandal pointing down must not lift her - and the two
+      // blended toward the foot Mixamo has lower, softly, so the choice never jumps; only while a foot is near the
+      // floor, as the flat-foot rule: in the air the hips move as Mixamo's, scaled)
+      const lo = Math.min(rise.Left, rise.Right);
+      let num = 0, den = 0;
       for (const sd of ['Left', 'Right']) {
         const F = sd + 'Foot', pf = fkA(F), so = T.sole[sd] || [];
+        let eA = 1e9;
         for (const p of so) eA = Math.min(eA, pf.y + p.off.clone().applyQuaternion(W[F]).y - p.y0);
-        if (!so.length) eA = Math.min(eA, pf.y - T.P0[F].y);
+        if (!so.length) eA = pf.y - T.P0[F].y;
+        const wf = Math.min(1, Math.max(0, 1 - (rise[sd] - 0.03) / 0.09)), k = Math.exp(-(rise[sd] - lo) / 0.025);
+        num += k * wf * (s * rise[sd] - eA); den += k;
       }
-      wp.y += s * Math.min(rise.Left, rise.Right) - eA;
+      cRaw[f] = num / den; corr.push([+rise.Left.toFixed(3), +rise.Right.toFixed(3), +(num / den).toFixed(3)]);
+    }
+    wps[f] = wp;
+    Wf[f] = {}; for (const sd of ['Left', 'Right']) for (const b of ['UpLeg', 'Leg', 'Foot']) if (W[sd + b]) Wf[f][sd + b] = W[sd + b].clone();
+    Wf[f].Hips = W.Hips.clone();
+  }
+  // (the floor corrections smoothed over a few frames: a foot leaving the floor on its long sandal's tip gave one-frame hops)
+  for (let f = 0; f < n; f++) {
+    let a = 0, w = 0;
+    for (let d = -4; d <= 4; d++) { const g = f + d; if (g < 0 || g >= n) continue; const k = Math.exp(-(d * d) / 4.5); a += k * cRaw[g]; w += k; }
+    const wp = wps[f].clone(); wp.y += w ? a / w : 0;
+    // a sandal that would go through the floor turns up at the ankle just enough to clear it (her sandals are about
+    // three times Mixamo's foot: a pointed foot in a kick or a step drove the long sole under the floor)
+    if (DBG !== 'noclear') for (const sd of ['Left', 'Right']) {
+      const F = sd + 'Foot', so = T.sole[sd] || []; if (!so.length || !Wf[f][F]) continue;
+      const Q = Wf[f], ank = wp.clone();
+      for (const [b, pb] of [[sd + 'UpLeg', 'Hips'], [sd + 'Leg', sd + 'UpLeg'], [F, sd + 'Leg']]) ank.add(T.off[b].clone().applyQuaternion(Q[pb]));
+      const low = (q) => Math.min(...so.map((p) => ank.y + p.off.clone().applyQuaternion(q).y - p.y0));
+      const l0 = low(Q[F]); if (l0 >= -0.005) continue;
+      // (the turn about the horizontal line across the foot; its sign is whichever lifts the lowest corner)
+      const tipW = so[so.length - 1].off.clone().applyQuaternion(Q[F]); tipW.y = 0;
+      if (tipW.lengthSq() < 1e-6) continue;
+      const ax = new THREE.Vector3().crossVectors(tipW.normalize(), yAx).normalize();
+      const turn = (t) => new THREE.Quaternion().setFromAxisAngle(ax, t).multiply(Q[F]);
+      const sg = low(turn(0.05)) > low(turn(-0.05)) ? 1 : -1;
+      let lo2 = 0, hi2 = 1.6;
+      if (low(turn(sg * hi2)) < -0.005) { lo2 = hi2; } else for (let it = 0; it < 18; it++) { const mid = (lo2 + hi2) / 2; if (low(turn(sg * mid)) < -0.005) lo2 = mid; else hi2 = mid; }
+      const qn = turn(sg * (lo2 === 1.6 ? 1.6 : hi2));
+      const lq = Q[sd + 'Leg'].clone().invert().multiply(qn);
+      loc[F].set([lq.x, lq.y, lq.z, lq.w], f * 4);
+      clear[sd] = (clear[sd] || 0) + 1;
     }
     wp.applyMatrix4(T.parentInv);
     pos.set([wp.x, wp.y, wp.z], f * 3);
@@ -301,12 +346,12 @@ function retarget(c, T, inPlace) {
   const handRestT = Ca.RightHand.clone().multiply(T.W0.RightHand), hi = handRestT.clone().invert();
   const gp = T.grip ? T.grip.clone().applyQuaternion(T.W0.RightHand.clone().invert()) : M.clone().sub(H).multiplyScalar(0.62 * s).applyQuaternion(hi);
   const sw = { p: gp.divideScalar(T.handScale), q: hi.clone() };
-  return { n, fps: c.fps, loc, pos, sw };
+  return { n, fps: c.fps, loc, pos, sw, corr, clear };
 }
 
 // ---- state
 let A = null, X = null, cur = null, rtA = null, rtX = null, t = 0, playing = true, speed = 1, viewMode = 'side';
-const opt = { sword: true, inPlace: true, xbot: false };
+const opt = { sword: true, inPlace: true, xbot: false, hem: false };
 function applyPose(T, rt, time) {
   if (!T || !rt || DBG === 'bind') return;
   const fr = Math.min(Math.max(time * rt.fps, 0), rt.n - 1), f0 = Math.floor(fr), f1 = Math.min(f0 + 1, rt.n - 1), a = fr - f0;
@@ -338,7 +383,7 @@ function setView(m, snap = true) {
 function follow(snap) {
   // the camera keeps Akane's hips in view (sideways only; height stays), moving with her
   const hp = A.bones.Hips.getWorldPosition(new THREE.Vector3());
-  const want = new THREE.Vector3(hp.x, 0.95, hp.z);
+  const want = new THREE.Vector3(hp.x, 0.95 + Math.max(0, hp.y - 1.15) * 0.8, hp.z);
   if (X && opt.xbot) { const xp = X.bones.Hips.getWorldPosition(new THREE.Vector3()); want.x = (hp.x + xp.x) / 2; want.z = (hp.z + xp.z) / 2; }
   const d = snap ? want.clone().sub(controls.target) : want.clone().sub(controls.target).multiplyScalar(0.12);
   controls.target.add(d); camera.position.add(d);
@@ -387,6 +432,8 @@ for (const b of document.querySelectorAll('#speeds button')) b.onclick = () => {
 $('slider').oninput = () => { setPlaying(false); t = +$('slider').value / (cur ? cur.fps : 30); };
 $('side-v').onclick = () => setView('side'); $('front-v').onclick = () => setView('front');
 $('sword').onchange = () => { opt.sword = $('sword').checked; };
+$('hem').onchange = () => { opt.hem = $('hem').checked; setHem(); };
+function setHem() { if (HEM && A) HEM.value = opt.hem ? -A.root.position.y + 0.004 : -1e9; }
 $('inplace').onchange = () => { opt.inPlace = $('inplace').checked; rebuild(); };
 $('xbot').onchange = async () => {
   opt.xbot = $('xbot').checked;
@@ -439,8 +486,8 @@ function frame() {
   window.__kg = {
     ready: true, dbg: () => ({ THREE, A, X, cur, rtA, CHILD, camera, controls, renderer, scene }), clips: () => DATA.clips.map((c) => ({ id: c.id, name: c.name, group: c.group, frames: c.frames, fps: c.fps })),
     select: (id) => { select(id); setPlaying(false); },
-    at: (f) => { t = f / cur.fps; applyPose(A, rtA, t); if (X && opt.xbot) applyPose(X, rtX, t); follow(f === 0); renderer.render(scene, camera); key.position.set(controls.target.x - 2.5, 4.5, controls.target.z + 3); key.target.position.set(controls.target.x, 0, controls.target.z); controls.update(); renderer.render(scene, camera); },
-    view: (m) => setView(m), opt: (k, v) => { opt[k] = v; if (k === 'inPlace') rebuild(); },
+    at: (f) => { t = f / cur.fps; applyPose(A, rtA, t); if (X && opt.xbot) applyPose(X, rtX, t); follow(true); renderer.render(scene, camera); key.position.set(controls.target.x - 2.5, 4.5, controls.target.z + 3); key.target.position.set(controls.target.x, 0, controls.target.z); controls.update(); renderer.render(scene, camera); },
+    view: (m) => setView(m), opt: (k, v) => { opt[k] = v; if (k === 'inPlace') rebuild(); if (k === 'hem') setHem(); },
     // (checks: lowest point of Akane's skinned mesh at the current pose, and the world positions of a few bones)
     probe: () => {
       const sk = []; A.root.traverse((o) => { if (o.isSkinnedMesh) sk.push(o); });
