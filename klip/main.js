@@ -123,6 +123,17 @@ function prepModel(root, bones) {
     T.sole[sd] = [heel, tip].filter(Boolean).map((p) => ({ off: p.clone().sub(P0).applyQuaternion(qi), y0: p.y }));
   }
   T.restPos = RP;
+  // (the grip: the middle of the right hand's own corners, in the hand bone's frame - Akane's hands are big, the bone
+  // sits at the wrist)
+  {
+    const hb = bones.RightHand, sum = new THREE.Vector3(); let k = 0;
+    for (const { m, a } of RP) {
+      const SI = m.geometry.attributes.skinIndex, SW = m.geometry.attributes.skinWeight, hi = m.skeleton.bones.indexOf(hb);
+      for (let i = 0; i < a.length / 3; i++) { let w = 0; for (let c = 0; c < 4; c++) if (SI.getComponent(i, c) === hi) w += SW.getComponent(i, c); if (w > 0.8) { sum.x += a[i * 3]; sum.y += a[i * 3 + 1]; sum.z += a[i * 3 + 2]; k++; } }
+    }
+    const P0 = hb.getWorldPosition(new THREE.Vector3());
+    T.grip = k ? sum.divideScalar(k).sub(P0) : null; // (model space, from the wrist)
+  }
   T.parentQ = T.hipsParent.getWorldQuaternion(new THREE.Quaternion());
   T.parentInv = T.hipsParent.matrixWorld.clone().invert();
   T.handScale = bones.RightHand.getWorldScale(new THREE.Vector3()).x;
@@ -177,7 +188,7 @@ async function loadAkane() {
   scene.add(root);
   const T = prepModel(root, boneMap(root));
   if (DBG !== 'noweb') hakamaFix(sk, T.restPos.find((r) => r.m === sk).a);
-  T.sword = katana(); T.bones.RightHand.add(T.sword);
+  T.sword = katana(); T.bones.RightHand.add(T.sword); T.swordSize = 1.35; // (her hands are about 1.5x X Bot's)
   return T;
 }
 async function loadXBot() {
@@ -287,9 +298,9 @@ function retarget(c, T, inPlace) {
   }
   // the sword: held as in Mixamo's T-pose (blade forward along +Z out of the fist, edge down), in the hand's frame
   const H = V3(R.RightHand), M = R.RightHandMiddle1 ? V3(R.RightHandMiddle1) : H.clone().add(new THREE.Vector3(-0.09, 0, 0));
-  const grip = M.clone().sub(H).multiplyScalar(0.62).add(new THREE.Vector3(0, -0.028, 0.012)).multiplyScalar(s);
   const handRestT = Ca.RightHand.clone().multiply(T.W0.RightHand), hi = handRestT.clone().invert();
-  const sw = { p: grip.applyQuaternion(hi).divideScalar(T.handScale), q: hi.clone() };
+  const gp = T.grip ? T.grip.clone().applyQuaternion(T.W0.RightHand.clone().invert()) : M.clone().sub(H).multiplyScalar(0.62 * s).applyQuaternion(hi);
+  const sw = { p: gp.divideScalar(T.handScale), q: hi.clone() };
   return { n, fps: c.fps, loc, pos, sw };
 }
 
@@ -306,7 +317,7 @@ function applyPose(T, rt, time) {
   }
   const P = rt.pos; T.bones.Hips.position.set(P[f0 * 3] + (P[f1 * 3] - P[f0 * 3]) * a, P[f0 * 3 + 1] + (P[f1 * 3 + 1] - P[f0 * 3 + 1]) * a, P[f0 * 3 + 2] + (P[f1 * 3 + 2] - P[f0 * 3 + 2]) * a);
   T.sword.visible = opt.sword && cur && cur.group === 'kilic';
-  T.sword.position.copy(rt.sw.p); T.sword.quaternion.copy(rt.sw.q); T.sword.scale.setScalar(1 / T.handScale);
+  T.sword.position.copy(rt.sw.p); T.sword.quaternion.copy(rt.sw.q); T.sword.scale.setScalar((T.swordSize || 1) / T.handScale);
 }
 function rebuild() {
   if (!cur) return;
@@ -433,10 +444,17 @@ function frame() {
     // (checks: lowest point of Akane's skinned mesh at the current pose, and the world positions of a few bones)
     probe: () => {
       const sk = []; A.root.traverse((o) => { if (o.isSkinnedMesh) sk.push(o); });
-      const m = sk[0], p = m.geometry.attributes.position, v = new THREE.Vector3(); let minY = 1e9, maxY = -1e9;
-      for (let i = 0; i < p.count; i += 7) { v.fromBufferAttribute(p, i); m.applyBoneTransform(i, v); v.applyMatrix4(m.matrixWorld); minY = Math.min(minY, v.y); maxY = Math.max(maxY, v.y); }
+      const m = sk[0], p = m.geometry.attributes.position, v = new THREE.Vector3();
+      if (!A.footIdx) { // (the sandals' corners: mostly on a foot or toe bone)
+        const SI = m.geometry.attributes.skinIndex, SW = m.geometry.attributes.skinWeight, fb = new Set(m.skeleton.bones.map((b, i) => (/(Foot|ToeBase)$/.test(b.name) ? i : -1)));
+        A.footIdx = []; for (let i = 0; i < p.count; i++) { let w = 0; for (let c = 0; c < 4; c++) if (fb.has(SI.getComponent(i, c))) w += SW.getComponent(i, c); if (w >= 0.5) A.footIdx.push(i); }
+      }
+      const hp = A.bones.Hips.getWorldPosition(new THREE.Vector3());
+      let minY = 1e9, maxY = -1e9, far = 0, minFoot = 1e9;
+      for (let i = 0; i < p.count; i += 5) { v.fromBufferAttribute(p, i); m.applyBoneTransform(i, v); v.applyMatrix4(m.matrixWorld); minY = Math.min(minY, v.y); maxY = Math.max(maxY, v.y); far = Math.max(far, v.distanceTo(hp)); }
+      for (const i of A.footIdx) { v.fromBufferAttribute(p, i); m.applyBoneTransform(i, v); v.applyMatrix4(m.matrixWorld); minFoot = Math.min(minFoot, v.y); }
       const bw = (n) => A.bones[n].getWorldPosition(new THREE.Vector3()).toArray().map((x) => +x.toFixed(3));
-      return { minY: +minY.toFixed(3), maxY: +maxY.toFixed(3), floor: +A.floor.toFixed(3), hips: bw('Hips'), lh: bw('LeftHand'), rh: bw('RightHand'), lf: bw('LeftFoot'), rf: bw('RightFoot'), head: bw('Head') };
+      return { minY: +minY.toFixed(3), minFoot: +minFoot.toFixed(3), maxY: +maxY.toFixed(3), far: +far.toFixed(3), hips: bw('Hips'), lh: bw('LeftHand'), rh: bw('RightHand'), lf: bw('LeftFoot'), rf: bw('RightFoot'), head: bw('Head') };
     },
   };
 })();
