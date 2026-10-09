@@ -923,7 +923,8 @@ void main(){
   const MATN = ['cloth', 'gloss', 'skin', 'hair', 'metal', 'flat'];
   const MATP = [[1.08, 0.97, 0.78, 0.2, 1, 0], [1.08, 0.95, 0.7, 0.55, 1, 0], [1.04, 0.98, 0.84, 0, 0.6, 0], [1.0, 0.92, 0.72, 0.3, 1, 0], [1.18, 0.95, 0.68, 1.6, 1.2, 0], [1, 1, 1, 0, 0, 1],
     [1.04, 0.92, 0.74, 0.12, 0.75, 0],
-    [1.04, 0.92, 0.74, 0.12, 0.75, 0], [1.04, 0.92, 0.74, 0.12, 0.75, 0], [1.04, 0.92, 0.74, 0.12, 0.75, 0]];
+    [1.04, 0.92, 0.74, 0.12, 0.75, 0], [1.04, 0.92, 0.74, 0.12, 0.75, 0], [1.04, 0.92, 0.74, 0.12, 0.75, 0],
+    [1.04, 0.92, 0.74, 0.12, 0.75, 0], [1.04, 0.92, 0.74, 0.12, 0.75, 0]];
   async function hdLoad(id) {
     const res = await fetch('uc-boyut-test/model/' + id + '.sd3d');
     if (!res.ok) throw new Error(id + ': ' + res.status);
@@ -1259,7 +1260,7 @@ void main(){
 
 
 
-    let P2 = out, N2 = N, C2 = C, SI2 = SI, SW2 = SW, MT2 = MT, UV2 = UV, I2 = I.subarray(0, io), nv2 = nv;
+    let P2 = out, N2 = N, C2 = C, SI2 = SI, SW2 = SW, MT2 = MT, UV2 = UV, I2 = I.subarray(0, io), nv2 = nv, faceOff = null;
     if (flat) {
       try {
         const r = await fetch('uc-boyut/model/' + id + sfx + '-' + LOOK.pic + '.json');
@@ -1273,12 +1274,25 @@ void main(){
 
           const cl = TD.cls ? Uint8Array.from(atob(TD.cls), (ch) => ch.charCodeAt(0)) : null;
           const PN = cl ? partNormals(out, N, I, origT, cl, io, nv, B, ix, SI, SW, NS) : null;
+
+
+          const FUV = new Map();
+          if (TD.fuv) { const fb = Uint8Array.from(atob(TD.fuv), (ch) => ch.charCodeAt(0)), fa = new Float32Array(fb.buffer); for (let q = 0; q + 6 < fa.length; q += 7) FUV.set(fa[q], fa.subarray(q + 1, q + 7)); }
+          const FD = {};
+          for (const sd of [4, 5]) if (TD.fdir && TD.fdir[sd]) { const d = norm(Tn(v3(...TD.fdir[sd]))); FD[sd] = [Math.round(d.x * 127), Math.round(d.y * 127), Math.round(d.z * 127)]; }
+          faceOff = TD.foff || null;
           for (let k = 0; k < n; k++) {
             const v = I[k], t = origT[(k / 3) | 0], b = tb[t] != null ? tb[t] : 128, pc = TD.pal[b & 127] || [255, 255, 255], part = cl ? cl[t] : 0;
             for (let c = 0; c < 3; c++) P2[k * 3 + c] = out[v * 3 + c];
             const ns = part === 1 ? PN.hair : part === 2 ? PN.hakama : NS;
             for (let c = 0; c < 4; c++) { N2[k * 4 + c] = N[v * 4 + c]; NS2[k * 4 + c] = ns[v * 4 + c]; SI2[k * 4 + c] = SI[v * 4 + c]; SW2[k * 4 + c] = SW[v * 4 + c]; }
-            MT2[k] = part ? 6 + part : MT[v]; UV2[k * 2] = UV[v * 2]; UV2[k * 2 + 1] = UV[v * 2 + 1];
+            MT2[k] = part === 6 ? MT[v] : part ? 6 + part : MT[v]; UV2[k * 2] = UV[v * 2]; UV2[k * 2 + 1] = UV[v * 2 + 1];
+
+            if (part === 6) { const v0 = I[k - (k % 3)]; for (let c = 0; c < 3; c++) P2[k * 3 + c] = out[v0 * 3 + c]; for (let c = 0; c < 4; c++) { N2[k * 4 + c] = N[v0 * 4 + c]; NS2[k * 4 + c] = ns[v0 * 4 + c]; } }
+            if ((part === 4 || part === 5) && FUV.has(t)) {
+              const f = FUV.get(t), e = k % 3; UV2[k * 2] = f[e * 2]; UV2[k * 2 + 1] = f[e * 2 + 1];
+              if (FD[part]) for (let c = 0; c < 3; c++) N2[k * 4 + c] = FD[part][c];
+            }
             if (part === 2 && !(b & 128)) {
               const k0 = k - (k % 3), a0 = I[k0], a1 = I[k0 + 1], a2 = I[k0 + 2], H = PLEATS / 2;
               const seam = Math.abs(PN.pu[a0] - PN.pu[a1]) > H || Math.abs(PN.pu[a1] - PN.pu[a2]) > H || Math.abs(PN.pu[a0] - PN.pu[a2]) > H;
@@ -1292,7 +1306,7 @@ void main(){
         }
       } catch (e) { console.warn('[r3d] ' + id + '-' + LOOK.pic + '.json: ' + (e && e.message)); }
     }
-    const M = { glb: true, id, file, flat: !!flat, B, ix, nb: B.length, P: P2, N: N2, NS, C: C2, SI: SI2, SW: SW2, MT: MT2, UV: UV2, I: I2, draws, imgs, tris: io / 3, cutSword: !!CUT, bytes: buf.byteLength, grip, armRest, headSet, fing: FING,
+    const M = { glb: true, id, file, flat: !!flat, faceOff, B, ix, nb: B.length, P: P2, N: N2, NS, C: C2, SI: SI2, SW: SW2, MT: MT2, UV: UV2, I: I2, draws, imgs, tris: io / 3, cutSword: !!CUT, bytes: buf.byteLength, grip, armRest, headSet, fing: FING,
       hc0: madd(B[ix.head].p0, EY, 9), hasSaya: false, springs: [], extra: {} };
 
     const CLX = SX.sdCloth;
@@ -1729,7 +1743,7 @@ precision highp float;
 layout(location=0) in vec3 aP; layout(location=1) in vec4 aN; layout(location=2) in vec4 aC; layout(location=3) in vec4 aS; layout(location=4) in vec4 aW; layout(location=5) in float aM; layout(location=6) in vec2 aUV; layout(location=7) in vec4 aNs;
 uniform vec4 uB[${(MAXB + 3) * 3}];
 uniform mat4 uVP, uRoot; uniform float uInk, uInkZ, uInkU, uDarkPush, uHakPush, uHasTex; uniform vec2 uView; uniform sampler2D uTex;
-uniform vec3 uTone[10]; uniform vec3 uMat[10];
+uniform vec3 uTone[12]; uniform vec3 uMat[12];
 out vec3 vN; out vec3 vNs; out vec3 vW; out vec4 vC; out vec2 vUV; flat out vec3 vTone; flat out vec3 vMat; flat out float vPart;
 void main(){
   vec4 p = vec4(aP, 1.0); vec3 n0 = aN.xyz;
@@ -1777,7 +1791,7 @@ uniform vec3 uKeyD, uKeyC, uShade, uEye, uLift; uniform float uFlash, uKeyA;
 uniform vec4 uL[4]; uniform vec3 uLC[4];
 // the look (js LOOK, ?r3dlook=): 0 painted (Sifu), 1 toon, 2 full toon; the flat-colour picture's share (js flatTex),
 // the texture's level bias (sharper painting), the colours' saturation, the rim's strength
-uniform float uLook, uHasFlat, uFlatK, uBias, uSat, uRim, uMask, uStep3; uniform vec2 uView;
+uniform float uLook, uHasFlat, uFlatK, uBias, uSat, uRim, uMask, uStep3; uniform vec2 uView; uniform vec2 uFaceOff; uniform vec2 uFaceT;
 out vec4 o;
 // (alpha: 1 - uMask; the post passes leave the fighters out of the glow and the film grain where it is 0, js/gl-render.js)
 void main(){
@@ -1785,6 +1799,13 @@ void main(){
   if (uInk > 0.0) { o = vec4(uInkC, oa); return; }
   vec3 tx = vec3(1.0);
   if (uHasTex > 0.5) { tx = texture(uTex, vUV, uBias).rgb; if (uHasFlat > 0.5) tx = mix(tx, texture(uFlat, vUV, uBias).rgb, uFlatK); }
+  // (?ucb=toon, the face region: each side's eye (copy A) only while that side's look-out direction (vN) turns toward
+  // the camera, else copy B, the same face without it - in profile the far eye is gone, not stuck on the face's edge)
+  int fpart = int(vPart + 0.5) - 6;
+  if (uHasTex > 0.5 && (fpart == 4 || fpart == 5) && uFaceOff.x + uFaceOff.y > 0.0) {
+    float fe = smoothstep(uFaceT.x, uFaceT.y, dot(normalize(vN), normalize(uEye - vW)));
+    tx = mix(texture(uTex, vUV + uFaceOff, uBias).rgb, tx, fe);
+  }
   vec3 base = tx * vC.rgb;
   if (uStep3 > 0.0 && vC.a < 0.5) base = vC.rgb; // (?ucb=toon: the triangle's own flat colour)
   if (uSat != 1.0) { float lb = dot(base, vec3(0.2126, 0.7152, 0.0722)); base = clamp(mix(vec3(lb), base, uSat), 0.0, 1.0); }
@@ -1829,6 +1850,13 @@ void main(){
       // surface, nothing else on it (no shadow tint, no third step, no rim); 2 the hakama - pleat lines, darker on the
       // shadow side, on its flat triangles (vUV: the turn round the leg in pleats, the lines' strength), and its inside
       // (the back faces seen between the legs) one dark red: the two legs read apart)
+      // (the face region, 4 / 5: one flat skin tone - only a soft shade where it turns well away from the light - and its
+      // hair the hair's own flat tone; no rim (it put a pale saw-toothed band along the profile))
+      bool facep = part == 4 || part == 5;
+      if (uStep3 > 0.0 && facep) {
+        float dl = dot(base, vec3(0.2126, 0.7152, 0.0722));
+        col = dl < 0.08 ? base * 1.12 : base * mix(vec3(0.9, 0.8, 0.8), vec3(1.0), smoothstep(-0.45 - fw, -0.45 + fw, d));
+      }
       if (uStep3 > 0.0 && part == 1) {
         float hl = smoothstep(0.3 - fw, 0.3 + fw, d);
         col = base * 1.12 + vec3(0.075, 0.05, 0.035) * hl;
@@ -1838,10 +1866,10 @@ void main(){
         float line = 1.0 - smoothstep(0.08, 0.08 + pw, 1.0 - pu);
         col *= mix(1.0, mix(0.8, 0.66, 1.0 - lit), line * vUV.y);
       }
-      if (uStep3 > 0.0 && part == 2 && back) col = base * vec3(0.42, 0.4, 0.46);
+      if (uStep3 > 0.0 && part == 2 && back) col = vec3(0.15, 0.08, 0.08); // (the inside: near the shins' dark, one tone - no ragged dark-red patch at the hem)
       // (?ucb=toon: a third, darker step where the model's own surface turns well away from the light - the folds and
       // pleats the smoothed normal leaves out; a hard edge too. Not on the hair and the hakama: their own light above)
-      if (uStep3 > 0.0 && part != 1 && part != 2 && dot(base, vec3(0.2126, 0.7152, 0.0722)) > 0.08) { float dd = dot(n, uKeyD), f3 = max(fwidth(dd), 1e-3) * 0.75; col *= mix(vec3(0.72, 0.7, 0.8), vec3(1.0), smoothstep(-0.42 - f3, -0.42 + f3, dd) * uStep3 + (1.0 - uStep3)); }
+      if (uStep3 > 0.0 && part != 1 && part != 2 && !facep && dot(base, vec3(0.2126, 0.7152, 0.0722)) > 0.08) { float dd = dot(n, uKeyD), f3 = max(fwidth(dd), 1e-3) * 0.75; col *= mix(vec3(0.72, 0.7, 0.8), vec3(1.0), smoothstep(-0.42 - f3, -0.42 + f3, dd) * uStep3 + (1.0 - uStep3)); }
       if (comic) {
         // hatching across the shadow (screen lines, about 5 px apart at 1080 rows), heavier where it is darkest
         float px = gl_FragCoord.x + gl_FragCoord.y, per = max(3.0, 5.0 * uView.y / 1080.0);
@@ -1860,7 +1888,7 @@ void main(){
       float rw = comic ? 0.7 : 0.76;
       float rim = smoothstep(rw - fwr, rw + fwr, fr) * mix(0.1, 1.0, smoothstep(0.0, 0.4, d)) * uRim;
       // (?ucb=toon: no rim on the darkest paint - the hair's many thin strands each caught one: light streaks)
-      if (uStep3 > 0.0) rim *= smoothstep(0.06, 0.2, dot(base, vec3(0.2126, 0.7152, 0.0722)));
+      if (uStep3 > 0.0) rim *= smoothstep(0.06, 0.2, dot(base, vec3(0.2126, 0.7152, 0.0722))) * (facep ? 0.0 : 1.0);
       col = mix(col, comic ? vec3(1.0, 0.98, 0.94) : mix(vec3(0.8, 0.86, 1.0), kc * 0.7, 0.3) * (0.55 + 0.45 * base), rim * (comic ? 0.9 : 0.8));
     }
     // (?ucb=toon: no lift - its accent-red edge light caught every thin hair strand: red specks in the hair)
@@ -2208,6 +2236,7 @@ void main(){
 
 
   const PLEATS = 12;
+  const FACET = String(GQ('ucbface', '0.05_0.3')).split(/[,_]/).map(Number);
   function partNormals(P, N, I, origT, cl, io, nv, B, ix, SI, SW, NS) {
     const hairI = [], isP = new Uint8Array(nv);
     for (let k = 0; k < io; k += 3) { const pt = cl[origT[k / 3]]; if (pt === 1) hairI.push(I[k], I[k + 1], I[k + 2]); if (pt) for (let e = 0; e < 3; e++) isP[I[k + e]] = Math.max(isP[I[k + e]], pt); }
@@ -2282,9 +2311,9 @@ void main(){
     gl.attachShader(p, sh(gl.VERTEX_SHADER, VSH)); gl.attachShader(p, sh(gl.FRAGMENT_SHADER, FSH)); gl.linkProgram(p);
     if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error('r3d HD link: ' + gl.getProgramInfoLog(p));
     const U = {};
-    for (const k of ['uSoft', 'uInkZ', 'uInkU', 'uHakPush', 'uBackDim', 'uTex', 'uHasTex', 'uNrm', 'uHasNrm', 'uOldLook', 'uB', 'uVP', 'uRoot', 'uInk', 'uView', 'uTone', 'uMat', 'uInkC', 'uKeyD', 'uKeyC', 'uShade', 'uEye', 'uLift', 'uFlash', 'uKeyA', 'uL', 'uLC', 'uFlat', 'uLook', 'uHasFlat', 'uFlatK', 'uBias', 'uSat', 'uRim', 'uMask', 'uStep3', 'uDarkPush']) U[k] = gl.getUniformLocation(p, k);
+    for (const k of ['uSoft', 'uInkZ', 'uInkU', 'uHakPush', 'uFaceOff', 'uFaceT', 'uBackDim', 'uTex', 'uHasTex', 'uNrm', 'uHasNrm', 'uOldLook', 'uB', 'uVP', 'uRoot', 'uInk', 'uView', 'uTone', 'uMat', 'uInkC', 'uKeyD', 'uKeyC', 'uShade', 'uEye', 'uLift', 'uFlash', 'uKeyA', 'uL', 'uLC', 'uFlat', 'uLook', 'uHasFlat', 'uFlatK', 'uBias', 'uSat', 'uRim', 'uMask', 'uStep3', 'uDarkPush']) U[k] = gl.getUniformLocation(p, k);
     gl.useProgram(p);
-    const tone = new Float32Array(30), mat = new Float32Array(30);
+    const tone = new Float32Array(36), mat = new Float32Array(36);
     MATP.forEach((m, i) => { tone.set(m.slice(0, 3), i * 3); mat.set([m[3], m[4], m[5]], i * 3); });
     gl.uniform3fv(U.uTone, tone); gl.uniform3fv(U.uMat, mat);
     gl.uniform1i(U.uTex, 3); gl.uniform1i(U.uNrm, 4); gl.uniform1i(U.uFlat, 5); gl.uniform1f(U.uOldLook, /[?&]r3dgold=1(&|$)/.test(Q) ? 1 : 0);
@@ -2369,6 +2398,7 @@ void main(){
         gl.frontFace((F.dir < 0) !== !!reflect ? gl.CW : gl.CCW);
         if (pass === 0) { gl.enable(gl.CULL_FACE); gl.cullFace(gl.FRONT); } else if (M.glb && GLB_LOOK.cull) { gl.enable(gl.CULL_FACE); gl.cullFace(gl.BACK); } else gl.disable(gl.CULL_FACE);
         gl.uniform1f(U.uBackDim, M.glb ? 1 : 0.45);
+        gl.uniform2f(U.uFaceOff, M.faceOff ? M.faceOff[0] : 0, M.faceOff ? M.faceOff[1] : 0); gl.uniform2f(U.uFaceT, FACET[0], FACET[1]);
         gl.bindVertexArray(o.vao);
         if (M.draws) {
           for (const d of M.draws) {
