@@ -410,7 +410,7 @@ const followT = new THREE.Vector3(0, 0.95, 0);
 function setView(m, snap = true) {
   viewMode = m;
   $('side-v').classList.toggle('on', m === 'side'); $('front-v').classList.toggle('on', m === 'front');
-  const tg = controls.target, d = 6.2 * Math.max(1, 1.1 / camera.aspect); // (a narrow phone view stands further back)
+  const tg = controls.target, d = (REC ? 6.2 : 4.6) * Math.max(1, 1.0 / camera.aspect); // (a narrow phone view stands further back)
   if (m === 'side') camera.position.set(tg.x - d, tg.y + 0.25, tg.z + (X && opt.xbot ? -0.6 : 0));
   else camera.position.set(tg.x + (X && opt.xbot ? 0.5 : 0), tg.y + 0.25, tg.z + d);
   if (snap) controls.update();
