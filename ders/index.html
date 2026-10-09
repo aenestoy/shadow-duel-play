@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>3B Atölye</title>
+    <script type="module" crossorigin src="./assets/index-D4utO6YX.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-Cv7y3ME1.css">
+  </head>
+  <body>
+    <div id="app">
+      <header id="ust">
+        <button id="menuBtn" class="btn">Dersler</button>
+        <div id="dersAd">3B Atölye</div>
+        <div id="genel"><div class="cubuk"><i id="genelDolu"></i></div><span id="genelYazi"></span></div>
+      </header>
+      <main>
+        <section id="sahne">
+          <canvas id="c"></canvas>
+          <div id="gorunumBar" class="bar"></div>
+          <div id="ustSag" class="bar"></div>
+          <div id="sayac" hidden></div>
+          <div id="uyari" hidden></div>
+          <div id="dokuPanel" hidden></div>
+          <div id="oyunBoyu" hidden></div>
+          <div id="zaman" hidden></div>
+          <div id="yukleniyor">Model yükleniyor…</div>
+        </section>
+        <aside id="panel">
+          <div id="dersBas">
+            <div class="satir"><h1 id="dersBaslik"></h1><button id="blenderBtn" class="btn kucuk">Blender'da</button></div>
+            <div class="cubuk"><i id="dersDolu"></i></div>
+            <div id="dersSayi" class="soluk"></div>
+          </div>
+          <div id="adim">
+            <div id="adimNo" class="soluk"></div>
+            <p id="adimYazi"></p>
+            <p id="adimNe"></p>
+            <div id="quiz"></div>
+            <div id="durum"></div>
+            <div class="satir">
+              <button id="ipucuBtn" class="btn">İpucu</button>
+              <button id="nedenBtn" class="btn">Neden önemli?</button>
+            </div>
+            <p id="acilan" hidden></p>
+          </div>
+          <div class="satir gezinti">
+            <button id="geriBtn" class="btn">◀ Geri</button>
+            <label class="oto"><input type="checkbox" id="otoGec" /> Doğruysa kendiliğinden geç</label>
+            <button id="ileriBtn" class="btn ana">İleri ▶</button>
+          </div>
+          <div id="araclar"><div class="soluk baslik">Araçlar</div><div id="aracKutu"></div></div>
+        </aside>
+      </main>
+      <div id="menu" hidden>
+        <div class="menuIc">
+          <div class="satir"><h2>Dersler</h2><button id="menuKapat" class="btn">Kapat</button></div>
+          <ol id="dersListe"></ol>
+          <p class="soluk">İlerlemen bu tarayıcıda saklanır.</p>
+        </div>
+      </div>
+      <div id="blenderKutu" hidden><div class="menuIc"><div class="satir"><h2>Aynı iş Blender'da</h2><button id="blenderKapat" class="btn">Kapat</button></div><div id="blenderYazi"></div></div></div>
+    </div>
+  </body>
+</html>
