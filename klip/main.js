@@ -181,6 +181,19 @@ async function loadAkane() {
   // u v per corner in the file's triangle order - the game's &ucbmat=1 look, no painted shine)
   const [tex, ub] = await Promise.all([new THREE.TextureLoader().loadAsync('model/akane-mat.webp'), fetch('model/akane-detay-uv.bin').then((r) => (r.ok ? r.arrayBuffer() : null))]);
   tex.flipY = false; tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  // (the file's positions are packed by tools/fighter3d/glb-slim.mjs: int16 in a unit box with the real offset / scale per
+  // axis in the accessor's extras.sdQ - the game unpacks them, three.js does not; left packed she was 1.8x too wide and
+  // 4.3x too deep, the bones sitting at her back)
+  {
+    const J = g.parser.json, ai = J.meshes[0].primitives[0].attributes.POSITION, sq = J.accessors[ai].extras && J.accessors[ai].extras.sdQ;
+    const P = sk.geometry.attributes.position;
+    if (sq) {
+      const f = new Float32Array(P.count * 3);
+      for (let i = 0; i < P.count; i++) { f[i * 3] = sq.o[0] + P.getX(i) * sq.s[0]; f[i * 3 + 1] = sq.o[1] + P.getY(i) * sq.s[1]; f[i * 3 + 2] = sq.o[2] + P.getZ(i) * sq.s[2]; }
+      sk.geometry.setAttribute('position', new THREE.BufferAttribute(f, 3));
+      sk.geometry.computeBoundingBox(); sk.geometry.computeBoundingSphere();
+    }
+  }
   const geo = sk.geometry.toNonIndexed(), n = geo.attributes.position.count, U = ub ? new Uint16Array(ub) : null;
   if (U && U.length === n * 2) { const uv = new Float32Array(n * 2); for (let i = 0; i < n * 2; i++) uv[i] = U[i] / 65535; geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); }
   else console.warn('[klip] uv file does not match: the model own UVs');
@@ -196,7 +209,7 @@ async function loadAkane() {
   scene.add(root);
   const T = prepModel(root, boneMap(root));
   if (DBG !== 'noweb') hakamaFix(sk, T.restPos.find((r) => r.m === sk).a);
-  T.sword = katana(); T.bones.RightHand.add(T.sword); T.swordSize = 1.35; // (her hands are about 1.5x X Bot's)
+  T.sword = katana(); T.bones.RightHand.add(T.sword); T.swordSize = 1;
   return T;
 }
 async function loadXBot() {
@@ -219,6 +232,9 @@ function decode(c) {
 }
 // (the head and the feet keep their parent's turn: Mixamo's head-top end leans 20 degrees forward and its ankle-to-toe
 // line is steeper than Akane's, so aiming those bones at them tipped her head back and pushed her toes into the floor)
+// (?dbg=trunkown: the trunk keeps its own rest curve instead of Mixamo's - a comparison; by default every bone's direction
+// matches X Bot's exactly)
+const TRUNK = new Set(['Hips', 'Spine', 'Spine1', 'Spine2', 'Neck', 'Head']);
 const KEEP = { Head: 'Neck', LeftFoot: 'LeftLeg', LeftToeBase: 'LeftFoot', RightFoot: 'RightLeg', RightToeBase: 'RightFoot' };
 const V3 = (a) => new THREE.Vector3(a[0], a[1], a[2]);
 const hmRaw = (c, f) => new THREE.Vector3(c.dh[f * 3], c.dh[f * 3 + 1], c.dh[f * 3 + 2]).multiplyScalar(0.001);
@@ -231,6 +247,7 @@ function retarget(c, T, inPlace) {
     const ch = CHILD[b] && R[CHILD[b]] ? V3(R[CHILD[b]]) : null;
     mdir[b] = ch ? ch.sub(V3(R[b])).normalize() : T.dir0[b].clone();
     Ca[b] = KEEP[b] ? Ca[KEEP[b]].clone() : new THREE.Quaternion().setFromUnitVectors(T.dir0[b], mdir[b]);
+    if (TRUNK.has(b) && DBG === 'trunkown') Ca[b].identity();
   }
   const loc = {}, W = {}, D = new THREE.Quaternion(), inv = new THREE.Quaternion();
   for (const b of names) loc[b] = new Float32Array(n * 4);
@@ -488,6 +505,21 @@ function frame() {
     select: (id) => { select(id); setPlaying(false); },
     at: (f) => { t = f / cur.fps; applyPose(A, rtA, t); if (X && opt.xbot) applyPose(X, rtX, t); follow(true); renderer.render(scene, camera); key.position.set(controls.target.x - 2.5, 4.5, controls.target.z + 3); key.target.position.set(controls.target.x, 0, controls.target.z); controls.update(); renderer.render(scene, camera); },
     view: (m) => setView(m), opt: (k, v) => { opt[k] = v; if (k === 'inPlace') rebuild(); if (k === 'hem') setHem(); },
+    // (Akane against X Bot at the current frame: per bone the world angle between their bone directions - a joint to its
+    // child joint - and for the hips and the head between their turns from their own rest (facing and up))
+    compare: () => {
+      if (!X) return null;
+      const dir = (T, a, c) => T.bones[c].getWorldPosition(new THREE.Vector3()).sub(T.bones[a].getWorldPosition(new THREE.Vector3())).normalize();
+      const turn = (T, b, v) => v.clone().applyQuaternion(T.bones[b].getWorldQuaternion(new THREE.Quaternion()).multiply(T.W0[b].clone().invert()));
+      const ang = (u, v) => +(u.angleTo(v) * 180 / Math.PI).toFixed(1);
+      const o = {};
+      for (const [a, c] of [['Hips', 'Spine'], ['Spine', 'Spine1'], ['Spine1', 'Spine2'], ['Spine2', 'Neck'], ['Neck', 'Head'], ['LeftArm', 'LeftForeArm'], ['RightArm', 'RightForeArm'], ['LeftForeArm', 'LeftHand'], ['RightForeArm', 'RightHand'], ['LeftUpLeg', 'LeftLeg'], ['RightUpLeg', 'RightLeg'], ['LeftLeg', 'LeftFoot'], ['RightLeg', 'RightFoot']]) o[a] = ang(dir(A, a, c), dir(X, a, c));
+      for (const b of ['Hips', 'Head']) { o[b + 'Face'] = ang(turn(A, b, new THREE.Vector3(0, 0, 1)), turn(X, b, new THREE.Vector3(0, 0, 1))); o[b + 'Up'] = ang(turn(A, b, new THREE.Vector3(0, 1, 0)), turn(X, b, new THREE.Vector3(0, 1, 0))); }
+      const hA = A.bones.Hips.getWorldPosition(new THREE.Vector3()).y / (A.hips0.y - A.floor), hX = X.bones.Hips.getWorldPosition(new THREE.Vector3()).y / (X.hips0.y - X.floor);
+      o.hipH = +(hA / hX).toFixed(3);
+      return o;
+    },
+    xbot: async () => { if (!X) { X = await loadXBot(); X.root.position.x = 0.9; X.root.position.z = -0.9; X.root.updateMatrixWorld(true); opt.xbot = true; rebuild(); } return true; },
     // (checks: lowest point of Akane's skinned mesh at the current pose, and the world positions of a few bones)
     probe: () => {
       const sk = []; A.root.traverse((o) => { if (o.isSkinnedMesh) sk.push(o); });
