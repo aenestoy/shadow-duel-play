@@ -1,0 +1,16 @@
+{
+ "id": "kuro",
+ "level": "meshy30",
+ "files": {
+  "-toon.glb": 965424,
+  "-detay.webp": 157888,
+  "-detay-uv.bin": 350700,
+  "-mat.webp": 206322,
+  "-ham.jpg": 313916
+ },
+ "MB": {
+  "detay": 1.41,
+  "mat": 1.45,
+  "ham": 1.22
+ }
+}

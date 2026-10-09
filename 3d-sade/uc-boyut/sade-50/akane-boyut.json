@@ -1,0 +1,19 @@
+{
+ "id": "akane",
+ "level": "50",
+ "files": {
+  "-toon.glb": 1166300,
+  "-detay.webp": 318540,
+  "-detay-n.webp": 53840,
+  "-detay-uv.bin": 599928,
+  "-mat.webp": 382582,
+  "-mat-n.webp": 53840,
+  "-ham.jpg": 540793,
+  "-ham-n.jpg": 81375
+ },
+ "MB": {
+  "detay": 2.04,
+  "mat": 2.1,
+  "ham": 1.71
+ }
+}

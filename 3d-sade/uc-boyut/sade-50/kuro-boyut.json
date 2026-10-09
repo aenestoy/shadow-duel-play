@@ -1,0 +1,19 @@
+{
+ "id": "kuro",
+ "level": "50",
+ "files": {
+  "-toon.glb": 1190300,
+  "-detay.webp": 107212,
+  "-detay-n.webp": 26960,
+  "-detay-uv.bin": 599724,
+  "-mat.webp": 133458,
+  "-mat-n.webp": 26960,
+  "-ham.jpg": 202868,
+  "-ham-n.jpg": 24910
+ },
+ "MB": {
+  "detay": 1.84,
+  "mat": 1.86,
+  "ham": 1.35
+ }
+}

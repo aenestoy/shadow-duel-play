@@ -1,0 +1,16 @@
+{
+ "id": "akane",
+ "level": "meshy30",
+ "files": {
+  "-toon.glb": 987388,
+  "-detay.webp": 300006,
+  "-detay-uv.bin": 354444,
+  "-mat.webp": 368296,
+  "-ham.jpg": 754947
+ },
+ "MB": {
+  "detay": 1.57,
+  "mat": 1.63,
+  "ham": 1.66
+ }
+}
