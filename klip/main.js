@@ -177,9 +177,10 @@ async function loadAkane() {
   const g = await loader.loadAsync('model/akane-toon.glb');
   const root = g.scene;
   let sk = null; root.traverse((o) => { if (o.isSkinnedMesh) sk = o; });
-  // (the matte painting on its own islands: akane-mat.webp, each triangle corner's place in akane-detay-uv.bin, uint16
+  // (the game's own look for the simple Akane, akane-detay.webp - Meshy's painting cleaned, its painted shine taken out;
+  // ?look=mat: the plain matte one - on its own islands, each triangle corner's place in akane-detay-uv.bin, uint16
   // u v per corner in the file's triangle order - the game's &ucbmat=1 look, no painted shine)
-  const [tex, ub] = await Promise.all([new THREE.TextureLoader().loadAsync('model/akane-mat.webp'), fetch('model/akane-detay-uv.bin').then((r) => (r.ok ? r.arrayBuffer() : null))]);
+  const [tex, ub] = await Promise.all([new THREE.TextureLoader().loadAsync('model/akane-' + (Q.get('look') === 'mat' ? 'mat' : 'detay') + '.webp'), fetch('model/akane-detay-uv.bin').then((r) => (r.ok ? r.arrayBuffer() : null))]);
   tex.flipY = false; tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
   // (the file's positions are packed by tools/fighter3d/glb-slim.mjs: int16 in a unit box with the real offset / scale per
   // axis in the accessor's extras.sdQ - the game unpacks them, three.js does not; left packed she was 1.8x too wide and
@@ -210,6 +211,23 @@ async function loadAkane() {
   const T = prepModel(root, boneMap(root));
   if (DBG !== 'noweb') hakamaFix(sk, T.restPos.find((r) => r.m === sk).a);
   T.sword = katana(); T.bones.RightHand.add(T.sword); T.swordSize = 1;
+  // the scabbard, as the game hangs it (js/r3d.js sayaA / sayaU from the file's scene extras sdSaya: the mouth in the file's
+  // metres, the direction in the model's frame x forward, y up, z its right), on the hips; it also covers the place on her
+  // left hip where Meshy's fused scabbard was cut out of the hakama
+  const SY = (g.parser.json.scenes[0].extras || {}).sdSaya;
+  if (SY) {
+    const mouth = new THREE.Vector3(...SY.mouth), u = new THREE.Vector3(-SY.u[2], SY.u[1], SY.u[0]).normalize();
+    const sy = new THREE.Group(), blk = new THREE.MeshLambertMaterial({ color: 0x1b1a1c }), gold = new THREE.MeshLambertMaterial({ color: 0x8a7444 });
+    const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.019, 0.016, 0.78, 12), blk); tube.position.y = -0.39;
+    const ring = new THREE.Mesh(new THREE.CylinderGeometry(0.023, 0.023, 0.03, 12), gold); ring.position.y = -0.015;
+    const end = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.03, 12), gold); end.position.y = -0.77;
+    for (const m of [tube, ring, end]) { m.castShadow = true; sy.add(m); }
+    sy.quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), u); sy.position.copy(mouth);
+    // (into the hips' frame at rest: the file's space is the model's, the root not yet lifted onto the floor)
+    const hq = T.W0.Hips.clone().invert();
+    sy.position.sub(T.hips0).applyQuaternion(hq); sy.quaternion.premultiply(hq);
+    T.bones.Hips.add(sy); T.saya = sy;
+  }
   return T;
 }
 async function loadXBot() {
