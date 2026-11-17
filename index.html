@@ -3,8 +3,9 @@
 <head>
 <meta charset="utf-8">
     <meta name="robots" content="noindex, nofollow" />
-<script type="module" crossorigin src="./assets/index-C7464u_x.js"></script>
-<link rel="stylesheet" crossorigin href="./assets/index-CBYb7w9Q.css">
+<meta name="nd-version" content="1.5.2">
+<script type="module" async crossorigin src="./assets/index-vveUJSrs.js"></script>
+<link rel="stylesheet" crossorigin href="./assets/index-mO6PvHX0.css">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Shadow Duel</title>
 <!-- Error capture for the studio panel's error reports (src/studio-stats.ts sends them where statistics are on; never in
@@ -37,9 +38,52 @@
   };
 })();
 </script>
-<!-- Fonts ship with the game (no external requests): fonts/fonts.css is written by scripts/font-subset.mjs -->
-<!-- Portal SDK bridge (module, bundled by Vite): publishes window.NDPortal; js/core.js wraps it as ND.portal -->
+<!-- Fonts ship with the game (no external requests): fonts/fonts.css is written by scripts/font-subset.mjs -->
+<!-- Load time: the first screen's fonts are asked for while the scripts load (the menu is not laid out before the
+     first frame, see .nd-ready below, so nothing else asks for them yet and they would arrive only after it showed).
+     Right after the page's first paint, not before it: fonts asked for earlier hold that first paint back (~0.1 s).
+     Latin subsets only: a language that needs others gets them with it (js/i18n.js loadFonts, fonts/lang/). -->
+<script>
+try { (function (F) {
+  if (!F || !F.load) return;
+  var go = function () { [['600 16px Oswald', 'A'], ['400 16px "Source Sans 3"', 'A'], ['700 16px "Noto Serif JP"', '影']].forEach(function (f) { F.load(f[0], f[1]).catch(function () {}); }); };
+  if (window.requestAnimationFrame) requestAnimationFrame(function () { setTimeout(go, 0); }); else go();
+})(document.fonts); } catch (e) { /* no font loading API */ }
+</script>
+<!-- Load time: only English's catalog is in the page; js/i18n.js fetches another language's file when it reaches it
+     (the device language, a saved choice, ?lang=). That file is asked for here already, for the device language, so a
+     Spanish or Russian player does not wait for it after the other scripts. The same choice as js/i18n.js deviceLang /
+     langOf, and the same address as its fileOf (the ?v= is its LAZY_V). A saved choice that differs only wastes this hint. -->
+<script>
+try { (function (list) {
+  var A = { be: 'ru', kk: 'ru', uk: 'ru', uz: 'ru', ms: 'id', 'in': 'id' }, S = ' en tr es pt ru de fr it pl id vi th hi ar ja ko ';
+  for (var i = 0; i < list.length; i++) {
+    var raw = String(list[i] || '').replace(/_/g, '-').toLowerCase(), c = raw.slice(0, 2), l = null;
+    if (/^zh\b/.test(raw)) l = /-hans\b/.test(raw) ? 'zh' : /-(hant|tw|hk|mo)\b/.test(raw) ? 'zh-tw' : 'zh';
+    else if (/^yue\b/.test(raw)) l = 'zh-tw';
+    else if (S.indexOf(' ' + (A[c] || c) + ' ') >= 0) l = A[c] || c;
+    if (!l) continue;
+    if (l === 'en' || l === 'tr' || /[?&]lang=/.test(location.search)) return;
+    var k = document.createElement('link'); k.rel = 'preload'; k.as = 'script'; k.href = 'js/i18n-' + l + '.js?v=langs-1';
+    document.head.appendChild(k); return;
+  }
+})((navigator.languages && navigator.languages.length ? Array.prototype.slice.call(navigator.languages) : []).concat(navigator.language || [])); } catch (e) { /* only a hint */ }
+</script>
+<!-- Portal SDK bridge (module, bundled by Vite): publishes window.NDPortal; js/core.js wraps it as ND.portal -->
 <style>
+  /* 1.3.2 load time: until the game's first frame (js/game.js adds .nd-ready, the menu then in the player's language),
+     the menu's raw Turkish markup is not shown (it also pulled the latin-ext fonts in while the scripts were loading);
+     a quiet mark stands in. A safety: the menu shows by itself after 12 s whatever happens.
+     content-visibility (load time): the hidden menu is not laid out either until then. Before, the browser laid it out
+     while the scripts were still loading (in fallback fonts: ~0.2 s of a computer's first 0.5 s, ~0.5 s on a 4x slower
+     phone), again each time a web font arrived (four more passes) and for each size the start-up code read; and its
+     raw Turkish text pulled in the latin-ext fonts (78 KB) an English player never uses. A script that reads a size
+     inside the menu still gets the right answer (the browser lays that part out on demand). */
+  html:not(.nd-ready) #menu, html:not(.nd-ready) #first { visibility: hidden; content-visibility: hidden; animation: ndShow 0s 12s forwards; }
+  html:not(.nd-ready) body::before { content: '影'; position: fixed; inset: 0; z-index: 2000; display: grid; place-items: center; color: #d9b36c; font: 700 54px/1 serif; opacity: .5; pointer-events: none; animation: ndPulse 1.2s ease-in-out infinite alternate, ndGone 0s 12s forwards; }
+  @keyframes ndShow { to { visibility: visible; content-visibility: visible; } }
+  @keyframes ndPulse { from { opacity: .25; } to { opacity: .6; } }
+  @keyframes ndGone { to { visibility: hidden; } }
   #matchLoading { position: absolute; inset: 0; z-index: 1000; display: grid; place-items: center; background: #0c0d15; color: #ebe6da; }
   #matchLoading[hidden] { display: none; }
   .match-loading-card { width: min(320px, 80%); text-align: center; font-family: var(--display); }
@@ -47,6 +91,47 @@
   .match-loading-card h2 { margin: 18px 0 8px; font-size: 24px; letter-spacing: .12em; }
   .match-loading-card p { color: #9b9caf; font-size: 15px; }
   .match-loading-card progress { width: 100%; height: 5px; accent-color: #d8b36b; }
+  /* the IMPORTANT TIP (js/prepare.js): attack, then guard - the keys light up in turn, ATTACK → GUARD → ATTACK → GUARD */
+  .match-loading-card { width: min(380px, 92%); }
+  .ltip { margin: 22px auto 0; padding: 12px 14px 14px; border: 1px solid rgba(216,179,107,.55); background: rgba(216,179,107,.07); border-radius: 6px; }
+  .ltip-h { display: inline-block; padding: 3px 9px; font: 700 12px/1 var(--display); letter-spacing: .18em; color: #0c0d15; background: #d8b36b; border-radius: 3px; }
+  .match-loading-card .ltip-t { margin: 9px 0 12px; color: #ebe6da; font: 600 15px/1.35 var(--body, sans-serif); letter-spacing: .01em; }
+  .ltip-t .tb, .ltip-t kbd { font-size: 13px; vertical-align: .05em; }
+  .ltip-nb { white-space: nowrap; }
+  .ltip-a { display: flex; align-items: flex-start; justify-content: center; gap: 4px; }
+  .ltip-a s { text-decoration: none; color: #6f6a5c; font: 700 20px/46px var(--display); }
+  .ltip-k { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 54px; animation: ltipPress 2.4s infinite; }
+  .ltip-k i { display: grid; place-items: center; min-width: 46px; height: 46px; padding: 0 6px; box-sizing: border-box; border-radius: 50%; font: 700 13px/1 var(--display); font-style: normal; letter-spacing: .04em; border: 2px solid; }
+  .ltip-k.a i { color: #f1d69c; border-color: rgba(241,214,156,.85); background: radial-gradient(circle at 50% 36%, #3a2f1c, #14110b 72%); }
+  .ltip-k.g i { color: #cfe8ff; border-color: rgba(150,210,255,.8); background: radial-gradient(circle at 50% 36%, #1c2a3d, #0a0f18 72%); font-size: 17px; }
+  .ltip[data-dev="touch"] .ltip-k.g i { border-radius: 9px; }
+  .ltip-k em { font: 600 10px/1 var(--display); font-style: normal; letter-spacing: .1em; color: #9b9caf; }
+  .ltip-a > :nth-child(3) { animation-delay: .6s; } .ltip-a > :nth-child(5) { animation-delay: 1.2s; } .ltip-a > :nth-child(7) { animation-delay: 1.8s; }
+  @keyframes ltipPress { 0%, 26%, 100% { opacity: .42; transform: scale(1); filter: none; } 4% { opacity: 1; transform: scale(.88); } 10%, 22% { opacity: 1; transform: scale(1.06); filter: drop-shadow(0 0 9px rgba(241,214,156,.65)); } }
+  .ltip-k.g { animation-name: ltipGuard; }
+  @keyframes ltipGuard { 0%, 26%, 100% { opacity: .42; transform: scale(1); filter: none; } 4% { opacity: 1; transform: scale(.88); } 10%, 22% { opacity: 1; transform: scale(1.06); filter: drop-shadow(0 0 9px rgba(150,210,255,.75)); } }
+  @media (prefers-reduced-motion: reduce) { .ltip-k { animation: none; opacity: 1; } }
+  /* computers / tablets: the tip a size up */
+  @media (min-width: 900px) and (min-height: 600px) {
+    .match-loading-card { width: min(470px, 92%); }
+    .match-loading-card .ltip-t { font-size: 18px; }
+    .ltip-h { font-size: 13px; }
+    .ltip-k { min-width: 64px; }
+    .ltip-k i { min-width: 56px; height: 56px; font-size: 15px; }
+    .ltip-k.g i { font-size: 20px; }
+    .ltip-k em { font-size: 11px; }
+    .ltip-a s { line-height: 56px; }
+  }
+  /* short screens (a phone held sideways): a smaller sign and title so the tip fits */
+  @media (max-height: 460px) {
+    .match-loading-card > span { font-size: 34px; }
+    .match-loading-card h2 { margin: 6px 0 4px; font-size: 19px; }
+    .match-loading-card p { margin: 0 0 6px; font-size: 13px; }
+    .ltip { margin-top: 10px; padding: 8px 12px 10px; }
+    .match-loading-card .ltip-t { margin: 6px 0 8px; font-size: 14px; }
+    .ltip-k i { min-width: 40px; height: 40px; }
+    .ltip-a s { line-height: 40px; }
+  }
   :root {
     color-scheme: dark;
     --ink: #07080e;
@@ -107,6 +192,43 @@
   .p2 .ki-row { flex-direction: row-reverse; }
   .clock .arena { display: block; margin-top: 3px; font: 400 10px/1.2 var(--display); letter-spacing: .12em; color: var(--muted); opacity: .8; }
   #lockHint { position: absolute; left: 50%; bottom: 14%; transform: translateX(-50%); padding: 8px 16px; background: rgba(8,9,16,.8); border: 1px solid var(--gold); font: 600 clamp(13px, 1.8vw, 18px)/1 var(--display); letter-spacing: .12em; text-transform: uppercase; color: var(--gold-hi); animation: pulse .3s ease-in-out infinite alternate; pointer-events: none; white-space: nowrap; }
+  /* 1.5.2: the new fight's short blade lock - a big MASH prompt with the keys and a bar running down with its time (js/duel.js D.lockPrompt) */
+  #lockHint.mash { bottom: auto; top: 17%; display: grid; justify-items: center; gap: 7px; padding: 12px 26px 15px; border-width: 2px; white-space: normal; text-align: center; letter-spacing: .08em; overflow: hidden;
+    background: rgba(8,9,16,.88); box-shadow: 0 0 26px -6px rgba(255,211,90,.65); animation: mashPop .2s ease-out; }
+  #lockHint.mash b { font: 700 clamp(30px, 5.4vw, 54px)/1 var(--display); letter-spacing: .14em; color: #fff3c4; text-shadow: 0 0 18px rgba(255,211,90,.7); animation: pulse .18s ease-in-out infinite alternate; }
+  #lockHint.mash .mk { display: flex; gap: 8px; align-items: center; justify-content: center; }
+  #lockHint.mash .mk em { font-style: normal; color: var(--muted); padding: 0 4px; }
+  #lockHint.mash .mk kbd { font-size: clamp(18px, 2.4vw, 26px); min-width: 1.7em; padding: 6px 10px; animation: keyTap .14s ease-in-out infinite alternate; }
+  #lockHint.mash .mk .tb { font-size: clamp(16px, 2.2vw, 22px); padding: 7px 16px; animation: keyTap .14s ease-in-out infinite alternate; }
+  #lockHint.mash small { font: 500 clamp(11px, 1.4vw, 14px)/1.25 var(--body); letter-spacing: .02em; text-transform: none; color: var(--text); }
+  #lockHint.mash .lb { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: var(--gold-hi); transform-origin: left center; animation: lockBar var(--lockT, 1.2s) linear forwards; }
+  #app.touch #touch:not([hidden]) ~ #lockHint.mash { bottom: auto; }
+  @media (max-height: 460px) {
+    #lockHint.mash { top: 58px; gap: 4px; padding: 6px 18px 9px; }
+    #lockHint.mash b { font-size: 30px; }
+    #lockHint.mash .mk kbd { font-size: 16px; padding: 4px 8px; }
+    #lockHint.mash .mk .tb { font-size: 14px; padding: 4px 12px; }
+    #lockHint.mash small { font-size: 11px; }
+  }
+  @keyframes lockBar { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+  @keyframes keyTap { from { transform: translateY(0); } to { transform: translateY(2px); } }
+  @keyframes mashPop { from { transform: translateX(-50%) scale(.7); opacity: 0; } to { transform: translateX(-50%) scale(1); opacity: 1; } }
+  /* 1.5.2: the key legend in a fight on a computer (js/key-legend.js) - a row at the bottom edge, under the fighters */
+  #keyLegend { position: absolute; left: 50%; bottom: 6px; transform: translateX(-50%); z-index: 3; display: flex; justify-content: center; gap: 4px 14px; max-width: calc(100% - 24px);
+    padding: 4px 10px; border-radius: 6px; background: rgba(6,7,12,.55); pointer-events: none; transition: opacity .6s ease; white-space: nowrap; }
+  #keyLegend.duo { left: 12px; right: 12px; transform: none; max-width: none; justify-content: space-between; }
+  #keyLegend .kl-g { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 3px 11px; }
+  #keyLegend .kl-i { display: inline-flex; align-items: center; gap: 3px; font: 600 12px/1 var(--display); letter-spacing: .06em; text-transform: uppercase; color: #e9e2cf; }
+  #keyLegend kbd { min-width: 18px; padding: 2px 5px; font-size: 11px; border-bottom-width: 2px; }
+  #keyLegend em { font-style: normal; margin-left: 2px; color: #d8cfb8; }
+  #keyLegend.dim { opacity: .3; }
+  #keyLegend.lock { opacity: 1; }
+  #keyLegend.lock .kl-i[data-a="light"] kbd, #keyLegend.lock .kl-i[data-a="heavy"] kbd { border-color: var(--gold-hi); color: #fff3c4; box-shadow: 0 0 10px rgba(255,211,90,.7); }
+  #app.touch #keyLegend { display: none; }
+  @media (max-width: 1000px), (max-height: 560px) { #keyLegend { gap: 2px 9px; padding: 3px 8px; } #keyLegend .kl-g { gap: 2px 8px; } #keyLegend .kl-i { font-size: 10.5px; } #keyLegend kbd { min-width: 15px; padding: 1px 4px; font-size: 10px; } }
+  #keyLegend.duo .kl-g { max-width: 48%; justify-content: flex-start; }
+  #keyLegend.duo .kl-g + .kl-g { justify-content: flex-end; }
+  .set-touchhelp { margin-bottom: 10px; }
   #replayTag { position: absolute; top: calc(9% + 14px); left: 16px; font: 600 14px/1 var(--display); letter-spacing: .3em; color: var(--gold-hi); pointer-events: none; display: flex; gap: 10px; align-items: center; }
   #replayTag b { font-family: var(--jp); font-size: 22px; letter-spacing: 0; }
   #replayTag small { color: var(--muted); letter-spacing: .12em; font-weight: 500; font-size: 11px; }
@@ -214,6 +336,11 @@
   .brand h1 { margin: 0; font: 700 clamp(46px, 7.4vw, 92px)/.92 var(--display); letter-spacing: 0.01em; text-transform: uppercase; text-wrap: balance; }
   .brand h1 em { font-style: normal; color: var(--akane); }
   .brand h1 em + em { color: var(--aoi); }
+  /* Turkish and Russian titles (GÖLGE DÜELLOSU, ДУЭЛЬ ТЕНЕЙ): the dots over Ö / Ü and the breve over Й stand above the capitals; at the tight .9 line height the second
+     line's marks ran into the first line (a red mark beside the G, a blue one under the Ь). A little more room between the lines, only
+     where the title has them (every other language's title has no marks above its capitals). */
+  .brand h1:lang(tr), .first-wrap h1:lang(tr) { line-height: 1.06; }
+  .brand h1:lang(ru), .first-wrap h1:lang(ru) { line-height: 1.16; } /* (the breve stands higher than the dots) */
   .brand p { margin: 14px 0 0; max-width: 46ch; color: var(--muted); font-size: 16px; }
   .modes { display: grid; gap: 10px; margin-top: 30px; max-width: 460px; }
   .mode { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 16px; text-align: left; padding: 14px 18px; background: rgba(255,255,255,.035); border: 1px solid var(--line); border-radius: 2px; cursor: pointer; transition: background .15s, border-color .15s, transform .15s; }
@@ -475,6 +602,10 @@
     box-shadow: inset 0 0 0 1.5px rgba(241,214,156,.85), inset 0 0 0 4.5px rgba(12,9,7,.9), inset 0 0 0 5.5px rgba(217,179,108,.4); }
   .te-pause .te-face { color: var(--gold-hi); }
   .te-pause .pz { position: absolute; inset: 22%; background: currentColor; -webkit-mask: var(--pz) center / contain no-repeat; mask: var(--pz) center / contain no-repeat; }
+  /* the duel's context button (js/duel-env.js #tCtx): its gold ring and warm glow, the icon drawn by the editor */
+  .te-ctx .te-face { color: #ffe3a1; background: radial-gradient(circle at 50% 45%, rgba(255,214,140,.28), rgba(20,16,12,.62) 70%); box-shadow: 0 0 0 2px rgba(255,214,140,.75), 0 0 14px rgba(255,190,90,.35); }
+  .te-ctx .te-face svg { width: 62%; height: 62%; }
+  .te-ctx .cx { width: 40%; height: 40%; border-radius: 50%; border: 2px solid currentColor; }
   .te-it.sel { outline-color: var(--gold-hi, #f1d69c); z-index: 2; }
   .te-it.bad { outline-color: #ff6b6b; }
   .te-it.off .te-face { opacity: .28; border-style: dashed; }
@@ -735,6 +866,62 @@
     #app.touch.playing #rotate { display: grid; }
   }
   @media (prefers-reduced-motion: reduce) { .rot-ic .rot-ph { animation: none; transform: rotate(-90deg); } .t-acts .ta-ki.ready { animation: none; } }
+
+  /* ---------------- 1.5.2 a new player's first minutes (js/first-run.js) */
+  /* the end screen of a guided fight: the goal line and the promise over the buttons, the counting NEXT FIGHT */
+  .fr-guide { display: grid; gap: 6px; margin-bottom: 2px; text-align: left; }
+  .fr-goal { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 10px; align-items: center; padding: 6px 10px; border: 1px solid rgba(217,179,108,.45); background: rgba(8,9,16,.6); }
+  .fr-goal .fr-k { font: 700 30px/1 var(--jp); text-shadow: 0 0 14px rgba(0,0,0,.6); }
+  .fr-goal span { display: grid; gap: 2px; min-width: 0; }
+  .fr-goal strong { font: 700 14px/1.15 var(--display); letter-spacing: .1em; color: var(--gold-hi); overflow-wrap: anywhere; }
+  .fr-goal small { font: 500 12px/1.25 var(--display); letter-spacing: .04em; color: var(--text); overflow-wrap: anywhere; }
+  .fr-bar { display: block; height: 5px; margin-top: 3px; background: rgba(255,255,255,.12); position: relative; overflow: hidden; }
+  .fr-bar::after { content: ''; position: absolute; inset: 0 auto 0 0; width: var(--p); background: linear-gradient(90deg, var(--gold), var(--gold-hi)); animation: frGrow 1.2s .5s ease-out backwards; }
+  @keyframes frGrow { from { width: var(--p0, var(--p)); } to { width: var(--p); } }
+  /* a new player's simple result (guided fights): the score grid, honor rows, leaderboard behind DETAILS */
+  #end.fr-simple #endStats, #end.fr-simple #endScore, #end.fr-simple #endHonor, #end.fr-simple #endLb { display: none; }
+  .fr-det { justify-self: center; margin: 4px 0 0; padding: 4px 10px; background: none; border: 0; color: var(--muted); font: 500 12px/1.2 var(--display); letter-spacing: .12em; text-transform: uppercase; cursor: pointer; }
+  .fr-det:hover { color: var(--gold-hi); }
+  #end:not(.fr-on) .fr-det { display: none; }
+  .fr-back { display: grid; gap: 4px; padding: 7px 10px; border: 1px solid rgba(120,210,150,.55); background: rgba(10,30,20,.55); }
+  .fr-back b { font: 700 14px/1.1 var(--display); letter-spacing: .12em; color: #9fe6b4; }
+  .fr-back span { font: 500 12.5px/1.3 var(--display); letter-spacing: .03em; overflow-wrap: anywhere; }
+  .fr-back .fr-sign { margin-top: 4px; padding: 8px 10px; font-size: 13px; white-space: normal; line-height: 1.2; }
+  .fr-stay { display: block; text-align: center; font: 500 11px/1.2 var(--display); letter-spacing: .08em; color: var(--muted); order: 9; }
+  .btn.fr-cd { position: relative; overflow: hidden; }
+  .btn.fr-cd .fr-cdn { display: inline-grid; place-items: center; min-width: 1.6em; height: 1.6em; margin-inline-start: .55em; border-radius: 50%; background: rgba(5,6,12,.55); font-style: normal; font-weight: 700; vertical-align: middle; }
+  .btn.fr-cd::after { content: ''; position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; background: var(--gold-hi); transform-origin: left; animation: frCd var(--fr-cd, 5s) linear forwards; }
+  @keyframes frCd { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+  #vsGo.fr-cd .fr-cdn { background: rgba(255,255,255,.18); }
+  /* (a guided fight: the way out stays, quieter) */
+  #end.fr-on #bEndMenu { justify-self: center; padding: 4px 10px; min-width: 0; background: none; border: 0; box-shadow: none; font-size: 12px; letter-spacing: .14em; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
+  /* the menu: CONTINUE JOURNEY (the last journey, unfinished) */
+  .mode.fr-cont { position: relative; overflow: hidden; border-color: var(--gold); background: linear-gradient(90deg, rgba(217,179,108,.22), rgba(200,30,48,.1) 70%); }
+  .mode.fr-cont strong { font-size: 20px; letter-spacing: .12em; color: var(--gold-hi); }
+  .mode.fr-cont span { overflow-wrap: anywhere; }
+  .mode.fr-cont .mk { grid-row: 1 / span 2; grid-column: 2; font-size: 34px; }
+  /* the menu's note: the promise, the daily reward */
+  #frNote { position: absolute; z-index: 45; top: max(12px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); width: min(420px, calc(100% - 32px)); box-sizing: border-box; display: grid; gap: 4px; padding: 10px 34px 10px 14px; border: 1px solid rgba(120,210,150,.6); background: rgba(8,16,12,.94); box-shadow: 0 10px 30px rgba(0,0,0,.55); animation: frIn .35s ease-out; }
+  #frNote.out { opacity: 0; transition: opacity .3s; }
+  #frNote b { font: 700 15px/1.1 var(--display); letter-spacing: .12em; color: #9fe6b4; }
+  #frNote span { font: 500 13px/1.3 var(--display); letter-spacing: .03em; overflow-wrap: anywhere; }
+  #frNote .fr-back { padding: 0; border: 0; background: none; }
+  #frNote .fr-x { position: absolute; top: 4px; right: 6px; width: 28px; height: 28px; border: 0; background: none; color: var(--muted); font-size: 20px; cursor: pointer; }
+  @keyframes frIn { from { opacity: 0; transform: translate(-50%, -8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+  /* the menu's turn-your-phone ask (before the fight) */
+  #rotGate { z-index: 70; display: grid; place-items: center; padding: 24px; text-align: center; background: radial-gradient(ellipse at 50% 40%, #1b2036, #05060c 74%); touch-action: none; }
+  #rotGate[hidden] { display: none; }
+  .rg-wrap { display: grid; justify-items: center; gap: 12px; max-width: 340px; }
+  .rg-ic { width: min(200px, 46vw); height: auto; }
+  .rg-ic .rg-arc { stroke: var(--gold); opacity: .85; }
+  .rg-ic .rg-ph { stroke: var(--gold-hi); transform-origin: 80px 82px; animation: rotPh 2.6s cubic-bezier(.6,0,.3,1) infinite; }
+  .rg-ic .rg-scr { fill: rgba(217,179,108,.16); stroke: none; }
+  .rg-ic .rg-ninja { stroke: #f4ead6; }
+  .rg-ic .rg-head, .rg-ic .rg-dot { fill: #f4ead6; stroke: none; }
+  #rotGate b { font: 700 28px/1.1 var(--display); letter-spacing: .06em; text-transform: uppercase; color: var(--gold-hi); }
+  #rotGate span { color: var(--text); font-size: 15px; line-height: 1.45; }
+  #rotGate .btn { min-width: 150px; margin-top: 8px; }
+  @media (prefers-reduced-motion: reduce) { .rg-ic .rg-ph { animation: none; transform: rotate(-90deg); } .btn.fr-cd::after { animation: none; } }
 
   /* ---------------- Menü: Arcade + Antrenman */
   .mode.arcade { position: relative; overflow: hidden; background: linear-gradient(90deg, rgba(200,30,48,.16), rgba(217,179,108,.07) 70%); }
@@ -1125,6 +1312,9 @@
   /* ---------------- Puan: HUD sayacı (1P adının sağında), maç sonu dökümü */
   .p1 .nm { min-width: 0; }
   .p1 .nm small { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* (1.5.2: the CPU's tag on a narrow screen - e.g. Italian "CPU · APPRENDISTA" upright - shortens like 1P's; the name and kanji stay whole) */
+  .p2 .nm { min-width: 0; }
+  .p2 .nm small { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .nm .scr { flex: none; margin-inline-start: auto; display: inline-flex; align-items: baseline; gap: 5px; font: 600 clamp(14px, 1.7vw, 19px)/1 var(--display); letter-spacing: .04em; color: var(--gold-hi); font-variant-numeric: tabular-nums; text-shadow: 0 2px 8px rgba(0,0,0,.85); white-space: nowrap; }
   .nm .scr span { display: inline-block; }
   .nm .scr i { font-style: normal; font-size: .72em; color: #ffb36b; letter-spacing: .02em; }
@@ -1487,6 +1677,17 @@
   @media (max-width: 560px) and (max-height: 900px) {
     .brand p { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   }
+  /* small phones upright (360×740 and the like, 1.3.2): the same entries, a tighter top — the title a little smaller, the
+     tagline and PLAY's text on fewer lines, slimmer cards — so RANKED DUEL is on the first screen too (nothing hidden) */
+  @media (max-width: 560px) and (max-height: 799px) {
+    .brand h1 { font-size: clamp(34px, 11vw, 46px); }
+    .brand .vk { font-size: 22px; }
+    .brand p { -webkit-line-clamp: 1; margin-top: 4px; }
+    #menu .modes { gap: 6px; }
+    #menu .mode { padding-block: 9px; }
+    #mplay > span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    #menu .mode > span { line-height: 1.3; }
+  }
   @media (max-height: 760px) and (min-width: 861px) {
     .brand h1 { font-size: clamp(36px, 4.4vw, 56px); }
     .mode span { font-size: 12.5px; line-height: 1.3; }
@@ -1578,17 +1779,22 @@
   #touch[data-coach="dodge"] .ta-dodge, #touch[data-coach="throw"] .ta-throw, #touch[data-coach="guard"] .td-d, #touch[data-coach="dodge"] .td-r { animation: coachBtn .8s ease-in-out infinite alternate; }
   @keyframes coachBtn { from { box-shadow: 0 0 0 0 rgba(241,214,156,.0); } to { box-shadow: 0 0 0 6px rgba(241,214,156,.35), 0 0 22px rgba(241,214,156,.7); } }
   @media (prefers-reduced-motion: reduce) { #touch[data-coach] .ta-light, #touch[data-coach] .ta-guard, #touch[data-coach] .ta-heavy, #touch[data-coach] .ta-ki, #touch[data-coach] .ta-dodge, #touch[data-coach] .ta-throw { animation: none; } }
-  /* rally tutorial (js/tutorial.js): the button to press glows and grows; bigger while time is stopped ("… stop") */
-  #touch[data-tutor^="light"] .ta-light, #touch[data-tutor^="guard"] .ta-guard, #touch[data-tutor^="guard"] .td-d { animation: tutorBtn .5s ease-in-out infinite alternate; }
-  #touch[data-tutor~="stop"] .ta-light, #touch[data-tutor~="stop"] .ta-guard, #touch[data-tutor~="stop"] .td-d { --tg: 1.3; }
-  #touch[data-tutor~="nudge"] .ta-light, #touch[data-tutor~="nudge"] .ta-guard, #touch[data-tutor~="nudge"] .td-d { --tg: 1.5; animation-duration: .38s; }
-  #touch[data-tutor^="light"] .ta-light::after, #touch[data-tutor^="guard"] .ta-guard::after { opacity: 1; }
-  #touch[data-tutor^="guard"] .t-base .d { opacity: 1; scale: 1.3; }
+  /* rally tutorial (js/tutorial.js): the button to press glows and grows; bigger while time is stopped ("… stop").
+     GUARD is the d-pad's ▼ GUARD, wherever the layout (left-handed, the editor's saved spots) puts it */
+  #touch[data-tutor^="light"] .ta-light, #touch[data-tutor^="guard"] .td-d { animation: tutorBtn .5s ease-in-out infinite alternate; }
+  #touch[data-tutor~="stop"] .ta-light, #touch[data-tutor~="stop"] .td-d { --tg: 1.3; }
+  #touch[data-tutor~="nudge"] .ta-light, #touch[data-tutor~="nudge"] .td-d { --tg: 1.5; animation-duration: .38s; }
+  #touch[data-tutor^="light"] .ta-light::after { opacity: 1; }
+  #touch[data-tutor^="guard"] .t-base .d { opacity: 1; animation: tutorArrow .5s ease-in-out infinite alternate; }
+  #touch[data-tutor~="nudge"] .t-base .d { --tg: 1.7; animation-duration: .38s; }
+  @keyframes tutorArrow { from { scale: 1.2; filter: drop-shadow(0 0 0 rgba(150,210,255,0)); } to { scale: var(--tg, 1.45); filter: drop-shadow(0 0 6px rgba(150,210,255,.95)) drop-shadow(0 0 14px rgba(241,214,156,.8)); } }
   @keyframes tutorBtn { from { scale: 1; box-shadow: 0 0 0 0 rgba(241,214,156,0); } to { scale: var(--tg, 1.16); box-shadow: 0 0 0 7px rgba(241,214,156,.4), 0 0 26px rgba(241,214,156,.8); } }
-  @media (prefers-reduced-motion: reduce) { #touch[data-tutor^="light"] .ta-light, #touch[data-tutor^="guard"] .ta-guard, #touch[data-tutor^="guard"] .td-d { animation: none; scale: var(--tg, 1.16); box-shadow: 0 0 0 5px rgba(241,214,156,.5); } }
+  @media (prefers-reduced-motion: reduce) { #touch[data-tutor^="light"] .ta-light, #touch[data-tutor^="guard"] .td-d { animation: none; scale: var(--tg, 1.16); box-shadow: 0 0 0 5px rgba(241,214,156,.5); } #touch[data-tutor^="guard"] .t-base .d { animation: none; scale: 1.4; } }
   .btn.ad { display: grid; gap: 3px; justify-items: center; border-color: var(--gold); background: linear-gradient(90deg, rgba(217,179,108,.16), rgba(217,179,108,.05)); }
   .btn.ad small { font: 500 11px/1 var(--display); letter-spacing: .14em; color: var(--muted); }
   .btn.ad span::before { content: '▶'; margin-right: 8px; color: var(--gold); font-size: .8em; }
+  .btn.ad.tk span::before { content: '札'; font-family: var(--jp); font-size: 1em; color: #c79bff; }
+  .btn.ad.tk { border-color: #c79bff; background: linear-gradient(90deg, rgba(199,155,255,.18), rgba(199,155,255,.05)); }
   #app.ad-lock { pointer-events: none; }
 
   /* ================ Main menu: Single match (vs CPU / two players) and the Hall of Champions card */
@@ -1608,9 +1814,10 @@
      ~400 px high, 3 at ~375 px high (the rows beyond are hidden here, not in the script). */
   .mode.champ { position: relative; overflow: hidden; grid-template-columns: minmax(0, 1fr); gap: 5px; align-content: start; padding-right: 58px; background: linear-gradient(100deg, rgba(217,179,108,.17), rgba(217,179,108,.03) 72%); border-color: rgba(217,179,108,.5); }
   .mode.champ .mk { position: absolute; grid-area: auto; right: 14px; top: 50%; transform: translateY(-50%); writing-mode: vertical-rl; white-space: nowrap; letter-spacing: .12em; font-size: 32px; pointer-events: none; }
-  .champ .ch-head { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+  /* (a label that does not fit beside the title goes onto its own line instead of ending in "…": tr, fr, it, pl on a phone held upright) */
+  .champ .ch-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; min-width: 0; }
   .champ .ch-head strong { flex: none; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .champ .ch-lab { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 11px/1.2 var(--display); letter-spacing: .16em; text-transform: uppercase; color: var(--gold); }
+  .champ .ch-lab { flex: 0 1 auto; min-width: min(100%, max-content); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 11px/1.2 var(--display); letter-spacing: .16em; text-transform: uppercase; color: var(--gold); }
   .champ .ch-top { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 34px; padding: 2px 12px 2px 10px; border: 1px solid rgba(217,179,108,.6); background: linear-gradient(90deg, rgba(217,179,108,.18), rgba(217,179,108,.04) 80%); }
   .champ .ch-pl { flex: none; font: 700 18px/1 var(--jp); color: var(--gold); }
   .champ .ch-n { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 700 25px/1.15 var(--display); letter-spacing: .05em; color: var(--gold-hi); text-shadow: 0 0 16px rgba(241,214,156,.35); }
@@ -1803,7 +2010,23 @@
   /* rally tutorial (js/tutorial.js) tip box: on touch right under the HUD bars, so the fighters' heads, the prompt beside
      them and the PARRY! pop-up stay in view; a missed step turns its frame red */
   #app.touch #coach[data-tutor] { top: max(60px, 14.5%); bottom: auto; padding: 6px 12px; }
+  /* (a long step line wraps instead of running under the SKIP button at the left) */
+  #app.touch.tutor-on #coach[data-tutor] { box-sizing: border-box; white-space: normal; max-width: calc(100% - 2 * var(--tsk, 135px)); width: max-content; text-align: left; }
   #coach.warn { border-color: #ff9b7a; }
+  /* a journey loss in fights 1–3: one tip for the retry (js/arcade.js lossTip) */
+  #endTip { margin: -4px auto 10px; max-width: 520px; padding: 6px 12px; border: 1px solid rgba(150,210,255,.4); background: rgba(150,210,255,.07); font: 500 14px/1.35 var(--body); color: var(--text); }
+  #endTip b { margin-right: 8px; font: 600 11px/1 var(--display); letter-spacing: .2em; color: #96d2ff; }
+  #endTip kbd, #endTip .tb { font-size: .85em; }
+  #coach.good { border-color: #9dffb0; } #coach.good b { color: #9dffb0; font-size: 18px; }
+  /* short first-fight tutorial (js/tutorial.js): the warm-up's blow count beside the line, the SKIP button (in the HUD
+     under the left bars, where the journey goal line is; that line steps aside while the lesson runs) */
+  #coach em { font: 600 .8em/1 var(--display); font-style: normal; color: var(--gold); letter-spacing: .06em; }
+  #tutSkip { grid-column: 1 / -1; justify-self: start; margin-top: -8px; min-width: 76px; min-height: 34px; padding: 6px 14px; border: 1px solid rgba(241,214,156,.55); border-radius: 18px; background: rgba(8,9,16,.78); color: #f1d69c; font: 600 14px/1 var(--display); letter-spacing: .1em; text-transform: uppercase; cursor: pointer; pointer-events: auto; }
+  #tutSkip:hover, #tutSkip:focus-visible { background: rgba(30,26,18,.92); border-color: #f1d69c; }
+  #tutSkip:active { transform: scale(.95); }
+  #tutSkip[hidden] { display: none; }
+  #app.touch #tutSkip { min-height: 38px; font-size: 15px; }
+  #app.tutor-on #journeyGoal { display: none; }
   .journey-panel { border: 1px solid #665433; background: #11121c; padding: 14px; font-family: var(--body); }
   .journey-heading { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; color: var(--gold); }
   .journey-heading span, .journey-panel p { font-size: 13px; line-height: 1.5; }
@@ -1873,6 +2096,16 @@
     #vs.journey .vs-side canvas { height: 25vh; }
     #journeyVs { font-size: 12px; padding: 5px 8px; }
   }
+  /* Languages in other scripts (js/i18n.js sets <html lang>; their glyphs come from fonts/lang/<code>.css).
+     Arabic: every text runs right to left inside its own box (the direction follows each line's first letter, so a
+     Latin name or a number keeps its order); the layout itself (HUD sides, rows, the fight) stays as it is.
+     Joined (Arabic) and stacked (Devanagari, Thai) letters are never spread apart, nor Korean syllables (the spaces
+     between its words would vanish): no letter spacing there. */
+  html[lang="ar"] #app :is(h1, h2, h3, h4, p, li, dt, dd, label, small, strong, b, em, span, button, a, div, td, th, kbd) { unicode-bidi: plaintext; }
+  html:is([lang="ar"], [lang="hi"], [lang="th"], [lang="ko"]) #app * { letter-spacing: 0 !important; }
+  html[lang="ar"] .chip b { margin: 0 0 0 6px; } /* the arena kanji stands on the right of a right-to-left name */
+  html[lang="ar"] #app :is(ul, ol) { direction: rtl; } /* list bullets on the side the lines start */
+  html:is([lang="ja"], [lang="zh"], [lang="zh-TW"]) .t-acts button { letter-spacing: 0; } /* full-width letters already stand apart */
 </style>
 </head>
 <body>
@@ -1895,15 +2128,13 @@
       <div class="ki-row"><div class="ki" id="kb2"><i id="k2"></i></div>KI</div>
     </div>
     <div id="journeyGoal" data-i18n-skip aria-live="polite" hidden></div>
+    <button id="tutSkip" type="button" tabindex="-1" hidden data-i18n-skip></button>
   </div>
-  <!-- Touch pad: a stick (floating or fixed) or d-pad buttons for movement, the action buttons. touch.js places every
+  <!-- Touch pad: the d-pad for movement and guard (▼; no stick and no GUARD button since 2026-10-05), the action buttons. touch.js places every
        control (default layout or the player's own, made in the layout editor, js/touch-editor.js); input.js handles the
        fingers (multi-touch). -->
   <div id="touch" class="full" hidden>
     <div class="t-swipe" id="tSwipe" aria-hidden="true"></div>
-    <div class="t-zone" id="tStick" aria-hidden="true">
-      <div class="t-base" id="tBase"><i class="u"></i><i class="d" data-s="touch.btn.down">GARD</i><i class="l"></i><i class="r"></i><b class="t-knob" id="tKnob"></b></div>
-    </div>
     <!-- direction marks are brush chevrons drawn in CSS; #tDring is the d-pad's one-piece ring / cross behind the four
          buttons (touch.js places it and hides it when the buttons are moved apart) -->
     <div class="t-dpad" id="tDpad" aria-hidden="true">
@@ -1914,11 +2145,10 @@
       <button type="button" tabindex="-1" data-dir="guard" class="td-d"><small data-s="touch.btn.down">GARD</small></button>
     </div>
     <div class="t-acts" id="tActs" aria-hidden="true">
-      <!-- tam düzen 7 düğme (varsayılan), basit düzen 5 düğme; yerleri touch.js verir (#touch.full / .simple) -->
+      <!-- tam düzen 6 düğme (varsayılan), basit düzen 4 düğme; yerleri touch.js verir (#touch.full / .simple) -->
       <button type="button" tabindex="-1" data-act="light" class="ta-light"><span data-s="touch.btn.light">SALDIR</span></button>
       <button type="button" tabindex="-1" data-act="heavy" class="ta-heavy"><span data-s="touch.btn.heavy">AĞIR</span></button>
       <button type="button" tabindex="-1" data-act="dodge" class="ta-dodge"><span data-s="touch.btn.dodge">ATIL</span></button>
-      <button type="button" tabindex="-1" data-act="guard" class="ta-guard"><span data-s="touch.btn.guard">GARD</span></button>
       <button type="button" tabindex="-1" data-act="kick" class="ta-kick"><span data-s="touch.btn.kick">TEKME</span></button>
       <button type="button" tabindex="-1" data-act="throw" id="tThrow" class="ta-throw"><i class="shu"></i><small id="tAmmo"></small></button>
       <button type="button" tabindex="-1" data-act="special" id="tKi" class="ta-ki"><span data-s="touch.btn.special">KI</span></button>
@@ -2087,6 +2317,7 @@
         <button class="btn primary" id="bFight">Dövüşe başla</button>
         <button class="btn chl" id="bChallenge" type="button" hidden></button>
         <button class="btn ad" id="bTrial" type="button" hidden></button>
+        <button class="btn ad tk" id="bTicket" type="button" hidden></button>
         <button class="btn" id="bMoves" type="button" data-s="sel.moves">Hareketler</button>
         <button class="btn" id="bBack">Geri</button>
       </div>
@@ -2154,6 +2385,7 @@
         <button class="btn primary" id="bResume">Devam et</button>
         <button class="btn set-btn" id="bSettings" type="button" data-set-open aria-haspopup="dialog"><svg class="set-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle class="t" cx="12" cy="12" r="8.6"/><circle cx="12" cy="12" r="5.6"/></svg><span data-s="set.title">Ayarlar</span></button>
         <button class="btn" id="bPMoves" type="button" data-s="sel.moves" aria-haspopup="dialog">Hareketler</button>
+        <button class="btn" id="bPCtrl" type="button" data-s="set.tabs.controls" aria-haspopup="dialog">Kontroller</button>
         <button class="btn" id="bRestart">Maçı yeniden başlat</button>
         <button class="btn" id="bMenu">Ana menü</button>
       </div>
@@ -2195,6 +2427,7 @@
               <button class="tog" id="tHints" aria-pressed="true"><i></i><span data-t="touch.hints">Tuş ipuçları</span></button>
             </div>
             <div class="tset" id="setTset"></div>
+            <div class="set-touchhelp" id="setTouchHelp" data-i18n-skip></div>
             <div class="set-kb">
               <p class="set-note" data-s="set.touchNote"></p>
               <h3 data-s="set.keys">Klavye</h3>
@@ -2230,6 +2463,7 @@
       <div class="bigk" aria-hidden="true" id="endK">勝利</div>
       <p class="title" id="endTitle">Akane kazandı</p>
       <p class="sub" id="endSub"></p>
+      <p class="endtip" id="endTip" hidden data-i18n-skip></p>
       <div class="stats" id="endStats"></div>
       <div class="sbd" id="endScore" hidden></div>
       <div class="hn" id="endHonor" hidden aria-live="polite"></div>
@@ -2308,22 +2542,28 @@
   </div>
 </div>
 
-<script  src="js/core.js?v=sfx-1"></script>
+<script  src="js/core.js?v=cg141-1"></script>
 <script  src="js/perf.js?v=sd-fps-2"></script>
-<script  src="js/music.js?v=sd-fps-2"></script>
+<script  src="js/music.js?v=flair-1"></script>
 <script  src="js/input.js?v=comfort-1"></script>
 <script  src="js/gfx.js?v=wide-bg-1"></script>
-<script  src="js/scene.js?v=hitch-1"></script>
-<script  src="js/skeleton.js?v=render-fix-v1"></script>
-<script  src="js/anim.js?v=anim-1"></script>
+<script  src="js/scene.js?v=flair-1"></script>
+<script  src="js/skeleton.js?v=render-fix-v1-flair"></script>
+<script  src="js/anim.js?v=anim-2-flair"></script>
 <script  src="js/bake.js?v=sd-fps-2"></script>
 <script  src="js/prepare.js"></script>
 <script  src="js/characters.js?v=champ-1"></script>
 <!-- drawn costumes (ranked season rewards; js/rewards.js names them from the server catalog) -->
 <script  src="js/costumes.js"></script>
 <script  src="js/costumes-champion.js"></script>
-<script  src="js/fighter.js?v=bo-sound-1"></script>
+<!-- the Shadow Pass Season 1 final costume (js/costumes-pass.js) and the pass flair: victory poses, hit effects, counter slash themes,
+     ki auras, KO finishes, VS name cards, arena variants, menu music (js/flair.js; spec at its top) -->
+<script  src="js/costumes-pass.js"></script>
+<script  src="js/flair.js"></script>
+<script  src="js/fighter.js?v=flair-1"></script>
 <script  src="js/specials.js?v=bo-sound-1"></script>
+<!-- 2.5D strike prototype (branch claude/sd-3d only): dormant unless ?depth=1 or the uc-boyut-test page drives it -->
+<script  src="js/depth25.js"></script>
 <script  src="js/haptics.js?v=hitch-1"></script>
 <script  src="js/telegraph.js?v=wide-bg-1"></script>
 <script  src="js/ai.js"></script>
@@ -2332,7 +2572,7 @@
 <script  src="js/journey.js"></script>
 <script  src="js/tune.js"></script>
 <script  src="js/journey-text.js"></script>
-<script  src="js/arcade.js?v=comfort-1"></script>
+<script  src="js/arcade.js?v=cg141-1"></script>
 <script  src="js/roster2.js"></script>
 <script  src="js/funnel.js"></script>
 <script  src="js/config.js"></script>
@@ -2340,34 +2580,69 @@
 <script  src="js/portal-user.js"></script>
 <script  src="js/platform-boards.js"></script>
 <script  src="js/banzuke.js?v=boards-1"></script>
-<script  src="js/ads.js"></script>
+<script  src="js/ads.js?v=cg141-1"></script>
 <script  src="js/pass.js"></script>
 <script  src="js/coach.js?v=comfort-1"></script>
 <script  src="js/tutorial.js"></script>
-<script  src="js/kaeshi-cine.js?v=hitch-1"></script>
+<!-- 1.5.2: a new player's first minutes (js/first-run.js: one-round first fight, guided first three fights, come back
+     tomorrow, turn the phone before the fight, measuring) and its words in every language (js/i18n-first.js) -->
+<script  src="js/i18n-first.js"></script>
+<script  src="js/first-run.js"></script>
+<script  src="js/kaeshi-cine.js?v=flair-1"></script>
 <script  src="js/combo-trial.js"></script>
 <script  src="js/touch.js?v=comfort-1"></script>
 <script  src="js/touch-editor.js"></script>
 <script  src="js/volume.js"></script>
 <script  src="js/i18n-en.js?v=comfort-1"></script>
-<script  src="js/i18n-es.js?v=comfort-1"></script>
-<script  src="js/i18n-pt.js?v=comfort-1"></script>
-<script  src="js/i18n-ru.js?v=comfort-1"></script>
-<script  src="js/i18n-de.js?v=comfort-1"></script>
-<script  src="js/i18n-fr.js?v=comfort-1"></script>
+<!-- (the other languages' catalogs come on demand: js/i18n.js LAZY, preloaded in <head> for the device language) -->
 <script  src="js/i18n-pass.js"></script>
 <script  src="js/i18n.js?v=comfort-1"></script>
 <script  src="js/lang-ui.js"></script>
 <script  src="js/settings.js"></script>
+<!-- 1.5.2: the key legend at the bottom of a fight on a computer (js/key-legend.js: the game's own bindings, H hides it) -->
+<script  src="js/key-legend.js"></script>
 <script  src="js/privacy.js"></script>
 <script  src="js/gl2d.js?v=hitch-1"></script>
 <script  src="js/gl-render.js?v=hitch-1"></script>
-<script  src="js/game.js?v=hitch-1"></script>
+<script  src="js/game.js?v=cg141-1"></script>
 <script  src="js/sim-state.js"></script>
+<!-- Interactive props (prototype for the cinematic duel mode): off unless ?props=1 / ?esya=1 or the duel mode switches
+     them on. Left out of every shipped build (vite.config.ts stripProps); only the props test build keeps them. -->
+<script  data-props src="js/props.js"></script>
+<script  data-props src="js/props-art.js"></script>
 <!-- voices: fighters and announcer, files in voice/ (docs/SES-PLANI.md); ?voice=off silences, ?voice=log logs -->
 <script  src="js/voice.js?v=sfx-1"></script>
 <!-- the sound pass of 2026-09-30: menu clicks / hover / back, guard, jump, ki ready, result stings, ranked cues (js/sfx.js) -->
 <script  src="js/sfx.js?v=sfx-1"></script>
+<!-- living menus (1.4): menu ninjas, screen transitions, button presses, reward moments, counting numbers, drifting
+     petals (js/ui-alive.js; ?motion=off / reduced motion: still) -->
+<script  src="js/ui-alive.js"></script>
+<!-- 1.5.2: the character stage (a big ninja in its look, inside a rank frame; js/char-stage.js): the ranked versus
+     screen now, the profile's character preview and the reward showcase next -->
+<script  src="js/char-stage.js"></script>
+<!-- 1.5.2: the profile's character preview (js/char-preview.js; ?profdemo=1 opens it with made-up progress) -->
+<script  src="js/char-preview.js"></script>
+<!-- duel prototype (branch claude/sd-duel, docs/SHADOW-DUEL-DUELLO.md): type="text/plain" tags are never fetched or run;
+     only an address with ?duel=1 turns them into scripts (the loader under them), so the game is unchanged without it -->
+<script  data-duel type="text/plain" src="js/duel.js"></script>
+<script  data-duel type="text/plain" src="js/i18n-duel.js"></script>
+<script  data-duel type="text/plain" src="js/duel-moves.js"></script>
+<script  data-duel type="text/plain" src="js/duel-depth.js"></script>
+<script  data-duel type="text/plain" src="js/duel-bind.js"></script>
+<script  data-duel type="text/plain" src="js/duel-ai.js"></script>
+<script  data-duel type="text/plain" src="js/duel-seq.js"></script>
+<script  data-duel type="text/plain" src="js/duel-env.js"></script>
+<script  data-duel type="text/plain" src="js/duel-arena.js"></script>
+<script  data-duel type="text/plain" src="js/duel-ui.js"></script>
+<script  data-duel type="text/plain" src="js/duel-fin.js"></script>
+<script  data-duel type="text/plain" src="js/duel-fin-ui.js"></script>
+<script  data-duel type="text/plain" src="js/duel-chor.js"></script>
+<script>if(!/[?&]duel=0(&|$)/.test(location.search))for(const s of document.querySelectorAll('script[data-duel]')){const e=document.createElement('script');e.src=s.getAttribute('src');e.async=false;document.body.appendChild(e);}</script>
+<!-- motion-capture prototype (branch claude/sd-mocap; docs/SHADOW-DUEL-MOCAP.md): inert text the same way; ?mocap=1 (the
+     mocap-test page) or the duel (?duel=1, unless ?mocap=0) runs it: the duel's fighters are then drawn from recorded motion -->
+<script  data-mocap type="text/plain" src="js/mocap.js"></script>
+<script  data-mocap type="text/plain" src="js/mocap-duel.js"></script>
+<script>if(/[?&]mocap=1(&|$)/.test(location.search)||(!/[?&]duel=0(&|$)/.test(location.search)&&!/[?&]mocap=0(&|$)/.test(location.search)))for(const s of document.querySelectorAll('script[data-mocap]')){const e=document.createElement('script');e.src=s.getAttribute('src');e.async=false;document.body.appendChild(e);}</script>
 <!-- online "play with a friend" (docs/SHADOW-DUEL-ONLINE.md): the match loop and the rooms. data-online: left out of the
      offline portal builds (Yandex, Playgama; vite.config.ts), so they carry no online code or address -->
 <script  data-online src="js/net.js"></script>
@@ -2378,7 +2653,14 @@
 <script  data-online src="js/ghost.js"></script>
 <!-- the ranked tier emblems, drawn in code (js/rank-emblem.js: ND.rankEmblem); used by the ranked screens, so online-only -->
 <script  data-online src="js/rank-emblem.js"></script>
+<!-- 1.5.2: the ranked versus screen (js/rank-vs.js; ?vsdemo=1 shows it with made-up players) -->
+<script  data-online src="js/rank-vs.js"></script>
+<!-- 1.5.2: the ranked season rewards and their showcase (js/rank-rewards.js; ?rwdemo=1) -->
+<script  data-online src="js/rank-rewards.js"></script>
 <script  data-online src="js/ranked.js"></script>
 <script  data-online src="js/pass-net.js"></script>
+<!-- 1.4: "new version ready" note on the bare main menu (js/update-note.js; every build: version.json next to this page,
+     on CrazyGames the studio server's answer) -->
+<script  src="js/update-note.js"></script>
 </body>
 </html>

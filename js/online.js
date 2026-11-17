@@ -1,35 +1,39 @@
-// Shadow Duel — "Play with a friend": online rooms (docs/SHADOW-DUEL-ONLINE.md, phase 1)
-//
-// Flow: main menu → "Play with a friend" → create a room (6-letter code + invite link) or join one (link or code) →
-// both pick a fighter (every fighter is open here), the host picks the arena → Ready → the match (js/net.js) →
-// Rematch / Change fighters / Leave.
-//
-// Finding each other (signalling): Supabase Realtime only, the game's own project (js/config.js, the public
-// publishable key; never a secret key). One channel per room, "sd-room-<CODE>": Presence says who is in the room,
-// Broadcast carries the WebRTC offer / answer and the network candidates. No database table. Spoken over the Realtime
-// websocket directly (the Phoenix protocol, a few JSON messages), so no library is loaded.
-// Playing: a direct WebRTC connection between the two browsers, two data channels: "in" (unordered, never resent: the
-// input packets of js/net.js and pings) and "ctl" (ordered, reliable: the room's messages). The network servers used to
-// find a direct route are in js/config.js ICE_SERVERS (free public STUN now; a TURN relay can be added there).
-//
-// Invites: on CrazyGames the SDK's invite link / invite button (src/portal-bridge.ts rooms), elsewhere ?room=CODE.
-// Not in the offline portal builds: vite.config.ts leaves this file and js/net.js out of them. Where the page may not
-// reach outside servers (ND.platform.allowNetwork false: those portals, the Artifact host) the entry does not appear.
-// Test hooks: window.__ndSignal (a signalling stand-in), window.__ndNetem ({ delay, jitter, loss } on the "in" channel).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 (function (ND) {
   'use strict';
   const G = ND.game, NET = ND.net;
   if (!G || !NET) return;
   const $ = (id) => document.getElementById(id);
   const C = ND.CONFIG || {};
-  const PROTO = 1;                              // room protocol version (both players must match)
-  const ABC = 'ABCDEFGHJKMNPQRSTUVWXYZ';        // room code letters: no I, L, O (read as 1, 1, 0)
-  const ROOM_TTL = 10 * 60 * 1000;              // a room nobody joined closes after 10 minutes
+
+
+
+  const hostSpeed = () => { const v = ND.AI_KNOBS && ND.AI_KNOBS.duelSpeed, d = ND.duel && ND.duel.SPEED0 || 0.85; return v >= 0.7 && v <= 1 ? v : d; };
+  const PROTO = /[?&]duel=0(&|$)/.test(location.search || '') ? 1 : 3;
+  const ABC = 'ABCDEFGHJKMNPQRSTUVWXYZ';
+  const ROOM_TTL = 10 * 60 * 1000;
   const FIND_MS = 8000, CONNECT_MS = 20000, PING_MS = 500;
   const T_PING = 2, T_PONG = 3;
-  // Texts: Turkish is the game's source language (like the tables in arcade.js); the language catalogs
-  // (js/i18n-xx.js STR.online) overlay ND.STR.online with the chosen language. This file runs after js/i18n.js, so the
-  // source table is read through M(): the catalog's table when one is applied, else this one (Turkish).
+
+
+
   const TR = {
     title: 'Arkadaşla oyna', menuSub: 'Çevrimiçi düello · bağlantı ya da 6 harfli kod paylaş',
     homeSub: 'Bir oda kur ve bağlantıyı arkadaşına gönder ya da arkadaşının gönderdiği kodu yaz.',
@@ -61,7 +65,7 @@
   };
   const M = () => (ND.STR && ND.STR.online && typeof ND.STR.online.title === 'string' ? ND.STR.online : TR);
 
-  // ---------------------------------------------------------------- can this build / page play online at all?
+
   const url = typeof C.SUPABASE_URL === 'string' ? C.SUPABASE_URL.trim().replace(/\/+$/, '') : '';
   const key = typeof C.SUPABASE_ANON_KEY === 'string' ? C.SUPABASE_ANON_KEY.trim() : '';
   const customSignal = () => typeof window.__ndSignal === 'function';
@@ -72,11 +76,11 @@
     if (customSignal()) return true;
     return /^https:\/\/[^\s/?#]+$/i.test(url) && key.length >= 20 && !/secret|service_role/i.test(key);
   }
-  // the network servers for finding a direct route (js/config.js ICE_SERVERS: free STUN)
+
   const iceServers = () => (Array.isArray(C.ICE_SERVERS) ? C.ICE_SERVERS : []);
-  // TURN relay (for networks that allow no direct route): one-hour credentials from our Supabase Edge Function
-  // (supabase/functions/turn-credentials; js/config.js TURN_FUNCTION, '' = none), asked when a room opens, at most
-  // TURN_MS; without them the room connects directly or not at all, as before.
+
+
+
   const TURN_MS = 2000;
   function turnUrl() {
     const n = typeof C.TURN_FUNCTION === 'string' ? C.TURN_FUNCTION.trim() : '';
@@ -107,27 +111,27 @@
         .catch(() => { clearTimeout(t); done([]); });
     });
   }
-  // the connection's settings: free STUN + the relay if we got one (test hook: window.__ndIcePolicy = 'relay')
+
   const hasTurn = (r) => !!(r.turn && r.turn.some((e) => e.urls.some((u) => /^turns?:/i.test(u))));
   const pcConfig = (r) => ({ iceServers: iceServers().concat(r.turn || []), iceTransportPolicy: window.__ndIcePolicy === 'relay' ? 'relay' : 'all' });
-  // (waits for the relay's answer, at most TURN_MS after the room opened)
-  // (fn making the connection must not end as an unhandled rejection: a browser that refuses one gets "no connection")
+
+
   function withIce(r, fn) {
     (r.icePromise || Promise.resolve([])).then((l) => { r.turn = l || []; if (R === r) fn(); })
       .catch((e) => { console.warn('[online] connection', e); if (R === r) fail(noConnect(r), true); });
   }
-  // no connection: without a relay the networks allow no direct route (another network may); with one, something else
+
   const noConnect = (r) => (hasTurn(r) ? M().noConnect : M().noDirect);
 
-  // ---------------------------------------------------------------- signalling: Supabase Realtime over its websocket
-  // h: { onOpen(), onPresence(list, initial), onMessage(msg), onError(why) }. list: [{ id, role, v }] of everyone in the
-  // room (this client included). Returns { send(msg), close() }.
+
+
+
   function realtimeSignal(code, me, h) {
     const wsUrl = url.replace(/^http/i, 'ws') + '/realtime/v1/websocket?apikey=' + encodeURIComponent(key) + '&vsn=1.0.0';
     const topic = 'realtime:sd-room-' + code;
     let ws = null, ref = 0, joinRef = null, hb = null, closed = false, tries = 0;
     const pres = {};
-    const raw = (m) => { try { if (ws && ws.readyState === 1) ws.send(JSON.stringify(m)); } catch (e) { /* closing */ } };
+    const raw = (m) => { try { if (ws && ws.readyState === 1) ws.send(JSON.stringify(m)); } catch (e) {               } };
     const push = (event, payload) => raw({ topic, event, payload, ref: String(++ref), join_ref: joinRef });
     const emit = (initial) => {
       const list = [];
@@ -135,7 +139,7 @@
       h.onPresence(list, initial);
     };
     function open() {
-      // a browser or page setting that refuses the websocket throws here (SecurityError): no signalling, said at once
+
       try { ws = new WebSocket(wsUrl); } catch (e) {
         ws = null; clearInterval(hb);
         console.warn('[online] websocket', e);
@@ -171,7 +175,7 @@
           }
           emit(false);
         } else if (m.event === 'broadcast' && p.event === 'sig' && p.payload) h.onMessage(p.payload);
-        else if (m.event === 'phx_error') { try { ws.close(); } catch (err) { /* already */ } }
+        else if (m.event === 'phx_error') { try { ws.close(); } catch (err) {               } }
       };
       ws.onclose = () => {
         clearInterval(hb);
@@ -186,13 +190,13 @@
       close() {
         closed = true; clearInterval(hb);
         push('presence', { type: 'presence', event: 'untrack' }); push('phx_leave', {});
-        setTimeout(() => { try { ws.close(); } catch (e) { /* already */ } }, 50);
+        setTimeout(() => { try { ws.close(); } catch (e) {               } }, 50);
       },
     };
   }
   const signal = (code, me, h) => (customSignal() ? window.__ndSignal(code, me, h) : realtimeSignal(code, me, h));
 
-  // ---------------------------------------------------------------- the room
+
   const rnd32 = () => { try { return crypto.getRandomValues(new Uint32Array(1))[0]; } catch (e) { return (Math.random() * 4294967296) >>> 0; } };
   const newId = () => rnd32().toString(36) + rnd32().toString(36);
   function newCode() { let s = ''; for (let i = 0; i < 6; i++) s += ABC[rnd32() % ABC.length]; return s; }
@@ -201,8 +205,8 @@
   const charOk = (i) => Number.isInteger(i) && !!ND.CHARS[i];
   const arenaOk = (a) => typeof a === 'string' && ND.ARENAS.some((x) => x.id === a);
 
-  let R = null;          // the current room (null: none)
-  let screen = null;     // 'home' | 'room' | 'match' | 'end' | null
+  let R = null;
+  let screen = null;
   function room(role, code) {
     return {
       role, code, id: newId(), side: role === 'host' ? 0 : 1, sig: null, pc: null, ctl: null, inp: null, peerId: null,
@@ -223,13 +227,13 @@
     r.timers.forEach(clearTimeout); clearInterval(r.pingT); clearInterval(r.keepT);
     if (NET.active) NET.stop();
     setTimeout(() => {
-      try { if (r.ctl) r.ctl.close(); } catch (e) { /* closed */ }
-      try { if (r.inp) r.inp.close(); } catch (e) { /* closed */ }
-      try { if (r.pc) r.pc.close(); } catch (e) { /* closed */ }
+      try { if (r.ctl) r.ctl.close(); } catch (e) {              }
+      try { if (r.inp) r.inp.close(); } catch (e) {              }
+      try { if (r.pc) r.pc.close(); } catch (e) {              }
     }, tellPeer ? 150 : 0);
-    try { if (r.sig) r.sig.close(); } catch (e) { /* closed */ }
+    try { if (r.sig) r.sig.close(); } catch (e) {              }
     portalRooms((P) => P.close());
-    try { if (/[?&]room=/.test(location.search)) history.replaceState(null, '', location.pathname + location.hash); } catch (e) { /* not allowed */ }
+    try { if (/[?&]room=/.test(location.search)) history.replaceState(null, '', location.pathname + location.hash); } catch (e) {                   }
     document.getElementById('app').classList.remove('online');
   }
 
@@ -275,7 +279,7 @@
         if (R !== r) return;
         const others = list.filter((p) => p.id !== r.id);
         if (r.role === 'host') {
-          // the code is taken already (another host is in it): a new code
+
           if (initial && !r.checked) { r.checked = true; if (others.some((p) => p.role === 'host')) { r.sig.close(); r.sig = null; teardown(false); createRoom(); return; } }
           if (!r.peerId) {
             const g = others.find((p) => p.role === 'guest');
@@ -301,7 +305,7 @@
   }
   function flushIce(r) { for (const c of r.iceQ.splice(0)) r.pc.addIceCandidate(c).catch(() => {}); }
 
-  // ---------------------------------------------------------------- the direct connection
+
   function makePc(r) {
     const cfg = pcConfig(r), pc = new RTCPeerConnection(cfg);
     r.ice = { servers: cfg.iceServers.length, turn: hasTurn(r), policy: cfg.iceTransportPolicy };
@@ -345,9 +349,9 @@
     }).catch((e) => { console.warn('[online] answer', e); fail(noConnect(r), true); });
     render();
   }
-  // host: forget the half-made connection and wait for a guest again (the same code)
+
   function resetPeer(r) {
-    try { if (r.pc) r.pc.close(); } catch (e) { /* closed */ }
+    try { if (r.pc) r.pc.close(); } catch (e) {              }
     Object.assign(r, { pc: null, ctl: null, inp: null, peerId: null, connected: false, haveRemote: false, iceQ: [], peerPick: null, ready: false, peerReady: false, err: '', status: M().waitFriend });
     clearInterval(r.pingT);
     if (!r.sig) { r.checked = true; r.sig = signal(r.code, { id: r.id, role: 'host', v: PROTO }, sigHandlers(r)); }
@@ -360,9 +364,9 @@
     ch.onopen = () => {
       if (R !== r || r.connected || !r.ctl || !r.inp || r.ctl.readyState !== 'open' || r.inp.readyState !== 'open') return;
       r.connected = true; r.err = ''; r.status = M().connected;
-      // the server is not needed any more: the room's channel closes (fewer open connections on the server; the host
-      // opens it again if the friend leaves and the room waits for someone else)
-      if (r.sig) { const s = r.sig; r.sig = null; setTimeout(() => { try { s.close(); } catch (e) { /* closed */ } }, 2000); }
+
+
+      if (r.sig) { const s = r.sig; r.sig = null; setTimeout(() => { try { s.close(); } catch (e) {              } }, 2000); }
       r.pingT = setInterval(() => ping(r), PING_MS); ping(r);
       ctlSend({ t: 'hello', v: PROTO, pick: r.pick, arena: r.arena });
       portalRooms((P) => P.open(r.code, false));
@@ -370,7 +374,7 @@
     };
     ch.onclose = () => { if (R === r && r.connected) lost(r); };
   }
-  // the connection is gone
+
   function lost(r) {
     if (R !== r || !r.connected) return;
     r.connected = false;
@@ -380,12 +384,12 @@
     r.err = M().friendLeft; render();
   }
 
-  // test hook: artificial delay, jitter and loss on the unreliable channel ({ delay, jitter, loss }, ms / 0..1)
+
   const netem = () => window.__ndNetem || null;
   function sendIn(buf, r = R) {
     if (!r || !r.inp || r.inp.readyState !== 'open') return;
     const ch = r.inp, E = netem();
-    const go = () => { try { if (ch.readyState === 'open' && ch.bufferedAmount < 65536) ch.send(buf); } catch (e) { /* closing */ } };
+    const go = () => { try { if (ch.readyState === 'open' && ch.bufferedAmount < 65536) ch.send(buf); } catch (e) {               } };
     if (!E) return go();
     if (E.loss > 0 && Math.random() < E.loss) return;
     const d = (E.delay || 0) + Math.random() * (E.jitter || 0);
@@ -394,7 +398,7 @@
   function ctlSend(o, r = R) {
     if (!r || !r.ctl || r.ctl.readyState !== 'open') return;
     const ch = r.ctl, s = JSON.stringify(o), E = netem();
-    const go = () => { try { if (ch.readyState === 'open') ch.send(s); } catch (e) { /* closing */ } };
+    const go = () => { try { if (ch.readyState === 'open') ch.send(s); } catch (e) {               } };
     if (E && E.delay) setTimeout(go, E.delay); else go();
   }
   function ping(r) {
@@ -419,7 +423,7 @@
     NET.receive(data);
   }
 
-  // ---------------------------------------------------------------- room messages (reliable channel)
+
   function onCtl(r, m) {
     if (R !== r || !m || typeof m.t !== 'string') return;
     switch (m.t) {
@@ -432,11 +436,11 @@
       case 'arena': if (r.role === 'guest' && arenaOk(m.a)) { r.arena = m.a; r.ready = false; render(); } break;
       case 'ready': r.peerReady = !!m.on; render(); maybeStart(); break;
       case 'start': if (r.role === 'guest') begin(m); break;
-      case 'go': NET.peerReady(m.m); break;
+      case 'go': if (r.vsT) r.earlyGo = m.m; else NET.peerReady(m.m); break;
       case 'rematch': r.peerRematch = !!m.on; if (screen === 'end') renderEnd(); maybeRematch(); break;
-      case 'lobby': toLobby(false); break;
-      case 'end': { // the other side ended the match (its own view): e.g. it gave up waiting for this tab
-        // (only this match: a late message of an earlier one must never end the rematch)
+      case 'lobby': if (r.vsT) { clearTimeout(r.vsT); r.vsT = 0; } toLobby(false); break;
+      case 'end': {
+
         const S = NET.active && NET.session();
         if (S && !S.finished && (m.m & 255) === S.m) NET.end(m.why === 'desync' ? 'desync' : 'away', -1);
         break;
@@ -444,6 +448,7 @@
       case 'pause': NET.peerPause(m.m, m.at, m.why); break;
       case 'resume': NET.peerResume(m.m); break;
       case 'leave':
+        if (r.vsT) { clearTimeout(r.vsT); r.vsT = 0; show('room'); }
         if (screen === 'match' && NET.active) { NET.end('left', r.side); r.connected = false; return; }
         r.connected = false; clearInterval(r.pingT);
         if (r.role === 'host' && screen === 'room') { resetPeer(r); r.err = M().friendLeft; render(); }
@@ -471,11 +476,11 @@
     ctlSend({ t: 'ready', on: R.ready });
     render(); maybeStart();
   }
-  // host: both ready → the match (a fresh seed; the input delay from the measured round trip)
+
   function maybeStart() {
     const r = R;
     if (!r || r.role !== 'host' || !r.connected || !r.ready || !r.peerReady || !charOk(r.peerPick) || screen !== 'room') return;
-    const m = { t: 'start', m: (++r.matchNo) & 255, seed: rnd32() | 0, chars: [r.pick, r.peerPick], arena: r.arena, delay: delayFor(r.rtt) };
+    const m = { t: 'start', m: (++r.matchNo) & 255, seed: rnd32() | 0, chars: [r.pick, r.peerPick], arena: r.arena, delay: delayFor(r.rtt), speed: hostSpeed() };
     ctlSend(m);
     begin(m);
   }
@@ -484,15 +489,52 @@
     const r = R;
     if (!r || r.role !== 'host' || !r.rematch || !r.peerRematch || !r.connected || screen !== 'end') return;
     const last = r.last;
-    const m = { t: 'start', m: (++r.matchNo) & 255, seed: rnd32() | 0, chars: last.chars, arena: last.arena, delay: delayFor(r.rtt) };
+    const m = { t: 'start', m: (++r.matchNo) & 255, seed: rnd32() | 0, chars: last.chars, arena: last.arena, delay: delayFor(r.rtt), speed: hostSpeed() };
     ctlSend(m);
     begin(m);
   }
 
-  // ---------------------------------------------------------------- the match
+
+
+
+
+
+  const FRIEND_VS_MS = 2000;
+  let vsUi = null;
+  function closeVs() { if (vsUi) { vsUi.close(); vsUi = null; } const h = $('onlVs'); if (h) h.hidden = true; }
+  function friendVs(r, m) {
+    if (r.vsShown || !ND.rankVs || !ND.charStage || /[?&]vs=old(&|$)/.test(location.search)) return false;
+    r.vsShown = true;
+    try {
+      hideAll(); screen = 'vs';
+      if ($('first')) $('first').hidden = true;
+      $('menu').hidden = true;
+      let host = $('onlVs');
+      if (!host) { host = document.createElement('div'); host.id = 'onlVs'; host.style.cssText = 'position:absolute;inset:0;z-index:30'; $('app').appendChild(host); }
+      host.hidden = false;
+      const L = M(), me = r.side, id = (i) => ND.CHARS[i].id, looks = [false, m.chars[0] === m.chars[1]];
+      let plate = null;
+      try { if (ND.pass && ND.pass.syncState && ND.pass.level) { const ss = ND.pass.syncState(); plate = { lv: ND.pass.level().lv, eq: ss.eq, jc: ss.jc }; } } catch (e) { plate = null; }
+      const nick = ND.leaderboard && ND.leaderboard.getName ? ND.leaderboard.getName() : '';
+      const sides = [ND.rankVs.sideOf({ name: nick || '—', plate }, { you: true, ninja: id(m.chars[me]), look: looks[me], noRank: true }),
+        ND.rankVs.sideOf({ name: L.friend }, { ninja: id(m.chars[1 - me]), look: looks[1 - me], noRank: true })];
+      const a = ND.ARENAS.find((x) => x.id === m.arena);
+      vsUi = ND.rankVs.open(host, { sides, top: a ? a.name : '', arenaKanji: a ? a.kanji : '', tag: L.title, status: { text: ND.rankVs.t(4), ok: true } });
+      if (!vsUi) { closeVs(); return false; }
+    } catch (e) { closeVs(); return false; }
+    r.vsT = setTimeout(() => { r.vsT = 0; if (R === r && screen === 'vs') doBegin(r, m); }, FRIEND_VS_MS);
+    return true;
+  }
+
+
   function begin(m) {
     const r = R;
     if (!r || !charOk(m.chars && m.chars[0]) || !charOk(m.chars[1]) || !arenaOk(m.arena)) return;
+    if (friendVs(r, m)) return;
+    doBegin(r, m);
+  }
+  function doBegin(r, m) {
+    closeVs();
     r.matchNo = m.m; r.last = { chars: m.chars.slice(), arena: m.arena };
     r.rematch = r.peerRematch = false; r.ready = r.peerReady = false; r.result = null; r.away = false;
     hideAll();
@@ -501,10 +543,12 @@
     if ($('first')) $('first').hidden = true;
     NET.begin({
       side: r.side, seed: m.seed, chars: m.chars, arena: m.arena, match: m.m, delay: m.delay, rtt: r.rtt,
+      speed: +m.speed >= 0.7 && +m.speed <= 1 ? +m.speed : ND.duel && ND.duel.SPEED0 || 0.85,
       send: (b) => sendIn(b, r), sendCtl: (o) => ctlSend(o, r),
       onStatus: (kind, info) => waitUi(kind, info),
       onEnd: (res) => matchOver(r, res),
     });
+    if (r.earlyGo != null) { NET.peerReady(r.earlyGo); r.earlyGo = null; }
     NET.setHidden(document.hidden);
     clearInterval(r.keepT);
     r.keepT = setInterval(() => { if (R === r && NET.active) { syncAway(); NET.keepalive(); } }, 250);
@@ -519,9 +563,9 @@
     hudShow(false);
     setTimeout(() => { if (R === r && r.result === res) { screen = 'end'; renderEnd(); } }, res.reason === 'ko' ? 400 : 0);
     if (typeof ND.online.onEnd === 'function') ND.online.onEnd(res);
-    if (ND.pass && ND.pass.onlineResult) ND.pass.onlineResult('friend', res); // level XP (js/pass.js)
+    if (ND.pass && ND.pass.onlineResult) ND.pass.onlineResult('friend', res);
   }
-  // back to the fighter choice (both players)
+
   function toLobby(tell) {
     const r = R;
     if (!r) return;
@@ -530,7 +574,7 @@
     clearInterval(r.keepT);
     r.ready = r.peerReady = r.rematch = r.peerRematch = false; r.result = null;
     hudShow(false); waitUi('ok');
-    screen = null; // (not a match any more: the start below is not a way out of one)
+    screen = null;
     G.start('attract');
     show('room');
   }
@@ -540,7 +584,7 @@
     G.goMenu();
   }
 
-  // ---------------------------------------------------------------- portal invites (CrazyGames)
+
   const bridge = () => (window.NDPortal && window.NDPortal.rooms && window.NDPortal.rooms.available() ? window.NDPortal.rooms : null);
   function portalRooms(fn) { const P = bridge(); if (P) { try { fn(P); } catch (e) { console.warn('[online] portal room', e); } } }
   function inviteLink(code) {
@@ -549,7 +593,7 @@
     try { return location.origin + location.pathname + '?room=' + code; } catch (e) { return '?room=' + code; }
   }
 
-  // ---------------------------------------------------------------- screens
+
   const CSS = `
   #app.online #pauseBtn { display: none !important; }
   #onl { display: flex; flex-direction: column; align-items: center; background: rgba(5,6,12,.8); z-index: 30; }
@@ -630,7 +674,7 @@
     $('onlStay').onclick = () => confirmLeave(false);
     $('onlLeaveNow').onclick = () => { confirmLeave(false); leave(); };
   }
-  // texts of the parts built once (the language can change while they exist)
+
   function relabel() {
     const L = M(), set = (id, t) => { const e = $(id); if (e) e.textContent = t; };
     set('onlQuit', L.leaveMatch); set('onlWaitQuit', L.leaveMatch); set('onlCfT', L.leaveQ); set('onlCfS', L.leaveSub); set('onlStay', L.stay); set('onlLeaveNow', L.leaveMatch);
@@ -638,7 +682,7 @@
     if (b) { b.querySelector('strong').textContent = L.title; b.querySelector('span').textContent = L.menuSub; }
   }
   function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
-  function hideAll() { ['onl', 'onlEnd', 'onlConfirm'].forEach((id) => { const e = $(id); if (e) e.hidden = true; }); }
+  function hideAll() { closeVs(); ['onl', 'onlEnd', 'onlConfirm'].forEach((id) => { const e = $(id); if (e) e.hidden = true; }); }
   function show(which) {
     build();
     screen = which;
@@ -679,14 +723,14 @@
     $('onlBack').onclick = () => close();
     setTimeout(() => { const b = $('onlCreate'); if (b) b.focus(); }, 0);
   }
-  // a fighter name in its own element with lang="en": the page language must not case it (Turkish would turn i into İ)
+
   function nameEl(i) { const n = document.createElement('span'); n.lang = 'en'; n.setAttribute('translate', 'no'); n.textContent = charName(i); return n; }
   function charName(i) { const c = ND.CHARS[i]; return c ? c.name.charAt(0) + c.name.slice(1).toLowerCase() : ''; }
   function charCol(i, alt) { const c = ND.CHARS[i]; if (!c) return 'var(--gold)'; const p = ND.palOf ? ND.palOf(c, alt) : c.col; return (p && p.ui) || 'var(--gold)'; }
   function arenaName(id) { const a = ND.ARENAS.find((x) => x.id === id); return a ? a.name : id; }
-  // Fighter pictures for the roster (the select screen's own drawing: a fighter in its stance, full model, head and
-  // shoulders), drawn once each, one per display frame, and kept for the session (canvas elements, moved into each
-  // new roster). No part pictures are made (fullDetail), so nothing here is baked for the fight.
+
+
+
   const thumbs = new Map(), thumbQ = [];
   let thumbF = null, thumbBusy = false;
   function thumb(i) {
@@ -714,11 +758,11 @@
     const W = Math.round(72 * dpr), H = Math.round(56 * dpr);
     c.width = W; c.height = H;
     const pc = c.getContext('2d'), k = H / 88;
-    pc.setTransform(k, 0, 0, k, W / 2 - 10 * k, 4 + 194 * k); // (the top of the head just inside the frame) // head and shoulders: the feet are far below the frame
+    pc.setTransform(k, 0, 0, k, W / 2 - 10 * k, 4 + 194 * k);
     f.draw(pc, false);
     if (ND.eyeGlow) ND.eyeGlow(pc, f.j, f.col, f.ch.acc);
   }
-  // the chosen arena: the room shows the live backdrop behind it (as the select screen does) through a small window
+
   let arenaT = 0;
   function arenaWindow() {
     const c = $('onlArv'), cv = $('cv');
@@ -729,16 +773,16 @@
       const r = c.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
       const W = Math.max(1, Math.round(r.width * dpr)), H = Math.max(1, Math.round(r.height * dpr));
       if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
-      // the middle band of the backdrop, the arena's width fitted to the window
+
       const sh = Math.min(cv.height, cv.width * H / W), sy = Math.max(0, (cv.height - sh) * 0.55);
-      try { c.getContext('2d').drawImage(cv, 0, sy, cv.width, sh, 0, 0, W, H); } catch (e) { /* not drawable yet */ }
+      try { c.getContext('2d').drawImage(cv, 0, sy, cv.width, sh, 0, 0, W, H); } catch (e) {                        }
     }
     requestAnimationFrame(arenaWindow);
   }
   function renderRoom(box) {
     const r = R;
     const link = inviteLink(r.code);
-    // 1P (host) on the left, 2P (guest) on the right, as in the match
+
     const pk = r.side === 0 ? [r.pick, r.connected ? r.peerPick : null] : [r.connected ? r.peerPick : null, r.pick];
     const same = charOk(pk[0]) && pk[0] === pk[1];
     box.innerHTML = `<div class="onl-card card onl-room">
@@ -762,7 +806,7 @@
     $('onlTitle').textContent = M().title; $('onlRoomCode').textContent = r.code; $('onlRoomL').textContent = M().room;
     $('onlLink').setAttribute('aria-label', M().linkLabel);
     $('onlLink').value = link;
-    $('onlLink').onfocus = (e) => { try { e.target.select(); } catch (err) { /* no */ } };
+    $('onlLink').onfocus = (e) => { try { e.target.select(); } catch (err) {          } };
     const copy = $('onlCopy');
     copy.textContent = bridge() ? M().invite : M().copy;
     copy.onclick = () => copyText(link).then((ok) => { if (ok) { copy.textContent = M().copied; setTimeout(() => { if (copy.isConnected) copy.textContent = bridge() ? M().invite : M().copy; }, 1500); } });
@@ -781,7 +825,7 @@
       b.onclick = () => (r.role === 'host' ? (resetPeer(r), render()) : joinRoom(r.code));
       err.appendChild(b);
     }
-    // the two player cards: label, the fighter itself (the select screen's animated preview), name, title · weapon, ready
+
     for (let s = 0; s < 2; s++) {
       const el = $('onlP' + (s + 1)), ci = pk[s], mine = s === r.side, alt = s === 1 && same;
       el.style.setProperty('--pc', charOk(ci) ? charCol(ci, alt) : 'var(--line)');
@@ -832,7 +876,7 @@
     rb.onclick = () => toggleReady();
     $('onlLeave').textContent = M().leave;
     $('onlLeave').onclick = () => leave();
-    // the game draws the two previews and the arena behind (its select stage)
+
     G.roomStage(['onlPv1', 'onlPv2'], charOk(pk[0]) ? pk[0] : null, charOk(pk[1]) ? pk[1] : null, r.arena);
     if (!arenaT) { arenaT = 1; requestAnimationFrame(arenaWindow); }
   }
@@ -861,7 +905,7 @@
     let t;
     if (kind === 'wait') t = info.away ? M().away(s) : M().waitIn(s);
     else if (info.peer) t = info.peer === 'turn' ? M().turning(s) : M().away(s);
-    else t = M().paused; // this player's own pause (the turn-your-phone hint covers it on a phone)
+    else t = M().paused;
     $('onlWaitT').textContent = t;
     w.hidden = false;
   }
@@ -898,7 +942,7 @@
     const fallback = () => {
       try { const i = $('onlLink'); if (!i) return false; i.focus(); i.select(); return document.execCommand('copy'); } catch (e) { return false; }
     };
-    try { if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(t).then(() => true, () => fallback()); } catch (e) { /* no clipboard */ }
+    try { if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(t).then(() => true, () => fallback()); } catch (e) {                    }
     return Promise.resolve(fallback());
   }
   function open() {
@@ -908,9 +952,10 @@
   }
   function close() { hideAll(); screen = null; teardown(true); $('menu').hidden = false; setTimeout(() => { const b = $('mfriend'); if (b) b.focus(); }, 0); }
 
-  // keys: Back / Escape on the room screens; P / Back / Escape in a match asks before leaving (no pause online)
+
   function onKey(e) {
     const I = ND.input;
+    if (screen === 'vs') return true;
     if (screen === 'match' && G.mode === 'online') {
       if (I.isPause(e) || I.isBack(e)) { confirmLeave($('onlConfirm').hidden); return true; }
       if (!$('onlConfirm').hidden) return !I.isEditable(e.target) && e.code !== 'Tab' && e.code !== 'Enter' && e.code !== 'Space';
@@ -925,7 +970,7 @@
     return false;
   }
 
-  // ---------------------------------------------------------------- menu entry, invites, tab visibility
+
   function addMenuEntry() {
     if ($('mfriend')) return;
     const anchor = $('msingle') || $('mplay');
@@ -936,19 +981,19 @@
     const d = document.createElement('span'); d.textContent = M().menuSub;
     const k = document.createElement('b'); k.className = 'mk'; k.setAttribute('aria-hidden', 'true'); k.textContent = '友';
     b.append(s, d, k);
-    b.onclick = () => { if (ND.audio && ND.audio.ui) { try { ND.audio.init(); ND.audio.ui(); } catch (e) { /* no sound yet */ } } open(); };
+    b.onclick = () => { if (ND.audio && ND.audio.ui) { try { ND.audio.init(); ND.audio.ui(); } catch (e) {                    } } open(); };
     anchor.after(b);
   }
   function joinFromInvite(code) {
     code = cleanCode(code);
     if (!validCode(code) || (R && R.code === code)) return;
-    if (screen === 'match') return; // (a match is on: ignore)
+    if (screen === 'match') return;
     build();
     joinRoom(code);
   }
   document.addEventListener('visibilitychange', () => { if (NET.active) { NET.setHidden(document.hidden); syncAway(); NET.keepalive(); } });
-  // Away from the match (an agreed pause of both players, js/net.js): the phone held upright (the turn-your-phone hint
-  // is up), the tab hidden, or fullscreen just left (a moment to settle).
+
+
   let fsLeftAt = 0, fsWas = false;
   const PORTRAIT = (() => { try { return window.matchMedia('(orientation: portrait)'); } catch (e) { return { matches: false }; } })();
   function awayWhy() {
@@ -974,22 +1019,22 @@
     pick: setPick, arena: setArena, ready: toggleReady, rematch: () => { const b = $('onlRematch'); if (b) b.click(); }, toLobby: () => toLobby(true), syncAway: () => syncAway(),
     state: () => ({ screen, role: R && R.role, code: R && R.code, connected: !!(R && R.connected), rtt: R ? Math.round(R.rtt) : 0, err: R ? R.err : '', peerPick: R && R.peerPick, ready: !!(R && R.ready), peerReady: !!(R && R.peerReady), result: R && R.result, ice: R && R.ice }),
     endShown: () => screen === 'end' && !!$('onlEnd') && !$('onlEnd').hidden,
-    // the connection settings for another online mode (js/ranked.js): free STUN + the TURN relay's one-hour credentials
+
     iceConfig: () => fetchTurn().then((t) => ({ iceServers: iceServers().concat(t || []), iceTransportPolicy: window.__ndIcePolicy === 'relay' ? 'relay' : 'all' })),
     onBegin: null, onEnd: null,
   };
 
   if (!available()) return;
   addMenuEntry();
-  // Anything that takes the game out of a running online match without going through the room (a menu button, a
-  // key) leaves the room properly: the friend is told at once instead of waiting 10 s, and no result of this match
-  // can come up later over another screen.
+
+
+
   const start0 = G.start;
   G.start = function (mode) {
     if (mode !== 'online' && screen === 'match' && R) { teardown(true); hudShow(false); waitUi('ok'); hideAll(); screen = null; }
     return start0.apply(this, arguments);
   };
-  // another language chosen (Settings): the open screen and the parts built once follow
+
   if (ND.i18n && ND.i18n.onChange) {
     ND.i18n.onChange(() => {
       relabel();
@@ -998,7 +1043,7 @@
   }
   const q = /[?&]room=([A-Za-z]{6})\b/.exec(location.search);
   if (q) setTimeout(() => joinFromInvite(q[1]), 0);
-  // CrazyGames: the invite this game was opened from, and invites accepted while it runs
+
   if (ND.portal && ND.portal.ready) {
     ND.portal.ready.then(() => {
       const P = bridge();

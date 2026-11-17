@@ -1,18 +1,18 @@
-// Gölge Düellosu — ikinci kadro (Tora, Jin, Mai, Tsubame): arcade sözleri, özel eşleşmeler ve sonlar.
-// arcade.js'ten SONRA yüklenir; arcade.js'e dokunmadan ND.STR tablolarını genişletir.
-// Karakter verisi characters.js'te, mekanikler fighter.js + specials.js'te: bu dosya yüklenmese de dövüşler çalışır,
-// yalnızca arcade metinleri varsayılana düşer.
+
+
+
+
 (function (ND) {
   'use strict';
   if (!ND || !ND.STR) return;
   const STR = ND.STR;
   const R2 = ['tora', 'jin', 'mai', 'tsubame'];
 
-  // Kilitler artık onurla (honor.js: eşik → meydan okuma → düello); bu dosya yalnız metinleri taşır
-  // Arcade'de rakibin "ev" arenası (arcade.js HOME kapalı; entegrasyon için öneri, bkz. rapor)
+
+
   const HOME = { tora: 'waterfall', jin: 'temple', mai: 'market', tsubame: 'rain' };
   STR.roster2 = { ids: R2, home: HOME };
-  // Karaktere özel hareket notları (antrenman / seçim ekranında gösterilebilir; entegrasyon isteğe bağlı)
+
   STR.roster2.notes = {
     tora: ['Hafif: orta mesafede zincir kamçısı, yakında orak', 'Ağır: zinciri fırlatır; isabet ederse rakibi yanına çeker', 'Seri sonu: rakip uzaktaysa zincirle çekip yaklaştırır'],
     jin: ['Asanın iki ucu da vurur; darbeler künttür, kan dökmez', 'Üçüncü vuruş ve ağır süpürme yere serer', 'Gard tutarken denge daha yavaş dolar'],
@@ -20,8 +20,8 @@
     tsubame: ['Ağır: yayla ok atar; basılı tutarsan güçlü atış', 'Fırlatma: geriye ters takla atıp havadan ok yollar', 'Ok bitince ağır saldırı tantō ile yapılır; oklar zamanla dolar'],
   };
 
-  // ---------------------------------------------------------------- DÖVÜŞ ÖNCESİ SÖZLER
-  // open = önce konuşan (rakip), reply = cevap veren (oyuncu), boss = son patrona söylenen
+
+
   Object.assign(STR.talk || (STR.talk = {}), {
     tora: {
       open: ['Zincirimin ucunda kaç kişi sallandı, bilmiyorum. Sen de say.', 'Av başladı. Kaçabilirsin, ama zincir uzun.', 'Kaplan pusuda bekler derler. Ben beklemem!'],
@@ -45,8 +45,8 @@
     },
   });
 
-  // ---------------------------------------------------------------- ÖZEL EŞLEŞMELER
-  // Anahtar: iki kimlik alfabetik sırayla 'a|b'. Satırlar yazıldığı sırayla söylenir.
+
+
   Object.assign(STR.pairs || (STR.pairs = {}), {
     'kuro|tora': [['tora', 'Dağ, ha? Dağlarda da kaplan yaşar.'], ['kuro', 'Kaplanlar dağda ölür.']],
     'tora|yuki': [['tora', 'Tilki! Kaplanın önünde tilki ne yapar?'], ['yuki', 'Kaçar. Sonra kaplanın kuyruğunu dondurur.']],
@@ -61,7 +61,7 @@
     'mai|tsubame': [['mai', 'Uzaktan bakmak ayıptır, okçu. Gel de yakından izle.'], ['tsubame', 'Sahneni yakından görmek için okumu gönderirim.']],
   });
 
-  // ---------------------------------------------------------------- SONLAR (arcade bitince)
+
   Object.assign(STR.endings || (STR.endings = {}), {
     tora: ['Şura’nın düşüşünü zincirinin şangırtısı haber verdi.', 'Tora kırık maskeyi zincirine taktı: yeni bir av hatırası.', 'O günden sonra ormanda kimse kaplan kükremesini masal sanmadı.'],
     jin: ['Jin, yere düşen Şura’nın yanına diz çöktü ve onun için dua etti.', 'Tapınağa dönerken asasına bir damla bile kan bulaşmamıştı.', 'O gece dağda yeniden çanlar çaldı; bu kez yas için değil, barış için.'],

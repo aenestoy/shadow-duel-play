@@ -1,23 +1,23 @@
-// Shadow Duel — developer frame profiler. Off unless the address has ?perf=1 (costs one flag read otherwise).
-// Shows a small overlay, refreshed every second: frames per second, the screen's refresh rate as the browser delivers
-// it (estimated by the frame pacer) and the frame-rate cap, frame time median / 95th percentile, the frame's processor
-// time split into simulation / drawing (recording the picture) / WebGL, graphics quality, canvas backing store size and
-// pixel ratio; the one-off work of that second that frame timers do not see (WebGL texture uploads and their size, new
-// textures, shader compiles, fighter part pictures drawn / dropped / drawn as paths: each can stall a phone's GPU);
-// below it the average / worst milliseconds of each part (simulation steps, HUD DOM updates, background,
-// reflections, shadows, fighters, effects, bloom...), simulation steps per frame and a rough allocation rate.
-// Test switches (only together with ?perf=1): &dpr=3 pretends the screen has that pixel ratio (phone emulation on a
-// desktop browser), &phone=1 / &lowend=1 steer the device guesses, &flush=0|2 (see below).
-// Console: ND.prof.stats() = numbers of the last one-second window, ND.prof.avg(n) = average of the last n fight
-// windows, ND.prof.reset().
-// Hitch recorder (ND.prof.hitches): every frame that comes much later than it should — at least 40 ms and twice the
-// display interval and twice the usual frame time of the last second — is kept (the last 200) with what happened since
-// the frame before it: the game's state and screen, that frame's processor time and its heaviest parts, simulation
-// steps, online rollbacks, fighter part pictures drawn (bakes), WebGL texture uploads (count, KB), new textures,
-// shader compiles, sprite atlas draws, a heap drop (a garbage collection, where the browser reports memory), audio
-// decodes / new sound buffers / sounds started, DOM changes and HUD time, vibrations, resize / visibility events and
-// the browser's long tasks (PerformanceObserver 'longtask'). The COPY REPORT button copies a short text report: the
-// device, the session summary and the last 50 hitches with their likely causes (nothing is sent anywhere).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 window.ND = window.ND || {};
 (function (ND) {
   'use strict';
@@ -25,9 +25,9 @@ window.ND = window.ND || {};
   try { qs = new URLSearchParams(location.search); } catch (e) { return; }
   if (qs.get('perf') !== '1') return;
 
-  // Timings measure synchronous CPU/Canvas submission work, not GPU completion or displayed frames.
-  // Optional &flush=1|2 adds a canvas copy (per frame / mark). That can expose deferred work, but it is NOT
-  // a GPU fence and changes the workload. Leave it off for phone reports. No pixel readback in live profiling.
+
+
+
   const FLUSH = ['1', '2'].includes(qs.get('flush')), FLUSH_ALL = qs.get('flush') === '2';
   let sink = null, sinkX = null, gameCv = null;
   const flush = () => {
@@ -35,13 +35,13 @@ window.ND = window.ND || {};
     if (gameCv && gameCv.width > 0) sinkX.drawImage(gameCv, 0, 0, 2, 2, 0, 0, 2, 2);
   };
   const fakeDpr = parseFloat(qs.get('dpr'));
-  const def = (o, k, v) => { try { Object.defineProperty(o, k, { get: () => v, configurable: true }); } catch (e) { /* read-only */ } };
+  const def = (o, k, v) => { try { Object.defineProperty(o, k, { get: () => v, configurable: true }); } catch (e) {                 } };
   if (fakeDpr > 0) def(window, 'devicePixelRatio', fakeDpr);
-  // &phone=1 (a phone's browser: Android user agent) and &lowend=1 (4 cores, 3 GB) steer the device guesses in input.js
+
   if (qs.get('phone') === '1') def(navigator, 'userAgent', 'Mozilla/5.0 (Linux; Android 13; Pixel 6a) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Mobile Safari/537.36');
   if (qs.get('lowend') === '1') { def(navigator, 'hardwareConcurrency', 4); def(navigator, 'deviceMemory', 3); }
-  // &seed=N: Math.random becomes a seeded generator from here on (film grain, dust motes, the menu demo...), so two
-  // builds render the same frames and can be compared pixel by pixel
+
+
   const seed = parseInt(qs.get('seed'), 10);
   if (seed > 0) {
     let s = seed;
@@ -52,17 +52,17 @@ window.ND = window.ND || {};
   const P = ND.prof = {
     on: true,
     last: 0,
-    frames: 0, // frames in the current window
+    frames: 0,
     sum: Object.create(null), max: Object.create(null), cur: Object.create(null),
     order: [],
     steps: 0, stepsMax: 0, stepHist: [0, 0, 0, 0, 0, 0], curSteps: 0,
     gapSum: 0, gapMax: 0, gapCount: 0, slow: 0, lastBegin: 0, frameStart: 0, frameOpen: false, context: '',
     heapPrev: 0, alloc: 0, gcs: 0, memN: 0,
     t0: now(), snap: null,
-    // frame gaps of the window (for the median and 95th percentile) and the match context of the last frame
+
     gaps: new Float64Array(1024), nGaps: 0, ctx: [], ctxChanged: false, cv: null,
     ck(i, v) { if (this.ctx[i] !== v) { this.ctx[i] = v; this.ctxChanged = true; } },
-    // mark: time since the previous mark goes to bucket `name`
+
     m(name) {
       if (FLUSH_ALL) flush();
       const t = now(), d = t - this.last;
@@ -73,8 +73,8 @@ window.ND = window.ND || {};
     begin() {
       const t = now();
       HR.frame(t);
-      // A report window never mixes gameplay with menus, pause, ads, quality changes or another arena.
-      // (compared field by field: no string or array made per frame, so the profiler adds no garbage of its own)
+
+
       const g = ND.game, cv = this.cv || (this.cv = document.getElementById('cv'));
       this.ctxChanged = false;
       this.ck(0, g?.mode); this.ck(1, g?.phase); this.ck(2, !!g?.paused); this.ck(3, !!ND.portal?.inAd); this.ck(4, !!document.hidden);
@@ -94,7 +94,7 @@ window.ND = window.ND || {};
       if (!this.frameOpen) return;
       this.frameOpen = false;
       this.m('other');
-      // hudDom is a nested measurement inside sim. Summing all buckets would count it twice.
+
       const total = this.last - this.frameStart;
       for (const k in this.cur) {
         const v = this.cur[k];
@@ -106,7 +106,7 @@ window.ND = window.ND || {};
       this.steps += this.curSteps;
       if (this.curSteps > this.stepsMax) this.stepsMax = this.curSteps;
       this.stepHist[Math.min(5, this.curSteps)]++;
-      // heap size every 8th frame (reading performance.memory is itself slow; a drop between reads = a collection)
+
       const mem = ++this.memN % 8 === 0 ? performance.memory : null;
       if (mem) {
         const h = mem.usedJSHeapSize;
@@ -121,7 +121,7 @@ window.ND = window.ND || {};
       const n = Math.max(1, this.frames), secs = (now() - this.t0) / 1000, g = ND.game, cv = document.getElementById('cv');
       const parts = {};
       for (const k of this.order.concat(['TOTAL'])) if (this.sum[k] != null) parts[k] = { avg: +(this.sum[k] / n).toFixed(3), max: +(this.max[k] || 0).toFixed(2) };
-      // the summary groups of the overlay: simulation, recording the picture (Canvas calls → triangles), WebGL / post
+
       const grp = { sim: 0, draw: 0, gl: 0, other: 0 };
       for (const k in this.sum) {
         if (k === 'TOTAL' || k === 'hudDom') continue;
@@ -132,9 +132,9 @@ window.ND = window.ND || {};
         else grp.draw += v;
       }
       for (const k in grp) grp[k] = +grp[k].toFixed(3);
-      // one-off work the frame timers do not see (GPU uploads and driver work): WebGL texture uploads and their size,
-      // new textures, shader compiles, render targets made, fighter part pictures drawn (bakes), dropped (evictions)
-      // and drawn as paths instead (budget), per window
+
+
+
       const w0 = this.work0 || (this.work0 = this.workNow()), w1 = this.workNow(), work = {};
       for (const k in w1) work[k] = +(w1[k] - (w0[k] || 0)).toFixed(k === 'texKB' ? 1 : 0);
       this.work0 = w1;
@@ -155,15 +155,15 @@ window.ND = window.ND || {};
         gl: g?.glStatus ? g.glStatus() : null,
         pace: g?.pace ? { on: g.pace.on, ...g.pace.stat() } : null,
         gpu: GP.window(),
-        // what the GPU drew in the last frame (gl-render.js api.last): multisampled passes (size × samples), post passes
+
         passes: (() => { const L = g?.glRenderer?.()?.last; if (!L || !L.targets) return null; const t = (x) => (x ? x[0] + 'x' + x[1] + (x[2] ? '×' + x[2] : '') : '-'); return `layers ${t(L.targets[0])}, scene ${t(L.targets[1])}, +${L.postPasses} post, ${L.draws} draws`; })(),
-        // refreshes not drawn because the GPU queue was full (game.js gpuq)
+
         skips: (g?.gpuSkips || 0) - (this.skips0 || 0),
         parts,
       };
       this.skips0 = g?.gpuSkips || 0;
       this.history.push(this.snap); if (this.history.length > 120) this.history.shift();
-      // per-minute fight numbers for the whole session (a phone that heats up slows down minute by minute)
+
       if (this.isFight(this.snap)) {
         const m = Math.floor((now() - HR.t0) / 60000), M = HR.mins[m] || (HR.mins[m] = { s: 0, f: 0, cpu: 0, lag: 0, lagN: 0, hitches: 0 });
         M.s += secs; M.f += this.frames; M.sk = (M.sk || 0) + (this.snap.skips || 0); M.cpu += (this.snap.parts.TOTAL ? this.snap.parts.TOTAL.avg : 0) * this.frames;
@@ -173,7 +173,7 @@ window.ND = window.ND || {};
       this.draw();
     },
     history: [],
-    // running totals (differences per window go into snap.work)
+
     workNow(into) {
       const R = ND.game?.glRenderer?.()?.R, C = R?.count || {}, o = into || {};
       o.texUp = C.texUp || 0; o.texKB = C.texKB || 0; o.texNew = C.texNew || 0; o.texts = C.texts || 0; o.shaders = C.shaders || 0; o.targets = C.targets || 0; o.sprites = C.sprites || 0; o.spriteDrops = C.spriteDrops || 0; o.bakes = 0; o.evictions = 0; o.paths = 0;
@@ -188,7 +188,7 @@ window.ND = window.ND || {};
       if (!keepHist) { this.history.length = 0; this.lastBegin = 0; this.frameOpen = false; }
     },
     stats() { return this.snap; },
-    // average of the last n windows (skips windows outside a fight when fightOnly)
+
     avg(n = 5, fightOnly = true) {
       const H = this.history.filter((s) => !fightOnly || this.isFight(s)).slice(-n);
       if (!H.length) return null;
@@ -198,7 +198,7 @@ window.ND = window.ND || {};
         for (const k in s.parts) { const o = out.parts[k] || (out.parts[k] = { avg: 0, max: 0 }); o.avg += s.parts[k].avg / H.length; o.max = Math.max(o.max, s.parts[k].max); }
       }
       for (const k in out.parts) { out.parts[k].avg = +out.parts[k].avg.toFixed(3); out.parts[k].max = +out.parts[k].max.toFixed(2); }
-      // GPU: mean of the windows that measured it; p95 = the worst window's p95
+
       const GW = H.map((s) => s.gpu).filter((x) => x && x.avg != null), LW = H.map((s) => s.gpu).filter((x) => x && x.lag != null);
       if (GW.length) out.gpu = { avg: +(GW.reduce((a, x) => a + x.avg, 0) / GW.length).toFixed(3), scene: +(GW.reduce((a, x) => a + x.scene, 0) / GW.length).toFixed(3), post: +(GW.reduce((a, x) => a + x.post, 0) / GW.length).toFixed(3), p95: Math.max(...GW.map((x) => x.p95)) };
       if (LW.length) (out.gpu || (out.gpu = {})).lag = +(LW.reduce((a, x) => a + x.lag, 0) / LW.length).toFixed(2);
@@ -226,7 +226,7 @@ window.ND = window.ND || {};
         await navigator.clipboard.writeText(text);
         this.copyButton.textContent = 'COPIED';
       } catch (e) {
-        // Manual copy also works in browsers which refuse clipboard access. Nothing is uploaded.
+
         if (!this.copyPanel) {
           const box = this.copyPanel = document.createElement('div');
           box.style.cssText = 'position:fixed;inset:10%;z-index:100001;background:#111722;padding:16px;display:flex;flex-direction:column;gap:8px';
@@ -254,11 +254,11 @@ window.ND = window.ND || {};
         (document.getElementById('app') || document.body).appendChild(b);
       }
       const s = this.snap; if (!s) return;
-      // Summary first (the numbers to compare High / Medium / Low on a phone): frame rate, the screen's refresh rate
-      // as the browser delivers it and the game's frame-rate cap, frame time median / 95th percentile, the frame's
-      // processor time split into simulation / picture recording / WebGL, then quality, canvas size and pixel ratio.
-      // (the pacer's refresh estimate reads the gaps between frame callbacks: while frames are slower than the screen it
-      // reads the slower rate, so the fastest rate seen this session, e.g. in the menus, is shown too)
+
+
+
+
+
       const pc = s.pace, hz = pc && pc.periodMs > 0 ? Math.round(1000 / pc.periodMs) : 0, cap = pc ? (pc.target ? String(pc.target) : 'max') : '?';
       if (hz > (this.hzBest || 0)) this.hzBest = hz;
       const gr = s.groups || {}, f2 = (v) => (v || 0).toFixed(2), g = ND.game;
@@ -285,12 +285,12 @@ window.ND = window.ND || {};
     },
   };
 
-  // ---------------------------------------------------------------- GPU time (WebGL2 renderer only)
-  // The renderer's profiling is switched on (gl-render.js: a timer query around the recorded passes and one around the
-  // post passes when the browser offers EXT_disjoint_timer_query_webgl2, and a fence per frame everywhere). Results come
-  // a few frames late; each one is matched to its frame by id. gpuMs: GPU time of a frame (scene = layers + scene
-  // pass, post = glow + present); lag: frames between submitting a frame and the GPU finishing it (a GPU that cannot
-  // keep up shows here even where timer queries are missing, e.g. many Mali phones).
+
+
+
+
+
+
   const GP = P.gpu = {
     N: 1024, n: 0, nl: 0, ms: new Float64Array(1024), sc: new Float64Array(1024), po: new Float64Array(1024), lag: new Float64Array(1024), lagMs: new Float64Array(1024),
     timer: null, lastId: 0, byId: new Map(),
@@ -307,12 +307,12 @@ window.ND = window.ND || {};
           if (d.gpuMs >= 0 && this.n < this.N) { this.ms[this.n] = d.gpuMs; this.sc[this.n] = d.sceneMs; this.po[this.n] = d.postMs; this.n++; }
         } else if (d.lag !== undefined && this.nl < this.N) { this.lag[this.nl] = d.lag; this.lagMs[this.nl] = d.lagMs; this.nl++; }
         HR.gpuResult(d);
-        if (this.sink) this.sink(d); // (scripts/bench-gfx.mjs --gpu: every measurement)
+        if (this.sink) this.sink(d);
       }
-      if (glr.prof && this.lastId) this.timer = glr.gpuTimer; // (known once a WebGL frame asked for the extension)
+      if (glr.prof && this.lastId) this.timer = glr.gpuTimer;
     },
     clear() { this.n = 0; this.nl = 0; },
-    // this window's GPU numbers (null: no WebGL frame measured)
+
     window() {
       if (!this.n && !this.nl) return this.timer === false ? { timer: false } : null;
       const pct = (a, n, p) => { const s = Array.from(a.subarray(0, n)).sort((x, y) => x - y); return s[Math.min(n - 1, Math.floor(p * n))]; };
@@ -323,7 +323,7 @@ window.ND = window.ND || {};
       if (!this.n && this.timer === false) o.timer = false;
       return o;
     },
-    // overlay line
+
     line(w, gl) {
       if (!gl) return 'GPU - (Canvas 2D frame)';
       if (!w) return 'GPU (measuring...)';
@@ -333,12 +333,12 @@ window.ND = window.ND || {};
     },
   };
 
-  // ---------------------------------------------------------------- hitch recorder (see the header)
+
   const HR = P.hr = {
     list: [], count: 0, worst: 0, frames: 0, t0: now(), last: 0, recent: new Float64Array(60), nRecent: 0, iRecent: 0,
     w0: null, w1: {}, ev: { decodes: 0, buffers: 0, sounds: 0, vibrates: 0, resizes: 0, vis: 0, dom: 0, keys: 0 }, ev0: null,
     long: [], mins: [], heap: 0, rb: 0, rbSteps: 0, loadAt: -1, byCtx: Object.create(null),
-    // the usual frame time: the median of the last 60 gaps
+
     usual() {
       const n = this.nRecent; if (!n) return 16.7;
       const a = Array.from(this.recent.subarray(0, n)).sort((x, y) => x - y);
@@ -356,7 +356,7 @@ window.ND = window.ND || {};
         if (gap >= lim && this.w0) this.record(t, prev, gap, w, rb, rbs, heap);
         if (gap < 1000) { this.recent[this.iRecent] = gap; this.iRecent = (this.iRecent + 1) % this.recent.length; if (this.nRecent < this.recent.length) this.nRecent++; }
       }
-      // counters of the interval that starts now
+
       this.w0 = Object.assign(this.w0 || {}, w); this.ev0 = Object.assign(this.ev0 || {}, this.ev);
       this.rb = rb; this.rbSteps = rbs; this.heap = heap;
       if (this.long.length > 40) this.long.splice(0, this.long.length - 40);
@@ -381,14 +381,14 @@ window.ND = window.ND || {};
         gc: this.heap && heap && heap < this.heap - 256 * 1024 ? Math.round((this.heap - heap) / 1048576 * 10) / 10 : 0,
         decodes: e('decodes'), buffers: e('buffers'), sounds: e('sounds'), vibrates: e('vibrates'), resizes: e('resizes'), vis: e('vis'), dom: e('dom'), keys: e('keys'),
         longtasks: longs, loaf: [], loading: this.loadAt > prev, ld: this.loadAt > prev && this.ld ? { n: this.ld.n, ms: Math.round(this.ld.ms), max: Math.round(this.ld.max) } : null, hidden: document.hidden || e('vis') > 0, from: prev, to: t,
-        // GPU time / lag of the last WebGL frames before the hitch (filled in when the results arrive: gpuResult)
+
         glId: GP.lastId, gpu: -1, lag: -1,
       };
       h.causes = this.causes(h);
       this.list.push(h); if (this.list.length > 200) this.list.shift();
       if (!h.loading && !h.hidden) { const Mn = this.mins[Math.floor((t - this.t0) / 60000)]; if (Mn) Mn.hitches++; this.count++; if (gap > this.worst) this.worst = gap; const k = h.where.split(' ')[0]; this.byCtx[k] = (this.byCtx[k] || 0) + 1; }
     },
-    // a GPU measurement (GP.frame) for one of the three WebGL frames before a recent hitch
+
     gpuResult(d) {
       for (let i = this.list.length - 1; i >= 0 && i >= this.list.length - 6; i--) {
         const h = this.list[i];
@@ -450,7 +450,7 @@ window.ND = window.ND || {};
       return L.join('\n');
     },
   };
-  // counters the recorder reads (installed only with ?perf=1)
+
   try {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (AC && AC.prototype.decodeAudioData) { const f = AC.prototype.decodeAudioData; AC.prototype.decodeAudioData = function () { HR.ev.decodes++; return f.apply(this, arguments); }; }
@@ -458,15 +458,15 @@ window.ND = window.ND || {};
     for (const C of [BAC, AC]) if (C && C.prototype.createBuffer && !C.prototype.createBuffer.__hr) { const f = C.prototype.createBuffer; C.prototype.createBuffer = function () { HR.ev.buffers++; return f.apply(this, arguments); }; C.prototype.createBuffer.__hr = true; }
     const SN = window.AudioScheduledSourceNode;
     if (SN && SN.prototype.start) { const f = SN.prototype.start; SN.prototype.start = function () { HR.ev.sounds++; return f.apply(this, arguments); }; }
-  } catch (e) { /* no audio API */ }
-  try { if (typeof navigator.vibrate === 'function') { const v = navigator.vibrate.bind(navigator); navigator.vibrate = (x) => { HR.ev.vibrates++; return v(x); }; } } catch (e) { /* read-only */ }
+  } catch (e) {                    }
+  try { if (typeof navigator.vibrate === 'function') { const v = navigator.vibrate.bind(navigator); navigator.vibrate = (x) => { HR.ev.vibrates++; return v(x); }; } } catch (e) {                 }
   window.addEventListener('resize', () => HR.ev.resizes++);
   window.addEventListener('orientationchange', () => HR.ev.resizes++);
   window.addEventListener('keydown', () => HR.ev.keys++, true);
   document.addEventListener('visibilitychange', () => HR.ev.vis++);
-  try { new MutationObserver((l) => { HR.ev.dom += l.length; }).observe(document.documentElement, { subtree: true, childList: true, attributes: true, characterData: true }); } catch (e) { /* none */ }
+  try { new MutationObserver((l) => { HR.ev.dom += l.length; }).observe(document.documentElement, { subtree: true, childList: true, attributes: true, characterData: true }); } catch (e) {            }
   try {
-    // (long-task entries arrive a little after the frame that recorded the hitch: they are added to it then)
+
     new PerformanceObserver((l) => {
       for (const e of l.getEntries()) {
         const L = { start: e.startTime, end: e.startTime + e.duration, dur: e.duration };
@@ -477,9 +477,9 @@ window.ND = window.ND || {};
         }
       }
     }).observe({ type: 'longtask', buffered: true });
-  } catch (e) { /* no longtask API (Safari, Firefox) */ }
-  // Long animation frames (Chrome 123+): where a slow frame's main-thread time went — scripts, style + layout, the
-  // rendering update. A hitch with none of these was waiting outside the page's main thread (GPU / compositor).
+  } catch (e) {                                         }
+
+
   try {
     new PerformanceObserver((l) => {
       for (const e of l.getEntries()) {
@@ -494,23 +494,23 @@ window.ND = window.ND || {};
         }
       }
     }).observe({ type: 'long-animation-frame', buffered: false });
-  } catch (e) { /* no long-animation-frame API */ }
+  } catch (e) {                                   }
 
-  // Hooks: wrap the game's own methods once every script has run (method calls are looked up at call time)
+
   function hook() {
     const g = ND.game, input = ND.input;
     if (!g || g._profHooked) return;
     g._profHooked = true;
     const wrap = (obj, name, fn) => { const orig = obj[name]; if (typeof orig !== 'function') return; obj[name] = function (...a) { return fn.call(this, orig, a); }; };
-    // frameBody starts with input.pollPads(): frame begins there
+
     wrap(input, 'pollPads', function (orig, a) { P.begin(); const r = orig.apply(this, a); P.m('input'); return r; });
     wrap(g, 'advance', function (orig, a) { P.m('pre-sim'); const r = orig.apply(this, a); P.m('sim'); return r; });
     wrap(g, 'update', function (orig, a) { P.curSteps++; return orig.apply(this, a); });
     wrap(g, 'hud', function (orig, a) { const t = now(); const r = orig.apply(this, a); P.cur.hudDom = (P.cur.hudDom || 0) + now() - t; if (!P.order.includes('hudDom')) P.order.push('hudDom'); return r; });
     wrap(g, 'syncTouch', function (orig, a) { P.m('portal'); const r = orig.apply(this, a); P.m('syncTouch'); return r; });
     wrap(g, 'prepareMatch', function (orig, a) { HR.loadAt = now(); HR.ld = { n: 0, ms: 0, max: 0, t0: now() }; return orig.apply(this, a); });
-    // the loading screen's frames (one preparation job each, js/prepare.js): how many, their total and the longest —
-    // the longest is how long the loading screen itself stood still
+
+
     if (ND.prepare && ND.prepare.start && !ND.prepare._hr) {
       const st = ND.prepare.start; ND.prepare._hr = true;
       ND.prepare.start = function () {

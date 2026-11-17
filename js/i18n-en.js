@@ -1,13 +1,13 @@
-// Shadow Duel — English catalog for ND.i18n (Turkish is the source language).
-// Structure mirrors the game's tables; see js/i18n.js for how each part is applied.
-//   EN.STR       ← ND.STR (arcade.js, roster2.js, banzuke/leaderboard screens)
-//   EN.CHARS     ← ND.CHARS title/desc/weapon (characters.js, shura in arcade.js)
-//   EN.ARENAS    ← ND.ARENAS names       EN.SPECIALS ← ND.SPECIALS desc/tip (names stay Japanese)
-//   EN.TXT       ← ND.TXT canvas texts   EN.AI_LEVELS ← ND.AI_LEVELS[n].name
-//   EN.PHRASES   exact Turkish text → English (static HTML, hardcoded literals, canvas pop-ups)
-//   EN.HTML      whole-element HTML for mixed text + tags   EN.PATTERNS  regex rules for composed strings
-// Control changes that ship with this build are written into the English text: P pauses (Escape is
-// CrazyGames' fullscreen key), ⌫ goes back, player 2 throws shuriken with I.
+
+
+
+
+
+
+
+
+
+
 (function (ND) {
   'use strict';
   (ND.I18N_CATALOGS || (ND.I18N_CATALOGS = {})).en = function (I, EN) {
@@ -16,7 +16,7 @@
     const dec = (x) => I.dec(x);
     const fmtTime = (s) => I.time(s);
 
-    // ================================================================ UI tables (ND.STR)
+
     merge(EN.STR, {
       menu: {
         brand: (nc, na) => `${nc} fighters, ${na} arenas and a hidden master. Real-time sword clashes, blade locks, parries, posture breaks, ki techniques and ragdoll physics.`,
@@ -145,7 +145,7 @@
       bz: {
         back: 'Back', toMenu: 'Main menu', you: 'You', youTag: 'you', newBest: 'New best!', seeResult: 'See result',
         resetIn: 'Resets in',
-        // time left: days (d) · hours (h) · minutes (m) · seconds (s)
+
         left: (ms) => { const t = Math.floor(ms / 1000), d = Math.floor(t / 86400), hh = Math.floor((t % 86400) / 3600), mm = Math.floor((t % 3600) / 60), ss = t % 60; return d ? `${d}d ${hh}h ${mm}m` : hh ? `${hh}h ${mm}m` : `${mm}m ${ss}s`; },
         leftShort: (ms) => { const t = Math.floor(ms / 60000), d = Math.floor(t / 1440), hh = Math.floor((t % 1440) / 60), mm = t % 60; return d ? `${d}d ${hh}h` : hh ? `${hh}h ${mm}m` : `${mm}m`; },
         weekName: (m, y) => `${['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][m - 1] || m} ${y}`,
@@ -231,7 +231,7 @@
           pending: (n) => `Entries waiting to be sent: ${n}`,
           classic: 'Arcade · Legend boards',
         },
-        // Monthly Tournament rewards: permanent title (top 3) and Champion colors (1st)
+
         ttl: {
           champ: 'Monthly Champion', finalist: 'Finalist',
           reward: 'From the October 2026 tournament on, each month’s top 3 earn a permanent title. The champion also wins exclusive Champion colors for the ninja they used. Titles need at least 5 players that month.',
@@ -266,6 +266,12 @@
         ['<kbd>F</kbd><kbd>F</kbd><kbd>F</kbd>', 'Light ×3 combo', 'third hit pushes back'],
         ['<kbd>G</kbd>', 'Heavy slash', 'knocks down'],
         ['<kbd>R</kbd>', 'Kick', 'pressures guard, fills posture'],
+        ['<kbd>S</kbd>+<kbd>R</kbd>', 'Sweep', 'knocks down · jump over it'],
+        ['Back+<kbd>R</kbd>', 'Spinning kick', 'slow, strong, breaks guard'],
+        ['Fwd+<kbd>R</kbd>', 'Hand kick', 'into a wind-up: disarms'],
+        ['<kbd>W</kbd>›<kbd>R</kbd>', 'Flying kick', 'in the air'],
+        ['←→+<kbd>R</kbd>', 'Own kick', 'each ninja has one'],
+        ['<kbd>R</kbd>', 'Kick-up', 'unarmed, at your sword'],
         ['<kbd>T</kbd>', 'Shuriken', ''],
         ['<kbd>Shift</kbd>', 'Dash', 'left Shift'],
         ['<kbd>Shift</kbd>›<kbd>F</kbd>', 'Dash slash', ''],
@@ -281,7 +287,7 @@
         ['<kbd>F</kbd>/<kbd>G</kbd>!!', 'Blade lock', 'mash during the lock to push them back'],
       ],
       touch: {
-        btn: { light: 'ATTACK', heavy: 'HEAVY', kick: 'KICK', guard: 'GUARD', dodge: 'DASH', throw: 'SHUR.', special: 'KI', up: 'JUMP', down: 'GUARD', stick: 'Joystick' },
+        btn: { light: 'ATTACK', heavy: 'HEAVY', kick: 'KICK', guard: '▼', dodge: 'DASH', throw: 'SHUR.', special: 'KI', up: 'JUMP', down: 'GUARD' },
         lock: 'Mash ATTACK!',
         replaySkip: 'tap to skip',
         rotateTitle: 'Turn your screen sideways',
@@ -299,40 +305,45 @@
           hand: 'Buttons', right: 'Right', left: 'Left',
           assist: 'Easy assist', haptic: 'Vibration',
           fullscreen: 'Fullscreen', exitFullscreen: 'Exit fullscreen',
-          note: 'Simple: 5 big buttons. Full: adds kick and shuriken. Easy assist: hold ATTACK and the combo keeps going, a quick tap on GUARD lasts long enough to parry, and the stick won’t jump by accident. It only makes touching easier; rules and scores are the same for everyone.',
+          note: 'Simple: 4 big buttons. Full: adds kick and shuriken. Easy assist: hold ATTACK and the combo keeps going, and a quick tap on ▼ lasts long enough to parry. It only makes touching easier; rules and scores are the same for everyone.',
           fullNote: 'KICK and SHURIKEN buttons are in the Full layout (Settings → Controls).',
         },
         help: '<div class="th-grid">' +
-          '<div><h3>Joystick</h3><dl>' +
-          '<dt><i class="tb">◀ ▶</i></dt><dd>Put your thumb on the free half and slide: walk</dd>' +
-          '<dt><i class="tb">▲</i></dt><dd>Push up: jump</dd>' +
-          '<dt><i class="tb tb-guard">▼</i></dt><dd>Pull down: guard</dd>' +
-          '<dt><i class="tb">▶▶</i></dt><dd>Flick sideways twice: dash</dd>' +
+          '<div><h3>D-pad</h3><dl>' +
+          '<dt><i class="tb">◀ ▶</i></dt><dd>Hold: walk</dd>' +
+          '<dt><i class="tb">▲</i></dt><dd>Tap: jump</dd>' +
+          '<dt><i class="tb tb-guard">▼</i></dt><dd>Hold: guard. Tap just before a hit: parry</dd>' +
+          '<dt><i class="tb">▶▶</i></dt><dd>Double-tap: dash</dd>' +
           '</dl></div>' +
           '<div><h3>Buttons</h3><dl>' +
           '<dt><i class="tb tb-light">ATTACK</i></dt><dd>Slash. Tap again and again: combo. Hold forward or back while tapping: other techniques</dd>' +
           '<dt><i class="tb">HEAVY</i></dt><dd>Heavy slash. Forward + HEAVY launches the opponent</dd>' +
-          '<dt><i class="tb tb-guard">GUARD</i></dt><dd>Hold: guard. Tap just before a hit: parry</dd>' +
-          '<dt><i class="tb">DASH</i></dt><dd>Dash (the way the stick points, else backwards)</dd>' +
+          '<dt><i class="tb">DASH</i></dt><dd>Dash (the way you hold ◀ ▶, else backwards)</dd>' +
           '<dt><i class="tb ki">KI</i></dt><dd>Ki technique: the button glows when ki is full</dd>' +
           '<dt><i class="tb">KICK</i> <i class="tb">SHUR.</i></dt><dd>Full layout: kick and shuriken</dd>' +
           '</dl></div></div>',
-        note: 'You can press several buttons at once: hold guard and attack, or slide your thumb from <i class="tb tb-guard">GUARD</i> to <i class="tb tb-light">ATTACK</i>. <b>II</b> at the top of the screen pauses; layout, size and left-handed options are in <b>Settings</b>. Use a keyboard or gamepad and the controls switch to it automatically.',
+        note: 'You can press several buttons at once: hold <i class="tb tb-guard">▼</i> to guard and tap <i class="tb tb-light">ATTACK</i> with your other thumb. <b>II</b> at the top of the screen pauses; layout, size and left-handed options are in <b>Settings</b>. Use a keyboard or gamepad and the controls switch to it automatically.',
         keysHelp: '',
       },
       movesTouch: [
-        ['<i class="tb">◀ ▶</i>', 'Walk', 'joystick · flick twice: dash'],
-        ['<i class="tb">▲</i>', 'Jump', 'push the stick up'],
+        ['<i class="tb">◀ ▶</i>', 'Walk', 'hold · double-tap: dash'],
+        ['<i class="tb">▲</i>', 'Jump', 'tap'],
         ['<i class="tb tb-light">ATTACK</i>×3', 'Triple combo', 'tap again and again; third hit pushes back'],
         ['<i class="tb">HEAVY</i>', 'Heavy slash', 'knocks down'],
         ['<i class="tb">KICK</i>', 'Kick', 'pressures guard, fills posture · Full layout'],
+        ['<i class="tb tb-guard">▼</i>' + '+' + '<i class="tb">KICK</i>', 'Sweep', 'knocks down · jump over it'],
+        ['Back+' + '<i class="tb">KICK</i>', 'Spinning kick', 'slow, strong, breaks guard'],
+        ['Fwd+' + '<i class="tb">KICK</i>', 'Hand kick', 'into a wind-up: disarms'],
+        ['<i class="tb">▲</i>' + '›' + '<i class="tb">KICK</i>', 'Flying kick', 'in the air'],
+        ['←→+' + '<i class="tb">KICK</i>', 'Own kick', 'each ninja has one'],
+        ['<i class="tb">KICK</i>', 'Kick-up', 'unarmed, at your sword'],
         ['<i class="tb">SHUR.</i>', 'Shuriken', 'Full layout'],
         ['<i class="tb">DASH</i>', 'Dash', ''],
         ['<i class="tb">DASH</i>›<i class="tb tb-light">ATTACK</i>', 'Dash slash', ''],
         ['<i class="tb">▲</i>›<i class="tb tb-light">ATTACK</i>', 'Air slash', ''],
         ['<i class="tb">▲</i>›<i class="tb">HEAVY</i>', 'Dive', 'heavy in the air'],
-        ['<i class="tb tb-guard">GUARD</i>', 'Guard', 'hold, or pull the stick down'],
-        ['<i class="tb tb-guard">GUARD</i>!', 'Parry', 'tap just before the blow lands'],
+        ['<i class="tb tb-guard">▼</i>', 'Guard', 'hold'],
+        ['<i class="tb tb-guard">▼</i>!', 'Parry', 'tap just before the blow lands'],
         ['<i class="tb tb-light">ATTACK</i>', 'Straight counter', 'after guard/parry'],
         ['Fwd+<i class="tb tb-light">ATTACK</i>', 'Sweep', 'counter · at the legs'],
         ['Back+<i class="tb tb-light">ATTACK</i>', 'Cross-up', 'counter · slip past them'],
@@ -347,13 +358,13 @@
         kiCancel: 'Ki cancel', special: 'Ki technique', throw: 'Projectile',
       },
       lessonsTouch: {
-        walk: 'Slide your thumb on the free half of the screen: push the joystick left and right to walk.',
+        walk: 'Hold <i class="tb">◀</i> and <i class="tb">▶</i> to walk back and forth.',
         combo: 'Tap <i class="tb tb-light">ATTACK</i> three times in a row: chain three slashes and hit the dummy.',
         heavy: 'Land a heavy slash with <i class="tb">HEAVY</i>. It’s slow, but it knocks down.',
         gbreak: 'The dummy is guarding. Hit it with <i class="tb">HEAVY</i> to fill its posture bar and break its guard (<i class="tb">KICK</i> in the Full layout fills it even faster).',
-        block: 'The dummy is attacking. Hold <i class="tb tb-guard">GUARD</i> (or pull the stick down) and block a slash.',
-        parry: 'Tap <i class="tb tb-guard">GUARD</i> just before the blow lands. The moment the blue ring shrinks is the perfect time.',
-        counter: 'Right after a guard or parry, <i class="tb tb-light">ATTACK</i>: counter-slash. Also try stick forward/back + <i class="tb tb-light">ATTACK</i> or <i class="tb">HEAVY</i>.',
+        block: 'The dummy is attacking. Hold <i class="tb tb-guard">▼</i> and block a slash.',
+        parry: 'Tap <i class="tb tb-guard">▼</i> just before the blow lands. The moment the blue ring shrinks is the perfect time.',
+        counter: 'Right after a guard or parry, <i class="tb tb-light">ATTACK</i>: counter-slash. Also try forward/back + <i class="tb tb-light">ATTACK</i> or <i class="tb">HEAVY</i>.',
         special: 'Your ki bar is full. Use {sp} with the glowing <i class="tb ki">KI</i> button.',
       },
       lessons: [
@@ -369,10 +380,10 @@
       ],
     });
 
-    // ================================================================ story, fighters, arenas, specials
-    // ---- Fragment B: story text (talk, pairs, endings, roster2 notes), characters, arenas, specials, pop-ups, AI levels, number words
+
+
     merge(EN.STR, {
-      // open = speaks first (opponent), reply = answers (player), boss = said to the final boss
+
       talk: {
         akane: {
           open: ['My blade is crimson, my intent is pure. Face me with honour.', 'I bow first, then I strike. That is only fair.', 'This duel is for our honour. There is no retreat.'],
@@ -440,7 +451,7 @@
           boss: 'Shura, there’s nowhere to hide in the sky. My arrow will find you.',
         },
       },
-      // Special match-ups: lines are spoken in the order written
+
       pairs: {
         'akane|aoi': [['akane', 'Aoi! Time to finish the duel we left unfinished.'], ['aoi', 'The wind always blows toward the same fire, Akane. Begin.']],
         'kuro|tetsu': [['kuro', 'Iron shell. Let’s see if it’s hollow.'], ['tetsu', 'Even a mountain bows to discipline, Kuro.']],
@@ -470,7 +481,7 @@
         ren: ['Ren hung Shura’s broken mask beside the other oni mask. Two oni, one winner.', 'The village sang that night; the loudest laugh, as always, was Ren’s.', 'By morning, Ren was already on the road. Off to the next brawl.'],
         kage: ['When Shura fell, Kage’s shadow quietly settled over the fallen demon.', 'No trace, no sound; only one extra shadow stretching out in the moonlight.', 'Perhaps it was always there. Perhaps it never existed at all.'],
         shura: ['On the castle roof, only one remained standing: the one who wore the same mask, only darker.', 'Shura no longer seeks rivals. Rivals seek Shura.'],
-        def: ['The last master has fallen. The way of shadows is yours now.', 'Sheayour blade; the legend begins now.'],
+        def: ['The last master has fallen. The way of shadows is yours now.', 'Sheathe your blade; the legend begins now.'],
         tora: ['The rattle of a chain announced Shura’s fall.', 'Tora hung the broken mask from the chain: a new hunting trophy.', 'From that day on, no one in the forest took the tiger’s roar for a fairy tale.'],
         jin: ['Jin knelt beside the fallen Shura and prayed.', 'On the road back to the temple, not a single drop of blood marked the staff.', 'That night the mountain bells rang again; this time not in mourning, but for peace.'],
         mai: ['As Shura fell, Mai snapped the fan shut and bowed.', 'The night market still talks about that dance.', 'The curtain fell. But Mai never left the stage.'],
@@ -537,22 +548,22 @@
 
     EN.NUMWORDS = ['Zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve'];
 
-    // ================================================================ static HTML, hardcoded literals, canvas pop-ups
+
     merge(EN.PHRASES, {
-      // ---------------------------------------------------------------- index.html: <title>, brand, HUD
+
       'Gölge Düellosu': 'Shadow Duel',
       'Duraklat': 'Pause',
       'KARŞILIKLI SERİ': 'RALLY',
       'SON DARBE': 'FINAL BLOW',
       'atlamak için bir tuşa bas': 'press any key to skip',
-      // touch buttons (static fallbacks of data-s="touch.btn.*")
+
       'GARD': 'GUARD',
       'HAFİF': 'LIGHT',
       'SALDIR': 'ATTACK',
       'AĞIR': 'HEAVY',
       'ATIL': 'DASH',
       'TEKME': 'KICK',
-      // ---------------------------------------------------------------- main menu
+
       'Sekiz savaşçı, üç arena. Gerçek zamanlı kılıç çarpışması, kılıç kilitlenmesi, savuşturma, denge kırma, Gölge Kesiği ve ragdoll fiziği.': 'Eight fighters, three arenas. Real-time sword clashes, blade locks, parries, posture breaks, the Shadow Cut and ragdoll physics.',
       'İki Oyuncu': 'Two Players',
       'Aynı klavyede ya da iki gamepad ile kafa kafaya': 'Head to head on one keyboard or two gamepads',
@@ -572,7 +583,7 @@
       'Kan efekti': 'Blood',
       'Tuş ipuçları': 'Key hints',
       'Yüksek grafik': 'High graphics',
-      // ---------------------------------------------------------------- controls card
+
       'Kontroller': 'Controls',
       '1. Oyuncu': 'Player 1',
       '2. Oyuncu': 'Player 2',
@@ -586,7 +597,7 @@
       'Sağ Shift': 'Right Shift',
       'Atılma': 'Dash',
       'Ki tekniği (ki dolu)': 'Ki technique (full ki)',
-      // ---------------------------------------------------------------- select screen
+
       'Ninjanı seç': 'Choose your ninja',
       'Hazır': 'Ready',
       '1. oyuncunun ninjası': 'Player 1’s ninja',
@@ -603,7 +614,7 @@
       'Güç': 'Power',
       'Menzil': 'Reach',
       'Can': 'Health',
-      // ---------------------------------------------------------------- pause / end
+
       'Duraklatıldı': 'Paused',
       'Devam et': 'Resume',
       'Maçı yeniden başlat': 'Restart match',
@@ -615,20 +626,20 @@
       'Verilen hasar': 'Damage dealt',
       'Savuşturma': 'Parries',
       'Ki Saldırısı': 'Ki attacks',
-      // ---------------------------------------------------------------- training / leaderboard / misc
+
       'Antrenman': 'Training',
       'ANTRENMAN': 'TRAINING',
       'Sıralama': 'Leaderboard',
       'Tümü': 'All',
       'Ekranı yan çevir': 'Turn your screen sideways',
       'Performans için grafik düşürüldü': 'Graphics lowered for performance',
-      // hidden boss pushed into ND.CHARS by arcade.js (safety net; EN.CHARS.shura should carry the same)
+
       'Kanlı Usta': 'The Blood Master',
       'Yolunu kanla çizen iblis usta. Uzun nodachi, yıkıcı darbeler, neredeyse kusursuz savuşturma.': 'A demon master who carves his path in blood. Long nodachi, crushing blows, near-flawless parries.',
-      // ---------------------------------------------------------------- HUD tags (fallbacks when STR.hud is missing)
+
       'SEN': 'YOU',
       'KUKLA': 'DUMMY',
-      // ---------------------------------------------------------------- round banners (#bt / #bs)
+
       'Son raund': 'Final round',
       'Kazanan her şeyi alır': 'Winner takes all',
       'İlk iki raundu alan kazanır': 'First to two rounds wins',
@@ -637,13 +648,13 @@
       'Berabere': 'Draw',
       'Çifte K.O.': 'Double K.O.',
       'Mükemmel': 'Perfect',
-      // blade-lock hint (fallbacks of STR.hud.lockSolo / lockDuo)
+
       'F / K tuşuna hızlıca bas!': 'Mash F / K!',
       'Hafif ya da ağır tuşuna hızlıca bas!': 'Mash light or heavy!',
-      // counter / parry prompt labels under the key ring (ctx.fillText in drawPrompts)
+
       'KARŞILIK': 'COUNTER',
       'SAVUŞTUR': 'PARRY',
-      // ---------------------------------------------------------------- canvas pop-ups (fx.text)
+
       'SON VURUŞ!': 'FINISHER!',
       'KİLİTLENDİ!': 'BLADE LOCK!',
       'İTTİ!': 'SHOVE!',
@@ -666,9 +677,9 @@
     });
 
     merge(EN.HTML, {
-      // brand title
+
       'Gölge<br><em>Düel</em><em>losu</em>': 'Shadow<br><em>Du</em><em>el</em>',
-      // tips list (<ul class="tips">)
+
       '<b>Savuşturma:</b> darbe gelmeden hemen önce gard tuşuna bas; rakip sendeler.':
         '<b>Parry:</b> press guard just before the blow lands; your opponent staggers.',
       '<b>Karşılık (返し技):</b> gard ya da savuşturmanın hemen ardından saldırı tuşu → anında karşı kesik. <b>İleri</b> + hafif = bacağa süpürme, <b>geri</b> + hafif = yanından dönüp arkadan kesme, <b>ağır</b> = güçlü karşı darbe.':
@@ -683,30 +694,30 @@
         '<b>Dash + light</b> = dashing slash. <b>In the air</b> light = air slash, heavy = dive. Heavy slash knocks down; anyone slammed into a wall bounces back.',
       '<b>Denge çubuğu</b> dolarsa gard kırılır. Tekme gardı delip dengeyi hızla doldurur.':
         'When the <b>posture bar</b> fills, the guard breaks. Kicks go through guard and fill posture fast.',
-      // gamepad note (Esc -> Start or P)
+
       'Gamepad: X hafif · Y ağır · B tekme · A zıpla · LB gard · RB shuriken · RT atılma · R3 ki tekniği. Start ya da <kbd>P</kbd> duraklatır. CPU modunda her iki tuş seti de seni yönetir.':
         'Gamepad: X light · Y heavy · B kick · A jump · LB guard · RB shuriken · RT dash · R3 ki technique. Start or <kbd>P</kbd> pauses. In CPU mode both key sets control you.',
-      // select / VS hints (Esc -> ⌫)
+
       '<kbd>Enter</kbd> başlatır · <kbd>⌫</kbd> menüye döner': '<kbd>Enter</kbd> start · <kbd>⌫</kbd> back',
       '<kbd>Enter</kbd> / <kbd>F</kbd> başlatır · <kbd>⌫</kbd> çıkar': '<kbd>Enter</kbd> / <kbd>F</kbd> start · <kbd>⌫</kbd> quit',
     });
 
     EN.PATTERNS.push(
-      // HUD round label (#rlabel) and round banner
+
       [/^RAUND (\d+)$/, 'ROUND $1'],
       [/^(\d+)\. Raund$/, 'Round $1'],
-      // canvas pop-ups built from numbers
+
       [/^(\d+)\. KARŞILIK$/, 'COUNTER ×$1'],
       [/^(\d+) VURUŞLUK SERİ!$/, '$1-HIT RALLY!'],
-      // time-up banner sub: `${name} önde`
+
       [/^(.+) önde$/, (m, n) => I.t(n) + ' leads'],
-      // end screen title: `${Name} kazandı`
+
       [/^(.+) kazandı$/, (m, n) => I.t(n) + ' wins'],
-      // end screen sub line: `${a} – ${b} · ${round} raund · ${arenaName}`
+
       [/^(\d+) – (\d+) · (\d+) raund · (.+)$/, (m, a, b, r, ar) => `${a} – ${b} · ${r} ${r === '1' ? 'round' : 'rounds'} · ${I.t(ar)}`],
     );
 
-    // ================================================================ added with the portal build (PLAY, ads, coach)
+
     merge(EN.STR, {
       menu: { play: 'Play', playSub: (name, lv) => `${name} vs CPU · ${lv}` },
       first: { play: 'Play', sub: 'One tap and you’re fighting', menu: 'All modes' },
@@ -725,28 +736,24 @@
       },
     });
 
-    // ================================================================ VOLUME: sliders on the menu card and in pause (js/volume.js)
+
     merge(EN.STR, {
       vol: {
         title: 'Volume', master: 'Master', music: 'Music', sfx: 'Effects', sound: 'Sound',
         pct: (n) => `${n}%`,
         muted: 'Sound is off. Move a slider to turn it back on.',
-        // Settings > Audio: character / announcer voices switch (js/voice.js) and the courtesy credit under it
+
         voice: 'Voices',
         uiSfx: 'Menu sounds',
         credit: 'Voices: ユーフルカ (youfulca.com) · 効果音ラボ · すぱらんど',
       },
     });
 
-    // ================================================================ TOUCH LAYOUT EDITOR: movement modes + "Customize controls"
-    // (js/touch.js settings rows, js/touch-editor.js; Turkish source in i18n.js, block "touch movement modes + layout editor")
+
+
     merge(EN.STR, {
       tedit: {
-        move: 'Movement',
-        moves: { float: 'Stick', fixed: 'Fixed stick', dpad: 'D-pad' },
         mnote: {
-          float: 'The stick appears wherever your thumb lands.',
-          fixed: 'The stick stays where you put it; push from its centre.',
           dpad: 'Separate buttons: hold to walk, double-tap to dash. Press between two buttons for both (▶ + ▲ = jump forward).',
           dtap: 'Separate buttons: a quick tap on ◀ ▶ takes one short step, hold to walk, double-tap to dash.',
         },
@@ -762,7 +769,7 @@
         opacity: 'Opacity', opacityAll: 'Opacity (all)',
         hide: 'Hide', show: 'Show', hidden: 'Hidden',
         snap: 'Snap to grid',
-        presets: 'Presets', pRight: 'Right hand', pLeft: 'Left hand', pSplit: 'Guard on left',
+        presets: 'Presets', pRight: 'Right hand', pLeft: 'Left hand',
         reset: 'Reset to default', resetDone: 'Default layout is back (applies when you save).',
         overlap: 'Buttons can’t overlap: moved to the nearest free spot.',
         noRoom: 'No room there: the button went back.',
@@ -773,8 +780,8 @@
       },
     });
 
-    // ================================================================ PROGRESSION: honor, rival challenges, moves panel
-    // (arcade.js STR.honor / STR.rival / STR.hint, game.js select screen; rules in js/honor.js)
+
+
     merge(EN.STR, {
       menu: { arcadeDesc: 'Beat your rivals one by one as the difficulty climbs, with a hidden master waiting at the end. The richest source of honor.' },
       sel: {
@@ -847,8 +854,8 @@
       },
     });
 
-    // ================================================================ COMBAT: new kits, combos, move list (combat designer)
-    // Akane/Aoi/Ren/Kage identities, combo counter, ki cancel, ND.MOVELIST names/descriptions (read through ND.i18n.t)
+
+
     merge(EN.CHARS, {
       akane: { desc: 'Iaijutsu master. The blade waits in its scabbard and every cut is a draw; her draw stance catches incoming blows.', weapon: 'Katana (iai)' },
       aoi: { desc: 'A one-handed tachi fencer of the wind. Long-reaching thrusts and wind steps close any distance in a single move.', weapon: 'Tachi' },
@@ -858,7 +865,7 @@
     merge(EN.TXT, { kiCancel: 'KI CANCEL!', launch: 'LAUNCH!', iaiCatch: 'IAI GAESHI!' });
     EN.PATTERNS.push([/^(\d+) VURUŞ$/, '$1 HIT']);
     merge(EN.PHRASES, {
-      // shared rows
+
       'Tekme': 'Kick',
       'Tekme: dengeyi hızla doldurur, gardı kırmaya yarar. Ardından AĞIR ile seri bitirişine bağlanır.': 'Kick: fills posture fast and helps break guards. Follow with HEAVY for a string ender.',
       'Shuriken fırlatır; zamanla yeniden dolar.': 'Throws a shuriken; they refill over time.',
@@ -878,7 +885,7 @@
       'Atılırken dönerek geniş kesik; yere serer.': 'A wide spinning cut out of a dash; knocks down.',
       'İki kesiklik seri bitirişi; son kesik yere serer.': 'A two-cut string ender; the last cut knocks down.',
       'Rakibin kılıcını aşağı çarpıp dürter: gardı ezer.': 'Beats the opponent’s blade down and thrusts: crushes the guard.',
-      // Akane
+
       'Kından yatay çekiş kesiği, çapraz iniş, geri dönen kesik; kılıç her seferinde kınına döner.': 'A horizontal draw-cut from the scabbard, a diagonal down cut and a returning cut; the blade goes back into the scabbard every time.',
       'Derin çömelişten geniş yatay çekiş; yere serer.': 'A wide horizontal draw from a deep crouch; knocks down.',
       'Atılarak kından çekiş: uzak mesafeyi bir anda kapatır, seriye devam eder.': 'A dashing draw from the scabbard: closes a long gap in an instant and continues the chain.',
@@ -887,7 +894,7 @@
       'Çekiş duruşu: kısa bir an bekler; bu sırada gelen yakın dövüş darbesini yakalar ve kaçınılmaz bir iai kesiğiyle karşılık verir. Boşa giderse açık kalır.': 'Draw stance: waits for a moment; a melee blow arriving meanwhile is caught and answered with an unavoidable iai cut. If nothing comes, she is left open.',
       'Kesa’dan sonra yükselen ve inen iki çekiş kesiği; son kesik yere serer.': 'After Kesa, a rising and a falling draw-cut; the last cut knocks down.',
       'Tekmeden sonra çömelip rakibin içinden geçen kızıl iai; arkasında belirir.': 'After the kick, a crouching crimson iai that passes straight through the opponent; she reappears behind.',
-      // Aoi
+
       'Tek elle uzun dürtüş, yukarı savrulan kesik ve rüzgâr adımıyla derin atılma dürtüşü.': 'A long one-handed thrust, a flicking rising cut and a deep lunging thrust on a wind step.',
       'Dönerek geniş yatay kesik; yere serer.': 'A wide horizontal cut with a spin; knocks down.',
       'Rüzgâr adımı: çok uzaktan tek hamlede dürter, seriye devam eder.': 'Wind step: thrusts from very far in one move and continues the chain.',
@@ -896,7 +903,7 @@
       'Geri sıçrar, ardından çok uzağa uzanan dürtüşle geri döner: gardı ezer, yere serer.': 'Hops back, then comes back with a very long thrust: crushes the guard and knocks down.',
       'Üç hızlı dürtüş; sonuncusu rüzgârla rakibi savurur.': 'Three quick thrusts; the last one blows the opponent away on the wind.',
       'İki kez dönerek çevresini biçen kesik; gardı ezer.': 'Spins twice, cutting all around; crushes the guard.',
-      // Ren
+
       'Kesik · Dirsek · Diz': 'Cut · Elbow · Knee',
       'Tek elle kesik, dirsek darbesi ve uçan diz: kılıçla başlayıp bedenle biter.': 'A one-handed cut, an elbow strike and a flying knee: it starts with the sword and ends with the body.',
       'İki elle tepeden ezici iniş; gardı zorlar, yere serer.': 'A crushing two-handed blow from above; strains the guard and knocks down.',
@@ -906,7 +913,7 @@
       'Topuğu havaya kaldırıp balta gibi indirir: yere serer.': 'Raises the heel high and brings it down like an axe: knocks down.',
       'Dirsekten sonra kesik ve tepeden ezici iniş; son vuruş yere serer.': 'After the elbow, a cut and a crushing blow from above; the last hit knocks down.',
       'Tekmenin ardından dönen topuk tekmesi; yere serer.': 'After the kick, a spinning heel kick; knocks down.',
-      // Kage
+
       'Ters tutuşla kesik, dönen kesik ve gölge adımı: kaybolup öne geçer, dürterek belirir.': 'A reverse-grip cut, a spinning cut and a shadow step: vanishes, slips forward and reappears thrusting.',
       'Sıçrayıp ters tutuşla aşağı saplar; yere serer.': 'Hops and stabs downward in a reverse grip; knocks down.',
       'Gölge gibi uzun atılma kesiği; seriye devam eder.': 'A long dashing cut like a shadow; continues the chain.',
@@ -915,18 +922,18 @@
       'Ayağının dibine sis bombası atar: yakındakini sersemletir, Kage dumanın içinde geri kaçar.': 'Throws a smoke bomb at the feet: stuns anyone close while Kage slips back inside the smoke.',
       'Üç hızlı ters kesik ve aşağı saplama; sonuncusu yere serer.': 'Three quick reverse cuts and a downward stab; the last one knocks down.',
       'Tekmeden sonra dumanda kaybolur, rakibin arkasında belirip saplar.': 'After the kick, vanishes in smoke and reappears behind the opponent, stabbing.',
-      // template row names
+
       'Nodachi serisi': 'Nodachi chain', 'Ağır nodachi': 'Heavy nodachi', 'Kodachi serisi': 'Kodachi chain', 'Ağır kesik': 'Heavy cut',
       'Tantō dansı': 'Tantō dance', 'Çift kesik': 'Twin cut', 'Naginata serisi': 'Naginata chain', 'Ağır savuruş': 'Heavy swing',
       'Zincir ve orak': 'Chain and sickle', 'Zincir çekişi': 'Chain pull', 'Asa serisi': 'Staff chain', 'Ağır süpürme': 'Heavy sweep',
       'Yelpaze serisi': 'Fan chain', 'Rüzgâr dalgası': 'Wind wave', 'Tantō serisi': 'Tantō chain', 'Ok (basılı tut: güçlü)': 'Arrow (hold: power shot)',
       'Geri + AĞIR da ok atar (basılı tut: güçlü atış); ok kalmadıysa tantō ile tepeden iner.': 'Back + HEAVY also shoots an arrow (hold for a power shot); out of arrows, she comes down from above with the tantō.',
-      // combat pop-ups
+
       'KI İPTALİ!': 'KI CANCEL!', 'HAVAYA!': 'LAUNCH!',
     });
 
-    // ================================================================ COUNTER CINEMATIC + COMBO TRIAL (combat feel pass)
-    // js/kaeshi-cine.js STR.kaeshi, js/combo-trial.js STR.trial, js/coach.js combo/counter tips, move list legend
+
+
     {
       const tb = (t, c) => `<i class="tb${c ? ' ' + c : ''}">${t}</i>`;
       merge(EN.STR, {
@@ -970,21 +977,21 @@
       });
       const L = Array.isArray(EN.STR.lessons) && EN.STR.lessons.find((l) => l.id === 'counter');
       if (L) L.d = 'After a guard or parry, <b>STRIKE!</b> appears over your head: press <kbd>F</kbd> before its bar runs out. Forward/back + <kbd>F</kbd> or <kbd>G</kbd> are other counters.';
-      if (EN.STR.lessonsTouch) EN.STR.lessonsTouch.counter = `After a guard or parry, <b>STRIKE!</b> appears over your head: tap ${tb('ATTACK', 'tb-light')} before its bar runs out. Stick forward/back + ${tb('ATTACK', 'tb-light')} or ${tb('HEAVY')} are other counters.`;
+      if (EN.STR.lessonsTouch) EN.STR.lessonsTouch.counter = `After a guard or parry, <b>STRIKE!</b> appears over your head: tap ${tb('ATTACK', 'tb-light')} before its bar runs out. Forward/back + ${tb('ATTACK', 'tb-light')} or ${tb('HEAVY')} are other counters.`;
       merge(EN.PHRASES, {
         'KOMBO TAMAM!': 'COMBO CLEAR!',
         'Nasıl okunur': 'How to read',
         '→ rakibe doğru, ← rakipten uzağa demek: o yön tuşunu (A / D ya da ok tuşları; rakip sağındaysa D) basılı tut ve saldırı tuşuna bas. Virgül: tuşlara sırayla bas. F hafif, G ağır, R tekme, S gard.':
           '→ means toward the opponent, ← away: hold that direction key (A / D or the arrow keys; D when the opponent is on your right) and press the attack key. A comma: press the keys one after another. F light, G heavy, R kick, S guard.',
-        '▶ rakibe doğru, ◀ rakipten uzağa: yön çubuğunu o yana itip düğmeye dokun. Virgül: düğmelere sırayla dokun. Antrenmandaki Kombo denemesi her seriyi adım adım gösterir.':
-          '▶ toward the opponent, ◀ away: push the stick that way and tap the button. A comma: tap the buttons one after another. The Combo trial in Training shows every string step by step.',
+        '▶ rakibe doğru, ◀ rakipten uzağa: o yön tuşunu basılı tut ve düğmeye dokun. Virgül: düğmelere sırayla dokun. Antrenmandaki Kombo denemesi her seriyi adım adım gösterir.':
+          '▶ toward the opponent, ◀ away: hold that arrow and tap the button. A comma: tap the buttons one after another. The Combo trial in Training shows every string step by step.',
         'Gard ya da savuşturmanın ardından ekranda VUR! çıkar: altındaki çubuk bitmeden HAFİF’e bas. Yalnız HAFİF: Suriage. İleri + HAFİF: Harai (yere serer). Geri + HAFİF: Nuki (arkaya geçer). AĞIR: Uchiotoshi. Kendi üçüncü karşılığın seri bitirişidir; savuşturulursa zincir devam eder.':
           'After a guard or parry, STRIKE! appears: press LIGHT before its bar runs out. LIGHT alone: Suriage. Forward + LIGHT: Harai (knocks down). Back + LIGHT: Nuki (slips behind). HEAVY: Uchiotoshi. Your third reply is the finisher; if parried, the rally continues.',
       });
     }
 
-    // ================================================================ GRAPHICS QUALITY: the Graphics setting (js/gfx.js)
-    // (Turkish source in i18n.js, block "graphics quality")
+
+
     merge(EN.STR, {
       gfx: {
         title: 'Graphics',
@@ -997,8 +1004,8 @@
           custom: 'Your own settings (Advanced).',
         },
         now: (lv) => `Now: ${lv}`,
-        // Settings → Graphics → Advanced (game.js gfxAdvBuild, js/gfx.js KNOBS): the switch, the line under it, the hint on
-        // the heaviest rows, one title per knob and the value words (resolution shows percentages, anti-aliasing 2× / 4×)
+
+
         adv: {
           title: 'Advanced',
           note: 'Changing one makes the choice "Custom"; pressing a preset brings its values back.',
@@ -1009,8 +1016,8 @@
       },
     });
 
-    // ================================================================ FRAME RATE: Settings → Graphics (js/gfx.js makePacer)
-    // (Turkish source in i18n.js, block "frame rate"; the numbers themselves are not translated)
+
+
     merge(EN.STR, {
       fps: {
         title: 'Frame rate',
@@ -1025,7 +1032,7 @@
       },
     });
 
-    // ================================================================ SETTINGS SCREEN (js/settings.js; Turkish source in i18n.js)
+
     merge(EN.STR, {
       set: {
         title: 'Settings', close: 'Close',
@@ -1035,30 +1042,31 @@
       },
     });
 
-    // ================================================================ LANGUAGE PICKER (js/lang-ui.js; Turkish source in i18n.js)
-    // Language names are not translated: each one is written in its own language (ND.i18n.names).
+
+
     merge(EN.STR, { lang: { title: 'Language', change: 'Change language', close: 'Close' } });
 
-    // ================================================================ TOUCH HELP PER MOVEMENT MODE
-    // (game.js touchHelp(): the menu's touch help follows the movement mode; Turkish source in i18n.js, block
-    // "touch help per movement mode")
+
+    merge(EN.STR, { loadTip: { head: 'IMPORTANT TIP', text: (g) => `Want to master the fight? After EVERY attack, press ${g}.` } });
+
+
+
+
     merge(EN.STR, {
       thelp: {
-        title: { float: 'Joystick', fixed: 'Fixed joystick', dpad: 'D-pad' },
-        float: { walk: 'Put your thumb on the free half and slide: walk', jump: 'Push up: jump', guard: 'Pull down: guard', dash: 'Flick sideways twice: dash' },
-        fixed: { walk: 'Hold the stick by its centre and push sideways: walk', jump: 'Push up: jump', guard: 'Pull down: guard', dash: 'Flick sideways twice: dash' },
+        title: { dpad: 'D-pad' },
         dpad: {
-          walk: 'Hold: walk', step: 'Quick tap: one short step', jump: 'Tap: jump', guard: 'Hold: guard',
+          walk: 'Hold: walk', step: 'Quick tap: one short step', jump: 'Tap: jump', guard: 'Hold: guard. Tap just before a hit: parry',
           dash: 'Double-tap: dash', both: 'Press between two buttons for both (▶ + ▲ = jump forward)',
         },
         edit: (b) => `${b}: drag any button where you like and set its size and opacity. In Settings → Controls.`,
       },
     });
 
-    // ================================================================ SHARED LABELS (static HTML / move list text that is the same word in Turkish)
+
     merge(EN.PHRASES, { 'Shuriken': 'Shuriken', 'KI': 'KI' });
 
-    // Persistent character journeys.
+
     merge(EN.STR, { menu: { arcadeDesc: "An eight-fight journey for each ninja. Resume your next rival, unlock the character ending and the Master seal." }, sel: { title: { arcade: "Arcade · Character journey" } },
       journey: {
         start: "Start journey",
@@ -1075,8 +1083,8 @@
       }
     });
 
-    // ================================================================ PROGRESS / ACCOUNT (Settings → Progress, Hall of Champions;
-    // js/settings.js, js/banzuke.js; Turkish source in i18n.js, block "account and recovery code")
+
+
     merge(EN.STR, {
       set: { tabs: { save: 'Progress' } },
       acct: {
@@ -1100,8 +1108,8 @@
       lb: { savedLocalAccount: (r) => (r ? `#${r} on this device · your account can’t be reached right now` : 'Saved on this device · your account can’t be reached right now') },
     });
 
-    // ================================================================ PRIVACY (js/privacy.js; Turkish source in i18n.js, block
-    // "privacy"). The policy page itself (privacy.html) is English + Turkish; other languages see the English part.
+
+
     merge(EN.STR, {
       priv: {
         notice: 'Shadow Duel saves your nickname and scores for the online leaderboards.',
@@ -1110,8 +1118,8 @@
       },
     });
 
-    // ================================================================ FIRST-FIGHT RALLY TUTORIAL: js/tutorial.js STR.tutor and
-    // Training → Parry drill (Turkish source in i18n.js, block "rally tutorial")
+
+
     merge(EN.STR, {
       menu: { trainDrill: 'Parry drill' },
       tutor: {
@@ -1131,12 +1139,21 @@
         mastered: 'MASTERED!', masteredSub: 'Defend, counter, repeat',
         warm: (l) => `Warm up: hit ${l} three times`,
         nudge: (k) => `Press ${k}`, nudgeT: (k) => `Tap ${k}`,
+
+
+        skip: 'Skip ›',
+        steps: {
+          attack: (b) => `Strike with ${b}`, guard: (b) => `Block the blade with ${b}`, counter: (b) => `Strike back with ${b}`,
+          timing: (b, l) => `Your turn: ${b} as the ring closes, then ${l}`,
+        },
+        ok: { attack: 'NICE!', guard: 'PARRIED!', counter: 'COUNTER!', timing: 'PERFECT!' },
+        ready: 'READY!', readySub: 'Now win the duel',
       },
     });
 
-    // ================================================================ NEW PLAYER: the select screen's one-time greeting
-    // (game.js openSelect), the VS goal line's "?" (arcade.js openVs) and the just-in-time tips (js/coach.js ND.coach.tips;
-    // arguments: key / button chips, lessons: the menu names of Training and Tutorial). Turkish source in i18n.js.
+
+
+
     merge(EN.STR, {
       onb: { selIntro: 'Choose your ninja: each one has its own journey', more: 'Details' },
       tips: {
@@ -1153,7 +1170,7 @@
       },
     });
 
-    // ================================================================ online "play with a friend" (js/online.js: ND.STR.online)
+
     merge(EN.STR, {
       online: {
         title: 'Play with a friend',
@@ -1226,7 +1243,7 @@
       },
     });
 
-    // ================================================================ ranked duel (js/ranked.js: ND.STR.ranked)
+
     merge(EN.STR, {
       ranked: {
         title: 'Ranked duel', menuSub: 'Random opponent · points, tiers and seasons', offline: 'Ranked is offline right now',
@@ -1278,7 +1295,18 @@
         aiNote: "When few players are online, you may be matched with AI opponents that play in real players' styles.", gotIt: 'Got it',
         err: { network: "Couldn't reach the server. Check your internet connection.", bad_version: 'A new version of the game is out: reload the page.', busy: 'The queue is very full, try again soon.',
           rate_limited: 'Too many tries, wait a moment.', disabled: 'Ranked is offline right now.', banned: "This account can't play ranked.", other: 'Something went wrong, try again.' },
+
+        bg: { ru: 'Browse while searching', stopT: 'Stop the ranked search?', stopS: 'Starting this fight ends your search.', stopGo: 'Stop and play', keep: 'Keep searching', stopped: 'Ranked search stopped', chip: 'Searching' },
+        card: { findMatch: 'Find match', searching: 'Searching…', resume: 'Back to match',
+          place: (p, n) => `#${p} of ${n} on the board`, placeOnly: (p) => `#${p} on the board`,
+          toBoard: (n) => (n === 1 ? '1 more match to enter the leaderboard' : `${n} more matches to enter the leaderboard`), toBoardSoon: 'A few more matches to enter the leaderboard',
+          invite: 'From Ashigaru to Shōgun: your first ranked match is one tap away',
+          guestInvite: 'Sign in to play for points · guests play unranked', nickInvite: 'Pick a nickname to play for points',
+          winRate: (p) => `${p}% wins`, streakW: (n) => `${n} wins in a row`, streakL: (n) => `${n} losses in a row`,
+          peak: (t) => `Season best: ${t}`, shields: (n) => `Shield ×${n}`, top: 'Season top 3', you: 'You', empty: 'Nobody on the board yet: be the first', rating: 'rating' },
       },
+
+      upd: { ready: 'New version ready — tap to update', refresh: 'New version out — refresh this page to play it', close: 'Dismiss' },
     });
 
     void dec; void fmtTime; void num;

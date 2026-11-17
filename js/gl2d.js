@@ -1,35 +1,35 @@
-// Shadow Duel — Canvas 2D drawing calls recorded and replayed with WebGL2 (the default fight renderer, see gl-render.js).
-// The game keeps drawing through the Canvas 2D API (scene.js, skeleton.js, fighter.js, specials.js ... unchanged):
-// ND.createGL2D(gl) returns contexts with the same methods and properties, which turn every path into triangles on
-// the CPU (curves flattened to within 0.2 device px, strokes with the Canvas joins/caps/dashes) and record them in one
-// vertex/index stream per frame. end() uploads the stream once and replays it in a few draw calls:
-//   - union semantics of one fill or stroke (a translucent shape never darkens where it overlaps itself): every
-//     path gets its own depth value and the depth test lets each sample be written once per path
-//   - nonzero fills: convex paths as fans, other simple paths by ear clipping; self-intersecting paths or mixed
-//     winding use the stencil buffer (count windings, then cover) — exact Canvas nonzero rule
-//   - clip(): stencil bit 7 (intersection of the clip stack), rebuilt only when the clip changes
-//   - gradients: linear and two-point conical (radial) evaluated per pixel from the user-space position; the colour
-//     stops are baked into one 256-texel row of a ramp texture (unpremultiplied interpolation, like Canvas)
-//   - drawImage: canvases / bitmaps become textures (re-uploaded only after something drew into them)
-//   - sprites (the Low tier's fighter part pictures, bake.js): drawn on a CPU canvas and copied into pages of one
-//     mip-mapped atlas (spriteBegin / spriteEnd / drawSprite): no new texture per picture, no wait for the GPU
-//   - text: each fillText / strokeText is drawn once by Canvas 2D into a text atlas (per string, font, colour,
-//     transform, quarter-pixel x position) and placed as a textured quad
-//   - globalCompositeOperation: source-over, lighter, source-atop, source-in, destination-over/-in/-out, screen,
-//     multiply (on an opaque destination), copy/clear; anything else marks the frame unsupported (caller redraws it
-//     with Canvas 2D)
-//   - layers (ctx.layer(w, h, key)): transparent offscreen pictures (the lit fighter layers, the cast-shadow
-//     silhouettes) drawn in a first pass into one atlas and then placed with drawImage — the first pass runs before
-//     the scene pass, so the scene is never interrupted by a render-target switch
-//   - surfaces (ctx.surface(key, w, h)): offscreen pictures that are KEPT between frames (Low's backdrop, scene.js
-//     drawBackLow): the frame that draws one renders it into its own texture before the scene pass; later frames
-//     place it with drawImage without drawing it again — a picture made on the GPU, never uploaded
-// Antialiasing: multisampling (opts.samples, default 4) on both passes, resolved once per pass.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 window.ND = window.ND || {};
 (function (ND) {
   'use strict';
 
-  // ------------------------------------------------------------------ colours
+
   const COLORS = new Map();
   let colorScratch = null;
   const clamp255 = (v) => (v < 0 ? 0 : v > 255 ? 255 : v);
@@ -59,7 +59,7 @@ window.ND = window.ND || {};
       return [Math.round(clamp255(r)), Math.round(clamp255(g)), Math.round(clamp255(b)), a < 0 ? 0 : a > 1 ? 1 : a];
     }
     if (typeof document === 'undefined') return null;
-    // named colours and other syntaxes: let Canvas normalise it (two sentinels tell "invalid" from a real match)
+
     if (!colorScratch) colorScratch = document.createElement('canvas').getContext('2d');
     colorScratch.fillStyle = '#010203'; colorScratch.fillStyle = t;
     let n = colorScratch.fillStyle;
@@ -76,10 +76,10 @@ window.ND = window.ND || {};
   }
   ND.glParseColor = parseColor;
 
-  // ------------------------------------------------------------------ Canvas hooks (installed once, GL mode only)
-  // Gradients remember their geometry and stops (so one CanvasGradient works on both Canvas 2D and the GL
-  // contexts, whichever created it), and every drawing into a 2D canvas bumps canvas.__glv (the GL texture of that
-  // canvas is uploaded again before its next use).
+
+
+
+
   let installed = false;
   function install() {
     if (installed || typeof CanvasRenderingContext2D === 'undefined') return;
@@ -121,27 +121,27 @@ window.ND = window.ND || {};
   }
   ND.glInstallHooks = install;
 
-  // blend modes (index into BLENDS in the executor)
+
   const OPS = { 'source-over': 0, lighter: 1, 'source-atop': 2, 'destination-over': 3, 'source-in': 4, 'destination-in': 5,
     'destination-out': 6, screen: 7, multiply: 8, copy: 9, clear: 10 };
   const OP_CLEAR = 10;
   const TAU = Math.PI * 2;
-  // Curve flattening tolerance, device pixels: the largest distance between a curve (arc, ellipse, Bézier, round
-  // join / cap) and its polygon. 0.2 by default (High); R.setTolerance(t) sets it for the next frames (game.js: Medium
-  // 0.4, Low 0.5: about 30% fewer points on every curve, still well under half a pixel off).
+
+
+
   const TOL0 = 0.2;
   const K_DRAW = 1, K_SFILL = 2, K_CLIP = 3;
   const PT_SOLID = 0, PT_LIN = 1, PT_RAD = 2, PT_TEX = 3, PT_NONE = 4;
-  const STRIDE = 7; // floats per vertex: x y z u v colour paint
+  const STRIDE = 7;
 
   ND.createGL2D = function (gl, opts = {}) {
     install();
     const R = { gl, unsupported: '', stats: null, prof: null };
-    // (a typed array, not a closure variable: a fractional number stored in a closure is a heap object per write)
+
     const TL = new Float64Array(1); TL[0] = TOL0;
-    // ---------------------------------------------------------------- profiling (render-check page / ?perf=1 only)
-    // R.profile(true): every frame fills R.prof (one reused object): tessellation, text, picture and buffer upload
-    // times and counts, and why each picture was uploaded. Off (default): no timing calls at all.
+
+
+
     const now = () => performance.now();
     let P = null;
     const stackOf = () => String(new Error().stack).split('\n').slice(3, 7).map((l) => l.trim().replace(/^at /, '').replace(/https?:\/\/[^/]+\//, '').replace(/\?[^:]*/, '')).join(' < ');
@@ -153,7 +153,7 @@ window.ND = window.ND || {};
     }
     let wantSamples = opts.samples == null ? 4 : opts.samples | 0;
 
-    // ---------------------------------------------------------------- per-frame geometry
+
     let capV = 1 << 16, capI = 1 << 17;
     let VB = new ArrayBuffer(capV * STRIDE * 4), VF = new Float32Array(VB), VU = new Uint32Array(VB);
     let IX = new Uint32Array(capI);
@@ -169,19 +169,19 @@ window.ND = window.ND || {};
       let c = capI; while (c < need) c *= 2;
       const n = new Uint32Array(c); n.set(IX.subarray(0, ni)); IX = n; capI = c;
     }
-    // Current emission state, kept in typed arrays: a fractional number held in a closure variable, or passed to a
-    // function that is not inlined, becomes a new heap object every time (≈ 800 KB of garbage per fight frame
-    // before this). Points to emit go through QX/QY (or SX/SY, TX/TY) and whole runs are written by emit().
-    // ES: 0 depth, 1-2 layer slot offset, 3-8 inverse transform device → user (gradient paints),
-    //     9-14 transform of user-space strokes, 15 stroke half width, 16 same in device px, 17 round-join step angle
+
+
+
+
+
     const ES = new Float64Array(20); ES[3] = 1; ES[6] = 1; ES[9] = 1; ES[12] = 1;
-    const EU = new Uint32Array(2); // 0 colour (premultiplied RGBA8), 1 paint
+    const EU = new Uint32Array(2);
     let UVM = 0, zc = 0;
-    let SU = false; // stroke in user space (non-uniform transform): positions through ES[9..14], uv = the user point
+    let SU = false;
     const ZSTEP = 1 / (1 << 21);
     const nextZ = () => { ES[0] = 1 - (++zc) * ZSTEP; };
     const QX = new Float64Array(1100), QY = new Float64Array(1100), QU = new Float64Array(4), QV = new Float64Array(4);
-    // n points of X/Y from i0 → id of the first vertex
+
     function emit(X, Y, i0, n) {
       if (nv + n > capV) growV(nv + n);
       const base = nv, z = ES[0], ox = ES[1], oy = ES[2], col = EU[0], paint = EU[1], end = i0 + n;
@@ -206,7 +206,7 @@ window.ND = window.ND || {};
       nv += n;
       return base;
     }
-    // quad QX/QY[0..4) (device px) with texture coordinates QU/QV
+
     function emitUV4() {
       if (nv + 4 > capV) growV(nv + 4);
       const base = nv, z = ES[0], ox = ES[1], oy = ES[2], col = EU[0], paint = EU[1];
@@ -229,7 +229,7 @@ window.ND = window.ND || {};
     }
     const pack = (r, g, b, a) => ((r + 0.5) & 255 | ((g + 0.5) & 255) << 8 | ((b + 0.5) & 255) << 16 | ((a + 0.5) & 255) << 24) >>> 0;
 
-    // ---------------------------------------------------------------- commands and batching
+
     let cmds = [];
     let bPass = -1, bBlend = -1, bTex = null, bClip = null, bSc = null, bStart = 0;
     function closeBatch() {
@@ -243,9 +243,9 @@ window.ND = window.ND || {};
     }
     const fail = (why) => { if (!R.unsupported) R.unsupported = why; };
 
-    // ---------------------------------------------------------------- gradient ramps and paint records
+
     const RAMP_W = 256, RAMP_ROWS = 512, PAINT_ROWS = 8192;
-    const ramps = new Map(); // key → { row, used }
+    const ramps = new Map();
     const rampData = new Uint8Array(RAMP_W * 4 * RAMP_ROWS);
     let rampDirty = [], rampFree = [];
     for (let i = RAMP_ROWS - 1; i >= 0; i--) rampFree.push(i);
@@ -269,7 +269,7 @@ window.ND = window.ND || {};
       }
       ramps.set(key, { row, used: frameNo });
       if (P) P.ramps++;
-      // stops sorted by offset (stable), unpremultiplied linear interpolation, padded ends
+
       const S = [];
       for (let i = 0; i < m.stops.length; i += 2) {
         const c = parseColor(m.stops[i + 1]) || [0, 0, 0, 0];
@@ -277,7 +277,7 @@ window.ND = window.ND || {};
       }
       S.sort((a, b) => a.o - b.o || a.i - b.i);
       const base = row * RAMP_W * 4;
-      let j = 0; // (t only grows along the row: the stop index carries over)
+      let j = 0;
       for (let x = 0; x < RAMP_W; x++) {
         const t = x / (RAMP_W - 1);
         let r = 0, g = 0, b = 0, a = 0;
@@ -306,8 +306,8 @@ window.ND = window.ND || {};
       return np++;
     }
 
-    // ---------------------------------------------------------------- textures of images
-    const images = new Map(); // source → { tex, w, h, v, used }
+
+    const images = new Map();
     let pendingUploads = [];
     function imageEntry(img) {
       let e = images.get(img);
@@ -325,23 +325,23 @@ window.ND = window.ND || {};
       return e;
     }
 
-    // ---------------------------------------------------------------- sprite atlas (fighter part pictures, bake.js)
-    // Pages of SP_W×SP_H texels with 3 mip levels (immutable storage, made once per page: never a new texture per
-    // picture). A sprite is a cell on a shelf: its picture is drawn by Canvas 2D on a CPU canvas (willReadFrequently)
-    // at a 2-texel offset, then the cell and its two halvings go into the page right away with texSubImage2D — a plain
-    // pixel copy that never waits for another context's GPU work (a GPU canvas or ImageBitmap has to be finished by
-    // the GPU first; on phones every new part picture stalled a frame that way). Cells are 4-aligned with an empty
-    // 2-texel border, so the halvings of neighbours stay apart; the mip levels let one picture size serve every camera
-    // zoom (trilinear sampling instead of a new picture per zoom step). A full atlas drops its least recently used
-    // page: its sprites are no longer valid (spriteOk) and are drawn again when next needed.
+
+
+
+
+
+
+
+
+
     const SP_W = 1024, SP_H = 1024, SP_MAX = 16;
     const spPages = [];
     let spCanvas = null, spCtx = null, spM1 = null, spX1 = null, spM2 = null, spX2 = null, spW = 0, spH = 0, spGen = 0;
-    // Pages belong to one owner (a fighter's part cache, bake.js: R.spriteOwner before its pictures are made); when a
-    // fighter changes look its cache releases its pages (R.spriteRelease), which then serve the next owner. Before
-    // this, pages of fighters from earlier fights filled the atlas, and in the fourth fight or so the warm-up kept
-    // dropping pages it had just filled (the least recently used page was always one written in the same warm-up):
-    // seconds of re-drawing on the loading screen.
+
+
+
+
+
     let spOwner = null;
     R.spriteOwner = (o) => { spOwner = o || null; };
     R.spriteRelease = (o) => {
@@ -361,7 +361,7 @@ window.ND = window.ND || {};
       spPages.push(p);
       return p;
     }
-    // a cw×ch cell (multiples of 4) on page p, or null
+
     function spAlloc(p, cw, ch) {
       for (const s of p.shelves) if (s.h >= ch && s.h <= ch + 8 && s.x + cw <= SP_W) { const r = { x: s.x, y: s.y }; s.x += cw; return r; }
       const h = Math.ceil(ch / 8) * 8;
@@ -369,7 +369,7 @@ window.ND = window.ND || {};
       const s = { y: p.top, h, x: cw }; p.top += h; p.shelves.push(s);
       return { x: 0, y: s.y };
     }
-    // the CPU canvas a w×h picture is drawn on (at offset 2, 2); cleared, identity transform
+
     R.spriteBegin = function (w, h) {
       const cw = Math.ceil((w + 4) / 4) * 4, ch = Math.ceil((h + 4) / 4) * 4;
       if (!spCanvas) spCanvas = document.createElement('canvas');
@@ -383,18 +383,18 @@ window.ND = window.ND || {};
       spW = w; spH = h;
       return x;
     };
-    // copies the picture drawn since spriteBegin into the atlas → sprite { page, gen, u0, v0, u1, v1 } (null: no room)
+
     R.spriteEnd = function () {
       if (!E.ready) return null;
       const w = spW, h = spH, cw = Math.ceil((w + 4) / 4) * 4, ch = Math.ceil((h + 4) / 4) * 4;
       if (cw > SP_W || ch > SP_H) return null;
       let p = null, r = null;
       for (let i = spPages.length - 1; i >= 0 && !r; i--) if (spPages[i].owner === spOwner) { r = spAlloc(spPages[i], cw, ch); if (r) p = spPages[i]; }
-      // a released (empty) page, then a new one
+
       if (!r) for (const q of spPages) if (!q.owner && !q.n && q !== p) { q.owner = spOwner; q.shelves.length = 0; q.top = 0; r = spAlloc(q, cw, ch); if (r) { p = q; break; } }
       if (!r && spPages.length < SP_MAX) { p = spPage(); r = spAlloc(p, cw, ch); }
       if (!r) {
-        // full: the least recently used page not drawn from in this frame starts again empty
+
         let old = null;
         for (const q of spPages) if (q.used < frameNo && (!old || q.used < old.used)) old = q;
         if (!old) return null;
@@ -402,7 +402,7 @@ window.ND = window.ND || {};
         p = old; r = spAlloc(p, cw, ch);
         if (!r) return null;
       }
-      // the cell and its two halvings (2×2 averages: a Canvas copy at exactly half size), straight into the page
+
       const w1 = cw >> 1, h1 = ch >> 1, w2 = cw >> 2, h2 = ch >> 2;
       if (!spM1) { spM1 = document.createElement('canvas'); spM2 = document.createElement('canvas'); }
       if (spM1.width < w1 || spM1.height < h1) { spM1.width = Math.max(spM1.width, Math.ceil(w1 / 32) * 32); spM1.height = Math.max(spM1.height, Math.ceil(h1 / 32) * 32); spX1 = null; }
@@ -420,38 +420,38 @@ window.ND = window.ND || {};
       gl.texSubImage2D(gl.TEXTURE_2D, 2, r.x >> 2, r.y >> 2, w2, h2, gl.RGBA, gl.UNSIGNED_BYTE, spM2);
       gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
       CNT.texUp += 3; CNT.texKB += (cw * ch * 4 * 1.3125) / 1024; CNT.sprites++;
-      p.n++; p.used = frameNo; // (a page written in this frame, or in this warm-up, is never the one dropped)
+      p.n++; p.used = frameNo;
       return { page: p, gen: p.gen, u0: (r.x + 2) / SP_W, v0: (r.y + 2) / SP_H, u1: (r.x + 2 + w) / SP_W, v1: (r.y + 2 + h) / SP_H };
     };
     R.spriteOk = (s) => !!s && s.gen === s.page.gen && !!s.page.tex;
     R.spriteInfo = () => ({ pages: spPages.length, sprites: spPages.reduce((n, p) => n + p.n, 0), maxPages: SP_MAX, pageSize: [SP_W, SP_H] });
-    // Always-on counters (a few integer additions per upload; perf.js reads them per report window)
+
     const CNT = R.count = { texNew: 0, texUp: 0, texKB: 0, texts: 0, shaders: 0, targets: 0, sprites: 0, spritePages: 0, spriteDrops: 0, surfaces: 0 };
 
-    // ---------------------------------------------------------------- text atlas
-    // Shelves (rows) of text pictures. When the atlas is full, the least recently used shelf that no text of this
-    // frame is on is emptied (texts still on screen are never drawn again). Each new text is drawn by Canvas 2D on a
-    // CPU canvas (willReadFrequently): its copy into the atlas is a plain pixel upload that never waits for the GPU
-    // (a GPU canvas has to be finished by the GPU first; on phones that stalled whole frames).
-    // (opts.textAtlas [w, h]: the GPU path uses a larger atlas, so a fight's pop-up texts at every size they animate
-    // through stay in it and are not drawn again; game.js initGl)
+
+
+
+
+
+
+
     const TA_W = (opts.textAtlas && opts.textAtlas[0]) || 1024, TA_H = (opts.textAtlas && opts.textAtlas[1]) || 1024;
-    const texts = new Map(); // key → { x, y, w, h, ox, oy, used, shelf }
-    const textSizes = new Map(); // text without its size → { px (last size), until (frame: still animating) }
+    const texts = new Map();
+    const textSizes = new Map();
     const FONT_PX = /(\d+(?:\.\d+)?)px/;
-    const shelves = []; // { y, h, x, used, keys }
+    const shelves = [];
     let shelfTop = 0, textUploads = 0;
     let textCanvas = null, textCtx = null, measureCtx = null;
     function textClear() { texts.clear(); shelves.length = 0; shelfTop = 0; for (const q of textQ) q.length = 0; }
-    // R.textRing (the GPU path, game.js): three copies of the atlas used in turn, one per frame, laid out alike. A new
-    // text picture goes into this frame's copy (last read three frames ago) and is queued for the other two, written
-    // when their turn comes. Writing into the one atlas while queued frames still read it makes some mobile drivers
-    // copy the whole 4 MB texture or wait; that coincided with most "GPU behind" hitches (the pop-up texts of hits).
+
+
+
+
     let textRing = [], textCur = 0;
     const textQ = [[], [], []];
     R.textRing = false;
-    R.textWarm = 0; R.textWarmFull = false; // (see _text)
-    // what the text atlas holds (tests, scripts/parry-hitch-check.mjs): pictures, rows used, pictures made so far
+    R.textWarm = 0; R.textWarmFull = false;
+
     R.textUse = (detail) => ({ texts: texts.size, rows: shelfTop, height: TA_H, width: TA_W, made: textUploads, keys: detail ? [...texts].map(([k, e]) => [k, e.w * e.h]) : undefined });
     function textScratch(w, h) {
       if (!textCanvas) { textCanvas = document.createElement('canvas'); textCtx = null; }
@@ -462,8 +462,8 @@ window.ND = window.ND || {};
       return textCtx;
     }
     function measurer() { return measureCtx || (measureCtx = document.createElement('canvas').getContext('2d')); }
-    // text metrics (width and ink box) of a new text picture, kept per text / font / alignment: the same text at
-    // another quarter-pixel position or colour needs no second measurement
+
+
     const METRICS = new Map();
     function metrics(t, font, align, baseline) {
       const k = font + '|' + align + '|' + baseline + '|' + t;
@@ -473,7 +473,7 @@ window.ND = window.ND || {};
       const mt = m.measureText(t);
       v = { width: mt.width, actualBoundingBoxLeft: mt.actualBoundingBoxLeft, actualBoundingBoxRight: mt.actualBoundingBoxRight,
         actualBoundingBoxAscent: mt.actualBoundingBoxAscent, actualBoundingBoxDescent: mt.actualBoundingBoxDescent };
-      // (not kept while a web font is still loading: the fallback font's box would outlive it)
+
       if (typeof document !== 'undefined' && document.fonts && document.fonts.status !== 'loaded') return v;
       if (METRICS.size > 2048) METRICS.clear();
       METRICS.set(k, v);
@@ -488,7 +488,7 @@ window.ND = window.ND || {};
         shelves.push(best); shelfTop += sh + 1;
       }
       if (!best) {
-        // the least recently used shelf not needed in this frame: of a similar height first, else any tall enough
+
         for (const s of shelves) if (s.h >= h && s.h <= h * 2 + 8 && s.used < frameNo && (!best || s.used < best.used)) best = s;
         if (!best) for (const s of shelves) if (s.h >= h && s.used < frameNo && (!best || s.used < best.used)) best = s;
         if (best) textEvict(best);
@@ -500,8 +500,8 @@ window.ND = window.ND || {};
       return { shelf: best, x, y: best.y };
     }
     function textEvict(s) { for (const k of s.keys) texts.delete(k); s.keys.length = 0; s.x = 0; if (P) P.textEvict++; }
-    // no single shelf fits: neighbouring shelves not needed in this frame (the last one with the free rows below it),
-    // together at least h tall, least recently used first, are emptied and joined into one shelf
+
+
     function textMerge(h) {
       let bi = -1, bj = -1, bu = Infinity;
       for (let i = 0; i < shelves.length; i++) {
@@ -522,12 +522,12 @@ window.ND = window.ND || {};
       return first;
     }
 
-    // ---------------------------------------------------------------- layers (first pass atlas)
+
     let AW = 0, AH = 0, wantAW = 512, wantAH = 512;
     let shelfX = 0, shelfY = 0, shelfH = 0, usedW = 0, usedH = 0;
     const layerCtxs = new Map();
-    // first vertex of every quad placing a layer this frame: their texture coordinates are rescaled when the atlas
-    // grows in the middle of a frame (R.layer)
+
+
     const layerQuads = [];
     function layerAlloc(w, h) {
       const P = 2;
@@ -540,8 +540,8 @@ window.ND = window.ND || {};
       return r;
     }
 
-    // ---------------------------------------------------------------- tessellation scratch
-    let SX = new Float64Array(1024), SY = new Float64Array(1024); // one subpath, deduplicated
+
+    let SX = new Float64Array(1024), SY = new Float64Array(1024);
     let TX = new Float64Array(1024), TY = new Float64Array(1024);
     let LP = new Int32Array(1024), LN = new Int32Array(1024), RF = new Uint8Array(1024);
     function growScratch(n) {
@@ -550,7 +550,7 @@ window.ND = window.ND || {};
       const a = new Float64Array(c), b = new Float64Array(c); a.set(SX); b.set(SY); SX = a; SY = b;
       TX = new Float64Array(c); TY = new Float64Array(c); LP = new Int32Array(c); LN = new Int32Array(c); RF = new Uint8Array(c);
     }
-    // ear clipping of SX/SY[0..n) (counter-clockwise in math orientation = positive shoelace area), vertex ids base+i
+
     const cross = (a, b, c) => (SX[b] - SX[a]) * (SY[c] - SY[b]) - (SY[b] - SY[a]) * (SX[c] - SX[b]);
     function earClip(n, base) {
       for (let i = 0; i < n; i++) { LP[i] = i === 0 ? n - 1 : i - 1; LN[i] = i === n - 1 ? 0 : i + 1; }
@@ -578,7 +578,7 @@ window.ND = window.ND || {};
         }
         i = q;
         if (++stall > left) {
-          // no ear in a full turn: drop one degenerate (collinear) vertex, otherwise give up (self-intersection)
+
           let k = i, found = -1;
           for (let s = 0; s < left; s++, k = LN[k]) {
             const c = cross(LP[k], k, LN[k]), e = Math.abs(SX[LN[k]] - SX[LP[k]]) + Math.abs(SY[LN[k]] - SY[LP[k]]);
@@ -593,12 +593,12 @@ window.ND = window.ND || {};
       }
       const p = LP[i], q = LN[i];
       tri(base + p, base + i, base + q);
-      area += Math.abs(cross(p, i, q)); // unsigned: a folded (self-intersecting) outline cannot cancel out
+      area += Math.abs(cross(p, i, q));
       return area;
     }
 
-    // ---------------------------------------------------------------- the context
-    // save() / restore(): the saved states are reused objects of one shape (no new object per save)
+
+
     function copyState(d, s) {
       d.a = s.a; d.b = s.b; d.c = s.c; d.d = s.d; d.e = s.e; d.f = s.f; d.ga = s.ga; d.op = s.op; d.opb = s.opb;
       d.fs = s.fs; d.fsRaw = s.fsRaw; d.ss = s.ss; d.ssRaw = s.ssRaw; d.lw = s.lw; d.cap = s.cap; d.join = s.join; d.miter = s.miter;
@@ -609,7 +609,7 @@ window.ND = window.ND || {};
     const CAPS = { butt: 0, round: 1, square: 2 }, JOINS = { miter: 0, round: 1, bevel: 2 };
     const CAP_N = ['butt', 'round', 'square'], JOIN_N = ['miter', 'round', 'bevel'];
     const BLACK = { t: 0, c: [0, 0, 0, 1] };
-    const SOLIDS = new Map(); // colour string → paint style (one object per colour)
+    const SOLIDS = new Map();
     function styleOf(v) {
       if (typeof v === 'string') {
         let st = SOLIDS.get(v);
@@ -624,9 +624,9 @@ window.ND = window.ND || {};
     class Ctx {
       constructor(pass, sc, w, h) {
         this.pass = pass; this.sc = sc; this.W = w; this.H = h; this.isGL = true;
-        this.stack = []; this.sp = 0; // saved states (pool) and their count
+        this.stack = []; this.sp = 0;
         this.px = new Float64Array(512); this.py = new Float64Array(512); this.n = 0;
-        this.sub = new Int32Array(64); this.cl = new Uint8Array(64); this.cx = new Uint8Array(64); this.ns = 0; // cx: subpath known convex (one full ellipse)
+        this.sub = new Int32Array(64); this.cl = new Uint8Array(64); this.cx = new Uint8Array(64); this.ns = 0;
         this.open = false; this.sx0 = 0; this.sy0 = 0;
         this._canvas = { width: w, height: h };
         this.reset();
@@ -640,7 +640,7 @@ window.ND = window.ND || {};
         this.sp = 0; this.n = 0; this.ns = 0; this.open = false;
       }
       get canvas() { return this._canvas; }
-      // -------------------------------------------------- state
+
       save() {
         const s = this.stack[this.sp] || (this.stack[this.sp] = blankState());
         copyState(s, this); this.sp++;
@@ -662,7 +662,7 @@ window.ND = window.ND || {};
         this.op = v; this.opb = b;
       }
       get fillStyle() { return this.fsRaw; }
-      // (the same value again, very common in the drawing code, keeps its parsed style: no colour lookup)
+
       set fillStyle(v) { if (v === this.fsRaw) return; const s = styleOf(v); if (s) { this.fs = s; this.fsRaw = v; } }
       get strokeStyle() { return this.ssRaw; }
       set strokeStyle(v) { if (v === this.ssRaw) return; const s = styleOf(v); if (s) { this.ss = s; this.ssRaw = v; } }
@@ -695,12 +695,12 @@ window.ND = window.ND || {};
       get shadowBlur() { return 0; }
       set shadowBlur(v) { if (v) fail('shadowBlur'); }
       get shadowColor() { return 'rgba(0, 0, 0, 0)'; }
-      set shadowColor(v) { /* shadows stay off: shadowBlur / offsets are refused above */ }
+      set shadowColor(v) {                                                                }
       get shadowOffsetX() { return 0; }
       set shadowOffsetX(v) { if (v) fail('shadowOffset'); }
       get shadowOffsetY() { return 0; }
       set shadowOffsetY(v) { if (v) fail('shadowOffset'); }
-      // -------------------------------------------------- transform
+
       setTransform(a, b, c, d, e, f) {
         if (a !== undefined && typeof a === 'object') { const m = a; a = m.a ?? m.m11 ?? 1; b = m.b ?? m.m12 ?? 0; c = m.c ?? m.m21 ?? 0; d = m.d ?? m.m22 ?? 1; e = m.e ?? m.m41 ?? 0; f = m.f ?? m.m42 ?? 0; }
         else if (a === undefined) { a = 1; b = 0; c = 0; d = 1; e = 0; f = 0; }
@@ -724,7 +724,7 @@ window.ND = window.ND || {};
         const cs = Math.cos(t), sn = Math.sin(t), a = this.a, b = this.b, c = this.c, d = this.d;
         this.a = a * cs + c * sn; this.b = b * cs + d * sn; this.c = c * cs - a * sn; this.d = d * cs - b * sn;
       }
-      // -------------------------------------------------- path
+
       beginPath() { this.n = 0; this.ns = 0; this.open = false; }
       _pt(x, y) {
         if (this.n >= this.px.length) this._grow();
@@ -807,14 +807,14 @@ window.ND = window.ND || {};
         const cr = Math.cos(rot), sr = Math.sin(rot), step = sweep / m, cd = Math.cos(step), sd = Math.sin(step);
         let co = Math.cos(a0), si = Math.sin(a0), fresh = false;
         for (let i = 0; i <= m; i++) {
-          if (i === m) { co = Math.cos(a0 + sweep); si = Math.sin(a0 + sweep); } // exact end point
+          if (i === m) { co = Math.cos(a0 + sweep); si = Math.sin(a0 + sweep); }
           const ct = co * rx, st = si * ry;
           const ux = x + ct * cr - st * sr, uy = y + ct * sr + st * cr;
           const X = a * ux + c * uy + e, Y = b * ux + d * uy + f;
           if (i === 0) { if (this.open) { this._pt(X, Y); this.cx[this.ns - 1] = 0; } else { this._sub(X, Y); fresh = true; } } else this._pt(X, Y);
-          const n = co * cd - si * sd; si = si * cd + co * sd; co = n; // rotate by one step
+          const n = co * cd - si * sd; si = si * cd + co * sd; co = n;
         }
-        // a subpath that is one whole ellipse is convex: its fill needs no convexity test (see _fillPath)
+
         if (fresh && Math.abs(sweep) >= TAU - 1e-9) this.cx[this.ns - 1] = 1;
       }
       rect(x, y, w, h) {
@@ -824,7 +824,7 @@ window.ND = window.ND || {};
       roundRect(x, y, w, h) { this.rect(x, y, w, h); fail('roundRect'); }
       arcTo() { fail('arcTo'); }
       isPointInPath() { return false; }
-      // -------------------------------------------------- paint setup
+
       _blend() {
         if (this.opb < 0) { fail('composite ' + this.op); return 0; }
         return this.opb;
@@ -850,7 +850,7 @@ window.ND = window.ND || {};
         fail('pattern paint');
         return false;
       }
-      // -------------------------------------------------- fill
+
       fill(a, b) {
         if (a && typeof a === 'object') { fail('Path2D'); return; }
         const evenodd = a === 'evenodd' || b === 'evenodd';
@@ -858,7 +858,7 @@ window.ND = window.ND || {};
         if (!this._paint(this.fs, 1)) return;
         this._fillPath(blend, evenodd);
       }
-      // collects subpath s (deduplicated, closing duplicate dropped) into SX/SY, returns point count
+
       _collect(s) {
         const i0 = this.sub[s], i1 = s + 1 < this.ns ? this.sub[s + 1] : this.n;
         growScratch(i1 - i0 + 1);
@@ -876,8 +876,8 @@ window.ND = window.ND || {};
         nextZ();
         const pass = this.pass, sc = this.sc, clip = this.clp;
         const v0 = nv, i0 = ni;
-        let mode = evenodd ? 2 : 0; // 0 simple, 2 stencil
-        let sign = 0, pre = -1; // pre: a single subpath is collected once (its points stay in SX/SY)
+        let mode = evenodd ? 2 : 0;
+        let sign = 0, pre = -1;
         if (!mode) {
           for (let s = 0; s < this.ns; s++) {
             const n = this._collect(s);
@@ -897,7 +897,7 @@ window.ND = window.ND || {};
             let n = pre >= 0 ? pre : this._collect(s);
             if (n < 3) continue;
             if (sign < 0) for (let i = 0, j = n - 1; i < j; i++, j--) { let t = SX[i]; SX[i] = SX[j]; SX[j] = t; t = SY[i]; SY[i] = SY[j]; SY[j] = t; }
-            // convex (all turns one way, x and y each change direction at most twice): fan
+
             let convex = true, turns = 0, px = 0, py = 0, fx = 0, fy = 0, lastdx = 0, lastdy = 0;
             for (let i = this.cx[s] ? n : 0; i < n && convex; i++) {
               const j = i + 1 < n ? i + 1 : 0, k = j + 1 < n ? j + 1 : 0;
@@ -918,7 +918,7 @@ window.ND = window.ND || {};
             if (got < 0 || Math.abs(got - A) > 1e-3 * Math.abs(A) + 1e-3) { mode = 2; void ti; }
           }
           if (!mode) return;
-          nv = v0; ni = i0; // roll back and use the stencil
+          nv = v0; ni = i0;
         }
         closeBatch();
         const first = ni;
@@ -930,7 +930,7 @@ window.ND = window.ND || {};
         if (ni > first) cmds.push({ k: K_SFILL, pass, blend, tex: null, clip, sc, first, count: ni - first, evenodd });
         bStart = ni;
       }
-      // -------------------------------------------------- stroke
+
       stroke(a) {
         if (a && typeof a === 'object') { fail('Path2D'); return; }
         this._stroke(this);
@@ -948,7 +948,7 @@ window.ND = window.ND || {};
         if (!this._paint(this.ss, mul)) return;
         nextZ();
         useState(this.pass, blend, null, this.clp, this.sc);
-        // stroke space: device (similar transform) or user space (then every vertex is mapped by the transform)
+
         SU = !sim;
         let hw;
         const ME = this.e, MF = this.f, IA2 = d / det, IB2 = -b / det, IC2 = -c / det, ID2 = a / det;
@@ -983,7 +983,7 @@ window.ND = window.ND || {};
         }
         SU = false;
       }
-      // -------------------------------------------------- rectangles
+
       fillRect(x, y, w, h) {
         if (!(Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(w) && Number.isFinite(h)) || !w || !h) return;
         const blend = this._blend();
@@ -1012,7 +1012,7 @@ window.ND = window.ND || {};
         EU[0] = 0; EU[1] = PT_SOLID; UVM = 0;
         this._quad(x, y, w, h, OP_CLEAR);
       }
-      // -------------------------------------------------- clip
+
       clip(a) {
         if (a && typeof a === 'object') { fail('Path2D clip'); return; }
         closeBatch();
@@ -1027,7 +1027,7 @@ window.ND = window.ND || {};
         bStart = ni;
         this.clp = { parent: this.clp, first, count: ni - first, pass: this.pass, sc: this.sc };
       }
-      // -------------------------------------------------- images
+
       drawImage(img, a1, a2, a3, a4, a5, a6, a7, a8) {
         let sx, sy, sw, sh, dx, dy, dw, dh;
         const L = img && img.__glLayer, SF = img && img.__glSurf;
@@ -1041,7 +1041,7 @@ window.ND = window.ND || {};
         if (!(Number.isFinite(sx) && Number.isFinite(sy) && Number.isFinite(sw) && Number.isFinite(sh) && Number.isFinite(dx) && Number.isFinite(dy) && Number.isFinite(dw) && Number.isFinite(dh)) || !sw || !sh || !dw || !dh) return;
         if (sw < 0) { sx += sw; sw = -sw; } if (sh < 0) { sy += sh; sh = -sh; }
         if (dw < 0) { dx += dw; dw = -dw; } if (dh < 0) { dy += dh; dh = -dh; }
-        // clip the source rectangle to the image, moving the destination with it (Canvas rule)
+
         const kx = dw / sw, ky = dh / sh;
         if (sx < 0) { dx -= sx * kx; dw += sx * kx; sw += sx; sx = 0; }
         if (sy < 0) { dy -= sy * ky; dh += sy * ky; sh += sy; sy = 0; }
@@ -1076,7 +1076,7 @@ window.ND = window.ND || {};
         const vb = emitUV4();
         if (L) layerQuads.push(vb);
       }
-      // a sprite of the atlas (R.spriteEnd) into the rectangle dx, dy, dw, dh of user space
+
       drawSprite(s, dx, dy, dw, dh) {
         if (!R.spriteOk(s)) return;
         const p = s.page;
@@ -1099,7 +1099,7 @@ window.ND = window.ND || {};
       createLinearGradient(x0, y0, x1, y1) { return gradCtx().createLinearGradient(x0, y0, x1, y1); }
       createRadialGradient(x0, y0, r0, x1, y1, r1) { return gradCtx().createRadialGradient(x0, y0, r0, x1, y1, r1); }
       createPattern(img, rep) { return gradCtx().createPattern(img, rep); }
-      // -------------------------------------------------- text
+
       measureText(t) { const m = measurer(); m.font = this.font; return m.measureText(t); }
       fillText(t, x, y, mw) { this._text(t, x, y, mw, false); }
       strokeText(t, x, y, mw) { this._text(t, x, y, mw, true); }
@@ -1110,25 +1110,25 @@ window.ND = window.ND || {};
         if (st.t !== 0) { fail('gradient text'); return; }
         const a = this.a, b = this.b, c = this.c, d = this.d;
         const X = a * x + c * y + this.e, Y = b * x + d * y + this.f;
-        // R.textFree (the GPU path): a text's picture is made once at a whole-pixel offset and placed at its exact
-        // (fractional) position by the GPU, and a text whose size keeps changing uses the size ladder below as on
-        // Medium: a pop-up text makes a few pictures once instead of one or more per frame (each one an upload)
+
+
+
         const snap = R.textSnap, free = !snap && !!R.textFree;
         let ix = snap ? Math.round(X) : free ? X : Math.floor(X), fx = snap || free ? 0 : Math.round((X - ix) * 4) / 4;
-        if (fx === 1) { ix++; fx = 0; } // (a whole pixel further: the same picture as offset 0, not a fifth variant)
+        if (fx === 1) { ix++; fx = 0; }
         const iy = free ? Y : Math.round(Y);
         const col = st.c;
-        // Texts whose font size keeps changing (pop-in and pulse animations: damage numbers, combo counts, STRIKE!,
-        // banners) would need a new picture every frame. On Medium / Low (snap) such a text is drawn at the next size of
-        // a 2^(1/4) ladder and its picture placed a little smaller (at most 16%): a few pictures per animation instead of
-        // one per frame. Once the size stays put (30 frames), the text is drawn at its exact size again.
-        // R.textWarm (match preparation, game.js warmTexts; nothing is drawn): a made-up pop-up is drawn through its
-        // animation. 1: a size it animates through - its ladder picture is made (when the size differs from the previous
-        // call's, or its outline: a text of fixed size drawn along needs none); 2: the size it comes to rest at - the
-        // exact picture and the ladder one.
-        // The last size is noted as the text's current one, so its first real pop-in takes the ladder pictures as every
-        // later one does. The fight's pop-ups are then in the atlas before the first hit, parry or counter shows them:
-        // no text picture is drawn or uploaded on those frames. A full atlas ends the warm-up (R.textWarmFull).
+
+
+
+
+
+
+
+
+
+
+
         if (R.textWarm) {
           if (!(snap || free) || R.textWarmFull) return;
           const m = FONT_PX.exec(this.font), px = m ? +m[1] : 0;
@@ -1136,8 +1136,8 @@ window.ND = window.ND || {};
           const z = m ? textSizes.get(ak) : null;
           const q = px > 1 ? Math.round(Math.pow(2, Math.ceil(Math.log2(px) * 4 - 1e-6) / 4) * 4) / 4 : px;
           if (R.textWarm === 2 || !(q > px)) this._textPic(t, stroke, col, this.font, this.lw, mw, 0);
-          // (at rest too: the same text at another size elsewhere - STRIKE!'s key after a parry and after a block -
-          // makes its next appearance take the ladder picture)
+
+
           if (q > px && (R.textWarm === 2 || !(z && z.px === px && (!stroke || z.lw === this.lw)))) { const k = px / q; this._textPic(t, stroke, col, this.font.replace(m[0], q + 'px'), this.lw / k, mw === undefined ? undefined : mw / k, 0); }
           if (m) { if (z) { z.px = px; z.until = 0; z.lw = this.lw; } else { if (textSizes.size > 512) textSizes.clear(); textSizes.set(ak, { px, until: 0, lw: this.lw }); } }
           return;
@@ -1162,24 +1162,24 @@ window.ND = window.ND || {};
         EU[0] = pack(al * 255, al * 255, al * 255, al * 255); EU[1] = PT_TEX; UVM = 0;
         nextZ();
         useState(this.pass, blend, TEXT_TEX, this.clp, this.sc);
-        // (free: placed at a fractional position, the picture is sampled between texels: its outer texel, always part of the
-        // transparent margin, is left out, so nothing next to it in the atlas bleeds in)
+
+
         const ins = free ? 1 : 0;
         const x0 = ix - (e.ox - ins) * k, y0 = iy - (e.oy - ins) * k, qw = (e.w - 2 * ins) * k, qh = (e.h - 2 * ins) * k, u0 = (e.x + ins) / TA_W, v0 = (e.y + ins) / TA_H, u1 = (e.x + e.w - ins) / TA_W, v1 = (e.y + e.h - ins) / TA_H;
         QX[0] = x0; QY[0] = y0; QX[1] = x0 + qw; QY[1] = y0; QX[2] = x0 + qw; QY[2] = y0 + qh; QX[3] = x0; QY[3] = y0 + qh;
         QU[0] = u0; QV[0] = v0; QU[1] = u1; QV[1] = v0; QU[2] = u1; QV[2] = v1; QU[3] = u0; QV[3] = v1;
         emitUV4();
       }
-      // The atlas picture of text t (this context's alignment, baseline, join and transform) in `font`, colour col,
-      // outline lw (stroke), max width mwq and sub-pixel offset fx: found, or drawn and uploaded now. null: the atlas
-      // is full (the frame is refused and drawn with Canvas 2D).
+
+
+
       _textPic(t, stroke, col, font, lw, mwq, fx) {
         const a = this.a, b = this.b, c = this.c, d = this.d;
-        // (free: an outline width that follows the camera zoom is kept to half pixels, or every zoom step of the
-        // camera would make a new picture of each outlined text)
+
+
         if (!R.textSnap && R.textFree && stroke) lw = Math.max(0.5, Math.round(lw * 2) / 2);
-        // a max width the text fits in changes nothing in its picture: left out of the key (on the size ladder the max
-        // width is scaled per size, so a banner name that fits made a new picture at every size of its pop-in)
+
+
         if (mwq !== undefined && !(metrics(t, font, this.align, this.baseline).width > mwq)) mwq = undefined;
         const key = (stroke ? 'S' : 'F') + font + '|' + this.align + '|' + this.baseline + '|' + (mwq === undefined ? '' : mwq) + '|' +
           col.join(',') + '|' + (stroke ? lw + this.join + '/' + this.miter : '') + '|' + a.toFixed(4) + ',' + b.toFixed(4) + ',' + c.toFixed(4) + ',' + d.toFixed(4) + '|' + fx + '|' + t;
@@ -1201,9 +1201,9 @@ window.ND = window.ND || {};
           if (w <= 0 || h <= 0) return null;
           let r0 = textAlloc(w, h);
           if (!r0) {
-            if (R.textWarm) { R.textWarmFull = true; return null; } // (the warm-up stops; what it made stays)
-            // full: start the atlas again; texts placed earlier in this frame may be overwritten, so this frame is
-            // drawn with Canvas 2D (rare: the atlas holds a few hundred distinct texts)
+            if (R.textWarm) { R.textWarmFull = true; return null; }
+
+
             textClear();
             if (P) P.textAtlasFull++;
             fail('text atlas full');
@@ -1219,11 +1219,11 @@ window.ND = window.ND || {};
           else { tc.fillStyle = cs; if (mwq !== undefined) tc.fillText(t, 0, 0, mwq); else tc.fillText(t, 0, 0); }
           e = { x: r0.x, y: r0.y, w, h, ox, oy, used: frameNo, shelf: r0.shelf };
           r0.shelf.keys.push(key);
-          // straight into the atlas (a GPU copy; the scratch canvas is reused by the next text)
+
           if (E.ready) {
             gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
             if (R.textWarm && textRing.length === 3) {
-              // warm-up (no frame on screen): into every copy of the atlas at once, nothing is left queued for the fight
+
               for (const T of textRing) { gl.bindTexture(gl.TEXTURE_2D, T); gl.texSubImage2D(gl.TEXTURE_2D, 0, e.x, e.y, w, h, gl.RGBA, gl.UNSIGNED_BYTE, textCanvas); }
               CNT.texUp += 2; CNT.texKB += (w * h) / 128;
             } else {
@@ -1243,28 +1243,28 @@ window.ND = window.ND || {};
         e.used = frameNo; e.shelf.used = frameNo;
         return e;
       }
-      // -------------------------------------------------- layers
-      // A transparent picture of w×h device pixels (like a new canvas), drawn in the first pass; place it with
-      // drawImage(layer, ...). `key` keeps one context (and its Canvas state) per use across frames.
+
+
+
       layer(w, h, key) { return R.layer(w, h, key); }
-      // kept offscreen picture (see R.surface); surfaceOk(s): its last drawing reached the GPU (drawImage shows it)
+
       surface(key, w, h) { return R.surface(key, w, h); }
       surfaceOk(s) { return R.surfaceOk(s); }
     }
-    // stroke helpers. Points are in stroke space (device px, or user space when SU); the half width is ES[15] (ES[16]
-    // in device px); round pieces advance ES[17] radians per step (TOL at this width), ES[18] = cos(ES[17]),
-    // ES[19] = miter limit.
+
+
+
     let CAP = 0, JOIN = 0, STEPCAP = false;
-    const SW = new Float64Array(1); SW[0] = -1; // device half width the round step was computed for
+    const SW = new Float64Array(1); SW[0] = -1;
     function strokeWidth(hwDev) {
-      if (hwDev === SW[0]) return; // same width as the previous stroke (rain, outlines): step already known
+      if (hwDev === SW[0]) return;
       SW[0] = hwDev;
       const tol = TL[0];
       if (hwDev <= tol) { ES[17] = 1.6; STEPCAP = false; } else { ES[17] = 2 * Math.acos(Math.max(-1, 1 - tol / hwDev)); STEPCAP = true; }
       ES[18] = Math.cos(ES[17]);
     }
-    const WP = new Float64Array(8); // wedge: 0-1 centre, 2-3 unit start direction, 4 signed angle, 5-6 unit end direction, 7 end known
-    // fan wedge around WP centre, radius = half width, from the start direction over the angle
+    const WP = new Float64Array(8);
+
     function wedge() {
       const cx = WP[0], cy = WP[1], hw = ES[15], ang = WP[4];
       let m;
@@ -1284,7 +1284,7 @@ window.ND = window.ND || {};
       if (ni + 3 * m > capI) growI(ni + 3 * m);
       for (let i = 1; i <= m; i++) { IX[ni++] = base; IX[ni++] = base + i; IX[ni++] = base + i + 1; }
     }
-    // one point (a subpath that is a single point): round or square cap shape
+
     function dot(X, Y, i) {
       const x = X[i], y = Y[i], hw = ES[15];
       if (CAP === 1) { WP[0] = x; WP[1] = y; WP[2] = 1; WP[3] = 0; WP[4] = TAU; WP[7] = 0; wedge(); }
@@ -1293,15 +1293,15 @@ window.ND = window.ND || {};
         const p = emit(QX, QY, 0, 4); tri(p, p + 1, p + 2); tri(p, p + 2, p + 3);
       }
     }
-    // first vertex of each segment's quad in the current polyline (-1: no quad) and the segments of one run
+
     let SQ = new Int32Array(1024);
     const RUN = new Int32Array(256);
-    // polyline X/Y[i0 .. i0+n) (deduplicated)
+
     function strokeLine(X, Y, i0, n, closed) {
       const hw = ES[15], cap = CAP, join = JOIN;
       const segs = closed ? n : n - 1;
       if (SQ.length < segs) SQ = new Int32Array(Math.max(segs, SQ.length * 2));
-      // segment quads, emitted in runs of up to 256
+
       let q = 0;
       for (let s = 0; s < segs; s++) {
         const i = i0 + s, j = i0 + ((s + 1) % n);
@@ -1318,7 +1318,7 @@ window.ND = window.ND || {};
         if (q === 1024) { runQuads(q); q = 0; }
       }
       if (q) runQuads(q);
-      // joins
+
       const j0 = closed ? 0 : 1, j1 = closed ? n : n - 1;
       for (let k = j0; k < j1; k++) {
         const i = i0 + k, h = i0 + ((k - 1 + n) % n), j = i0 + ((k + 1) % n);
@@ -1328,23 +1328,23 @@ window.ND = window.ND || {};
         ax /= la; ay /= la; bx /= lb; by /= lb;
         const cr = ax * by - ay * bx, dt = ax * bx + ay * by;
         if (Math.abs(cr) < 1e-9 && dt > 0) continue;
-        const sg = cr > 0 ? -1 : 1; // outer side: along sg·normal
+        const sg = cr > 0 ? -1 : 1;
         const n0x = -ay * sg, n0y = ax * sg, n1x = -by * sg, n1y = bx * sg;
         const cx = X[i], cy = Y[i];
         if (join === 1) {
-          // The turn is within one round step (cos of the turn ≥ cos of the step): the join is the one triangle
-          // (centre, outer corner of the segment ending here, outer corner of the one starting here). Those two corners
-          // are already vertices of the two segment quads (the same numbers), and the triangle may start at the first
-          // segment's inner corner instead of the centre: the extra part lies inside the quads, and a path is drawn
-          // as the union of its triangles (depth test), so the same samples are covered, with no new vertex. (The extra
-          // part, inner corner → centre → outer corner, lies inside the second quad when that segment is at least
-          // half width × sin(turn) long; otherwise the centre wedge below.)
+
+
+
+
+
+
+
           const single = Math.abs(cr) >= 1e-9 && n0x * n1x + n0y * n1y >= ES[18];
           if (single && hw * Math.abs(cr) <= lb) {
             const qa = SQ[k > 0 ? k - 1 : n - 1], qb = SQ[k];
             if (qa >= 0 && qb >= 0) {
               if (ni + 3 > capI) growI(ni + 3);
-              // quad corners: +0 start +normal, +1 start −normal, +2 end +normal, +3 end −normal; outer = sg·normal
+
               if (sg > 0) { IX[ni++] = qa + 3; IX[ni++] = qa + 2; IX[ni++] = qb; } else { IX[ni++] = qa + 2; IX[ni++] = qa + 3; IX[ni++] = qb + 1; }
               continue;
             }
@@ -1365,7 +1365,7 @@ window.ND = window.ND || {};
           } else { const c0 = emit(QX, QY, 0, 3); tri(c0, c0 + 1, c0 + 2); }
         }
       }
-      // caps
+
       if (!closed && cap === 1) {
         let dx = X[i0 + 1] - X[i0], dy = Y[i0 + 1] - Y[i0]; let L = Math.sqrt(dx * dx + dy * dy) || 1;
         WP[0] = X[i0]; WP[1] = Y[i0]; WP[2] = -dy / L; WP[3] = dx / L; WP[4] = Math.PI; WP[7] = 0; wedge();
@@ -1374,20 +1374,20 @@ window.ND = window.ND || {};
         WP[0] = X[e]; WP[1] = Y[e]; WP[2] = dy / L; WP[3] = -dx / L; WP[4] = Math.PI; WP[7] = 0; wedge();
       }
     }
-    // q/4 segment quads in QX/QY: (p, p+1, p+2) and (p+2, p+1, p+3); returns the first vertex
+
     function segQuads(q) {
       const base = emit(QX, QY, 0, q);
       if (ni + q * 3 / 2 > capI) growI(ni + q * 3 / 2);
       for (let p = base, e = base + q; p < e; p += 4) { IX[ni++] = p; IX[ni++] = p + 1; IX[ni++] = p + 2; IX[ni++] = p + 2; IX[ni++] = p + 1; IX[ni++] = p + 3; }
       return base;
     }
-    // a run of strokeLine's segment quads (RUN: their segment numbers): emitted, first vertices noted in SQ
+
     function runQuads(q) {
       const base = segQuads(q);
       for (let t = 0, m = q >> 2; t < m; t++) SQ[RUN[t]] = base + 4 * t;
     }
     function strokeDashed(n, closed, dash, off, dk) {
-      // walk the polyline, emitting "on" pieces into TX/TY
+
       let total = 0;
       for (let i = 0; i < dash.length; i++) total += dash[i] * dk;
       if (!(total > 0)) { strokeLine(SX, SY, 0, n, closed); return; }
@@ -1413,7 +1413,7 @@ window.ND = window.ND || {};
       if (on && m > 1) emitDash(m);
     }
     function emitDash(m) {
-      // deduplicate
+
       let k = 0;
       for (let i = 0; i < m; i++) { if (k && TX[i] === TX[k - 1] && TY[i] === TY[k - 1]) continue; TX[k] = TX[i]; TY[k] = TY[i]; k++; }
       if (k === 1) { dot(TX, TY, 0); return; }
@@ -1424,14 +1424,14 @@ window.ND = window.ND || {};
     const tmpPath = new Ctx(1, null, 1, 1);
     const LAYER_TEX = { layer: true }, TEXT_TEX = { text: true };
 
-    // ---------------------------------------------------------------- frame API
+
     let main = null;
     R.layer = function (w, h, key) {
       w = Math.max(1, Math.ceil(w)); h = Math.max(1, Math.ceil(h));
       let r = layerAlloc(w, h);
-      // no room: grow the atlas now, in this frame (its picture is only made when the frame runs; layers placed so far
-      // keep their pixels, their texture coordinates are rescaled), so the frame is not handed to Canvas 2D. Until
-      // this, one frame per fight on High was redrawn with Canvas 2D (and its bloom): a 100+ ms frame on a phone.
+
+
+
       for (let k = 0; !r && k < 4 && (AW < 4096 || AH < 4096); k++) {
         const ow = AW, oh = AH;
         const nw = Math.max(AW <= AH ? Math.min(4096, AW * 2) : AW, Math.min(4096, Math.ceil((w + 4) / 64) * 64));
@@ -1444,7 +1444,7 @@ window.ND = window.ND || {};
         r = layerAlloc(w, h);
       }
       if (!r) {
-        // grow for the next frame (this one is drawn with Canvas 2D): the shorter side doubles, and both fit this layer
+
         if (AW <= AH) wantAW = Math.min(4096, AW * 2); else wantAH = Math.min(4096, AH * 2);
         wantAW = Math.max(wantAW, Math.min(4096, Math.ceil((w + 4) / 64) * 64)); wantAH = Math.max(wantAH, Math.min(4096, Math.ceil((h + 4) / 64) * 64));
         if (P) P.layerRegrow++;
@@ -1457,11 +1457,11 @@ window.ND = window.ND || {};
       cx.clp = null; cx.sp = 0; cx.beginPath();
       return { __glLayer: true, x: r.x, y: r.y, w, h, width: w, height: h, frame: frameNo, ctx: cx };
     };
-    // Kept offscreen pictures. R.surface(key, w, h) → { __glSurf, ctx, w, h }: this frame draws the picture again through
-    // s.ctx (a context of its own pass, 2, 3 …); run() renders it into the surface's own texture (4× multisampled,
-    // resolved) after the layer pass and before the scene pass. drawImage(s, …) samples that texture in this frame and any
-    // later one. A frame drawn with Canvas 2D instead (refused) never renders what it recorded: surfaceOk(s) is false
-    // until a frame that draws it again reaches the GPU; so is a context restore (gen).
+
+
+
+
+
     const surfaces = new Map();
     let surfPass = 2, surfRec = [], gen = 0;
     R.surface = function (key, w, h) {
@@ -1481,7 +1481,7 @@ window.ND = window.ND || {};
       return sf;
     };
     R.surfaceOk = (sf) => !!sf && sf.gen === gen && sf.done >= 0 && sf.done === sf.rec && !!targets[sf.pass];
-    // Layer contexts record with the offset of their atlas slot: emit() adds ES[1..2] for pass 0 draws.
+
     const origPaint = Ctx.prototype._paint;
     Ctx.prototype._paint = function (style, mul) {
       if (this.pass === 0) { ES[1] = this.sc.x; ES[2] = this.sc.y; } else { ES[1] = 0; ES[2] = 0; }
@@ -1494,11 +1494,11 @@ window.ND = window.ND || {};
         return o.apply(this, arguments);
       };
     }
-    // (R.begin) this frame's copy of the text atlas; the texts queued for it written first
+
     function textTurn() {
       const want = !!R.textRing && E.ready;
       if (want !== (textRing.length === 3)) {
-        // switched on / off: the copies start empty (every text is drawn again)
+
         if (textRing.length) { textTex = textRing[0]; for (let i = 1; i < textRing.length; i++) gl.deleteTexture(textRing[i]); }
         textRing = want ? [textTex, tex2d(TA_W, TA_H, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, gl.LINEAR, null), tex2d(TA_W, TA_H, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, gl.LINEAR, null)] : [];
         textCur = 0; textClear();
@@ -1518,10 +1518,10 @@ window.ND = window.ND || {};
       nv = 0; ni = 0; np = 0; zc = 0; cmds = []; bPass = -1; bStart = 0; bBlend = -1; bTex = null; bClip = null; bSc = null;
       surfRec.length = 0;
       R.unsupported = '';
-      // text atlas more than half full: start it again before this frame places any text (moving, growing texts
-      // keep making new pictures; only the current ones are needed)
+
+
       profReset();
-      // layer atlas: room for two fighter layers and their shadow silhouettes at this screen size from the start
+
       if (W !== R.W || H !== R.H) {
         wantAW = Math.max(wantAW, Math.min(2048, Math.max(512, Math.ceil((W * 0.8) / 64) * 64)));
         wantAH = Math.max(wantAH, Math.min(2048, Math.max(512, Math.ceil(H / 64) * 64 + 64)));
@@ -1540,23 +1540,23 @@ window.ND = window.ND || {};
       return { vertices: nv, indices: ni, commands: cmds.length, paints: np, layersUsed: usedW * usedH };
     };
     R.main = () => main;
-    // curve flattening tolerance (device px) for the following frames; see TOL0
+
     R.setTolerance = function (t) {
       t = t > 0.05 && t < 2 ? +t : TOL0;
       if (t !== TL[0]) { TL[0] = t; SW[0] = -1; }
     };
     R.tolerance = () => TL[0];
-    // Texts snapped to whole pixels (Medium, Low): one picture per text instead of one per quarter-pixel position,
-    // so a text moving with the camera is not drawn again every frame (High keeps the exact quarter-pixel placement)
+
+
     R.textSnap = false;
     R.textFree = false;
-    // mip level bias of textured draws (only the sprite atlas has mip levels): negative = sharper part pictures when
-    // the camera is farther out than the zoom they were made for (game.js sets it for ?renderer=gpu)
+
+
     R.spriteBias = 0;
-    // timed wrappers of the tessellating calls (installed only while profiling)
+
     const TIMED = ['_fillPath', '_stroke', 'clip'], untimed = {};
-    // opts.tess: false = no tessellation timing (its wrappers cost a little on every path); opts.stacks: upload causes
-    // with the calling code
+
+
     let timedOn = false;
     R.profile = function (on, opts = {}) {
       if (on && !P) { P = R.prof = { imgWhy: [], textWhy: [], stacks: false }; profReset(); }
@@ -1571,8 +1571,8 @@ window.ND = window.ND || {};
       if (!on && P) P = R.prof = null;
       if (P) P.stacks = !!opts.stacks;
     };
-    // tests: copy of the recorded frame (x, y per vertex, triangle indices, commands)
-    R.indexCount = () => ni; // (bench: which part of the frame recorded which triangles)
+
+    R.indexCount = () => ni;
     R.dump = () => {
       const xy = new Float64Array(nv * 2);
       const uv = new Float64Array(nv * 2);
@@ -1580,7 +1580,7 @@ window.ND = window.ND || {};
       return { xy, uv, idx: Array.from(IX.subarray(0, ni)), cmds: cmds.map((c) => ({ k: c.k === K_DRAW ? 'draw' : c.k === K_SFILL ? 'stencil-fill' : 'clip', pass: c.pass, blend: c.blend, first: c.first, count: c.count, clip: !!c.clip })) };
     };
 
-    // ---------------------------------------------------------------- GL executor
+
     const E = R.exec = {};
     let paintRing = [], paintI = 0;
     let emptyTex = null, prog = null, vao = null, rampTex = null, paintTex = null, textTex = null, quadProg = null, quadVao = null, quadBuf = null;
@@ -1644,7 +1644,7 @@ window.ND = window.ND || {};
     E.compile = compile;
     const ring = [];
     let ringI = 0;
-    // (the pair's VAO must be bound: the index buffer belongs to it)
+
     function ringSize(o, v, i) {
       if (o.vcap < v) { o.vcap = v; gl.bindBuffer(gl.ARRAY_BUFFER, o.vbo); gl.bufferData(gl.ARRAY_BUFFER, v * STRIDE * 4, gl.DYNAMIC_DRAW); if (P) P.bufAlloc++; }
       if (o.icap < i) { o.icap = i; gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, i * 4, gl.DYNAMIC_DRAW); if (P) P.bufAlloc++; }
@@ -1658,14 +1658,14 @@ window.ND = window.ND || {};
       return t;
     }
     E.tex2d = tex2d;
-    // (re)create every GL object (start and after a context restore); caches of uploaded pictures start empty
+
     E.init = function () {
       prog = compile(VS, FS);
       U = { view: gl.getUniformLocation(prog, 'u_view'), tex: gl.getUniformLocation(prog, 'u_tex'), ramp: gl.getUniformLocation(prog, 'u_ramp'),
         paint: gl.getUniformLocation(prog, 'u_paint'), rampH: gl.getUniformLocation(prog, 'u_rampH'), bias: gl.getUniformLocation(prog, 'u_bias') };
       quadProg = compile(QVS, QFS);
-      // three vertex/index buffer pairs used in turn, each sized once (grown only when a frame needs more): a
-      // frame's data goes into a pair the GPU finished two frames ago (no reallocation, no wait)
+
+
       ring.length = 0; ringI = 0;
       for (let r = 0; r < 3; r++) {
         const o = { vao: gl.createVertexArray(), vbo: gl.createBuffer(), ibo: gl.createBuffer(), vcap: 0, icap: 0 };
@@ -1689,8 +1689,8 @@ window.ND = window.ND || {};
       gl.bindVertexArray(null);
       gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
       rampTex = tex2d(RAMP_W, RAMP_ROWS, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, gl.LINEAR, rampData);
-      // three paint textures used in turn, like the vertex buffers: a frame's gradient records go into one the GPU has
-      // finished with (writing into a texture that queued frames still read makes some mobile drivers copy it or wait)
+
+
       paintRing = [0, 1, 2].map(() => tex2d(2, PAINT_ROWS, gl.RGBA32F, gl.RGBA, gl.FLOAT, gl.NEAREST, null)); paintI = 0;
       paintTex = paintRing[0];
       textTex = tex2d(TA_W, TA_H, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, gl.LINEAR, null); textRing = []; textCur = 0; for (const q of textQ) q.length = 0;
@@ -1708,8 +1708,8 @@ window.ND = window.ND || {};
       ramps.clear(); rampFree = []; for (let i = RAMP_ROWS - 1; i >= 0; i--) rampFree.push(i); rampDirty = [];
       E.ready = true;
     };
-    // multisampling of the layer pass alone (the lit fighter layers, cast-shadow silhouettes): null = as the scene.
-    // (?renderer=gpu: the fighters there are ready-made anti-aliased pictures, see game.js)
+
+
     E.layerSamples = null;
     E.setLayerSamples = function (n) {
       const v = n == null ? null : Math.max(0, Math.min(n | 0, E.maxSamples | 0));
@@ -1723,8 +1723,8 @@ window.ND = window.ND || {};
       if (t.tex) gl.deleteTexture(t.tex);
       targets[i] = null;
     }
-    // render target: MSAA renderbuffers (colour + depth/stencil) resolved into `tex`, or `tex` drawn directly
-    // (ns: samples of this target, default E.samples)
+
+
     function target(i, w, h, ns = E.samples) {
       let t = targets[i];
       if (t && t.w === w && t.h === h && t.samples === ns) return t;
@@ -1757,7 +1757,7 @@ window.ND = window.ND || {};
     function blendOf(i) {
       if (BL.length) return BL[i];
       const g = gl;
-      // [srcRGB, dstRGB, srcA, dstA]
+
       BL.push([g.ONE, g.ONE_MINUS_SRC_ALPHA, g.ONE, g.ONE_MINUS_SRC_ALPHA], [g.ONE, g.ONE, g.ONE, g.ONE],
         [g.DST_ALPHA, g.ONE_MINUS_SRC_ALPHA, g.ZERO, g.ONE], [g.ONE_MINUS_DST_ALPHA, g.ONE, g.ONE_MINUS_DST_ALPHA, g.ONE],
         [g.DST_ALPHA, g.ZERO, g.DST_ALPHA, g.ZERO], [g.ZERO, g.SRC_ALPHA, g.ZERO, g.SRC_ALPHA],
@@ -1788,12 +1788,12 @@ window.ND = window.ND || {};
       }
       e.v = e.nv;
     }
-    // pictures not used for 10 s are released, except those marked __glKeep (scene.js wide layer caches: a close-up
-    // band may wait longer than that for its next use) until their canvas is emptied
+
+
     function sweepImages() {
       for (const [k, e] of images) if (frameNo - e.used > 600 && !(k.__glKeep && k.width > 0)) { if (e.tex) gl.deleteTexture(e.tex); images.delete(k); }
     }
-    // executes the recorded frame into target 1 (and target 0 for layers); returns the resolved scene texture
+
     E.run = function () {
       const t0 = P ? now() : 0;
       run0();
@@ -1836,9 +1836,9 @@ window.ND = window.ND || {};
       let hasLayers = false;
       for (const c of cmds) if (c.pass === 0) { hasLayers = true; break; }
       if (hasLayers) runPass(0, AW, AH, usedW, usedH, E.layerSamples == null ? E.samples : E.layerSamples);
-      // kept offscreen pictures drawn this frame (after the layers: they may place a layer of this frame, never the
-      // scene). 4× multisampled whatever the scene uses: a kept picture is small, drawn a few times a second and then
-      // shown enlarged; its edges match Canvas 2D's anti-aliasing more closely.
+
+
+
       const sns = Math.min(4, E.maxSamples | 0) > 1 ? Math.min(4, E.maxSamples | 0) : 0;
       for (const sf of surfRec) { runPass(sf.pass, sf.w, sf.h, sf.w, sf.h, sns); sf.done = sf.rec; sf.gen = gen; CNT.surfaces++; }
       surfRec.length = 0;
@@ -1860,10 +1860,10 @@ window.ND = window.ND || {};
       gl.enable(gl.BLEND);
       gl.useProgram(prog);
       gl.uniform2f(U.view, 2 / w, 2 / h);
-      // unit 0 must never hold this pass's own render texture (a feedback loop refuses every draw): start empty
+
       gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, emptyTex);
       let curBlend = -1, curTex = null, curSc;
-      const built = new Map(); // surface → clip built into its stencil
+      const built = new Map();
       const setSc = (sc) => {
         if (sc === curSc) return;
         curSc = sc;
@@ -1901,8 +1901,8 @@ window.ND = window.ND || {};
       gl.disable(gl.SCISSOR_TEST); gl.disable(gl.STENCIL_TEST); gl.disable(gl.DEPTH_TEST); gl.disable(gl.BLEND);
       gl.stencilMask(0xff);
       if (t.samples) {
-        // depth/stencil are not needed any more: dropped before the resolve, so a tiled GPU does not write the
-        // multisampled depth/stencil out to memory
+
+
         gl.invalidateFramebuffer(gl.FRAMEBUFFER, DS_ATT);
         gl.bindFramebuffer(gl.READ_FRAMEBUFFER, t.fbMS); gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, t.fbTex);
         const y0 = h - uh;
@@ -1915,7 +1915,7 @@ window.ND = window.ND || {};
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     }
     const DS_ATT = [gl.DEPTH_STENCIL_ATTACHMENT], COLOR_ATT = [gl.COLOR_ATTACHMENT0];
-    // stencil bit 7 = inside every clip of the chain (built root first), low 7 bits = scratch winding counter
+
     function buildClip(clip, h, sc) {
       R.stats.clips++;
       gl.stencilMask(0xff); gl.clearStencil(0x80); gl.clear(gl.STENCIL_BUFFER_BIT);
@@ -1928,7 +1928,7 @@ window.ND = window.ND || {};
           gl.stencilFunc(gl.ALWAYS, 0, 0xff);
           gl.stencilOpSeparate(gl.FRONT, gl.KEEP, gl.KEEP, gl.INCR_WRAP); gl.stencilOpSeparate(gl.BACK, gl.KEEP, gl.KEEP, gl.DECR_WRAP); gl.stencilMask(0x7f);
           if (c.count) gl.drawElements(gl.TRIANGLES, c.count, gl.UNSIGNED_INT, c.first * 4);
-          // outside this clip path (winding 0): clear bit 7
+
           gl.useProgram(quadProg); gl.bindVertexArray(quadVao);
           gl.stencilFunc(gl.EQUAL, 0, 0x7f); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE); gl.stencilMask(0x80);
           gl.drawArrays(gl.TRIANGLES, 0, 3);
@@ -1954,7 +1954,7 @@ window.ND = window.ND || {};
       let img = 0;
       for (const e of images.values()) img += e.w * e.h * 4;
       const s = Math.max(1, E.samples);
-      const tgt = (w, h) => w * h * 4 * (E.samples ? 1 + 2 * s : 2); // resolved colour + (MSAA colour + depth/stencil) or depth/stencil
+      const tgt = (w, h) => w * h * 4 * (E.samples ? 1 + 2 * s : 2);
       return { imagesBytes: img, spriteBytes: spPages.length * SP_W * SP_H * 4 * 4 / 3, textAtlasBytes: TA_W * TA_H * 4, rampBytes: RAMP_W * RAMP_ROWS * 4, paintBytes: PAINT_ROWS * 32,
         layerTargetBytes: AW && AH ? tgt(AW, AH) : 0, sceneTargetBytes: R.W ? tgt(R.W, R.H) : 0,
         surfaceBytes: [...surfaces.values()].reduce((n, sf) => { const t = targets[sf.pass]; return n + (t ? sf.w * sf.h * 4 * (t.samples ? 1 + 2 * t.samples : 2) : 0); }, 0) };

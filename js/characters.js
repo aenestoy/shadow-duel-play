@@ -1,4 +1,4 @@
-// Gölge Düellosu — karakterler: silah, istatistik, renk, aksesuar
+
 (function (ND) {
   'use strict';
   const rim = 'rgba(168,180,220,.55)', rimDim = 'rgba(120,130,175,.3)';
@@ -8,8 +8,8 @@
     {
       id: 'akane', name: 'AKANE', kanji: '茜', title: 'Kızıl Kılıç',
       desc: 'Iaijutsu ustası. Kılıcı kınında bekler, her kesiği kından çekerek vurur; çekiş duruşuyla gelen darbeyi yakalar.',
-      // iai: the katana rests in a hip scabbard between strikes (fighter.sheathed, skeleton sayaHip); ivory kimono,
-      // crimson hakama and tasuki, bare face with the hair tied low (acc 'akane')
+
+
       weapon: 'Katana (iai)', blade: 96, handle: 24, spd: 1.03, dmg: 1, hp: 108, walk: 1, ammo: 3, acc: 'akane', iai: true,
       poses: { stance: 'ak_stance', guard: 'ak_guard' },
       stats: { hiz: 3, guc: 4, menzil: 3, can: 4 },
@@ -19,12 +19,12 @@
     {
       id: 'aoi', name: 'AOI', kanji: '葵', title: 'Mavi Rüzgâr',
       desc: 'Tek elle tachi tutan rüzgâr eskrimcisi. Uzun menzilli dürtüşler ve rüzgâr adımlarıyla mesafeyi bir anda kapatır.',
-      // kaze-ryū: one-handed tachi held point-forward, off hand behind the back; flowing haori (two wide cloth
-      // ropes, col.haori) and a tall tied topknot (acc 'aoi')
+
+
       weapon: 'Tachi', blade: 104, handle: 22, spd: 1.03, dmg: 1.02, hp: 104, walk: 1.08, ammo: 3, acc: 'aoi',
       poses: { stance: 'ao_stance', guard: 'ao_guard' }, ai: { cmd: 0.45 },
       stats: { hiz: 4, guc: 2, menzil: 4, can: 3 },
-      // cloth = the light haori (torso, sleeves); hakama and hood stay dark
+
       col: pal({ cloth: '#5f7d9e', clothHi: '#8aa6c4', clothDark: '#3a4f69', wrap: '#2b3445', wrapDark: '#1a202c', accent: '#2f97dc', accentDark: '#164c74', ui: '#3ea8ea', skin: '#c29a83',
         hakama: '#151a24', hakamaDark: '#0c0f15', haori: '#4d6886', hood: { cloth: '#13171f', clothHi: '#232b3a', clothDark: '#0c0f15' } }),
       alt: pal({ cloth: '#5f8f78', clothHi: '#87b59e', clothDark: '#3a5c4c', wrap: '#2a3a31', wrapDark: '#1a241f', accent: '#3fcf8e', accentDark: '#1a6a45', ui: '#4bd69a', skin: '#c29a83',
@@ -80,7 +80,7 @@
       col: pal({ cloth: '#0d0e11', clothHi: '#1b1d23', clothDark: '#08090b', wrap: '#23262d', wrapDark: '#15171b', accent: '#7be08f', accentDark: '#2a6b38', ui: '#8ee6a0', skin: '#a98a78', rim: 'rgba(140,170,160,.45)' }),
       alt: pal({ cloth: '#0f0d12', clothHi: '#1e1a24', clothDark: '#09080b', wrap: '#28222f', wrapDark: '#18141c', accent: '#b07cff', accentDark: '#4e2f82', ui: '#bc8fff', skin: '#a98a78', rim: 'rgba(160,150,190,.45)' }),
     },
-    // --- ikinci kadro (roster2): özel silahlar. Mekanikler: fighter.js genel kancaları + specials.js (ND.MOVES, ND.wpnState)
+
     {
       id: 'tora', name: 'TORA', kanji: '虎', title: 'Zincirli Kaplan',
       desc: 'Kusarigama ustası. Zincirli ağırlıkla orta mesafeden kamçılar, ağır saldırısıyla rakibi çekip orakla bitirir.',
@@ -120,10 +120,10 @@
   ];
   ND.charById = (id) => ND.CHARS.find((c) => c.id === id) || ND.CHARS[0];
 
-  // Champion colors: the Monthly Tournament winner's palette for the ninja they won with (never sold, never earned
-  // any other way). Gilded robe, lacquer-black sash and trousers, crimson accents, a gold rim light; skin and the
-  // ninja's own shapes stay. Visibly different from both the original (col) and the Legacy (alt) palettes.
-  // Built once per ninja on first use (the palette object is a cache key in skeleton.js).
+
+
+
+
   function champPal(c) {
     const o = Object.assign({}, c, {
       rim: 'rgba(255,214,120,.62)', rimDim: 'rgba(200,150,60,.34)',
@@ -131,8 +131,8 @@
       wrap: '#18110e', wrapDark: '#0b0706',
       accent: '#d81f30', accentDark: '#6a0a13', ui: '#ffd35a',
     });
-    // black trousers for every ninja (legs use hakama || cloth: without this the gilded cloth also covered the legs
-    // of the eleven ninjas that have no separate hakama colour, a gold bodysuit instead of robe + trousers)
+
+
     o.hakama = '#1b1310'; o.hakamaDark = '#0d0908';
     if (c.haori) o.haori = '#b3862f';
     if (c.hood) o.hood = { cloth: '#1c1511', clothHi: '#33271c', clothDark: '#0e0a08' };
@@ -142,8 +142,8 @@
     if (c.tabi) o.tabi = '#15100d';
     return o;
   }
-  // Palette for an appearance choice: false = original, true = Legacy colors, 'champ' = Champion colors,
-  // 'rw:<id>' = a costume from the server's reward catalog (js/rewards.js; the original colours when it is not there)
+
+
   ND.palOf = (ch, look) => (look === 'champ' ? ch.champ || (ch.champ = champPal(ch.col))
     : typeof look === 'string' && look.startsWith('rw:') ? (ND.rewards && ND.rewards.palette(ch, look.slice(3))) || ch.col
     : look ? ch.alt : ch.col);

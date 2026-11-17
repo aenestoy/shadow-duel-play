@@ -1,12 +1,12 @@
-// Shadow Duel — language picker (ND.langUI).
-// Where it shows: a small globe button with the current language code beside the ⚙ Settings button, top-right on the
-// first screen (#firstTop) and on the main menu (#menuTop, next to the title). The Settings panel's Language tab
-// (js/settings.js) lists the same languages and calls the same ND.i18n.setLang(lang, { save: true }).
-// Every globe opens the same list (#langOv): the seven languages, each written in its own language. Choosing one
-// calls ND.i18n.setLang(lang, { save: true }): the whole game switches at once (tables, DOM, canvas texts; listeners
-// registered with ND.i18n.onChange re-render their screens) and the choice is kept in ND.save settings (`lang`).
-// Texts: ND.STR.lang (Turkish source in i18n.js, the other languages in js/i18n-*.js, block "LANGUAGE PICKER").
-// Loaded after i18n.js; builds itself once the page has loaded.
+
+
+
+
+
+
+
+
+
 (function (ND) {
   'use strict';
   const $ = (id) => document.getElementById(id);
@@ -53,7 +53,7 @@
 
   let ov = null, back = null;
 
-  // ---------------------------------------------------------------- the list
+
   function buildOverlay() {
     if (ov) return ov;
     ov = document.createElement('div');
@@ -85,7 +85,7 @@
     ov.hidden = false;
     const cur = ov.querySelector('[aria-current="true"]') || ov.querySelector('[data-lang]');
     setTimeout(() => { if (!ov.hidden && cur && cur.isConnected) cur.focus(); }, 0);
-    try { if (ND.audio && ND.audio.ready) ND.audio.ui(); } catch (e) { /* no audio */ }
+    try { if (ND.audio && ND.audio.ready) ND.audio.ui(); } catch (e) {                }
   }
   function close(restore) {
     if (!ov || ov.hidden) return;
@@ -98,15 +98,15 @@
     const i = I();
     if (!i) return;
     i.setLang(lang, { save: true });
-    try { if (ND.audio && ND.audio.ready) ND.audio.ui(); } catch (e) { /* no audio */ }
+    try { if (ND.audio && ND.audio.ready) ND.audio.ui(); } catch (e) {                }
     close(true);
   }
 
-  // Keys while the list is open: arrows move, Enter/Space pick (the buttons' own click), Escape/⌫ close.
-  // Nothing reaches the game behind it (capture phase, before input.js).
+
+
   function onKey(e) {
     if (!ov || ov.hidden) return;
-    // Browser shortcuts and CrazyGames' fullscreen key keep their native action.
+
     if (e.ctrlKey || e.metaKey || e.altKey || (e.code === 'Escape' && ND.input && ND.input.escAllowed === false)) return;
     const opts = [...ov.querySelectorAll('[data-lang]')];
     const i = opts.indexOf(document.activeElement);
@@ -127,13 +127,13 @@
         e.preventDefault();
         return;
       }
-      case 'Enter': case 'Space': return; // native button activation, hidden from the game below
+      case 'Enter': case 'Space': return;
       default: break;
     }
     if (e.code !== 'Enter' && e.code !== 'Space' && e.code !== 'Tab') e.preventDefault();
   }
 
-  // ---------------------------------------------------------------- triggers
+
   function globe(parent, id) {
     if (!parent || $(id)) return;
     const b = document.createElement('button');
@@ -172,7 +172,7 @@
     refresh();
     if (I() && I().onChange) I().onChange(refresh);
     window.addEventListener('keydown', (e) => { if (ov && !ov.hidden) { onKey(e); e.stopPropagation(); } }, true);
-    // the pause dialog closing (resume, menu) also closes the list
+
     const pz = $('pause');
     if (pz && typeof MutationObserver !== 'undefined') new MutationObserver(() => { if (pz.hidden && ov && !ov.hidden && back && pz.contains(back)) close(false); }).observe(pz, { attributes: true, attributeFilter: ['hidden'] });
   };

@@ -1,4 +1,4 @@
-// Authored Arcade routes and optional mastery. No per-frame allocations or save access here.
+
 (function (ND) {
   'use strict';
   const routes = {
@@ -22,29 +22,33 @@
     route(id) {
       const r = routes[id]; if (!r) return [];
       const arenas = r[1].split(' '), tasks = r[2].split(' ');
-      // difficulty ladder (2026-09-28, gentler early and middle): 1 Apprentice (the learning fight), 2–3 Apprentice+
-      // (ai: the Apprentice+ CPU, ai.js; score, honor and defence timing of Apprentice), 4–5 Master, 6–7 Legend (7 with
-      // +15 % health), 8 the boss (J.level / J.ai / J.hp; arcade.js uses the same for legacy routes)
+
+
+
       return r[0].split(' ').map((opp, k) => ({ opp, arena: arenas[k], level: J.level(k), ...(J.ai(k) != null ? { ai: J.ai(k) } : {}), ...(J.hp(k) ? { hp: J.hp(k) } : {}),
         ...(k === 7 ? { boss: true } : {}), goal: tasks[k], need: k < 2 ? 1 : goals[tasks[k]] }));
     },
-    // The ladder by fight (0–7): levels = the fight's level (0–3), ai = the CPU's own profile where it differs from the
-    // level (an ND.AI_LEVELS key: Apprentice+ 0.5 in fights 2–3; null = the level's), hp = opponent health factor (0 =
-    // none). Remote tuning (js/tune.js) may change these numbers in place; a run in progress takes them the next time
-    // its route is built (a new run, or the next page load).
-    ladder: { levels: [0, 0, 0, 1, 1, 2, 2, 3], ai: [null, 0.5, 0.5, null, null, null, null, null], hp: [0, 0, 0, 0, 0, 0, 1.15, 0] },
+
+
+
+
+
+
+
+
+    ladder: { levels: [0, 0, 0, 1, 1, 2, 2, 3], ai: [0.25, 0, 0.5, null, null, null, null, null], hp: [0.9, 0.9, 0, 0, 0, 0, 1.15, 0] },
     level(k) { const v = J.ladder.levels[k]; return v != null ? v : k < 3 ? 0 : k < 5 ? 1 : k < 7 ? 2 : 3; },
     ai(k) { const v = J.ladder.ai[k]; return v != null ? v : null; },
     hp(k) { return J.ladder.hp[k] || 0; },
     count(mask) { let n = 0; for (let i = 0; i < 8; i++) if ((mask | 0) & (1 << i)) n++; return n; },
     mask(value) { return typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.min(255, Math.floor(value))) : 0; },
-    // Hits are credited only after real health loss, never for a button press or a blocked attack.
+
     hit(metrics, from, a) {
       const add = (k) => { metrics[k] = Math.min(99, (metrics[k] || 0) + 1); };
       if (a.counter) add('counter');
       if (a.special) add('special');
       if (a.air) add('air');
-      // Projectiles can arrive during a different move. Never classify them by the owner's current animation.
+
       if (a.kind === 'shuriken' || a.kind === 'arrow') { add('ranged'); return; }
       if (a.special) return;
       if (a.kind === 'kick') add('kick');

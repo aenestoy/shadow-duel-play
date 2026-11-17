@@ -1,28 +1,28 @@
-// Shadow Duel — German catalog for ND.i18n (Turkish is the source language; English i18n-en.js is the reference).
-// Same structure as i18n-en.js; see js/i18n.js for how each part is applied. Informal "du" throughout.
-//
-// GLOSSARY (use these everywhere)
-//   parry            Parade / parieren (HUD: PARIERT!)       guard           Deckung (button DECKUNG)
-//   counter          Konter / kontern (HUD: KONTER!)         guard break     Deckung brechen (DECKUNG GEBROCHEN!)
-//   posture          Haltung, posture bar = Haltungsleiste   posture broken  HALTUNG GEBROCHEN!
-//   ki / ki technique Ki / Ki-Technik                        ki cancel       Ki-Cancel
-//   combo            Combo                                   string / chain  Serie; string ender = Serienabschluss
-//   launcher         Hochschlag (HUD: HOCHSCHLAG!)           juggle          Luftcombo
-//   rally            Abtausch (HUD banner: ABTAUSCH)         finisher        Schlusshieb
-//   dash             Sprint (button SPRINT)                  dash slash      Sprinthieb
-//   round            Runde                                   KO              K.O.
-//   blade lock       Klingenbindung (HUD: BINDUNG!)          mash            hämmern
-//   light / heavy slash  leichter / schwerer Hieb (buttons LEICHT / SCHWER); cut = Schnitt; thrust = Stoß
-//   kick             Tritt (button TRITT)                    sweep           Beinfeger / Feger
-//   air slash / dive Lufthieb / Sturzhieb                    knocks down     wirft zu Boden
-//   dummy            Puppe                                   honor           Ehre
-//   rival challenge  Rivalenduell                            tournament      (Monats-)Turnier
-//   trial            Prüfung (Dan-Prüfung); combo trial = Combo-Übung
-//   AI               CPU (never "KI": it would clash with Ki)   HP = LP (Lebenspunkte)   leaderboard = Bestenliste
-//   touch buttons    ANGRIFF (attack) · LEICHT · SCHWER · TRITT · DECKUNG · SPRINT · SHUR. · KI · SPRUNG
-//   move-list prefixes  Vor+ / Zurück+
-// Control changes that ship with this build are written into the text: P pauses (Escape is CrazyGames'
-// fullscreen key), ⌫ goes back, player 2 throws shuriken with I.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 (function (ND) {
   'use strict';
   (ND.I18N_CATALOGS || (ND.I18N_CATALOGS = {})).de = function (I, EN) {
@@ -31,7 +31,7 @@
     const dec = (x) => I.dec(x);
     const fmtTime = (s) => I.time(s);
 
-    // ================================================================ UI tables (ND.STR)
+
     merge(EN.STR, {
       menu: {
         brand: (nc, na) => `${nc} Kämpfer, ${na} Arenen und ein verborgener Meister. Klingenduelle in Echtzeit, Klingenbindungen, Paraden, gebrochene Haltung, Ki-Techniken und Ragdoll-Physik.`,
@@ -160,7 +160,7 @@
       bz: {
         back: 'Zurück', toMenu: 'Hauptmenü', you: 'Du', youTag: 'du', newBest: 'Neuer Rekord!', seeResult: 'Ergebnis ansehen',
         resetIn: 'Neustart in',
-        // time left: Tage (T) · Stunden (Std) · Minuten (Min) · Sekunden (Sek)
+
         left: (ms) => { const t = Math.floor(ms / 1000), d = Math.floor(t / 86400), hh = Math.floor((t % 86400) / 3600), mm = Math.floor((t % 3600) / 60), ss = t % 60; return d ? `${d} T ${hh} Std ${mm} Min` : hh ? `${hh} Std ${mm} Min` : `${mm} Min ${ss} Sek`; },
         leftShort: (ms) => { const t = Math.floor(ms / 60000), d = Math.floor(t / 1440), hh = Math.floor((t % 1440) / 60), mm = t % 60; return d ? `${d} T ${hh} Std` : hh ? `${hh} Std ${mm} Min` : `${mm} Min`; },
         weekName: (m, y) => `${['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'][m - 1] || m} ${y}`,
@@ -246,7 +246,7 @@
           pending: (n) => `Einträge warten auf Versand: ${n}`,
           classic: 'Arcade · Legende-Listen',
         },
-        // Monthly Tournament rewards: permanent title (top 3) and Champion colors (1st)
+
         ttl: {
           champ: 'Monatschampion', finalist: 'Finalist',
           reward: 'Ab dem Turnier im Oktober 2026 erhalten die Top 3 jedes Monats einen dauerhaften Titel. Der Champion gewinnt außerdem exklusive Championfarben für den Ninja, mit dem er gesiegt hat. Titel gibt es erst ab 5 Spielern im Monat.',
@@ -281,6 +281,12 @@
         ['<kbd>F</kbd><kbd>F</kbd><kbd>F</kbd>', 'Leichte 3er-Combo', 'dritter Treffer stößt zurück'],
         ['<kbd>G</kbd>', 'Schwerer Hieb', 'wirft zu Boden'],
         ['<kbd>R</kbd>', 'Tritt', 'setzt der Deckung zu, füllt die Haltung'],
+        ['<kbd>S</kbd>+<kbd>R</kbd>', 'Feger', 'wirft um · drüberspringen'],
+        ['Zurück+<kbd>R</kbd>', 'Drehtritt', 'langsam, stark, bricht die Deckung'],
+        ['Vor+<kbd>R</kbd>', 'Handtritt', 'ins Ausholen: entwaffnet'],
+        ['<kbd>W</kbd>›<kbd>R</kbd>', 'Flugtritt', 'in der Luft'],
+        ['←→+<kbd>R</kbd>', 'Eigener Tritt', 'jeder Ninja hat seinen'],
+        ['<kbd>R</kbd>', 'Schwert hochkicken', 'unbewaffnet, am eigenen Schwert'],
         ['<kbd>T</kbd>', 'Shuriken', ''],
         ['<kbd>Shift</kbd>', 'Sprint', 'Shift links'],
         ['<kbd>Shift</kbd>›<kbd>F</kbd>', 'Sprinthieb', ''],
@@ -296,7 +302,7 @@
         ['<kbd>F</kbd>/<kbd>G</kbd>!!', 'Klingenbindung', 'in der Bindung hämmern, um den Gegner wegzustoßen'],
       ],
       touch: {
-        btn: { light: 'ANGRIFF', heavy: 'SCHWER', kick: 'TRITT', guard: 'DECKUNG', dodge: 'SPRINT', throw: 'SHUR.', special: 'KI', up: 'SPRUNG', down: 'DECKUNG', stick: 'Joystick' },
+        btn: { light: 'ANGRIFF', heavy: 'SCHWER', kick: 'TRITT', guard: '▼', dodge: 'SPRINT', throw: 'SHUR.', special: 'KI', up: 'SPRUNG', down: 'DECKUNG' },
         lock: 'ANGRIFF hämmern!',
         replaySkip: 'tippen zum Überspringen',
         rotateTitle: 'Dreh dein Gerät quer',
@@ -314,40 +320,45 @@
           hand: 'Tasten', right: 'Rechts', left: 'Links',
           assist: 'Leichte Hilfe', haptic: 'Vibration',
           fullscreen: 'Vollbild', exitFullscreen: 'Vollbild beenden',
-          note: 'Einfach: 5 große Tasten. Voll: dazu Tritt und Shuriken. Leichte Hilfe: Halte ANGRIFF und die Combo läuft weiter, ein kurzes Tippen auf DECKUNG hält lange genug für eine Parade, und der Stick springt nicht aus Versehen. Das erleichtert nur die Bedienung; Regeln und Punkte sind für alle gleich.',
+          note: 'Einfach: 4 große Tasten. Voll: dazu Tritt und Shuriken. Leichte Hilfe: Halte ANGRIFF und die Combo läuft weiter, und ein kurzes Tippen auf ▼ hält lange genug für eine Parade. Das erleichtert nur die Bedienung; Regeln und Punkte sind für alle gleich.',
           fullNote: 'Die Tasten TRITT und SHURIKEN gibt es im vollen Layout (Einstellungen → Steuerung).',
         },
         help: '<div class="th-grid">' +
-          '<div><h3>Joystick</h3><dl>' +
-          '<dt><i class="tb">◀ ▶</i></dt><dd>Daumen auf die freie Hälfte legen und schieben: gehen</dd>' +
-          '<dt><i class="tb">▲</i></dt><dd>Nach oben drücken: springen</dd>' +
-          '<dt><i class="tb tb-guard">▼</i></dt><dd>Nach unten ziehen: Deckung</dd>' +
-          '<dt><i class="tb">▶▶</i></dt><dd>Zweimal kurz zur Seite schnippen: Sprint</dd>' +
+          '<div><h3>Steuerkreuz</h3><dl>' +
+          '<dt><i class="tb">◀ ▶</i></dt><dd>Halten: gehen</dd>' +
+          '<dt><i class="tb">▲</i></dt><dd>Tippen: springen</dd>' +
+          '<dt><i class="tb tb-guard">▼</i></dt><dd>Halten: Deckung. Kurz vor einem Treffer tippen: Parade</dd>' +
+          '<dt><i class="tb">▶▶</i></dt><dd>Doppeltippen: Sprint</dd>' +
           '</dl></div>' +
           '<div><h3>Tasten</h3><dl>' +
           '<dt><i class="tb tb-light">ANGRIFF</i></dt><dd>Hieb. Immer wieder tippen: Combo. Beim Tippen vor oder zurück halten: andere Techniken</dd>' +
           '<dt><i class="tb">SCHWER</i></dt><dd>Schwerer Hieb. Vor + SCHWER schleudert den Gegner hoch</dd>' +
-          '<dt><i class="tb tb-guard">DECKUNG</i></dt><dd>Halten: Deckung. Kurz vor einem Treffer tippen: Parade</dd>' +
-          '<dt><i class="tb">SPRINT</i></dt><dd>Sprint (in Stick-Richtung, sonst nach hinten)</dd>' +
+          '<dt><i class="tb">SPRINT</i></dt><dd>Sprint (in die Richtung, in die du ◀ ▶ hältst, sonst nach hinten)</dd>' +
           '<dt><i class="tb ki">KI</i></dt><dd>Ki-Technik: Die Taste leuchtet, wenn das Ki voll ist</dd>' +
           '<dt><i class="tb">TRITT</i> <i class="tb">SHUR.</i></dt><dd>Volles Layout: Tritt und Shuriken</dd>' +
           '</dl></div></div>',
-        note: 'Du kannst mehrere Tasten gleichzeitig drücken: Deckung halten und angreifen, oder den Daumen von <i class="tb tb-guard">DECKUNG</i> zu <i class="tb tb-light">ANGRIFF</i> ziehen. <b>II</b> oben am Bildschirm pausiert; Layout, Größe und die Linkshänder-Option findest du in den <b>Einstellungen</b>. Nimmst du Tastatur oder Gamepad, schaltet die Steuerung automatisch um.',
+        note: 'Du kannst mehrere Tasten gleichzeitig drücken: Halte <i class="tb tb-guard">▼</i> für Deckung und tippe mit dem anderen Daumen <i class="tb tb-light">ANGRIFF</i>. <b>II</b> oben am Bildschirm pausiert; Layout, Größe und die Linkshänder-Option findest du in den <b>Einstellungen</b>. Nimmst du Tastatur oder Gamepad, schaltet die Steuerung automatisch um.',
         keysHelp: '',
       },
       movesTouch: [
-        ['<i class="tb">◀ ▶</i>', 'Gehen', 'Stick · zweimal schnippen: Sprint'],
-        ['<i class="tb">▲</i>', 'Springen', 'Stick nach oben drücken'],
+        ['<i class="tb">◀ ▶</i>', 'Gehen', 'halten · doppelt tippen: Sprint'],
+        ['<i class="tb">▲</i>', 'Springen', 'tippen'],
         ['<i class="tb tb-light">ANGRIFF</i>×3', 'Dreier-Combo', 'immer wieder tippen; dritter Treffer stößt zurück'],
         ['<i class="tb">SCHWER</i>', 'Schwerer Hieb', 'wirft zu Boden'],
         ['<i class="tb">TRITT</i>', 'Tritt', 'setzt der Deckung zu, füllt die Haltung · volles Layout'],
+        ['<i class="tb tb-guard">▼</i>' + '+' + '<i class="tb">TRITT</i>', 'Feger', 'wirft um · drüberspringen'],
+        ['Zurück+' + '<i class="tb">TRITT</i>', 'Drehtritt', 'langsam, stark, bricht die Deckung'],
+        ['Vor+' + '<i class="tb">TRITT</i>', 'Handtritt', 'ins Ausholen: entwaffnet'],
+        ['<i class="tb">▲</i>' + '›' + '<i class="tb">TRITT</i>', 'Flugtritt', 'in der Luft'],
+        ['←→+' + '<i class="tb">TRITT</i>', 'Eigener Tritt', 'jeder Ninja hat seinen'],
+        ['<i class="tb">TRITT</i>', 'Schwert hochkicken', 'unbewaffnet, am eigenen Schwert'],
         ['<i class="tb">SHUR.</i>', 'Shuriken', 'volles Layout'],
         ['<i class="tb">SPRINT</i>', 'Sprint', ''],
         ['<i class="tb">SPRINT</i>›<i class="tb tb-light">ANGRIFF</i>', 'Sprinthieb', ''],
         ['<i class="tb">▲</i>›<i class="tb tb-light">ANGRIFF</i>', 'Lufthieb', ''],
         ['<i class="tb">▲</i>›<i class="tb">SCHWER</i>', 'Sturzhieb', 'schwer in der Luft'],
-        ['<i class="tb tb-guard">DECKUNG</i>', 'Deckung', 'halten oder Stick nach unten ziehen'],
-        ['<i class="tb tb-guard">DECKUNG</i>!', 'Parade', 'kurz bevor der Hieb trifft tippen'],
+        ['<i class="tb tb-guard">▼</i>', 'Deckung', 'halten'],
+        ['<i class="tb tb-guard">▼</i>!', 'Parade', 'kurz bevor der Hieb trifft tippen'],
         ['<i class="tb tb-light">ANGRIFF</i>', 'Gerader Konter', 'nach Deckung/Parade'],
         ['Vor+<i class="tb tb-light">ANGRIFF</i>', 'Beinfeger', 'Konter · an die Beine'],
         ['Zurück+<i class="tb tb-light">ANGRIFF</i>', 'Seitenwechsel', 'Konter · am Gegner vorbei'],
@@ -362,13 +373,13 @@
         kiCancel: 'Ki-Cancel', special: 'Ki-Technik', throw: 'Geschoss',
       },
       lessonsTouch: {
-        walk: 'Schieb den Daumen auf der freien Bildschirmhälfte: Drück den Stick nach links und rechts, um zu gehen.',
+        walk: 'Halte <i class="tb">◀</i> und <i class="tb">▶</i>, um hin und her zu gehen.',
         combo: 'Tippe dreimal hintereinander auf <i class="tb tb-light">ANGRIFF</i>: Reihe drei Hiebe aneinander und triff die Puppe.',
         heavy: 'Lande mit <i class="tb">SCHWER</i> einen schweren Hieb. Er ist langsam, wirft aber zu Boden.',
         gbreak: 'Die Puppe hält die Deckung. Triff sie mit <i class="tb">SCHWER</i>, um ihre Haltungsleiste zu füllen und die Deckung zu brechen (<i class="tb">TRITT</i> im vollen Layout füllt sie noch schneller).',
-        block: 'Die Puppe greift an. Halte <i class="tb tb-guard">DECKUNG</i> (oder zieh den Stick nach unten) und blocke einen Hieb.',
-        parry: 'Tippe <i class="tb tb-guard">DECKUNG</i> kurz bevor der Hieb trifft. Der perfekte Moment ist, wenn der blaue Ring schrumpft.',
-        counter: 'Direkt nach Deckung oder Parade: <i class="tb tb-light">ANGRIFF</i> – Konterhieb. Probier auch Stick vor/zurück + <i class="tb tb-light">ANGRIFF</i> oder <i class="tb">SCHWER</i>.',
+        block: 'Die Puppe greift an. Halte <i class="tb tb-guard">▼</i> und blocke einen Hieb.',
+        parry: 'Tippe <i class="tb tb-guard">▼</i> kurz bevor der Hieb trifft. Der perfekte Moment ist, wenn der blaue Ring schrumpft.',
+        counter: 'Direkt nach Deckung oder Parade: <i class="tb tb-light">ANGRIFF</i> – Konterhieb. Probier auch vor/zurück + <i class="tb tb-light">ANGRIFF</i> oder <i class="tb">SCHWER</i>.',
         special: 'Deine Ki-Leiste ist voll. Setze {sp} mit der leuchtenden <i class="tb ki">KI</i>-Taste ein.',
       },
       lessons: [
@@ -384,10 +395,10 @@
       ],
     });
 
-    // ================================================================ story, fighters, arenas, specials
-    // ---- Fragment B: story text (talk, pairs, endings, roster2 notes), characters, arenas, specials, pop-ups, AI levels, number words
+
+
     merge(EN.STR, {
-      // open = speaks first (opponent), reply = answers (player), boss = said to the final boss
+
       talk: {
         akane: {
           open: ['Meine Klinge ist karmesinrot, mein Herz ist rein. Tritt mir mit Ehre entgegen.', 'Erst verneige ich mich, dann schlage ich zu. So ist es nur gerecht.', 'Dieses Duell gilt unserer Ehre. Es gibt kein Zurück.'],
@@ -455,7 +466,7 @@
           boss: 'Shura, am Himmel gibt es kein Versteck. Mein Pfeil wird dich finden.',
         },
       },
-      // Special match-ups: lines are spoken in the order written
+
       pairs: {
         'akane|aoi': [['akane', 'Aoi! Zeit, das Duell zu beenden, das wir offen gelassen haben.'], ['aoi', 'Der Wind weht immer zum selben Feuer, Akane. Beginne.']],
         'kuro|tetsu': [['kuro', 'Eiserne Schale. Mal sehen, ob sie hohl ist.'], ['tetsu', 'Selbst ein Berg beugt sich der Disziplin, Kuro.']],
@@ -552,22 +563,22 @@
 
     EN.NUMWORDS = ['Null', 'Eins', 'Zwei', 'Drei', 'Vier', 'Fünf', 'Sechs', 'Sieben', 'Acht', 'Neun', 'Zehn', 'Elf', 'Zwölf'];
 
-    // ================================================================ static HTML, hardcoded literals, canvas pop-ups
+
     merge(EN.PHRASES, {
-      // ---------------------------------------------------------------- index.html: <title>, brand, HUD
+
       'Gölge Düellosu': 'Shadow Duel',
       'Duraklat': 'Pause',
       'KARŞILIKLI SERİ': 'ABTAUSCH',
       'SON DARBE': 'LETZTER HIEB',
       'atlamak için bir tuşa bas': 'beliebige Taste zum Überspringen',
-      // touch buttons (static fallbacks of data-s="touch.btn.*")
+
       'GARD': 'DECKUNG',
       'HAFİF': 'LEICHT',
       'SALDIR': 'ANGRIFF',
       'AĞIR': 'SCHWER',
       'ATIL': 'SPRINT',
       'TEKME': 'TRITT',
-      // ---------------------------------------------------------------- main menu
+
       'Sekiz savaşçı, üç arena. Gerçek zamanlı kılıç çarpışması, kılıç kilitlenmesi, savuşturma, denge kırma, Gölge Kesiği ve ragdoll fiziği.': 'Acht Kämpfer, drei Arenen. Klingenduelle in Echtzeit, Klingenbindungen, Paraden, gebrochene Haltung, der Schattenschnitt und Ragdoll-Physik.',
       'İki Oyuncu': 'Zwei Spieler',
       'Aynı klavyede ya da iki gamepad ile kafa kafaya': 'Kopf an Kopf an einer Tastatur oder mit zwei Gamepads',
@@ -587,7 +598,7 @@
       'Kan efekti': 'Blut',
       'Tuş ipuçları': 'Tastenhinweise',
       'Yüksek grafik': 'Hohe Grafik',
-      // ---------------------------------------------------------------- controls card
+
       'Kontroller': 'Steuerung',
       '1. Oyuncu': 'Spieler 1',
       '2. Oyuncu': 'Spieler 2',
@@ -601,7 +612,7 @@
       'Sağ Shift': 'Shift rechts',
       'Atılma': 'Sprint',
       'Ki tekniği (ki dolu)': 'Ki-Technik (volles Ki)',
-      // ---------------------------------------------------------------- select screen
+
       'Ninjanı seç': 'Wähle deinen Ninja',
       'Hazır': 'Bereit',
       '1. oyuncunun ninjası': 'Ninja von Spieler 1',
@@ -618,7 +629,7 @@
       'Güç': 'Kraft',
       'Menzil': 'Reichweite',
       'Can': 'Leben',
-      // ---------------------------------------------------------------- pause / end
+
       'Duraklatıldı': 'Pausiert',
       'Devam et': 'Weiter',
       'Maçı yeniden başlat': 'Kampf neu starten',
@@ -630,20 +641,20 @@
       'Verilen hasar': 'Verursachter Schaden',
       'Savuşturma': 'Paraden',
       'Ki Saldırısı': 'Ki-Angriffe',
-      // ---------------------------------------------------------------- training / leaderboard / misc
+
       'Antrenman': 'Training',
       'ANTRENMAN': 'TRAINING',
       'Sıralama': 'Bestenliste',
       'Tümü': 'Alle',
       'Ekranı yan çevir': 'Dreh dein Gerät quer',
       'Performans için grafik düşürüldü': 'Grafik für bessere Leistung reduziert',
-      // hidden boss pushed into ND.CHARS by arcade.js (safety net; EN.CHARS.shura should carry the same)
+
       'Kanlı Usta': 'Der Blutmeister',
       'Yolunu kanla çizen iblis usta. Uzun nodachi, yıkıcı darbeler, neredeyse kusursuz savuşturma.': 'Ein Dämonenmeister, der seinen Weg mit Blut zeichnet. Langes Nodachi, vernichtende Hiebe, nahezu makellose Paraden.',
-      // ---------------------------------------------------------------- HUD tags (fallbacks when STR.hud is missing)
+
       'SEN': 'DU',
       'KUKLA': 'PUPPE',
-      // ---------------------------------------------------------------- round banners (#bt / #bs)
+
       'Son raund': 'Letzte Runde',
       'Kazanan her şeyi alır': 'Der Sieger nimmt alles',
       'İlk iki raundu alan kazanır': 'Wer zwei Runden holt, gewinnt',
@@ -652,13 +663,13 @@
       'Berabere': 'Unentschieden',
       'Çifte K.O.': 'Doppel-K.O.',
       'Mükemmel': 'Perfekt',
-      // blade-lock hint (fallbacks of STR.hud.lockSolo / lockDuo)
+
       'F / K tuşuna hızlıca bas!': 'F / K hämmern!',
       'Hafif ya da ağır tuşuna hızlıca bas!': 'Leicht oder schwer hämmern!',
-      // counter / parry prompt labels under the key ring (ctx.fillText in drawPrompts)
+
       'KARŞILIK': 'KONTER',
       'SAVUŞTUR': 'PARIEREN',
-      // ---------------------------------------------------------------- canvas pop-ups (fx.text)
+
       'SON VURUŞ!': 'SCHLUSSHIEB!',
       'KİLİTLENDİ!': 'BINDUNG!',
       'İTTİ!': 'STOSS!',
@@ -681,9 +692,9 @@
     });
 
     merge(EN.HTML, {
-      // brand title (the game's name stays "Shadow Duel" in every language)
+
       'Gölge<br><em>Düel</em><em>losu</em>': 'Shadow<br><em>Du</em><em>el</em>',
-      // tips list (<ul class="tips">)
+
       '<b>Savuşturma:</b> darbe gelmeden hemen önce gard tuşuna bas; rakip sendeler.':
         '<b>Parade:</b> Drück die Deckungstaste kurz bevor der Hieb trifft; dein Gegner gerät ins Taumeln.',
       '<b>Karşılık (返し技):</b> gard ya da savuşturmanın hemen ardından saldırı tuşu → anında karşı kesik. <b>İleri</b> + hafif = bacağa süpürme, <b>geri</b> + hafif = yanından dönüp arkadan kesme, <b>ağır</b> = güçlü karşı darbe.':
@@ -698,30 +709,30 @@
         '<b>Sprint + leicht</b> = Sprinthieb. <b>In der Luft</b> leicht = Lufthieb, schwer = Sturzhieb. Der schwere Hieb wirft zu Boden; wer gegen eine Wand prallt, federt zurück.',
       '<b>Denge çubuğu</b> dolarsa gard kırılır. Tekme gardı delip dengeyi hızla doldurur.':
         'Ist die <b>Haltungsleiste</b> voll, bricht die Deckung. Tritte gehen durch die Deckung und füllen die Haltung schnell.',
-      // gamepad note (Esc -> Start or P)
+
       'Gamepad: X hafif · Y ağır · B tekme · A zıpla · LB gard · RB shuriken · RT atılma · R3 ki tekniği. Start ya da <kbd>P</kbd> duraklatır. CPU modunda her iki tuş seti de seni yönetir.':
         'Gamepad: X leicht · Y schwer · B Tritt · A Springen · LB Deckung · RB Shuriken · RT Sprint · R3 Ki-Technik. Start oder <kbd>P</kbd> pausiert. Im CPU-Modus steuern dich beide Tastensätze.',
-      // select / VS hints (Esc -> ⌫)
+
       '<kbd>Enter</kbd> başlatır · <kbd>⌫</kbd> menüye döner': '<kbd>Enter</kbd> Start · <kbd>⌫</kbd> zurück',
       '<kbd>Enter</kbd> / <kbd>F</kbd> başlatır · <kbd>⌫</kbd> çıkar': '<kbd>Enter</kbd> / <kbd>F</kbd> Start · <kbd>⌫</kbd> verlassen',
     });
 
     EN.PATTERNS.push(
-      // HUD round label (#rlabel) and round banner
+
       [/^RAUND (\d+)$/, 'RUNDE $1'],
       [/^(\d+)\. Raund$/, 'Runde $1'],
-      // canvas pop-ups built from numbers
+
       [/^(\d+)\. KARŞILIK$/, 'KONTER ×$1'],
       [/^(\d+) VURUŞLUK SERİ!$/, 'ABTAUSCH: $1 TREFFER!'],
-      // time-up banner sub: `${name} önde`
+
       [/^(.+) önde$/, (m, n) => I.t(n) + ' führt'],
-      // end screen title: `${Name} kazandı`
+
       [/^(.+) kazandı$/, (m, n) => I.t(n) + ' gewinnt'],
-      // end screen sub line: `${a} – ${b} · ${round} raund · ${arenaName}`
+
       [/^(\d+) – (\d+) · (\d+) raund · (.+)$/, (m, a, b, r, ar) => `${a} – ${b} · ${r} ${r === '1' ? 'Runde' : 'Runden'} · ${I.t(ar)}`],
     );
 
-    // ================================================================ added with the portal build (PLAY, ads, coach)
+
     merge(EN.STR, {
       menu: { play: 'Spielen', playSub: (name, lv) => `${name} gegen CPU · ${lv}` },
       first: { play: 'Spielen', sub: 'Ein Tipp und du kämpfst', menu: 'Alle Modi' },
@@ -740,28 +751,24 @@
       },
     });
 
-    // ================================================================ VOLUME: sliders on the menu card and in pause (js/volume.js)
+
     merge(EN.STR, {
       vol: {
         title: 'Lautstärke', master: 'Gesamt', music: 'Musik', sfx: 'Effekte', sound: 'Ton',
         pct: (n) => `${n} %`,
         muted: 'Der Ton ist aus. Beweg einen Regler, um ihn wieder einzuschalten.',
-        // Settings > Audio: character / announcer voices switch (js/voice.js) and the courtesy credit under it
+
         voice: 'Stimmen',
         uiSfx: 'Menütöne',
         credit: 'Stimmen: ユーフルカ (youfulca.com) · 効果音ラボ · すぱらんど',
       },
     });
 
-    // ================================================================ TOUCH LAYOUT EDITOR: movement modes + "Customize controls"
-    // (js/touch.js settings rows, js/touch-editor.js; Turkish source in i18n.js, block "touch movement modes + layout editor")
+
+
     merge(EN.STR, {
       tedit: {
-        move: 'Bewegung',
-        moves: { float: 'Stick', fixed: 'Fester Stick', dpad: 'Steuerkreuz' },
         mnote: {
-          float: 'Der Stick erscheint dort, wo dein Daumen landet.',
-          fixed: 'Der Stick bleibt, wo du ihn hinsetzt; drück aus seiner Mitte heraus.',
           dpad: 'Einzelne Tasten: halten zum Gehen, zweimal tippen für Sprint. Zwischen zwei Tasten drücken für beide (▶ + ▲ = Sprung nach vorn).',
           dtap: 'Einzelne Tasten: Kurz auf ◀ ▶ tippen macht einen kleinen Schritt, halten zum Gehen, zweimal tippen für Sprint.',
         },
@@ -777,7 +784,7 @@
         opacity: 'Deckkraft', opacityAll: 'Deckkraft (alle)',
         hide: 'Ausblenden', show: 'Einblenden', hidden: 'Ausgeblendet',
         snap: 'Am Raster ausrichten',
-        presets: 'Vorlagen', pRight: 'Rechte Hand', pLeft: 'Linke Hand', pSplit: 'Deckung links',
+        presets: 'Vorlagen', pRight: 'Rechte Hand', pLeft: 'Linke Hand',
         reset: 'Standard wiederherstellen', resetDone: 'Standard-Layout ist zurück (gilt nach dem Speichern).',
         overlap: 'Tasten dürfen sich nicht überlappen: an den nächsten freien Platz verschoben.',
         noRoom: 'Dort ist kein Platz: Die Taste ist zurückgesprungen.',
@@ -788,8 +795,8 @@
       },
     });
 
-    // ================================================================ PROGRESSION: honor, rival challenges, moves panel
-    // (arcade.js STR.honor / STR.rival / STR.hint, game.js select screen; rules in js/honor.js)
+
+
     merge(EN.STR, {
       menu: { arcadeDesc: 'Besiege deine Rivalen einen nach dem anderen, während die Schwierigkeit steigt – am Ende wartet ein verborgener Meister. Die reichste Quelle für Ehre.' },
       sel: {
@@ -862,8 +869,8 @@
       },
     });
 
-    // ================================================================ COMBAT: new kits, combos, move list (combat designer)
-    // Akane/Aoi/Ren/Kage identities, combo counter, ki cancel, ND.MOVELIST names/descriptions (read through ND.i18n.t)
+
+
     merge(EN.CHARS, {
       akane: { desc: 'Meisterin des Iaijutsu. Die Klinge ruht in der Scheide, jeder Schnitt ist ein Ziehen; ihre Ziehhaltung fängt ankommende Hiebe ab.', weapon: 'Katana (iai)' },
       aoi: { desc: 'Einhändige Tachi-Fechtkunst des Windes. Weit reichende Stöße und Windschritte überbrücken jede Distanz mit einer einzigen Bewegung.', weapon: 'Tachi' },
@@ -873,7 +880,7 @@
     merge(EN.TXT, { kiCancel: 'KI-CANCEL!', launch: 'HOCHSCHLAG!', iaiCatch: 'IAI GAESHI!' });
     EN.PATTERNS.push([/^(\d+) VURUŞ$/, '$1 TREFFER']);
     merge(EN.PHRASES, {
-      // shared rows
+
       'Tekme': 'Tritt',
       'Tekme: dengeyi hızla doldurur, gardı kırmaya yarar. Ardından AĞIR ile seri bitirişine bağlanır.': 'Tritt: füllt die Haltung schnell und hilft, Deckungen zu brechen. Mit SCHWER danach wird daraus ein Serienabschluss.',
       'Shuriken fırlatır; zamanla yeniden dolar.': 'Wirft ein Shuriken; sie füllen sich mit der Zeit wieder auf.',
@@ -893,7 +900,7 @@
       'Atılırken dönerek geniş kesik; yere serer.': 'Ein weiter Drehschnitt aus dem Sprint; wirft zu Boden.',
       'İki kesiklik seri bitirişi; son kesik yere serer.': 'Ein Serienabschluss aus zwei Schnitten; der letzte wirft zu Boden.',
       'Rakibin kılıcını aşağı çarpıp dürter: gardı ezer.': 'Schlägt die gegnerische Klinge nieder und stößt zu: zermalmt die Deckung.',
-      // Akane
+
       'Kından yatay çekiş kesiği, çapraz iniş, geri dönen kesik; kılıç her seferinde kınına döner.': 'Ein waagerechter Ziehschnitt aus der Scheide, ein schräger Schnitt nach unten und ein Rückschnitt; die Klinge kehrt jedes Mal in die Scheide zurück.',
       'Derin çömelişten geniş yatay çekiş; yere serer.': 'Ein weiter waagerechter Ziehschnitt aus tiefer Hocke; wirft zu Boden.',
       'Atılarak kından çekiş: uzak mesafeyi bir anda kapatır, seriye devam eder.': 'Ein Ziehschnitt im Sprint: überbrückt eine weite Distanz im Nu und setzt die Serie fort.',
@@ -902,7 +909,7 @@
       'Çekiş duruşu: kısa bir an bekler; bu sırada gelen yakın dövüş darbesini yakalar ve kaçınılmaz bir iai kesiğiyle karşılık verir. Boşa giderse açık kalır.': 'Ziehhaltung: wartet einen Augenblick; ein Nahkampfhieb, der in dieser Zeit eintrifft, wird abgefangen und mit einem unausweichlichen Iai-Schnitt beantwortet. Kommt nichts, steht sie ungedeckt da.',
       'Kesa’dan sonra yükselen ve inen iki çekiş kesiği; son kesik yere serer.': 'Nach Kesa ein aufsteigender und ein fallender Ziehschnitt; der letzte wirft zu Boden.',
       'Tekmeden sonra çömelip rakibin içinden geçen kızıl iai; arkasında belirir.': 'Nach dem Tritt ein geduckter karmesinroter Iai, der mitten durch den Gegner fährt; sie taucht hinter ihm wieder auf.',
-      // Aoi
+
       'Tek elle uzun dürtüş, yukarı savrulan kesik ve rüzgâr adımıyla derin atılma dürtüşü.': 'Ein langer einhändiger Stoß, ein aufschnellender Schnitt und ein tiefer Ausfallstoß auf einem Windschritt.',
       'Dönerek geniş yatay kesik; yere serer.': 'Ein weiter waagerechter Schnitt mit Drehung; wirft zu Boden.',
       'Rüzgâr adımı: çok uzaktan tek hamlede dürter, seriye devam eder.': 'Windschritt: stößt aus großer Entfernung in einer Bewegung zu und setzt die Serie fort.',
@@ -911,7 +918,7 @@
       'Geri sıçrar, ardından çok uzağa uzanan dürtüşle geri döner: gardı ezer, yere serer.': 'Springt zurück und kommt mit einem sehr langen Stoß wieder: zermalmt die Deckung und wirft zu Boden.',
       'Üç hızlı dürtüş; sonuncusu rüzgârla rakibi savurur.': 'Drei schnelle Stöße; der letzte weht den Gegner mit dem Wind davon.',
       'İki kez dönerek çevresini biçen kesik; gardı ezer.': 'Dreht sich zweimal und schneidet rundum; zermalmt die Deckung.',
-      // Ren
+
       'Kesik · Dirsek · Diz': 'Schnitt · Ellbogen · Knie',
       'Tek elle kesik, dirsek darbesi ve uçan diz: kılıçla başlayıp bedenle biter.': 'Ein einhändiger Schnitt, ein Ellbogenstoß und ein fliegendes Knie: beginnt mit dem Schwert, endet mit dem Körper.',
       'İki elle tepeden ezici iniş; gardı zorlar, yere serer.': 'Ein vernichtender beidhändiger Schlag von oben; setzt der Deckung zu und wirft zu Boden.',
@@ -921,7 +928,7 @@
       'Topuğu havaya kaldırıp balta gibi indirir: yere serer.': 'Hebt die Ferse hoch und lässt sie wie eine Axt niedersausen: wirft zu Boden.',
       'Dirsekten sonra kesik ve tepeden ezici iniş; son vuruş yere serer.': 'Nach dem Ellbogen ein Schnitt und ein vernichtender Schlag von oben; der letzte Treffer wirft zu Boden.',
       'Tekmenin ardından dönen topuk tekmesi; yere serer.': 'Nach dem Tritt ein gedrehter Fersentritt; wirft zu Boden.',
-      // Kage
+
       'Ters tutuşla kesik, dönen kesik ve gölge adımı: kaybolup öne geçer, dürterek belirir.': 'Ein Schnitt im Rückhandgriff, ein Drehschnitt und ein Schattenschritt: verschwindet, gleitet nach vorn und taucht stoßend wieder auf.',
       'Sıçrayıp ters tutuşla aşağı saplar; yere serer.': 'Springt und sticht im Rückhandgriff nach unten; wirft zu Boden.',
       'Gölge gibi uzun atılma kesiği; seriye devam eder.': 'Ein langer Sprintschnitt wie ein Schatten; setzt die Serie fort.',
@@ -930,18 +937,18 @@
       'Ayağının dibine sis bombası atar: yakındakini sersemletir, Kage dumanın içinde geri kaçar.': 'Wirft eine Rauchbombe vor die eigenen Füße: betäubt jeden in der Nähe, während Kage im Rauch zurückweicht.',
       'Üç hızlı ters kesik ve aşağı saplama; sonuncusu yere serer.': 'Drei schnelle Rückhandschnitte und ein Stich nach unten; der letzte wirft zu Boden.',
       'Tekmeden sonra dumanda kaybolur, rakibin arkasında belirip saplar.': 'Verschwindet nach dem Tritt im Rauch, taucht hinter dem Gegner auf und sticht zu.',
-      // template row names
+
       'Nodachi serisi': 'Nodachi-Serie', 'Ağır nodachi': 'Schweres Nodachi', 'Kodachi serisi': 'Kodachi-Serie', 'Ağır kesik': 'Schwerer Hieb',
       'Tantō dansı': 'Tantō-Tanz', 'Çift kesik': 'Doppelschnitt', 'Naginata serisi': 'Naginata-Serie', 'Ağır savuruş': 'Schwerer Schwung',
       'Zincir ve orak': 'Kette und Sichel', 'Zincir çekişi': 'Kettenzug', 'Asa serisi': 'Stab-Serie', 'Ağır süpürme': 'Schwerer Feger',
       'Yelpaze serisi': 'Fächer-Serie', 'Rüzgâr dalgası': 'Windwelle', 'Tantō serisi': 'Tantō-Serie', 'Ok (basılı tut: güçlü)': 'Pfeil (halten: stark)',
       'Geri + AĞIR da ok atar (basılı tut: güçlü atış); ok kalmadıysa tantō ile tepeden iner.': 'Zurück + SCHWER schießt ebenfalls einen Pfeil (halten für einen starken Schuss); ohne Pfeile kommt sie mit dem Tantō von oben herab.',
-      // combat pop-ups
+
       'KI İPTALİ!': 'KI-CANCEL!', 'HAVAYA!': 'HOCHSCHLAG!',
     });
 
-    // ================================================================ COUNTER CINEMATIC + COMBO TRIAL (combat feel pass)
-    // js/kaeshi-cine.js STR.kaeshi, js/combo-trial.js STR.trial, js/coach.js combo/counter tips, move list legend
+
+
     {
       const tb = (t, c) => `<i class="tb${c ? ' ' + c : ''}">${t}</i>`;
       merge(EN.STR, {
@@ -985,21 +992,21 @@
       });
       const L = Array.isArray(EN.STR.lessons) && EN.STR.lessons.find((l) => l.id === 'counter');
       if (L) L.d = 'Nach Deckung oder Parade erscheint <b>SCHLAG ZU!</b> über deinem Kopf: Drück <kbd>F</kbd>, bevor der Balken abläuft. Vor/zurück + <kbd>F</kbd> oder <kbd>G</kbd> sind weitere Konter.';
-      if (EN.STR.lessonsTouch) EN.STR.lessonsTouch.counter = `Nach Deckung oder Parade erscheint <b>SCHLAG ZU!</b> über deinem Kopf: Tippe ${tb('ANGRIFF', 'tb-light')}, bevor der Balken abläuft. Stick vor/zurück + ${tb('ANGRIFF', 'tb-light')} oder ${tb('SCHWER')} sind weitere Konter.`;
+      if (EN.STR.lessonsTouch) EN.STR.lessonsTouch.counter = `Nach Deckung oder Parade erscheint <b>SCHLAG ZU!</b> über deinem Kopf: Tippe ${tb('ANGRIFF', 'tb-light')}, bevor der Balken abläuft. Vor/zurück + ${tb('ANGRIFF', 'tb-light')} oder ${tb('SCHWER')} sind weitere Konter.`;
       merge(EN.PHRASES, {
         'KOMBO TAMAM!': 'COMBO GESCHAFFT!',
         'Nasıl okunur': 'So liest du es',
         '→ rakibe doğru, ← rakipten uzağa demek: o yön tuşunu (A / D ya da ok tuşları; rakip sağındaysa D) basılı tut ve saldırı tuşuna bas. Virgül: tuşlara sırayla bas. F hafif, G ağır, R tekme, S gard.':
           '→ heißt zum Gegner hin, ← von ihm weg: Halte diese Richtungstaste (A / D oder die Pfeiltasten; D, wenn der Gegner rechts von dir steht) und drück die Angriffstaste. Ein Komma: Drück die Tasten nacheinander. F leicht, G schwer, R Tritt, S Deckung.',
-        '▶ rakibe doğru, ◀ rakipten uzağa: yön çubuğunu o yana itip düğmeye dokun. Virgül: düğmelere sırayla dokun. Antrenmandaki Kombo denemesi her seriyi adım adım gösterir.':
-          '▶ zum Gegner hin, ◀ von ihm weg: Drück den Stick in diese Richtung und tippe die Taste. Ein Komma: Tippe die Tasten nacheinander. Die Combo-Übung im Training zeigt jede Serie Schritt für Schritt.',
+        '▶ rakibe doğru, ◀ rakipten uzağa: o yön tuşunu basılı tut ve düğmeye dokun. Virgül: düğmelere sırayla dokun. Antrenmandaki Kombo denemesi her seriyi adım adım gösterir.':
+          '▶ zum Gegner hin, ◀ von ihm weg: Halte diesen Pfeil und tippe die Taste. Ein Komma: Tippe die Tasten nacheinander. Die Combo-Übung im Training zeigt jede Serie Schritt für Schritt.',
         'Gard ya da savuşturmanın ardından ekranda VUR! çıkar: altındaki çubuk bitmeden HAFİF’e bas. Yalnız HAFİF: Suriage. İleri + HAFİF: Harai (yere serer). Geri + HAFİF: Nuki (arkaya geçer). AĞIR: Uchiotoshi. Kendi üçüncü karşılığın seri bitirişidir; savuşturulursa zincir devam eder.':
           'Nach Deckung oder Parade erscheint SCHLAG ZU!: Drück LEICHT, bevor der Balken abläuft. Nur LEICHT: Suriage. Vor + LEICHT: Harai (wirft zu Boden). Zurück + LEICHT: Nuki (wechselt hinter den Gegner). SCHWER: Uchiotoshi. Deine dritte Antwort ist der Schlusshieb; wird er pariert, geht der Abtausch weiter.',
       });
     }
 
-    // ================================================================ GRAPHICS QUALITY: the Graphics setting (js/gfx.js)
-    // (Turkish source in i18n.js, block "graphics quality")
+
+
     merge(EN.STR, {
       gfx: {
         title: 'Grafik',
@@ -1012,8 +1019,8 @@
           custom: 'Deine eigenen Einstellungen (Erweitert).',
         },
         now: (lv) => `Jetzt: ${lv}`,
-        // Settings → Graphics → Advanced (game.js gfxAdvBuild, js/gfx.js KNOBS): the switch, the line under it, the hint on
-        // the heaviest rows, one title per knob and the value words (resolution shows percentages, anti-aliasing 2× / 4×)
+
+
         adv: {
           title: 'Erweitert',
           note: 'Änderst du eine, wird die Wahl zu „Eigene“; ein Tipp auf eine Voreinstellung stellt ihre Werte wieder her.',
@@ -1024,8 +1031,8 @@
       },
     });
 
-    // ================================================================ FRAME RATE: Settings → Graphics (js/gfx.js makePacer)
-    // (Turkish source in i18n.js, block "frame rate"; the numbers themselves are not translated)
+
+
     merge(EN.STR, {
       fps: {
         title: 'Bildrate',
@@ -1040,7 +1047,7 @@
       },
     });
 
-    // ================================================================ SETTINGS SCREEN (js/settings.js; Turkish source in i18n.js)
+
     merge(EN.STR, {
       set: {
         title: 'Einstellungen', close: 'Schließen',
@@ -1050,29 +1057,30 @@
       },
     });
 
-    // ================================================================ LANGUAGE PICKER (js/lang-ui.js; Turkish source in i18n.js)
-    // Language names are not translated: each one is written in its own language (ND.i18n.names).
+
+
     merge(EN.STR, { lang: { title: 'Sprache', change: 'Sprache ändern', close: 'Schließen' } });
 
-    // ================================================================ SHARED LABELS (static HTML / move list text that is the same word in Turkish)
+
+    merge(EN.STR, { loadTip: { head: 'WICHTIGER TIPP', text: (g) => `Willst du den Kampf meistern? Drücke nach JEDEM Angriff ${g}.` } });
+
+
     merge(EN.PHRASES, { 'Shuriken': 'Shuriken', 'KI': 'KI' });
 
-    // ================================================================ TOUCH HELP PER MOVEMENT MODE
-    // (game.js touchHelp(): the menu's touch help follows the movement mode; Turkish source in i18n.js)
+
+
     merge(EN.STR, {
       thelp: {
-        title: { float: 'Joystick', fixed: 'Fester Joystick', dpad: 'Steuerkreuz' },
-        float: { walk: 'Daumen auf die freie Hälfte legen und schieben: gehen', jump: 'Nach oben drücken: springen', guard: 'Nach unten ziehen: Deckung', dash: 'Zweimal kurz zur Seite schnippen: Sprint' },
-        fixed: { walk: 'Stick in der Mitte fassen und zur Seite drücken: gehen', jump: 'Nach oben drücken: springen', guard: 'Nach unten ziehen: Deckung', dash: 'Zweimal kurz zur Seite schnippen: Sprint' },
+        title: { dpad: 'Steuerkreuz' },
         dpad: {
-          walk: 'Halten: gehen', step: 'Kurz tippen: ein kleiner Schritt', jump: 'Tippen: springen', guard: 'Halten: Deckung',
+          walk: 'Halten: gehen', step: 'Kurz tippen: ein kleiner Schritt', jump: 'Tippen: springen', guard: 'Halten: Deckung. Kurz vor einem Treffer tippen: Parade',
           dash: 'Doppeltippen: Sprint', both: 'Zwischen zwei Tasten drücken löst beide aus (▶ + ▲ = Sprung nach vorn)',
         },
         edit: (b) => `${b}: Zieh jede Taste, wohin du willst, und stell Größe und Deckkraft ein. Unter Einstellungen → Steuerung.`,
       },
     });
 
-    // Persistent character journeys.
+
     merge(EN.STR, { menu: { arcadeDesc: "Acht Kämpfe für jeden Ninja. Setze beim nächsten Gegner fort und schalte das Charakterende und das Meistersiegel frei." }, sel: { title: { arcade: "Arcade · Charakterreise" } },
       journey: {
         start: "Reise beginnen",
@@ -1089,8 +1097,8 @@
       }
     });
 
-    // ================================================================ PROGRESS / ACCOUNT (Settings → Progress, Hall of Champions;
-    // js/settings.js, js/banzuke.js; Turkish source in i18n.js, block "account and recovery code")
+
+
     merge(EN.STR, {
       set: { tabs: { save: 'Fortschritt' } },
       acct: {
@@ -1114,8 +1122,8 @@
       lb: { savedLocalAccount: (r) => (r ? `#${r} auf diesem Gerät · dein Konto ist gerade nicht erreichbar` : 'Auf diesem Gerät gespeichert · dein Konto ist gerade nicht erreichbar') },
     });
 
-    // ================================================================ PRIVACY (js/privacy.js; Turkish source in i18n.js, block
-    // "privacy"). The policy page itself (privacy.html) is English + Turkish; this language sees the English part.
+
+
     merge(EN.STR, {
       priv: {
         notice: 'Shadow Duel speichert deinen Spitznamen und deine Punkte für die Online-Bestenlisten.',
@@ -1124,8 +1132,8 @@
       },
     });
 
-    // ================================================================ FIRST-FIGHT RALLY TUTORIAL: js/tutorial.js STR.tutor and
-    // Training → Parry drill (Turkish source in i18n.js, block "rally tutorial")
+
+
     merge(EN.STR, {
       menu: { trainDrill: 'Parier-Übung' },
       tutor: {
@@ -1145,12 +1153,21 @@
         mastered: 'GEMEISTERT!', masteredSub: 'Abwehren, kontern, wiederholen',
         warm: (l) => `Aufwärmen: dreimal mit ${l} treffen`,
         nudge: (k) => `Drücke ${k}`, nudgeT: (k) => `Tippe auf ${k}`,
+
+
+        skip: 'Überspringen ›',
+        steps: {
+          attack: (b) => `Schlag zu mit ${b}`, guard: (b) => `Wehr die Klinge ab mit ${b}`, counter: (b) => `Konter mit ${b}`,
+          timing: (b, l) => `Du bist dran: ${b}, wenn sich der Ring schließt, dann ${l}`,
+        },
+        ok: { attack: 'SCHÖN!', guard: 'PARIERT!', counter: 'KONTER!', timing: 'PERFEKT!' },
+        ready: 'BEREIT!', readySub: 'Jetzt gewinne das Duell',
       },
     });
 
-    // ================================================================ NEW PLAYER: the select screen's one-time greeting
-    // (game.js openSelect), the VS goal line's "?" (arcade.js openVs) and the just-in-time tips (js/coach.js ND.coach.tips;
-    // arguments: key / button chips, lessons: the menu names of Training and Tutorial). Turkish source in i18n.js.
+
+
+
     merge(EN.STR, {
       onb: { selIntro: 'Wähle deinen Ninja: Jeder hat seine eigene Reise', more: 'Details' },
       tips: {
@@ -1167,7 +1184,7 @@
       },
     });
 
-    // ================================================================ online "play with a friend" (js/online.js: ND.STR.online)
+
     merge(EN.STR, {
       online: {
         title: 'Mit einem Freund spielen',
@@ -1240,7 +1257,7 @@
       },
     });
 
-    // ================================================================ ranked duel (js/ranked.js: ND.STR.ranked)
+
     merge(EN.STR, {
       ranked: {
         title: 'Ranglisten-Duell', menuSub: 'Zufälliger Gegner · Punkte, Ränge und Saisons', offline: 'Ranglistenspiele sind gerade nicht verfügbar',
@@ -1293,7 +1310,18 @@
         aiNote: 'Wenn wenige Spieler online sind, kannst du auf KI-Gegner treffen, die im Stil echter Spieler kämpfen.', gotIt: 'Verstanden',
         err: { network: 'Server nicht erreichbar. Prüfe deine Internetverbindung.', bad_version: 'Eine neue Spielversion ist da: Lade die Seite neu.', busy: 'Die Warteschlange ist voll, versuch es gleich noch mal.',
           rate_limited: 'Zu viele Versuche, warte kurz.', disabled: 'Ranglistenspiele sind gerade nicht verfügbar.', banned: 'Dieses Konto darf keine Ranglistenspiele spielen.', other: 'Etwas ist schiefgelaufen, versuch es noch mal.' },
+
+        bg: { ru: 'Während der Suche stöbern', stopT: 'Ranglistensuche beenden?', stopS: 'Dieser Kampf beendet deine Suche.', stopGo: 'Beenden und spielen', keep: 'Weiter suchen', stopped: 'Ranglistensuche beendet', chip: 'Suche' },
+        card: { findMatch: 'Match suchen', searching: 'Suche…', resume: 'Zurück zum Match',
+          place: (p, n) => `Platz ${p} von ${n}`, placeOnly: (p) => `Platz ${p} der Rangliste`,
+          toBoard: (n) => (n === 1 ? 'Noch 1 Match bis zur Rangliste' : `Noch ${n} Matches bis zur Rangliste`), toBoardSoon: 'Noch ein paar Matches bis zur Rangliste',
+          invite: 'Vom Ashigaru zum Shōgun: dein erstes Ranglistenmatch ist nur einen Tipp entfernt',
+          guestInvite: 'Melde dich an, um um Punkte zu spielen · Gäste spielen ohne Wertung', nickInvite: 'Wähle einen Spitznamen, um um Punkte zu spielen',
+          winRate: (p) => `${p} % Siege`, streakW: (n) => `${n} Siege in Folge`, streakL: (n) => `${n} Niederlagen in Folge`,
+          peak: (t) => `Saisonbestwert: ${t}`, shields: (n) => `Schild ×${n}`, top: 'Top 3 der Saison', you: 'Du', empty: 'Noch niemand in der Rangliste: sei der Erste', rating: 'Punkte' },
       },
+
+      upd: { ready: 'Neue Version bereit – tippen zum Aktualisieren', refresh: 'Neue Version da – lade die Seite neu, um sie zu spielen', close: 'Schließen' },
     });
 
     void dec; void fmtTime; void num;

@@ -1,51 +1,86 @@
-// Shadow Duel — localisation layer (ND.i18n)
-//
-// The game was written in Turkish; Turkish stays the source language and every other language is an
-// overlay applied at startup:
-//   - text tables are translated IN PLACE: ND.STR, ND.TXT, ND.CHARS (title/desc/weapon), ND.ARENAS (name),
-//     ND.SPECIALS (desc/tip), ND.AI_LEVELS (name). The originals are kept, so setLang('tr') restores them.
-//   - the DOM is translated by a pass over text nodes and aria-label/title/placeholder (exact phrases),
-//     whole-element HTML for mixed content, and data-i18n="key" elements; a MutationObserver keeps doing it
-//     for text the game writes later (banners, end screen, toasts).
-//   - canvas pop-ups: fx.text() (scene.js) calls t() itself.
-//   - t(text) = exact phrase → regex pattern → unchanged. t('menu.arcade') also reads a ND.STR path.
-// Language (first match wins):
-//   1. ?lang=xx in the URL (testing; not saved)
-//   2. the player's own choice, saved in ND.save settings as `lang` (older builds: localStorage nd.lang)
-//   3. a portal that requires its own language: Yandex Games (SDK environment.i18n.lang) or Playgama (bridge.platform.language),
-//      via ND.portal.requiredLanguage()
-//      once the SDK answers; until then the device language below is the best guess there)
-//   4. the device language: the first entry of navigator.languages (then navigator.language) that is one of the seven
-//      supported languages, e.g. ['nl-NL', 'fr-FR', 'en'] → fr. CrazyGames and Poki start here too (their SDK locale is
-//      not used: the browser already gives the same answer at once, without a late switch).
-//   5. English, when none of the device languages is supported.
-// Codes map to a supported language with langOf(): ru/be/kk/uk/uz → ru, pt-BR/pt-PT → pt, tr, es, de, fr, en; others: none.
-// Catalogs register as ND.I18N_CATALOGS[lang] = (I, EN) => { ...fill EN... } (see i18n-en.js). A catalog other than
-// English falls back to English for any key it lacks (never to the Turkish source).
-// Load order: after every script that defines a table (arcade, roster2, banzuke…) and the catalogs, before game.js.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 (function (ND) {
   'use strict';
 
   const SOURCE = 'tr';
   const DEFAULT = 'en';
-  // order of the language picker
-  const SUPPORTED = ['en', 'tr', 'es', 'pt', 'ru', 'de', 'fr'];
-  // each language's name in its own language (picker, aria labels)
-  const NAMES = { en: 'English', tr: 'Türkçe', es: 'Español', pt: 'Português', ru: 'Русский', de: 'Deutsch', fr: 'Français' };
-  const LOCALES = { en: 'en-US', tr: 'tr-TR', es: 'es-ES', pt: 'pt-BR', ru: 'ru-RU', de: 'de-DE', fr: 'fr-FR' };
-  const ALIAS = { be: 'ru', kk: 'ru', uk: 'ru', uz: 'ru' };
-  const LS_KEY = 'nd.lang'; // older builds saved the choice here; read once and moved into ND.save settings
+
+  const SUPPORTED = ['en', 'tr', 'es', 'pt', 'ru', 'de', 'fr', 'it', 'pl', 'id', 'vi', 'th', 'hi', 'ar', 'zh', 'zh-TW', 'ja', 'ko'];
+
+  const NAMES = {
+    en: 'English', tr: 'Türkçe', es: 'Español', pt: 'Português', ru: 'Русский', de: 'Deutsch', fr: 'Français',
+    it: 'Italiano', pl: 'Polski', id: 'Bahasa Indonesia', vi: 'Tiếng Việt', th: 'ไทย', hi: 'हिन्दी', ar: 'العربية',
+    zh: '简体中文', 'zh-TW': '繁體中文', ja: '日本語', ko: '한국어',
+  };
+
+  const LOCALES = {
+    en: 'en-US', tr: 'tr-TR', es: 'es-ES', pt: 'pt-BR', ru: 'ru-RU', de: 'de-DE', fr: 'fr-FR',
+    it: 'it-IT', pl: 'pl-PL', id: 'id-ID', vi: 'vi-VN', th: 'th-TH', hi: 'hi-IN', ar: 'ar-u-nu-latn',
+    zh: 'zh-CN', 'zh-TW': 'zh-TW', ja: 'ja-JP', ko: 'ko-KR',
+  };
+  const ALIAS = { be: 'ru', kk: 'ru', uk: 'ru', uz: 'ru', ms: 'id', in: 'id' };
+
+
+  const BUNDLED = ['en', 'tr'];
+  const LAZY = SUPPORTED.filter((l) => !BUNDLED.includes(l));
+
+  const FONT_CSS = { th: 1, hi: 1, ar: 1, zh: 1, 'zh-TW': 1, ja: 1, ko: 1 };
+  const LAZY_V = 'langs-1';
+
+  const DEC_POINT = { en: 1, zh: 1, 'zh-TW': 1, ja: 1, ko: 1, th: 1, hi: 1, ar: 1 };
+  const LS_KEY = 'nd.lang';
   const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v) && Object.getPrototypeOf(v) === Object.prototype;
   const norm = (s) => String(s).replace(/\s+/g, ' ').trim();
-  // HTML keys ignore the data-code marks input.js puts on <kbd> for keyboard-layout labels
+
   const normHtml = (h) => norm(String(h).replace(/ data-code="[^"]*"/g, ''));
-  // 'pt-BR' / 'RU' / 'uk' → a supported language, or null
-  const langOf = (code) => { const c = String(code || '').trim().slice(0, 2).toLowerCase(); const l = ALIAS[c] || c; return SUPPORTED.includes(l) ? l : null; };
+
+  const langOf = (code) => {
+    const raw = String(code || '').trim().replace(/_/g, '-').toLowerCase();
+    if (/^zh\b/.test(raw)) return /-hans\b/.test(raw) ? 'zh' : /-(hant|tw|hk|mo)\b/.test(raw) ? 'zh-TW' : 'zh';
+    if (/^yue\b/.test(raw)) return 'zh-TW';
+    const c = raw.slice(0, 2), l = ALIAS[c] || c;
+    return SUPPORTED.includes(l) ? l : null;
+  };
+
+  const fileOf = (l) => 'js/i18n-' + l.toLowerCase() + '.js?v=' + LAZY_V;
+  const hasCatalog = (l) => l === SOURCE || !!(ND.I18N_CATALOGS && typeof ND.I18N_CATALOGS[l] === 'function');
   const pick = (code) => langOf(code) || DEFAULT;
 
-  // ---------------------------------------------------------------- catalogs
+
   const catalogs = {};
-  // fill(target, src): add what target lacks (plain objects recurse; strings, functions and arrays are taken whole)
+
   function fill(target, src) {
     if (!isObj(src) || !target) return target;
     for (const k of Object.keys(src)) {
@@ -56,27 +91,28 @@
   }
   function catalog(lang) {
     if (catalogs[lang]) return catalogs[lang];
+    if (lang !== 'en' && !hasCatalog(lang)) return catalog('en');
     const EN = catalogs[lang] = { STR: {}, TXT: {}, CHARS: {}, ARENAS: {}, SPECIALS: {}, AI_LEVELS: {}, NUMWORDS: [], PHRASES: {}, HTML: {}, PATTERNS: [] };
     const build = ND.I18N_CATALOGS && ND.I18N_CATALOGS[lang];
     if (typeof build === 'function') {
       try { build(I, EN); } catch (e) { console.warn('[i18n] catalog build failed:', lang, e); }
     }
-    // anything this catalog lacks comes from English (a late key never shows the Turkish source)
+
     if (lang !== 'en' && lang !== SOURCE) {
       const B = catalog('en');
       for (const part of ['STR', 'TXT', 'CHARS', 'ARENAS', 'SPECIALS', 'AI_LEVELS', 'PHRASES', 'HTML']) fill(EN[part], B[part]);
       if (!EN.NUMWORDS.length) EN.NUMWORDS = B.NUMWORDS.slice();
       EN.PATTERNS = EN.PATTERNS.concat(B.PATTERNS);
     }
-    // normalised lookups
+
     EN._phr = new Map(Object.keys(EN.PHRASES).map((k) => [norm(k), EN.PHRASES[k]]));
     EN._html = new Map(Object.keys(EN.HTML).map((k) => [normHtml(k), EN.HTML[k]]));
-    // cheap pre-check before serialising an element: its text can't be longer than the longest key's text
+
     EN._htmlMax = Math.max(0, ...Object.keys(EN.HTML).map((k) => norm(k.replace(/<[^>]*>/g, '')).length)) + 8;
     return EN;
   }
 
-  // merge(target, src): plain objects recurse; strings, numbers, functions and arrays replace
+
   function merge(target, src) {
     if (!isObj(src) || !target) return target;
     for (const k of Object.keys(src)) {
@@ -86,7 +122,7 @@
     return target;
   }
 
-  // Same as merge, but records the values it overwrote so they can be put back
+
   function overlay(target, src, backup) {
     if (!isObj(src) || !target) return;
     for (const k of Object.keys(src)) {
@@ -108,8 +144,8 @@
     backup.orig.clear(); backup.kids.clear();
   }
 
-  // ---------------------------------------------------------------- tables
-  const backups = new Map(); // table object -> backup tree
+
+  const backups = new Map();
   const bk = (obj) => { let b = backups.get(obj); if (!b) { b = { orig: new Map(), kids: new Map() }; backups.set(obj, b); } return b; };
   function applyTables(EN) {
     if (ND.STR) overlay(ND.STR, EN.STR, bk(ND.STR));
@@ -120,10 +156,10 @@
     if (ND.AI_LEVELS) for (const k in EN.AI_LEVELS) { const L = ND.AI_LEVELS[k]; if (L) overlay(L, { name: EN.AI_LEVELS[k] }, bk(L)); }
   }
   function restoreTables() { for (const [obj, b] of backups) restore(obj, b); }
-  // Original (source-language) value of a table field, e.g. src(ND.CHARS[0], 'title')
+
   function src(obj, key) { const b = backups.get(obj); return b && b.orig.has(key) && b.orig.get(key) !== NONE ? b.orig.get(key) : obj[key]; }
 
-  // ---------------------------------------------------------------- t()
+
   const cache = new Map();
   const strPath = (p) => (ND.STR && /^[A-Za-z]\w*(\.\w+)+$/.test(p) ? p.split('.').reduce((o, k) => (o != null ? o[k] : undefined), ND.STR) : undefined);
   function t(text, ...args) {
@@ -150,26 +186,26 @@
     return out === undefined ? text : out;
   }
 
-  // ---------------------------------------------------------------- formatting
+
   const loc = () => LOCALES[I.lang] || 'en-US';
   const nf = {};
   function num(n) {
     const v = Math.round(Number(n) || 0), l = loc();
     try { return (nf[l] || (nf[l] = new Intl.NumberFormat(l))).format(v); } catch (e) { return String(v); }
   }
-  // decimal comma everywhere but English
-  const dec = (x) => (I.lang === 'en' ? String(x) : String(x).replace('.', ','));
+
+  const dec = (x) => (DEC_POINT[I.lang] ? String(x) : String(x).replace('.', ','));
   const time = (s) => { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
   const upper = (s) => { try { return String(s).toLocaleUpperCase(loc()); } catch (e) { return String(s).toUpperCase(); } };
   const lower = (s) => { try { return String(s).toLocaleLowerCase(loc()); } catch (e) { return String(s).toLowerCase(); } };
 
-  // ---------------------------------------------------------------- DOM
-  const nodeSrc = new WeakMap(); // text node -> { src, out }
-  const elSrc = new WeakMap();   // element -> { html?, attrs: {} }
+
+  const nodeSrc = new WeakMap();
+  const elSrc = new WeakMap();
   const ATTRS = ['aria-label', 'title', 'placeholder'];
   const SKIP_TAGS = /^(SCRIPT|STYLE|CANVAS|svg|SVG|TEXTAREA|INPUT|SELECT|NOSCRIPT|TEMPLATE)$/;
   const skipEl = (el) => SKIP_TAGS.test(el.tagName) || el.getAttribute('translate') === 'no' || el.hasAttribute('data-i18n-skip');
-  // Added nodes and text mutations may arrive deep inside a protected subtree.
+
   const skippedBranch = (node) => {
     for (let el = node.nodeType === 1 ? node : node.parentElement; el; el = el.parentElement) if (skipEl(el)) return true;
     return false;
@@ -178,7 +214,7 @@
   function textNode(n) {
     const v = n.nodeValue;
     let rec = nodeSrc.get(n);
-    if (!rec || (v !== rec.out && v !== rec.src)) { rec = { src: v, out: v }; nodeSrc.set(n, rec); } // new text written by the game
+    if (!rec || (v !== rec.out && v !== rec.src)) { rec = { src: v, out: v }; nodeSrc.set(n, rec); }
     let out = rec.src;
     if (I.lang !== SOURCE) {
       const k = norm(rec.src);
@@ -188,10 +224,10 @@
     if (v !== out) n.nodeValue = out;
     if (I.lang === SOURCE) guardCase(n);
   }
-  // Turkish page (<html lang="tr">): CSS text-transform: uppercase follows Turkish casing, i → İ. Names that are not
-  // Turkish (fighter names written "Jin" / "Yuki", technique names like "Kage Bunshin") in an uppercased element would
-  // read "JİN", "KAGE BUNSHİN". Such a name goes into its own <span lang="en"> so it is cased as written elsewhere.
-  // Only names with a small i matter (the other letters case the same); the page's own Turkish words keep Turkish casing.
+
+
+
+
   let foreignRe = null, foreignN = -1;
   function foreignNames() {
     const S = ND.SPECIALS || {}, n = (ND.CHARS || []).length * 1000 + Object.keys(S).length;
@@ -220,10 +256,10 @@
   }
   function element(el, EN) {
     let rec = elSrc.get(el);
-    // explicit key
+
     const key = el.getAttribute('data-i18n');
     if (key) { const v = t(key); if (el.textContent !== v) el.textContent = v; return false; }
-    // attributes
+
     for (const a of ATTRS) {
       if (!el.hasAttribute(a)) continue;
       rec = rec || { attrs: {} }; elSrc.set(el, rec);
@@ -232,11 +268,11 @@
       const r = rec.attrs[a], out = I.lang === SOURCE ? r.src : t(r.src);
       r.out = out; if (cur !== out) el.setAttribute(a, out);
     }
-    // whole-element HTML (mixed text + tags)
+
     if (EN && EN._html.size && el.firstElementChild) {
       const cur = el.innerHTML;
       if (rec && rec.html && normHtml(cur) === normHtml(rec.html.out)) {
-        // ours from an earlier pass: re-translate from the source (the language may have changed)
+
         const tr = EN._html.get(normHtml(rec.html.src));
         if (tr !== undefined && normHtml(tr) !== normHtml(cur)) { el.innerHTML = tr; rec.html.out = tr; }
         return true;
@@ -267,12 +303,12 @@
     walk(root.nodeType === 9 ? root.documentElement : root);
     relabel(root);
     if (root === document.body || root === document || root === document.documentElement) {
-      // the page's <title> is English (what crawlers and portal previews read); the Turkish name is the lookup key
+
       document.title = I.lang === SOURCE ? TITLE_TR : t(TITLE_TR);
     }
   }
   const TITLE_TR = 'Gölge Düellosu';
-  const relabel = (root) => { try { if (ND.input && ND.input.relabel && root.querySelectorAll) ND.input.relabel(root); } catch (e) { /* yok */ } };
+  const relabel = (root) => { try { if (ND.input && ND.input.relabel && root.querySelectorAll) ND.input.relabel(root); } catch (e) {           } };
 
   let observer = null, busy = false;
   function watch(root) {
@@ -295,18 +331,18 @@
     observer.observe(root, { childList: true, characterData: true, subtree: true });
   }
 
-  // ---------------------------------------------------------------- language
+
   const fns = [];
   let explicit = false, from = 'default';
-  // The player's saved choice (ND.save settings `lang`; the older localStorage key is moved there once)
+
   function savedLang() {
     let s = null;
-    try { s = ND.save && ND.save.settings ? ND.save.settings().lang : null; } catch (e) { /* storage blocked */ }
+    try { s = ND.save && ND.save.settings ? ND.save.settings().lang : null; } catch (e) {                       }
     if (s && langOf(s) === s) return s;
     try {
       const old = localStorage.getItem(LS_KEY);
       if (old && langOf(old) === old) { if (storeLang(old)) localStorage.removeItem(LS_KEY); return old; }
-    } catch (e) { /* private tab */ }
+    } catch (e) {                   }
     return null;
   }
   function storeLang(lang) {
@@ -315,10 +351,10 @@
         const s = ND.save.settings() || {}; s.lang = lang; ND.save.saveSettings(s);
         return ND.save.settings().lang === lang;
       }
-    } catch (e) { /* storage blocked: this session only */ }
+    } catch (e) {                                          }
     return false;
   }
-  // The device's languages in the player's order (navigator.languages; older browsers only navigator.language)
+
   const browserLangs = () => {
     try {
       const list = navigator.languages && navigator.languages.length ? Array.from(navigator.languages) : [];
@@ -326,51 +362,97 @@
       return list;
     } catch (e) { return []; }
   };
-  // First device language the game speaks, or null (→ English)
+
   const deviceLang = () => { for (const c of browserLangs()) { const l = langOf(c); if (l) return l; } return null; };
-  // Portals that make the game follow their language (Yandex rule 2.14, Playgama required step). Others: device language.
+
   const PORTAL_LANG = { yandex: true, playgama: true };
   function initialLang() {
-    try { const q = ND.qs ? ND.qs.get('lang') : new URLSearchParams(location.search).get('lang'); if (q) { explicit = true; from = 'url'; return pick(q); } } catch (e) { /* no URL */ }
+    try { const q = ND.qs ? ND.qs.get('lang') : new URLSearchParams(location.search).get('lang'); if (q) { explicit = true; from = 'url'; return pick(q); } } catch (e) {              }
     const s = savedLang();
     if (s) { explicit = true; from = 'saved'; return s; }
     const dev = deviceLang();
-    // Yandex / Playgama: the SDK answers later; the device language is the closest guess until then
+
     if (PORTAL_LANG[ND.portalName]) { from = 'portal-guess'; return dev || DEFAULT; }
     if (dev) { from = 'device'; return dev; }
     from = 'default';
     return DEFAULT;
   }
-  // Canvas text does not make the browser fetch a font: ask for the glyph subsets a language needs up front
-  const FONT_PROBE = { ru: 'ДуэльЖЯ', tr: 'ğışİ', de: 'ßÄ', fr: 'œÉ', es: 'ñÁ', pt: 'ãõ' };
+
+  const FONT_PROBE = {
+    ru: 'ДуэльЖЯ', tr: 'ğışİ', de: 'ßÄ', fr: 'œÉ', es: 'ñÁ', pt: 'ãõ', pl: 'ąęłśżŁ', it: 'àèìò', vi: 'ạếờĐữ',
+    th: 'ไทย', hi: 'हिन्दी', ar: 'العربية', zh: '中文', 'zh-TW': '中文', ja: 'あア日本', ko: '한국어',
+  };
   function loadFonts(lang) {
     const p = FONT_PROBE[lang];
     if (!p || !document.fonts || !document.fonts.load) return;
-    ['700 20px Oswald', '600 20px Oswald', '500 14px "Source Sans 3"', '600 14px "Source Sans 3"'].forEach((f) => { try { document.fonts.load(f, p).catch(() => {}); } catch (e) { /* old browser */ } });
+    ['700 20px Oswald', '600 20px Oswald', '500 14px "Source Sans 3"', '600 14px "Source Sans 3"'].forEach((f) => { try { document.fonts.load(f, p).catch(() => {}); } catch (e) {                   } });
   }
-  // setLang(lang, { save: true }) = the player's choice (kept across visits). Returns the language in use.
+
+
+
+
+  const fontLinks = {};
+  function langFonts(lang) {
+    for (const l of Object.keys(fontLinks)) fontLinks[l].disabled = l !== lang;
+    if (!FONT_CSS[lang] || fontLinks[lang] || !document.createElement) return;
+    try {
+      const k = document.createElement('link');
+      k.rel = 'stylesheet';
+      k.href = 'fonts/lang/' + lang.toLowerCase() + '.css?v=' + LAZY_V;
+      k.onload = () => { if (I.lang === lang) loadFonts(lang); };
+      (document.head || document.documentElement).appendChild(k);
+      fontLinks[lang] = k;
+    } catch (e) {                            }
+  }
+
+  const loading = {};
+  function loadLang(l) {
+    if (hasCatalog(l)) return Promise.resolve(true);
+    if (loading[l]) return loading[l];
+    return (loading[l] = new Promise((done) => {
+      try {
+        const s = document.createElement('script');
+        s.src = fileOf(l);
+        s.async = true;
+        s.onload = () => done(hasCatalog(l));
+        s.onerror = () => { delete loading[l]; done(false); };
+        (document.head || document.documentElement).appendChild(s);
+      } catch (e) { delete loading[l]; done(false); }
+    }));
+  }
+  let want = null;
+
   function setLang(lang, opts = {}) {
     lang = langOf(lang) || DEFAULT;
     if (opts.save) { explicit = true; from = 'saved'; storeLang(lang); }
+    if (!hasCatalog(lang)) {
+
+      if (I.lang === SOURCE && !I.ready) setLang(DEFAULT);
+      want = lang;
+      loadLang(lang).then((ok) => { if (want !== lang) return; want = null; if (ok) setLang(lang); });
+      return I.lang;
+    }
+    want = null;
     if (lang === I.lang && I.ready) return lang;
     restoreTables();
     I.lang = lang;
     cache.clear();
     if (lang !== SOURCE) applyTables(catalog(lang));
     document.documentElement.lang = lang;
+    langFonts(lang);
     loadFonts(lang);
     if (I.ready) refreshDom();
     return lang;
   }
-  // Re-fill everything already on screen: data-s texts (ND.STR.apply), touch/keyboard swaps, then the DOM pass
+
   function refreshDom() {
-    try { if (ND.STR && typeof ND.STR.apply === 'function') ND.STR.apply(document); } catch (e) { /* yok */ }
-    try { if (ND.touch && ND.touch.swapTexts) ND.touch.swapTexts(); } catch (e) { /* yok */ }
+    try { if (ND.STR && typeof ND.STR.apply === 'function') ND.STR.apply(document); } catch (e) {           }
+    try { if (ND.touch && ND.touch.swapTexts) ND.touch.swapTexts(); } catch (e) {           }
     apply(document.body);
     fns.forEach((fn) => { try { fn(I.lang); } catch (e) { console.warn('[i18n] listener', e); } });
   }
 
-  // Every string table and DOM text still in Turkish while another language is on: for QA, run ND.i18n.audit()
+
   function audit() {
     const TRCH = /[çğıöşüÇĞİÖŞÜ]/, out = { lang: I.lang, str: [], chars: [], specials: [], arenas: [], dom: [] };
     if (I.lang === SOURCE) return out;
@@ -379,7 +461,7 @@
       for (const k of Object.keys(o)) {
         const v = o[k], q = p ? p + '.' + k : k;
         if (typeof v === 'string') { if (TRCH.test(v) || / (ve|ile|bir|için) /.test(v)) out.str.push(q); }
-        else if (typeof v === 'function' && k !== 'apply' && k !== 'pickT') { try { const s = String(v(1, 2, 3, 4, 5)); if (TRCH.test(s)) out.str.push(q + '()'); } catch (e) { /* yok */ } }
+        else if (typeof v === 'function' && k !== 'apply' && k !== 'pickT') { try { const s = String(v(1, 2, 3, 4, 5)); if (TRCH.test(s)) out.str.push(q + '()'); } catch (e) {           } }
         else if (Array.isArray(v) || isObj(v)) walk(v, q);
       }
     };
@@ -398,15 +480,20 @@
 
   const I = ND.i18n = {
     lang: SOURCE, source: SOURCE, default: DEFAULT, supported: SUPPORTED, names: NAMES, ready: false,
-    catalog, merge, t, num, dec, time, upper, lower, src, apply, watch, setLang, audit, langOf, locale: loc,
+    catalog, merge, t, num, dec, time, upper, lower, src, apply, watch, setLang, audit, langOf, locale: loc, load: loadLang,
+
+
+    loaded(l) { if (catalogs[l] && l !== 'en') delete catalogs[l]; },
+
+    get pending() { return want; },
     get explicit() { return explicit; },
-    // where the language came from: 'url' | 'saved' | 'portal' | 'portal-guess' | 'device' | 'default'
+
     get from() { return from; },
     onChange(fn) { fns.push(fn); },
-    // Start: pick the language, translate tables + DOM, keep watching the DOM; follow a portal that requires its language
-    init() {
+
+    init(first) {
       if (I.ready) return;
-      setLang(initialLang());
+      setLang(first || initialLang());
       I.ready = true;
       refreshDom();
       watch();
@@ -421,14 +508,14 @@
       });
     },
   };
-  // ---------------------------------------------------------------- Turkish source additions: touch controls
-  // The touch layout (js/touch.js: simple 5-button layout, ATTACK button, settings in pause) replaced the older
-  // touch texts that arcade.js defines. They are written into ND.STR here, before any language overlay, so they are
-  // the Turkish source and i18n-en.js translates them like every other table.
+
+
+
+
   function touchSource(STR) {
     if (!STR || !STR.touch) return;
     const tb = (t, c) => `<i class="tb${c ? ' ' + c : ''}">${t}</i>`;
-    const ATK = tb('SALDIR', 'tb-light'), HV = tb('AĞIR'), GD = tb('GARD', 'tb-guard'), KI = tb('KI', 'ki');
+    const ATK = tb('SALDIR', 'tb-light'), HV = tb('AĞIR'), GD = tb('▼', 'tb-guard'), KI = tb('KI', 'ki');
     merge(STR.touch, {
       btn: { light: 'SALDIR' },
       lock: 'SALDIR’a hızlıca bas!',
@@ -440,38 +527,43 @@
         hand: 'Düğmeler', right: 'Sağda', left: 'Solda',
         assist: 'Kolay yardım', haptic: 'Titreşim',
         fullscreen: 'Tam ekran', exitFullscreen: 'Tam ekrandan çık',
-        note: 'Basit: 5 büyük düğme. Tam: tekme ve shuriken de eklenir. Kolay yardım: SALDIR’ı basılı tutunca seri kendiliğinden sürer, GARD’a kısa dokunuş savuşturmaya yetecek kadar sürer, yön çubuğu kazayla zıplatmaz. Yalnız dokunmayı kolaylaştırır; kurallar ve puanlar herkes için aynı.',
+        note: 'Basit: 4 büyük düğme. Tam: tekme ve shuriken de eklenir. Kolay yardım: SALDIR’ı basılı tutunca seri kendiliğinden sürer, ▼’ye kısa dokunuş savuşturmaya yetecek kadar sürer. Yalnız dokunmayı kolaylaştırır; kurallar ve puanlar herkes için aynı.',
         fullNote: 'TEKME ve SHURIKEN düğmeleri Tam düzende (Ayarlar → Kontroller).',
       },
       help: '<div class="th-grid">' +
-        '<div><h3>Yön çubuğu</h3><dl>' +
-        `<dt>${tb('◀ ▶')}</dt><dd>Boş yarıda başparmağını koy ve kaydır: yürü</dd>` +
-        `<dt>${tb('▲')}</dt><dd>Yukarı it: zıpla</dd>` +
-        `<dt>${tb('▼', 'tb-guard')}</dt><dd>Aşağı çek: gard</dd>` +
-        `<dt>${tb('▶▶')}</dt><dd>Yana hızlıca iki kez it: atılma</dd>` +
+        '<div><h3>Yön tuşları</h3><dl>' +
+        `<dt>${tb('◀ ▶')}</dt><dd>Basılı tut: yürü</dd>` +
+        `<dt>${tb('▲')}</dt><dd>Dokun: zıpla</dd>` +
+        `<dt>${GD}</dt><dd>Basılı tut: gard. Darbeden hemen önce dokun: savuşturma</dd>` +
+        `<dt>${tb('▶▶')}</dt><dd>İki kez dokun: atılma</dd>` +
         '</dl></div>' +
         '<div><h3>Düğmeler</h3><dl>' +
         `<dt>${ATK}</dt><dd>Kesik. Art arda dokun: kombo. İleri ya da geri tutarak dokun: başka teknik</dd>` +
         `<dt>${HV}</dt><dd>Ağır kesik. İleri + AĞIR: rakibi havaya fırlatır</dd>` +
-        `<dt>${GD}</dt><dd>Basılı tut: gard. Darbeden hemen önce dokun: savuşturma</dd>` +
-        `<dt>${tb('ATIL')}</dt><dd>Atılma (çubuğun yönüne, yoksa geriye)</dd>` +
+        `<dt>${tb('ATIL')}</dt><dd>Atılma (basılı tuttuğun ◀ ▶ yönüne, yoksa geriye)</dd>` +
         `<dt>${KI}</dt><dd>Ki tekniği: ki dolunca düğme parlar</dd>` +
         `<dt>${tb('TEKME')} ${tb('SHUR.')}</dt><dd>Tam düzende: tekme ve shuriken</dd>` +
         '</dl></div></div>',
-      note: `Aynı anda birden çok düğmeye basabilirsin: gardı tutup saldır ya da parmağını ${GD}’dan ${ATK}’a kaydır. Ekranın üstündeki <b>II</b> duraklatır; düzen, boyut ve solak ayarı <b>Ayarlar</b>’dadır. Klavye ya da gamepad kullanınca kontroller kendiliğinden onlara geçer.`,
+      note: `Aynı anda birden çok düğmeye basabilirsin: ${GD}’yi basılı tutup gard al, öbür başparmağınla ${ATK}’a dokun. Ekranın üstündeki <b>II</b> duraklatır; düzen, boyut ve solak ayarı <b>Ayarlar</b>’dadır. Klavye ya da gamepad kullanınca kontroller kendiliğinden onlara geçer.`,
     });
     STR.movesTouch = [
-      [tb('◀ ▶'), 'Yürü', 'yön çubuğu · hızlıca iki kez it: atılma'],
-      [tb('▲'), 'Zıpla', 'çubuğu yukarı it'],
+      [tb('◀ ▶'), 'Yürü', 'basılı tut · iki kez dokun: atılma'],
+      [tb('▲'), 'Zıpla', 'dokun'],
       [ATK + '×3', 'Üçlü kombo', 'art arda dokun; üçüncü vuruş iter'],
       [HV, 'Ağır kesik', 'yere serer'],
       [tb('TEKME'), 'Tekme', 'gardı zorlar, dengeyi doldurur · Tam düzen'],
+      [tb('▼', 'tb-guard') + '+' + tb('TEKME'), 'Süpürme', 'yere serer · üstünden atla'],
+      ['Geri+' + tb('TEKME'), 'Dönen tekme', 'yavaş, güçlü, gardı kırar'],
+      ['İleri+' + tb('TEKME'), 'El tekmesi', 'kalkışa denk gelirse kılıcı düşürür'],
+      [tb('▲') + '›' + tb('TEKME'), 'Uçan tekme', 'havada'],
+      ['←→+' + tb('TEKME'), 'Özel tekme', 'her ninjanın kendine özgü'],
+      [tb('TEKME'), 'Kılıcı tekmeyle kaldır', 'silahsızken kılıcının yanında'],
       [tb('SHUR.'), 'Shuriken', 'Tam düzen'],
       [tb('ATIL'), 'Atılma', ''],
       [tb('ATIL') + '›' + ATK, 'Atılarak kesik', ''],
       [tb('▲') + '›' + ATK, 'Hava kesiği', ''],
       [tb('▲') + '›' + HV, 'Dalış', 'havadayken ağır'],
-      [GD, 'Gard', 'basılı tut ya da çubuğu aşağı çek'],
+      [GD, 'Gard', 'basılı tut'],
       [GD + '!', 'Savuşturma', 'darbe inmeden hemen önce dokun'],
       [ATK, 'Düz karşılık', 'gard/savuşturma sonrası'],
       ['İleri+' + ATK, 'Süpürme', 'karşılık · bacağa'],
@@ -481,27 +573,27 @@
       [ATK + '!!', 'Kılıç kilidi', 'kilitte SALDIR’a hızlıca bas, rakibi it'],
     ];
     STR.lessonsTouch = Object.assign(STR.lessonsTouch || {}, {
-      walk: 'Ekranın boş yarısında başparmağını kaydır: yön çubuğunu sağa ve sola iterek yürü.',
+      walk: `${tb('◀')} ve ${tb('▶')} tuşlarını basılı tutarak ileri geri yürü.`,
       combo: `${ATK} düğmesine art arda üç kez dokun: üç kesiği zincirle ve kuklaya vur.`,
       heavy: `${HV} ile ağır kesik vur. Yavaştır ama yere serer.`,
       gbreak: `Kukla gard tutuyor. ${HV} ile vurarak denge çubuğunu doldur ve gardını kır (Tam düzendeki ${tb('TEKME')} daha da hızlı doldurur).`,
-      block: `Kukla saldırıyor. ${GD} düğmesini basılı tut (ya da çubuğu aşağı çek) ve bir kesiği karşıla.`,
-      parry: `Darbe inmeden hemen önce ${GD}’a dokun. Mavi halka küçülünce tam zamanıdır.`,
-      counter: `Gard ya da savuşturmanın hemen ardından ${ATK}: karşı kesik. Çubuk ileri/geri + ${ATK} ya da ${HV} da dene.`,
+      block: `Kukla saldırıyor. ${GD} tuşunu basılı tut ve bir kesiği karşıla.`,
+      parry: `Darbe inmeden hemen önce ${GD}’ye dokun. Mavi halka küçülünce tam zamanıdır.`,
+      counter: `Gard ya da savuşturmanın hemen ardından ${ATK}: karşı kesik. İleri/geri + ${ATK} ya da ${HV} da dene.`,
       special: `Ki barın dolu. Parlayan ${KI} düğmesiyle {sp} kullan.`,
     });
-    // first-fight coach (coach.js) on touch: its own sentences (the button chip is the verb's object)
+
     if (STR.coach) merge(STR.coach, {
       attackT: (l) => `${l}’a dokun · art arda dokun: kombo`,
-      guardT: (l, g) => `${g}’ı basılı tut: gard`,
-      parryT: (l, g) => `Darbe inmeden hemen önce ${g}’a dokun: savuştur`,
+      guardT: (l, g) => `${g}’yi basılı tut: gard`,
+      parryT: (l, g) => `Darbe inmeden hemen önce ${g}’ye dokun: savuştur`,
     });
   }
   touchSource(ND.STR);
 
-  // ---------------------------------------------------------------- Turkish source additions: counter cinematic + combo trial
-  // (combat feel pass: js/kaeshi-cine.js STR.kaeshi, js/combo-trial.js STR.trial, js/coach.js combo/counter tips,
-  // the Counter lesson text). English in i18n-en.js, block "COUNTER CINEMATIC + COMBO TRIAL".
+
+
+
   function combatSource(STR) {
     if (!STR) return;
     const tb = (t, c) => `<i class="tb${c ? ' ' + c : ''}">${t}</i>`;
@@ -545,13 +637,13 @@
     });
     const L = Array.isArray(STR.lessons) && STR.lessons.find((l) => l.id === 'counter');
     if (L) L.d = 'Gard ya da savuşturmadan sonra başının üstünde <b>VUR!</b> çıkar: altındaki çubuk bitmeden <kbd>F</kbd>’ye bas. İleri/geri + <kbd>F</kbd> ya da <kbd>G</kbd> başka karşılıklardır.';
-    if (STR.lessonsTouch) STR.lessonsTouch.counter = `Gard ya da savuşturmadan sonra başının üstünde <b>VUR!</b> çıkar: çubuk bitmeden ${tb('SALDIR', 'tb-light')}’a dokun. Çubuk ileri/geri + ${tb('SALDIR', 'tb-light')} ya da ${tb('AĞIR')} başka karşılıklardır.`;
+    if (STR.lessonsTouch) STR.lessonsTouch.counter = `Gard ya da savuşturmadan sonra başının üstünde <b>VUR!</b> çıkar: çubuk bitmeden ${tb('SALDIR', 'tb-light')}’a dokun. İleri/geri + ${tb('SALDIR', 'tb-light')} ya da ${tb('AĞIR')} başka karşılıklardır.`;
   }
   combatSource(ND.STR);
 
-  // ---------------------------------------------------------------- Turkish source additions: rally tutorial
-  // js/tutorial.js (first-fight "defend → counter" tutorial, STR.tutor); its Training entry menu.trainDrill is in arcade.js.
-  // Pass texts get the light and guard key chips (l, g). Catalogs: block "FIRST-FIGHT RALLY TUTORIAL" in i18n-*.js.
+
+
+
   if (ND.STR) {
     ND.STR.tutor = {
       defend: 'SAVUN!', attack: 'SALDIR!', again: 'TEKRAR!',
@@ -568,16 +660,25 @@
         miss: 'Bir daha deneyelim.',
       },
       mastered: 'USTALAŞTIN!', masteredSub: 'Savun, karşılık ver, yeniden',
-      // warm-up before the first freeze (l: the ATTACK key chip, HTML); the nudge under the key chip (k: plain text)
+
       warm: (l) => `Isın: ${l} ile üç kez vur`,
       nudge: (k) => `${k} tuşuna bas`, nudgeT: (k) => `${k} düğmesine dokun`,
+
+
+      skip: 'Geç ›',
+      steps: {
+        attack: (b) => `${b} ile vur`, guard: (b) => `Kılıcı ${b} ile karşıla`, counter: (b) => `${b} ile karşılık ver`,
+        timing: (b, l) => `Sıra sende: halka kapanırken ${b}, sonra ${l}`,
+      },
+      ok: { attack: 'GÜZEL!', guard: 'SAVUŞTURDUN!', counter: 'KARŞILIK!', timing: 'KUSURSUZ!' },
+      ready: 'HAZIRSIN!', readySub: 'Şimdi düelloyu kazan',
     };
   }
 
-  // ---------------------------------------------------------------- Turkish source additions: new player's first minutes
-  // onb: the select screen's one-time greeting (game.js openSelect) and the VS goal line's "?" button (arcade.js openVs).
-  // tips: just-in-time tips (js/coach.js ND.coach.tips); the arguments are key / button chips (HTML) of the current
-  // device; lessons(a, b) gets the menu names of Training and Tutorial. Catalogs: block "NEW PLAYER" in i18n-*.js.
+
+
+
+
   if (ND.STR) {
     ND.STR.onb = { selIntro: 'Ninjanı seç: her birinin kendi yolculuğu var', more: 'Ayrıntı' };
     ND.STR.tips = {
@@ -594,27 +695,23 @@
     };
   }
 
-  // ---------------------------------------------------------------- Turkish source additions: volume sliders
-  // js/volume.js (menu controls card + pause dialog). English in i18n-en.js, block "VOLUME".
+
+
   if (ND.STR) ND.STR.vol = merge(ND.STR.vol || {}, {
     title: 'Ses düzeyi', master: 'Genel', music: 'Müzik', sfx: 'Efektler', sound: 'Ses',
     pct: (n) => `%${n}`,
     muted: 'Ses kapalı. Bir sürgüyü oynatınca yeniden açılır.',
-    // Ayarlar > Ses: karakter ve sunucu sesleri anahtarı (js/voice.js) ve altındaki teşekkür satırı
+
     voice: 'Seslendirme',
     uiSfx: 'Menü sesleri',
     credit: 'Seslendirme: ユーフルカ (youfulca.com) · 効果音ラボ · すぱらんど',
   });
 
-  // ---------------------------------------------------------------- Turkish source additions: touch movement modes + layout editor
-  // js/touch.js (movement row, "tap to step", the Customize button in the touch settings) and js/touch-editor.js
-  // (the editor). English in i18n-en.js, block "TOUCH LAYOUT EDITOR". Button names come from STR.touch.btn.
+
+
+
   if (ND.STR) ND.STR.tedit = merge(ND.STR.tedit || {}, {
-    move: 'Hareket',
-    moves: { float: 'Çubuk', fixed: 'Sabit çubuk', dpad: 'Yön tuşları' },
     mnote: {
-      float: 'Çubuk, başparmağının değdiği yerde belirir.',
-      fixed: 'Çubuk, koyduğun yerde durur; ortasından it.',
       dpad: 'Ayrı düğmeler: basılı tut yürü, iki kez dokun atıl. İki düğmenin arasına basınca ikisi birden (▶ + ▲ = ileri zıpla).',
       dtap: 'Ayrı düğmeler: ◀ ▶ kısa dokunuşta tek küçük adım, basılı tut yürü, iki kez dokun atıl.',
     },
@@ -630,7 +727,7 @@
     opacity: 'Görünürlük', opacityAll: 'Hepsinin görünürlüğü',
     hide: 'Gizle', show: 'Göster', hidden: 'Gizli',
     snap: 'Izgaraya hizala',
-    presets: 'Hazır düzen', pRight: 'Sağ el', pLeft: 'Sol el', pSplit: 'Gard solda',
+    presets: 'Hazır düzen', pRight: 'Sağ el', pLeft: 'Sol el',
     reset: 'Varsayılana dön', resetDone: 'Varsayılan düzen geri geldi (kaydedince geçerli).',
     overlap: 'Düğmeler üst üste binemez: en yakın boş yere kondu.',
     noRoom: 'Orada yer yok: düğme eski yerine döndü.',
@@ -640,9 +737,9 @@
     dirs: { dl: '◀ Sol', dr: 'Sağ ▶', du: '▲ Zıpla', dd: '▼ Gard' },
   });
 
-  // ---------------------------------------------------------------- Turkish source additions: graphics quality
-  // js/gfx.js choices (ND.gfx.levels: auto / high / medium / low) for the Graphics setting. English in i18n-en.js,
-  // block "GRAPHICS QUALITY". note.* = one short line under the choice.
+
+
+
   if (ND.STR) ND.STR.gfx = merge(ND.STR.gfx || {}, {
     title: 'Grafik',
     levels: { auto: 'Otomatik', high: 'Yüksek', medium: 'Orta', low: 'Düşük', custom: 'Özel' },
@@ -654,8 +751,8 @@
       custom: 'Kendi seçtiğin ayarlar (Gelişmiş).',
     },
     now: (lv) => `Şu an: ${lv}`,
-    // Settings → Graphics → Advanced (game.js gfxAdvBuild, js/gfx.js KNOBS): the switch, the line under it, the hint on
-    // the heaviest rows, one title per knob and the value words (resolution shows percentages, anti-aliasing 2× / 4×)
+
+
     adv: {
       title: 'Gelişmiş',
       note: 'Birini değiştirince seçim "Özel" olur; bir hazır ayara basınca onun değerleri geri gelir.',
@@ -665,12 +762,12 @@
     },
   });
 
-  // ---------------------------------------------------------------- Turkish source additions: frame rate
-  // Settings → Graphics, the Frame rate row (js/gfx.js makePacer targets 60 / 90 / 120 / max; game.js). English in
-  // i18n-en.js, block "FRAME RATE". The numbers are shown as they are; only "Max" and the lines under the row are text.
+
+
+
   if (ND.STR) ND.STR.fps = merge(ND.STR.fps || {}, {
     title: 'Kare hızı',
-    // the switch under the row: a small frame-rate readout at the bottom of the screen (game.js fpsMeter)
+
     show: 'FPS göster',
     levels: { max: 'Maks' },
     note: {
@@ -681,14 +778,19 @@
     },
   });
 
-  // ---------------------------------------------------------------- Turkish source additions: language picker
-  // js/lang-ui.js (globe on the first screen / menu title, "Language" row in the controls card and the pause dialog).
-  // Other languages: block "LANGUAGE PICKER" in each js/i18n-*.js. Language names themselves come from ND.i18n.names.
+
+
+
   if (ND.STR) ND.STR.lang = merge(ND.STR.lang || {}, { title: 'Dil', change: 'Dili değiştir', close: 'Kapat' });
 
-  // ---------------------------------------------------------------- Turkish source additions: settings screen
-  // js/settings.js (the ⚙ Settings button on the first screen, the main menu and the pause dialog, and the Settings
-  // panel with its tabs). Other languages: block "SETTINGS SCREEN" in each js/i18n-*.js.
+
+
+
+  if (ND.STR) ND.STR.loadTip = merge(ND.STR.loadTip || {}, { head: 'ÖNEMLİ İPUCU', text: (g) => `Dövüşte ustalaşmak mı istiyorsun? HER saldırıdan sonra ${g} tuşuna bas.` });
+
+
+
+
   if (ND.STR) ND.STR.set = merge(ND.STR.set || {}, {
     title: 'Ayarlar', close: 'Kapat',
     tabs: { audio: 'Ses', controls: 'Kontroller', gfx: 'Grafik', lang: 'Dil' },
@@ -696,25 +798,23 @@
     touchNote: 'Dokunmatik kontrol ayarları, ekrana dokunduğunda burada çıkar.',
   });
 
-  // ---------------------------------------------------------------- Turkish source additions: touch help per movement mode
-  // game.js touchHelp(): the first column of the menu's touch help (STR.touch.help) follows the chosen movement mode
-  // (js/touch.js prefs.move: float / fixed / dpad, dpad + dtap = tap to step), and a line points to the layout editor.
-  // Button chips (◀ ▶, ▲, ▼…) are added by game.js. English in i18n-en.js, block "TOUCH HELP PER MOVEMENT MODE".
+
+
+
+
   if (ND.STR) ND.STR.thelp = merge(ND.STR.thelp || {}, {
-    title: { float: 'Yön çubuğu', fixed: 'Sabit çubuk', dpad: 'Yön tuşları' },
-    float: { walk: 'Başparmağını boş yarıya koy ve kaydır: yürü', jump: 'Yukarı it: zıpla', guard: 'Aşağı çek: gard', dash: 'Yana hızlıca iki kez it: atılma' },
-    fixed: { walk: 'Çubuğu ortasından tut, yana it: yürü', jump: 'Yukarı it: zıpla', guard: 'Aşağı çek: gard', dash: 'Yana hızlıca iki kez it: atılma' },
+    title: { dpad: 'Yön tuşları' },
     dpad: {
-      walk: 'Basılı tut: yürü', step: 'Kısa dokun: tek küçük adım', jump: 'Dokun: zıpla', guard: 'Basılı tut: gard',
+      walk: 'Basılı tut: yürü', step: 'Kısa dokun: tek küçük adım', jump: 'Dokun: zıpla', guard: 'Basılı tut: gard. Darbeden hemen önce dokun: savuşturma',
       dash: 'İki kez dokun: atılma', both: 'İki düğmenin arasına bas: ikisi birden (▶ + ▲ = ileri zıpla)',
     },
-    // b = the editor's button name (STR.tedit.edit), drawn as a chip
+
     edit: (b) => `${b}: her düğmeyi istediğin yere sürükle, boyutunu ve görünürlüğünü ayarla. Ayarlar → Kontroller’de.`,
   });
 
-  // ---------------------------------------------------------------- Turkish source additions: account and recovery code
-  // js/settings.js (Settings → Kayıt tab) and js/banzuke.js (Hall of Champions footer). CrazyGames account state,
-  // the "save to your CrazyGames account" button and the guest recovery code. Other languages: block "PROGRESS / ACCOUNT".
+
+
+
   if (ND.STR) {
     ND.STR.set = merge(ND.STR.set || {}, { tabs: { save: 'Kayıt' } });
     ND.STR.acct = merge(ND.STR.acct || {}, {
@@ -737,16 +837,34 @@
     });
   }
 
-  // ---------------------------------------------------------------- Turkish source additions: privacy
-  // js/privacy.js: the one-time notice for players whose game is connected to the online leaderboards, and the links
-  // to the privacy policy page (privacy.html: English + Turkish; other languages see English). Other languages: block
-  // "PRIVACY" in each js/i18n-*.js.
+
+
+
+
   if (ND.STR) ND.STR.priv = merge(ND.STR.priv || {}, {
     notice: 'Gölge Düellosu, çevrimiçi sıralamalar için takma adını ve skorlarını kaydeder.',
     policy: 'Gizlilik Politikası', terms: 'Koşullar', both: 'Gizlilik Politikası ve Koşullar',
     ok: 'Tamam', label: 'Gizlilik bildirimi',
   });
 
-  // Scripts sit at the end of <body>, so the DOM is there: start now unless a page wants to call init() itself
-  if (!ND.I18N_MANUAL) I.init();
+
+
+
+
+  if (!ND.I18N_MANUAL) {
+    const first = initialLang();
+    let wrote = false;
+    if (!hasCatalog(first) && LAZY.includes(first)) {
+      try {
+        const cur = document.currentScript;
+        if (document.readyState === 'loading' && cur && !cur.async && !cur.defer && typeof document.write === 'function') {
+          I.boot = () => { I.boot = null; I.init(first); };
+          langFonts(first);
+          document.write('<script src="' + fileOf(first) + '"></scr' + 'ipt><script>window.ND.i18n.boot&&window.ND.i18n.boot()</scr' + 'ipt>');
+          wrote = true;
+        }
+      } catch (e) { wrote = false; }
+    }
+    if (!wrote) I.init(first);
+  }
 })(window.ND);
