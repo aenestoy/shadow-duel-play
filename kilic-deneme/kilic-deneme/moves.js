@@ -94,24 +94,28 @@ export const MOVES = {
     name: 'Overhead cut (shomen)', feet: FEET,
     keys: [
       at(0, {}),
-      // wind-up: the hands rise in front of the face (never through it), the hips settle back onto the rear foot
-      at(180, { hip: [-3, -81, 0], py: 12, cy: 18, lean: 2, nod: 2, R: [42, -156, 4], by: 0, el: 80, pR: [-0.6, 0.3, 0.75], pL: [-0.6, 0.3, -0.75] }, 'io'),
-      // furikaburi: both fists above the forehead, the blade back over the head; the body tall
-      at(340, { hip: [-5, -82, 0], py: 10, cy: 18, lean: -2, nod: 0, R: [4, -181, 3], by: 0, el: 135, ...UPEL }, 'out'),
+      // wind-up: the chest opens to the camera (3/4, never the back), the fists go up out in front, under the chin line
+      at(150, { hip: [-2, -80.5, 0], py: 14, cy: 30, lean: 3, nod: 3, R: [44, -140, 4], by: 0, el: 62, pR: [-0.5, 0.45, 0.75], pL: [-0.5, 0.45, -0.75] }, 'io'),
+      // the fists keep rising out in front with the elbows still low (the forearms stand clear of the face) ...
+      at(205, { hip: [-3, -81, 0], py: 13, cy: 34, lean: 2, nod: 2, R: [30, -162, 4], by: 0, el: 96, pR: [-0.2, 0.9, 0.4], pL: [-0.6, 0.3, -0.75] }, 'io'),
+      at(238, { hip: [-3.5, -81.2, 0], py: 12.5, cy: 36, lean: 2, nod: 2, R: [21, -171, 4], by: 0, el: 110, pR: [-0.3, 0.3, 0.9], pL: [-0.8, 0, -0.6] }, 'io'),
+      // ... then the elbows flick up and back so the near arm rises behind the face, the fists pass over the forehead
+      at(268, { hip: [-4, -81.5, 0], py: 12, cy: 38, lean: 2, nod: 2, R: [10, -180, 3], by: 0, el: 122, ...UPEL }, 'io'),
+      // furikaburi: fists high over the crown, the blade back over the head; the body tall, the face clear
+      at(340, { hip: [-5, -82, 0], py: 11, cy: 40, lean: 1, nod: 1, R: [-8, -185, 3], by: 0, el: 150, ...UPEL }, 'out'),
       // the hips start forward first; the hands wait (the hips lead the cut)
-      at(430, { hip: [3, -81, 0], py: 6, cy: 16, lean: 0, nod: 1, R: [8, -181, 3], by: 0, el: 132, ...UPEL }, 'io'),
-      at(495, { hip: [11, -78, 0], py: 3, cy: 6, lean: 3, nod: 3, R: [44, -168, 3], by: 0, el: 70, pR: [-0.3, 0.4, 0.85], pL: [-0.3, 0.4, -0.85] }, 'in'),
+      at(430, { hip: [3, -81, 0], py: 7, cy: 36, lean: 3, nod: 2, R: [2, -184, 3], by: 0, el: 156, ...UPEL }, 'io'),
+      at(495, { hip: [11, -78, 0], py: 3, cy: 16, lean: 5, nod: 3, R: [44, -168, 3], by: 0, el: 70, pR: [-0.3, 0.4, 0.85], pL: [-0.5, 0.2, -0.85] }, 'in'),
       // the strike: arms long (not locked), blade level at head height, hips and shoulders square, weight on the front foot
       at(545, { hip: [17, -76, 0], py: 0, cy: 2, lean: 6, nod: 5, R: [72, -146, 2], by: 0, el: 0 }, 'lin'),
       // follow-through and a controlled stop: the blade goes on down to chest height and the hands squeeze it still
       at(610, { hip: [19, -74.5, 0], py: 0, cy: 2, lean: 8, nod: 6, R: [76, -126, 2], by: 0, el: -20 }, 'out'),
-      at(680, { hip: [19, -75, 0], py: 0, cy: 2, lean: 7.5, nod: 6, R: [75, -128, 2], by: 0, el: -16 }, 'io'),
-      at(860, { hip: [18.5, -75.2, 0], py: 1, cy: 3, lean: 7, nod: 5, R: [74.5, -128.5, 2], by: 0, el: -15 }, 'io'),
-      // recovery: the hips back first, the blade comes up to the throat line again
-      at(1060, { hip: [8, -77.5, 0], py: 8, cy: 12, lean: 6, nod: 5, R: [58, -116, 2], by: -1, el: 6 }, 'io'),
-      at(1300, {}, 'io'),
+      at(670, { hip: [18.5, -75, 0], py: 1, cy: 3, lean: 7.5, nod: 6, R: [74, -127, 2], by: 0, el: -15 }, 'io'),
+      // back to guard in one move: the hips come back over the stance, the blade rises to the centre line, the weight settles
+      at(830, { hip: [7, -78, 0], py: 9, cy: 14, lean: 6, nod: 5, R: [54, -113, 2], by: -1, el: 9 }, 'io'),
+      at(1010, {}, 'io'),
     ],
-    phases: { windup: [0, 495], active: [495, 610], recovery: [610, 1300] },
+    phases: { windup: [0, 495], active: [495, 610], recovery: [610, 1010] },
   },
   horizontal: {
     name: 'Horizontal cut (yoko, from the right)', feet: FEET,
@@ -127,38 +131,41 @@ export const MOVES = {
       at(455, { hip: [16, -76, 0], py: -6, cy: 2, lean: 8, nod: 6, R: [70, -112, 8], by: 6, el: 2, n: [0, 1, 0] }, 'lin'),
       // follow-through to the far side and a stop: the hips close a little, the blade points past the left
       at(520, { hip: [18, -76, 0], py: -12, cy: -14, lean: 8, nod: 6, R: [64, -110, -16], by: -52, el: 0, n: [0, 1, 0] }, 'out'),
-      at(590, { hip: [18, -76.5, 0], py: -12, cy: -15, lean: 8, nod: 6, R: [63, -110, -17], by: -56, el: 1, n: [0, 1, 0] }, 'io'),
-      at(770, { hip: [17.5, -76.6, 0], py: -11, cy: -14, lean: 8, nod: 6, R: [62.5, -110.5, -16.5], by: -55, el: 1, n: [0, 1, 0] }, 'io'),
-      // recovery: the blade comes back round the front to the centre line
-      at(990, { hip: [8, -78, 0], py: 4, cy: 8, lean: 7, nod: 5, R: [52, -108, -4], by: -22, el: 10, n: [0, 0.6, 0.8] }, 'io'),
-      at(1250, {}, 'io'),
+      at(580, { hip: [17.5, -76.5, 0], py: -11, cy: -13, lean: 8, nod: 6, R: [62, -110, -15], by: -50, el: 2, n: [0, 1, 0] }, 'io'),
+      // back to guard in one move: the blade comes back round the front to the centre line, the hips settle back
+      at(750, { hip: [8, -78, 0], py: 4, cy: 9, lean: 7, nod: 5, R: [52, -108, -4], by: -22, el: 10, n: [0, 0.6, 0.8] }, 'io'),
+      at(930, {}, 'io'),
     ],
-    phases: { windup: [0, 415], active: [415, 520], recovery: [520, 1250] },
+    phases: { windup: [0, 415], active: [415, 520], recovery: [520, 930] },
   },
   diagonal: {
     name: 'Diagonal cut (kesa-giri)', feet: FEET,
     keys: [
       at(0, {}),
-      // wind-up over the right shoulder: hands up by the right temple (in front of it), blade back and up, hips open
-      at(200, { hip: [-4, -81, 1], py: 24, cy: 34, lean: 1, nod: 2, R: [32, -152, 18], by: 30, el: 82, n: [0, 0.5, 0.87] }, 'io'),
-      at(330, { hip: [-6, -82, 1], py: 24, cy: 36, lean: -1, nod: 1, R: [12, -168, 24], by: 165, el: 52, n: [0, 0.6, 0.8], pR: UPEL.pR }, 'out'),
-      at(410, { hip: [1, -81, 1], py: 16, cy: 32, lean: 1, nod: 2, R: [13, -169, 24], by: 165, el: 50, n: [0, 0.6, 0.8], pR: UPEL.pR }, 'io'),
-      at(470, { hip: [10, -78, 0], py: 6, cy: 18, lean: 4, nod: 4, R: [50, -160, 24], by: 35, el: 40, n: [0, 0.6, 0.8] }, 'in'),
+      // wind-up over the right shoulder: the chest opens to the camera, the fists rise out in front with the elbows low ...
+      at(170, { hip: [-3, -81, 1], py: 22, cy: 32, lean: 2, nod: 2, R: [34, -150, 16], by: 30, el: 80, n: [0, 0.5, 0.87], pR: [-0.2, 0.9, 0.4], pL: [-0.3, 0.8, -0.5] }, 'io'),
+      // ... then the elbows go up and back so the near arm rises behind the face; the blade swings back over the shoulder
+      at(212, { hip: [-4, -81.5, 1], py: 23, cy: 36, lean: 1, nod: 2, R: [20, -166, 18], by: 95, el: 66, n: [0, 0.55, 0.84], pR: [-0.3, 0.3, 0.9], pL: [0.6, 0.6, -0.4] }, 'io'),
+      at(255, { hip: [-5, -82, 1], py: 24, cy: 39, lean: 0, nod: 1, R: [4, -178, 18], by: 150, el: 56, n: [0, 0.6, 0.8], ...UPEL, pL: [0.6, 0.6, -0.4] }, 'io'),
+      // the top: fists high by the right side of the crown, the face clear
+      at(330, { hip: [-6, -82, 1], py: 24, cy: 41, lean: 0, nod: 1, R: [-4, -181, 18], by: 165, el: 52, n: [0, 0.6, 0.8], ...UPEL, pL: [0.6, 0.6, -0.4] }, 'out'),
+      at(410, { hip: [1, -81, 1], py: 16, cy: 36, lean: 2, nod: 2, R: [2, -182, 20], by: 165, el: 48, n: [0, 0.6, 0.8], ...UPEL, pL: [0.6, 0.6, -0.4] }, 'io'),
+      at(470, { hip: [10, -78, 0], py: 6, cy: 18, lean: 4, nod: 4, R: [50, -160, 24], by: 35, el: 40, n: [0, 0.6, 0.8], pR: [-0.3, 0.4, 0.85], pL: [0.2, 0.8, -0.6] }, 'in'),
       // the strike crosses the target from the right shoulder to the left hip
       at(520, { hip: [17, -76, 0], py: -2, cy: 2, lean: 7, nod: 6, R: [70, -128, 4], by: -14, el: -22, n: [0, 0.6, 0.8] }, 'lin'),
       // follow-through low on the left, stopped (the tip clear of the floor and of the front knee)
       at(585, { hip: [19, -73, 0], py: -10, cy: -10, lean: 11, nod: 7, R: [62, -94, -10], by: -48, el: -46, n: [0, 0.6, 0.8] }, 'out'),
-      at(655, { hip: [19, -73.5, 0], py: -10, cy: -11, lean: 10.5, nod: 7, R: [61, -95, -11], by: -50, el: -43, n: [0, 0.6, 0.8] }, 'io'),
-      at(835, { hip: [18.5, -73.6, 0], py: -9, cy: -10, lean: 10, nod: 6, R: [60.5, -95.5, -10.5], by: -49, el: -42, n: [0, 0.6, 0.8] }, 'io'),
-      at(1040, { hip: [8, -78, 0], py: 4, cy: 8, lean: 7, nod: 5, R: [50, -106, -4], by: -18, el: 4, n: [0, 0.4, 0.92] }, 'io'),
-      at(1290, {}, 'io'),
+      at(645, { hip: [18.5, -73.5, 0], py: -9, cy: -9, lean: 10.5, nod: 7, R: [60, -96, -10], by: -47, el: -40, n: [0, 0.6, 0.8] }, 'io'),
+      // back to guard in one move: the blade comes up round the front to the centre line, the hips settle back
+      at(815, { hip: [8, -78, 0], py: 5, cy: 9, lean: 7, nod: 5, R: [50, -106, -4], by: -18, el: 5, n: [0, 0.4, 0.92] }, 'io'),
+      at(995, {}, 'io'),
     ],
-    phases: { windup: [0, 470], active: [470, 585], recovery: [585, 1290] },
+    phases: { windup: [0, 470], active: [470, 585], recovery: [585, 995] },
   },
   thrust: {
     name: 'Thrust (tsuki)', feet: FEET,
     // the front foot steps in with the thrust (lifted, set down: no slide) and back out in the recovery
-    steps: [{ foot: 'R', t0: 300, t1: 390, dx: 20, h: 7 }, { foot: 'R', t0: 690, t1: 800, dx: -20, h: 5 }],
+    steps: [{ foot: 'R', t0: 300, t1: 390, dx: 20, h: 7 }, { foot: 'R', t0: 505, t1: 625, dx: -20, h: 5 }],
     keys: [
       at(0, {}),
       // coil: the hips sink and draw back, the fists come in to the belly, the tip rises a hair and stays on the line
@@ -169,13 +176,12 @@ export const MOVES = {
       at(390, { hip: [28, -73, 0], py: 2, cy: 0, lean: 10, nod: 7, R: [86, -126, 2], by: 0, el: 1 }, 'lin'),
       // the point stops dead and holds (a hair of overshoot in the hands)
       at(435, { hip: [29, -72.5, 0], py: 1, cy: 0, lean: 10.5, nod: 7, R: [88, -126.5, 2], by: 0, el: 0.5 }, 'out'),
-      at(485, { hip: [29, -72.6, 0], py: 1, cy: 0, lean: 10.2, nod: 7, R: [87, -126.2, 2], by: 0, el: 0.8 }, 'io'),
-      at(660, { hip: [28, -72.7, 0], py: 2, cy: 1, lean: 10, nod: 7, R: [86, -126, 2], by: 0, el: 1 }, 'io'),
-      // pull back (hiki): the hips go back over the stance as the front foot steps out, then chudan
-      at(830, { hip: [6, -78, 0], py: 10, cy: 14, lean: 7, nod: 5, R: [54, -112, 2], by: -1, el: 10 }, 'io'),
-      at(1080, {}, 'io'),
+      at(490, { hip: [28.5, -72.6, 0], py: 1, cy: 1, lean: 10, nod: 7, R: [86, -125.5, 2], by: 0, el: 1 }, 'io'),
+      // pull back (hiki) in one move: the hips go back over the stance as the front foot steps out, the point stays on the line
+      at(650, { hip: [6, -78, 0], py: 10, cy: 14, lean: 7, nod: 5, R: [54, -112, 2], by: -1, el: 10 }, 'io'),
+      at(840, {}, 'io'),
     ],
-    phases: { windup: [0, 335], active: [335, 435], recovery: [435, 1080] },
+    phases: { windup: [0, 335], active: [335, 435], recovery: [435, 840] },
   },
   block: {
     name: 'Block (overhead, against a cut to the head)', feet: FEET,
@@ -189,11 +195,13 @@ export const MOVES = {
       // the impact: the blade gives a little, the knees take it, the body sinks
       at(300, { hip: [-6, -75, 0], py: 12, cy: 17, lean: -1, nod: 0, R: [1, -167, 5], by: 0, el: 189, ...UPEL }, 'out3'),
       at(380, { hip: [-5, -76.5, 0], py: 12, cy: 17, lean: 0, nod: -1, R: [2, -170, 5], by: 0, el: 187, ...UPEL }, 'io'),
-      // release: the blade swings back over the head to the front and settles in chudan
-      at(520, { hip: [2, -78, 0], py: 10, cy: 16, lean: 3, nod: 2, R: [26, -168, 5], by: 0, el: 140, pR: [-0.6, 0.3, 0.75], pL: [-0.6, 0.3, -0.75] }, 'io'),
-      at(900, {}, 'io'),
+      // release in one move: the near elbow swings out toward the camera (not across the face) as the blade comes over
+      // to the front, then the fists sink to the centre line and the weight settles
+      at(460, { hip: [-1, -77.5, 0], py: 12, cy: 20, lean: 2, nod: 1, R: [34, -146, 6], by: 0, el: 80, pR: [0, 0.2, 1], pL: [-0.6, 0, -0.8] }, 'io'),
+      at(600, { hip: [2, -79, 0], py: 13, cy: 21, lean: 5, nod: 3, R: [44, -114, 3], by: -1, el: 26, pR: [-0.2, 0.8, 0.6], pL: [-0.2, 0.9, -0.6] }, 'io'),
+      at(780, {}, 'io'),
     ],
-    phases: { windup: [0, 150], active: [260, 380], recovery: [380, 900] },
+    phases: { windup: [0, 150], active: [260, 380], recovery: [380, 780] },
     impact: 300,
   },
 };
