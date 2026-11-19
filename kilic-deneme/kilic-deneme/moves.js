@@ -670,17 +670,37 @@ export const MOVES = {
   // of each kick is the fight's (ms at speed 1). The front (right) foot kicks; the left stays planted, the knee giving.
   // The sword is held two-handed, upright and a little forward (clear of the face, the legs and the floor).
   kakato: {
-    name: 'Axe kick (kakato-otoshi)', feet: FEET, kick: 'R',
+    // (the owner, 2026-11-20: "the kick thrown upward while standing is bad" - the knee only came to the waist, the shin
+    // and foot dangled under it and the foot rose into her hands. Now a real axe kick: the knee chambers, the nearly
+    // straight leg swings up in front to head height, hangs, and the heel drives down in front into a long stance. The
+    // sword goes up high and back (hasso-like, two-handed) so the leg never crosses the hands, handle or blade; the trunk
+    // leans back at the top for balance; the left foot stays planted. The fight's timing is unchanged (PLAY, active).)
+    name: 'Axe kick (kakato-otoshi)', feet: FEET, kick: 'R', kneeUp: 'R',
     keys: [
       at(0, {}),
-      at(130, { hip: [-6, -81, 0], py: 10, cy: 16, lean: -4, nod: 0, R: [28, -120, 6], by: 0, el: 74, FR: [30, -44, 8] }, 'io'),
-      at(269, { hip: [-10, -84, 0], py: 6, cy: 12, lean: -20, nod: -8, R: [20, -126, 5], by: 0, el: 82, FR: [48, -136, 8] }, 'out'),
-      at(336, { hip: [-4, -82, 0], py: 6, cy: 12, lean: -10, nod: -2, R: [24, -124, 5], by: 0, el: 80, FR: [62, -110, 8] }, 'in'),
-      at(403, { hip: [8, -74, 0], py: 8, cy: 14, lean: 18, nod: 10, R: [52, -108, 6], by: 0, el: 60, FR: [70, -38, 8] }, 'lin'),
-      at(504, { hip: [9, -73, 0], py: 9, cy: 15, lean: 19, nod: 10, R: [52, -108, 6], by: 0, el: 58, FR: [68, -34, 8] }, 'out'),
-      at(640, { hip: [5, -76, 0], py: 12, cy: 18, lean: 10, nod: 6, R: [44, -106, 4], by: 0, el: 40, FR: [32, -14, 7] }, 'io'),
-      at(690, { hip: [3, -77, 0], py: 13, cy: 19, lean: 9, nod: 5, R: [40, -106, 3], by: -1, el: 32, FR: [24, -5, 6] }, 'io'),
-      at(720, { hip: [2, -78, 0], py: 13, cy: 20, lean: 8, nod: 5, R: [38, -106, 3], by: -1, el: 28, FR: [24, 0, 6] }, 'out'),
+      // the weight goes back onto the left leg, the front heel peels off; the hands start up
+      at(90, { hip: [-6, -79, 0], py: 11, cy: 18, lean: 0, nod: 2, R: [26, -132, 7], by: 0, el: 70, pR: [-0.3, 0.7, 0.65], pL: [-0.3, 0.7, -0.65], FR: [26, -16, 8] }, 'io'),
+      // chamber: the knee up in front at hip height, the foot under it; the sword high and back (hasso), clear of the leg
+      at(150, { hip: [-9, -82, 0], py: 9, cy: 15, lean: -5, nod: 0, R: [10, -160, 7], by: 0, el: 100, pR: [0.4, 0.75, 0.55], pL: [0.2, 0.6, -0.75], FR: [36, -48, 10] }, 'io'),
+      // the leg unfolds forward and up, nearly straight, and swings on up in front
+      at(200, { hip: [-11, -84, 0], py: 7, cy: 13, lean: -12, nod: -3, R: [-3, -175, 6], by: 0, el: 110, pR: [0.5, 0.7, 0.5], pL: [0.3, 0.6, -0.75], FR: [62, -114, 12] }, 'out'),
+      at(235, { hip: [-12.5, -85, 0], py: 6, cy: 12, lean: -17, nod: -5, R: [-7, -179, 6], by: 0, el: 112, pR: [0.5, 0.7, 0.5], pL: [0.3, 0.6, -0.75], FR: [53, -143, 12] }, 'out'),
+      // the top: the foot at head height, the leg straight, the trunk back for balance - a short hang
+      at(265, { hip: [-13, -85, 0], py: 6, cy: 12, lean: -20, nod: -6, R: [-8, -180, 6], by: 0, el: 112, pR: [0.5, 0.7, 0.5], pL: [0.3, 0.6, -0.75], FR: [43, -153, 12] }, 'out'),
+      at(305, { hip: [-12, -85, 0], py: 6, cy: 12, lean: -19, nod: -6, R: [-6, -180, 6], by: 0, el: 112, pR: [0.5, 0.7, 0.5], pL: [0.3, 0.6, -0.75], FR: [47, -151, 12] }, 'io'),
+      // the heel drives down in front (the hit: the fight's window 336-470); the hips come forward over it, the knee gives
+      // only near the floor
+      at(345, { hip: [-6, -84, 0], py: 7, cy: 13, lean: -10, nod: -2, R: [8, -174, 6], by: 0, el: 106, pR: [0.5, 0.7, 0.5], pL: [0.3, 0.6, -0.75], FR: [62, -126, 11] }, 'in'),
+      at(385, { hip: [3, -80, 0], py: 8, cy: 14, lean: 2, nod: 3, R: [34, -160, 6], by: 0, el: 88, pR: [0.4, 0.75, 0.55], pL: [0.2, 0.6, -0.75], FR: [66, -72, 10] }, 'lin'),
+      at(425, { hip: [10, -72, 0], py: 9, cy: 15, lean: 10, nod: 6, R: [52, -148, 6], by: 0, el: 68, pR: [-0.3, 0.65, 0.7], pL: [-0.3, 0.65, -0.7], FR: [58, -16, 9] }, 'lin'),
+      // landed: a long, low front stance, the weight over the front knee
+      at(460, { hip: [13, -68, 0], py: 10, cy: 16, lean: 12, nod: 7, R: [61, -130, 5], by: 0, el: 60, pR: [-0.25, 0.8, 0.6], pL: [-0.25, 0.8, -0.6], FR: [57, 0, 8] }, 'out'),
+      at(560, { hip: [12, -69, 0], py: 11, cy: 17, lean: 11, nod: 6, R: [61, -119, 4], by: 0, el: 50, FR: [57, 0, 8] }, 'io'),
+      // the front foot steps back into the stance (lifted: it never slides), the sword down to the centre line
+      at(615, { hip: [8, -72, 0], py: 12, cy: 18, lean: 10, nod: 5, R: [53, -114, 4], by: -1, el: 40, FR: [52, -8, 8] }, 'io'),
+      at(660, { hip: [5, -75, 0], py: 12, cy: 19, lean: 9, nod: 5, R: [45, -110, 3], by: -1, el: 32, FR: [34, -11, 7] }, 'io'),
+      at(695, { hip: [3, -77, 0], py: 13, cy: 20, lean: 8, nod: 5, R: [38, -107, 3], by: -1, el: 27, FR: [24, -5, 6] }, 'io'),
+      at(720, { hip: [2, -78, 0], py: 13, cy: 20, lean: 8, nod: 5, R: [38, -106, 3], by: -1, el: 26, FR: [24, 0, 6] }, 'out'),
       at(941, {}, 'io'),
     ],
     phases: { windup: [0, 336], active: [336, 470], recovery: [470, 941] },
@@ -720,16 +740,24 @@ export const MOVES = {
     phases: { windup: [0, 487], active: [487, 672], recovery: [672, 1445] },
   },
   // kote-geri: a quick rising snap kick at his sword hand
+  // (2026-11-20, as the axe kick: the knee bent backward under a foot raised into her own hands. Now the knee chambers
+  // high, the shin snaps out and up nearly straight at chest height, the foot comes back under the knee and down; the
+  // sword goes up and back out of the leg's way. The fight's timing is unchanged.)
   snapKick: {
-    name: 'Snap kick at the wrist (kote-geri)', feet: FEET, kick: 'R',
+    name: 'Snap kick at the wrist (kote-geri)', feet: FEET, kick: 'R', kneeUp: 'R',
     keys: [
       at(0, {}),
-      at(118, { hip: [-2, -82, 0], py: 12, cy: 18, lean: -2, nod: 2, R: [28, -120, 6], by: 0, el: 72, FR: [26, -50, 8] }, 'io'),
-      at(218, { hip: [-10, -84, 0], py: 8, cy: 14, lean: -18, nod: -6, R: [20, -124, 5], by: 0, el: 80, FR: [66, -110, 8] }, 'out'),
-      at(353, { hip: [-10, -84, 0], py: 8, cy: 14, lean: -17, nod: -6, R: [21, -124, 5], by: 0, el: 79, FR: [65, -108, 8] }, 'io'),
-      at(520, { hip: [-3, -80, 0], py: 12, cy: 18, lean: 2, nod: 3, R: [32, -112, 4], by: 0, el: 46, FR: [30, -16, 7] }, 'io'),
-      at(570, { hip: [-2, -79.5, 0], py: 12, cy: 19, lean: 4, nod: 3, R: [34, -108, 3], by: -1, el: 32, FR: [24, -5, 6] }, 'io'),
-      at(600, { hip: [-1, -79, 0], py: 13, cy: 20, lean: 6, nod: 4, R: [36, -106, 3], by: -1, el: 26, FR: [24, 0, 6] }, 'out'),
+      at(70, { hip: [-4, -80, 0], py: 12, cy: 18, lean: 1, nod: 3, R: [28, -128, 7], by: 0, el: 62, pR: [-0.3, 0.7, 0.65], pL: [-0.3, 0.7, -0.65], FR: [25, -14, 8] }, 'io'),
+      // chamber: the knee high in front, the foot tucked under it; the sword up and back
+      at(130, { hip: [-8, -82, 0], py: 10, cy: 16, lean: -6, nod: 0, R: [8, -164, 7], by: 0, el: 100, pR: [0.4, 0.75, 0.55], pL: [0.2, 0.6, -0.75], FR: [30, -54, 10] }, 'io'),
+      // the snap: the shin whips out and up, the leg nearly straight, the foot at chest height
+      at(185, { hip: [-11, -84, 0], py: 8, cy: 14, lean: -14, nod: -4, R: [-2, -174, 6], by: 0, el: 110, pR: [0.5, 0.7, 0.5], pL: [0.3, 0.6, -0.75], FR: [70, -118, 11] }, 'out'),
+      at(300, { hip: [-11, -84, 0], py: 8, cy: 14, lean: -13, nod: -4, R: [-1, -174, 6], by: 0, el: 109, pR: [0.5, 0.7, 0.5], pL: [0.3, 0.6, -0.75], FR: [68, -115, 11] }, 'io'),
+      // back under the knee, then down onto the floor (lifted: it lands, never slides)
+      at(380, { hip: [-7, -82, 0], py: 10, cy: 16, lean: -5, nod: 0, R: [14, -152, 6], by: 0, el: 90, pR: [0.4, 0.75, 0.55], pL: [0.2, 0.6, -0.75], FR: [34, -58, 10] }, 'io'),
+      at(470, { hip: [-3, -80, 0], py: 12, cy: 18, lean: 3, nod: 3, R: [30, -122, 4], by: 0, el: 54, FR: [26, -14, 7] }, 'io'),
+      at(530, { hip: [-2, -79.5, 0], py: 12, cy: 19, lean: 5, nod: 3, R: [35, -110, 3], by: -1, el: 34, FR: [24, -4, 6] }, 'io'),
+      at(570, { hip: [-1, -79, 0], py: 13, cy: 20, lean: 6, nod: 4, R: [36, -106, 3], by: -1, el: 26, FR: [24, 0, 6] }, 'out'),
       at(773, {}, 'io'),
     ],
     phases: { windup: [0, 168], active: [168, 319], recovery: [319, 773] },
@@ -1050,8 +1078,17 @@ function footAt(M, s, t) {
 }
 // a leg on its foot (knee forward over the toes) and an arm onto its hand: the fight's drawing re-lays them on its
 // planted feet and on the handle after its own corrections (js/mocap-duel.js keeps blades out of bodies)
+// (a high kick - a move with kneeUp naming the foot: the knee cap faces along the leg's own front - forward for a leg
+// hanging down, up for one raised level, up and back for one raised past level - so a leg swung up high never bends
+// backward at the knee; for a leg hanging down it is the same pole as every other leg)
 export function layLeg(P, s, ft) {
-  const r = ik3(P['hip' + s], ft, LEN.thigh, LEN.shin, add(P.fP || [1, 0, 0], [0, -0.15, s === 'R' ? 0.25 : -0.25]));
+  const fw = P.fP || [1, 0, 0];
+  let pole = add(fw, [0, -0.15, s === 'R' ? 0.25 : -0.25]);
+  if (P.kneeUp === s) {
+    const d = norm(sub(ft, P['hip' + s])), a = dot(d, norm([fw[0], 0, fw[2]]));
+    pole = add(add(mul(norm([fw[0], 0, fw[2]]), d[1]), [0, -a, 0]), [0, 0, s === 'R' ? 0.25 : -0.25]);
+  }
+  const r = ik3(P['hip' + s], ft, LEN.thigh, LEN.shin, pole);
   P['kn' + s] = r.m; P['ft' + s] = r.e; P['legReach' + s] = r.reach / (LEN.thigh + LEN.shin);
 }
 export function layArm(P, s, ha, pole) {
@@ -1063,6 +1100,7 @@ function build(M, k, B, R, prev, t = 0, opt = {}) {
   const P = {}, a = k.pitch || 0, h0 = B.hip, TP = (p) => tipAt(p, h0, a), TD = (v) => tip(v, a);
   P.hip = B.hip; P.chest = TP(B.chest); P.neck = TP(B.neck); P.head = TP(B.head); P.shR = TP(B.shR); P.shL = TP(B.shL);
   P.hipR = TP(madd(B.hip, B.rP, LEN.hipW)); P.hipL = TP(madd(B.hip, B.rP, -LEN.hipW));
+  if (M.kneeUp) P.kneeUp = M.kneeUp;
   P.pl = TD(B.rP); P.cf = TD(norm(sub(mul(B.fC, Math.cos(k.lean * D2R)), mul(UP, Math.sin(k.lean * D2R))))); P.hf = TD(B.fH); P.fP = TD(B.fP);
   R = TP(R);
   // legs: planted feet, knees forward over the toes (the fight's own planted feet when it gives them; a fall's own)

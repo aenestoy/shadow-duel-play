@@ -466,7 +466,7 @@ const build1 = Mo.Rig.prototype.build;
 // (js/mocap.js build fills the LAST pose object again (this.P || {}): after a frame drawn new, that is ours - its marks
 // and own fields stayed on the game's picture (the Pop hook then took every later frame of the game's own moves for a new
 // one and left their jumps unsmoothed). The game's build gets a clean copy.)
-const OWNF = ['kilic', 'kilicW', 'fP', 'draw', 'reachR', 'reachL', 'gripErr', 'legReachR', 'legReachL'];
+const OWNF = ['kilic', 'kilicW', 'kneeUp', 'fP', 'draw', 'reachR', 'reachL', 'gripErr', 'legReachR', 'legReachL'];
 Mo.Rig.prototype.build = function (F, dt) {
   if (this.P && (this.P.kilic || this.P.kilicW != null)) { const q = Object.assign({}, this.P); for (const n of OWNF) delete q[n]; this.P = q; }
   const gP = build1.call(this, F, dt), f = this.look;
