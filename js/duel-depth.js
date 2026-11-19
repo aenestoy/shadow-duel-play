@@ -251,14 +251,27 @@
     return L.filter((q) => q[0] && (q[1] || !q[3])); };
   const isKasa = (f) => !!(f && f.ch && f.ch.acc === 'kasa');
   const lpen = (A, B) => { let p = 0; for (const [a, b, r1, l1] of A) for (const [c, d, r2, l2] of B) { if (l1 && l2) continue; p = Math.max(p, r1 + r2 - lseg(a, b, c, d)); } return p; };
+
+  const sigOf = (clk, ja, jb) => clk + ':' + [ja.hip, jb.hip, ja.head, jb.head, ja.haF, jb.haF, ja.knF, jb.knF].map((q) => (q ? q.x.toFixed(1) + ',' + q.y.toFixed(1) : '-')).join(';');
   function litePair() {
+    const s0 = LT.sig;
+    litePairRaw();
+    if (LT.sig === s0 || !ND.anim.Pop) return;
+
+
+    const F = ND.game.F;
+    for (let i = 0; i < 2; i++) popLite(F[i], LT.ox[i]);
+    const ja = F[0].viewJ(), jb = F[1].viewJ();
+    LT.sig = sigOf(ND.simClock || 0, ja, jb);
+  }
+  function litePairRaw() {
     const GG = ND.game, F = GG && GG.F, clk = ND.simClock || 0;
     if (!D.lite || !F || !F[0] || !F[1]) return;
     const [a, b] = F, ja = a.viewJ && a.viewJ(), jb = b.viewJ && b.viewJ();
     if (!ja || !jb || !ja.hip || !jb.hip) return;
 
 
-    const sig = clk + ':' + [ja.hip, jb.hip, ja.head, jb.head, ja.haF, jb.haF, ja.knF, jb.knF].map((q) => (q ? q.x.toFixed(1) + ',' + q.y.toFixed(1) : '-')).join(';');
+    const sig = sigOf(clk, ja, jb);
     if (LT.sig === sig) return;
     const dt = LT.clk < 0 || clk < LT.clk ? 0 : Math.min(0.1, clk - LT.clk);
     if (clk < LT.clk) { LT.ra[0] = LT.ra[1] = 0; LT.raClk[0] = LT.raClk[1] = -1; }
@@ -404,7 +417,73 @@
   ND.anim.present = function (f, dt, hold, sj) {
     present0.call(this, f, dt, hold, sj);
     if (f.dz && !f.dead) apply(f, dt, hold);
+    if (f._anim) f._anim.popDirty = true;
   };
+
+
+
+
+
+  const PJ = ['hip', 'hipF', 'hipB', 'neck', 'head', 'sh', 'shB', 'elF', 'haF', 'elB', 'haB', 'knF', 'ftF', 'knB', 'ftB'];
+  const PLIMB = [['sh', 'elF', 'haF'], ['shB', 'elB', 'haB'], ['hipF', 'knF', 'ftF'], ['hipB', 'knB', 'ftB']];
+  const PRAW = {}, POPL = !/[?&]pop=0(&|$)/.test(location.search || '');
+
+  const PJG = PJ.concat(['gB']);
+  function popLite(f, ox) {
+    const S = f && f._anim, j = S && S.j;
+    if (!POPL || !j || !j.hip || !S.ok || f.dead || !f.dz) return;
+
+
+
+    const tvx = j.tip && j.haF ? j.tip.x - j.haF.x : 0, tvy = j.tip && j.haF ? j.tip.y - j.haF.y : 0, pvx = j.pom && j.haF ? j.pom.x - j.haF.x : 0, pvy = j.pom && j.haF ? j.pom.y - j.haF.y : 0;
+    const RW = S.popRaw || (S.popRaw = {});
+    if (S.popDirty) { S.popDirty = false; for (const k of PJ) { const p = j[k]; if (p) { const r = RW[k] || (RW[k] = { x: 0, y: 0 }); r.x = p.x; r.y = p.y; r.on = true; } else if (RW[k]) RW[k].on = false; } }
+    else if (!RW.hip) return;
+    else for (const k of PJ) { const r = RW[k], p = j[k]; if (r && r.on && p) { p.x = r.x; p.y = r.y; } }
+    const clk = ND.simClock || 0, sd = f.dir < 0 ? -1 : 1;
+    const ps = S.pop || (S.pop = { st: ND.anim.Pop(), x: f.x, sd, clk });
+    let dt = clk > ps.clk && clk - ps.clk < 0.25 ? clk - ps.clk : 0;
+    if (sd !== ps.sd || Math.abs(f.x - ps.x) > 40 || clk < ps.clk) { ps.st.reset(); ps.gw = null; dt = 0; }
+    ps.sd = sd; ps.x = f.x; ps.clk = clk;
+    const meant = (D.passing && D.passing(f)) || (f.dz.cine && !f.dz.cine.done) || (D.finOf && (D.finOf(f) || (f.opp && D.finOf(f.opp)))) || f.state === 'dseq';
+    ps.st.step(PJG, (k, r) => { if (k === 'gB') { if (!j.haB || !j.haF) return false; r[0] = (j.haB.x - j.haF.x) * sd; r[1] = j.haB.y - j.haF.y; r[2] = 0; return true; } const p = j[k]; if (!p) return false; r[0] = (p.x + ox - f.x) * sd; r[1] = p.y - f.y; r[2] = 0; return true; }, dt, !meant);
+    const root = (k) => j[k] || j[k === 'shB' ? 'sh' : 'hip'];
+
+
+    let gt = 0;
+    if (j.haF && j.haB && j.tip) { const bl = Math.hypot(tvx, tvy) || 1, bx = tvx / bl, by = tvy / bl, hx = j.haB.x - j.haF.x, hy = j.haB.y - j.haF.y, t = -(hx * bx + hy * by); if (t > -15 && t < 55) { const e = Math.min(1, Math.max(0, (45 - Math.hypot(hx + bx * t, hy + by * t)) / 15)); gt = e * e * (3 - 2 * e); } }
+    if (ps.gw == null) ps.gw = gt; else if (dt > 0) ps.gw += Math.max(-dt / 0.08, Math.min(dt / 0.08, gt - ps.gw));
+    if (ps.st.active) {
+
+      for (const [a, b, c] of PLIMB) { const A0 = root(a), B0 = j[b], C0 = j[c]; if (A0 && B0 && C0) { PRAW[b] = Math.hypot(B0.x - A0.x, B0.y - A0.y); PRAW[c] = Math.hypot(C0.x - B0.x, C0.y - B0.y); } }
+      const moved = {}, gw = ps.gw;
+      const relay = ([a, b, c], pin) => {
+
+        if (!(moved[a] || moved[b] || moved[c] || (!j[a] && moved[a === 'shB' ? 'sh' : 'hip']))) return;
+        const A0 = root(a), B0 = j[b], C0 = j[c];
+
+
+        const om = ps.st.off(b), wm = om ? Math.max(0, 1 - Math.hypot(om[0], om[1]) / 12) : 1;
+        if (!(A0 && B0 && C0 && PRAW[b] > 1 && PRAW[c] > 1 && wm > 0)) return;
+        const cx = C0.x, cy = C0.y;
+        ND.anim.limb2(A0, C0, PRAW[b], PRAW[c], B0, wm);
+
+        if (pin > 0) { C0.x += (cx - C0.x) * pin; C0.y += (cy - C0.y) * pin; }
+      };
+      const ha0x = j.haF ? j.haF.x : 0, ha0y = j.haF ? j.haF.y : 0;
+      for (const k of PJ) { if (k === 'haB') continue; const o = ps.st.off(k), p = j[k]; if (!o || !p) continue; p.x += o[0] * sd; p.y += o[1] - (k === 'ftF' || k === 'ftB' ? ps.st.lift(k) : 0); moved[k] = 1; }
+      relay(PLIMB[0], 0); relay(PLIMB[2], 0); relay(PLIMB[3], 0);
+
+      if (j.haB) {
+        const o = ps.st.off('haB'), ox0 = o ? o[0] * sd : 0, oy0 = o ? o[1] : 0, og = ps.st.off('gB'), gx = (j.haF ? j.haF.x - ha0x : 0) + (og ? og[0] * sd : 0), gy = (j.haF ? j.haF.y - ha0y : 0) + (og ? og[1] : 0);
+        const dx = ox0 + (gx - ox0) * gw, dy = oy0 + (gy - oy0) * gw;
+        if (Math.abs(dx) + Math.abs(dy) > 1e-6) { j.haB.x += dx; j.haB.y += dy; moved.haB = 1; }
+      }
+      relay(PLIMB[1], gw);
+    }
+
+    if (j.haF) { if (j.tip) { j.tip.x = j.haF.x + tvx; j.tip.y = j.haF.y + tvy; } if (j.pom) { j.pom.x = j.haF.x + pvx; j.pom.y = j.haF.y + pvy; } }
+  }
 
 
 

@@ -264,7 +264,8 @@
       } else this.goodP = JSON.parse(JSON.stringify(P));
       Mo.stats.poses++;
 
-      if (this.puppet && dt > 0) { const j = joints2d(this, this.P, projector(this)); this.puppet.vx = this.vx || 0; this.puppet.cloth(j, Math.min(0.05, dt)); }
+
+      if (this.puppet && dt > 0 && !this.clothLate) Mo.cloth(this, dt);
     }
 
     build(F, dt) {
@@ -876,6 +877,7 @@
       return { x: cx + (wx - cx) * s, y: cy + (p[1] - cy) * s, s };
     };
   }
+  Mo.cloth = (rg, dt) => { if (!rg.puppet || !rg.P || !(dt > 0)) return; const j = joints2d(rg, rg.P, projector(rg)); rg.puppet.vx = rg.vx || 0; rg.puppet.cloth(j, Math.min(0.05, dt)); };
 
   Mo.project = (rg, p) => projector(rg)(p);
   Mo.projectorOf = projector;

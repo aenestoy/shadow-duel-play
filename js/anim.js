@@ -842,6 +842,91 @@
 
 
 
+
+
+
+
+
+  const POP_JMIN = 11, POP_K = 2, POP_VMAX = 12, POP_T0 = 0.06, POP_T1 = 0.14;
+  A.Pop = function () {
+    const S = {};
+    const R = [0, 0, 0];
+    let lastDt = 0;
+
+
+
+    const blank = () => ({ p: [0, 0, 0], d: 0, v: [0, 0, 0], o0: null, o: [0, 0, 0], t: 0, T: 0 });
+    const copy = (a, b) => { b.p[0] = a.p[0]; b.p[1] = a.p[1]; b.p[2] = a.p[2]; b.d = a.d; b.v[0] = a.v[0]; b.v[1] = a.v[1]; b.v[2] = a.v[2]; b.o0 = a.o0 ? [a.o0[0], a.o0[1], a.o0[2]] : null; b.o[0] = a.o[0]; b.o[1] = a.o[1]; b.o[2] = a.o[2]; b.t = a.t; b.T = a.T; };
+    const api = {
+      active: false,
+      reset() { for (const k in S) delete S[k]; api.active = false; },
+
+
+
+      step(keys, get, dt, detect) {
+        const now = dt > 0;
+        if (now) lastDt = dt; else dt = lastDt;
+        const s = Math.max(dt, 0) * 60;
+        api.active = false;
+        for (const k of keys) {
+          if (!get(k, R)) { delete S[k]; continue; }
+          let J = S[k];
+          if (!J) { J = S[k] = { b: blank(), c: blank(), fresh: true }; J.c.p[0] = R[0]; J.c.p[1] = R[1]; J.c.p[2] = R[2]; continue; }
+          if (now) { copy(J.c, J.b); J.fresh = false; }
+          if (J.fresh || !(dt > 0)) { J.c.p[0] = R[0]; J.c.p[1] = R[1]; J.c.p[2] = R[2]; continue; }
+          const b = J.b, q = J.c;
+          const dx = R[0] - b.p[0], dy = R[1] - b.p[1], dz = R[2] - b.p[2], d1 = Math.hypot(dx, dy, dz);
+          q.o0 = b.o0; q.t = b.t; q.T = b.T; q.d = d1; q.v[0] = dx; q.v[1] = dy; q.v[2] = dz;
+          if (detect && d1 > POP_JMIN * s && d1 > POP_K * Math.max(b.d, 4 * s)) {
+
+            const vl = Math.hypot(b.v[0], b.v[1], b.v[2]), vk = vl > b.d && vl > 0 ? b.d / vl : 1;
+
+
+            q.o0 = [b.o[0] + b.p[0] + b.v[0] * vk, b.o[1] + b.p[1] + b.v[1] * vk, b.o[2] + b.p[2] + b.v[2] * vk];
+            const m = Math.hypot(q.o0[0] - R[0], q.o0[1] - R[1], q.o0[2] - R[2]);
+            q.t = 0; q.T = Math.min(POP_T1, Math.max(POP_T0, (m * 1.5) / (60 * POP_VMAX)));
+
+            q.d = b.d; q.v[0] = b.v[0]; q.v[1] = b.v[1]; q.v[2] = b.v[2];
+          } else if (q.o0) q.t = b.t + dt;
+          q.p[0] = R[0]; q.p[1] = R[1]; q.p[2] = R[2];
+          if (q.o0) {
+            const u = Math.min(1, q.t / q.T), w = 1 - u * u * (3 - 2 * u);
+            if (u >= 1) { q.o0 = null; q.o[0] = q.o[1] = q.o[2] = 0; }
+            else { q.o[0] = (q.o0[0] - R[0]) * w; q.o[1] = (q.o0[1] - R[1]) * w; q.o[2] = (q.o0[2] - R[2]) * w; api.active = true; }
+          } else q.o[0] = q.o[1] = q.o[2] = 0;
+        }
+      },
+      off(k) { const q = S[k] && S[k].c; return q && q.o0 ? q.o : null; },
+      state(k) { return S[k] ? S[k].c : null; },
+
+
+      lift(k) {
+        const q = S[k] && S[k].c;
+        if (!q || !q.o0 || Math.abs(q.o0[1]) > 4 || Math.abs(q.p[1]) > 4) return 0;
+        const dx = Math.abs(q.o0[0] - q.p[0]); if (dx < 8) return 0;
+        return Math.sin(Math.PI * Math.min(1, q.t / q.T)) * Math.min(8, dx * 0.12);
+      },
+    };
+    return api;
+  };
+
+
+
+  A.limb2 = function (a, c, l1, l2, m, wt = 1) {
+    let dx = c.x - a.x, dy = c.y - a.y, d = Math.hypot(dx, dy);
+    const mx = l1 + l2 - 0.01;
+    if (d > mx) { c.x = a.x + (dx * mx) / d; c.y = a.y + (dy * mx) / d; dx = c.x - a.x; dy = c.y - a.y; d = mx; }
+    d = Math.max(d, 1e-3);
+    const ux = dx / d, uy = dy / d, al = (l1 * l1 - l2 * l2 + d * d) / (2 * d), h = Math.sqrt(Math.max(0, l1 * l1 - al * al));
+    const off = (m.x - a.x) * -uy + (m.y - a.y) * ux, sd = off >= 0 ? 1 : -1;
+    const w = Math.min(1, Math.abs(off) / (0.5 * h + 1e-3)), e = w * w * (3 - 2 * w) * wt;
+    m.x += (a.x + ux * al - uy * h * sd - m.x) * e; m.y += (a.y + uy * al + ux * h * sd - m.y) * e;
+  };
+
+
+
+
+
   const Q = [0, 0, 0, 0, 0, 0, 0, 0];
   A.trailSlices = function (T, emit) {
     let n = 0;

@@ -173,7 +173,7 @@
     if (s && (s.ch !== f.ch || s.col !== f.col || s.wpn !== f.wpn)) s = null;
     if (!s) {
       s = { rig: new Mo.Rig(f, f.x, f.dir), clk: null, walkT: 0, lastSheathed: null, sheatheT: 9, impactT: 9, lastState: '', lastSerial: -1, ch: f.ch, col: f.col, wpn: f.wpn };
-      s.rig.driven = true; s.rig.travel = 0; s.rig.footLock = true; s.rig.maxTurn = 26;
+      s.rig.driven = true; s.rig.travel = 0; s.rig.footLock = true; s.rig.maxTurn = 26; s.rig.clothLate = true;
       ST.set(f, s);
     }
     return s;
@@ -606,6 +606,7 @@
     fistAim(f, s, dt);
     bodyGap(f, s, dt);
     rg.update(dt);
+    s.built = (s.built || 0) + 1; s.dtB = dt;
     s.tickedAt = clk;
 
     const o = f.opp, so0 = o && o.dz && !o.dead && !o.hidden ? stateOf(o) : null;
@@ -633,6 +634,70 @@
   }
   const CHP = { x: 0, y: 0 };
   MD.tick = tick;
+
+
+
+
+
+
+
+
+
+  const POPJ = ['hip', 'hipR', 'hipL', 'knR', 'ftR', 'knL', 'ftL', 'chest', 'neck', 'head', 'shR', 'shL', 'elR', 'wrR', 'haR', 'elL', 'wrL', 'haL'];
+  const POPON = !/[?&]pop=0(&|$)/.test(Q) && !!(ND.anim && ND.anim.Pop);
+
+  const POPJG = POPJ.concat(['gL']);
+  const PLIMB3 = [['shR', 'elR', 'haR', 'wrR', L.uArm, L.fArm], ['shL', 'elL', 'haL', 'wrL', L.uArm, L.fArm], ['hipR', 'knR', 'ftR', null, L.thigh, L.shin], ['hipL', 'knL', 'ftL', null, L.thigh, L.shin]];
+  function popRig(f, s) {
+    const rg = s.rig, P = rg.P;
+    if (!P || s.popB === s.built) return;
+    s.popB = s.built;
+    if (!POPON) { if (rg.clothLate) Mo.cloth(rg, s.dtB); return; }
+    const clk = ND.simClock || 0, dt = s.popClk == null || clk < s.popClk || clk - s.popClk > 0.25 ? 0 : clk - s.popClk;
+    s.popClk = clk;
+    const ps = s.pop || (s.pop = { st: ND.anim.Pop(), x: f.x, sd: rg.dir });
+    if (ps.sd !== rg.dir || Math.abs(f.x - ps.x) > 40 || (s.dtB === 0 && dt > 0)) { ps.st.reset(); ps.gw = null; }
+    ps.sd = rg.dir; ps.x = f.x;
+    const ox = (rg.x - f.x) * rg.dir, y0 = f.y;
+    const meant = (D.passing && D.passing(f)) || (f.dz && f.dz.cine && !f.dz.cine.done) || (D.finOf && (D.finOf(f) || (f.opp && D.finOf(f.opp)))) || f.state === 'dseq';
+    ps.st.step(POPJG, (k, r) => { if (k === 'gL') { if (!P.haL || !P.haR) return false; r[0] = P.haL[0] - P.haR[0]; r[1] = P.haL[1] - P.haR[1]; r[2] = P.haL[2] - P.haR[2]; return true; } const q = P[k]; if (!q) return false; r[0] = q[0] + ox; r[1] = q[1] - y0; r[2] = q[2]; return true; }, dt, !meant);
+
+
+    let gt = 0;
+    if (P.armed && P.blade && P.blade.h && P.blade.u && P.haL) { const hx = P.haL[0] - P.blade.h[0], hy = P.haL[1] - P.blade.h[1], hz = P.haL[2] - P.blade.h[2], t = -(hx * P.blade.u[0] + hy * P.blade.u[1] + hz * P.blade.u[2]); if (t > -15 && t < 55) { const e = Math.min(1, Math.max(0, (45 - Math.hypot(hx + P.blade.u[0] * t, hy + P.blade.u[1] * t, hz + P.blade.u[2] * t)) / 15)); gt = e * e * (3 - 2 * e); } }
+    if (ps.gw == null) ps.gw = gt; else if (dt > 0) ps.gw += Math.max(-dt / 0.08, Math.min(dt / 0.08, gt - ps.gw));
+    if (ps.st.active) {
+      const ha0 = P.haR, hip0 = P.hip, moved = {}, gw = ps.gw;
+      const relay = ([a, b, c, w, l1, l2], pin) => {
+
+
+        if (!(moved[a] || moved[b] || moved[c] || (w && moved[w]))) return;
+        const wo = w && P[w] ? sub(P[w], P[c]) : null, c0 = P[c];
+        const r = Mo.ik3(P[a], P[c], l1, l2, sub(P[b], lerp(P[a], P[c], 0.5)));
+        const u = norm(sub(r.e, P[a])), v = sub(P[b], P[a]), vm = sub(r.m, P[a]);
+        const off = len(sub(v, mul(u, dot(v, u)))), h = len(sub(vm, mul(u, dot(vm, u))));
+
+
+        const om = ps.st.off(b);
+        let k = Math.min(1, off / (0.5 * h + 1e-3)); k = k * k * (3 - 2 * k) * (om ? Math.max(0, 1 - len(om) / 12) : 1);
+
+        P[b] = lerp(P[b], r.m, k); P[c] = pin > 0 ? lerp(r.e, c0, pin) : r.e;
+        if (wo) P[w] = madd(P[c], norm(wo), Mo.L20.hd);
+      };
+      for (const k of POPJ) { if (k === 'haL' || k === 'wrL') continue; const o = ps.st.off(k), q = P[k]; if (!o || !q) continue; P[k] = [q[0] + o[0], q[1] + o[1] - (k === 'ftR' || k === 'ftL' ? ps.st.lift(k) : 0), q[2] + o[2]]; moved[k] = 1; }
+      relay(PLIMB3[0], 0); relay(PLIMB3[2], 0); relay(PLIMB3[3], 0);
+
+
+
+      const Z = [0, 0, 0], dg = add(sub(P.haR, ha0), ps.st.off('gL') || Z);
+      for (const k of ['haL', 'wrL']) { const q = P[k]; if (!q) continue; const o = ps.st.off(k) || Z, d = lerp(o, dg, gw); if (len(d) < 1e-6) continue; P[k] = add(q, d); moved[k] = 1; }
+      relay(PLIMB3[1], gw);
+      const dh = sub(P.haR, ha0), dp = sub(P.hip, hip0);
+      if (P.blade && P.blade.h) P.blade.h = add(P.blade.h, P.armed ? dh : dp);
+      if (P.saya && P.saya.a) P.saya.a = add(P.saya.a, dp);
+    }
+    if (rg.clothLate) Mo.cloth(rg, s.dtB);
+  }
 
 
 
@@ -1152,6 +1217,7 @@
   MD.actOf = (f) => { const s = ST.get(f); return s && s.act ? s.act.id : s && s.actTail ? s.actTail.id + ' (end)' : null; };
   MD.actLegs = (f) => { const s = ST.get(f); return s && s.act ? s.act.legs : s && s.actTail ? s.actTail.legs : null; };
   MD.rigOf = (f) => { const s = ST.get(f); return s ? s.rig : null; };
+  MD.popOf = (f) => { const s = ST.get(f); return s && s.pop ? s.pop.st : null; };
   MD.sourceOf = (f) => { const s = ST.get(f); const l = s && s.rig.layers[s.rig.layers.length - 1]; return l ? l.key : null; };
 
 
@@ -1160,6 +1226,7 @@
     if (reflect || !MD.ready || !this.dz || this.dead || this.hidden || D.lite) return draw0.call(this, ctx, reflect, layer);
     const s = tick(this);
     if (!s || !s.rig.P) return draw0.call(this, ctx, reflect, layer);
+    popRig(this, s);
     if (finStruckArmed(this)) bladeUp(s.rig.P);
     Mo.draw(ctx, s.rig, {});
   };
@@ -1206,6 +1273,7 @@
 
     const s = MD.ready && !D.lite && f && f.dz && !f.dead && !f.hidden ? tick(f) : null;
     if (!s || !s.rig.P) return snap0.call(this, f, o);
+    popRig(f, s);
     const rg = s.rig, P = rg.P, pj = (p) => Mo.project(rg, p);
     o = o || {};
     const put = (k, p) => { const q = pj(p); const t = o[k] || (o[k] = { x: 0, y: 0 }); t.x = q.x; t.y = q.y; };
