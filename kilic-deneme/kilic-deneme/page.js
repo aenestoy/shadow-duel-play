@@ -4,7 +4,7 @@
 //   NEW: the hand-keyed move (./moves.js) on a rig that wears Akane's look, drawn with the game's own parts and the 3D
 //        katana (ND.mocap.draw). Nothing of the game is changed: the new move only writes the rig's joints.
 // Query: ?move=<id>, ?speed=0.5, ?capture=1 (tools/kilic-video.mjs drives it through window.__kd).
-import { MOVES, ORDER, poseAt, durOf } from './moves.js';
+import { MOVES, ORDER, poseAt, poseFromCh, chAt, gaitFeet, durOf } from './moves.js';
 
 const Q = new URLSearchParams(location.search);
 const $ = (id) => document.getElementById(id);
@@ -38,7 +38,23 @@ const OLD = {
   stagger: { state: 'stagger', label: 'stagger' },
   recoil: { state: 'recoil', label: 'recoil (blow stopped)' },
   zanshin: { label: 'zanshin after a finishing cut (the game: its chiburi pose)' },
+  // phase 3: the fight drives both sides (its speed, its height, its states): the walk at the fight's own speeds, the
+  // knockdown from a real launch to standing again, the throw
+  walkF: { walk: 200, label: 'walk forward (recorded walk)' },
+  walkB: { walk: -170, label: 'step back (recorded back-walk)' },
+  run: { walk: 460, label: 'dash (recorded run)' },
+  fall: { knock: true, label: 'knocked down and up (recorded fall + get-up)' },
+  downRise: { knock: true, label: 'knocked down and up (recorded fall + get-up)' },
+  throwL: { atk: 'throw', label: 'throw (the game\'s throw pose)' },
+  // (the game's parry needs a live cut to meet: its guard against the same cut is shown)
+  parryUp: { guard: true, by: 'd_shomen', label: 'parry (the game: guard vs a shomen)' },
+  parryDown: { guard: true, by: 'd_suneR', label: 'parry (the game: guard vs a low cut)' },
+  parrySide: { guard: true, by: 'd_kesaR', label: 'parry (the game: guard vs a kesa)' },
+  dodgeB: { state: 'dodge', back: true, label: 'dodge back (the game\'s dodge)' },
+  dodgeF: { state: 'dodge', back: false, label: 'dash in (the game\'s dodge)' },
 };
+// the gait's stride for a speed (as kilic-deneme/duel-hook.js strideOf)
+const strideOf = (id, sp) => (id === 'run' ? Math.min(200, Math.max(120, Math.abs(sp) * 0.33)) : id === 'walkB' ? -Math.min(92, Math.max(40, Math.abs(sp) * 0.46)) : Math.min(92, Math.max(40, Math.abs(sp) * 0.36)));
 const LEAD = 0.15, TAIL = 0.45; // seconds before the move starts in each loop, and the still moment after it
 
 const st = { move: MOVES[Q.get('move')] ? Q.get('move') : 'overhead', speed: +(Q.get('speed') || 1), i: 0, acc: 0, ready: false, S0: null, T: 2, oldLen: {}, rg: null, prevP: null };
@@ -83,6 +99,8 @@ function setupFight() {
 function measureOld() {
   for (const id of ORDER) {
     const O = OLD[id];
+    if (O.walk) { st.oldLen[id] = 2.2; continue; }
+    if (O.knock) { st.oldLen[id] = 1.75; continue; }
     if (!O.atk && !O.state) { st.oldLen[id] = O.guard ? 1.25 : 0; continue; }
     g.loadState(st.S0); g.timer = 999;
     try {
@@ -95,14 +113,17 @@ function measureOld() {
 }
 
 function startOld(a, O) {
+  if (O.knock) { a.setState('launch', { wallBounced: false }); a.onGround = false; a.vy = -560; a.vx = -150 * a.dir; return; }
+  if (O.atk === 'throw') a.ammo = Math.max(1, a.ammo || 0);
   if (O.atk) a.startAtk(O.atk);
+  else if (O.state === 'dodge') a.setState('dodge', { ddir: O.back ? -a.dir : a.dir, back: O.back });
   else if (O.state) a.setState(O.state, O.state === 'hurt' ? { dur: O.dur || 0.34, hurtPose: ND.POSES && (O.head ? ND.POSES.hurt : ND.POSES.hurt2) } : O.dur ? { dur: O.dur } : undefined);
 }
 // ------------------------------------------------------------------ one loop of a move: both sides on one clock
 function loopLen(id) { return id === 'idle' ? durOf('idle') / 1000 : LEAD + Math.max(st.oldLen[id] || 0, durOf(id) / 1000) + TAIL; }
 function restart() {
   if (!st.ready) return;
-  g.loadState(st.S0); g.timer = 999; st.i = 0; st.acc = 0; st.prevP = null;
+  g.loadState(st.S0); g.timer = 999; st.i = 0; st.acc = 0; st.prevP = null; st.gu = 0; st.gS = 0; st.gx = null; st.launchT = null;
   const a = g.F[0], b = g.F[1], O = OLD[st.move];
   if (O.guard) { a.locked = false; a.ctrl.clear(); a.ctrl.press('guard', 'bot'); a.setState('guard'); b.x = a.x + 140; b.dir = -1; b.locked = true; }
   if (!st.rg) st.rg = new Mo.Rig(a, 0, 1);
@@ -112,7 +133,9 @@ function restart() {
 // the clock: one fight step (1/120 s) for both sides
 function step() {
   const t = st.i * STEP, O = OLD[st.move], a = g.F[0], b = g.F[1];
-  if ((O.atk || O.state) && Math.abs(t - LEAD) < STEP / 2) startOld(a, O);
+  if ((O.atk || O.state || O.knock) && Math.abs(t - LEAD) < STEP / 2) startOld(a, O);
+  // (a walk: the fight's body moved at that speed, as the fight's own walk does)
+  if (O.walk && t >= LEAD && t < st.T - TAIL) { if (a.state !== 'move') a.setState('move'); a.vx = O.walk * a.dir; }
   if (O.guard && Math.abs(t - (LEAD + 0.05)) < STEP / 2) { try { b.startAtk(O.by || 'd_kesaR'); } catch (e) { /* none */ } }
   g.tick(true);
   for (const f of g.F) f.hp = f.maxHp;
@@ -122,8 +145,32 @@ function step() {
 }
 function moveTime() { const t = st.i * STEP; return st.move === 'idle' ? t * 1000 : (t - LEAD) * 1000; }
 function newPose(dt) {
-  const rg = st.rg, t = moveTime();
-  const P = poseAt(st.move, st.move === 'idle' ? t : Math.max(0, t), st.prevP);
+  const rg = st.rg, t = moveTime(), O = OLD[st.move], a = g.F[0];
+  let P;
+  if (O.walk || O.knock) {
+    // (driven by the fight, as the hook does: the gait's clock is the ground covered; the fall on the time since the
+    // launch, the floor and the rise on the fight's own state clock; standing before and after)
+    let id = 'idle', tt = t, opt = {};
+    if (O.walk) {
+      const sp = a.vx * a.dir;
+      if (Math.abs(sp) >= 40) {
+        id = sp > 260 ? 'run' : sp > 0 ? 'walkF' : 'walkB';
+        const Sw = strideOf(id, sp); if (!st.gS) st.gS = Sw;
+        const d = st.gx == null ? 0 : Math.abs(a.x - st.gx), u0 = st.gu; st.gx = a.x;
+        st.gu = (st.gu + Math.min(0.2, d / Math.abs(st.gS))) % 1; if ((u0 < 0.5 && st.gu >= 0.5) || st.gu < u0) st.gS = Sw;
+        tt = st.gu * durOf(id); opt.feet = gaitFeet(id, st.gu, st.gS);
+      } else st.gx = null;
+    } else {
+      if (a.state === 'launch') { if (st.launchT == null) st.launchT = st.i * STEP; id = 'fall'; tt = (st.i * STEP - st.launchT) * 1000; }
+      else if (a.state === 'down') { id = 'downRise'; tt = a.st * 1000; }
+      else if (a.state === 'getup') { id = 'downRise'; tt = (0.75 + a.st) * 1000; }
+    }
+    P = id === 'idle' ? poseAt('idle', st.i * STEP * 1000, st.prevP) : poseFromCh(id, chAt(id, tt), tt, st.prevP, opt);
+    rg.x = a.x; rg.y = a.y || 0;
+    if (rg.y) for (const k of Object.keys(P)) { const q = P[k]; if (Array.isArray(q) && q.length === 3 && /^(hip|kn|ft|chest|neck|head|sh|el|wr|ha)/.test(k)) P[k] = [q[0], q[1] + rg.y, q[2]]; }
+    if (rg.y && P.blade) P.blade = Object.assign({}, P.blade, { h: P.haR });
+    if (rg.y && P.saya) P.saya = Object.assign({}, P.saya, { a: [P.saya.a[0], P.saya.a[1] + rg.y, P.saya.a[2]] });
+  } else P = poseAt(st.move, st.move === 'idle' ? t : Math.max(0, t), st.prevP);
   st.prevP = P; rg.P = P; rg.t += dt;
   if (dt > 0) Mo.cloth(rg, dt);
 }
@@ -158,6 +205,7 @@ function stage(ctx, v) {
 const worldTf = (ctx, v) => ctx.setTransform(v.s, 0, 0, v.s, v.w / 2 - v.cx * v.s, v.fy);
 function drawNow(c, ctx, w, h) {
   const v = view(w, h), a = g.F[0];
+  if (OLD[st.move].walk || OLD[st.move].knock || OLD[st.move].state === 'dodge') v.cx = CAM_X + a.x; // (the camera goes with her)
   stage(ctx, v); worldTf(ctx, v);
   const cw0 = ND.cam.world; ND.cam.world = (q) => worldTf(q, v);
   try { a.drawShadow(ctx); a.draw(ctx, false, false); } finally { ND.cam.world = cw0; }
@@ -165,6 +213,7 @@ function drawNow(c, ctx, w, h) {
 }
 function drawNew(c, ctx, w, h) {
   const v = view(w, h);
+  if (OLD[st.move].walk || OLD[st.move].knock) v.cx = CAM_X + (st.rg.x || 0);
   stage(ctx, v); worldTf(ctx, v);
   Mo.drawShadow(ctx, st.rg);
   Mo.draw(ctx, st.rg, {});

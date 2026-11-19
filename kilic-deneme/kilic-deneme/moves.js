@@ -70,7 +70,15 @@ const EASE = {
 // Chudan-no-kamae: right foot forward, hips square to the opponent (a little open to the camera, so the body reads),
 // left fist a fist's width in front of the navel, right fist at the tsuba, the tip at the opponent's throat.
 const FEET = { R: [24, 6], L: [-22, -6] };
-const CHUDAN = { hip: [0, -80, 0], py: 14, cy: 22, lean: 6, nod: 4, R: [38, -104, 2], by: -2, el: 18, n: [0, 0, 1], pR: [-0.15, 1, 0.6], pL: [-0.15, 1, -0.6], lw: 1, d: 1 };
+const CHUDAN = { hip: [0, -80, 0], py: 14, cy: 22, lean: 6, nod: 4, R: [38, -104, 2], by: -2, el: 18, n: [0, 0, 1], pR: [-0.15, 1, 0.6], pL: [-0.15, 1, -0.6], lw: 1, d: 1,
+  pitch: 0, L: [16, -96, -14], lf: 0, FR: [24, 0, 6], FL: [-22, 0, -6] };
+// phase 3 (falls, the rise, the throw):
+//   pitch  the whole body tipped back round the hip (deg, + = falling back: 90 = lying on the back, face up)
+//   lf     the left hand let go (1) of the handle / saya, free at L [x, y, z] (in the fight's frame, never tipped: a palm on
+//          the floor stays where it is on the floor)
+//   FR, FL the feet, for a move with ownFeet (a fall, the rise: knees, heels and toes where the move puts them)
+//   w: 1   R, by / el, n and the elbow poles of this key are given in the fight's frame (not the tipped body's): a fist on
+//          the floor beside a lying body is written where it is
 // lw: the left fist on the handle (1) or holding the saya's mouth (0); d: how much of the blade is out of the saya (1 all,
 // 0 sheathed: the iai draw and the noto; while d < 1 the blade runs from the right fist through the saya's mouth)
 // elbows: pR / pL is the side each elbow points to (down and out at rest; up and back with the fists over the head, so the
@@ -82,6 +90,10 @@ const at = (t, o, e = 'io') => Object.assign(pose(o), { t, e });
 const G_MID = { hip: [-2, -77.5, 0], py: 16, cy: 26, lean: 4, nod: 3, R: [36, -118, 8], by: 4, el: 62, pR: [-0.3, 0.8, 0.6], pL: [-0.2, 0.9, -0.5] };
 const G_HI = { hip: [-3, -79, 0], py: 12, cy: 18, lean: 0, nod: -2, R: [2, -173, 5], by: 0, el: 184, ...UPEL };
 const G_LOW = { hip: [-2, -75, 0], py: 16, cy: 24, lean: 7, nod: 8, R: [47, -96, 4], by: 6, el: -36, pR: [-0.2, 1, 0.5], pL: [-0.2, 1, -0.5] };
+
+// lying on the back after a fall (the fight's 'down'): both palms on the floor (the break-fall), the sword hand out on the
+// camera side with the blade flat and a little up off the floor, the chin tucked, the heels down (toes up)
+const LIE = { hip: [-15, -12, 0], pitch: 86, py: 22, cy: 30, lean: -2, nod: 10, w: 1, R: [-46, -4.5, 37], by: 40, el: 7, n: [0, -1, 0], pR: [-0.3, -0.6, 0.7], pL: [0, -0.6, -0.8], lf: 1, L: [-34, -3.5, -28], FR: [62, -3.5, 8], FL: [52, -3.5, -8] };
 
 // ------------------------------------------------------------------ the six moves
 // keys: [time ms, pose, easing into it]; phases: wind-up / active / recovery in ms (the timing table, DEVIR.md)
@@ -441,9 +453,183 @@ export const MOVES = {
     ],
     phases: null,
   },
+
+  // ---------------------------------------------------------------- phase 3: walking, the fall and the rise, the throw
+  // The gaits (gait: the clock is the ground covered, moves.js gaitFeet places the feet). The sword stays on the centre
+  // line, the fists still in front of the belly: only the hips and legs walk. walkF: two steps a cycle (S 92 at the
+  // fight's full walk, 255 a second: ~2.8 steps a second; slower walks take shorter steps, see the hook): the hips are
+  // lowest as a foot lands (u 0 and 0.5), highest as the other passes it, and turn with the leg that leads.
+  walkF: {
+    name: 'Walk forward (sword on the line)', loop: true, gait: { kind: 'walk', S: 92 }, feet: FEET,
+    keys: [
+      at(0, { hip: [0, -78.6, 0], py: 12, cy: 22, lean: 8, nod: 4, R: [40, -103, 2], el: 18 }),
+      at(175, { hip: [0, -80.9, 1.4], py: 20, cy: 24, lean: 7, nod: 3.5, R: [40, -104.4, 2], el: 17 }),
+      at(350, { hip: [0, -78.6, 0], py: 30, cy: 26, lean: 8, nod: 4, R: [40, -103, 1], el: 18 }),
+      at(525, { hip: [0, -80.9, -1.4], py: 20, cy: 24, lean: 7, nod: 3.5, R: [40, -104.4, 2], el: 17 }),
+      at(700, { hip: [0, -78.6, 0], py: 12, cy: 22, lean: 8, nod: 4, R: [40, -103, 2], el: 18 }),
+    ],
+    phases: null,
+  },
+  // back-steps: the front foot goes back first; the weight stays forward over the sword (the body leans in a little)
+  walkB: {
+    name: 'Step back (sword on the line)', loop: true, gait: { kind: 'walk', S: -92 }, feet: FEET,
+    keys: [
+      at(0, { hip: [0, -78.8, 0], py: 14, cy: 22, lean: 7, nod: 4, R: [39, -104, 2], el: 19 }),
+      at(190, { hip: [0, -80.8, 1.2], py: 22, cy: 24, lean: 6, nod: 3.5, R: [39, -105, 2], el: 18 }),
+      at(380, { hip: [0, -78.8, 0], py: 30, cy: 26, lean: 7, nod: 4, R: [39, -104, 1], el: 19 }),
+      at(570, { hip: [0, -80.8, -1.2], py: 22, cy: 24, lean: 6, nod: 3.5, R: [39, -105, 2], el: 18 }),
+      at(760, { hip: [0, -78.8, 0], py: 14, cy: 22, lean: 7, nod: 4, R: [39, -104, 2], el: 19 }),
+    ],
+    phases: null,
+  },
+  // the run (a dash, over 260 a second): the body leans into it, the hips drop as a foot takes the weight (u 0, 0.5) and
+  // rise in the flight between; the fists a little lower, the point still forward
+  run: {
+    name: 'Run (dash in, point forward)', loop: true, gait: { kind: 'run', S: 150, h: 18 }, feet: { R: [10, 5], L: [6, -5] },
+    keys: [
+      at(0, { hip: [5, -74.6, 0.8], py: 18, cy: 24, lean: 16, nod: 9, R: [52, -98, 6], by: 0, el: 6 }),
+      at(82, { hip: [5, -80, 0], py: 22, cy: 25, lean: 15, nod: 8, R: [52, -100, 5], by: 0, el: 7 }),
+      at(165, { hip: [5, -74.6, -0.8], py: 28, cy: 26, lean: 16, nod: 9, R: [52, -98, 4], by: 0, el: 6 }),
+      at(247, { hip: [5, -80, 0], py: 22, cy: 25, lean: 15, nod: 8, R: [52, -100, 5], by: 0, el: 7 }),
+      at(330, { hip: [5, -74.6, 0.8], py: 18, cy: 24, lean: 16, nod: 9, R: [52, -98, 6], by: 0, el: 6 }),
+    ],
+    phases: null,
+  },
+
+  // knocked off the feet (the fight's 'launch': thrown back through the air). The blow snaps the head and chest back, the
+  // arms fly out (the sword arm out to the camera side, the blade up and back, clear of the body; the left hand lets go),
+  // the feet leave the floor; then the body tips back as the knees come up and the chin tucks (a fall is taken on the back,
+  // never on the head) and is held there until it lands - the fight's own height carries it.
+  fall: {
+    name: 'Knocked off the feet (in the air)', feet: FEET, ownFeet: true,
+    keys: [
+      at(0, { hip: [-4, -80, 0], py: 16, cy: 26, lean: 2, nod: 0, R: [34, -112, 6], el: 30 }),
+      at(80, { hip: [-8, -80, 0], pitch: 12, py: 22, cy: 36, lean: -12, nod: -18, w: 1, R: [6, -136, 26], by: 130, el: 52, pR: [-0.4, 0.4, 0.8], pL: [0.2, 0.3, -0.9], lf: 1, L: [18, -146, -22], FR: [24, -8, 6], FL: [-22, -14, -6] }, 'out3'),
+      at(250, { hip: [-6, -74, 0], pitch: 46, py: 22, cy: 34, lean: -6, nod: 6, w: 1, R: [-26, -126, 32], by: 150, el: 30, pR: [-0.4, -0.2, 0.9], pL: [0.2, -0.2, -0.9], lf: 1, L: [-4, -136, -26], FR: [30, -40, 6], FL: [20, -30, -6] }, 'io'),
+      at(420, { hip: [-6, -72, 0], pitch: 60, py: 22, cy: 32, lean: -4, nod: 12, w: 1, R: [-34, -116, 34], by: 158, el: 22, pR: [-0.4, -0.3, 0.9], pL: [0.2, -0.3, -0.9], lf: 1, L: [-10, -128, -28], FR: [36, -48, 6], FL: [28, -40, -6] }, 'out'),
+    ],
+    phases: null,
+  },
+  // on the floor (the fight's 'down', 0.75 s) and up again ('getup', 0.46 s), one move: the back hits the floor - both
+  // palms slap it (the break-fall), the legs come down a beat later, the chin stays tucked - a held still moment with the
+  // weight on the floor, then the head comes up to find him, the right knee bends, the body sits up with the blade already
+  // pointing at him, rolls forward over the right foot onto the left knee, the left hand goes back to the handle, and the
+  // body rises out of the kneel into the guard.
+  downRise: {
+    name: 'Down and up again (break-fall, kneel, rise)', feet: FEET, ownFeet: true,
+    keys: [
+      at(0, { hip: [-6, -72, 0], pitch: 60, py: 22, cy: 32, lean: -4, nod: 12, w: 1, R: [-34, -116, 34], by: 158, el: 22, pR: [-0.4, -0.3, 0.9], pL: [0.2, -0.3, -0.9], lf: 1, L: [-10, -128, -28], FR: [36, -48, 6], FL: [28, -40, -6] }),
+      // (the palm comes down onto its spot from above: it lands, it does not skid)
+      at(85, { hip: [-12, -24, 0], pitch: 80, py: 22, cy: 30, lean: -2, nod: 15, w: 1, R: [-42, -14, 36], by: 46, el: 10, n: [0, -1, 0], pR: [-0.3, -0.6, 0.7], pL: [0, -0.6, -0.8], lf: 1, L: [-34, -12, -28], FR: [62, -20, 8], FL: [52, -16, -8] }, 'in'),
+      at(110, { ...LIE, hip: [-14, -12.5, 0], pitch: 85, nod: 16, R: [-45, -5, 36], el: 8, FR: [62, -12, 8], FL: [52, -9, -8] }, 'lin'),
+      at(210, { ...LIE }, 'out'),
+      at(400, { ...LIE, hip: [-15, -11.8, 0], nod: 13 }, 'io'),
+      // (the right foot lifts off its heel before it comes in)
+      at(435, { ...LIE, hip: [-15, -12, 0], nod: 18, FR: [61, -11, 8] }, 'io'),
+      // the head comes up to find him; the right knee bends (the foot lifts and comes in)
+      at(470, { ...LIE, hip: [-15, -12, 0], pitch: 84, lean: 0, nod: 24, R: [-42, -8, 36], by: 30, el: 10, FR: [44, -16, 8] }, 'io'),
+      // (the right foot comes down onto its spot from above)
+      at(525, { ...LIE, hip: [-14, -12, 0], pitch: 58, py: 21, cy: 29, lean: 3, nod: 14, R: [-22, -46, 26], by: 8, el: 30, n: [0, 0, 1], pR: [-0.2, 0.4, 0.8], pL: [0, 0.2, -0.9], FR: [24, -7, 6] }, 'io'),
+      // sit up on the left palm, the right foot planted, the point already at him
+      at(545, { ...LIE, hip: [-14, -12, 0], pitch: 46, py: 20, cy: 28, lean: 4, nod: 10, R: [-12, -58, 22], by: 0, el: 28, n: [0, 0, 1], pR: [-0.2, 0.6, 0.7], pL: [0, 0.6, -0.8], FR: [24, 0, 6] }, 'io'),
+      // over the right foot, the palm pushing off: the left knee comes in under the body (the foot off the floor)
+      // (the left foot comes up off the floor first, straight up)
+      at(568, { hip: [-13, -16, 0], pitch: 38, py: 19, cy: 27, lean: 5, nod: 9, w: 1, R: [-6, -60, 20], by: 0, el: 23, n: [0, 0, 1], pR: [-0.2, 0.7, 0.65], pL: [0, 0.6, -0.8], lf: 1, L: [-31, -12, -27], FR: [24, 0, 6], FL: [52, -11, -8] }, 'io'),
+      // the palm pushes off, the hips go up over the right foot (the left knee still in front, bent)
+      at(605, { hip: [-10, -30, 0], pitch: 24, py: 18, cy: 26, lean: 7, nod: 8, w: 1, R: [4, -70, 15], by: 0, el: 22, n: [0, 0, 1], pR: [-0.2, 0.8, 0.6], pL: [-0.3, 0.6, -0.75], lf: 1, L: [-26, -34, -26], FR: [24, 0, 6], FL: [30, -12, -9] }, 'io'),
+      // the left foot passes under the raised hips, the knee forward; then it goes back to kneel
+      at(650, { hip: [-8, -44, 0], pitch: 10, py: 17, cy: 25, lean: 10, nod: 7, w: 1, R: [18, -66, 9], by: 0, el: 22, n: [0, 0, 1], pR: [-0.2, 0.8, 0.6], pL: [-0.2, 0.7, -0.7], lf: 0.7, L: [-8, -66, -22], FR: [24, 0, 6], FL: [-6, -16, -9] }, 'io'),
+      at(690, { hip: [-7, -51, 0], pitch: 3, py: 16, cy: 24, lean: 11, nod: 6, R: [28, -72, 6], el: 20, lf: 0.3, L: [0, -80, -18], FR: [24, 0, 6], FL: [-40, -12, -7] }, 'io'),
+      // the left knee down: kneeling, the left hand back on the handle
+      at(730, { hip: [-6, -50, 0], py: 16, cy: 24, lean: 12, nod: 5, R: [36, -75, 4], el: 20, lf: 0, L: [6, -92, -14], FR: [24, 0, 6], FL: [-56, -9, -6] }, 'out'),
+      // up out of the kneel: the left foot comes up off its toes and steps in to the stance (it comes down from above)
+      at(840, { hip: [-4, -64, 0], py: 15, cy: 23, lean: 9, nod: 5, R: [37, -88, 3], el: 19, FR: [24, 0, 6], FL: [-38, -12, -6] }, 'io'),
+      at(915, { hip: [-2, -73, 0], py: 14, cy: 22, lean: 8, nod: 4, R: [37, -97, 2], el: 18, FR: [24, 0, 6], FL: [-22, -7, -6] }, 'io'),
+      at(970, { hip: [-1, -77.5, 0], py: 14, cy: 22, lean: 7, nod: 4, R: [37, -103, 2], el: 18, FR: [24, 0, 6], FL: [-22, 0, -6] }, 'io'),
+      at(1210, {}, 'io'),
+    ],
+    phases: null,
+  },
+  // the parry (the fight's 'parry', 0.2 s, from the guard): one short hard beat of the blade that sends his cut away - up
+  // (the blade snaps up to the forehead line, the knees give), down (the point beats down onto his blade), or aside (the
+  // wrists roll the blade out to the far side) - and straight back to the guard
+  parryUp: {
+    name: 'Parry (sends the cut up)', feet: FEET,
+    keys: [
+      at(0, G_MID),
+      at(55, { ...G_MID, hip: [-4, -76.5, 0], cy: 24, lean: 2, nod: 1, R: [40, -138, 6], by: 2, el: 96, pR: [-0.4, 0.5, 0.8], pL: [-0.4, 0.4, -0.8] }, 'out3'),
+      at(120, { ...G_MID, hip: [-3.5, -77, 0], cy: 25, lean: 3, nod: 2, R: [39, -134, 6], by: 2, el: 90, pR: [-0.4, 0.5, 0.8], pL: [-0.4, 0.4, -0.8] }, 'io'),
+      at(200, G_MID, 'io'),
+    ],
+    phases: null,
+  },
+  parryDown: {
+    name: 'Parry (beats the cut down)', feet: FEET,
+    keys: [
+      at(0, G_MID),
+      at(55, { ...G_MID, hip: [-3, -76, 0], cy: 24, lean: 8, nod: 6, R: [49, -103, 7], by: 2, el: -12, pR: [-0.2, 0.9, 0.5], pL: [-0.2, 0.9, -0.5] }, 'out3'),
+      at(120, { ...G_MID, hip: [-3, -76.5, 0], cy: 25, lean: 7, nod: 5, R: [48, -105, 7], by: 2, el: -6, pR: [-0.2, 0.9, 0.5], pL: [-0.2, 0.9, -0.5] }, 'io'),
+      at(200, G_MID, 'io'),
+    ],
+    phases: null,
+  },
+  parrySide: {
+    name: 'Parry (rolls the cut aside)', feet: FEET,
+    keys: [
+      at(0, G_MID),
+      at(55, { ...G_MID, hip: [-3, -77, 0], py: 20, cy: 32, lean: 4, nod: 3, R: [40, -122, 14], by: 40, el: 50, n: [0, 0.5, 0.85] }, 'out3'),
+      at(120, { ...G_MID, hip: [-3, -77.3, 0], py: 19, cy: 31, lean: 4, nod: 3, R: [39, -121, 13], by: 36, el: 50, n: [0, 0.5, 0.85] }, 'io'),
+      at(200, G_MID, 'io'),
+    ],
+    phases: null,
+  },
+  // the dodge (the fight's 'dodge', 0.36 s; the fight carries the body 520 a second back, 760 forward - the feet step under
+  // it, planted): back - the body sways away from the cut, the blade comes up across the line; forward - a low dash in,
+  // the point kept on him
+  dodgeB: {
+    name: 'Dodge back (sway away, blade up)', feet: FEET,
+    keys: [
+      at(0, {}),
+      at(70, { hip: [-10, -76, 0], py: 18, cy: 30, lean: -6, nod: -3, R: [30, -118, 4], by: -4, el: 40 }, 'out3'),
+      at(240, { hip: [-9, -77, 0], py: 17, cy: 29, lean: -4, nod: -2, R: [32, -116, 4], by: -3, el: 34 }, 'io'),
+      at(360, {}, 'io'),
+    ],
+    phases: null,
+  },
+  dodgeF: {
+    name: 'Dash in (low, the point on him)', feet: FEET,
+    keys: [
+      at(0, {}),
+      at(70, { hip: [8, -73, 0], py: 8, cy: 14, lean: 18, nod: 9, R: [58, -95, 4], by: -6, el: 4 }, 'out3'),
+      at(240, { hip: [7, -74, 0], py: 9, cy: 15, lean: 16, nod: 8, R: [57, -96, 4], by: -5, el: 6 }, 'io'),
+      at(360, {}, 'io'),
+    ],
+    phases: null,
+  },
+  // the throw (a shuriken from the obi, left hand): the sword hand keeps the point forward, one-handed; the left hand goes
+  // to the belt, cocks back by the left ear as the chest turns away, then the hips and chest turn into it and the arm
+  // whips out at him (the release: the fight's own, 0.386 of the move), follows through and goes back to the handle.
+  throwL: {
+    name: 'Throw (shuriken, left hand)', feet: FEET,
+    keys: [
+      at(0, {}),
+      at(100, { hip: [-3, -79, 0], py: 8, cy: 10, lean: 4, nod: 4, R: [36, -100, 8], el: 10, lf: 1, L: [6, -90, -16], pL: [-1, 0.1, -0.4] }, 'out'),
+      // (a side-arm flick: the hand goes back past the left hip, the arm long behind, the chest turned away)
+      at(140, { hip: [-4, -79.5, 0], py: 6, cy: 2, lean: 2, nod: 3, R: [35, -100, 9], el: 10, lf: 1, L: [-24, -98, -30], pL: [-0.7, 0.3, -0.65] }, 'io'),
+      at(175, { hip: [-5, -80, 0], py: 4, cy: -6, lean: 1, nod: 2, R: [34, -101, 10], el: 10, lf: 1, L: [-36, -110, -32], pL: [-0.6, 0.4, -0.7] }, 'out'),
+      at(208, { hip: [2, -78.5, 0], py: 10, cy: 14, lean: 6, nod: 4, R: [37, -101, 10], el: 10, lf: 1, L: [8, -112, -40], pL: [-0.2, 1, 0.1] }, 'in'),
+      at(240, { hip: [8, -77, 0], py: 18, cy: 34, lean: 10, nod: 6, R: [40, -101, 10], el: 10, lf: 1, L: [58, -120, -14], pL: [-0.2, 1, -0.3] }, 'in'),
+      at(330, { hip: [10, -76, 0], py: 18, cy: 32, lean: 12, nod: 7, R: [42, -100, 9], el: 11, lf: 1, L: [54, -104, -6], pL: [-0.2, 0.8, -0.6] }, 'out'),
+      at(470, { hip: [4, -78, 0], py: 16, cy: 26, lean: 8, nod: 5, R: [40, -102, 4], el: 15, lf: 0.5, L: [30, -100, -8] }, 'io'),
+      at(620, {}, 'io'),
+    ],
+    // (the whip of the arm is a quick move: the light class's limits)
+    phases: { windup: [0, 175], active: [175, 240], recovery: [240, 620] },
+  },
 };
 export const ORDER = ['idle', 'overhead', 'horizontal', 'diagonal', 'thrust', 'block',
-  'kesaS', 'gyakuS', 'menS', 'yokoL', 'tsukiS', 'guardMid', 'guardHi', 'guardLow', 'blockMid', 'blockHi', 'blockLow', 'hurtHi', 'hurtBody', 'stagger', 'recoil', 'zanshin'];
+  'kesaS', 'gyakuS', 'menS', 'yokoL', 'tsukiS', 'guardMid', 'guardHi', 'guardLow', 'blockMid', 'blockHi', 'blockLow', 'hurtHi', 'hurtBody', 'stagger', 'recoil', 'zanshin',
+  'walkF', 'walkB', 'run', 'fall', 'downRise', 'throwL', 'parryUp', 'parryDown', 'parrySide', 'dodgeB', 'dodgeF'];
 export const durOf = (id) => MOVES[id].keys[MOVES[id].keys.length - 1].t;
 
 // ------------------------------------------------------------------ the body of one key (joints, no arms yet)
@@ -467,7 +653,12 @@ function torso(k) {
 // wind-up, the end of a follow-through) and the first and last keys are reached at rest; a key between two that both
 // lie on the same side (a turning point) too. The right fist is a channel in spherical form round the shoulder centre
 // (distance, azimuth, elevation), so it travels on arcs round the shoulders, never on the chord through the body.
-const CH = ['hx', 'hy', 'hz', 'py', 'cy', 'lean', 'nod', 'by', 'el', 'nx', 'ny', 'nz', 'rr', 'raz', 'rel', 'prx', 'pry', 'prz', 'plx', 'ply', 'plz', 'lw', 'dr'];
+const CH = ['hx', 'hy', 'hz', 'py', 'cy', 'lean', 'nod', 'by', 'el', 'nx', 'ny', 'nz', 'rr', 'raz', 'rel', 'prx', 'pry', 'prz', 'plx', 'ply', 'plz', 'lw', 'dr',
+  'pt', 'lx', 'ly', 'lz', 'lf', 'frx', 'fry', 'frz', 'flx', 'fly', 'flz'];
+// the pitch: a vector of the body (relative to the hip) tipped back by a deg (+: the head goes back and down, the face up)
+function tip(v, a) { if (!a) return v; const c = Math.cos(a * D2R), s = Math.sin(a * D2R); return [v[0] * c + v[1] * s, -v[0] * s + v[1] * c, v[2]]; }
+const tipAt = (p, hip, a) => (a ? add(hip, tip(sub(p, hip), a)) : p);
+const dirOf = (u) => ({ by: Math.atan2(u[2], u[0]) / D2R, el: Math.asin(clamp(-u[1], -1, 1)) / D2R });
 const STOP = { out: 1, out3: 1 };
 const CACHE = new Map();
 // the saya in the obi at the left hip, turning with the pelvis (as depth25's obiAt / restDirAt)
@@ -479,6 +670,11 @@ function sayaOf(B) {
 // on the handle where the blade's drawn length (d × blade) puts it - worked out here from the body, so the keys only say
 // how far the blade is out
 function iaiKey(k) {
+  if (k.w && k.pitch) {
+    // (written in the fight's frame: back into the tipped body's own)
+    const a = -k.pitch, h = k.hip, u = tip(bladeDir(k.by, k.el), a), d = dirOf(u);
+    k = Object.assign({}, k, { w: 0, R: tipAt(k.R, h, a), by: d.by, el: d.el, n: tip(k.n, a), pR: tip(k.pR, a), pL: tip(k.pL, a) });
+  }
   if (!k.iai) return k;
   const B = torso(k), S = sayaOf(B), u = S.u, vis = (k.d || 0) * LEN.blade;
   return Object.assign({}, k, { by: Math.atan2(u[2], u[0]) / D2R, el: Math.asin(clamp(-u[1], -1, 1)) / D2R, R: madd(S.a, u, -(vis + 4)) });
@@ -495,7 +691,8 @@ function channels(id) {
     if (az0 != null) while (az - az0 > Math.PI) az -= 2 * Math.PI; else az0 = az;
     if (az0 != null) while (az - az0 < -Math.PI) az += 2 * Math.PI;
     az0 = az;
-    const o = { hx: k.hip[0], hy: k.hip[1], hz: k.hip[2], py: k.py, cy: k.cy, lean: k.lean, nod: k.nod, by: k.by, el: k.el, nx: k.n[0], ny: k.n[1], nz: k.n[2], rr, raz: az, rel: Math.asin(clamp(-r[1] / rr, -1, 1)), prx: k.pR[0], pry: k.pR[1], prz: k.pR[2], plx: k.pL[0], ply: k.pL[1], plz: k.pL[2], lw: k.lw, dr: k.d };
+    const o = { hx: k.hip[0], hy: k.hip[1], hz: k.hip[2], py: k.py, cy: k.cy, lean: k.lean, nod: k.nod, by: k.by, el: k.el, nx: k.n[0], ny: k.n[1], nz: k.n[2], rr, raz: az, rel: Math.asin(clamp(-r[1] / rr, -1, 1)), prx: k.pR[0], pry: k.pR[1], prz: k.pR[2], plx: k.pL[0], ply: k.pL[1], plz: k.pL[2], lw: k.lw, dr: k.d,
+      pt: k.pitch, lx: k.L[0], ly: k.L[1], lz: k.L[2], lf: k.lf, frx: k.FR[0], fry: k.FR[1], frz: k.FR[2], flx: k.FL[0], fly: k.FL[1], flz: k.FL[2] };
     for (const c of CH) v[c][i] = o[c];
   });
   const m = {};
@@ -544,14 +741,58 @@ export function blendCh(a, b, w) {
 // grip (the distance between the fists: the weapon's handle), blade (its length) }
 export function poseFromCh(id, o, t, prev, opt) {
   const M = MOVES[id];
-  const k = { hip: [o.hx, o.hy, o.hz], py: o.py, cy: o.cy, lean: o.lean, nod: o.nod, by: o.by, el: o.el, n: norm([o.nx, o.ny, o.nz]), pR: [o.prx, o.pry, o.prz], pL: [o.plx, o.ply, o.plz], lw: clamp(o.lw, 0, 1), d: clamp(o.dr, 0, 1) };
+  const k = { hip: [o.hx, o.hy, o.hz], py: o.py, cy: o.cy, lean: o.lean, nod: o.nod, by: o.by, el: o.el, n: norm([o.nx, o.ny, o.nz]), pR: [o.prx, o.pry, o.prz], pL: [o.plx, o.ply, o.plz], lw: clamp(o.lw, 0, 1), d: clamp(o.dr, 0, 1),
+    pitch: o.pt || 0, L: [o.lx, o.ly, o.lz], lf: clamp(o.lf || 0, 0, 1), FR: [o.frx, o.fry, o.frz], FL: [o.flx, o.fly, o.flz] };
   const B = torso(k), ce = Math.cos(o.rel);
-  const R = madd(B.shC, [ce * Math.cos(o.raz), -Math.sin(o.rel), ce * Math.sin(o.raz)], o.rr);
+  let R = madd(B.shC, [ce * Math.cos(o.raz), -Math.sin(o.rel), ce * Math.sin(o.raz)], o.rr);
+  // (the sword home in the saya - Akane between moves, opt.sheathed: the right fist on the handle at the saya's mouth, the
+  // left hand holding the saya, whatever the body does)
+  if (opt && opt.sheathed) {
+    const S = sayaOf(B), d = dirOf(S.u);
+    k.by = d.by; k.el = d.el; k.d = 0; k.lw = 0; R = madd(S.a, S.u, -6);
+    k.pR = [-0.3, 0.9, 0.5];
+  }
   return build(M, k, B, R, prev, t, opt);
 }
 export function poseAt(id, t, prev, opt) {
-  const T = durOf(id);
-  return poseFromCh(id, chAt(id, t), MOVES[id].loop ? ((t % T) + T) % T : clamp(t, 0, T), prev, opt);
+  const T = durOf(id), M = MOVES[id];
+  // (a gait on its own - the checks, the viewer: one cycle at its own stride, the body carried along by it)
+  if (M.gait && !(opt && opt.feet)) {
+    const u = (((t % T) + T) % T) / T;
+    opt = Object.assign({}, opt, { feet: gaitFeet(id, u, M.gait.S) });
+    const P = poseFromCh(id, chAt(id, t), u * T, prev, opt);
+    P.bodyX = M.gait.S * (Math.floor(t / T) + u);
+    return P;
+  }
+  return poseFromCh(id, chAt(id, t), M.loop ? ((t % T) + T) % T : clamp(t, 0, T), prev, opt);
+}
+// ------------------------------------------------------------------ gaits (walk, back-step, run)
+// A gait's clock is the ground the body covers (the fight moves it): one cycle = S of it, u = 0 ... 1. The keys are the
+// body over one cycle (the hips rise and fall, turn with the stepping leg; the sword stays on the centre line); the feet
+// are placed by the cycle: a foot on the floor stays where it is on the floor (in the body's frame it goes back exactly
+// as fast as the body goes forward), a foot in the air travels the stride on a smoothstep, lifted on a half sine. Nothing
+// slides. S is the stride of one cycle (two steps); walkB's is backward.
+const s5 = (v) => v * v * v * (v * (v * 6 - 15) + 10);
+function swing(u, a, b) { if (u <= a) return [0, 0]; if (u >= b) return [1, 0]; const v = (u - a) / (b - a); return [s5(v), Math.sin(Math.PI * v)]; }
+export function gaitFeet(id, u, S) {
+  const G = MOVES[id].gait, o = {};
+  if (G.kind === 'walk') {
+    // two steps: the rear foot passes (or, a short stride, closes up to) the front one, then the other; backward, the front
+    // foot goes back first. Double support at u 0 and 0.5.
+    const first = S >= 0 ? 'L' : 'R', W = { [first]: [0.03, 0.47], [first === 'L' ? 'R' : 'L']: [0.53, 0.97] };
+    const h = 5 + Math.abs(S) * 0.07;
+    for (const s of ['R', 'L']) { const f = FEET[s], [w, l] = swing(u, W[s][0], W[s][1]); o[s] = [f[0] + S * w - S * u, -l * h, f[1]]; }
+  } else {
+    // run: each foot on the floor 35 % of the cycle, under the body; in the air the rest (both off it between): R's middle
+    // of the floor time at u 0, L's at 0.5 (the hips lowest there)
+    for (const [s, c0, cx, z] of [['R', 0.825, 10, 5], ['L', 0.325, 6, -5]]) {
+      let v = u - c0; if (v < 0) v += 1;
+      const x0 = cx + 0.175 * S; // (where it lands: the middle of its time on the floor is under the hip)
+      if (v <= 0.35) o[s] = [x0 - S * v, 0, z];
+      else { const q = (v - 0.35) / 0.65, w = s5(q); o[s] = [x0 + S * w - S * v, -Math.sin(Math.PI * q) * G.h, z]; }
+    }
+  }
+  return o;
 }
 
 // where a foot is at time t: planted, or in a step (MOVE.steps: { foot, t0, t1, dx, dz, h }) — it travels only while it is
@@ -578,24 +819,43 @@ export function layArm(P, s, ha, pole) {
   return r;
 }
 function build(M, k, B, R, prev, t = 0, opt = {}) {
-  const P = {};
-  P.hip = B.hip; P.chest = B.chest; P.neck = B.neck; P.head = B.head; P.shR = B.shR; P.shL = B.shL;
-  P.hipR = madd(B.hip, B.rP, LEN.hipW); P.hipL = madd(B.hip, B.rP, -LEN.hipW);
-  P.pl = B.rP; P.cf = norm(sub(mul(B.fC, Math.cos(k.lean * D2R)), mul(UP, Math.sin(k.lean * D2R)))); P.hf = B.fH; P.fP = B.fP;
-  // legs: planted feet, knees forward over the toes (the fight's own planted feet when it gives them)
-  for (const s of ['R', 'L']) layLeg(P, s, opt.feet ? opt.feet[s] : footAt(M, s, t));
+  const P = {}, a = k.pitch || 0, h0 = B.hip, TP = (p) => tipAt(p, h0, a), TD = (v) => tip(v, a);
+  P.hip = B.hip; P.chest = TP(B.chest); P.neck = TP(B.neck); P.head = TP(B.head); P.shR = TP(B.shR); P.shL = TP(B.shL);
+  P.hipR = TP(madd(B.hip, B.rP, LEN.hipW)); P.hipL = TP(madd(B.hip, B.rP, -LEN.hipW));
+  P.pl = TD(B.rP); P.cf = TD(norm(sub(mul(B.fC, Math.cos(k.lean * D2R)), mul(UP, Math.sin(k.lean * D2R))))); P.hf = TD(B.fH); P.fP = TD(B.fP);
+  R = TP(R);
+  // legs: planted feet, knees forward over the toes (the fight's own planted feet when it gives them; a fall's own)
+  const own = !!M.ownFeet;
+  for (const s of ['R', 'L']) layLeg(P, s, own ? k['F' + s] : opt.feet ? opt.feet[s] : footAt(M, s, t));
   P.toR = [1, 0, 0]; P.toL = norm([0.96, 0, -0.28]);
+  // (a foot off the floor, or a body tipped over: the foot square to its shin - toes up when lying, pointed in the air)
+  if (own) for (const s of ['R', 'L']) {
+    const ft = P['ft' + s], sh = norm(sub(ft, P['kn' + s])), toe = norm([sh[1], -sh[0], s === 'R' ? 0 : -0.28]), flat = s === 'R' ? [1, 0, 0] : P.toL;
+    const w = Math.max(clamp((-ft[1] - 2) / 8, 0, 1), clamp((a - 25) / 30, 0, 1));
+    P['to' + s] = norm(lerp(flat, toe, w));
+  }
+  P.ownFeet = own;
   // the saya at the left hip (moved off the obi only while the blade is coming out of it, below)
-  const SY = sayaOf(B);
+  const SY0 = sayaOf(B), SY = { a: TP(SY0.a), u: TD(SY0.u) };
+  // (on the floor - lying, sitting up - the saya's end stays on top of it: turned up just enough, its line kept)
+  { const L = LEN.blade + 6, ey = SY.a[1] + SY.u[1] * L, lim = -2.5;
+    if (ey > lim) { const uy = clamp((lim - SY.a[1]) / L, -1, 1), hz = Math.hypot(SY.u[0], SY.u[2]) || 1, kk = Math.sqrt(Math.max(0, 1 - uy * uy)) / hz; SY.u = norm([SY.u[0] * kk, uy, SY.u[2] * kk]); } }
   // sword: the blade's direction and edge, both fists on the handle
-  const u = bladeDir(k.by, k.el);
-  let e = cross(k.n, u); if (len(e) < 1e-3) e = cross([0, 0, 1], u); e = norm(sub(e, mul(u, dot(e, u))));
+  const u = opt && opt.sheathed ? SY.u : TD(bladeDir(k.by, k.el));
+  let e = cross(TD(k.n), u); if (len(e) < 1e-3) e = cross([0, 0, 1], u); e = norm(sub(e, mul(u, dot(e, u))));
   const grip = opt.grip || LEN.grip, d = k.d == null ? 1 : k.d, lw = k.lw == null ? 1 : k.lw;
   // the iai draw: while the blade is not all out it runs from the right fist through the saya's mouth (the saya follows
   // it, held at its mouth by the left hand); sheathed (d 0) the fist rests on the handle at the mouth
   const vis = d * LEN.blade, mouth = d < 0.999 ? madd(R, u, vis + 4) : SY.a;
-  const HR = R, HL = lw >= 0.999 ? madd(R, u, -grip) : lerp(madd(mouth, d < 0.999 ? u : SY.u, 3), madd(R, u, -grip), lw);
-  const poleR = k.pR, poleL = k.pL;
+  const HR = R, lf = k.lf || 0;
+  let HL = lw >= 0.999 ? madd(R, u, -grip) : lerp(madd(mouth, d < 0.999 ? u : SY.u, 3), madd(R, u, -grip), lw);
+  if (lf > 0.001) HL = lerp(HL, k.L, lf);
+  const poleR = TD(k.pR);
+  let poleL = TD(k.pL);
+  // (a free left hand sweeps through many directions - a throw, a palm to the floor: its elbow keeps the side it bent to a
+  // moment ago, the key's pole only leaning on it, so it never flips over when the arm passes the pole's line)
+  const cw = clamp((lf - 0.15) / 0.6, 0, 1) * 0.75;
+  if (cw > 0 && prev && prev.elL && prev.shL && prev.haL) { const off = sub(prev.elL, lerp(prev.shL, prev.haL, 0.5)); if (len(off) > 2) poleL = norm(add(mul(norm(off), cw), mul(norm(poleL), 1 - cw))); }
   const aR = ik3(P.shR, HR, LEN.uArm, LEN.fArm, poleR), aL = ik3(P.shL, HL, LEN.uArm, LEN.fArm, poleL);
   P.elR = aR.m; P.haR = aR.e; P.elL = aL.m; P.haL = aL.e;
   P.reachR = aR.reach / (LEN.uArm + LEN.fArm); P.reachL = aL.reach / (LEN.uArm + LEN.fArm);
@@ -608,7 +868,7 @@ function build(M, k, B, R, prev, t = 0, opt = {}) {
     P['wr' + s] = madd(ha, hd, -LEN.hd);
   }
   P.blade = { h: P.haR, u, e };
-  P.armed = true; P.inside = false; P.bladeVis = null; P.gripL = lw; P.fistR = true; P.fistL = true;
+  P.armed = true; P.inside = false; P.bladeVis = null; P.gripL = lw * (1 - lf); P.fistR = true; P.fistL = lf < 0.5;
   // the scabbard stays in the obi at the left hip, turning with the pelvis; while the blade comes out it lies along it
   P.saya = { a: mouth, u: d < 0.999 ? u : SY.u, L: LEN.blade + 6 };
   if (d < 0.999) {
