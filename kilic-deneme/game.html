@@ -2643,6 +2643,8 @@ try { (function (list) {
 <script  data-mocap type="text/plain" src="js/mocap.js"></script>
 <script  data-mocap type="text/plain" src="js/mocap-duel.js"></script>
 <script>if(/[?&]mocap=1(&|$)/.test(location.search)||(!/[?&]duel=0(&|$)/.test(location.search)&&!/[?&]mocap=0(&|$)/.test(location.search)))for(const s of document.querySelectorAll('script[data-mocap]')){const e=document.createElement('script');e.src=s.getAttribute('src');e.async=false;document.body.appendChild(e);}</script>
+<!-- new sword moves trial (branch claude/sd-kilic-yeni, never shipped): only ?kilic=1 loads it (vs the computer only) -->
+<script>if(/[?&]kilic=1(&|$)/.test(location.search)){const e=document.createElement('script');e.type='module';e.src='kilic-deneme/duel-hook.js';document.body.appendChild(e);}</script>
 <!-- online "play with a friend" (docs/SHADOW-DUEL-ONLINE.md): the match loop and the rooms. data-online: left out of the
      offline portal builds (Yandex, Playgama; vite.config.ts), so they carry no online code or address -->
 <script  data-online src="js/net.js"></script>

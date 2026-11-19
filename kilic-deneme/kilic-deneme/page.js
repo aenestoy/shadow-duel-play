@@ -11,6 +11,8 @@ const $ = (id) => document.getElementById(id);
 const GAME = /kilic-deneme\.html$/.test(location.pathname) ? 'index.html' : 'game.html';
 const CAPTURE = Q.get('capture') === '1';
 const STEP = 1 / 120;
+// the fight with the new moves (vs the computer; ?kilic=1 loads kilic-deneme/duel-hook.js in the game)
+{ const a = $('fight'); if (a) a.href = GAME + '?duel=1&kilic=1'; }
 const VIEW_W = 360, VIEW_H = 400, FLOOR = 0.88, CAM_X = 62;
 // the current game's move shown next to each new one (Akane's own: HEAVY, LIGHT 1 (her horizontal), LIGHT 2, → LIGHT)
 const OLD = {
@@ -20,6 +22,21 @@ const OLD = {
   diagonal: { atk: 'ak_dKesa', label: 'Kesa-giri (LIGHT 2)' },
   thrust: { atk: 'd_tsuki', label: 'Tsuki (→ LIGHT)' },
   block: { guard: true, label: 'guard vs Kuro\'s kesa' },
+  kesaS: { atk: 'ak_dKesa', label: 'Kesa-giri (LIGHT 2)' },
+  gyakuS: { atk: 'd_kesaL', label: 'Gyaku-kesa (LIGHT 3)' },
+  menS: { atk: 'd_shomen', label: 'Shomen (Kuro\'s LIGHT 3)' },
+  yokoL: { atk: 'ak_dNuki', label: 'Nukitsuke (LIGHT 1)' },
+  tsukiS: { atk: 'd_tsukiL3', label: 'Tsuki (LIGHT 4)' },
+  guardMid: { guard: true, by: 'd_kesaR', label: 'guard vs Kuro\'s kesa' },
+  guardHi: { guard: true, by: 'd_shomen', label: 'guard vs Kuro\'s shomen' },
+  guardLow: { guard: true, by: 'd_suneR', label: 'guard vs Kuro\'s low cut' },
+  blockMid: { guard: true, by: 'd_kesaR', label: 'block: Kuro\'s kesa' },
+  blockHi: { guard: true, by: 'd_shomen', label: 'block: Kuro\'s shomen' },
+  blockLow: { guard: true, by: 'd_suneR', label: 'block: Kuro\'s low cut' },
+  hurtHi: { state: 'hurt', dur: 0.34, head: true, label: 'hit reaction (head)' },
+  hurtBody: { state: 'hurt', dur: 0.34, label: 'hit reaction (body)' },
+  stagger: { state: 'stagger', label: 'stagger' },
+  recoil: { state: 'recoil', label: 'recoil (blow stopped)' },
 };
 const LEAD = 0.15, TAIL = 0.45; // seconds before the move starts in each loop, and the still moment after it
 
@@ -65,15 +82,21 @@ function setupFight() {
 function measureOld() {
   for (const id of ORDER) {
     const O = OLD[id];
-    if (!O.atk) { st.oldLen[id] = O.guard ? 1.25 : 0; continue; }
+    if (!O.atk && !O.state) { st.oldLen[id] = O.guard ? 1.25 : 0; continue; }
     g.loadState(st.S0); g.timer = 999;
-    const a = g.F[0]; a.startAtk(O.atk);
-    let n = 0; for (; n < 600; n++) { g.tick(true); if (a.state !== 'atk') break; }
-    st.oldLen[id] = n * STEP + 0.12;
+    try {
+      const a = g.F[0], s0 = O.atk ? 'atk' : O.state; startOld(a, O);
+      let n = 0; for (; n < 600; n++) { g.tick(true); if (a.state !== s0) break; }
+      st.oldLen[id] = n * STEP + 0.12;
+    } catch (e) { console.error('measure ' + id, e); st.oldLen[id] = 0.6; }
   }
   g.loadState(st.S0);
 }
 
+function startOld(a, O) {
+  if (O.atk) a.startAtk(O.atk);
+  else if (O.state) a.setState(O.state, O.state === 'hurt' ? { dur: O.dur || 0.34, hurtPose: ND.POSES && (O.head ? ND.POSES.hurt : ND.POSES.hurt2) } : O.dur ? { dur: O.dur } : undefined);
+}
 // ------------------------------------------------------------------ one loop of a move: both sides on one clock
 function loopLen(id) { return id === 'idle' ? durOf('idle') / 1000 : LEAD + Math.max(st.oldLen[id] || 0, durOf(id) / 1000) + TAIL; }
 function restart() {
@@ -88,8 +111,8 @@ function restart() {
 // the clock: one fight step (1/120 s) for both sides
 function step() {
   const t = st.i * STEP, O = OLD[st.move], a = g.F[0], b = g.F[1];
-  if (O.atk && Math.abs(t - LEAD) < STEP / 2) a.startAtk(O.atk);
-  if (O.guard && Math.abs(t - (LEAD + 0.05)) < STEP / 2) { try { b.startAtk('d_kesaR'); } catch (e) { /* none */ } }
+  if ((O.atk || O.state) && Math.abs(t - LEAD) < STEP / 2) startOld(a, O);
+  if (O.guard && Math.abs(t - (LEAD + 0.05)) < STEP / 2) { try { b.startAtk(O.by || 'd_kesaR'); } catch (e) { /* none */ } }
   g.tick(true);
   for (const f of g.F) f.hp = f.maxHp;
   st.i++;

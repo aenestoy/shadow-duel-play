@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <title>Shadow Duel Sword Trial</title>
-<!-- New sword moves trial (branch claude/sd-kilic-yeni, never shipped): Akane alone, six moves, the current game's move
+<!-- New sword moves trial (branch claude/sd-kilic-yeni, never shipped): Akane alone, every new move, the current game's move
      (NOW, the duel's own drawing in a hidden copy of the game) next to the new hand-keyed one (NEW, kilic-deneme/moves.js,
      drawn with the game's own parts and katana). The game itself is not changed by this page. -->
 <style>
@@ -21,6 +21,7 @@
   #moves { display: flex; flex-wrap: wrap; gap: 5px; padding: 6px 8px; background: #0f1218; border-bottom: 1px solid var(--line); }
   button { font: inherit; font-size: 13px; color: var(--ink); background: #232835; border: 1px solid #343b4c; border-radius: 9px; padding: 7px 10px; min-height: 36px; cursor: pointer; touch-action: manipulation; }
   button.on { background: var(--acc); border-color: var(--acc); color: #fff; }
+  a.fight { font-size: 14px; font-weight: 700; color: #1a1206; background: #ffd27a; border-radius: 9px; padding: 8px 14px; min-height: 36px; text-decoration: none; display: inline-flex; align-items: center; }
   #grid { flex: 1; display: grid; gap: 6px; padding: 6px; min-height: 0; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr; }
   @media (orientation: portrait) { #grid { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; } }
   figure { position: relative; margin: 0; background: var(--panel); border-radius: 10px; overflow: hidden; min-height: 0; min-width: 0; }
@@ -36,6 +37,7 @@
 <body>
 <div id="bar">
   <h1>Akane · new sword moves</h1>
+  <a id="fight" class="fight" href="game.html?duel=1&amp;kilic=1">Play a fight ▶</a>
   <span class="sp"></span>
   <button id="sp1" class="on">1×</button>
   <button id="sp2">½×</button>
