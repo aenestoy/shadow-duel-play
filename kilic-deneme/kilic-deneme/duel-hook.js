@@ -24,7 +24,7 @@
 //     ('down' + 'getup', one move on the fight's own clock), the throw; Akane with the sword in the saya stands, walks and
 //     falls in the same moves with her hand on the hilt. A blade never rests in the other's head or body as drawn (the
 //     last pass before drawing), and blades that are not cutting keep out of the fight's blade-stop zones (no push).
-import { MOVES, chAt, blendCh, poseFromCh, layLeg, layArm, durOf, gaitFeet, V, LEN } from './moves.js';
+import { MOVES, chAt, blendCh, poseFromCh, layLeg, layArm, durOf, gaitFeet, walkFeetLive, strideOf, V, LEN } from './moves.js';
 const { add, sub, mul, madd, dot, norm, lerp } = V;
 
 const KF = 0.595; // fight seconds of a cut per real second at speed 1 (the duel's 0.85 time scale × its 0.7 cut speed)
@@ -32,6 +32,16 @@ const KF = 0.595; // fight seconds of a cut per real second at speed 1 (the duel
 export const MAP = {
   ak_dKesa: 'kesaS', d_kesaR: 'kesaS', d_kesaL: 'gyakuS', d_shomen: 'menS', d_kote: 'menS', ak_dNuki: 'yokoL', d_doL: 'yokoL',
   d_tsukiL3: 'tsukiS', d_tsuki: 'tsukiS', d_tobikomi: 'tsukiS', d_wallL: 'tsukiS', d_men: 'overhead',
+};
+// (3b) duel moves played on the fight's own clock - not retimed, the game's timing untouched: the fight's hit window is
+// laid onto the move's phases.active, the wind-up and the recovery stretched to fit (the kicks with the sword in hand,
+// kiri-age, the shin cut, the running cut and the heavy back-hand cuts)
+export const PLAY = {
+  d_kakato: 'kakato', dk_sweep: 'sweep', d_ashibarai: 'sweep', dk_spin: 'spinKick', dk_wrist: 'snapKick', d_hiza: 'knee',
+  ak_nidan: 'nidan', d_kiriUp: 'kiriR', ak_dKiri: 'kiriL', d_antiL: 'kiriL', d_suneR: 'sune', d_dashR: 'horizontal',
+  d_kesaH: 'gyakuS', d_nagare: 'gyakuS',
+  // (the disarms and the rock splitter: maki-otoshi rises from the right, uchi-otoshi and iwa-kudaki come down from above)
+  ak_maki: 'kiriR', kr_uchi: 'menS', kr_iwa: 'overhead',
 };
 const WHO = { akane: 1, kuro: 1 };
 const FADE = 0.15, CHX = 0.09;
@@ -89,6 +99,42 @@ K.fgWas = !!D.fgHidden;
     return r;
   };
 }
+// The letterbox (3b, the reviewer: "a dark band at the bottom when the camera zooms in"): js/duel-fin-ui.js draws a thin
+// bar at the top and the bottom of the screen through a counter cinematic / a choreographed exchange (rgba(4,4,8,.85),
+// 5.5 % of the height), js/game.js a black one through a lock and the KO (8.5 %). With the camera close the fighters stand
+// low on the screen and the bottom bar reads as the empty floor under them. Today's game draws them too; while this is
+// on they are left out of the fight (the KO replay keeps its own).
+{
+  const cine = ND.cine, cd0 = cine && cine.draw;
+  if (cd0) cine.draw = function (ctx) {
+    if (!K.on || !ctx) return cd0.apply(this, arguments);
+    const fr = ctx.fillRect, C = ND.cam;
+    ctx.fillRect = function (x, y, w, h) { if (x === 0 && w === C.W && h < C.H * 0.06 && (y === 0 || Math.abs(y + h - C.H) < 1) && /^rgba\(4, ?4, ?8/.test(String(this.fillStyle))) return; return fr.call(this, x, y, w, h); };
+    try { return cd0.apply(this, arguments); } finally { ctx.fillRect = fr; }
+  };
+  const ov0 = g.overlays;
+  if (ov0) g.overlays = function () {
+    if (!K.on || (this.phase !== 'fight' && this.phase !== 'ko')) return ov0.apply(this, arguments);
+    const b = this.bars; this.bars = 0;
+    try { return ov0.apply(this, arguments); } finally { this.bars = b; }
+  };
+}
+// fight time (the cut's own seconds, f.st) → the move's ms: 0, the hit window, the end
+const WARP = new Map();
+function playT(n, t) {
+  let W = WARP.get(n);
+  if (!W) {
+    const a = ATK[n], id = PLAY[n], ph = MOVES[id].phases, ks = a.keys || [];
+    const end = a.dur || (ks.length ? ks[ks.length - 1][0] : (a.active ? a.active[1] * 2 : 0.5));
+    const A = a.active || [end * 0.3, end * 0.5];
+    W = { X: [0, A[0], A[1], end], Y: [0, ph.active[0], ph.active[1], durOf(id)] }; WARP.set(n, W);
+  }
+  const { X, Y } = W;
+  for (let i = 1; i < 4; i++) if (t <= X[i]) return Y[i - 1] + ((t - X[i - 1]) * (Y[i] - Y[i - 1])) / Math.max(1e-6, X[i] - X[i - 1]);
+  return Y[3];
+}
+K.PLAY = PLAY; K.playT = playT;
+K.why = (f) => { const k = KS.get(f); return k ? k.why || '' : ''; }; // (tools: why a frame kept the game's picture)
 K.timing = () => Object.fromEntries(Object.keys(NEW).map((n) => [n, { was: [ORIG[n].active.map((v) => +(v / KF * 1000).toFixed(0)), +(ORIG[n].dur / KF * 1000).toFixed(0)], now: [NEW[n].active.map((v) => +(v / KF * 1000).toFixed(0)), +(NEW[n].dur / KF * 1000).toFixed(0)] }]));
 const nm0 = g.newMatch;
 g.newMatch = function (mode) { apply(mode === 'cpu'); return nm0.apply(this, arguments); };
@@ -107,12 +153,10 @@ for (const f of g.F || []) for (const fn of ND.onLook || []) { try { fn(f); } ca
 // ------------------------------------------------------------------ 2. what the new picture plays now
 const KS = new WeakMap();
 const ks = (f) => { let k = KS.get(f); if (!k) KS.set(f, (k = { w: 0, cur: null, lastCh: null, bl: null, prevP: null, feet: null, lastSt: '', stAtk: null, stT: 0, idleT: 0, entryOut: false, gh: 'Mid', hh: 'Body', shT: 0, g: { id: null, u: 0, S: 0, x: null, dir: 0 } })); return k; };
-// the gait's stride for a speed (one cycle = two steps): slower walks take shorter steps, never under 40; the run's long
-const strideOf = (id, sp) => (id === 'run' ? clamp(Math.abs(sp) * 0.33, 120, 200) : id === 'walkB' ? -clamp(Math.abs(sp) * 0.46, 40, 92) : clamp(Math.abs(sp) * 0.36, 40, 92));
 // the gait clock: the ground the drawn body covered since the last frame (the fight's x, the keep-apart's offset in it)
 function gaitAt(k, rg, id, sp) {
   const G = k.g, Sw = strideOf(id, sp);
-  if (G.x == null || G.dir !== rg.dir || (G.id && (G.id === 'walkB') !== (id === 'walkB'))) { G.u = 0; G.S = Sw; G.x = rg.x; }
+  if (G.x == null || G.dir !== rg.dir || (G.id && ((G.id === 'walkB') !== (id === 'walkB') || (G.id === 'run') !== (id === 'run')))) { G.u = 0; G.S = Sw; G.x = rg.x; G.live = {}; }
   if (!G.S) G.S = Sw;
   G.id = id; G.dir = rg.dir;
   const d = Math.abs(rg.x - G.x); G.x = rg.x;
@@ -120,7 +164,10 @@ function gaitAt(k, rg, id, sp) {
   // (the stride changes only when both feet are on the floor: a planted foot never moves under a new stride)
   if ((u0 < 0.5 && G.u >= 0.5) || G.u < u0) G.S = Sw;
   if (id === 'run' && G.S < 0) G.S = Sw;
-  return { id, t: G.u * durOf(id), feet: gaitFeet(id, G.u, G.S) };
+  if (MOVES[id].gait.kind !== 'walk') return { id, t: G.u * durOf(id), feet: gaitFeet(id, G.u, G.S) };
+  // (the walk: each swing leaves from where the foot really is - moves.js walkFeetLive)
+  const at = (s) => (k.feet && k.feet[s] ? [k.feet[s].x, k.feet[s].z] : [rg.x + MOVES.idle.feet[s][0] * rg.dir, MOVES.idle.feet[s][1]]);
+  return { id, t: G.u * durOf(id), feet: walkFeetLive(G.live || (G.live = {}), G.u, G.S, rg.x, rg.dir, at) };
 }
 function guardH(f) {
   const o = f.opp;
@@ -136,32 +183,41 @@ function choose(f, k, gP, dt, rg) {
   k.shT = sh ? k.shT + dt : 0;
   const shOK = sh && k.shT > 0.6;
   if (st !== k.lastSt || (st === 'atk' && f.atk !== k.stAtk)) {
-    k.lastSt = st; k.stAtk = st === 'atk' ? f.atk : null; k.stT = 0; k.entryOut = out || (k.w > 0.5 && !!k.cur);
+    k.lastSt = st; k.stAtk = st === 'atk' ? f.atk : null; k.stT = 0; k.entryOut = out || (k.w > 0.5 && !!k.cur); k.startSh = sh || !!(k.lastSh && k.w > 0.5);
     if (st === 'block' || st === 'hurt') { const h = guardH(f); k.gh = h; k.hh = h === 'Hi' ? 'Hi' : 'Body'; }
     if (st === 'block' && k.cur && /^guard/.test(k.cur.id)) k.gh = k.cur.id.slice(5);
   } else k.stT += dt;
   const fall = st === 'launch' || st === 'down' || st === 'getup';
   if (st !== 'move') k.g.x = null;
-  if (f.dead || f.hidden || (!fall && (!f.onGround || f.y < -2)) || f.roll || !f.dz || f.dz.armed === false) return null;
+  k.why = '';
+  if (f.dead || f.hidden || (!fall && (!f.onGround || f.y < -2)) || f.roll || !f.dz || f.dz.armed === false) { k.why = f.roll ? 'roll' : !f.onGround || f.y < -2 ? 'air' : f.dz && f.dz.armed === false ? 'unarmed' : 'x'; return null; }
   // (after a finishing cut - the fight's zanshin, a counter's held pose (js/duel-fin.js 'dfinp': chiburi, then a stance
   // with the blade out that hung to the floor) - the striker's blade, while it is out: the new zanshin, then the guard)
   const zan = (st === 'zanshin' || st === 'dfinp') && out && !(f.dz.cine && !f.dz.cine.done && f.dz.cine.A && f.dz.cine.A !== f);
-  if (!zan && (st === 'dseq' || (f.dz.cine && !f.dz.cine.done) || (D.finOf && (D.finOf(f) || (f.opp && D.finOf(f.opp)))) || (D.passing && (D.passing(f) || (f.opp && D.passing(f.opp)))))) return null;
+  if (!zan && (st === 'dseq' || (f.dz.cine && !f.dz.cine.done) || (D.finOf && (D.finOf(f) || (f.opp && D.finOf(f.opp)))) || (D.passing && (D.passing(f) || (f.opp && D.passing(f.opp)))))) { k.why = st === 'dseq' ? 'dseq' : f.dz.cine && !f.dz.cine.done ? 'cine' : D.finOf && (D.finOf(f) || (f.opp && D.finOf(f.opp))) ? 'fin' : 'pass'; return null; }
   const thr = st === 'atk' && ATKID.get(f.atk) === 'throw';
   // (a fall, a walk and the throw draw the new way from any picture: the sword out, or home in the saya)
   // (knocked down, hit, staggered or the round won with the sword home in the saya: the game's picture shows it inside
   // (js/mocap.js: inside, nothing of the blade out), or the new one was already drawing it sheathed - the same moves with
   // the hand on the hilt)
-  const react = st === 'hurt' || st === 'stagger' || st === 'win';
+  const react = st === 'hurt' || st === 'stagger' || st === 'gbreak' || st === 'win';
   const shG = !!(f.wpn && f.wpn.iai && gP && gP.armed && gP.inside && (gP.bladeVis == null || gP.bladeVis < 10));
   const shR = (fall || react) && !out && !!(f.wpn && f.wpn.iai) && (shG || (k.lastSh && k.w > 0.5));
   const free = ((fall || st === 'move' || thr) && (out || shOK)) || shR || (st === 'win' && out);
-  if (!k.entryOut && !zan && !free) return null;
+  // (the sword going home - the game's sheathe, 0.55 s from the moment f.sheathed() turns true: the new noto, then the
+  // sheathed stance)
+  if (sh && k.shT <= 0.6 && (st === 'move' || st === 'land' || st === 'zanshin')) return { id: 'noto', t: k.shT * 1000 };
+  // (Akane's nukitsuke from the saya: the new one-handed draw-cut on the same clock as the retimed ak_dNuki)
+  if (st === 'atk' && k.startSh && ATKID.get(f.atk) === 'ak_dNuki' && f.wpn && f.wpn.iai) return { id: 'nuki', t: (f.st * 1000) / KF };
+  if (!k.entryOut && !zan && !free) { k.why = 'entry'; return null; }
   const fr = (T) => clamp(f.st / Math.max(0.05, T), 0, 1), shd = !out && (shOK || shR);
   switch (st) {
     case 'atk': {
       if (thr) { if (!free) return null; const a = f.atk, T = a.dur || (a.keys && a.keys.length ? a.keys[a.keys.length - 1][0] : 0.44); return { id: 'throwL', t: fr(T) * durOf('throwL'), sh: shd }; }
-      const id = MAP[ATKID.get(f.atk)]; return id ? { id, t: (f.st * 1000) / KF } : null;
+      const n = ATKID.get(f.atk), id = MAP[n]; if (id) return { id, t: (f.st * 1000) / KF };
+      // (one that starts from the saya - a.sheath - with the sword home keeps the game's draw: these moves start drawn)
+      if (k.startSh && f.atk.sheath) { k.why = 'saya'; return null; }
+      return PLAY[n] && MOVES[PLAY[n]] ? { id: PLAY[n], t: playT(n, f.st) } : null;
     }
     // knocked off the feet: in the air (the fight's own height carries the body), then on the floor and up, one move on
     // the fight's clock ('down' 0.75 s, then 'getup' 0.46 s)
@@ -176,6 +232,8 @@ function choose(f, k, gP, dt, rg) {
     case 'parry': { const d = f.pv && f.pv.dir, id = d === 'up' ? 'parryUp' : d === 'down' ? 'parryDown' : 'parrySide'; return { id, t: fr(0.2) * durOf(id) }; }
     case 'hurt': return { id: 'hurt' + k.hh, t: fr(f.dur || 0.4) * durOf('hurtHi'), sh: shd };
     case 'stagger': return { id: 'stagger', t: fr(0.74) * durOf('stagger'), sh: shd };
+    // the guard broken (1.2 s: knocked open by 0.15, held to 1.0, back by 1.2): the stagger with its held part stretched
+    case 'gbreak': { const s = f.st, u = s < 0.15 ? (s / 0.15) * 0.1 : s < 1 ? 0.1 + ((s - 0.15) / 0.85) * 0.45 : 0.55 + Math.min(1, (s - 1) / 0.2) * 0.19; return { id: 'stagger', t: (u / 0.74) * durOf('stagger'), sh: shd }; }
     // the round won: the zanshin (flick, the point on him, back to guard) with the blade out; sheathed, her iai stance
     case 'win': return out ? { id: 'zanshin', t: k.stT * 1000 } : shd ? { id: 'idle', t: k.stT * 1000, sh: true } : null;
     case 'recoil': return { id: 'recoil', t: fr(f.rkEnd || 0.32) * durOf('recoil') };
@@ -193,7 +251,7 @@ function choose(f, k, gP, dt, rg) {
 
 // ------------------------------------------------------------------ the feet: planted on the floor, real steps
 function planFeet(k, rg, P, dt, gP) {
-  const dir = rg.dir;
+  const dir = rg.dir, gait = !!(k.cur && MOVES[k.cur.id] && MOVES[k.cur.id].gait);
   if (!k.feet) { k.feet = {}; for (const s of ['R', 'L']) { const p = (gP && gP['ft' + s]) || P['ft' + s]; k.feet[s] = { x: rg.x + p[0] * dir, y: 0, z: p[2], st: null }; } }
   const want = { R: P.ftR, L: P.ftL };
   const errOf = (s) => want[s][0] - (k.feet[s].x - rg.x) * dir;
@@ -209,13 +267,14 @@ function planFeet(k, rg, P, dt, gP) {
   const go = (s) => { const F = k.feet[s], e = Math.abs(errOf(s)); F.st = { t: 0, T: clamp(0.1 + e / 500, 0.12, 0.22) * quick, x0: F.x, z0: F.z, h: Math.min(7, 2 + e * 0.12) }; };
   if (!stepping) {
     let best = null, be = 0;
-    for (const s of ['R', 'L']) { const F = k.feet[s]; if (F.own) continue; const e = Math.abs(errOf(s)) + (reach(s) > 0.97 ? 50 : 0); if (e > 7 && e > be) { best = s; be = e; } }
+    for (const s of ['R', 'L']) { const F = k.feet[s]; if (F.own) continue; const e = Math.abs(errOf(s)) + (reach(s) > (gait ? 0.99 : 0.97) ? 50 : 0); if (e > 7 && e > be) { best = s; be = e; } }
     if (best) go(best);
   }
   // (a planted foot the leg can no longer reach is never dragged along the floor: it steps at once, even while the
   // other foot is stepping)
   // (looked one frame ahead: a lunge would carry the body past the leg's reach before the next frame's check)
-  for (const s of ['R', 'L']) { const F = k.feet[s]; if (!F.st && !F.own && reach(s) + ahead > 0.985) go(s); }
+  // (a walk's own swing comes in time: its planted foot only steps early when the leg truly cannot reach)
+  for (const s of ['R', 'L']) { const F = k.feet[s]; if (!F.st && !F.own && reach(s) + (gait ? 0 : ahead) > (gait ? 0.995 : 0.985)) go(s); }
   for (const s of ['R', 'L']) {
     const F = k.feet[s], d = want[s];
     if (F.st) {

@@ -4,7 +4,7 @@
 //   NEW: the hand-keyed move (./moves.js) on a rig that wears Akane's look, drawn with the game's own parts and the 3D
 //        katana (ND.mocap.draw). Nothing of the game is changed: the new move only writes the rig's joints.
 // Query: ?move=<id>, ?speed=0.5, ?capture=1 (tools/kilic-video.mjs drives it through window.__kd).
-import { MOVES, ORDER, poseAt, poseFromCh, chAt, gaitFeet, durOf } from './moves.js';
+import { MOVES, ORDER, poseAt, poseFromCh, chAt, gaitFeet, walkFeetLive, strideOf, durOf } from './moves.js';
 
 const Q = new URLSearchParams(location.search);
 const $ = (id) => document.getElementById(id);
@@ -52,9 +52,19 @@ const OLD = {
   parrySide: { guard: true, by: 'd_kesaR', label: 'parry (the game: guard vs a kesa)' },
   dodgeB: { state: 'dodge', back: true, label: 'dodge back (the game\'s dodge)' },
   dodgeF: { state: 'dodge', back: false, label: 'dash in (the game\'s dodge)' },
+  // phase 3b: the sword going home and out again, the kicks with the sword in hand, kiri-age, the shin cut
+  noto: { label: 'sheathing (the game: its recorded sheathe, seen in the fight)' },
+  nuki: { atk: 'ak_dNuki', label: 'Nukitsuke from the saya (LIGHT 1)' },
+  kakato: { atk: 'd_kakato', label: 'Kakato-otoshi (KICK vs guard)' },
+  sweep: { atk: 'dk_sweep', label: 'Ashi-barai (down + KICK)' },
+  spinKick: { atk: 'dk_spin', label: 'Ushiro-mawashi (back + KICK)' },
+  snapKick: { atk: 'dk_wrist', label: 'Kote-geri (KICK)' },
+  knee: { atk: 'd_hiza', label: 'Hiza-geri (KICK, close)' },
+  nidan: { atk: 'ak_nidan', label: 'Nidan-geri (Akane\'s special)' },
+  kiriR: { atk: 'd_kiriUp', label: 'Kiri-age (forward + HEAVY)' },
+  kiriL: { atk: 'ak_dKiri', label: 'Gyaku kiri-age (back + LIGHT)' },
+  sune: { atk: 'd_suneR', label: 'Sune-gari (Kuro\'s back + LIGHT)' },
 };
-// the gait's stride for a speed (as kilic-deneme/duel-hook.js strideOf)
-const strideOf = (id, sp) => (id === 'run' ? Math.min(200, Math.max(120, Math.abs(sp) * 0.33)) : id === 'walkB' ? -Math.min(92, Math.max(40, Math.abs(sp) * 0.46)) : Math.min(92, Math.max(40, Math.abs(sp) * 0.36)));
 const LEAD = 0.15, TAIL = 0.45; // seconds before the move starts in each loop, and the still moment after it
 
 const st = { move: MOVES[Q.get('move')] ? Q.get('move') : 'overhead', speed: +(Q.get('speed') || 1), i: 0, acc: 0, ready: false, S0: null, T: 2, oldLen: {}, rg: null, prevP: null };
@@ -123,7 +133,7 @@ function startOld(a, O) {
 function loopLen(id) { return id === 'idle' ? durOf('idle') / 1000 : LEAD + Math.max(st.oldLen[id] || 0, durOf(id) / 1000) + TAIL; }
 function restart() {
   if (!st.ready) return;
-  g.loadState(st.S0); g.timer = 999; st.i = 0; st.acc = 0; st.prevP = null; st.gu = 0; st.gS = 0; st.gx = null; st.launchT = null;
+  g.loadState(st.S0); g.timer = 999; st.i = 0; st.acc = 0; st.prevP = null; st.gu = 0; st.gS = 0; st.gx = null; st.launchT = null; st.fw = null; st.live = {}; st.gid = null;
   const a = g.F[0], b = g.F[1], O = OLD[st.move];
   if (O.guard) { a.locked = false; a.ctrl.clear(); a.ctrl.press('guard', 'bot'); a.setState('guard'); b.x = a.x + 140; b.dir = -1; b.locked = true; }
   if (!st.rg) st.rg = new Mo.Rig(a, 0, 1);
@@ -158,7 +168,14 @@ function newPose(dt) {
         const Sw = strideOf(id, sp); if (!st.gS) st.gS = Sw;
         const d = st.gx == null ? 0 : Math.abs(a.x - st.gx), u0 = st.gu; st.gx = a.x;
         st.gu = (st.gu + Math.min(0.2, d / Math.abs(st.gS))) % 1; if ((u0 < 0.5 && st.gu >= 0.5) || st.gu < u0) st.gS = Sw;
-        tt = st.gu * durOf(id); opt.feet = gaitFeet(id, st.gu, st.gS);
+        tt = st.gu * durOf(id);
+        // (the walk from where the feet really are, as the fight's drawing: moves.js walkFeetLive)
+        if (MOVES[id].gait.kind === 'walk') {
+          if (!st.fw) st.fw = { R: [a.x + MOVES.idle.feet.R[0] * a.dir, MOVES.idle.feet.R[1]], L: [a.x + MOVES.idle.feet.L[0] * a.dir, MOVES.idle.feet.L[1]] };
+          if (st.gid !== id) { st.live = {}; st.gid = id; }
+          opt.feet = walkFeetLive(st.live, st.gu, st.gS, a.x, a.dir, (s) => st.fw[s]);
+          for (const s of ['R', 'L']) if (opt.feet[s][1] > -0.5) st.fw[s] = [a.x + opt.feet[s][0] * a.dir, opt.feet[s][2]];
+        } else opt.feet = gaitFeet(id, st.gu, st.gS);
       } else st.gx = null;
     } else {
       if (a.state === 'launch') { if (st.launchT == null) st.launchT = st.i * STEP; id = 'fall'; tt = (st.i * STEP - st.launchT) * 1000; }
