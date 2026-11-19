@@ -421,7 +421,7 @@ Mo.Rig.prototype.build = function (F, dt) {
 // (it lands ON the head, not through it) -, nor along the other's body outside its own hit window (17 off the spine), nor
 // across its own face: turned round the sword hand in the picture's plane by the least angle that clears it. The turn
 // has a memory (no pop): it starts from last frame's turn, let go by 0.06 rad a frame only while the blade stays clear,
-// and grows from there on the same side by the least step that clears (at most 0.15 rad a frame) - never flipping sides,
+// and grows from there on the same side by the least step that clears (at most 0.25 rad a frame) - never flipping sides,
 // never snapping back.
 const rotZ = (u, a) => { const c = Math.cos(a), sn = Math.sin(a); return norm([u[0] * c - u[1] * sn, u[0] * sn + u[1] * c, u[2]]); };
 function segD2(p, a, b) { const abx = b.x - a.x, aby = b.y - a.y, t = clamp(((p.x - a.x) * abx + (p.y - a.y) * aby) / Math.max(1e-9, abx * abx + aby * aby), 0, 1); return Math.hypot(p.x - a.x - abx * t, p.y - a.y - aby * t); }
@@ -450,8 +450,8 @@ function faceGuard(f, rg, P, kd) {
     let got = null;
     for (let i = 1; i <= 30 && got == null; i++) for (const sg of g0 ? [s0, -s0] : [1, -1]) { const c = (g0 ? Math.abs(g0) * s0 : 0) + sg * i * 0.04; if (Math.abs(c) <= 1.3 && bad(rotZ(u0, c)) <= 0) { got = c; break; } }
     if (got == null) a = g0; else a = got;
-    // (it grows at most 0.15 rad a frame: a blade swung fast at a face may graze it for a frame, it never jumps)
-    a = clamp(a, g0 - 0.15, g0 + 0.15);
+    // (it grows at most 0.25 rad a frame: a blade swung fast at a face may graze it for a frame, it never jumps)
+    a = clamp(a, g0 - 0.25, g0 + 0.25);
   }
   kd.ga = a; kd.gaD = a - g0;
   if (a) { setBlade(P, rotZ(u0, a)); K.guarded = (K.guarded || 0) + 1; }
