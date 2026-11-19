@@ -678,28 +678,32 @@ export const MOVES = {
     name: 'Axe kick (kakato-otoshi)', feet: FEET, kick: 'R', kneeUp: 'R',
     keys: [
       at(0, {}),
-      // the weight goes back onto the left leg, the front heel peels off; the hands start up
-      at(90, { hip: [-6, -79, 0], py: 11, cy: 18, lean: 0, nod: 2, R: [26, -132, 7], by: 0, el: 70, pR: [-0.3, 0.7, 0.65], pL: [-0.3, 0.7, -0.65], FR: [26, -16, 8] }, 'io'),
-      // chamber: the knee up in front at hip height, the foot under it; the sword high and back (hasso), clear of the leg
-      at(150, { hip: [-9, -82, 0], py: 9, cy: 15, lean: -5, nod: 0, R: [10, -160, 7], by: 0, el: 100, pR: [0.4, 0.75, 0.55], pL: [0.2, 0.6, -0.75], FR: [36, -48, 10] }, 'io'),
+      // the weight goes back onto the left leg, the front heel peels off; the sword starts round to the right side, the
+      // point swinging out toward the camera (never across the body or the leg)
+      at(60, { hip: [-4, -79.5, 0], py: 12, cy: 20, lean: 2, nod: 3, R: [24, -106, 12], by: 60, el: 6, n: [0, 1, 0], pR: [-0.3, 0.9, 0.5], pL: [-0.2, 0.9, -0.5], FR: [25, -9, 7] }, 'io'),
+      at(110, { hip: [-7, -81, 0], py: 10, cy: 20, lean: -2, nod: 2, R: [-6, -97, 22], by: 140, el: -14, n: [0, 1, 0], pR: [-0.6, 0.6, 0.6], pL: [0, 0.85, -0.6], FR: [30, -30, 9] }, 'io'),
+      // chamber: the knee up in front at hip height, the foot under it; the sword low at the right hip (waki), its point
+      // back and down - the arms stay below the face and behind the leg for the whole kick
+      at(150, { hip: [-9, -82, 0], py: 9, cy: 18, lean: -5, nod: 0, R: [-34, -100, 16], by: 178, el: -24, n: [0, 1, 0], pR: [-0.8, 0.3, 0.6], pL: [0.2, 0.8, -0.6], FR: [36, -48, 10] }, 'io'),
       // the leg unfolds forward and up, nearly straight, and swings on up in front
-      at(200, { hip: [-11, -84, 0], py: 7, cy: 13, lean: -12, nod: -3, R: [-3, -175, 6], by: 0, el: 110, pR: [0.5, 0.7, 0.5], pL: [0.3, 0.6, -0.75], FR: [62, -114, 12] }, 'out'),
-      at(235, { hip: [-12.5, -85, 0], py: 6, cy: 12, lean: -17, nod: -5, R: [-7, -179, 6], by: 0, el: 112, pR: [0.5, 0.7, 0.5], pL: [0.3, 0.6, -0.75], FR: [53, -143, 12] }, 'out'),
+      at(200, { hip: [-11, -84, 0], py: 7, cy: 16, lean: -12, nod: -3, R: [-38, -99, 16], by: 180, el: -26, n: [0, 1, 0], pR: [-0.8, 0.3, 0.6], pL: [0.2, 0.8, -0.6], FR: [62, -114, 12] }, 'out'),
+      at(235, { hip: [-12.5, -85, 0], py: 6, cy: 15, lean: -17, nod: -5, R: [-40, -98, 16], by: 180, el: -26, n: [0, 1, 0], pR: [-0.8, 0.3, 0.6], pL: [0.2, 0.8, -0.6], FR: [53, -143, 12] }, 'out'),
       // the top: the foot at head height, the leg straight, the trunk back for balance - a short hang
-      at(265, { hip: [-13, -85, 0], py: 6, cy: 12, lean: -20, nod: -6, R: [-8, -180, 6], by: 0, el: 112, pR: [0.5, 0.7, 0.5], pL: [0.3, 0.6, -0.75], FR: [43, -153, 12] }, 'out'),
-      at(305, { hip: [-12, -85, 0], py: 6, cy: 12, lean: -19, nod: -6, R: [-6, -180, 6], by: 0, el: 112, pR: [0.5, 0.7, 0.5], pL: [0.3, 0.6, -0.75], FR: [47, -151, 12] }, 'io'),
+      at(265, { hip: [-13, -85, 0], py: 6, cy: 15, lean: -20, nod: -6, R: [-41, -98, 16], by: 180, el: -26, n: [0, 1, 0], pR: [-0.8, 0.3, 0.6], pL: [0.2, 0.8, -0.6], FR: [43, -153, 12] }, 'out'),
+      at(305, { hip: [-12, -85, 0], py: 6, cy: 15, lean: -19, nod: -6, R: [-40, -98, 16], by: 180, el: -26, n: [0, 1, 0], pR: [-0.8, 0.3, 0.6], pL: [0.2, 0.8, -0.6], FR: [47, -151, 12] }, 'io'),
       // the heel drives down in front (the hit: the fight's window 336-470); the hips come forward over it, the knee gives
       // only near the floor
-      at(345, { hip: [-6, -84, 0], py: 7, cy: 13, lean: -10, nod: -2, R: [8, -174, 6], by: 0, el: 106, pR: [0.5, 0.7, 0.5], pL: [0.3, 0.6, -0.75], FR: [62, -126, 11] }, 'in'),
-      at(385, { hip: [3, -80, 0], py: 8, cy: 14, lean: 2, nod: 3, R: [34, -160, 6], by: 0, el: 88, pR: [0.4, 0.75, 0.55], pL: [0.2, 0.6, -0.75], FR: [66, -72, 10] }, 'lin'),
-      at(425, { hip: [10, -72, 0], py: 9, cy: 15, lean: 10, nod: 6, R: [52, -148, 6], by: 0, el: 68, pR: [-0.3, 0.65, 0.7], pL: [-0.3, 0.65, -0.7], FR: [58, -16, 9] }, 'lin'),
-      // landed: a long, low front stance, the weight over the front knee
-      at(460, { hip: [13, -68, 0], py: 10, cy: 16, lean: 12, nod: 7, R: [61, -130, 5], by: 0, el: 60, pR: [-0.25, 0.8, 0.6], pL: [-0.25, 0.8, -0.6], FR: [57, 0, 8] }, 'out'),
-      at(560, { hip: [12, -69, 0], py: 11, cy: 17, lean: 11, nod: 6, R: [61, -119, 4], by: 0, el: 50, FR: [57, 0, 8] }, 'io'),
-      // the front foot steps back into the stance (lifted: it never slides), the sword down to the centre line
-      at(615, { hip: [8, -72, 0], py: 12, cy: 18, lean: 10, nod: 5, R: [53, -114, 4], by: -1, el: 40, FR: [52, -8, 8] }, 'io'),
-      at(660, { hip: [5, -75, 0], py: 12, cy: 19, lean: 9, nod: 5, R: [45, -110, 3], by: -1, el: 32, FR: [34, -11, 7] }, 'io'),
-      at(695, { hip: [3, -77, 0], py: 13, cy: 20, lean: 8, nod: 5, R: [38, -107, 3], by: -1, el: 27, FR: [24, -5, 6] }, 'io'),
+      at(345, { hip: [-6, -84, 0], py: 7, cy: 16, lean: -10, nod: -2, R: [-34, -100, 16], by: 180, el: -24, n: [0, 1, 0], pR: [-0.8, 0.3, 0.6], pL: [0.2, 0.8, -0.6], FR: [62, -126, 11] }, 'in'),
+      at(385, { hip: [3, -80, 0], py: 8, cy: 17, lean: 2, nod: 3, R: [-24, -100, 16], by: 178, el: -22, n: [0, 1, 0], pR: [-0.8, 0.3, 0.6], pL: [0.2, 0.8, -0.6], FR: [66, -72, 10] }, 'lin'),
+      at(425, { hip: [10, -72, 0], py: 9, cy: 18, lean: 10, nod: 6, R: [-14, -94, 16], by: 176, el: -20, n: [0, 1, 0], pR: [-0.8, 0.3, 0.6], pL: [0.2, 0.8, -0.6], FR: [58, -16, 9] }, 'lin'),
+      // landed: a long, low front stance; the sword comes round from the hip (the point out toward the camera) to the front
+      at(470, { hip: [13, -68, 0], py: 10, cy: 18, lean: 12, nod: 7, R: [-6, -94, 20], by: 172, el: -18, n: [0, 1, 0], pR: [-0.8, 0.3, 0.6], pL: [0.2, 0.8, -0.6], FR: [57, 0, 8] }, 'out'),
+      at(520, { hip: [12.5, -68.5, 0], py: 10, cy: 18, lean: 12, nod: 7, R: [-2, -95, 22], by: 170, el: -17, n: [0, 1, 0], pR: [-0.8, 0.3, 0.6], pL: [0.2, 0.8, -0.6], FR: [57, 0, 8] }, 'io'),
+      // the front foot steps back into the stance (lifted: it never slides) as the sword comes round from the hip, the
+      // point out toward the camera, to the centre line
+      at(595, { hip: [9, -71, 0], py: 11, cy: 18, lean: 10, nod: 6, R: [34, -100, 34], by: 110, el: -6, n: [0, 1, 0], pR: [-0.7, 0.4, 0.6], pL: [0, 0.85, -0.6], FR: [54, -6, 8] }, 'io'),
+      at(650, { hip: [6, -74, 0], py: 12, cy: 19, lean: 9, nod: 5, R: [50, -108, 10], by: 24, el: 22, n: [0, 0.5, 0.86], pR: [-0.3, 0.8, 0.6], pL: [-0.2, 0.9, -0.5], FR: [36, -11, 7] }, 'io'),
+      at(695, { hip: [3, -77, 0], py: 13, cy: 20, lean: 8, nod: 5, R: [40, -107, 4], by: 0, el: 26, FR: [24, -5, 6] }, 'io'),
       at(720, { hip: [2, -78, 0], py: 13, cy: 20, lean: 8, nod: 5, R: [38, -106, 3], by: -1, el: 26, FR: [24, 0, 6] }, 'out'),
       at(941, {}, 'io'),
     ],
@@ -747,17 +751,22 @@ export const MOVES = {
     name: 'Snap kick at the wrist (kote-geri)', feet: FEET, kick: 'R', kneeUp: 'R',
     keys: [
       at(0, {}),
-      at(70, { hip: [-4, -80, 0], py: 12, cy: 18, lean: 1, nod: 3, R: [28, -128, 7], by: 0, el: 62, pR: [-0.3, 0.7, 0.65], pL: [-0.3, 0.7, -0.65], FR: [25, -14, 8] }, 'io'),
-      // chamber: the knee high in front, the foot tucked under it; the sword up and back
-      at(130, { hip: [-8, -82, 0], py: 10, cy: 16, lean: -6, nod: 0, R: [8, -164, 7], by: 0, el: 100, pR: [0.4, 0.75, 0.55], pL: [0.2, 0.6, -0.75], FR: [30, -54, 10] }, 'io'),
+      // the weight back onto the left leg; the sword starts round to the right side, the point out toward the camera
+      at(50, { hip: [-3, -80, 0], py: 12, cy: 20, lean: 1, nod: 3, R: [24, -106, 12], by: 60, el: 6, n: [0, 1, 0], pR: [-0.3, 0.9, 0.5], pL: [-0.2, 0.9, -0.5], FR: [25, -10, 7] }, 'io'),
+      at(95, { hip: [-6, -81, 0], py: 11, cy: 19, lean: -2, nod: 2, R: [-6, -97, 22], by: 140, el: -14, n: [0, 1, 0], pR: [-0.6, 0.6, 0.6], pL: [0, 0.85, -0.6], FR: [28, -30, 9] }, 'io'),
+      // chamber: the knee high in front, the foot tucked under it; the sword low at the right hip (waki), point back -
+      // the arms stay below the face and behind the leg
+      at(135, { hip: [-8, -82, 0], py: 10, cy: 17, lean: -6, nod: 0, R: [-34, -100, 16], by: 178, el: -24, n: [0, 1, 0], pR: [-0.8, 0.3, 0.6], pL: [0.2, 0.8, -0.6], FR: [31, -54, 10] }, 'io'),
       // the snap: the shin whips out and up, the leg nearly straight, the foot at chest height
-      at(185, { hip: [-11, -84, 0], py: 8, cy: 14, lean: -14, nod: -4, R: [-2, -174, 6], by: 0, el: 110, pR: [0.5, 0.7, 0.5], pL: [0.3, 0.6, -0.75], FR: [70, -118, 11] }, 'out'),
-      at(300, { hip: [-11, -84, 0], py: 8, cy: 14, lean: -13, nod: -4, R: [-1, -174, 6], by: 0, el: 109, pR: [0.5, 0.7, 0.5], pL: [0.3, 0.6, -0.75], FR: [68, -115, 11] }, 'io'),
+      at(185, { hip: [-11, -84, 0], py: 8, cy: 15, lean: -14, nod: -4, R: [-38, -99, 16], by: 180, el: -26, n: [0, 1, 0], pR: [-0.8, 0.3, 0.6], pL: [0.2, 0.8, -0.6], FR: [70, -118, 11] }, 'out'),
+      at(300, { hip: [-11, -84, 0], py: 8, cy: 15, lean: -13, nod: -4, R: [-37, -99, 16], by: 180, el: -26, n: [0, 1, 0], pR: [-0.8, 0.3, 0.6], pL: [0.2, 0.8, -0.6], FR: [68, -115, 11] }, 'io'),
       // back under the knee, then down onto the floor (lifted: it lands, never slides)
-      at(380, { hip: [-7, -82, 0], py: 10, cy: 16, lean: -5, nod: 0, R: [14, -152, 6], by: 0, el: 90, pR: [0.4, 0.75, 0.55], pL: [0.2, 0.6, -0.75], FR: [34, -58, 10] }, 'io'),
-      at(470, { hip: [-3, -80, 0], py: 12, cy: 18, lean: 3, nod: 3, R: [30, -122, 4], by: 0, el: 54, FR: [26, -14, 7] }, 'io'),
-      at(530, { hip: [-2, -79.5, 0], py: 12, cy: 19, lean: 5, nod: 3, R: [35, -110, 3], by: -1, el: 34, FR: [24, -4, 6] }, 'io'),
-      at(570, { hip: [-1, -79, 0], py: 13, cy: 20, lean: 6, nod: 4, R: [36, -106, 3], by: -1, el: 26, FR: [24, 0, 6] }, 'out'),
+      at(380, { hip: [-7, -82, 0], py: 10, cy: 17, lean: -5, nod: 0, R: [-30, -100, 17], by: 178, el: -24, n: [0, 1, 0], pR: [-0.8, 0.3, 0.6], pL: [0.2, 0.8, -0.6], FR: [34, -58, 10] }, 'io'),
+      at(460, { hip: [-3, -80, 0], py: 12, cy: 18, lean: 3, nod: 3, R: [-8, -96, 20], by: 172, el: -18, n: [0, 1, 0], pR: [-0.8, 0.3, 0.6], pL: [0.2, 0.8, -0.6], FR: [26, -14, 7] }, 'io'),
+      // the sword comes round from the hip, the point out toward the camera, to the centre line
+      at(540, { hip: [-2, -79.5, 0], py: 12, cy: 19, lean: 5, nod: 3, R: [24, -100, 34], by: 110, el: -6, n: [0, 1, 0], pR: [-0.7, 0.4, 0.6], pL: [0, 0.85, -0.6], FR: [24, -4, 6] }, 'io'),
+      at(570, { hip: [-1, -79, 0], py: 13, cy: 20, lean: 6, nod: 4, R: [30, -103, 24], by: 70, el: 6, n: [0, 0.8, 0.6], pR: [-0.5, 0.6, 0.6], pL: [-0.1, 0.9, -0.5], FR: [24, 0, 6] }, 'out'),
+      at(640, { hip: [-0.5, -79, 0], py: 13, cy: 20, lean: 6, nod: 4, R: [38, -106, 6], by: 8, el: 22, n: [0, 0.5, 0.86], pR: [-0.2, 0.95, 0.6], pL: [-0.15, 1, -0.6] }, 'io'),
       at(773, {}, 'io'),
     ],
     phases: { windup: [0, 168], active: [168, 319], recovery: [319, 773] },
