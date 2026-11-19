@@ -37,6 +37,7 @@ const OLD = {
   hurtBody: { state: 'hurt', dur: 0.34, label: 'hit reaction (body)' },
   stagger: { state: 'stagger', label: 'stagger' },
   recoil: { state: 'recoil', label: 'recoil (blow stopped)' },
+  zanshin: { label: 'zanshin after a finishing cut (the game: its chiburi pose)' },
 };
 const LEAD = 0.15, TAIL = 0.45; // seconds before the move starts in each loop, and the still moment after it
 

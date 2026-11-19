@@ -15,7 +15,11 @@
 //  3. js/anim.js Pop (the one-frame-jump smoother) is off for a body drawn from the new moves: nothing smooths them.
 //  4. After the pair of bodies is settled (js/mocap-duel.js blade / kick stops, keep-apart), the back hand is put back on
 //     the handle and the legs on their planted feet.
-import { MOVES, chAt, blendCh, poseFromCh, layLeg, layArm, durOf, V } from './moves.js';
+//  5. Also only while it is on (the owner, 2026-11-19, from the 30 s fight video): the fight's own contact / aim (rg.ovr:
+//     a blocked cut onto the blade, a landed one onto the body) is laid on the new picture too; blades that are not
+//     cutting meet between the two bodies (never through the other's head or body); the ink hit effect (big black
+//     brush stroke, splash and drops) and the foreground bamboo / posts (a black bar at the frame's edge) are left out.
+import { MOVES, chAt, blendCh, poseFromCh, layLeg, layArm, durOf, V, LEN } from './moves.js';
 const { add, sub, mul, madd, dot, norm, lerp } = V;
 
 const KF = 0.595; // fight seconds of a cut per real second at speed 1 (the duel's 0.85 time scale × its 0.7 cut speed)
@@ -25,13 +29,15 @@ export const MAP = {
   d_tsukiL3: 'tsukiS', d_tsuki: 'tsukiS', d_tobikomi: 'tsukiS', d_wallL: 'tsukiS', d_men: 'overhead',
 };
 const WHO = { akane: 1, kuro: 1 };
-const FADE = 0.1, CHX = 0.09, GRIP = 19;
+const FADE = 0.15, CHX = 0.09;
+// the back hand on the handle: as js/mocap.js gripGap (Kuro's nodachi has the longer handle)
+const gripOf = (w) => Math.max(19, ((w && w.handle) || 24) - 5);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const smooth = (u) => u * u * (3 - 2 * u);
 
 const until = (f) => new Promise((res) => { const iv = setInterval(() => { let ok = false; try { ok = f(); } catch (e) { ok = false; } if (ok) { clearInterval(iv); res(); } }, 30); });
 await until(() => { const N = window.ND; return N && N.game && N.duel && N.duel.mocap && N.duel.mocap.rigOf && N.mocap && N.mocap.Rig && N.anim && N.anim.Pop && N.ATK; });
-const ND = window.ND, D = ND.duel, Mo = ND.mocap, g = ND.game, ATK = ND.ATK;
+const ND = window.ND, D = ND.duel, Mo = ND.mocap, g = ND.game, ATK = ND.ATK, MD = D.mocap;
 const K = (window.__kilic = { on: false, errors: 0, moves: 0, frames: 0, MAP });
 // (the fight keeps the logical name - light1, heavy ... - in f.atkName; the cut itself is the ATK object)
 const ATKID = new Map(); for (const n in ATK) ATKID.set(ATK[n], n);
@@ -63,6 +69,20 @@ function apply(on) {
   if (K.on === on) return;
   K.on = on;
   for (const n in NEW) Object.assign(ATK[n], on ? NEW[n] : ORIG[n]);
+  // (the near bamboo / posts drawn over the fight: js/duel-env.js D.fgHidden draws the front without that layer)
+  D.fgHidden = on ? true : K.fgWas;
+}
+K.fgWas = !!D.fgHidden;
+// the ink hit (js/scene.js fx.ink, the PEGI stand-in for blood): its brush stroke ('k', up to ~220 long and 14 wide), sumi
+// splash ('x') and black drops ('i') read as huge black shards over the fight; while this is on only its sparks and cloth
+// scraps are kept
+{
+  const FX = ND.fx, ink0 = FX && FX.ink;
+  if (ink0) FX.ink = function () {
+    const P = this.parts, n0 = P.length, r = ink0.apply(this, arguments);
+    if (K.on) for (let i = P.length - 1; i >= n0; i--) { const k = P[i].k; if (k === 'k' || k === 'x' || k === 'i') P.splice(i, 1); }
+    return r;
+  };
 }
 K.timing = () => Object.fromEntries(Object.keys(NEW).map((n) => [n, { was: [ORIG[n].active.map((v) => +(v / KF * 1000).toFixed(0)), +(ORIG[n].dur / KF * 1000).toFixed(0)], now: [NEW[n].active.map((v) => +(v / KF * 1000).toFixed(0)), +(NEW[n].dur / KF * 1000).toFixed(0)] }]));
 const nm0 = g.newMatch;
@@ -96,8 +116,11 @@ function choose(f, k, gP, dt) {
     if (st === 'block' && k.cur && /^guard/.test(k.cur.id)) k.gh = k.cur.id.slice(5);
   } else k.stT += dt;
   if (f.dead || f.hidden || !f.onGround || f.y < -2 || f.roll || !f.dz || f.dz.armed === false) return null;
-  if (st === 'dseq' || (f.dz.cine && !f.dz.cine.done) || (D.finOf && (D.finOf(f) || (f.opp && D.finOf(f.opp)))) || (D.passing && (D.passing(f) || (f.opp && D.passing(f.opp))))) return null;
-  if (!k.entryOut) return null;
+  // (after a finishing cut - the fight's zanshin, a counter's held pose (js/duel-fin.js 'dfinp': chiburi, then a stance
+  // with the blade out that hung to the floor) - the striker's blade, while it is out: the new zanshin, then the guard)
+  const zan = (st === 'zanshin' || st === 'dfinp') && out && !(f.dz.cine && !f.dz.cine.done && f.dz.cine.A && f.dz.cine.A !== f);
+  if (!zan && (st === 'dseq' || (f.dz.cine && !f.dz.cine.done) || (D.finOf && (D.finOf(f) || (f.opp && D.finOf(f.opp)))) || (D.passing && (D.passing(f) || (f.opp && D.passing(f.opp)))))) return null;
+  if (!k.entryOut && !zan) return null;
   const fr = (T) => clamp(f.st / Math.max(0.05, T), 0, 1);
   switch (st) {
     case 'atk': { const id = MAP[ATKID.get(f.atk)]; return id ? { id, t: (f.st * 1000) / KF } : null; }
@@ -106,7 +129,9 @@ function choose(f, k, gP, dt) {
     case 'hurt': return { id: 'hurt' + k.hh, t: fr(f.dur || 0.4) * durOf('hurtHi') };
     case 'stagger': return { id: 'stagger', t: fr(0.74) * durOf('stagger') };
     case 'recoil': return { id: 'recoil', t: fr(f.rkEnd || 0.32) * durOf('recoil') };
-    case 'move': if (Math.abs(f.vx) < 12 && out) { k.idleT += dt; return { id: 'idle', t: k.idleT * 1000 }; } return null;
+    // (the recorded walk starts at 40 (js/mocap-duel.js direct); slower than that its idle played: the new one does)
+    case 'move': if (Math.abs(f.vx) < 40 && out) { k.idleT += dt; return { id: 'idle', t: k.idleT * 1000 }; } return null;
+    case 'zanshin': case 'dfinp': return zan ? { id: 'zanshin', t: k.stT * 1000 } : null;
     default: return null;
   }
 }
@@ -120,17 +145,29 @@ function planFeet(k, rg, P, dt, gP) {
   // (a foot that the move itself lifts follows the move)
   for (const s of ['R', 'L']) { const F = k.feet[s], d = want[s]; if (d[1] < -0.5) { F.x = rg.x + d[0] * dir; F.y = d[1]; F.z = d[2]; F.st = null; F.own = true; } else if (F.own) { F.own = false; F.y = 0; } }
   const stepping = k.feet.R.st || k.feet.L.st;
+  const reach = (s) => { const F = k.feet[s], h = P['hip' + s], q = [(F.x - rg.x) * dir, 0, F.z]; return Math.hypot(q[0] - h[0], q[1] - h[1], q[2] - h[2]) / 92; };
+  // (the body's speed along the floor, from the last frame: a lunge moves it 10-15 a frame)
+  const vx = k.px != null && dt > 0 ? (rg.x - k.px) / dt : 0; k.px = rg.x;
+  const ahead = Math.abs(vx) * dt * 2 / 92;
+  // (a quick body - a lunge, a push - steps quicker)
+  const quick = Math.abs(rg.vx || 0) > 150 ? 0.7 : 1;
+  const go = (s) => { const F = k.feet[s], e = Math.abs(errOf(s)); F.st = { t: 0, T: clamp(0.1 + e / 500, 0.12, 0.22) * quick, x0: F.x, z0: F.z, h: Math.min(7, 2 + e * 0.12) }; };
   if (!stepping) {
-    const reach = (s) => { const F = k.feet[s], h = P['hip' + s], q = [(F.x - rg.x) * dir, 0, F.z]; return Math.hypot(q[0] - h[0], q[1] - h[1], q[2] - h[2]) / 92; };
     let best = null, be = 0;
     for (const s of ['R', 'L']) { const F = k.feet[s]; if (F.own) continue; const e = Math.abs(errOf(s)) + (reach(s) > 0.97 ? 50 : 0); if (e > 7 && e > be) { best = s; be = e; } }
-    if (best) { const F = k.feet[best], e = Math.abs(errOf(best)); F.st = { t: 0, T: clamp(0.1 + e / 500, 0.12, 0.22), x0: F.x, z0: F.z, h: Math.min(7, 2 + e * 0.12) }; }
+    if (best) go(best);
   }
+  // (a planted foot the leg can no longer reach is never dragged along the floor: it steps at once, even while the
+  // other foot is stepping)
+  // (looked one frame ahead: a lunge would carry the body past the leg's reach before the next frame's check)
+  for (const s of ['R', 'L']) { const F = k.feet[s]; if (!F.st && !F.own && reach(s) + ahead > 0.985) go(s); }
   for (const s of ['R', 'L']) {
     const F = k.feet[s], d = want[s];
     if (F.st) {
       F.st.t += dt; const u = Math.min(1, F.st.t / F.st.T), w = smooth(u);
-      F.x = F.st.x0 + (rg.x + d[0] * dir - F.st.x0) * w; F.z = F.st.z0 + (d[2] - F.st.z0) * w; F.y = -Math.sin(Math.PI * u) * F.st.h;
+      // (the landing spot is fixed for the last 40% of the step: a foot coming down never rides along with the body)
+      if (u > 0.6 && F.st.tx == null) F.st.tx = rg.x + d[0] * dir;
+      F.x = F.st.x0 + ((F.st.tx != null ? F.st.tx : rg.x + d[0] * dir) - F.st.x0) * w; F.z = F.st.z0 + (d[2] - F.st.z0) * w; F.y = -Math.sin(Math.PI * u) * F.st.h;
       if (u >= 1) { F.st = null; F.y = 0; }
     }
     layLeg(P, s, [(F.x - rg.x) * dir, F.y, F.z]);
@@ -138,10 +175,107 @@ function planFeet(k, rg, P, dt, gP) {
 }
 // ------------------------------------------------------------------ the game's picture ↔ the new one, joint by joint
 const JS = ['hip', 'hipR', 'hipL', 'knR', 'ftR', 'knL', 'ftL', 'chest', 'neck', 'head', 'shR', 'shL', 'elR', 'wrR', 'haR', 'elL', 'wrL', 'haL'];
+// both fists and the blade moved by d (the sword arm laid again with its own lengths)
+function moveHands(P, d) {
+  const wo = sub(P.wrR, P.haR);
+  layArm(P, 'R', add(P.haR, d), sub(P.elR, lerp(P.shR, P.haR, 0.5)));
+  P.wrR = add(P.haR, wo); P.blade = { h: P.haR, u: P.blade.u, e: P.blade.e };
+}
+function setBlade(P, u) { let e = sub(P.blade.e, mul(u, dot(P.blade.e, u))); e = V.len(e) > 1e-4 ? norm(e) : P.blade.e; P.blade = { h: P.haR, u, e }; }
+// the back hand onto the handle; when the arm cannot reach that far (a blade drawn back by the blade-stop, an arm long out),
+// both fists come toward the back shoulder by what is missing - the hand never hangs off the handle
 function onHandle(P, grip) {
-  const u = P.blade.u, wo = sub(P.wrL, P.haL);
-  layArm(P, 'L', madd(P.haR, u, -grip), sub(P.elL, lerp(P.shL, P.haL, 0.5)));
+  const MX = LEN.uArm + LEN.fArm - 0.6;
+  let T = madd(P.haR, P.blade.u, -grip);
+  const dv = sub(T, P.shL), dl = V.len(dv);
+  if (dl > MX) { moveHands(P, mul(dv, -(dl - MX) / dl)); T = madd(P.haR, P.blade.u, -grip); }
+  const wo = sub(P.wrL, P.haL);
+  layArm(P, 'L', T, sub(P.elL, lerp(P.shL, P.haL, 0.5)));
   P.wrL = add(P.haL, wo);
+}
+// Blades that are not cutting meet BETWEEN the bodies (the owner, 2026-11-19: two katanas crossed in an X through the
+// faces): in a guard, a block, standing, a hit reaction, the recoil and the zanshin the sword hand stays on its own side
+// of the middle (10 short of it) and the point stays 18 in front of the other's drawn head, neck and chest - the closer
+// the two stand, the more upright the blade. Both doing it, the blades cross between them. w eases it in and out.
+const MEET = { guardMid: 1, guardHi: 1, guardLow: 1, blockMid: 1, blockHi: 1, blockLow: 1, idle: 1, recoil: 1, stagger: 1, hurtHi: 1, hurtBody: 1, zanshin: 1 };
+function frontOf(f, rg) {
+  const o = f.opp, ro = o && MD.rigOf(o), Q = ro && ro.P;
+  if (!Q || o.dead || o.hidden) return null;
+  let m = Infinity;
+  for (const j of ['head', 'neck', 'chest', 'shR', 'shL', 'hip']) if (Q[j]) m = Math.min(m, (ro.x + Q[j][0] * ro.dir - rg.x) * rg.dir);
+  return { d: (ro.x - rg.x) * rg.dir, front: m };
+}
+function meet(f, rg, P, BL, w) {
+  if (!(w > 0.001) || !P.armed) return;
+  const F = frontOf(f, rg);
+  if (!F || !(F.d > 20 && F.d < BL + 160)) return;
+  const u = P.blade.u;
+  if (u[0] <= 0.02 || u[1] > 0.25) return; // (only a blade that points forward and not down)
+  const maxRx = Math.min(F.d / 2 - 10, F.front - 30);
+  if (P.haR[0] > maxRx) moveHands(P, [(maxRx - P.haR[0]) * w, 0, 0]);
+  const lim = (F.front - 18 - P.haR[0]) / BL;
+  if (u[0] > lim) {
+    const kk = Math.max(0, lim) / u[0], nx = u[0] * kk, nz = u[2] * kk, ny = -Math.sqrt(Math.max(0, 1 - nx * nx - nz * nz));
+    setBlade(P, norm(lerp(u, [nx, ny, nz], w)));
+  }
+}
+// The game's one-frame-jump smoother (js/anim.js Pop) is off on frames drawn mostly new. Outside a cut, on the picture as
+// it is drawn (after the fight's blade stop), a sword hand that would move more than 13 in one frame or a blade that would
+// turn more than 0.2 rad (a gate of meet() opening, the blade stop pushing, a new move's first key) is eased there
+// instead: no pop on any switch.
+const HMAX = 13, AMAX = 0.2;
+function settle(k, f, rg, o, dt, grip) {
+  const q = k.so, u = o.blade && o.blade.u;
+  if (q && q.u && u && o.armed && f.state !== 'atk' && q.dir === rg.dir && dt > 0 && dt < 0.05) {
+    const sc = dt * 60, dh = sub(sub(o.haR, o.hip), q.h), dl = V.len(dh);
+    // (never eased INTO the other's body: when the eased point would end up deeper in front of him than the drawn one, the
+    // drawn one stays - the guard giving way to a lunge, the blade stop pushing it out)
+    const BL = (f.wpn && f.wpn.blade) || LEN.blade, F0 = frontOf(f, rg), tipX = () => o.haR[0] + o.blade.u[0] * BL, t0 = tipX();
+    const keep = {}; for (const j of ['elR', 'wrR', 'haR', 'elL', 'wrL', 'haL']) keep[j] = o[j]; keep.blade = o.blade;
+    let ch = false;
+    if (dl > HMAX * sc) { moveHands(o, mul(dh, -(dl - HMAX * sc) / dl)); ch = true; }
+    const a = Math.acos(clamp(dot(o.blade.u, q.u), -1, 1));
+    if (a > AMAX * sc && Math.sin(a) > 1e-3) {
+      const t = (AMAX * sc) / a, sa = Math.sin(a);
+      setBlade(o, norm(add(mul(q.u, Math.sin((1 - t) * a) / sa), mul(o.blade.u, Math.sin(t * a) / sa)))); ch = true;
+    }
+    if (ch && o.gripL >= 0.999) onHandle(o, grip);
+    if (ch && F0 && F0.d < BL + 160 && tipX() > F0.front - 10 && tipX() > t0 + 0.5) {
+      // (only as far toward the drawn picture as keeps the point out: the least step that does, or all of it)
+      const he = o.haR, ue = o.blade.u;
+      let sb = 1;
+      for (const s of [0.25, 0.5, 0.75]) { const hx = he[0] + (keep.haR[0] - he[0]) * s, ux = norm(lerp(ue, keep.blade.u, s)); if (hx + ux[0] * BL <= Math.max(F0.front - 10, t0)) { sb = s; break; } }
+      const hs = lerp(he, keep.haR, sb), us = norm(lerp(ue, keep.blade.u, sb));
+      Object.assign(o, keep);
+      if (sb < 1) { moveHands(o, sub(hs, o.haR)); setBlade(o, us); if (o.gripL >= 0.999) onHandle(o, grip); }
+    }
+  }
+  k.so = o.blade ? { h: sub(o.haR, o.hip), u: o.blade.u, dir: rg.dir } : null;
+}
+// After the cut (past its active window) the follow-through does not go on through the other's body: the point stops 6
+// in front of his drawn head, neck, chest and hips, the blade turning upright (or down) instead; the fists stay 12 short.
+function clear(f, rg, P, BL, w) {
+  if (!P.armed) return;
+  const F = frontOf(f, rg);
+  if (!F || !(F.d > 10 && F.d < BL + 160)) return;
+  if (P.haR[0] > F.front - 12) moveHands(P, [(F.front - 12 - P.haR[0]) * w, 0, 0]);
+  const u = P.blade.u, lim = (F.front - 6 - P.haR[0]) / BL;
+  if (u[0] > 0 && u[0] > lim) {
+    const kk = Math.max(0, lim) / u[0], nx = u[0] * kk, nz = u[2] * kk, ny = (u[1] >= 0 ? 1 : -1) * Math.sqrt(Math.max(0, 1 - nx * nx - nz * nz));
+    setBlade(P, norm(lerp(u, [nx, ny, nz], w)));
+  }
+}
+// the fight's own contact / aim (js/mocap-duel.js override: rg.ovr, local, by weight): the blocked cut onto the other's
+// blade, the landing one onto the body - js/mocap.js build does this for the game's picture; the new one takes it too
+function aimOn(rg, P) {
+  const O = rg.ovr;
+  if (!O || !(O.w > 0) || !P.armed) return;
+  const wo = sub(P.wrR, P.haR);
+  layArm(P, 'R', lerp(P.haR, O.h, O.w), sub(P.elR, lerp(P.shR, P.haR, 0.5)));
+  P.wrR = add(P.haR, wo);
+  const u = O.u ? norm(lerp(P.blade.u, O.u, O.w)) : P.blade.u;
+  let e = O.e ? norm(lerp(P.blade.e, O.e, O.w)) : P.blade.e; e = norm(sub(e, mul(u, dot(e, u))));
+  P.blade = { h: P.haR, u, e };
 }
 function mix(gP, P, w, grip) {
   if (w >= 0.999 || !gP || !gP.blade) return P;
@@ -169,7 +303,7 @@ function ours(f, rg, gP, dt) {
   const k = ks(f);
   const want = choose(f, k, gP, dt);
   k.w = clamp(k.w + ((want ? 1 : -1) * dt) / FADE, 0, 1);
-  if (!want && (k.w <= 0 || !k.cur)) { k.cur = null; k.feet = null; k.prevP = null; k.w = 0; return null; }
+  if (!want && (k.w <= 0 || !k.cur)) { k.cur = null; k.feet = null; k.prevP = null; k.w = 0; k.so = null; k.px = null; return null; }
   let ch;
   if (want) {
     const c = chAt(want.id, want.t);
@@ -177,21 +311,33 @@ function ours(f, rg, gP, dt) {
     if (k.bl) { k.bl.t += dt; const u = clamp(k.bl.t / CHX, 0, 1); ch = u >= 1 ? c : blendCh(k.bl.from, c, smooth(u)); if (u >= 1) k.bl = null; } else ch = c;
     k.cur = want; k.lastCh = ch;
   } else ch = k.lastCh;
-  const grip = GRIP;
+  const grip = gripOf(f.wpn), BL = (f.wpn && f.wpn.blade) || LEN.blade;
   const P = poseFromCh(k.cur.id, ch, k.cur.t, k.prevP, { grip });
   planFeet(k, rg, P, dt, gP);
   P.saya = sayaFor(f, P, gP);
   // (the fight's height: on the floor here, kept for a frame the fight lifts it)
   if (rg.y) for (const j of JS) P[j] = [P[j][0], P[j][1] + rg.y, P[j][2]];
+  k.mw = clamp((k.mw || 0) + ((want ? MEET[want.id] : MEET[k.cur.id]) ? 1 : -1) * dt / 0.1, 0, 1);
+  meet(f, rg, P, BL, smooth(k.mw));
+  aimOn(rg, P);
+  if (f.state === 'atk' && f.atk && f.atk.active) { const w2 = clamp((f.st - f.atk.active[1]) / 0.03, 0, 1); if (w2 > 0) clear(f, rg, P, BL, smooth(w2)); }
+  if (P.gripL >= 0.999) onHandle(P, grip);
   k.prevP = P;
   const out = mix(gP, P, smooth(k.w), grip);
-  out.kilic = [1, 0, 0]; // (read by the Pop hook above and the drawing hook below)
+  // (the mark the Pop hook reads: only on a frame drawn mostly new - under that, the game's own picture jumping is smoothed
+  // as in the game)
+  if (k.w >= 0.5) out.kilic = [1, 0, 0]; else delete out.kilic;
   out.kilicW = k.w;
   K.frames++;
   return out;
 }
 const build1 = Mo.Rig.prototype.build;
+// (js/mocap.js build fills the LAST pose object again (this.P || {}): after a frame drawn new, that is ours - its marks
+// and own fields stayed on the game's picture (the Pop hook then took every later frame of the game's own moves for a new
+// one and left their jumps unsmoothed). The game's build gets a clean copy.)
+const OWNF = ['kilic', 'kilicW', 'fP', 'draw', 'reachR', 'reachL', 'gripErr', 'legReachR', 'legReachL'];
 Mo.Rig.prototype.build = function (F, dt) {
+  if (this.P && (this.P.kilic || this.P.kilicW != null)) { const q = Object.assign({}, this.P); for (const n of OWNF) delete q[n]; this.P = q; }
   const gP = build1.call(this, F, dt), f = this.look;
   if (!K.on || !this.driven || !f || !f.dz) return gP;
   try { return ours(f, this, gP, dt || 0) || gP; } catch (e) { K.errors++; if (K.errors < 4) console.error('kilic', e); return gP; }
@@ -201,11 +347,19 @@ Mo.Rig.prototype.build = function (F, dt) {
 const draw1 = Mo.draw;
 Mo.draw = function (ctx, rg) {
   const P = rg && rg.P;
+  const kd = rg && rg.look && KS.get(rg.look);
+  // (eased on the frames drawn new, and on the game's own frames for 0.15 s after them - the switch back has no pop
+  // either; on the game's other frames only remembered, so the first frame of a switch to the new one is eased too)
+  if (kd && P) {
+    const fresh = P.kilicW > 0;
+    if (fresh) kd.tail = 9; else if (kd.tail > 0) kd.tail--;
+    try { if (fresh || kd.tail > 0) settle(kd, rg.look, rg, P, 1 / 60, gripOf(rg.look.wpn)); else kd.so = P.blade ? { h: sub(P.haR, P.hip), u: P.blade.u, dir: rg.dir } : null; } catch (e) { K.errors++; }
+  }
   if (P && P.kilic && P.kilicW >= 0.999 && rg.look) {
     try {
-      const k = KS.get(rg.look);
+      const k = kd;
       if (k && k.feet) for (const s of ['R', 'L']) { const F = k.feet[s]; layLeg(P, s, [(F.x - rg.x) * rg.dir, F.y + (rg.y || 0), F.z]); }
-      if (P.armed && P.gripL >= 0.999) onHandle(P, GRIP);
+      if (P.armed && P.gripL >= 0.999) onHandle(P, gripOf(rg.look.wpn));
     } catch (e) { K.errors++; }
   }
   return draw1.apply(this, arguments);

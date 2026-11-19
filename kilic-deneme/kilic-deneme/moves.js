@@ -415,6 +415,20 @@ export const MOVES = {
     ],
     phases: null,
   },
+  // after a finishing cut (the fight's zanshin / a counter's held pose): a short, hard flick (chiburi) that stops with the
+  // point low on the line to the fallen opponent, held a beat (zanshin: the eyes and the point stay on him), then the
+  // point rises to the throat line (chudan) and stays there. Never a blade hanging to the floor.
+  zanshin: {
+    name: 'Zanshin (flick, point on him, back to guard)', feet: FEET,
+    keys: [
+      at(0, {}),
+      at(110, { hip: [2, -76.5, 0], py: 10, cy: 16, lean: 8, nod: 7, R: [50, -104, 6], by: 4, el: -16, pR: [-0.2, 1, 0.5], pL: [-0.2, 1, -0.5] }, 'out3'),
+      at(420, { hip: [1.5, -76.8, 0], py: 10.5, cy: 17, lean: 7.5, nod: 6.5, R: [49, -105, 6], by: 3, el: -12, pR: [-0.2, 1, 0.5], pL: [-0.2, 1, -0.5] }, 'io'),
+      at(760, { hip: [0, -79, 0], py: 13, cy: 20, lean: 6, nod: 4, R: [40, -106, 3], by: -1, el: 12 }, 'io'),
+      at(980, {}, 'io'),
+    ],
+    phases: null,
+  },
   recoil: {
     name: 'Recoil (the cut is blocked, the blade bounces)', feet: FEET, tail: 3,
     keys: [
@@ -429,7 +443,7 @@ export const MOVES = {
   },
 };
 export const ORDER = ['idle', 'overhead', 'horizontal', 'diagonal', 'thrust', 'block',
-  'kesaS', 'gyakuS', 'menS', 'yokoL', 'tsukiS', 'guardMid', 'guardHi', 'guardLow', 'blockMid', 'blockHi', 'blockLow', 'hurtHi', 'hurtBody', 'stagger', 'recoil'];
+  'kesaS', 'gyakuS', 'menS', 'yokoL', 'tsukiS', 'guardMid', 'guardHi', 'guardLow', 'blockMid', 'blockHi', 'blockLow', 'hurtHi', 'hurtBody', 'stagger', 'recoil', 'zanshin'];
 export const durOf = (id) => MOVES[id].keys[MOVES[id].keys.length - 1].t;
 
 // ------------------------------------------------------------------ the body of one key (joints, no arms yet)
