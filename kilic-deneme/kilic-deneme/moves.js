@@ -795,18 +795,18 @@ export const MOVES = {
   // round the front in one horizontal cut, one-handed (the left hand stays on the saya), stopped past the right side; the
   // left hand comes back to the handle and the guard is taken.
   nuki: {
-    name: 'Nukitsuke (draw and cut from the saya)', feet: FEET, jump: [[212, 216]],
+    name: 'Nukitsuke (draw and cut from the saya)', feet: FEET, jump: [[246, 250]],
     keys: [
       at(0, { iai: true, d: 0, n: [0, -0.6, 0.8], pR: [-0.3, 0.9, 0.5], pL: [-0.2, 0.9, -0.6], lw: 0 }),
       at(80, { hip: [-2, -77, 0], py: 8, cy: 12, lean: 6, nod: 5, iai: true, d: 0.26, sby: -168, sel: -14, n: [0, -0.6, 0.8], pR: [-0.3, 0.8, 0.5], pL: [-0.2, 0.9, -0.6], lw: 0 }, 'in'),
-      at(212, { hip: [-2, -77, -1], py: 4, cy: 4, lean: 9, nod: 4, iai: true, d: 0.36, sby: -160, sel: -10, n: [0, -0.6, 0.8], pR: [-0.3, 0.7, 0.6], pL: [-0.2, 0.9, -0.6], lw: 0 }, 'in'),
-      at(215.5, { hip: [-2, -77, -1], py: 4, cy: 4, lean: 9, nod: 4, iai: true, d: 0.36, sby: -160, sel: -10, n: [0, -0.6, 0.8], pR: [-0.3, 0.7, 0.6], pL: [-0.2, 0.9, -0.6], lw: 0 }, 'lin'),
-      // (the blade whips out between two frames - as the noto, its length against the arms - on the saya's own line)
-      // (fix 3: out pointing forward on the far side - not back across her along the saya's line - just as the cut's window
-      // opens, so the draw and the cut are one motion)
-      at(216, { hip: [-3, -77, -1], py: 4, cy: 4, lean: 6, nod: 4, R: [36, -98, -10], by: -40, el: -4, n: [0, -1, 0], pR: [-0.3, 0.7, 0.6], pL: [-0.2, 0.9, -0.6], lw: 0 }, 'lin'),
-      at(234, { hip: [-1, -77.5, -1.5], py: 2, cy: 2, lean: 5, nod: 4, R: [38, -102, -20], by: -40, el: -2, n: [0, -1, 0], pR: [-0.3, 0.6, 0.7], pL: [-0.2, 0.9, -0.6], lw: 0 }, 'out'),
-      at(250, { hip: [8, -77, 0], py: 6, cy: 6, lean: 7, nod: 5, R: [50, -110, -24], by: -30, el: 0, n: [0, -1, 0], pL: [-0.2, 0.9, -0.6], lw: 0 }, 'in'),
+      at(212, { hip: [-2, -77, -1], py: 4, cy: 4, lean: 9, nod: 4, iai: true, d: 0.33, sby: -162, sel: -11, n: [0, -0.6, 0.8], pR: [-0.3, 0.7, 0.6], pL: [-0.2, 0.9, -0.6], lw: 0 }, 'io'),
+      // (fix 4, the owner: the blade came out of the saya pointing at him and, close to him, the fight's blade stop turned it
+      // down and then up for two frames before the cut. The hilt now runs forward along the saya's line until the cut's
+      // window opens, and the blade whips out between two frames straight into the cut - on him, where the fight's own
+      // contact holds it: drawing and cutting are one motion)
+      at(246, { hip: [2, -77, -0.5], py: 4, cy: 4, lean: 8, nod: 4, iai: true, d: 0.36, sby: -160, sel: -10, n: [0, -0.6, 0.8], pR: [-0.3, 0.7, 0.6], pL: [-0.2, 0.9, -0.6], lw: 0 }, 'io'),
+      at(249.5, { hip: [2, -77, -0.5], py: 4, cy: 4, lean: 8, nod: 4, iai: true, d: 0.36, sby: -160, sel: -10, n: [0, -0.6, 0.8], pR: [-0.3, 0.7, 0.6], pL: [-0.2, 0.9, -0.6], lw: 0 }, 'lin'),
+      at(250, { hip: [8, -77, 0], py: 6, cy: 6, lean: 7, nod: 5, R: [48, -104, -22], by: -30, el: 0, n: [0, -1, 0], pR: [-0.3, 0.6, 0.7], pL: [-0.2, 0.9, -0.6], lw: 0 }, 'lin'),
       at(280, { hip: [15, -76, 0], py: 8, cy: 8, lean: 8, nod: 6, R: [70, -112, -4], by: 0, el: 2, n: [0, -1, 0], pL: [-0.2, 0.9, -0.6], lw: 0 }, 'lin'),
       at(335, { hip: [17, -76, 0], py: 16, cy: 28, lean: 8, nod: 6, R: [66, -110, 22], by: 55, el: 2, n: [0, -1, 0], pL: [-0.2, 0.9, -0.6], lw: 0 }, 'out'),
       at(390, { hip: [16.5, -76.5, 0], py: 16, cy: 27, lean: 8, nod: 6, R: [62, -110, 21], by: 53, el: 4, n: [0, -1, 0], pL: [-0.2, 0.9, -0.6], lw: 0.2 }, 'io'),
