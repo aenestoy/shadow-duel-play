@@ -1,1 +1,0 @@
-3a25006be feat(game-06): kilic trial 3b - a broken guard drawn with the new stagger

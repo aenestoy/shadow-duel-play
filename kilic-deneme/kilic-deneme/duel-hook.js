@@ -791,9 +791,6 @@ function govern(f, k, rg, P) {
     const sc = (b > 0 ? 100 * b : 0) + 10 * dpen(c) + Math.abs(wrapA(c - a));
     if (sc < bs) { bs = sc; best = c; }
   }
-  // (far behind a fast turn of the drawing with nothing clear in reach - held there it lay across a body for many frames:
-  // one step onto what is drawn instead)
-  if (bs >= 100 && Math.abs(d) > 1.2) { k.gv = { a, dir: rg.dir, v: 0 }; K.govSnap = (K.govSnap || 0) + 1; return; }
   const dd = wrapA(best - a);
   g.v = wrapA(best - g.a); g.a = best; k.gvD = dd;
   setBlade(P, rotZ(u, dd)); if (P.gripL >= 0.999) onHandle(P, gripOf(f.wpn)); K.gov = (K.gov || 0) + 1;
