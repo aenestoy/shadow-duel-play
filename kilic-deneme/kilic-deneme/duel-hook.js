@@ -689,7 +689,7 @@ function faceClear(k, P, grip) {
   at(d); k.fo = d;
   if (d[0] || d[1] || d[2]) K.faceMoved = (K.faceMoved || 0) + 1;
 }
-K.dbg = (f) => { const k = KS.get(f); if (!k) return null; const r = { ga: +(k.ga || 0).toFixed(2), gaD: +(k.gaD || 0).toFixed(2), sc: k.sc || 0, sr: k.sr, nd: k.nd || 0, dd: +(k.dd || 0).toFixed(2), tail: k.tail || 0 }; return r; };
+K.dbg = (f) => { const k = KS.get(f); if (!k) return null; const r = { ga: +(k.ga || 0).toFixed(2), gaD: +(k.gaD || 0).toFixed(2), sc: k.sc || 0, sr: k.sr, nd: k.nd || 0, dd: +(k.dd || 0).toFixed(2), tail: k.tail || 0, cur: k.cur ? k.cur.id : null, t: k.cur ? +k.cur.t.toFixed(0) : null, w: +(k.w || 0).toFixed(2), beh: !!k.beh, mw: +(k.mw || 0).toFixed(2) }; return r; };
 K.dbgReset = (f) => { const k = KS.get(f); if (k) k.nd = 0; };
 const draw1 = Mo.draw;
 // 5b. The head over the arms (the owner, 2026-11-20, from faz4b-dovus.mp4: the face hidden behind the near arm in high

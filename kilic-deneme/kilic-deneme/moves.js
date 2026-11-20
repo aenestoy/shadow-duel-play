@@ -117,7 +117,7 @@ const BIND_A = { hip: [-2, -74, 0], py: 10, cy: 16, lean: 16, nod: 5, R: [47, -1
 // held follow-through (the blade swept out to the right, one-handed, the body long and low)
 const STUCK_B = { hip: [-2, -75, 0], py: 12, cy: 18, lean: 8, nod: 5, R: [52, -104, 6], by: 0, el: -10, n: [0, 0.6, 0.8], pR: [-0.3, 0.8, 0.6], pL: [-0.3, 0.8, -0.5] };
 const STUCK_T = { ...STUCK_B, hip: [-10, -74.5, 0], lean: -3, nod: 3, R: [32, -112, 6], el: -8 };
-const POST_LOW = { hip: [-6, -56, 0], py: 14, cy: 22, lean: 28, nod: 10, R: [22, -70, 28], by: 170, el: -8, n: [0, 1, 0], pR: [-0.6, 0.6, 0.6], pL: [0, 0.85, -0.6], FR: [30, 0, 7] };
+const POST_LOW = { hip: [-6, -56, 0], py: 14, cy: 22, lean: 28, nod: 10, R: [36, -64, 14], by: 0, el: -20, FR: [30, 0, 7] };
 // (4b) the right-shoulder raise (kesaS, tsubame, renga, sandan, airCut, airSpike) keyed higher and nearer the camera: the
 // fists go up in front of the face's far side and the near elbow stays under the face line (before: the near forearm
 // crossed the face as the fists passed the ear - the fight held that pose when the cut was blocked)
@@ -131,6 +131,11 @@ const IAI2 = { hip: [18, -64, 0], py: 14, cy: 30, lean: 24, nod: 9, R: [62, -100
 // level cut from the right - in, through, out to the left
 const MW_DUCK = { hip: [4, -60, 0], py: 14, cy: 22, lean: 30, nod: 12, R: [40, -72, 28], by: 150, el: -16, n: [0, 1, 0], pR: [-0.5, 0.7, 0.6], pL: [0, 0.85, -0.6] };
 const MW_TRAIL = { hip: [-2, -75, 1], py: 18, cy: 34, lean: 8, nod: 5, R: [16, -106, 32], by: 140, el: -6, n: [0, 1, 0], pR: [-0.5, 0.7, 0.6], pL: [0, 0.85, -0.6] };
+// (6) the wind-ups of the turns with the fists back at the right hip (wakigamae: the hands at or behind the spine as drawn),
+// so the blade trailing back never lies across the belly, hips or thighs (the turn after it is unchanged); the elbow points
+// back and out (a pole with no downward share: with the arm hanging along a downward pole the elbow flipped)
+const MW_DUCKB = { ...MW_DUCK, R: [6, -72, 26], pR: [-0.7, 0, 0.7] };
+const MW_WAKI = { ...MW_TRAIL, R: [-6, -100, 30], by: 150, el: -10, pR: [-0.7, 0, 0.7] };
 const MW_IN = { hip: [6, -74, 0], py: 4, cy: 18, lean: 8, nod: 5, R: [44, -108, 30], by: 80, el: 0, n: [0, 1, 0] };
 const MW_MID = { hip: [12, -74, 0], py: -6, cy: 2, lean: 9, nod: 6, R: [70, -110, 8], by: 6, el: 2, n: [0, 1, 0] };
 const MW_END = { hip: [14, -74, 0], py: -12, cy: -14, lean: 9, nod: 6, R: [64, -108, -16], by: -52, el: 0, n: [0, 1, 0] };
@@ -563,7 +568,7 @@ export const MOVES = {
     keys: [
       at(0, { hip: [-6, -72, 0], pitch: 60, py: 22, cy: 32, lean: -4, nod: 12, w: 1, R: [-34, -116, 34], by: 158, el: 22, pR: [-0.4, -0.3, 0.9], pL: [0.2, -0.3, -0.9], lf: 1, L: [-10, -128, -28], FR: [36, -48, 6], FL: [28, -40, -6] }),
       // (the palm comes down onto its spot from above: it lands, it does not skid)
-      at(85, { hip: [-12, -24, 0], pitch: 80, py: 22, cy: 30, lean: -2, nod: 15, w: 1, R: [-42, -14, 36], by: 24, el: 36, n: [0, 0, -1], pR: [-0.3, -0.6, 0.7], pL: [0, -0.6, -0.8], lf: 1, L: [-34, -12, -28], FR: [62, -20, 8], FL: [52, -16, -8] }, 'in'),
+      at(85, { hip: [-12, -24, 0], pitch: 80, py: 22, cy: 30, lean: -2, nod: 15, w: 1, R: [-42, -14, 36], by: 24, el: 56, n: [0, 0, -1], pR: [-0.3, -0.6, 0.7], pL: [0, -0.6, -0.8], lf: 1, L: [-34, -12, -28], FR: [62, -20, 8], FL: [52, -16, -8] }, 'in'),
       at(110, { ...LIE, hip: [-14, -12.5, 0], pitch: 85, nod: 16, R: [-43, -5, 36], el: 38, FR: [62, -12, 8], FL: [52, -9, -8] }, 'lin'),
       at(210, { ...LIE }, 'out'),
       at(400, { ...LIE, hip: [-15, -11.8, 0], nod: 13 }, 'io'),
@@ -850,8 +855,9 @@ export const MOVES = {
     name: 'Rising cut from the right (kiri-age)', feet: FEET,
     keys: [
       at(0, {}),
-      at(168, { hip: [-5, -77, 1], py: 26, cy: 40, lean: 6, nod: 5, R: [8, -98, 28], by: 160, el: -32, n: [0, 0, -1], pR: [-0.2, 0.9, 0.4], pL: [-0.3, 0.8, -0.5] }, 'io'),
-      at(303, { hip: [-6, -76, 1], py: 28, cy: 42, lean: 7, nod: 5, R: [6, -96, 28], by: 164, el: -34, n: [0, 0, -1], pR: [-0.2, 0.9, 0.4], pL: [-0.3, 0.8, -0.5] }, 'out'),
+      at(100, { hip: [-3, -78, 1], py: 20, cy: 30, lean: 5, nod: 5, R: [2, -100, 28], by: 70, el: -12, n: [0, 0, -1], pR: [-0.2, 0.9, 0.4], pL: [-0.3, 0.8, -0.5] }, 'io'),
+      at(168, { hip: [-5, -77, 1], py: 26, cy: 40, lean: 6, nod: 5, R: [-6, -96, 26], by: 160, el: -32, n: [0, 0, -1], pR: [-0.2, 0.9, 0.4], pL: [-0.3, 0.8, -0.5] }, 'io'),
+      at(303, { hip: [-6, -76, 1], py: 28, cy: 42, lean: 7, nod: 5, R: [-8, -94, 26], by: 164, el: -34, n: [0, 0, -1], pR: [-0.2, 0.9, 0.4], pL: [-0.3, 0.8, -0.5] }, 'out'),
       at(380, { hip: [2, -76, 1], py: 18, cy: 30, lean: 8, nod: 6, R: [28, -100, 26], by: 120, el: -36, n: [0, 0, -1], pR: [-0.2, 0.9, 0.4], pL: [-0.3, 0.8, -0.5] }, 'in'),
       at(420, { hip: [8, -76, 0], py: 10, cy: 18, lean: 8, nod: 6, R: [52, -100, 16], by: 40, el: -30, n: [0, 0, -1] }, 'in'),
       at(454, { hip: [14, -77, 0], py: 4, cy: 8, lean: 6, nod: 4, R: [64, -118, 6], by: 4, el: 10, n: [0, 0, -1] }, 'lin'),
@@ -1039,14 +1045,14 @@ export const MOVES = {
     name: 'Round the post and kick', feet: FEET, kick: 'R', kneeUp: 'R', air: true,
     keys: [
       at(0, {}),
-      at(90, { hip: [-4, -70, 0], py: 14, cy: 22, lean: 14, nod: 6, R: [30, -94, 24], by: 120, el: -10, n: [0, 1, 0], pR: [-0.5, 0.7, 0.6], pL: [0, 0.85, -0.6], FR: [28, -12, 7] }, 'io'),
+      at(90, { hip: [-4, -70, 0], py: 14, cy: 22, lean: 14, nod: 6, R: [34, -92, 14], by: 0, el: -6, FR: [28, -12, 7] }, 'io'),
       at(160, POST_LOW, 'out'),
       at(500, { ...POST_LOW, hip: [-6, -55, 0], lean: 27 }, 'io'),
-      at(620, { hip: [-6, -80, 0], py: 9, cy: 17, lean: -2, nod: 1, R: [-30, -100, 16], by: 178, el: -24, n: [0, 1, 0], pR: [-0.8, 0.3, 0.6], pL: [0.2, 0.8, -0.6], FR: [34, -52, 10] }, 'io'),
-      at(720, { hip: [-10, -82, 0], py: 7, cy: 15, lean: -12, nod: -3, R: [-36, -99, 16], by: 180, el: -26, n: [0, 1, 0], pR: [-0.8, 0.3, 0.6], pL: [0.2, 0.8, -0.6], FR: [78, -80, 10] }, 'out'),
-      at(770, { hip: [-9, -82, 0], py: 7, cy: 15, lean: -11, nod: -3, R: [-35, -99, 16], by: 180, el: -26, n: [0, 1, 0], pR: [-0.8, 0.3, 0.6], pL: [0.2, 0.8, -0.6], FR: [76, -78, 10] }, 'io'),
-      at(870, { hip: [-5, -81, 0], py: 10, cy: 17, lean: -3, nod: 1, R: [-20, -98, 18], by: 176, el: -20, n: [0, 1, 0], pR: [-0.8, 0.3, 0.6], pL: [0.2, 0.8, -0.6], FR: [34, -36, 9] }, 'io'),
-      at(920, { hip: [-2, -79.5, 0], py: 12, cy: 19, lean: 4, nod: 3, R: [24, -100, 34], by: 110, el: -6, n: [0, 1, 0], pR: [-0.7, 0.4, 0.6], pL: [0, 0.85, -0.6], FR: [25, -8, 6] }, 'io'),
+      at(620, { hip: [-6, -80, 0], py: 9, cy: 17, lean: -2, nod: 1, R: [24, -116, 10], by: 0, el: 78, FR: [34, -52, 10] }, 'io'),
+      at(720, { hip: [-10, -82, 0], py: 7, cy: 15, lean: -12, nod: -3, R: [20, -118, 10], by: 0, el: 82, FR: [78, -80, 10] }, 'out'),
+      at(770, { hip: [-9, -82, 0], py: 7, cy: 15, lean: -11, nod: -3, R: [20, -118, 10], by: 0, el: 82, FR: [76, -78, 10] }, 'io'),
+      at(870, { hip: [-5, -81, 0], py: 10, cy: 17, lean: -3, nod: 1, R: [24, -116, 10], by: 0, el: 64, FR: [34, -36, 9] }, 'io'),
+      at(910, { hip: [-2, -79.5, 0], py: 12, cy: 19, lean: 4, nod: 3, R: [30, -104, 10], by: 20, el: 32, FR: [25, -8, 6] }, 'io'),
       at(950, { hip: [-1, -79, 0], py: 13, cy: 20, lean: 6, nod: 4, R: [34, -104, 14], by: 40, el: 14, n: [0, 0.7, 0.7], FR: [24, 0, 6] }, 'out'),
       at(1000, {}, 'io'),
     ],
@@ -1252,10 +1258,10 @@ export const MOVES = {
     keys: [
       at(0, {}),
       at(25, { hip: [2, -76, 0], lean: 12, nod: 6, R: [42, -100, 4], FR: [24, -5, 6], FL: [-22, -6, -6] }, 'io'),
-      at(80, { ...MW_DUCK, FR: [34, -10, 7], FL: [-26, -8, -7] }, 'io'),
-      at(130, { ...MW_DUCK, hip: [6, -58, 0], lean: 31, FR: [40, -12, 7], FL: [-30, -14, -7] }, 'io'),
-      at(180, { ...yawK(MW_DUCK, -20), FR: [30, -6, 7], FL: [-30, -6, -7] }, 'io'),
-      at(200, { ...yawK(MW_DUCK, -45), FR: [30, 0, 7], FL: [-30, 0, -7] }, 'io'),
+      at(80, { ...MW_DUCKB, FR: [34, -10, 7], FL: [-26, -8, -7] }, 'io'),
+      at(130, { ...MW_DUCKB, hip: [6, -58, 0], lean: 31, FR: [40, -12, 7], FL: [-30, -14, -7] }, 'io'),
+      at(180, { ...yawK(MW_DUCKB, -20), FR: [30, -6, 7], FL: [-30, -6, -7] }, 'io'),
+      at(200, { ...yawK({ ...MW_DUCKB, R: [-10, -74, 22] }, -45), FR: [30, 0, 7], FL: [-30, 0, -7] }, 'io'),
       at(209, yawK(MW_DUCK, -70), 'lin'),
       at(211, yawK(MW_DUCK, -250), 'lin'),
       at(245, yawK(MW_TRAIL, -290), 'io'),
@@ -1276,9 +1282,10 @@ export const MOVES = {
     name: 'Kuruma-giri (the wheel: one turn, a level cut)', feet: FEET,
     keys: [
       at(0, {}),
-      at(110, MW_TRAIL, 'io'),
-      at(140, yawK(MW_TRAIL, -30), 'in'),
-      at(180, yawK(MW_TRAIL, -130), 'lin'),
+      at(60, { ...MW_WAKI, R: [4, -102, 30], by: 90, el: 0 }, 'io'),
+      at(110, MW_WAKI, 'io'),
+      at(140, yawK({ ...MW_WAKI, R: [-20, -100, 24] }, -30), 'in'),
+      at(180, yawK(MW_WAKI, -130), 'lin'),
       at(220, yawK(MW_TRAIL, -240), 'lin'),
       at(256, yawK(MW_IN, -320), 'lin'),
       at(285, yawK(MW_MID, -360), 'lin'),
