@@ -2090,7 +2090,7 @@ export function walkFeetLive(G, u, S, x, dir, at) {
 
 // where a foot is at time t: planted, or in a step (MOVE.steps: { foot, t0, t1, dx, dz, h }) — it travels only while it is
 // off the floor: forward on a smoothstep, lifted on a half sine, so it leaves and lands vertically and never slides
-function footAt(M, s, t) {
+export function footAt(M, s, t) {
   const f = M.feet[s];
   let x = f[0], z = f[1], y = 0;
   for (const st of M.steps || []) {

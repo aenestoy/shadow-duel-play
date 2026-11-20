@@ -24,7 +24,7 @@
 //     ('down' + 'getup', one move on the fight's own clock), the throw; Akane with the sword in the saya stands, walks and
 //     falls in the same moves with her hand on the hilt. A blade never rests in the other's head or body as drawn (the
 //     last pass before drawing), and blades that are not cutting keep out of the fight's blade-stop zones (no push).
-import { MOVES, ORDER, chAt, blendCh, poseFromCh, layLeg, layArm, durOf, gaitFeet, walkFeetLive, strideOf, V, LEN, followCh, flipFollow, strikeAt, blendU, turnU, flatDrawn, fromScr, drawnR, BP_W, govStep, scrP, rotToScr } from './moves.js';
+import { MOVES, ORDER, chAt, blendCh, poseFromCh, layLeg, layArm, durOf, gaitFeet, walkFeetLive, strideOf, V, LEN, followCh, flipFollow, strikeAt, blendU, turnU, flatDrawn, fromScr, drawnR, BP_W, govStep, scrP, rotToScr, footAt } from './moves.js';
 import { installCombos } from './combos.js';
 const { add, sub, mul, madd, dot, norm, lerp } = V;
 
@@ -548,6 +548,70 @@ function flipCh(c) {
   for (const n of FLIPX) o[n] = -o[n];
   return o;
 }
+// (fix 5, the owner 2026-11-20 "Önce küçük geri adım") A high or diagonal cut that starts too close: the blade rising
+// from the guard to over the head crossed his body or her own face, and the fight's blade stop held it low and forward.
+// The attacker takes a small half step back in the wind-up - the hips go back (and sink a little, so the front leg is
+// never stretched to its reach), the back foot steps back (the feet planner's own step: lifted and set down) - which
+// opens room for the blade to rise; the hips drive forward again into the strike and are on the move's own pose at its
+// first strike frame, and the back foot steps up after it. The cut's timing, its hit window and the drawn strike are the
+// move's own. How far: as far as the blade's turn up needs (sbNeed), at most SB_MAX - looked at again while the step is
+// being taken (he may still be coming in), never shrinking.
+const SB = { overhead: 1, kesaS: 1, gyakuS: 1, menS: 1 };
+const SB_MAX = 16, SB_SINK = 0.3;
+const s5 = (u) => { const v = clamp(u, 0, 1); return v * v * v * (v * (v * 6 - 15) + 10); };
+function sbProf(M, t) {
+  const W = M.phases.active[0], tb = Math.min(0.5 * W, 200), td = 0.7 * W;
+  const H = t <= 0 ? 0 : t < tb ? s5(t / tb) : t < td ? 1 : t < W ? 1 - s5((t - td) / (W - td)) : 0;
+  return { H, L: t >= 0.03 * W && t < 0.9 * W, grow: t < 0.3 * W };
+}
+// How far back the rise needs: the blade as drawn now (the last-word governor's angle, the last drawn sword hand) turning
+// up from where it is to straight up, round the hand on the screen - does it pass through the other's head (15) or along
+// his body (17 round the spine, past 24 of the blade), as the governor's own rule? The least shift back, in steps of 2,
+// that clears the whole turn; none when the blade is already up or back (nothing to rise through) or nothing is in the
+// way; SB_MAX when even that does not clear it (as much as a small step gives).
+function sbNeed(f, k, rg, BL) {
+  const P = k.prevP, g = k.g2, o = f.opp, ro = o && MD.rigOf(o), Q = ro && ro.P;
+  if (!P || !P.haR || !g || g.a == null || !Q || !Q.head || !Q.neck || !Q.hip || o.dead || o.hidden) return { s: 0, a0: null };
+  const a0 = wrapA(g.a);
+  // (up already, or held back over the shoulder: nothing to rise through)
+  if (!(a0 > -1.25 && a0 < 2.9)) return { s: 0, a0 };
+  // (from low behind - a follow-through ending down and back - the way up in front starts from forward-down)
+  const from = Math.min(a0, 1.2);
+  const hd = Mo.project(ro, Q.head), nk = Mo.project(ro, Q.neck), hp = Mo.project(ro, Q.hip), h = P.haR;
+  const blocked = (s) => {
+    for (let a = from; a >= -Math.PI / 2 - 1e-6; a -= 0.1) {
+      const c = Math.cos(a), sn = Math.sin(a);
+      for (let i = 2; i <= 10; i++) {
+        const kk = 4 + (BL - 4) * i / 10, q = Mo.project(rg, [h[0] - s + c * kk, h[1] + sn * kk, h[2]]);
+        if (Math.hypot(q.x - hd.x, q.y - hd.y) < 15 || (kk > 24 && segD2(q, hp, nk) < 17)) return true;
+      }
+    }
+    return false;
+  };
+  if (!blocked(0)) return { s: 0, a0 };
+  for (let s = 2; s <= SB_MAX; s += 2) if (!blocked(s)) return { s, a0 };
+  return { s: SB_MAX, a0 };
+}
+function stepBack(f, k, rg, want, ch, BL) {
+  const M = MOVES[want.id];
+  if (!(f.state === 'atk' && SB[want.id] && M.phases && !K.sbOff)) { k.sb = null; return; }
+  // (a new cut - another one, or the same cut started again)
+  const fresh = !k.sb || k.sb.atk !== f.atk || k.sb.id !== want.id || f.st < k.sb.st - 1e-6;
+  if (fresh) k.sb = { atk: f.atk, id: want.id, s: 0, st: f.st };
+  const sb = k.sb, pr = sbProf(M, want.t);
+  sb.st = f.st;
+  if (pr.grow) {
+    const nd = sbNeed(f, k, rg, BL);
+    // (a blade starting low behind - a follow-through ending down and back - rises round the back, never through the
+    // front: a step back opens nothing for it, so none)
+    sb.s = Math.min(sb.s + 1.5, Math.max(sb.s, nd.a0 != null && nd.a0 >= 1.65 ? 0 : nd.s));
+  }
+  if (!(sb.s > 0.5)) return;
+  ch.hx -= sb.s * pr.H; ch.hy += SB_SINK * sb.s * pr.H;
+  const fL = footAt(M, 'L', want.t);
+  want.feet = { R: footAt(M, 'R', want.t), L: pr.L ? [fL[0] - sb.s, fL[1], fL[2]] : fL };
+  K.sbN = (K.sbN || 0) + 1;
+}
 function ours(f, rg, gP, dt) {
   const k = ks(f);
   const want = choose(f, k, gP, dt, rg);
@@ -572,6 +636,7 @@ function ours(f, rg, gP, dt) {
     if (ch !== c) ch.bp = c.bp;
     if (!k.fol) { k.fol = {}; if (k.lastCh && k.lastCh.bp != null) { k.fol.e = k.lastCh.bp - (k.lastCh.pt || 0) * Math.PI / 180; k.fol.lock = true; } }
     if (ch === c) ch = Object.assign({}, c);
+    stepBack(f, k, rg, want, ch, (f.wpn && f.wpn.blade) || LEN.blade);
     followCh(k.fol, ch, dt, strikeAt(MOVES[want.id], want.t));
     k.cur = want; k.lastCh = ch;
   } else ch = k.lastCh;
@@ -943,7 +1008,7 @@ K.swordSample = (f) => {
   if (nw) { const M = MOVES[k.cur.id], t = k.cur.t, ph2 = M && M.phases, W = ph2 ? ph2.hits || (ph2.active ? [ph2.active] : []) : []; if (W.some((w) => t >= w[0] - 35 && t <= w[1] + 35) || (M && M.beat && t >= M.beat[0] && t <= M.beat[1])) s = true; }
   const hr = nw && MOVES[k.cur.id] && (MOVES[k.cur.id].rest || []).some(([a, b]) => k.cur.t >= a && k.cur.t <= b) ? 1 : 0;
   const Fo = frontOf(f, rg);
-  return { h: hr, d: k && k.dbg && (k.dbg + (Fo ? 'D' + Fo.d.toFixed(0) + ' F' + Fo.front.toFixed(0) : '')), r:Math.hypot(pt.x - ph.x, pt.y - ph.y) / (BL * (ph.s || 1)), a: Math.atan2(pt.y - ph.y, pt.x - ph.x), s: s ? 1 : 0, x: 0, tag: nw ? k.cur.id : 'old:' + (f.state === 'atk' ? ATKID.get(f.atk) || f.atkName : f.state) };
+  return { h: hr, d: k && k.dbg && (k.dbg + (Fo ? 'D' + Fo.d.toFixed(0) + ' F' + Fo.front.toFixed(0) : '') + (k.sb && k.sb.s > 0.5 ? ' S' + k.sb.s.toFixed(0) : '')), r:Math.hypot(pt.x - ph.x, pt.y - ph.y) / (BL * (ph.s || 1)), a: Math.atan2(pt.y - ph.y, pt.x - ph.x), s: s ? 1 : 0, x: 0, tag: nw ? k.cur.id : 'old:' + (f.state === 'atk' ? ATKID.get(f.atk) || f.atkName : f.state) };
 };
 K.dbgReset = (f) => { const k = KS.get(f); if (k) k.nd = 0; };
 const draw1 = Mo.draw;
