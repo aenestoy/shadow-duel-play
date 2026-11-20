@@ -56,6 +56,96 @@ const yawDir = (deg) => [Math.cos(deg * D2R), 0, Math.sin(deg * D2R)];
 const rightOf = (f) => [-f[2], 0, f[0]]; // up × f for a level f
 export function bladeDir(by, el) { const c = Math.cos(el * D2R); return [c * Math.cos(by * D2R), -Math.sin(el * D2R), c * Math.sin(by * D2R)]; }
 
+// ------------------------------------------------------------------ the blade on the screen (2026-11-20, the owner: "kılıç
+// garip hareket ediyor"). The picture is a side view: x and y are the screen, z only foreshortens (js/mocap.js draws the
+// blade at its projected length). A blade turned toward / away from the camera collapses to a stub, and its screen angle
+// spins wildly round the hands while it passes the camera line. So the blade lives mostly in the screen's plane:
+//   - its depth share is held to ZMAX (the drawn length stays >= ~0.8 of the blade; flatU, and the exact drawn length in
+//     build with the perspective);
+//   - between keys it turns by its SCREEN angle (channel bp), along the arc of the keyed swing (never the long way,
+//     never through pointing at the camera: where the keyed path passed the camera line the turn coasts on in the
+//     direction it was already turning - or over the top), its depth (channel bz) blended on its own;
+//   - a cross-fade between moves turns the screen angle the short way (blendCh), the fight's eases do the same (blendU).
+export const ZMAX = 0.55;
+export const CAM = 320;
+const wrapA = (d) => Math.atan2(Math.sin(d), Math.cos(d));
+export const scrA = (u) => Math.atan2(u[1], u[0]);
+// the unit blade from its screen angle and depth share
+export function fromScr(a, z) { const zz = clamp(z, -0.999, 0.999), r = Math.sqrt(1 - zz * zz); return [r * Math.cos(a), r * Math.sin(a), zz]; }
+// a direction held near the screen's plane (its screen angle kept; a blade pointing straight at the camera keeps the
+// direction it leans to, upward if none)
+export function flatU(u, zmax = ZMAX) {
+  if (Math.abs(u[2]) <= zmax) return u;
+  const r = Math.hypot(u[0], u[1]);
+  return fromScr(r > 1e-6 ? Math.atan2(u[1], u[0]) : -Math.PI / 2, Math.sign(u[2]) * zmax);
+}
+// the drawn length share of a blade from h along u (js/depth25.js projector: perspective round x 0, y -80)
+export function drawnR(h, u, BL = LEN.blade) {
+  const s0 = CAM / (CAM - h[2]), t = madd(h, u, BL), s1 = CAM / (CAM - t[2]);
+  return Math.hypot(t[0] * s1 - h[0] * s0, (t[1] + 80) * s1 - (h[1] + 80) * s0) / (BL * s0);
+}
+// the depth share cut down (screen angle kept) until the blade is drawn at least rmin of its length
+export function flatDrawn(h, u, BL = LEN.blade, rmin = 0.82) {
+  if (drawnR(h, u, BL) >= rmin) return u;
+  const a = Math.hypot(u[0], u[1]) > 1e-6 ? scrA(u) : -Math.PI / 2, sg = Math.sign(u[2]) || 1;
+  let lo = 0, hi = Math.abs(u[2]);
+  for (let i = 0; i < 12; i++) { const m = (lo + hi) / 2; if (drawnR(h, fromScr(a, sg * m), BL) >= rmin) lo = m; else hi = m; }
+  return fromScr(a, sg * lo);
+}
+// (a blade held near the screen's plane cannot dip its point under the floor: where the keys' low blade cleared the floor
+// by pointing at / away from the camera, its point is kept 8 over the floor - an oblique blade turned toward level on the
+// screen (its side, forward or back, kept), one near straight down turned in depth (drawn shorter only then), blended by
+// how oblique it is: turning toward level alone would jump from one side to the other where it passes straight down.
+// The turn toward level is made in the move's screen-angle table (bpTable, so the turn limit holds it too); the drawing
+// only turns in depth what is left - Kuro's longer blade)
+export function floorU(h, u, BL = LEN.blade, lim = -8, rot = false) {
+  if (h[1] + u[1] * BL <= lim || u[1] <= 1e-4) return u;
+  const r = Math.hypot(u[0], u[1]), a = Math.atan2(u[1], u[0]), ny = clamp((lim - h[1]) / (BL * r), -1, 1);
+  const aL = u[0] >= 0 ? Math.asin(ny) : Math.PI - Math.asin(ny), w = rot ? clamp(Math.abs(u[0] / r) / 0.5, 0, 1) : 0;
+  let v = fromScr(a + (aL - a) * w, u[2]);
+  if (h[1] + v[1] * BL > lim) {
+    const r1 = Math.hypot(v[0], v[1]), r2 = clamp((lim - h[1]) / (BL * (v[1] / r1)), 0.05, r1), k = r2 / r1;
+    v = [v[0] * k, v[1] * k, Math.sqrt(Math.max(0, 1 - r2 * r2)) * (u[2] < 0 ? -1 : 1)];
+  }
+  return v;
+}
+// two blade directions blended by w: the screen angle the short way round, the depth on its own, held flat
+export function blendU(u0, u1, w) {
+  const a0 = scrA(u0), a1 = scrA(u1), z = u0[2] + (u1[2] - u0[2]) * w;
+  return flatU(fromScr(a0 + wrapA(a1 - a0) * w, z));
+}
+// the screen angle turned from u0 toward u1 by at most m (rad), the depth with it
+export function turnU(u0, u1, m) {
+  const a0 = scrA(u0), d = wrapA(scrA(u1) - a0);
+  if (Math.abs(d) <= m) return u1;
+  const w = m / Math.abs(d);
+  return flatU(fromScr(a0 + Math.sign(d) * m, u0[2] + (u1[2] - u0[2]) * w));
+}
+// The keyed swing between two keys on the screen: the screen angle's change along the keys' own yaw / elevation path (as
+// the channels ran it before), where the path passes the camera line (screen length under 0.35) the turn coasts across
+// in the sense it was already turning (this segment, else the one before), else over the top.
+function swingD(by0, el0, by1, el1, sense) {
+  const N = 32;
+  let tot = 0, ga = null, gi = -1;
+  for (let j = 0; j <= N; j++) {
+    const u = bladeDir(by0 + (by1 - by0) * j / N, el0 + (el1 - el0) * j / N), r = Math.hypot(u[0], u[1]);
+    if (r < 0.35 && j > 0 && j < N) continue;
+    const a = r > 1e-6 ? Math.atan2(u[1], u[0]) : -Math.PI / 2;
+    if (ga != null) {
+      let d = wrapA(a - ga);
+      if (j - gi > 1 && Math.abs(d) > Math.PI / 2) {
+        // (across the camera line: in the sense already turning, else through straight up)
+        const sg = Math.sign(tot) || Math.sign(sense) || 0;
+        if (sg) { if (Math.sign(d) !== sg) d += sg * 2 * Math.PI; }
+        else { const up = wrapA(-Math.PI / 2 - ga); const via = (dd) => (dd > 0 ? up > 0 && up < dd : up < 0 && up > dd); if (!via(d)) d += d > 0 ? -2 * Math.PI : 2 * Math.PI; }
+      }
+      tot += d;
+    }
+    ga = a; gi = j;
+  }
+  return tot;
+}
+
 // ------------------------------------------------------------------ easing
 const EASE = {
   lin: (u) => u,
@@ -602,7 +692,7 @@ export const MOVES = {
   // (the blade snaps up to the forehead line, the knees give), down (the point beats down onto his blade), or aside (the
   // wrists roll the blade out to the far side) - and straight back to the guard
   parryUp: {
-    name: 'Parry (sends the cut up)', feet: FEET,
+    name: 'Parry (sends the cut up)', feet: FEET, beat: [0, 120],
     keys: [
       at(0, G_MID),
       at(55, { ...G_MID, hip: [-4, -76.5, 0], cy: 24, lean: 2, nod: 1, R: [40, -138, 6], by: 2, el: 96, pR: [-0.4, 0.5, 0.8], pL: [-0.4, 0.4, -0.8] }, 'out3'),
@@ -612,7 +702,7 @@ export const MOVES = {
     phases: null,
   },
   parryDown: {
-    name: 'Parry (beats the cut down)', feet: FEET,
+    name: 'Parry (beats the cut down)', feet: FEET, beat: [0, 120],
     keys: [
       at(0, G_MID),
       at(55, { ...G_MID, hip: [-3, -76, 0], cy: 24, lean: 8, nod: 6, R: [49, -103, 7], by: 2, el: -12, pR: [-0.2, 0.9, 0.5], pL: [-0.2, 0.9, -0.5] }, 'out3'),
@@ -622,7 +712,7 @@ export const MOVES = {
     phases: null,
   },
   parrySide: {
-    name: 'Parry (rolls the cut aside)', feet: FEET,
+    name: 'Parry (rolls the cut aside)', feet: FEET, beat: [0, 120],
     keys: [
       at(0, G_MID),
       at(55, { ...G_MID, hip: [-3, -77, 0], py: 20, cy: 32, lean: 4, nod: 3, R: [40, -122, 14], by: 40, el: 50, n: [0, 0.5, 0.85] }, 'out3'),
@@ -670,7 +760,7 @@ export const MOVES = {
   // (chiburi), the left hand goes to the saya's mouth, the blade swings round to the left hip, its point meets the mouth
   // (the left hand tips the saya up to it) and the blade slides home; the hand rests on the hilt (the iai stance).
   noto: {
-    name: 'Noto (flick, the blade slides home)', feet: FEET, jump: [[244, 247]],
+    name: 'Noto (flick, the blade slides home)', feet: FEET, jump: [[244, 247]], rest: [[70, 248]],
     keys: [
       at(0, {}),
       at(110, { hip: [1, -78.5, 0], py: 16, cy: 26, lean: 6, nod: 5, R: [47, -100, 14], by: 26, el: -24, n: [0, 0.45, 0.9], pR: [-0.2, 0.9, 0.4], pL: [-0.2, 0.9, -0.6], lw: 0 }, 'out3'),
@@ -1349,6 +1439,8 @@ export const MOVES = {
   // left hand back to the handle, the guard. Its recovery is long: blocked, it is punished.
   kzIai: {
     name: 'Saya-gaeshi (sheathe, pause, draw-cut)', feet: FEET, jump: [[260.5, 263.5], [800, 804]], strikeFrom: 720,
+    // (rest: a declared sheath pose - the chiburi's low flick and the noto - where a blade held low is the move, not a limp hang)
+    rest: [[90, 264]],
     steps: [{ foot: 'R', t0: 850, t1: 930, dx: 22, h: 6 }, { foot: 'R', t0: 1380, t1: 1500, dx: -22, h: 4 }],
     keys: [
       at(0, { hip: [17, -74, 0], py: -9, cy: -9, lean: 10, nod: 7, R: [60, -96, -10], by: -46, el: -39, n: [0, 0.6, 0.8] }),
@@ -1482,7 +1574,7 @@ function torso(k) {
 // lie on the same side (a turning point) too. The right fist is a channel in spherical form round the shoulder centre
 // (distance, azimuth, elevation), so it travels on arcs round the shoulders, never on the chord through the body.
 const CH = ['hx', 'hy', 'hz', 'py', 'cy', 'lean', 'nod', 'by', 'el', 'nx', 'ny', 'nz', 'rr', 'raz', 'rel', 'prx', 'pry', 'prz', 'plx', 'ply', 'plz', 'lw', 'dr',
-  'pt', 'lx', 'ly', 'lz', 'lf', 'frx', 'fry', 'frz', 'flx', 'fly', 'flz'];
+  'pt', 'lx', 'ly', 'lz', 'lf', 'frx', 'fry', 'frz', 'flx', 'fly', 'flz', 'bp', 'bz'];
 // the pitch: a vector of the body (relative to the hip) tipped back by a deg (+: the head goes back and down, the face up)
 function tip(v, a) { if (!a) return v; const c = Math.cos(a * D2R), s = Math.sin(a * D2R); return [v[0] * c + v[1] * s, -v[0] * s + v[1] * c, v[2]]; }
 const tipAt = (p, hip, a) => (a ? add(hip, tip(sub(p, hip), a)) : p);
@@ -1508,8 +1600,10 @@ function iaiKey(k) {
   const B = torso(k), S = sayaOf(B), u = k.sby != null ? bladeDir(k.sby, k.sel) : S.u, vis = (k.d || 0) * LEN.blade;
   return Object.assign({}, k, { by: Math.atan2(u[2], u[0]) / D2R, el: Math.asin(clamp(-u[1], -1, 1)) / D2R, R: madd(S.a, u, -(vis + 4)) });
 }
-function channels(id) {
-  let C = CACHE.get(id);
+// (BL: the blade's length - the screen-angle table keeps that blade's point over the floor; Kuro's nodachi is longer)
+function channels(id, BL) {
+  const key = BL && BL !== LEN.blade ? id + '|' + BL : id;
+  let C = CACHE.get(key);
   if (C) return C;
   const K = MOVES[id].keys.map(iaiKey), n = K.length, t = K.map((k) => k.t), v = {};
   // (a key with at: 1 - the point meeting the saya's mouth: its own iai line, the blade still all out)
@@ -1524,6 +1618,12 @@ function channels(id) {
     az0 = az;
     const o = { hx: k.hip[0], hy: k.hip[1], hz: k.hip[2], py: k.py, cy: k.cy, lean: k.lean, nod: k.nod, by: k.by, el: k.el, nx: k.n[0], ny: k.n[1], nz: k.n[2], rr, raz: az, rel: Math.asin(clamp(-r[1] / rr, -1, 1)), prx: k.pR[0], pry: k.pR[1], prz: k.pR[2], plx: k.pL[0], ply: k.pL[1], plz: k.pL[2], lw: k.lw, dr: k.d,
       pt: k.pitch, lx: k.L[0], ly: k.L[1], lz: k.L[2], lf: k.lf, frx: k.FR[0], fry: k.FR[1], frz: k.FR[2], flx: k.FL[0], fly: k.FL[1], flz: k.FL[2] };
+    // (the blade on the screen: its angle unwrapped along the keyed swing from the key before, its depth held flat - a
+    // blade going into / out of the saya keeps the saya's line)
+    const u = bladeDir(k.by, k.el), r2 = Math.hypot(u[0], u[1]);
+    if (i === 0) o.bp = r2 > 1e-6 ? Math.atan2(u[1], u[0]) : -Math.PI / 2;
+    else { const kp = K[i - 1], d = swingD(kp.by, kp.el, k.by, k.el, i > 1 ? v.bp[i - 1] - v.bp[i - 2] : 0); o.bp = v.bp[i - 1] + d; }
+    o.bz = k.d != null && k.d < 0.999 ? u[2] : clamp(u[2], -ZMAX, ZMAX);
     for (const c of CH) v[c][i] = o[c];
   });
   const m = {};
@@ -1539,9 +1639,138 @@ function channels(id) {
     m[c] = mm;
   }
   C = { t, v, m };
-  CACHE.set(id, C);
+  C.bpT = bpTable(id, C, BL || LEN.blade);
+  CACHE.set(key, C);
   return C;
 }
+// The blade's screen angle over a move, held to a turn of at most BP_W rad a frame (60 Hz) outside the strike windows
+// (phases.active / hits, +-35 ms): a keyed swing that would turn faster starts turning earlier and ends later (the
+// values that cannot move: a strike window's edges, which keep the keyed angle). The keys' fast turns between two close
+// keys (the guard into a windup in 100 ms: the old blade passed the camera line there as a one-frame stub) become a
+// visible, even swing. Split at the move's own one-frame jumps (M.jump: into / out of the saya; M.turnAt: the facing
+// flipped). A table at 240 Hz, linear between.
+export const BP_W = 0.26, BP_DT = 1000 / 240;
+export const STRIKE_M = 35;
+// the drawn screen angle following the move's (bp) at most BP_W a frame outside a strike: a cross-fade from one move
+// into the next (the fight's drawing, duel-hook.js ours; tools/kilic-sword.mjs the same) turns the blade as a swing, never
+// a snap; in a strike it follows at once
+export function followBp(prev, bp, dt, strike) {
+  if (prev == null || strike || !(dt > 0)) return bp;
+  const d = Math.atan2(Math.sin(bp - prev), Math.cos(bp - prev)), m = BP_W * Math.min(3, dt * 60);
+  return prev + clamp(d, -m, m);
+}
+// The same on a channel set, on the angle as drawn (the body's pitch turns the blade with it): ch.bp changed in place.
+// st keeps the drawn angle and its speed ({} to start). While the drawn angle is on the move's own it follows it exactly
+// (the move is already held to BP_W); after a switch (a cross-fade into another move, a cut cut short by a hit) it swings
+// over with a speed of at most BP_W and a change of speed of at most BP_A a frame - it carries on a little the way it was
+// turning, brakes and comes back, never flipping round between two frames. In a strike it is on the move's own at once.
+export const BP_A = 0.06;
+export function followCh(st, ch, dt, strike) {
+  if (ch.bp == null || !isFinite(ch.bp)) return ch;
+  const pt = (ch.pt || 0) * D2R, tg = ch.bp - pt, wr = (x) => Math.atan2(Math.sin(x), Math.cos(x));
+  const sc = clamp(dt * 60, 0, 3);
+  // (the target's own turn a frame; a jump of it - a switch of move - is no speed to follow)
+  let tv = st.tp != null && sc > 0 ? wr(tg - st.tp) / sc : 0;
+  if (Math.abs(tv) > 1.5 * BP_W && !strike) tv = 0;
+  st.tp = tg;
+  if (st.e == null || strike || !(sc > 0)) { st.e = tg; st.v = tv; st.lock = true; return ch; }
+  let d = wr(tg - st.e);
+  if (st.lock && Math.abs(d) < 0.03) { st.e = tg; st.v = tv; return ch; }
+  // (half a turn away: on round the way it is already turning, never deciding afresh each frame)
+  if (Math.abs(d) > 2.6 && st.v && Math.sign(d) !== Math.sign(st.v)) d += Math.sign(st.v) * 2 * Math.PI;
+  // (a new swing: it goes over the top rather than down through the floor when that is not much further - a blade
+  // passing straight down reads as dropped; then it keeps that way round until it is there)
+  // (only toward a target at rest: one that is swinging toward it is waited for)
+  if (Math.abs(tv) > 0.05) st.dir = 0;
+  else if (st.lock || st.dir == null) {
+    st.dir = Math.sign(d);
+    const dn = wr(Math.PI / 2 - st.e);
+    if (Math.abs(d) > 1.2 && Math.sign(dn) === Math.sign(d) && Math.abs(dn) < Math.abs(d) && 2 * Math.PI - Math.abs(d) < Math.abs(d) + 1.4) st.dir = -Math.sign(d);
+  }
+  if (st.dir && Math.sign(d) !== st.dir && Math.abs(d) > 0.5) d += st.dir * 2 * Math.PI;
+  st.lock = false;
+  // (far from it, it goes for where the target is, not where it is heading; turning away from it, it brakes twice as hard)
+  const v = clamp(st.v || 0, -BP_W, BP_W), vd = clamp((Math.abs(d) < 0.8 ? tv : 0) + Math.sign(d) * Math.min(BP_W, Math.sqrt(2 * BP_A * Math.abs(d)), 0.5 * Math.abs(d)), -BP_W, BP_W);
+  const ac = BP_A * sc * (v * d < 0 ? 2 : 1);
+  st.v = v + clamp(vd - v, -ac, ac);
+  st.e += st.v * sc;
+  const d2 = wr(tg - st.e);
+  if (Math.abs(d2) < 0.03 && Math.abs(st.v - tv) < BP_A) { st.e = tg; st.v = tv; st.lock = true; st.dir = 0; }
+  ch.bp = st.e + pt; ch.bv = st.v * 60 / 1000;
+  return ch;
+}
+// the follower's state turned with the fighter (the facing flipped: the same picture, the local angle mirrored)
+export function flipFollow(st) { if (st.e != null) st.e = Math.PI - st.e; if (st.tp != null) st.tp = Math.PI - st.tp; if (st.v) st.v = -st.v; return st; }
+// (M.beat [t0, t1]: a move's own hard beat of the blade that is no cut - the parry knocking his blade away - counts as a
+// strike: the blade may turn and come back as fast as a cut there)
+export function strikeAt(M, t) { if (M.beat && t >= M.beat[0] && t <= M.beat[1]) return true; const ph = M.phases; if (!ph) return false; const W = ph.hits || (ph.active ? [ph.active] : []); return W.some(([a, b]) => t >= a - STRIKE_M && t <= b + STRIKE_M); }
+function bpTable(id, C, BL) {
+  const M = MOVES[id], T = C.t[C.t.length - 1], n = Math.max(2, Math.ceil(T / BP_DT) + 1), raw = new Float64Array(n), st = new Uint8Array(n), brk = new Uint8Array(n), Kz = new Float64Array(n), Rs = new Array(n);
+  const P = C.v.bp, Mm = C.m.bp, TT = C.t;
+  for (let i = 0; i < n; i++) {
+    const t = Math.min(T, i * BP_DT);
+    let j = 1; while (j < TT.length - 1 && t > TT[j]) j++;
+    const h = TT[j] - TT[j - 1], s = clamp((t - TT[j - 1]) / Math.max(1e-6, h), 0, 1), s2 = s * s, s3 = s2 * s;
+    raw[i] = (2 * s3 - 3 * s2 + 1) * P[j - 1] + (s3 - 2 * s2 + s) * h * Mm[j - 1] + (-2 * s3 + 3 * s2) * P[j] + (s3 - s2) * h * Mm[j];
+    // (the point kept over the floor from the fist's height - floorU's turn toward level, the katana's length)
+    { const o = {}; for (const c of ['hx', 'hy', 'hz', 'py', 'cy', 'lean', 'nod', 'rr', 'raz', 'rel', 'bz', 'pt', 'dr']) { const p = C.v[c], m = C.m[c]; o[c] = (2 * s3 - 3 * s2 + 1) * p[j - 1] + (s3 - 2 * s2 + s) * h * m[j - 1] + (-2 * s3 + 3 * s2) * p[j] + (s3 - s2) * h * m[j]; }
+      if (!o.pt && !(o.dr < 0.999)) {
+        const B = torso({ hip: [o.hx, o.hy, o.hz], py: o.py, cy: o.cy, lean: o.lean, nod: o.nod }), ce = Math.cos(o.rel), R = madd(B.shC, [ce * Math.cos(o.raz), -Math.sin(o.rel), ce * Math.sin(o.raz)], o.rr);
+        Kz[i] = o.bz; Rs[i] = R;
+        const u0 = fromScr(raw[i], o.bz), u1 = floorU(R, u0, BL + LEN.guard, -8, true);
+        if (u1 !== u0) raw[i] += Math.atan2(Math.sin(scrA(u1) - scrA(u0)), Math.cos(scrA(u1) - scrA(u0)));
+      } }
+    st[i] = strikeAt(M, t) ? 1 : 0;
+    // (a step across a one-frame jump - the blade into / out of the saya - is free: either side is limited on its own)
+    if (i > 0 && (M.jump || []).some(([a, b]) => t >= a && t - BP_DT <= b)) brk[i] = 1;
+    // (after the facing flip - M.turnAt - the picture is the same, mirrored: the angle limited as seen, continuous across)
+    if (M.turnAt != null && t > M.turnAt) { let m = Math.PI - raw[i]; if (i > 0) m += 2 * Math.PI * Math.round((raw[i - 1] - m) / (2 * Math.PI)); raw[i] = m; }
+  }
+  // Held to w a sample by the least-squares nearest even swing: each step longer than w is shortened by moving both its
+  // ends toward each other (a fixed end - a strike's, either side of a jump - does not
+  // move), sweep after sweep, until none is. A keyed snap becomes a swing of the full allowed speed centred on it.
+  const w = BP_W * BP_DT / (1000 / 60), x = Float64Array.from(raw), fix = new Uint8Array(n);
+  for (let i = 0; i < n; i++) if (st[i] || brk[i] || (i + 1 < n && brk[i + 1])) fix[i] = 1;
+  const free = (i) => !(st[i] && st[i + 1]) && !brk[i + 1];
+  for (let it = 0; it < 600; it++) {
+    let worst = 0;
+    const fw = it % 2 === 0;
+    for (let k = 0; k < n - 1; k++) {
+      const i = fw ? k : n - 2 - k;
+      if (!free(i)) continue;
+      const d = x[i + 1] - x[i], ex = Math.abs(d) - w;
+      if (ex <= 1e-6) continue;
+      worst = Math.max(worst, ex);
+      const sg = Math.sign(d);
+      if (fix[i] && fix[i + 1]) continue;
+      if (fix[i]) x[i + 1] -= sg * ex; else if (fix[i + 1]) x[i] += sg * ex; else { x[i] += sg * ex / 2; x[i + 1] -= sg * ex / 2; }
+    }
+    if (worst < 1e-4) break;
+  }
+  // (what the sweeps left: clamped outward from the fixed samples - a free start / end and a long swing are held exactly)
+  for (let k = n - 2; k >= 0; k--) if (!fix[k] && free(k)) x[k] = clamp(x[k], x[k + 1] - w, x[k + 1] + w);
+  for (let k = 1; k < n; k++) if (!fix[k] && free(k - 1)) x[k] = clamp(x[k], x[k - 1] - w, x[k - 1] + w);
+  const out = x;
+  if (M.turnAt != null) for (let q = 0; q < n; q++) if (q * BP_DT > M.turnAt) out[q] = Math.PI - out[q];
+  // The depth a blade near straight down needs to keep its point over the floor (a long blade, the fists high: it can not
+  // pass under them flat) is taken toward the camera, never away - turned away it is drawn a stub (the perspective shrinks
+  // it), toward the camera it stays long. The need ramps in and out at BZ_RATE a frame; the keyed depth where deeper.
+  const L = BL + LEN.guard, need = new Float64Array(n).fill(-1), rate = BZ_RATE * BP_DT / (1000 / 60);
+  for (let i = 0; i < n; i++) {
+    if (!Rs[i]) continue;
+    const sy = Math.sin(out[i]), Ry = Rs[i][1];
+    // (a margin over the drawing's own floor limit -8: the fists drawn may sit lower than this estimate)
+    if (sy <= 1e-3 || Ry + sy * L <= -20) continue;
+    const r2 = clamp((-20 - Ry) / (L * sy), 0, 1);
+    need[i] = Math.min(0.92, Math.sqrt(1 - r2 * r2) + 0.03);
+  }
+  for (let i = 1; i < n; i++) need[i] = Math.max(need[i], need[i - 1] - rate);
+  for (let i = n - 2; i >= 0; i--) need[i] = Math.max(need[i], need[i + 1] - rate);
+  const bz = new Float64Array(n);
+  for (let i = 0; i < n; i++) bz[i] = Rs[i] && need[i] > Kz[i] ? need[i] : NaN;
+  return { bp: out, bz };
+}
+const BZ_RATE = 0.07;
 function sampleCh(C, t) {
   const T = C.t, n = T.length;
   let i = 1;
@@ -1549,23 +1778,31 @@ function sampleCh(C, t) {
   const h = T[i] - T[i - 1], s = clamp((t - T[i - 1]) / Math.max(1e-6, h), 0, 1), s2 = s * s, s3 = s2 * s;
   const h00 = 2 * s3 - 3 * s2 + 1, h10 = s3 - 2 * s2 + s, h01 = -2 * s3 + 3 * s2, h11 = s3 - s2, o = {};
   for (const c of CH) { const p = C.v[c], m = C.m[c]; o[c] = h00 * p[i - 1] + h10 * h * m[i - 1] + h01 * p[i] + h11 * h * m[i]; }
+  if (C.bpT) {
+    const B = C.bpT.bp, Z = C.bpT.bz, x = clamp(t, 0, T[n - 1]) / BP_DT, j = Math.min(B.length - 2, Math.floor(x)), f = clamp(x - j, 0, 1);
+    o.bp = B[j] + (B[j + 1] - B[j]) * f; o.bv = (B[j + 1] - B[j]) / BP_DT;
+    // (the floor's depth toward the camera, where it is deeper than the keyed one)
+    const z0 = isNaN(Z[j]) ? o.bz : Z[j], z1 = isNaN(Z[j + 1]) ? o.bz : Z[j + 1];
+    if (!isNaN(Z[j]) || !isNaN(Z[j + 1])) o.bz = Math.max(o.bz, z0 + (z1 - z0) * f);
+  }
   return o;
 }
 // the channels of a move at time t (ms): a plain object of numbers (the fight's drawing blends two of them)
-export function chAt(id, t) {
+export function chAt(id, t, BL) {
   const M = MOVES[id], T = durOf(id);
   if (M.loop) t = ((t % T) + T) % T;
-  return sampleCh(channels(id), clamp(t, 0, T));
+  return sampleCh(channels(id, BL), clamp(t, 0, T));
 }
 // a cross-fade between two channel sets (one move cut into by the next): angles the short way round
 export function blendCh(a, b, w) {
   const o = {};
   for (const c of CH) {
     let d = b[c] - a[c];
-    if (c === 'raz') d = Math.atan2(Math.sin(d), Math.cos(d));
+    if (c === 'raz' || c === 'bp') d = Math.atan2(Math.sin(d), Math.cos(d));
     else if (c === 'by' || c === 'py' || c === 'cy') d = ((((d + 540) % 360) + 360) % 360) - 180; // (a spin ends a turn round)
     o[c] = a[c] + d * w;
   }
+  if (b.bv != null) o.bv = b.bv;
   return o;
 }
 // the drawn body from a channel set. opt: { feet: { R: [x, y, z], L: [x, y, z] } (the fight's planted feet, local),
@@ -1574,13 +1811,14 @@ export function poseFromCh(id, o, t, prev, opt) {
   const M = MOVES[id];
   const k = { hip: [o.hx, o.hy, o.hz], py: o.py, cy: o.cy, lean: o.lean, nod: o.nod, by: o.by, el: o.el, n: norm([o.nx, o.ny, o.nz]), pR: [o.prx, o.pry, o.prz], pL: [o.plx, o.ply, o.plz], lw: clamp(o.lw, 0, 1), d: clamp(o.dr, 0, 1),
     pitch: o.pt || 0, L: [o.lx, o.ly, o.lz], lf: clamp(o.lf || 0, 0, 1), FR: [o.frx, o.fry, o.frz], FL: [o.flx, o.fly, o.flz] };
+  if (o.bp != null && isFinite(o.bp)) { k.bu = fromScr(o.bp, o.bz); k.bv = o.bv || 0; }
   const B = torso(k), ce = Math.cos(o.rel);
   let R = madd(B.shC, [ce * Math.cos(o.raz), -Math.sin(o.rel), ce * Math.sin(o.raz)], o.rr);
   // (the sword home in the saya - Akane between moves, opt.sheathed: the right fist on the handle at the saya's mouth, the
   // left hand holding the saya, whatever the body does)
   if (opt && opt.sheathed) {
     const S = sayaOf(B), d = dirOf(S.u);
-    k.by = d.by; k.el = d.el; k.d = 0; k.lw = 0; R = madd(S.a, S.u, -6);
+    k.by = d.by; k.el = d.el; k.bu = null; k.d = 0; k.lw = 0; R = madd(S.a, S.u, -6);
     k.pR = [-0.3, 0.9, 0.5];
   }
   return build(M, k, B, R, prev, t, opt);
@@ -1591,11 +1829,11 @@ export function poseAt(id, t, prev, opt) {
   if (M.gait && !(opt && opt.feet)) {
     const u = (((t % T) + T) % T) / T;
     opt = Object.assign({}, opt, { feet: gaitFeet(id, u, M.gait.S) });
-    const P = poseFromCh(id, chAt(id, t), u * T, prev, opt);
+    const P = poseFromCh(id, chAt(id, t, opt.blade), u * T, prev, opt);
     P.bodyX = M.gait.S * (Math.floor(t / T) + u);
     return P;
   }
-  return poseFromCh(id, chAt(id, t), M.loop ? ((t % T) + T) % T : clamp(t, 0, T), prev, opt);
+  return poseFromCh(id, chAt(id, t, opt && opt.blade), M.loop ? ((t % T) + T) % T : clamp(t, 0, T), prev, opt);
 }
 // ------------------------------------------------------------------ gaits (walk, back-step, run)
 // A gait's clock is the ground the body covers (the fight moves it): one cycle = S of it, u = 0 ... 1. The keys are the
@@ -1683,6 +1921,19 @@ export function layArm(P, s, ha, pole) {
   P['el' + s] = r.m; P['ha' + s] = r.e; P['reach' + s] = r.reach / (LEN.uArm + LEN.fArm);
   return r;
 }
+// The edge: the keyed cut plane's (n x blade); while the blade's screen angle turns (bv, rad/ms - the angle table's own
+// speed) it rolls round the blade to lead that turn on the screen (z x blade, the turn's sign): the blade is held near
+// the screen's plane, so the swing on the screen is the cut - the keyed plane may lie across it. Full lead from 0.012
+// rad/ms (0.2 a frame), none at rest.
+function edgeOf(n, u, bv) {
+  let e = cross(n, u); if (len(e) < 1e-3) e = cross([0, 0, 1], u); e = norm(sub(e, mul(u, dot(e, u))));
+  if (!bv) return e;
+  const sv = [-u[1], u[0], 0], ls = len(sv), w = clamp(Math.abs(bv) / 0.012, 0, 1) * clamp((ls - 0.2) / 0.3, 0, 1);
+  if (w <= 0) return e;
+  const es = norm(sub(mul(sv, Math.sign(bv) / ls), mul(u, dot(sv, u) * Math.sign(bv) / ls))), ue = cross(u, e);
+  const th = Math.atan2(dot(es, ue), dot(es, e)), ph = th * w * w * (3 - 2 * w);
+  return norm(add(mul(e, Math.cos(ph)), mul(ue, Math.sin(ph))));
+}
 function build(M, k, B, R, prev, t = 0, opt = {}) {
   const P = {}, a = k.pitch || 0, h0 = B.hip, TP = (p) => tipAt(p, h0, a), TD = (v) => tip(v, a);
   P.hip = B.hip; P.chest = TP(B.chest); P.neck = TP(B.neck); P.head = TP(B.head); P.shR = TP(B.shR); P.shL = TP(B.shL);
@@ -1709,8 +1960,11 @@ function build(M, k, B, R, prev, t = 0, opt = {}) {
   { const L = LEN.blade + 6, ey = SY.a[1] + SY.u[1] * L, lim = -2.5;
     if (ey > lim) { const uy = clamp((lim - SY.a[1]) / L, -1, 1), hz = Math.hypot(SY.u[0], SY.u[2]) || 1, kk = Math.sqrt(Math.max(0, 1 - uy * uy)) / hz; SY.u = norm([SY.u[0] * kk, uy, SY.u[2] * kk]); } }
   // sword: the blade's direction and edge, both fists on the handle
-  const u = opt && opt.sheathed ? SY.u : TD(bladeDir(k.by, k.el));
-  let e = cross(TD(k.n), u); if (len(e) < 1e-3) e = cross([0, 0, 1], u); e = norm(sub(e, mul(u, dot(e, u))));
+  let u = opt && opt.sheathed ? SY.u : TD(k.bu || bladeDir(k.by, k.el));
+  // (the blade all out: drawn at least 0.82 of its length - the depth share cut, its screen angle kept)
+  const flat = !(opt && opt.sheathed) && !(k.d != null && k.d < 0.999);
+  if (flat) u = floorU(R, flatDrawn(R, u, opt.blade || LEN.blade), opt.blade || LEN.blade);
+  let e = edgeOf(TD(k.n), u, flat ? k.bv : 0);
   const grip = opt.grip || LEN.grip, d = k.d == null ? 1 : k.d, lw = k.lw == null ? 1 : k.lw;
   // the iai draw: while the blade is not all out it runs from the right fist through the saya's mouth (the saya follows
   // it, held at its mouth by the left hand); sheathed (d 0) the fist rests on the handle at the mouth
@@ -1738,9 +1992,11 @@ function build(M, k, B, R, prev, t = 0, opt = {}) {
   let HR = madd(R, u, ext);
   // (a pose the longer handle cannot share out - the low guard: the point down, the left fist up at the belt - the fists
   // come in toward the right shoulder by what the right arm lacks, and out from the left one by what folds it)
-  if (X > 0) {
+  // (2026-11-20: and for every sword, the blade now held in the screen's plane - the back fist, 19 behind along it, can come
+  // in against the chest where the keys had it off in depth: both fists out from the left shoulder by what folds it)
+  {
     const AL = LEN.uArm + LEN.fArm, dR = sub(HR, P.shR), rR = len(dR) / AL;
-    if (rR > 0.93) HR = madd(HR, dR, -(rR - 0.93) * AL / len(dR));
+    if (X > 0 && rR > 0.93) HR = madd(HR, dR, -(rR - 0.93) * AL / len(dR));
     const dL = sub(madd(HR, u, -grip), P.shL), rL = len(dL) / AL;
     // (eased off as the right arm nears its reach - never switched, which made the elbows jump a frame)
     if (rL < 0.48) { const q = madd(HR, dL, (0.48 - rL) * AL / Math.max(1e-6, len(dL))); HR = lerp(HR, q, clamp((0.97 - len(sub(q, P.shR)) / AL) / 0.04, 0, 1)); }
@@ -1755,6 +2011,8 @@ function build(M, k, B, R, prev, t = 0, opt = {}) {
       HR = madd(HR, dv, Math.max(0, m) / dd);
     }
   }
+  // (the point over the floor from where the fist really is - the longer handle shifts it)
+  if (flat) { const u2 = floorU(HR, u, (opt.blade || LEN.blade) + LEN.guard); if (u2 !== u) { u = u2; e = edgeOf(TD(k.n), u, k.bv); } }
   let HL = lw >= 0.999 ? madd(HR, u, -grip) : lerp(madd(mouth, d < 0.999 ? u : SY.u, 3), madd(HR, u, -grip), lw);
   if (lf > 0.001) HL = lerp(HL, k.L, lf);
   const poleR = TD(k.pR);
