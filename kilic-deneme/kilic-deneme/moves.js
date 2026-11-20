@@ -32,6 +32,10 @@ const len = (a) => Math.hypot(a[0], a[1], a[2]);
 const norm = (a) => { const l = len(a) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
 const lerp = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+// a soft max(0, x): 0 below -KNEE, x above +KNEE, a parabola between (no kink: the push starts gently)
+const KNEE = 0.03;
+const knee = (x) => (x <= -KNEE ? 0 : x >= KNEE ? x : (x + KNEE) * (x + KNEE) / (4 * KNEE));
+const smooth01 = (v) => { const t = clamp(v, 0, 1); return t * t * (3 - 2 * t); };
 export const V = { add, sub, mul, madd, dot, cross, len, norm, lerp };
 function slerp(a, b, t) {
   const c = clamp(dot(a, b), -1, 1), th = Math.acos(c);
@@ -81,12 +85,12 @@ export function flatU(u, zmax = ZMAX) {
 }
 // the drawn length share of a blade from h along u (js/depth25.js projector: perspective round x 0, y -80; py = 0: the
 // fight's own js/mocap.js projector, its vertical perspective pivoting on the floor)
-export function drawnR(h, u, BL = LEN.blade, py = 80) {
+export function drawnR(h, u, BL = LEN.blade, py = 0) {
   const s0 = CAM / (CAM - h[2]), t = madd(h, u, BL), s1 = CAM / (CAM - t[2]);
   return Math.hypot(t[0] * s1 - h[0] * s0, (t[1] + py) * s1 - (h[1] + py) * s0) / (BL * s0);
 }
 // the depth share cut down (screen angle kept) until the blade is drawn at least rmin of its length
-export function flatDrawn(h, u, BL = LEN.blade, rmin = 0.82, py = 80) {
+export function flatDrawn(h, u, BL = LEN.blade, rmin = 0.82, py = 0) {
   if (drawnR(h, u, BL, py) >= rmin) return u;
   const a = Math.hypot(u[0], u[1]) > 1e-6 ? scrA(u) : -Math.PI / 2, sg = Math.sign(u[2]) || 1;
   let lo = 0, hi = Math.abs(u[2]);
@@ -217,6 +221,10 @@ const K_UP3 = { hip: [-3, -81.2, 1], py: 21, cy: 36, lean: 1, nod: 2, R: [2, -17
 const K_EAR = { hip: [-2.5, -81, 0.8], py: 20, cy: 34, lean: 2, nod: 2, R: [32, -155, 22], by: 95, el: 66, n: [0, 0.55, 0.84], pR: [-0.3, 0.3, 0.9], pL: [0.6, 0.6, -0.4] };
 const K_TOP = { hip: [-4, -81.5, 1], py: 22, cy: 38, lean: 0, nod: 1, R: [-3, -182, 18], by: 158, el: 52, n: [0, 0.6, 0.8], ...UPEL, pL: [0.6, 0.6, -0.4] };
 const IAI_OUT = { hip: [-4, -65, -1], py: 4, cy: 4, lean: 19, nod: 7, R: [40, -88, -6], by: -152, el: -8, n: [0, -0.6, 0.8], pR: [-0.3, 0.7, 0.6], pL: [-0.2, 0.9, -0.6], lw: 0 };
+// (fix 3, the owner: the draw went through her body) the blade out of the saya pointing FORWARD, away from the torso: it
+// whips out between two frames (the move's jump) already turned toward him, the fist out in front on the far side - never
+// drawn lying back across her belly along the saya's line (IAI_OUT, kept for Ryusei's draw up past the left side)
+const IAI_FWD = { ...IAI_OUT, R: [46, -94, -16], by: -40, el: -4, n: [0, -1, 0] };
 const IAI2 = { hip: [18, -64, 0], py: 14, cy: 30, lean: 24, nod: 9, R: [62, -100, 26], by: 60, el: 4, n: [0, -1, 0], lw: 0, pL: [-0.2, 0.9, -0.6], FR: [44, 0, 8], FL: [-34, 0, -7] };
 // the turning cuts: the low duck (the blade low behind on the right), the blade trailing back low on the right, and the
 // level cut from the right - in, through, out to the left
@@ -226,6 +234,11 @@ const MW_TRAIL = { hip: [-2, -75, 1], py: 18, cy: 34, lean: 8, nod: 5, R: [16, -
 // so the blade trailing back never lies across the belly, hips or thighs (the turn after it is unchanged); the elbow points
 // back and out (a pole with no downward share: with the arm hanging along a downward pole the elbow flipped)
 const MW_DUCKB = { ...MW_DUCK, R: [6, -72, 26], pR: [-0.7, 0, 0.7] };
+// (fix 3, the owner: the blade hung by her as she ducked, and lay across Kuro's ducking body) the duck with the blade
+// raised back over the shoulders: up past the head first, then the fists come down behind the head with the blade still
+// pointing back and up - ducked, the fists are behind the torso's line, so a blade pointing forward or down would cross the
+// body (or, Kuro's nodachi, the floor); back and up it never does
+const MW_DUCKU = { ...MW_DUCKB, R: [8, -78, 30], by: 160, el: 30, pR: [-0.7, 0, 0.7] };
 const MW_WAKI = { ...MW_TRAIL, R: [-6, -100, 30], by: 150, el: -10, pR: [-0.7, 0, 0.7] };
 const MW_IN = { hip: [6, -74, 0], py: 4, cy: 18, lean: 8, nod: 5, R: [44, -108, 30], by: 80, el: 0, n: [0, 1, 0] };
 const MW_MID = { hip: [12, -74, 0], py: -6, cy: 2, lean: 9, nod: 6, R: [70, -110, 8], by: 6, el: 2, n: [0, 1, 0] };
@@ -432,7 +445,7 @@ export const MOVES = {
       at(195, { hip: [-5.5, -79, -2], py: 0, cy: 0, lean: 4, nod: 3, R: [9, -100, -25], by: -168, el: -8, n: [0, -0.6, 0.8] }, 'out'),
       // the hips turn first, the edge rolls into the cut; level through the target, out to the near side, stopped
       at(225, { hip: [2, -78, -1], py: 4, cy: 4, lean: 6, nod: 4, R: [18, -106, -28], by: -140, el: -4, n: [0, -1, 0] }, 'io'),
-      at(250, { hip: [8, -77, 0], py: 6, cy: 6, lean: 7, nod: 5, R: [50, -110, -24], by: -70, el: 0, n: [0, -1, 0] }, 'in'),
+      at(250, { hip: [8, -77, 0], py: 6, cy: 6, lean: 7, nod: 5, R: [50, -110, -24], by: -30, el: 0, n: [0, -1, 0] }, 'in'),
       at(280, { hip: [15, -76, 0], py: 8, cy: 8, lean: 8, nod: 6, R: [66, -112, -4], by: 0, el: 2, n: [0, -1, 0] }, 'lin'),
       at(335, { hip: [17, -76, 0], py: 16, cy: 28, lean: 8, nod: 6, R: [62, -110, 22], by: 55, el: 2, n: [0, -1, 0] }, 'out'),
       at(380, { hip: [16.5, -76.5, 0], py: 16, cy: 27, lean: 8, nod: 6, R: [61, -110, 21], by: 53, el: 4, n: [0, -1, 0] }, 'io'),
@@ -782,16 +795,18 @@ export const MOVES = {
   // round the front in one horizontal cut, one-handed (the left hand stays on the saya), stopped past the right side; the
   // left hand comes back to the handle and the guard is taken.
   nuki: {
-    name: 'Nukitsuke (draw and cut from the saya)', feet: FEET, jump: [[140, 144]],
+    name: 'Nukitsuke (draw and cut from the saya)', feet: FEET, jump: [[212, 216]],
     keys: [
       at(0, { iai: true, d: 0, n: [0, -0.6, 0.8], pR: [-0.3, 0.9, 0.5], pL: [-0.2, 0.9, -0.6], lw: 0 }),
       at(80, { hip: [-2, -77, 0], py: 8, cy: 12, lean: 6, nod: 5, iai: true, d: 0.26, sby: -168, sel: -14, n: [0, -0.6, 0.8], pR: [-0.3, 0.8, 0.5], pL: [-0.2, 0.9, -0.6], lw: 0 }, 'in'),
-      at(140, { hip: [-2, -77, -1], py: 4, cy: 4, lean: 9, nod: 4, iai: true, d: 0.36, sby: -160, sel: -10, n: [0, -0.6, 0.8], pR: [-0.3, 0.7, 0.6], pL: [-0.2, 0.9, -0.6], lw: 0 }, 'in'),
+      at(212, { hip: [-2, -77, -1], py: 4, cy: 4, lean: 9, nod: 4, iai: true, d: 0.36, sby: -160, sel: -10, n: [0, -0.6, 0.8], pR: [-0.3, 0.7, 0.6], pL: [-0.2, 0.9, -0.6], lw: 0 }, 'in'),
+      at(215.5, { hip: [-2, -77, -1], py: 4, cy: 4, lean: 9, nod: 4, iai: true, d: 0.36, sby: -160, sel: -10, n: [0, -0.6, 0.8], pR: [-0.3, 0.7, 0.6], pL: [-0.2, 0.9, -0.6], lw: 0 }, 'lin'),
       // (the blade whips out between two frames - as the noto, its length against the arms - on the saya's own line)
-      at(144, { hip: [-3, -77, -1], py: 4, cy: 4, lean: 6, nod: 4, R: [42, -92, -4], by: -152, el: -8, n: [0, -0.6, 0.8], pR: [-0.3, 0.7, 0.6], pL: [-0.2, 0.9, -0.6], lw: 0 }, 'lin'),
-      at(175, { hip: [-1, -77.5, -1.5], py: 2, cy: 2, lean: 5, nod: 4, R: [26, -104, -24], by: -146, el: -6, n: [0, -0.8, 0.6], pR: [-0.3, 0.6, 0.7], pL: [-0.2, 0.9, -0.6], lw: 0 }, 'io'),
-      at(225, { hip: [2, -78, -1], py: 4, cy: 4, lean: 6, nod: 4, R: [24, -106, -28], by: -128, el: -4, n: [0, -1, 0], pL: [-0.2, 0.9, -0.6], lw: 0 }, 'io'),
-      at(250, { hip: [8, -77, 0], py: 6, cy: 6, lean: 7, nod: 5, R: [50, -110, -24], by: -70, el: 0, n: [0, -1, 0], pL: [-0.2, 0.9, -0.6], lw: 0 }, 'in'),
+      // (fix 3: out pointing forward on the far side - not back across her along the saya's line - just as the cut's window
+      // opens, so the draw and the cut are one motion)
+      at(216, { hip: [-3, -77, -1], py: 4, cy: 4, lean: 6, nod: 4, R: [36, -98, -10], by: -40, el: -4, n: [0, -1, 0], pR: [-0.3, 0.7, 0.6], pL: [-0.2, 0.9, -0.6], lw: 0 }, 'lin'),
+      at(234, { hip: [-1, -77.5, -1.5], py: 2, cy: 2, lean: 5, nod: 4, R: [38, -102, -20], by: -40, el: -2, n: [0, -1, 0], pR: [-0.3, 0.6, 0.7], pL: [-0.2, 0.9, -0.6], lw: 0 }, 'out'),
+      at(250, { hip: [8, -77, 0], py: 6, cy: 6, lean: 7, nod: 5, R: [50, -110, -24], by: -30, el: 0, n: [0, -1, 0], pL: [-0.2, 0.9, -0.6], lw: 0 }, 'in'),
       at(280, { hip: [15, -76, 0], py: 8, cy: 8, lean: 8, nod: 6, R: [70, -112, -4], by: 0, el: 2, n: [0, -1, 0], pL: [-0.2, 0.9, -0.6], lw: 0 }, 'lin'),
       at(335, { hip: [17, -76, 0], py: 16, cy: 28, lean: 8, nod: 6, R: [66, -110, 22], by: 55, el: 2, n: [0, -1, 0], pL: [-0.2, 0.9, -0.6], lw: 0 }, 'out'),
       at(390, { hip: [16.5, -76.5, 0], py: 16, cy: 27, lean: 8, nod: 6, R: [62, -110, 21], by: 53, el: 4, n: [0, -1, 0], pL: [-0.2, 0.9, -0.6], lw: 0.2 }, 'io'),
@@ -1160,7 +1175,7 @@ export const MOVES = {
       at(0, {}),
       at(28, K_UP1, 'io'),
       at(50, K_EAR, 'io'),
-      at(71, { ...K_UP3, R: [2, -177, 20], by: 150, el: 54 }, 'io'),
+      at(71, { ...K_UP3, R: [16, -174, 21], by: 140, el: 58 }, 'io'),
       at(98, { hip: [6, -79, 0], py: 9, cy: 20, lean: 3, nod: 2, R: [46, -160, 24], by: 35, el: 36, n: [0, 0.6, 0.8], pR: [-0.3, 0.4, 0.85], pL: [0.2, 0.8, -0.6] }, 'in'),
       at(122, { hip: [13, -77, 0], py: -2, cy: 2, lean: 7, nod: 6, R: [68, -128, 4], by: -14, el: -22, n: [0, 0.6, 0.8] }, 'lin'),
       at(160, { hip: [15, -74, 0], py: -8, cy: -8, lean: 10, nod: 7, R: [60, -97, -10], by: -46, el: -38, n: [0, 0.6, 0.8] }, 'out'),
@@ -1181,7 +1196,7 @@ export const MOVES = {
       at(0, {}),
       at(28, K_UP1, 'io'),
       at(50, K_EAR, 'io'),
-      at(71, { ...K_UP3, R: [2, -177, 20], by: 150, el: 54 }, 'io'),
+      at(71, { ...K_UP3, R: [16, -174, 21], by: 140, el: 58 }, 'io'),
       at(98, { hip: [6, -79, 0], py: 9, cy: 20, lean: 3, nod: 2, R: [46, -160, 24], by: 35, el: 36, n: [0, 0.6, 0.8], pR: [-0.3, 0.4, 0.85], pL: [0.2, 0.8, -0.6] }, 'in'),
       at(121, { hip: [12, -77, 0], py: -2, cy: 2, lean: 7, nod: 6, R: [68, -128, 4], by: -14, el: -22, n: [0, 0.6, 0.8] }, 'lin'),
       at(145, { hip: [14, -74.5, 0], py: -8, cy: -8, lean: 10, nod: 7, R: [60, -97, -10], by: -46, el: -38, n: [0, 0.6, 0.8] }, 'out'),
@@ -1195,6 +1210,33 @@ export const MOVES = {
       at(330, { hip: [19, -74, 0], py: 16, cy: 26, lean: 10, nod: 7, R: [64, -100, 20], by: 46, el: -37, n: [0, -0.6, 0.8] }, 'out'),
       at(400, { hip: [18.5, -74.5, 0], py: 16, cy: 25, lean: 9.5, nod: 7, R: [62, -101, 20], by: 45, el: -36, n: [0, -0.6, 0.8] }, 'io'),
       at(570, { hip: [7, -78, 0], py: 15, cy: 21, lean: 7, nod: 5, R: [55, -106, 8], by: 18, el: 6, n: [0, -0.3, 0.95] }, 'io'),
+      at(720, {}, 'io'),
+    ],
+    phases: { windup: [0, 90], active: [90, 140], hits: [[90, 140], [260, 320]], recovery: [320, 720] },
+  },
+  // Yama-oroshi (Kuro's str1, fix 3: his own keys - before, he played Akane's renga, whose second blow wheels the blade
+  // round behind her left side and over the crown: with his nodachi (126) that path went through his back and his head).
+  // The same clock as renga (0.72 s; blows 0.09-0.14, 0.26-0.32), so the fight's hits are where they were: the big kesa
+  // from the right shoulder, the blade stopped low in front (never hanging: 40 deg off straight down), then a rising cut
+  // straight back up the same line in front of him, held high, the guard. The long blade never passes his body.
+  oroshi: {
+    name: 'Yama-oroshi (kesa, rising cut)', feet: FEET,
+    keys: [
+      at(0, {}),
+      at(28, K_UP1, 'io'),
+      at(50, K_EAR, 'io'),
+      at(71, { ...K_UP3, R: [16, -174, 21], by: 140, el: 58 }, 'io'),
+      at(98, { hip: [6, -79, 0], py: 9, cy: 20, lean: 3, nod: 2, R: [46, -160, 24], by: 35, el: 36, n: [0, 0.6, 0.8], pR: [-0.3, 0.4, 0.85], pL: [0.2, 0.8, -0.6] }, 'in'),
+      at(121, { hip: [12, -77, 0], py: -2, cy: 2, lean: 7, nod: 6, R: [68, -128, 4], by: -14, el: -22, n: [0, 0.6, 0.8] }, 'lin'),
+      at(145, { hip: [14, -74.5, 0], py: -8, cy: -8, lean: 10, nod: 7, R: [64, -100, -8], by: -40, el: -36, n: [0, 0.6, 0.8] }, 'out'),
+      // (the stop, low in front; the wrists turn the edge up for the way back)
+      at(200, { hip: [14, -74, 0], py: -6, cy: -4, lean: 10, nod: 7, R: [62, -98, -4], by: -32, el: -40, n: [0, 0, 1] }, 'io'),
+      at(240, { hip: [13, -74, 0], py: -4, cy: 0, lean: 9, nod: 6, R: [60, -97, 2], by: -24, el: -42, n: [0, -0.6, -0.8] }, 'io'),
+      at(262, { hip: [14, -76, 0], py: 0, cy: 6, lean: 7, nod: 4, R: [64, -110, 6], by: -10, el: -18, n: [0, -0.6, -0.8] }, 'in'),
+      at(290, { hip: [13, -78, 0], py: 6, cy: 12, lean: 4, nod: 2, R: [62, -132, 6], by: 2, el: 22, n: [0, -0.6, -0.8] }, 'lin'),
+      at(320, { hip: [11, -79.5, 0], py: 10, cy: 16, lean: 2, nod: 0, R: [52, -150, 6], by: 6, el: 56, n: [0, -0.6, -0.8], pR: [-0.4, 0.5, 0.75], pL: [-0.3, 0.6, -0.75] }, 'out'),
+      at(400, { hip: [10.5, -79.5, 0], py: 10, cy: 16, lean: 2, nod: 0, R: [51, -149, 6], by: 6, el: 58, n: [0, -0.6, -0.8], pR: [-0.4, 0.5, 0.75], pL: [-0.3, 0.6, -0.75] }, 'io'),
+      at(570, { hip: [6, -78, 0], py: 14, cy: 21, lean: 6, nod: 4, R: [50, -116, 6], by: 6, el: 26, n: [0, 0, 1] }, 'io'),
       at(720, {}, 'io'),
     ],
     phases: { windup: [0, 90], active: [90, 140], hits: [[90, 140], [260, 320]], recovery: [320, 720] },
@@ -1257,9 +1299,9 @@ export const MOVES = {
       at(159, { hip: [-6, -69, 0], py: 6, cy: 8, lean: 16, nod: 7, iai: true, d: 0.2, sby: -168, sel: -14, n: [0, -0.6, 0.8], pR: [-0.3, 0.8, 0.5], pL: [-0.2, 0.9, -0.6], lw: 0 }, 'io'),
       at(205, { hip: [-5, -66, -1], py: 4, cy: 4, lean: 18, nod: 7, iai: true, d: 0.3, sby: -162, sel: -11, n: [0, -0.6, 0.8], pR: [-0.3, 0.7, 0.6], pL: [-0.2, 0.9, -0.6], lw: 0, FR: [24, 0, 6], FL: [-22, 0, -6] }, 'in'),
       at(212, { hip: [-5, -66, -1], py: 4, cy: 4, lean: 18, nod: 7, iai: true, d: 0.36, sby: -160, sel: -10, n: [0, -0.6, 0.8], pR: [-0.3, 0.7, 0.6], pL: [-0.2, 0.9, -0.6], lw: 0, FR: [24, -2, 6], FL: [-22, -1, -6] }, 'in'),
-      at(216, { ...IAI_OUT, FR: [24, -4, 6], FL: [-22, -3, -6] }, 'lin'),
-      at(236, { hip: [2, -67, -1], py: 3, cy: 3, lean: 18, nod: 7, R: [30, -96, -26], by: -138, el: -6, n: [0, -0.8, 0.6], pR: [-0.3, 0.6, 0.7], pL: [-0.2, 0.9, -0.6], lw: 0, FR: [34, -12, 7], FL: [-28, -9, -7] }, 'io'),
-      at(250, { hip: [10, -67, 0], py: 5, cy: 5, lean: 19, nod: 7, R: [50, -102, -32], by: -70, el: 0, n: [0, -1, 0], pL: [-0.2, 0.9, -0.6], lw: 0, FR: [40, -16, 8], FL: [-32, -12, -7] }, 'in'),
+      at(216, { ...IAI_FWD, FR: [24, -4, 6], FL: [-22, -3, -6] }, 'lin'),
+      at(236, { hip: [2, -67, -1], py: 3, cy: 3, lean: 18, nod: 7, R: [38, -97, -28], by: -40, el: 0, n: [0, -1, 0], pR: [-0.3, 0.6, 0.7], pL: [-0.2, 0.9, -0.6], lw: 0, FR: [34, -12, 7], FL: [-28, -9, -7] }, 'io'),
+      at(250, { hip: [10, -67, 0], py: 5, cy: 5, lean: 19, nod: 7, R: [50, -102, -32], by: -30, el: 0, n: [0, -1, 0], pL: [-0.2, 0.9, -0.6], lw: 0, FR: [40, -16, 8], FL: [-32, -12, -7] }, 'in'),
       at(280, { hip: [16, -66, 0], py: 7, cy: 8, lean: 21, nod: 8, R: [70, -104, -4], by: 0, el: 2, n: [0, -1, 0], pL: [-0.2, 0.9, -0.6], lw: 0, FR: [44, -10, 8], FL: [-34, -10, -7] }, 'lin'),
       at(335, { ...IAI2, R: [64, -102, 24], by: 55, el: 2, FR: [44, 0, 8], FL: [-34, 0, -7] }, 'out'),
       at(420, { ...IAI2, hip: [17, -64.5, 0], R: [60, -101, 26], by: 56, el: 5, lw: 0.1, FR: [44, 0, 8], FL: [-34, 0, -7] }, 'io'),
@@ -1352,7 +1394,7 @@ export const MOVES = {
       at(0, { hip: [4, -79, 0], py: 6, cy: 10, lean: 7, nod: 5, R: [50, -106, -3], by: -18, el: 6, n: [0, 0.4, 0.92], FR: [26, -12, 7], FL: [-20, -16, -7] }),
       at(26, { ...K_UP1, FR: [27, -18, 7], FL: [-18, -22, -7] }, 'io'),
       at(46, { ...K_EAR, FR: [28, -22, 7], FL: [-16, -26, -7] }, 'io'),
-      at(65, { ...K_UP3, R: [2, -177, 20], by: 150, el: 54, FR: [28, -24, 7], FL: [-15, -28, -7] }, 'io'),
+      at(65, { ...K_UP3, R: [24, -168, 22], by: 130, el: 62, FR: [28, -24, 7], FL: [-15, -28, -7] }, 'io'),
       at(93, { hip: [8, -79, 0], py: 7, cy: 18, lean: 4, nod: 2, R: [50, -160, 24], by: 35, el: 36, n: [0, 0.6, 0.8], pR: [-0.3, 0.4, 0.85], pL: [0.2, 0.8, -0.6], FR: [28, -22, 7], FL: [-15, -26, -7] }, 'in'),
       at(123, { hip: [12, -77, 0], py: -2, cy: 2, lean: 10, nod: 7, R: [70, -126, 4], by: -10, el: -26, n: [0, 0.6, 0.8], FR: [28, -18, 7], FL: [-16, -22, -7] }, 'lin'),
       at(170, { hip: [13, -75, 0], py: -6, cy: -4, lean: 14, nod: 8, R: [66, -104, -2], by: -18, el: -40, n: [0, 0.6, 0.8], FR: [27, -12, 7], FL: [-18, -14, -7] }, 'out'),
@@ -1371,7 +1413,7 @@ export const MOVES = {
       at(0, {}),
       at(26, K_UP1, 'io'),
       at(47, K_EAR, 'io'),
-      at(67, { ...K_UP3, R: [2, -177, 20], by: 150, el: 54 }, 'io'),
+      at(67, { ...K_UP3, R: [24, -168, 22], by: 130, el: 62 }, 'io'),
       at(93, { hip: [6, -79, 0], py: 9, cy: 20, lean: 3, nod: 2, R: [46, -160, 24], by: 35, el: 36, n: [0, 0.6, 0.8], pR: [-0.3, 0.4, 0.85], pL: [0.2, 0.8, -0.6] }, 'in'),
       at(115, { hip: [11, -77, 0], py: -2, cy: 2, lean: 7, nod: 6, R: [66, -128, 4], by: -14, el: -22, n: [0, 0.6, 0.8] }, 'lin'),
       at(140, { hip: [12, -74.5, 0], py: -8, cy: -8, lean: 10, nod: 7, R: [58, -97, -10], by: -46, el: -38, n: [0, 0.6, 0.8] }, 'out'),
@@ -1400,14 +1442,18 @@ export const MOVES = {
     name: 'Mawari (duck past him, turn, cut)', feet: { R: [30, 7], L: [-30, -7] }, ownFeet: [0, 200], turnAt: 210,
     keys: [
       at(0, {}),
-      at(25, { hip: [2, -76, 0], lean: 12, nod: 6, R: [32, -94, 12], el: -50, FR: [24, -5, 6], FL: [-22, -6, -6] }, 'io'),
-      at(80, { ...MW_DUCKB, FR: [34, -10, 7], FL: [-26, -8, -7] }, 'io'),
-      at(130, { ...MW_DUCKB, hip: [6, -58, 0], lean: 31, FR: [40, -12, 7], FL: [-30, -14, -7] }, 'io'),
-      at(180, { ...yawK(MW_DUCKB, -20), FR: [30, -6, 7], FL: [-30, -6, -7] }, 'io'),
-      at(200, { ...yawK({ ...MW_DUCKB, R: [-10, -74, 22] }, -45), FR: [30, 0, 7], FL: [-30, 0, -7] }, 'io'),
-      at(209, yawK(MW_DUCK, -70), 'lin'),
-      at(211, yawK(MW_DUCK, -250), 'lin'),
-      at(245, yawK(MW_TRAIL, -290), 'io'),
+      // (fix 3: up past the head and back over the shoulders, then down into the duck with the blade still back and up)
+      at(25, { hip: [2, -78, 0], lean: 6, nod: 4, R: [34, -140, 14], by: 40, el: 84, n: [0, 0.5, 0.87], pR: [-0.2, 0.9, 0.4], pL: [-0.3, 0.8, -0.5], FR: [24, -5, 6], FL: [-22, -6, -6] }, 'io'),
+      at(60, { hip: [3, -73, 0], lean: 14, nod: 7, R: [28, -146, 24], by: 150, el: 56, n: [0, 1, 0], pR: [-0.5, 0.5, 0.7], pL: [-0.5, 0.4, -0.75], FR: [30, -8, 7], FL: [-24, -7, -7] }, 'io'),
+      at(82, { ...MW_DUCKU, hip: [4, -67, 0], lean: 20, nod: 9, R: [36, -96, 36], by: 156, el: 46, pR: [-0.75, 0.2, 0.65], pL: [-0.4, 0.6, -0.7], FR: [33, -10, 7], FL: [-26, -9, -7] }, 'io'),
+      at(100, { ...MW_DUCKU, hip: [5, -62, 0], lean: 26, FR: [36, -11, 7], FL: [-28, -10, -7] }, 'io'),
+      at(130, { ...MW_DUCKU, hip: [6, -58, 0], lean: 31, FR: [40, -12, 7], FL: [-30, -14, -7] }, 'io'),
+      at(180, { ...yawK(MW_DUCKU, -20), FR: [30, -6, 7], FL: [-30, -6, -7] }, 'io'),
+      at(200, { ...yawK({ ...MW_DUCKU, R: [-6, -90, 24] }, -45), FR: [30, 0, 7], FL: [-30, 0, -7] }, 'io'),
+      at(209, yawK({ ...MW_DUCKU, R: [9, -87, 42] }, -70), 'lin'),
+      at(211, yawK({ ...MW_DUCKU, R: [9, -87, 42] }, -250), 'lin'),
+      // (the blade still up as he comes round - raised behind him now - then the wheel)
+      at(245, yawK({ ...MW_TRAIL, el: 20 }, -290), 'io'),
       at(272, yawK(MW_IN, -335), 'in'),
       at(305, yawK(MW_MID, -360), 'lin'),
       at(350, yawK(MW_END, -360), 'out'),
@@ -1601,7 +1647,7 @@ export const ORDER = ['idle', 'overhead', 'horizontal', 'diagonal', 'thrust', 'b
   'walkF', 'walkB', 'run', 'fall', 'downRise', 'throwL', 'parryUp', 'parryDown', 'parrySide', 'dodgeB', 'dodgeF', 'noto', 'nuki',
   'kakato', 'sweep', 'spinKick', 'snapKick', 'knee', 'nidan', 'kiriR', 'kiriL', 'sune',
   'lock', 'lockPush', 'shove', 'clash', 'bindDef', 'bindAtt', 'makiDef', 'flungAtt',
-  'stuck', 'dodgePost', 'tsubame', 'renga', 'higan', 'issen', 'kage', 'ryusei', 'yama', 'airCut', 'airSpike', 'sandan', 'mawari', 'kuruma',
+  'stuck', 'dodgePost', 'tsubame', 'renga', 'oroshi', 'higan', 'issen', 'kage', 'ryusei', 'yama', 'airCut', 'airSpike', 'sandan', 'mawari', 'kuruma',
   'kzAge', 'kzTengu', 'kzIai', 'kasumi', 'hurtLow', 'launchUp', 'airHit'];
 export const durOf = (id) => MOVES[id].keys[MOVES[id].keys.length - 1].t;
 
@@ -1751,6 +1797,106 @@ export function followCh(st, ch, dt, strike) {
   if (Math.abs(d2) < 0.03 && Math.abs(st.v - tv) < BP_A) { st.e = tg; st.v = tv; st.lock = true; st.dir = 0; }
   ch.bp = st.e + pt; ch.bv = st.v * 60 / 1000;
   return ch;
+}
+// ------------------------------------------------------------------ the last word on the drawn blade (fix 3, 2026-11-20)
+// One governor with ONE memory - the angle actually drawn last frame, as the fight's own projector (js/mocap.js: the
+// vertical perspective pivoting on the floor) puts it on the screen, the very angle the sword measure reads. Before, three
+// eases with three memories (the fist ease's blade turn, the face guard's turn, the old governor) chased each other: the
+// blade reversed, hung, or held across the body while one waited for another. Outside a strike window:
+//   - the drawn screen angle turns at most GOV_W a frame toward what the drawing wants;
+//   - it never waits within DOWN_W of straight down (unless the move declares a sheath pose there, M.rest): it crosses that
+//     band at speed (at least DOWN_V a frame, never turning back inside it), or waits at its edge;
+//   - a long turn picks the way round whose path is clear (bad(c) = how deep angle c lies in something it must not: the
+//     other's head and body, its own face, the floor; its own body weighs less) and keeps that way round;
+//   - a step into something is shortened, or the least deep angle in reach is taken.
+// tools/kilic-sword.mjs runs the same step on the moves' cross-fades (no other body there: its own head and the floor).
+export const GOV_W = 0.26, DOWN_W = 0.55, DOWN_V = 0.15;
+// the blade's screen angle and drawn length share as the fight draws it (in the fighter's facing: x forward, y down)
+export function scrP(h, u, BL = LEN.blade) { const s0 = CAM / (CAM - h[2]), t = madd(h, u, BL), s1 = CAM / (CAM - t[2]); return Math.atan2(t[1] * s1 - h[1] * s0, t[0] * s1 - h[0] * s0); }
+export function scrR(h, u, BL = LEN.blade) { const s0 = CAM / (CAM - h[2]), t = madd(h, u, BL), s1 = CAM / (CAM - t[2]); return Math.hypot(t[0] * s1 - h[0] * s0, t[1] * s1 - h[1] * s0) / (BL * s0); }
+const rotZu = (u, a) => { const c = Math.cos(a), s = Math.sin(a); return [u[0] * c - u[1] * s, u[0] * s + u[1] * c, u[2]]; };
+// the blade turned round the hand in the screen's plane (its depth kept) until the fight's projector draws it at angle c
+export function rotToScr(h, u, BL, c) {
+  let r = wrapA(c - scrP(h, u, BL)), v = rotZu(u, r);
+  for (let i = 0; i < 5; i++) { const e = wrapA(c - scrP(h, v, BL)); if (Math.abs(e) < 2e-4) break; r += e; v = rotZu(u, r); }
+  return v;
+}
+const inDown = (c) => Math.abs(wrapA(c - Math.PI / 2)) < DOWN_W;
+// g: the governor's state ({} to start; g.a the angle drawn last frame - the caller sets it to what was finally drawn);
+// a: the angle the drawing wants; o: { strike, okDown, bad(c) } -> the angle to draw
+// (a swing that turns back: the drawn angle's legs are followed as the sword measure reads them - a run of one turning
+// sense, slow frames under 0.03 not breaking it before 4 of them. Turning straight back after a leg of 0.45 or more begun
+// within the last 10 frames was the snap the measure calls a reversal; the blade holds still 4 frames there first - a
+// beat at the end of the swing, then the swing back)
+export const REV_HOLD = 4;
+function legs(g, p) {
+  if (g.lastP != null) {
+    const w = wrapA(p - g.lastP);
+    if (Math.abs(w) >= 0.03) {
+      if (g.legS === Math.sign(w) && (g.slow || 0) <= 3) g.legAmp += Math.abs(w);
+      else { g.legS = Math.sign(w); g.legAmp = Math.abs(w); g.legAge = 0; }
+      g.slow = 0;
+    } else g.slow = (g.slow || 0) + 1;
+    g.legAge = (g.legAge || 0) + 1;
+  }
+  g.lastP = p;
+}
+export function govStep(g, a, o) {
+  if (g.a != null) legs(g, g.a);
+  const tv = g.lt == null ? 0 : wrapA(a - g.lt); g.lt = a;
+  if (g.a == null || o.strike) { g.a = a; g.dir = 0; g.v = 0; return a; }
+  const bad = o.bad || (() => 0), p = g.a, v0 = g.v || 0;
+  // (a target in the down band: its edge on the side the blade comes from - crossed only on the way to beyond it)
+  let t = a;
+  if (!o.okDown && inDown(t)) { const sp = wrapA(p - Math.PI / 2), sd = Math.abs(sp) > 1e-3 ? Math.sign(sp) : Math.sign(wrapA(t - Math.PI / 2)) || 1; t = Math.PI / 2 + sd * (DOWN_W + 0.02); }
+  let d = wrapA(t - p);
+  if (Math.abs(d) < 1e-4) { g.v = 0; g.dir = 0; return p; }
+  // (the way round: the short one unless its path is blocked and the long one's is not; kept once chosen)
+  if (Math.abs(d) > GOV_W) {
+    const cost = (dd) => { const n = Math.max(1, Math.ceil(Math.abs(dd) / 0.12)); let c = Math.abs(dd) * 0.3; for (let i = 1; i <= n; i++) { const q = p + dd * i / n; if (bad(q) > 0.5) c += 1; } return c; };
+    const dl = d - Math.sign(d) * 2 * Math.PI, cs = cost(d), cl = cost(dl);
+    let pick = cs <= cl ? d : dl;
+    // (and never turned straight back inside the beat after a swing - see back below)
+    if (g.dir && Math.sign(pick) !== g.dir && g.legS === g.dir && g.legAmp >= 0.45 && g.legAge <= 10 && (g.slow || 0) < REV_HOLD) pick = g.dir === Math.sign(d) ? d : dl;
+    else if (g.dir && Math.sign(pick) !== g.dir) { const keep = g.dir === Math.sign(d) ? d : dl, ck = keep === d ? cs : cl; if (ck <= Math.min(cs, cl) + 1.5) pick = keep; }
+    d = pick; g.dir = Math.sign(d);
+  } else g.dir = 0;
+  const sg = Math.sign(d);
+  // (the beat before a swing back)
+  const back = (st) => g.legS && Math.sign(st) === -g.legS && Math.abs(st) >= 0.03 && g.legAmp >= 0.45 && g.legAge <= 10 && (g.slow || 0) < REV_HOLD;
+  const full = Math.min(GOV_W, Math.abs(d));
+  // (inside the band only at speed and never turning back there; a step that would stop in it stops before it)
+  const bandOK = (c, st) => o.okDown || !inDown(c) || (Math.abs(st) >= DOWN_V && !(inDown(p) && v0 && Math.sign(st) !== Math.sign(v0) && Math.abs(v0) >= DOWN_V * 0.5));
+  const ok = (st) => bandOK(p + st, st) && !back(st);
+  // (a target already swinging this way at speed: the blade waits for it rather than meeting it and turning back with it)
+  if (Math.abs(tv) >= 0.1 && Math.sign(tv) === -sg && Math.abs(d) > Math.abs(tv) && bandOK(p, 0) && !(bad(p) > 0) && !back(0)) { g.v = 0; return p; }
+  // (the plain case first: the whole step allowed and clear)
+  if (ok(sg * full) && !(bad(p + sg * full) > 0)) { g.v = sg * full; g.a = p + sg * full; return g.a; }
+  // (fix 3: a step into something crossable only - o.pass: the other fighter - is taken at full speed when the way on to
+  // the target clears beyond it and crosses nothing else: crossed, never parked in)
+  if (o.pass && ok(sg * full) && Math.abs(d) > full) {
+    let fine = true, clear = false;
+    for (let x = full; x <= Math.abs(d) + 1e-6; x += 0.08) { const q = p + sg * Math.min(x, Math.abs(d)); if (bad(q) > 0) { if (!o.pass(q) || clear) { fine = false; break; } } else if (x > full) clear = true; }
+    if (fine && clear && !(bad(p + d) > 0)) { g.v = sg * full; g.a = p + sg * full; return g.a; }
+  }
+  let best = null, bs = Infinity;
+  const cand = [];
+  for (let k = 8; k >= 0; k--) cand.push(sg * full * k / 8);
+  for (let k = 1; k <= 8; k++) cand.push(-sg * GOV_W * k / 8);
+  cand.push(0.025, -0.025);
+  for (const st of cand) {
+    if (!bandOK(p + st, st)) continue;
+    // (the beat is kept unless holding still lies in something it must not)
+    const b = bad(p + st), sc = (b > 0 ? 100 + 100 * b : 0) + Math.abs(d - st) + (back(st) ? 150 : 0);
+    if (sc < bs) { bs = sc; best = st; }
+  }
+  if (best == null) {
+    // (nothing in reach is allowed by the band rule: out of the band by the nearest edge, at full speed)
+    const sp = wrapA(p - Math.PI / 2), e = Math.PI / 2 + (Math.sign(sp) || 1) * (DOWN_W + 0.02);
+    best = clamp(wrapA(e - p), -GOV_W, GOV_W);
+  }
+  g.v = best; g.a = p + best;
+  return g.a;
 }
 // the follower's state turned with the fighter (the facing flipped: the same picture, the local angle mirrored)
 export function flipFollow(st) { if (st.e != null) st.e = Math.PI - st.e; if (st.tp != null) st.tp = Math.PI - st.tp; if (st.v) st.v = -st.v; return st; }
@@ -2048,11 +2194,13 @@ function build(M, k, B, R, prev, t = 0, opt = {}) {
   // (2026-11-20: and for every sword, the blade now held in the screen's plane - the back fist, 19 behind along it, can come
   // in against the chest where the keys had it off in depth: both fists out from the left shoulder by what folds it)
   {
-    const AL = LEN.uArm + LEN.fArm, dR = sub(HR, P.shR), rR = len(dR) / AL;
-    if (X > 0 && rR > 0.93) HR = madd(HR, dR, -(rR - 0.93) * AL / len(dR));
-    const dL = sub(madd(HR, u, -grip), P.shL), rL = len(dL) / AL;
+    // (fix 3: both limits come in on a smooth knee - a hard max(0, ...) started the push in one frame, a kink the joints
+    // showed as a pop)
+    const AL = LEN.uArm + LEN.fArm, dR = sub(HR, P.shR), rR = len(dR) / AL, kR = knee(rR - 0.93);
+    if (X > 0 && kR > 0) HR = madd(HR, dR, -kR * AL / len(dR));
+    const dL = sub(madd(HR, u, -grip), P.shL), rL = len(dL) / AL, kL = knee(0.48 - rL);
     // (eased off as the right arm nears its reach - never switched, which made the elbows jump a frame)
-    if (rL < 0.48) { const q = madd(HR, dL, (0.48 - rL) * AL / Math.max(1e-6, len(dL))); HR = lerp(HR, q, clamp((0.97 - len(sub(q, P.shR)) / AL) / 0.04, 0, 1)); }
+    if (kL > 0) { const q = madd(HR, dL, kL * AL / Math.max(1e-6, len(dL))); HR = lerp(HR, q, smooth01((0.97 - len(sub(q, P.shR)) / AL) / 0.04)); }
   }
   // (phase 4: the longer handle's back fist and pommel never in front of his own face - both fists move out of its way,
   // by what they lack of 19 from the head's centre, as far as the sword arm reaches without locking)
@@ -2067,6 +2215,16 @@ function build(M, k, B, R, prev, t = 0, opt = {}) {
   // (the point over the floor from where the fist really is - the longer handle shifts it)
   if (flat) { const u2 = floorU(HR, u, (opt.blade || LEN.blade) + LEN.guard); if (u2 !== u) { u = u2; e = edgeOf(TD(k.n), u, k.bv); } }
   let HL = lw >= 0.999 ? madd(HR, u, -grip) : lerp(madd(mouth, d < 0.999 ? u : SY.u, 3), madd(HR, u, -grip), lw);
+  // (fix 3: the longer handle and a left arm still folded in - the right fist could not take the slack: the left fist slides
+  // up the handle toward the right one, as far as the katana's spacing, by what the arm lacks; a smooth knee, no switch)
+  if (X > 0 && lw >= 0.999 && lf < 0.001) {
+    const AL = LEN.uArm + LEN.fArm, s0 = grip, s1 = LEN.grip, rA = len(sub(madd(HR, u, -s0), P.shL)) / AL, rB = len(sub(madd(HR, u, -s1), P.shL)) / AL;
+    // (and the other way: a left arm stretched out past 0.94 slides up when that brings the fist in)
+    const gain = (rB - rA) / (s0 - s1), fold = knee(0.5 - rA), str = knee(rA - 0.94);
+    // (faded in as sliding up starts to help: never switched)
+    const sh = smooth01(gain / 0.004) * Math.min(s0 - s1, fold / Math.max(gain, 0.004)) + smooth01(-gain / 0.004) * Math.min(s0 - s1, str / Math.max(-gain, 0.004));
+    if (sh > 0) HL = madd(HR, u, -(s0 - Math.min(s0 - s1, sh)));
+  }
   if (lf > 0.001) HL = lerp(HL, k.L, lf);
   const poleR = TD(k.pR);
   let poleL = TD(k.pL);

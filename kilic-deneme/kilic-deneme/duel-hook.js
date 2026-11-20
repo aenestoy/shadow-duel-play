@@ -24,7 +24,7 @@
 //     ('down' + 'getup', one move on the fight's own clock), the throw; Akane with the sword in the saya stands, walks and
 //     falls in the same moves with her hand on the hilt. A blade never rests in the other's head or body as drawn (the
 //     last pass before drawing), and blades that are not cutting keep out of the fight's blade-stop zones (no push).
-import { MOVES, ORDER, chAt, blendCh, poseFromCh, layLeg, layArm, durOf, gaitFeet, walkFeetLive, strideOf, V, LEN, followCh, flipFollow, strikeAt, blendU, turnU, flatDrawn, fromScr, drawnR, BP_W } from './moves.js';
+import { MOVES, ORDER, chAt, blendCh, poseFromCh, layLeg, layArm, durOf, gaitFeet, walkFeetLive, strideOf, V, LEN, followCh, flipFollow, strikeAt, blendU, turnU, flatDrawn, fromScr, drawnR, BP_W, govStep, scrP, rotToScr } from './moves.js';
 import { installCombos } from './combos.js';
 const { add, sub, mul, madd, dot, norm, lerp } = V;
 
@@ -53,7 +53,7 @@ export const PLAY = {
   kz_age: 'kzAge', kz_tengu: 'kzTengu', kz_iai: 'kzIai', kz_kasumi: 'kasumi',
   // (fix 2, 2026-11-20) the last cuts the fight drew the old way: Akane's two combos from the saya, and Kuro's str1
   // (Yama-oroshi: the katana family's string ender js/specials.js fk_s1 - ATK.str1 is that object; two blows, as renga)
-  ak_kage: 'kage', ak_ryusei: 'ryusei', str1: 'renga', fk_s1: 'renga',
+  ak_kage: 'kage', ak_ryusei: 'ryusei', str1: 'oroshi', fk_s1: 'oroshi',
 };
 const WHO = { akane: 1, kuro: 1 };
 const FADE = 0.15, CHX = 0.09;
@@ -440,6 +440,8 @@ function settle(k, f, rg, o, dt, grip) {
     const keep = {}; for (const j of ['elR', 'wrR', 'haR', 'elL', 'wrL', 'haL']) keep[j] = o[j]; keep.blade = o.blade;
     let ch = false;
     if (!inAtk && dl > HMAX * sc) { moveHands(o, mul(dh, -(dl - HMAX * sc) / dl)); ch = true; }
+    // (fix 3: the blade's turn is the last-word governor's alone - govern2, one memory: the fist only here)
+    if (!K.gov1) { k.sc = ch ? 1 : 0; if (ch && o.gripL >= 0.999) onHandle(o, grip); k.so = { h: sub(o.haR, o.hip), u: o.blade.u, dir: rg.dir }; return; }
     // (the turn on the SCREEN, never through pointing at the camera: moves.js turnU; a 3D slerp between two blades held
     // flat could pass the camera line)
     const am = (inAtk ? BP_W : AMAX) * sc, a = Math.abs(Math.atan2(Math.sin(Math.atan2(o.blade.u[1], o.blade.u[0]) - Math.atan2(q.u[1], q.u[0])), Math.cos(Math.atan2(o.blade.u[1], o.blade.u[0]) - Math.atan2(q.u[1], q.u[0]))));
@@ -502,7 +504,9 @@ function clear(f, rg, P, BL, w) {
 function wrapA(d) { return Math.atan2(Math.sin(d), Math.cos(d)); }
 // the fight's own contact / aim (js/mocap-duel.js override: rg.ovr, local, by weight): the blocked cut onto the other's
 // blade, the landing one onto the body - js/mocap.js build does this for the game's picture; the new one takes it too
-const NOAIM = { kzAge: 1, kzTengu: 1, kzIai: 1, kasumi: 1 };
+// (fix 3: Kage-iai too - the fight's aim swung the drawn blade up and down across her front after the cut, the owner's
+// "vertical sweep"; the keyed level cut already runs through him)
+const NOAIM = { kzAge: 1, kzTengu: 1, kzIai: 1, kasumi: 1, kage: 1 };
 function aimOn(rg, P) {
   const O = rg.ovr;
   if (!O || !(O.w > 0) || !P.armed) return;
@@ -742,7 +746,7 @@ function govBad(f, rg, P, u) {
   const o = f.opp, ro = o && MD.rigOf(o), Q = ro && ro.P, BL = (f.wpn && f.wpn.blade) || LEN.blade, h = P.blade.h;
   const own = P.head ? Mo.project(rg, P.head) : null;
   const cut = f.state === 'atk' && f.atk && f.atk.active && f.st >= f.atk.active[0] - 0.02 && f.st <= f.atk.active[1] + 0.02;
-  const far = !Q || !Q.head || o.dead || o.hidden;
+  const far = noOpp || !Q || !Q.head || o.dead || o.hidden;
   const hd = far ? null : Mo.project(ro, Q.head), nk = far ? null : Mo.project(ro, Q.neck), hp = far ? null : Mo.project(ro, Q.hip);
   let m = -1e9;
   for (let i = 1; i <= 10; i++) {
@@ -795,6 +799,51 @@ function govern(f, k, rg, P) {
   g.v = wrapA(best - g.a); g.a = best; k.gvD = dd;
   setBlade(P, rotZ(u, dd)); if (P.gripL >= 0.999) onHandle(P, gripOf(f.wpn)); K.gov = (K.gov || 0) + 1;
 }
+// (fix 3, 2026-11-20) The last word, one memory (moves.js govStep): on every frame of Akane and Kuro while this is on, the
+// angle the fight's projector draws (the one the sword measure reads) turns at most GOV_W a frame outside a strike window,
+// never waits by straight down (only a move's declared sheath pose may), takes the way round whose path is clear of the
+// other's head and body, its own face and the floor (its own body weighing less), and is remembered as finally drawn -
+// the fist ease, the face guard and the old governor no longer turn the blade on memories of their own.
+function badAt(f, rg, P, BL, c, noOpp) {
+  const o = f.opp, ro = o && MD.rigOf(o), Q = ro && ro.P, h = P.blade.h, u = rotToScr(h, P.blade.u, BL, c);
+  const own = P.head ? Mo.project(rg, P.head) : null;
+  const cut = f.state === 'atk' && f.atk && f.atk.active && f.st >= f.atk.active[0] - 0.02 && f.st <= f.atk.active[1] + 0.02;
+  const far = !Q || !Q.head || o.dead || o.hidden;
+  const hd = far ? null : Mo.project(ro, Q.head), nk = far ? null : Mo.project(ro, Q.neck), hp = far ? null : Mo.project(ro, Q.hip);
+  let m = -1e9;
+  // (the floor: the point kept 3 over it - the body's own height in the air included in P)
+  m = Math.max(m, (h[1] + u[1] * BL + 3) / 2);
+  for (let i = 1; i <= 10; i++) {
+    const k = 4 + (BL - 4) * i / 10, q = Mo.project(rg, [h[0] + u[0] * k, h[1] + u[1] * k, h[2] + u[2] * k]);
+    if (own) m = Math.max(m, 14 - Math.hypot(q.x - own.x, q.y - own.y));
+    if (hd) { m = Math.max(m, 15 - Math.hypot(q.x - hd.x, q.y - hd.y)); if (!cut && k > 24) m = Math.max(m, 17 - segD2(q, hp, nk)); }
+  }
+  if (m > 0) return 1 + m / 10;
+  return !cut && !K.ownOff && ownPen(P, h, u, BL, f) > 0 ? 0.3 : 0;
+}
+function govern2(f, k, rg, P) {
+  if (!P || !P.blade || !P.blade.u || !P.blade.h || !P.armed || P.inside || f.dead || f.hidden) { k.g2 = null; return; }
+  const BL = (f.wpn && f.wpn.blade) || LEN.blade, h = P.blade.h, a = scrP(h, P.blade.u, BL);
+  let g = k.g2;
+  // (a facing flip: the same picture seen mirrored - the memory turned with it, so the drawn blade stays where it was)
+  // (the swing's legs with it: the picture turns on the same way - the sword measure reads the picture, not the facing)
+  if (g && g.dir0 !== rg.dir) { if (g.a != null) g.a = Math.PI - g.a; g.dir = -(g.dir || 0); g.v = -(g.v || 0); if (g.lastP != null) g.lastP = Math.PI - g.lastP; if (g.lt != null) g.lt = Math.PI - g.lt; g.legS = -(g.legS || 0); }
+  if (!g) g = k.g2 = {};
+  g.dir0 = rg.dir;
+  const rest = !!(P.kilic && P.kilicW >= 0.999 && k.cur && MOVES[k.cur.id] && (MOVES[k.cur.id].rest || []).some(([t0, t1]) => k.cur.t >= t0 && k.cur.t <= t1));
+  // (fix 3: a move's own one-frame jump - the blade out of the saya already turned forward, M.jump - is drawn as keyed on
+  // the first frame after it: the governor had swung it round from the saya's line, back across her body)
+  const J = P.kilic && P.kilicW >= 0.999 && k.cur && MOVES[k.cur.id] && MOVES[k.cur.id].jump;
+  const jumpNow = !!(J && J.some(([t0, t1]) => k.cur.t >= t0 && k.cur.t <= t1 + 18));
+  const c = govStep(g, a, { strike: strikeS(f, k, P) || jumpNow, okDown: rest, bad: (q) => badAt(f, rg, P, BL, q),
+    // (fix 3: the other fighter's head and body are crossed, never parked in: a raise to the overhead goes up past a close
+    // opponent instead of waiting below him, the blade low through the whole windup)
+    pass: (q) => badAt(f, rg, P, BL, q, true) === 0 });
+  k.gvD = wrapA(c - a);
+  if (Math.abs(k.gvD) > 1e-4) { setBlade(P, rotToScr(h, P.blade.u, BL, c)); if (P.gripL >= 0.999) onHandle(P, gripOf(f.wpn)); K.gov = (K.gov || 0) + 1; }
+}
+// (after the last turns - flat, behind, the back hand: the memory is what is finally drawn)
+function govMem(f, k, rg, P) { const g = k.g2; if (!g || !P || !P.blade || !P.blade.h || !P.armed || P.inside) return; g.a = scrP(P.blade.h, P.blade.u, (f.wpn && f.wpn.blade) || LEN.blade); }
 // (5b) A blade that would still cross its own body outside a cut - a windup swinging back past the chest or the hips
 // (kiri-age, the backhand cuts, the turns), where no turn round the hand clears it - goes BEHIND the body, as 2D
 // animation draws a sword passing on the far side: its point is moved in depth to behind the torso and the legs along the
@@ -929,10 +978,23 @@ Mo.draw = function (ctx, rg, opt) {
   // fight's own projector - its vertical perspective pivots on the floor, so a low blade pointing at the camera was drawn
   // a stub the measure round y -80 called long - and again after the turns below)
   const flat = (rmin = 0.82) => { if (P && P.blade && P.blade.u && P.blade.h && P.armed && !P.inside && rg.look && rg.look.ch && WHO[rg.look.ch.id]) {
-    try { const u1 = flatDrawn(P.blade.h, P.blade.u, (rg.look.wpn && rg.look.wpn.blade) || LEN.blade, rmin, 0); if (u1 !== P.blade.u) { let e = sub(P.blade.e, mul(u1, dot(P.blade.e, u1))); e = V.len(e) > 1e-4 ? norm(e) : P.blade.e; P.blade = { h: P.blade.h, u: u1, e }; } } catch (e) { K.errors++; }
+    try { const BLf = (rg.look.wpn && rg.look.wpn.blade) || LEN.blade, u0 = P.blade.u; let u1 = flatDrawn(P.blade.h, u0, BLf, rmin, 0);
+      // (fix 3: the depth cut keeps the angle the fight's projector draws, not only the local one - the governor's memory)
+      if (u1 !== u0 && !K.gov1) u1 = rotToScr(P.blade.h, u1, BLf, scrP(P.blade.h, u0, BLf));
+      if (u1 !== P.blade.u) { let e = sub(P.blade.e, mul(u1, dot(P.blade.e, u1))); e = V.len(e) > 1e-4 ? norm(e) : P.blade.e; P.blade = { h: P.blade.h, u: u1, e }; } } catch (e) { K.errors++; }
   } };
   flat();
   if (kd) { if (!(P && P.kilicW > 0)) kd.dbg = 'old '; dbgA(kd, 'f', P); }
+  // (fix 3: the legs back on their planted feet and the back hand on the handle BEFORE the last turns - they were laid
+  // after them, so the governor and the behind-the-body pass judged a body that then moved)
+  const relay = () => { if (P && P.kilic && P.kilicW >= 0.999 && rg.look) {
+    try {
+      const k = kd;
+      if (k && k.feet) for (const s of ['R', 'L']) { const F = k.feet[s]; layLeg(P, s, [(F.x - rg.x) * rg.dir, F.y + (rg.y || 0), F.z]); }
+      if (P.armed && P.gripL >= 0.999) onHandle(P, gripOf(rg.look.wpn));
+    } catch (e) { K.errors++; }
+  } };
+  if (!K.gov1) relay();
   if (kd && P) {
     const fresh = P.kilicW > 0;
     if (fresh) kd.tail = 9; else if (kd.tail > 0) kd.tail--;
@@ -942,22 +1004,20 @@ Mo.draw = function (ctx, rg, opt) {
     // add up frame after frame)
     dbgA(kd, 's', P);
     try { if (fresh) faceClear(kd, P, gripOf(rg.look.wpn)); else kd.fo = null; } catch (e) { K.errors++; }
-    try { if (fresh) faceGuard(rg.look, rg, P, kd); else kd.ga = 0; } catch (e) { K.errors++; }
-    try { if (!K.govOff) govern(rg.look, kd, rg, P); else kd.gv = null; } catch (e) { K.errors++; }
+    if (K.gov1) {
+      try { if (fresh) faceGuard(rg.look, rg, P, kd); else kd.ga = 0; } catch (e) { K.errors++; }
+      try { if (!K.govOff) govern(rg.look, kd, rg, P); else kd.gv = null; } catch (e) { K.errors++; }
+    } else { kd.ga = 0; try { govern2(rg.look, kd, rg, P); } catch (e) { K.errors++; if (K.errors < 4) console.error('kilic gov', e); } }
     flat();
     dbgA(kd, 'v', P);
     try { if (fresh) behind(rg.look, rg, P, kd); else kd.beh = false; } catch (e) { K.errors++; }
-    // (put behind the body, the blade may come out drawn short: not under 0.7 of its length, even if it shows in front)
-    if (kd.beh) flat(0.7);
+    // (put behind the body, the blade may come out drawn short: not under 0.72 of its length, even if it shows in front -
+    // 0.7 is the measure's limit)
+    if (kd.beh) flat(0.72);
     dbgA(kd, 'g', P);
   }
-  if (P && P.kilic && P.kilicW >= 0.999 && rg.look) {
-    try {
-      const k = kd;
-      if (k && k.feet) for (const s of ['R', 'L']) { const F = k.feet[s]; layLeg(P, s, [(F.x - rg.x) * rg.dir, F.y + (rg.y || 0), F.z]); }
-      if (P.armed && P.gripL >= 0.999) onHandle(P, gripOf(rg.look.wpn));
-    } catch (e) { K.errors++; }
-  }
+  relay();
+  if (kd && P && !K.gov1) govMem(rg.look, kd, rg, P);
   const u0 = P && P.blade && P.blade.u;
   const r = drawPic(ctx, rg, opt);
   if (kd) { kd.nd = (kd.nd || 0) + 1; const u1 = rg.P && rg.P.blade && rg.P.blade.u; kd.dd = u0 && u1 ? Math.acos(clamp(dot(u0, u1), -1, 1)) : 0; }
