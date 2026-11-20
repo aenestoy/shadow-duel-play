@@ -97,6 +97,10 @@ const yawK = (o, deg) => {
 // the three held guards (the pose the guard stays on, and the block's start and end)
 const G_MID = { hip: [-2, -77.5, 0], py: 16, cy: 26, lean: 4, nod: 3, R: [36, -118, 8], by: 4, el: 62, pR: [-0.3, 0.8, 0.6], pL: [-0.2, 0.9, -0.5] };
 const G_HI = { hip: [-3, -79, 0], py: 12, cy: 18, lean: 0, nod: -2, R: [2, -173, 5], by: 0, el: 184, ...UPEL };
+// (4b) the raise to the high guard and its release: the fists go up in front with the near elbow low and forward (under
+// the chin, toward the opponent), the blade rising back over the head - the near arm never crosses the face (before: the
+// elbows swung out at the camera and the near forearm passed over the face for 4-8 frames, every guard change in the fight)
+const G_RISE = { hip: [-2, -79.5, 0], py: 22, cy: 26, lean: 2, nod: 0, R: [30, -158, 5], by: 0, el: 134, pR: [0.1, 0.6, -0.8], pL: [-0.6, -0.15, -0.8] };
 const G_LOW = { hip: [-2, -75, 0], py: 16, cy: 24, lean: 7, nod: 8, R: [47, -96, 4], by: 6, el: -36, pR: [-0.2, 1, 0.5], pL: [-0.2, 1, -0.5] };
 
 // lying on the back after a fall (the fight's 'down'): both palms on the floor (the break-fall), the sword hand out on the
@@ -114,9 +118,12 @@ const BIND_A = { hip: [-2, -74, 0], py: 10, cy: 16, lean: 16, nod: 5, R: [47, -1
 const STUCK_B = { hip: [-2, -75, 0], py: 12, cy: 18, lean: 8, nod: 5, R: [52, -104, 6], by: 0, el: -10, n: [0, 0.6, 0.8], pR: [-0.3, 0.8, 0.6], pL: [-0.3, 0.8, -0.5] };
 const STUCK_T = { ...STUCK_B, hip: [-10, -74.5, 0], lean: -3, nod: 3, R: [32, -112, 6], el: -8 };
 const POST_LOW = { hip: [-6, -56, 0], py: 14, cy: 22, lean: 28, nod: 10, R: [22, -70, 28], by: 170, el: -8, n: [0, 1, 0], pR: [-0.6, 0.6, 0.6], pL: [0, 0.85, -0.6], FR: [30, 0, 7] };
-const K_UP1 = { hip: [-2, -80.5, 0.5], py: 18, cy: 30, lean: 3, nod: 3, R: [38, -146, 10], by: 30, el: 80, n: [0, 0.5, 0.87], pR: [-0.2, 0.9, 0.4], pL: [-0.3, 0.8, -0.5] };
-const K_UP3 = { hip: [-3, -81.2, 1], py: 21, cy: 36, lean: 1, nod: 2, R: [6, -174, 17], by: 140, el: 55, n: [0, 0.6, 0.8], ...UPEL, pL: [0.6, 0.6, -0.4] };
-const K_EAR = { hip: [-2.5, -81, 0.8], py: 20, cy: 34, lean: 2, nod: 2, R: [24, -163, 14], by: 95, el: 66, n: [0, 0.55, 0.84], pR: [-0.3, 0.3, 0.9], pL: [0.6, 0.6, -0.4] };
+// (4b) the right-shoulder raise (kesaS, tsubame, renga, sandan, airCut, airSpike) keyed higher and nearer the camera: the
+// fists go up in front of the face's far side and the near elbow stays under the face line (before: the near forearm
+// crossed the face as the fists passed the ear - the fight held that pose when the cut was blocked)
+const K_UP1 = { hip: [-2, -80.5, 0.5], py: 18, cy: 30, lean: 3, nod: 3, R: [36, -148, 12], by: 30, el: 80, n: [0, 0.5, 0.87], pR: [-0.2, 0.9, 0.4], pL: [-0.3, 0.8, -0.5] };
+const K_UP3 = { hip: [-3, -81.2, 1], py: 21, cy: 36, lean: 1, nod: 2, R: [2, -174, 24], by: 140, el: 55, n: [0, 0.6, 0.8], ...UPEL, pL: [0.6, 0.6, -0.4] };
+const K_EAR = { hip: [-2.5, -81, 0.8], py: 20, cy: 34, lean: 2, nod: 2, R: [32, -155, 22], by: 95, el: 66, n: [0, 0.55, 0.84], pR: [-0.3, 0.3, 0.9], pL: [0.6, 0.6, -0.4] };
 const K_TOP = { hip: [-4, -81.5, 1], py: 22, cy: 38, lean: 0, nod: 1, R: [-3, -182, 18], by: 158, el: 52, n: [0, 0.6, 0.8], ...UPEL, pL: [0.6, 0.6, -0.4] };
 const IAI_OUT = { hip: [-4, -65, -1], py: 4, cy: 4, lean: 19, nod: 7, R: [40, -88, -6], by: -152, el: -8, n: [0, -0.6, 0.8], pR: [-0.3, 0.7, 0.6], pL: [-0.2, 0.9, -0.6], lw: 0 };
 const IAI2 = { hip: [18, -64, 0], py: 14, cy: 30, lean: 24, nod: 9, R: [62, -100, 26], by: 60, el: 4, n: [0, -1, 0], lw: 0, pL: [-0.2, 0.9, -0.6], FR: [44, 0, 8], FL: [-34, 0, -7] };
@@ -241,7 +248,7 @@ export const MOVES = {
       at(0, {}),
       // up fast: the tip swings up and back over the head, the fists end above the forehead and the blade lies flat over
       // the head like a roof, edge up, tip a hair low at the back (reads clearly from the side)
-      at(75, { hip: [-2, -79.5, 0], py: 13, cy: 20, lean: 2, nod: 0, R: [34, -146, 5], by: 0, el: 96, pR: [-0.5, 0.3, 0.8], pL: [-0.6, -0.15, -0.8] }, 'io'),
+      at(75, G_RISE, 'io'),
       at(150, { hip: [-3, -79, 0], py: 12, cy: 18, lean: 0, nod: -2, R: [2, -173, 5], by: 0, el: 184, ...UPEL }, 'out'),
       at(260, { hip: [-3.5, -79, 0], py: 12, cy: 18, lean: 0, nod: -2, R: [2, -173.5, 5], by: 0, el: 184, ...UPEL }, 'io'),
       // the impact: the blade gives a little, the knees take it, the body sinks
@@ -249,7 +256,7 @@ export const MOVES = {
       at(380, { hip: [-5, -76.5, 0], py: 12, cy: 17, lean: 0, nod: -1, R: [2, -170, 5], by: 0, el: 187, ...UPEL }, 'io'),
       // release in one move: the near elbow swings out toward the camera (not across the face) as the blade comes over
       // to the front, then the fists sink to the centre line and the weight settles
-      at(460, { hip: [-1, -77.5, 0], py: 12, cy: 20, lean: 2, nod: 1, R: [34, -146, 6], by: 0, el: 80, pR: [0, 0.2, 1], pL: [-0.6, 0, -0.8] }, 'io'),
+      at(460, { ...G_RISE, hip: [-1, -77.5, 0], nod: 1 }, 'io'),
       at(600, { hip: [2, -79, 0], py: 13, cy: 21, lean: 5, nod: 3, R: [44, -114, 3], by: -1, el: 26, pR: [-0.2, 0.8, 0.6], pL: [-0.2, 0.9, -0.6] }, 'io'),
       at(780, {}, 'io'),
     ],
@@ -266,9 +273,9 @@ export const MOVES = {
     keys: [
       at(0, {}),
       // the fists go up and back past the right ear with the elbows low, then the elbows flick up behind the face
-      at(85, { hip: [-2, -80.5, 0.5], py: 18, cy: 30, lean: 3, nod: 3, R: [38, -146, 10], by: 30, el: 80, n: [0, 0.5, 0.87], pR: [-0.2, 0.9, 0.4], pL: [-0.3, 0.8, -0.5] }, 'io'),
-      at(112, { hip: [-2.5, -81, 0.8], py: 20, cy: 34, lean: 2, nod: 2, R: [24, -163, 14], by: 95, el: 66, n: [0, 0.55, 0.84], pR: [-0.3, 0.3, 0.9], pL: [0.6, 0.6, -0.4] }, 'io'),
-      at(145, { hip: [-3, -81.2, 1], py: 21, cy: 36, lean: 1, nod: 2, R: [6, -174, 17], by: 140, el: 55, n: [0, 0.6, 0.8], ...UPEL, pL: [0.6, 0.6, -0.4] }, 'io'),
+      at(85, K_UP1, 'io'),
+      at(112, K_EAR, 'io'),
+      at(145, K_UP3, 'io'),
       // the top, short: fists by the right side of the crown, blade back over the shoulder
       at(175, { hip: [-4, -81.5, 1], py: 22, cy: 38, lean: 0, nod: 1, R: [-3, -182, 18], by: 158, el: 52, n: [0, 0.6, 0.8], ...UPEL, pL: [0.6, 0.6, -0.4] }, 'out'),
       at(195, { hip: [0, -81, 1], py: 18, cy: 35, lean: 1, nod: 2, R: [0, -182, 20], by: 158, el: 48, n: [0, 0.6, 0.8], ...UPEL, pL: [0.6, 0.6, -0.4] }, 'io'),
@@ -371,10 +378,10 @@ export const MOVES = {
     name: 'Guard (high: the roof over the head)', feet: FEET, hold: 2,
     keys: [
       at(0, {}),
-      at(75, { hip: [-2, -79.5, 0], py: 13, cy: 20, lean: 2, nod: 0, R: [34, -146, 5], by: 0, el: 96, pR: [-0.5, 0.3, 0.8], pL: [-0.6, -0.15, -0.8] }, 'io'),
+      at(75, G_RISE, 'io'),
       at(150, G_HI, 'out'),
       at(450, G_HI, 'io'),
-      at(530, { hip: [-1, -77.5, 0], py: 12, cy: 20, lean: 2, nod: 1, R: [34, -146, 6], by: 0, el: 80, pR: [0, 0.2, 1], pL: [-0.6, 0, -0.8] }, 'io'),
+      at(530, { ...G_RISE, hip: [-1, -77.5, 0], nod: 1 }, 'io'),
       at(670, { hip: [2, -79, 0], py: 13, cy: 21, lean: 5, nod: 3, R: [44, -114, 3], by: -1, el: 26, pR: [-0.2, 0.8, 0.6], pL: [-0.2, 0.9, -0.6] }, 'io'),
       at(850, {}, 'io'),
     ],
@@ -1056,7 +1063,7 @@ export const MOVES = {
       at(0, {}),
       at(28, K_UP1, 'io'),
       at(50, K_EAR, 'io'),
-      at(71, { ...K_UP3, R: [2, -178, 17], by: 150, el: 54 }, 'io'),
+      at(71, { ...K_UP3, R: [2, -177, 20], by: 150, el: 54 }, 'io'),
       at(98, { hip: [6, -79, 0], py: 9, cy: 20, lean: 3, nod: 2, R: [46, -160, 24], by: 35, el: 36, n: [0, 0.6, 0.8], pR: [-0.3, 0.4, 0.85], pL: [0.2, 0.8, -0.6] }, 'in'),
       at(122, { hip: [13, -77, 0], py: -2, cy: 2, lean: 7, nod: 6, R: [68, -128, 4], by: -14, el: -22, n: [0, 0.6, 0.8] }, 'lin'),
       at(160, { hip: [15, -74, 0], py: -8, cy: -8, lean: 10, nod: 7, R: [60, -97, -10], by: -46, el: -38, n: [0, 0.6, 0.8] }, 'out'),
@@ -1077,7 +1084,7 @@ export const MOVES = {
       at(0, {}),
       at(28, K_UP1, 'io'),
       at(50, K_EAR, 'io'),
-      at(71, { ...K_UP3, R: [2, -178, 17], by: 150, el: 54 }, 'io'),
+      at(71, { ...K_UP3, R: [2, -177, 20], by: 150, el: 54 }, 'io'),
       at(98, { hip: [6, -79, 0], py: 9, cy: 20, lean: 3, nod: 2, R: [46, -160, 24], by: 35, el: 36, n: [0, 0.6, 0.8], pR: [-0.3, 0.4, 0.85], pL: [0.2, 0.8, -0.6] }, 'in'),
       at(121, { hip: [12, -77, 0], py: -2, cy: 2, lean: 7, nod: 6, R: [68, -128, 4], by: -14, el: -22, n: [0, 0.6, 0.8] }, 'lin'),
       at(145, { hip: [14, -74.5, 0], py: -8, cy: -8, lean: 10, nod: 7, R: [60, -97, -10], by: -46, el: -38, n: [0, 0.6, 0.8] }, 'out'),
@@ -1196,7 +1203,7 @@ export const MOVES = {
       at(0, { hip: [4, -79, 0], py: 6, cy: 10, lean: 7, nod: 5, R: [50, -106, -3], by: -18, el: 6, n: [0, 0.4, 0.92], FR: [26, -12, 7], FL: [-20, -16, -7] }),
       at(26, { ...K_UP1, FR: [27, -18, 7], FL: [-18, -22, -7] }, 'io'),
       at(46, { ...K_EAR, FR: [28, -22, 7], FL: [-16, -26, -7] }, 'io'),
-      at(65, { ...K_UP3, R: [2, -178, 17], by: 150, el: 54, FR: [28, -24, 7], FL: [-15, -28, -7] }, 'io'),
+      at(65, { ...K_UP3, R: [2, -177, 20], by: 150, el: 54, FR: [28, -24, 7], FL: [-15, -28, -7] }, 'io'),
       at(93, { hip: [8, -79, 0], py: 7, cy: 18, lean: 4, nod: 2, R: [50, -160, 24], by: 35, el: 36, n: [0, 0.6, 0.8], pR: [-0.3, 0.4, 0.85], pL: [0.2, 0.8, -0.6], FR: [28, -22, 7], FL: [-15, -26, -7] }, 'in'),
       at(123, { hip: [12, -77, 0], py: -2, cy: 2, lean: 10, nod: 7, R: [70, -126, 4], by: -10, el: -26, n: [0, 0.6, 0.8], FR: [28, -18, 7], FL: [-16, -22, -7] }, 'lin'),
       at(170, { hip: [13, -75, 0], py: -6, cy: -4, lean: 14, nod: 8, R: [66, -104, -2], by: -18, el: -40, n: [0, 0.6, 0.8], FR: [27, -12, 7], FL: [-18, -14, -7] }, 'out'),
@@ -1215,7 +1222,7 @@ export const MOVES = {
       at(0, {}),
       at(26, K_UP1, 'io'),
       at(47, K_EAR, 'io'),
-      at(67, { ...K_UP3, R: [2, -178, 17], by: 150, el: 54 }, 'io'),
+      at(67, { ...K_UP3, R: [2, -177, 20], by: 150, el: 54 }, 'io'),
       at(93, { hip: [6, -79, 0], py: 9, cy: 20, lean: 3, nod: 2, R: [46, -160, 24], by: 35, el: 36, n: [0, 0.6, 0.8], pR: [-0.3, 0.4, 0.85], pL: [0.2, 0.8, -0.6] }, 'in'),
       at(115, { hip: [11, -77, 0], py: -2, cy: 2, lean: 7, nod: 6, R: [66, -128, 4], by: -14, el: -22, n: [0, 0.6, 0.8] }, 'lin'),
       at(140, { hip: [12, -74.5, 0], py: -8, cy: -8, lean: 10, nod: 7, R: [58, -97, -10], by: -46, el: -38, n: [0, 0.6, 0.8] }, 'out'),
