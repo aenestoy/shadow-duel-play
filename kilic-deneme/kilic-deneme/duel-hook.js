@@ -554,23 +554,56 @@ Mo.Rig.prototype.build = function (F, dt) {
 // never snapping back.
 const rotZ = (u, a) => { const c = Math.cos(a), sn = Math.sin(a); return norm([u[0] * c - u[1] * sn, u[0] * sn + u[1] * c, u[2]]); };
 function segD2(p, a, b) { const abx = b.x - a.x, aby = b.y - a.y, t = clamp(((p.x - a.x) * abx + (p.y - a.y) * aby) / Math.max(1e-9, abx * abx + aby * aby), 0, 1); return Math.hypot(p.x - a.x - abx * t, p.y - a.y - aby * t); }
+// (5b) the fighter's own blade THROUGH its own body as drawn, outside a cut: the blade (from 14 past the hand - the hands
+// hold it in front of the body) crossing the torso's middle line (hip to neck) or a thigh (hip to knee) in the picture,
+// over a part it is drawn IN FRONT of (Mo.bladeFront: a blade behind the body is drawn under it and reads as behind).
+// A blade held in front of the body, raised over a body on the floor or pointing away never crosses those lines; one laid
+// across the chest or the hips does. The crossing at Akane's saya (the blade going home along it, noto) is left out.
+// 1 = through, -1 = clear. tools/kilic-fight.mjs ownBody measures the same.
+function xSeg(a, b, c, d) {
+  const r1 = b.x - a.x, r2 = b.y - a.y, s1 = d.x - c.x, s2 = d.y - c.y, den = r1 * s2 - r2 * s1;
+  if (Math.abs(den) < 1e-9) return null;
+  const t = ((c.x - a.x) * s2 - (c.y - a.y) * s1) / den, v = ((c.x - a.x) * r2 - (c.y - a.y) * r1) / den;
+  return t >= 0 && t <= 1 && v >= 0 && v <= 1 ? { x: a.x + r1 * t, y: a.y + r2 * t } : null;
+}
+function ownCross(P, h, u, BL, iai) {
+  if (!P.hip || !P.neck) return null;
+  const fr = Mo.bladeFront(P, h, u, BL);
+  if (!fr.T && !fr.R && !fr.L) return null;
+  const cam = Mo.cam, pr = (p) => { const s = cam / (cam - p[2]); return { x: p[0] * s, y: p[1] * s }; };
+  const a = pr(madd(h, u, 14)), b = pr(madd(h, u, BL));
+  const sy = iai && P.saya && P.saya.a ? [pr(P.saya.a), pr(madd(P.saya.a, P.saya.u, P.saya.L || 80))] : null;
+  const ok = (q) => q && !(sy && segD2(q, sy[0], sy[1]) < 8);
+  if (fr.T && ok(xSeg(a, b, pr(P.hip), pr(P.neck)))) return 'torso';
+  if (fr.R && ok(xSeg(a, b, pr(P.hipR), pr(P.knR)))) return 'thighR';
+  if (fr.L && ok(xSeg(a, b, pr(P.hipL), pr(P.knL)))) return 'thighL';
+  return null;
+}
+const ownPen = (P, h, u, BL, f) => (ownCross(P, h, u, BL, !!(f && f.wpn && f.wpn.iai)) ? 1 : -1);
+K.ownCross = ownCross;
 function faceGuard(f, rg, P, kd) {
   const o = f.opp, ro = o && MD.rigOf(o), Q = ro && ro.P, g0 = kd.ga || 0;
   kd.ga = 0; kd.gaD = -g0;
   if (!Q || !Q.head || o.dead || o.hidden || !P.armed || P.inside || !P.blade || !P.blade.h || kd.gdir !== rg.dir) { kd.gdir = rg.dir; return; }
   const BL = (f.wpn && f.wpn.blade) || LEN.blade, h = P.blade.h;
   const hd = Mo.project(ro, Q.head), nk = Mo.project(ro, Q.neck), hp = Mo.project(ro, Q.hip), own = Mo.project(rg, P.head);
-  if (Math.abs(hd.x - Mo.project(rg, h).x) > BL * 1.6 + 40) return;
+  // (the other far away: only the fighter's own head and body count)
+  const near = Math.abs(hd.x - Mo.project(rg, h).x) <= BL * 1.6 + 40;
   const cut = f.state === 'atk' && f.atk && f.atk.active && f.st >= f.atk.active[0] - 0.02 && f.st <= f.atk.active[1] + 0.02;
+  // (5b: outside a cut the blade never lies across its own torso, hips or thighs as drawn - ownPen below)
+  const self = !cut && !K.ownOff;
   const bad = (u) => {
     let m = -1e9;
     for (let i = 1; i <= 12; i++) {
       const k = 4 + (BL - 4) * i / 12, q = Mo.project(rg, [h[0] + u[0] * k, h[1] + u[1] * k, h[2] + u[2] * k]);
-      m = Math.max(m, 15 - Math.hypot(q.x - hd.x, q.y - hd.y), 14 - Math.hypot(q.x - own.x, q.y - own.y));
-      if (!cut && k > 24) m = Math.max(m, 17 - segD2(q, hp, nk));
+      m = Math.max(m, 14 - Math.hypot(q.x - own.x, q.y - own.y));
+      if (near) m = Math.max(m, 15 - Math.hypot(q.x - hd.x, q.y - hd.y));
+      if (near && !cut && k > 24) m = Math.max(m, 17 - segD2(q, hp, nk));
     }
+    if (self) m = Math.max(m, ownPen(P, h, u, BL, f));
     return m;
   };
+  if (!near && !self) return;
   const u0 = P.blade.u;
   let a = Math.sign(g0) * Math.max(0, Math.abs(g0) - 0.06);
   if (bad(rotZ(u0, a)) > 0) {
@@ -586,15 +619,47 @@ function faceGuard(f, rg, P, kd) {
   kd.ga = a; kd.gaD = a - g0;
   if (a) { setBlade(P, rotZ(u0, a)); K.guarded = (K.guarded || 0) + 1; }
 }
+// (5b) A blade that would still cross its own body outside a cut - a windup swinging back past the chest or the hips
+// (kiri-age, the backhand cuts, the turns), where no turn round the hand clears it - goes BEHIND the body, as 2D
+// animation draws a sword passing on the far side: its point is moved in depth to behind the torso and the legs along the
+// same line of sight, so the drawn blade stays on the same line in the picture (only its drawn length changes a little) and
+// js/mocap.js layers it under the body. Held while the blade still overlaps the torso (18 round the spine) or a thigh,
+// so the layer never flips while it is over the body; let go once it is clear of both.
+function zoneOwn(P, h, u, BL) {
+  const cam = Mo.cam, pr = (p) => { const s = cam / (cam - p[2]); return { x: p[0] * s, y: p[1] * s }; };
+  const hp = pr(P.hip), nk = pr(P.neck), hR = pr(P.hipR), kR = pr(P.knR), hL = pr(P.hipL), kL = pr(P.knL);
+  for (let i = 0; i <= 10; i++) { const q = pr(madd(h, u, 14 + ((BL - 14) * i) / 10)); if (segD2(q, hp, nk) < 18 || segD2(q, hR, kR) < 9 || segD2(q, hL, kL) < 9) return true; }
+  return false;
+}
+function behind(f, rg, P, kd) {
+  const was = kd.beh; kd.beh = false;
+  if (K.ownOff || !P.armed || P.inside || !P.blade || !P.blade.h) return;
+  const cut = f.state === 'atk' && f.atk && f.atk.active && f.st >= f.atk.active[0] - 0.02 && f.st <= f.atk.active[1] + 0.02;
+  if (cut) return;
+  const BL = (f.wpn && f.wpn.blade) || LEN.blade, h = P.blade.h, u = P.blade.u, iai = !!(f.wpn && f.wpn.iai);
+  if (!(ownCross(P, h, u, BL, iai) || (was && zoneOwn(P, h, u, BL)))) return;
+  const fr0 = Mo.bladeFront(P, h, u, BL);
+  if (!fr0.T && !fr0.R && !fr0.L) { kd.beh = true; return; }
+  // (the point along its line of sight: z moved by the least step that puts the blade behind the torso and both legs)
+  const cam = Mo.cam, t0 = madd(h, u, BL), s0 = cam / (cam - t0[2]), X = t0[0] * s0, Y = t0[1] * s0;
+  for (let i = 1; i <= 24; i++) for (const sg of [-1, 1]) {
+    const z = t0[2] + sg * i * 8, s1 = cam / (cam - z), p = [X / s1, Y / s1, z], d = sub(p, h), dl = V.len(d);
+    if (dl < 1e-3) continue;
+    const u1 = mul(d, 1 / dl), fr = Mo.bladeFront(P, h, u1, BL);
+    if (!fr.T && !fr.R && !fr.L) { setBlade(P, u1); kd.beh = true; K.behind = (K.behind || 0) + 1; return; }
+  }
+}
 // The face is never hidden by its own arms (owner's rule; the guard, block and recoil meet the other's blade, the
 // hitstop holds a windup): on a frame drawn new, the face (the front half of the head, a disc of 9 - tools/kilic-check.mjs
 // faceCover) more than 30% under an arm nearer the camera, both fists move down / forward by the least offset that clears
 // it. The offset has a memory (no pop): it grows by at most 6 a frame, shrinks by 4 and lets go only while the face stays clear.
 const FG = []; for (let x = -9; x <= 9; x += 2) for (let y = -9; y <= 9; y += 2) if (x * x + y * y <= 81) FG.push([x, y]);
+// (5b: with the head drawn over the arms - drawPic below - only the fists count: they are kept off the face so that they
+// do not hide behind the head; K.oldClear: the arms too, as before)
 function coverOf(P) {
   if (!P.head || !P.shR || !P.elR || !P.haR) return 0;
-  const c = [P.head[0] + 4 * (P.hf ? Math.sign(P.hf[0]) || 1 : 1), P.head[1] + 1], hz = P.head[2], sg = [];
-  for (const s of ['R', 'L']) { const sh = P['sh' + s], el = P['el' + s], ha = P['ha' + s]; if (!sh || !el || !ha) continue; if ((sh[2] + el[2]) / 2 > hz + 2) sg.push([sh, el, 8]); if ((el[2] + ha[2]) / 2 > hz + 2) sg.push([el, ha, 6.5]); if (ha[2] > hz + 2) sg.push([ha, ha, 5.5]); }
+  const c = [P.head[0] + 4 * (P.hf ? Math.sign(P.hf[0]) || 1 : 1), P.head[1] + 1], hz = P.head[2], sg = [], arms = !!(K.oldClear || K.headOff);
+  for (const s of ['R', 'L']) { const sh = P['sh' + s], el = P['el' + s], ha = P['ha' + s]; if (!sh || !el || !ha) continue; if (arms && (sh[2] + el[2]) / 2 > hz + 2) sg.push([sh, el, 8]); if (arms && (el[2] + ha[2]) / 2 > hz + 2) sg.push([el, ha, 6.5]); if (!arms || ha[2] > hz + 2) sg.push([ha, ha, 5.5]); }
   if (!sg.length) return 0;
   const d2 = (q, a, e) => { const abx = e[0] - a[0], aby = e[1] - a[1], t = clamp(((q[0] - a[0]) * abx + (q[1] - a[1]) * aby) / Math.max(1e-9, abx * abx + aby * aby), 0, 1); return Math.hypot(q[0] - a[0] - abx * t, q[1] - a[1] - aby * t); };
   let n = 0; for (const [x, y] of FG) { const q = [c[0] + x, c[1] + y]; if (sg.some(([a, e, r]) => d2(q, a, e) < r)) n++; }
@@ -627,7 +692,29 @@ function faceClear(k, P, grip) {
 K.dbg = (f) => { const k = KS.get(f); if (!k) return null; const r = { ga: +(k.ga || 0).toFixed(2), gaD: +(k.gaD || 0).toFixed(2), sc: k.sc || 0, sr: k.sr, nd: k.nd || 0, dd: +(k.dd || 0).toFixed(2), tail: k.tail || 0 }; return r; };
 K.dbgReset = (f) => { const k = KS.get(f); if (k) k.nd = 0; };
 const draw1 = Mo.draw;
-Mo.draw = function (ctx, rg) {
+// 5b. The head over the arms (the owner, 2026-11-20, from faz4b-dovus.mp4: the face hidden behind the near arm in high
+// blocks and windups). In profile the camera-side arm is always nearer than the head, so js/mocap.js drew it over the
+// face; re-keying the poses only moved the arm around. As 2D animation does, the head (with its hair, hat, band and the
+// costume's head layer) is drawn AFTER the rest of the body, the arms, fists, hilt and blade included: wherever an arm
+// passes the head, the face stays on top. It is held back on every frame of Akane and Kuro while this is on, never
+// decided frame by frame - where nothing passes the head the order changes nothing, so the layer order never flickers.
+// (the fists are kept off the face by faceClear; the blade by faceGuard's own-head clearance - neither hides behind it)
+const DR = ND._draw, head0 = DR.drawHead, cl0 = ND.costumeLayer;
+let HELD = null;
+DR.drawHead = function () { if (HELD) { HELD.push([head0, this, [...arguments]]); return; } return head0.apply(this, arguments); };
+if (cl0) ND.costumeLayer = function (id, layer) { if (HELD && layer === 'head') { HELD.push([cl0, this, [...arguments]]); return; } return cl0.apply(this, arguments); };
+function drawPic(ctx, rg, opt) {
+  const f = rg && rg.look;
+  if (!K.on || K.headOff || !f || !f.ch || !WHO[f.ch.id] || !rg.P || !ctx) return draw1.call(Mo, ctx, rg, opt);
+  const held = (HELD = []);
+  let r;
+  try { r = draw1.call(Mo, ctx, rg, opt); } finally { HELD = null; }
+  if (held.length) { ctx.save(); ctx.lineJoin = 'round'; ctx.lineCap = 'round'; try { for (const [fn, th, a] of held) fn.apply(th, a); } finally { ctx.restore(); } }
+  return r;
+}
+// (tools/kilic-fight.mjs: the picture of one fighter drawn again as it is, for the face measure - no eases, no memory)
+K.drawPic = drawPic;
+Mo.draw = function (ctx, rg, opt) {
   const P = rg && rg.P;
   const kd = rg && rg.look && KS.get(rg.look);
   // (eased on the frames drawn new, and on the game's own frames for 0.15 s after them - the switch back has no pop
@@ -640,6 +727,7 @@ Mo.draw = function (ctx, rg) {
     // add up frame after frame)
     try { if (fresh) faceClear(kd, P, gripOf(rg.look.wpn)); else kd.fo = null; } catch (e) { K.errors++; }
     try { if (fresh) faceGuard(rg.look, rg, P, kd); else kd.ga = 0; } catch (e) { K.errors++; }
+    try { if (fresh) behind(rg.look, rg, P, kd); else kd.beh = false; } catch (e) { K.errors++; }
   }
   if (P && P.kilic && P.kilicW >= 0.999 && rg.look) {
     try {
@@ -649,7 +737,7 @@ Mo.draw = function (ctx, rg) {
     } catch (e) { K.errors++; }
   }
   const u0 = P && P.blade && P.blade.u;
-  const r = draw1.apply(this, arguments);
+  const r = drawPic(ctx, rg, opt);
   if (kd) { kd.nd = (kd.nd || 0) + 1; const u1 = rg.P && rg.P.blade && rg.P.blade.u; kd.dd = u0 && u1 ? Math.acos(clamp(dot(u0, u1), -1, 1)) : 0; }
   return r;
 };
