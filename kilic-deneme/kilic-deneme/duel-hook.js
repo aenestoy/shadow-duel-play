@@ -556,20 +556,35 @@ function flipCh(c) {
 // first strike frame, and the back foot steps up after it. The cut's timing, its hit window and the drawn strike are the
 // move's own. How far: as far as the blade's turn up needs (sbNeed), at most SB_MAX - looked at again while the step is
 // being taken (he may still be coming in), never shrinking.
+// (fix 6, 2026-11-20) The gap kept open: the fight closes it in the wind-up (the attacker's own lunge still sliding on -
+// js/fighter.js 'atk' friction 9 a second -, the other walking in, the keep-apart push): seed 1's close overhead went
+// 146 -> 105 while the blade rose. A close one (the gap at its start under the blade + HOLD_NEAR) holds the drawn body
+// where it stood: the whole drawn body (hips, hands, blade, both feet) is kept back by however much the fight has closed
+// since the cut began (both feet stay planted on the floor: nothing slides), up to HOLD_MAX; the drive gives it back.
+// The step back is on top of it, now as large as the blade's rise needs (SB_MAX, about half a body). Both go to nothing
+// over the last 30 % of the wind-up - the drive into the cut, the feet stepping in with it - so the move's own pose, the
+// fight's position and its hit are the same at the first strike frame. Only the picture: the fight's x, its timing and
+// its hits are its own.
 const SB = { overhead: 1, kesaS: 1, gyakuS: 1, menS: 1 };
-const SB_MAX = 16, SB_SINK = 0.3;
+const SB_MAX = 30, SB_SINK = 0.3, SB_GROW = 4, HOLD_NEAR = 70, HOLD_MAX = 60, HOLD_V = 7;
+// (the screen angle past straight down toward the back, or level behind the hand: as moves.js govStep's lowBack)
+const lowBackA = (q) => { const w = wrapA(q); return w > Math.PI / 2 + 0.1 || w < -Math.PI + 0.35; };
 const s5 = (u) => { const v = clamp(u, 0, 1); return v * v * v * (v * (v * 6 - 15) + 10); };
 function sbProf(M, t) {
-  const W = M.phases.active[0], tb = Math.min(0.5 * W, 200), td = 0.7 * W;
+  const W = M.phases.active[0], tb = Math.min(0.25 * W, 100), td = 0.7 * W;
   const H = t <= 0 ? 0 : t < tb ? s5(t / tb) : t < td ? 1 : t < W ? 1 - s5((t - td) / (W - td)) : 0;
-  return { H, L: t >= 0.03 * W && t < 0.9 * W, grow: t < 0.3 * W };
+  // (the hold: whole until the drive, then given back on the same curve)
+  const Dr = t < td ? 1 : t < W ? 1 - s5((t - td) / (W - td)) : 0;
+  return { H, Dr, L: t >= 0.03 * W && t < 0.9 * W, grow: t < td, pre: t < td };
 }
 // How far back the rise needs: the blade as drawn now (the last-word governor's angle, the last drawn sword hand) turning
 // up from where it is to straight up, round the hand on the screen - does it pass through the other's head (15) or along
 // his body (17 round the spine, past 24 of the blade), as the governor's own rule? The least shift back, in steps of 2,
 // that clears the whole turn; none when the blade is already up or back (nothing to rise through) or nothing is in the
 // way; SB_MAX when even that does not clear it (as much as a small step gives).
-function sbNeed(f, k, rg, BL) {
+// (fix 6: off - the last drawn hand put back where the move has it, with this frame's hold: the shift drawn last frame
+// added back, the hold taken off)
+function sbNeed(f, k, rg, BL, off = 0) {
   const P = k.prevP, g = k.g2, o = f.opp, ro = o && MD.rigOf(o), Q = ro && ro.P;
   if (!P || !P.haR || !g || g.a == null || !Q || !Q.head || !Q.neck || !Q.hip || o.dead || o.hidden) return { s: 0, a0: null };
   const a0 = wrapA(g.a);
@@ -577,7 +592,7 @@ function sbNeed(f, k, rg, BL) {
   if (!(a0 > -1.25 && a0 < 2.9)) return { s: 0, a0 };
   // (from low behind - a follow-through ending down and back - the way up in front starts from forward-down)
   const from = Math.min(a0, 1.2);
-  const hd = Mo.project(ro, Q.head), nk = Mo.project(ro, Q.neck), hp = Mo.project(ro, Q.hip), h = P.haR;
+  const hd = Mo.project(ro, Q.head), nk = Mo.project(ro, Q.neck), hp = Mo.project(ro, Q.hip), h = [P.haR[0] + off, P.haR[1], P.haR[2]];
   const blocked = (s) => {
     for (let a = from; a >= -Math.PI / 2 - 1e-6; a -= 0.1) {
       const c = Math.cos(a), sn = Math.sin(a);
@@ -597,19 +612,24 @@ function stepBack(f, k, rg, want, ch, BL) {
   if (!(f.state === 'atk' && SB[want.id] && M.phases && !K.sbOff)) { k.sb = null; return; }
   // (a new cut - another one, or the same cut started again)
   const fresh = !k.sb || k.sb.atk !== f.atk || k.sb.id !== want.id || f.st < k.sb.st - 1e-6;
-  if (fresh) k.sb = { atk: f.atk, id: want.id, s: 0, st: f.st };
+  if (fresh) { const F0 = frontOf(f, rg); k.sb = { atk: f.atk, id: want.id, s: 0, st: f.st, g0: F0 ? F0.d : null, near: !!F0 && F0.d < BL + HOLD_NEAR, hold: 0, Xp: 0, lb: !!(k.g2 && k.g2.a != null && (lowBackA(k.g2.a) || wrapA(k.g2.a) > Math.PI / 2 - 0.2)) }; }
   const sb = k.sb, pr = sbProf(M, want.t);
   sb.st = f.st;
+  // (fix 6) the gap held: how much the fight has closed it since the cut began (frozen from the drive on)
+  if (sb.near && pr.pre && !K.holdOff) { const F = frontOf(f, rg); if (F) sb.hold = clamp(sb.g0 - F.d, sb.hold, Math.min(HOLD_MAX, sb.hold + HOLD_V)); }
+  const hold = sb.hold * pr.Dr;
   if (pr.grow) {
-    const nd = sbNeed(f, k, rg, BL);
+    const nd = sbNeed(f, k, rg, BL, sb.Xp - hold);
     // (a blade starting low behind - a follow-through ending down and back - rises round the back, never through the
     // front: a step back opens nothing for it, so none)
-    sb.s = Math.min(sb.s + 1.5, Math.max(sb.s, nd.a0 != null && nd.a0 >= 1.65 ? 0 : nd.s));
+    sb.s = Math.min(sb.s + SB_GROW, Math.max(sb.s, nd.a0 != null && nd.a0 >= 1.65 ? 0 : nd.s));
   }
-  if (!(sb.s > 0.5)) return;
-  ch.hx -= sb.s * pr.H; ch.hy += SB_SINK * sb.s * pr.H;
-  const fL = footAt(M, 'L', want.t);
-  want.feet = { R: footAt(M, 'R', want.t), L: pr.L ? [fL[0] - sb.s, fL[1], fL[2]] : fL };
+  const st = sb.s > 0.5 ? sb.s * pr.H : 0;
+  sb.Xp = hold + st;
+  if (!(sb.Xp > 0.05)) return;
+  ch.hx -= hold + st; ch.hy += SB_SINK * st;
+  const fL = footAt(M, 'L', want.t), fR = footAt(M, 'R', want.t);
+  want.feet = { R: [fR[0] - hold, fR[1], fR[2]], L: [fL[0] - hold - (pr.L ? sb.s * (sb.s > 0.5 ? 1 : 0) : 0), fL[1], fL[2]] };
   K.sbN = (K.sbN || 0) + 1;
 }
 function ours(f, rg, gP, dt) {
@@ -892,7 +912,7 @@ function govern2(f, k, rg, P) {
   let g = k.g2;
   // (a facing flip: the same picture seen mirrored - the memory turned with it, so the drawn blade stays where it was)
   // (the swing's legs with it: the picture turns on the same way - the sword measure reads the picture, not the facing)
-  if (g && g.dir0 !== rg.dir) { if (g.a != null) g.a = Math.PI - g.a; g.dir = -(g.dir || 0); g.v = -(g.v || 0); if (g.lastP != null) g.lastP = Math.PI - g.lastP; if (g.lt != null) g.lt = Math.PI - g.lt; g.legS = -(g.legS || 0); }
+  if (g && g.dir0 !== rg.dir) { if (g.a != null) g.a = Math.PI - g.a; g.dir = -(g.dir || 0); g.v = -(g.v || 0); if (g.lastP != null) g.lastP = Math.PI - g.lastP; if (g.lt != null) g.lt = Math.PI - g.lt; g.legS = -(g.legS || 0); g.buL = 0; }
   if (!g) g = k.g2 = {};
   g.dir0 = rg.dir;
   const rest = !!(P.kilic && P.kilicW >= 0.999 && k.cur && MOVES[k.cur.id] && (MOVES[k.cur.id].rest || []).some(([t0, t1]) => k.cur.t >= t0 && k.cur.t <= t1));
@@ -900,7 +920,14 @@ function govern2(f, k, rg, P) {
   // the first frame after it: the governor had swung it round from the saya's line, back across her body)
   const J = P.kilic && P.kilicW >= 0.999 && k.cur && MOVES[k.cur.id] && MOVES[k.cur.id].jump;
   const jumpNow = !!(J && J.some(([t0, t1]) => k.cur.t >= t0 && k.cur.t <= t1 + 18));
-  const c = govStep(g, a, { strike: strikeS(f, k, P) || jumpNow, okDown: rest, bad: (q) => badAt(f, rg, P, BL, q),
+  // (fix 6) the wind-up of a high or diagonal cut that starts with the blade low behind (the last cut's follow-through
+  // ended down and back): it rises on round the back to over the shoulder or the head - its top - never back down
+  // through the front and up past him (the low-forward blade of a close kesa). Only a blade that was low behind at the
+  // cut's first frame (k.sb.lb: at straight down or past it): one that starts in front rises in front, never down round
+  // the back.
+  const backUp = !K.backOff && !!(P.kilic && P.kilicW >= 0.999 && k.cur && SB[k.cur.id] && k.sb && k.sb.lb && k.sb.id === k.cur.id && f.state === 'atk' && k.cur.t < MOVES[k.cur.id].phases.active[0]);
+  // (on that way round the blade passes its own body - behind() then draws it behind the torso: not a block there)
+  const c = govStep(g, a, { strike: strikeS(f, k, P) || jumpNow, okDown: rest, backUp, bad: (q) => { const b = badAt(f, rg, P, BL, q); return backUp && b < 0.5 ? 0 : b; },
     // (fix 3: the other fighter's head and body are crossed, never parked in: a raise to the overhead goes up past a close
     // opponent instead of waiting below him, the blade low through the whole windup)
     pass: (q) => badAt(f, rg, P, BL, q, true) === 0 });
@@ -1008,7 +1035,7 @@ K.swordSample = (f) => {
   if (nw) { const M = MOVES[k.cur.id], t = k.cur.t, ph2 = M && M.phases, W = ph2 ? ph2.hits || (ph2.active ? [ph2.active] : []) : []; if (W.some((w) => t >= w[0] - 35 && t <= w[1] + 35) || (M && M.beat && t >= M.beat[0] && t <= M.beat[1])) s = true; }
   const hr = nw && MOVES[k.cur.id] && (MOVES[k.cur.id].rest || []).some(([a, b]) => k.cur.t >= a && k.cur.t <= b) ? 1 : 0;
   const Fo = frontOf(f, rg);
-  return { h: hr, d: k && k.dbg && (k.dbg + (Fo ? 'D' + Fo.d.toFixed(0) + ' F' + Fo.front.toFixed(0) : '') + (k.sb && k.sb.s > 0.5 ? ' S' + k.sb.s.toFixed(0) : '')), r:Math.hypot(pt.x - ph.x, pt.y - ph.y) / (BL * (ph.s || 1)), a: Math.atan2(pt.y - ph.y, pt.x - ph.x), s: s ? 1 : 0, x: 0, tag: nw ? k.cur.id : 'old:' + (f.state === 'atk' ? ATKID.get(f.atk) || f.atkName : f.state) };
+  return { h: hr, d: k && k.dbg && (k.dbg + (Fo ? 'D' + Fo.d.toFixed(0) + ' F' + Fo.front.toFixed(0) : '') + (k.sb && k.sb.s > 0.5 ? ' S' + k.sb.s.toFixed(0) : '') + (k.sb && k.sb.Xp > 0.5 ? ' X' + k.sb.Xp.toFixed(0) : '')), r:Math.hypot(pt.x - ph.x, pt.y - ph.y) / (BL * (ph.s || 1)), a: Math.atan2(pt.y - ph.y, pt.x - ph.x), s: s ? 1 : 0, x: 0, tag: nw ? k.cur.id : 'old:' + (f.state === 'atk' ? ATKID.get(f.atk) || f.atkName : f.state) };
 };
 K.dbgReset = (f) => { const k = KS.get(f); if (k) k.nd = 0; };
 const draw1 = Mo.draw;

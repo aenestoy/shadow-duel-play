@@ -1841,23 +1841,35 @@ function legs(g, p) {
   }
   g.lastP = p;
 }
+const BU_CREEP = 0.05;
 export function govStep(g, a, o) {
   if (g.a != null) legs(g, g.a);
+  // (fix 6: a way round the back cut off before its cut - the move cancelled - leaves the blade up behind: it is not
+  // turned straight back down the way it came for a moment, it waits there instead - g.buL frames)
+  if (!o.backUp) { if (g.bu && !o.strike) g.buL = 12; g.bu = false; }
   const tv = g.lt == null ? 0 : wrapA(a - g.lt); g.lt = a;
-  if (g.a == null || o.strike) { g.a = a; g.dir = 0; g.v = 0; return a; }
+  if (g.a == null || o.strike) { g.a = a; g.dir = 0; g.v = 0; g.buL = 0; return a; }
   const bad = o.bad || (() => 0), p = g.a, v0 = g.v || 0;
   // (a target in the down band: its edge on the side the blade comes from - crossed only on the way to beyond it)
   let t = a;
   if (!o.okDown && inDown(t)) { const sp = wrapA(p - Math.PI / 2), sd = Math.abs(sp) > 1e-3 ? Math.sign(sp) : Math.sign(wrapA(t - Math.PI / 2)) || 1; t = Math.PI / 2 + sd * (DOWN_W + 0.02); }
   let d = wrapA(t - p);
+  const lowBack = (q) => { const w = wrapA(q); return w > Math.PI / 2 + 0.1 || w < -Math.PI + 0.35; };
+  // (fix 6, o.backUp: a blade low behind whose target is held at the down band's edge goes on slowly up the back - it is
+  // not parked there, to rise again a moment later)
+  if (o.backUp && t !== a && lowBack(p) && d < BU_CREEP && d > -GOV_W && !(bad(p + BU_CREEP) > 0.5)) { g.v = BU_CREEP; g.a = p + BU_CREEP; g.dir = 1; g.bu = true; return g.a; }
+  if (g.buL > 0) { g.buL--; if (d < 0 && !(bad(p) > 0.5)) { g.v = 0; g.dir = 0; return p; } }
   if (Math.abs(d) < 1e-4) { g.v = 0; g.dir = 0; return p; }
   // (the way round: the short one unless its path is blocked and the long one's is not; kept once chosen)
   if (Math.abs(d) > GOV_W) {
     const cost = (dd) => { const n = Math.max(1, Math.ceil(Math.abs(dd) / 0.12)); let c = Math.abs(dd) * 0.3; for (let i = 1; i <= n; i++) { const q = p + dd * i / n; if (bad(q) > 0.5) c += 1; } return c; };
     const dl = d - Math.sign(d) * 2 * Math.PI, cs = cost(d), cl = cost(dl);
     let pick = cs <= cl ? d : dl;
-    // (and never turned straight back inside the beat after a swing - see back below)
-    if (g.dir && Math.sign(pick) !== g.dir && g.legS === g.dir && g.legAmp >= 0.45 && g.legAge <= 10 && (g.slow || 0) < REV_HOLD) pick = g.dir === Math.sign(d) ? d : dl;
+    // (fix 6, o.backUp: a cut's wind-up whose blade is still low behind - down and back of the hand, or level behind it -
+    // goes on round the back, up to its top over the shoulder or the head, unless that way is blocked and the front one is not)
+    if (o.backUp && ((g.bu && Math.cos(p) < 0.2) || lowBack(p))) { const up = d > 0 ? d : dl, cu = up === d ? cs : cl; g.bu = cu <= Math.min(cs, cl) + 1.5; if (g.bu) pick = up; } else g.bu = false;
+    // (and never turned straight back inside the beat after a swing - see back below; the way round the back is kept)
+    if (g.bu) { /* kept */ } else if (g.dir && Math.sign(pick) !== g.dir && g.legS === g.dir && g.legAmp >= 0.45 && g.legAge <= 10 && (g.slow || 0) < REV_HOLD) pick = g.dir === Math.sign(d) ? d : dl;
     else if (g.dir && Math.sign(pick) !== g.dir) { const keep = g.dir === Math.sign(d) ? d : dl, ck = keep === d ? cs : cl; if (ck <= Math.min(cs, cl) + 1.5) pick = keep; }
     d = pick; g.dir = Math.sign(d);
   } else g.dir = 0;
@@ -1869,7 +1881,8 @@ export function govStep(g, a, o) {
   const bandOK = (c, st) => o.okDown || !inDown(c) || (Math.abs(st) >= DOWN_V && !(inDown(p) && v0 && Math.sign(st) !== Math.sign(v0) && Math.abs(v0) >= DOWN_V * 0.5));
   const ok = (st) => bandOK(p + st, st) && !back(st);
   // (a target already swinging this way at speed: the blade waits for it rather than meeting it and turning back with it)
-  if (Math.abs(tv) >= 0.1 && Math.sign(tv) === -sg && Math.abs(d) > Math.abs(tv) && bandOK(p, 0) && !(bad(p) > 0) && !back(0)) { g.v = 0; return p; }
+  // (not on the way round the back, o.backUp: the drawing sweeps the other way through the front there)
+  if (!g.bu && Math.abs(tv) >= 0.1 && Math.sign(tv) === -sg && Math.abs(d) > Math.abs(tv) && bandOK(p, 0) && !(bad(p) > 0) && !back(0)) { g.v = 0; return p; }
   // (the plain case first: the whole step allowed and clear)
   if (ok(sg * full) && !(bad(p + sg * full) > 0)) { g.v = sg * full; g.a = p + sg * full; return g.a; }
   // (fix 3: a step into something crossable only - o.pass: the other fighter - is taken at full speed when the way on to
@@ -1882,7 +1895,8 @@ export function govStep(g, a, o) {
   let best = null, bs = Infinity;
   const cand = [];
   for (let k = 8; k >= 0; k--) cand.push(sg * full * k / 8);
-  for (let k = 1; k <= 8; k++) cand.push(-sg * GOV_W * k / 8);
+  // (on the way round the back the blade waits rather than turning back down through the front)
+  if (!g.bu) for (let k = 1; k <= 8; k++) cand.push(-sg * GOV_W * k / 8);
   cand.push(0.025, -0.025);
   for (const st of cand) {
     if (!bandOK(p + st, st)) continue;
