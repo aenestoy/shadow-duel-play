@@ -24,7 +24,7 @@
 //     ('down' + 'getup', one move on the fight's own clock), the throw; Akane with the sword in the saya stands, walks and
 //     falls in the same moves with her hand on the hilt. A blade never rests in the other's head or body as drawn (the
 //     last pass before drawing), and blades that are not cutting keep out of the fight's blade-stop zones (no push).
-import { MOVES, ORDER, chAt, blendCh, poseFromCh, layLeg, layArm, durOf, gaitFeet, walkFeetLive, strideOf, V, LEN, followCh, flipFollow, strikeAt, blendU, turnU, flatDrawn, fromScr, BP_W } from './moves.js';
+import { MOVES, ORDER, chAt, blendCh, poseFromCh, layLeg, layArm, durOf, gaitFeet, walkFeetLive, strideOf, V, LEN, followCh, flipFollow, strikeAt, blendU, turnU, flatDrawn, fromScr, drawnR, BP_W } from './moves.js';
 import { installCombos } from './combos.js';
 const { add, sub, mul, madd, dot, norm, lerp } = V;
 
@@ -51,6 +51,9 @@ export const PLAY = {
   sweep: 'sune', sweep2: 'sune', kaeshiHeavy: 'thrust', kaeshiHeavy2: 'overhead', mawari: 'mawari', mawari2: 'mawari', kr_kuruma: 'kuruma',
   // (phase 7) Akane's three new combos (combos.js): the rising kick, the air rising cut, the draw finisher, the low-high
   kz_age: 'kzAge', kz_tengu: 'kzTengu', kz_iai: 'kzIai', kz_kasumi: 'kasumi',
+  // (fix 2, 2026-11-20) the last cuts the fight drew the old way: Akane's two combos from the saya, and Kuro's str1
+  // (Yama-oroshi: the katana family's string ender js/specials.js fk_s1 - ATK.str1 is that object; two blows, as renga)
+  ak_kage: 'kage', ak_ryusei: 'ryusei', str1: 'renga', fk_s1: 'renga',
 };
 const WHO = { akane: 1, kuro: 1 };
 const FADE = 0.15, CHX = 0.09;
@@ -544,6 +547,11 @@ function flipCh(c) {
 function ours(f, rg, gP, dt) {
   const k = ks(f);
   const want = choose(f, k, gP, dt, rg);
+  // (2026-11-20, fix 2: a fighter's very first frame in the match - nothing drawn new before, no game frame to come from
+  // that the eye has seen move - starts fully new: faded in from the game's opening pose, the blade passed through
+  // hanging straight down for the first 0.15 s)
+  if (want && !k.calls) k.w = 1;
+  k.calls = (k.calls || 0) + 1;
   k.w = clamp(k.w + ((want ? 1 : -1) * dt) / FADE, 0, 1);
   if (!want && (k.w <= 0 || !k.cur)) { k.cur = null; k.feet = null; k.prevP = null; k.w = 0; k.so = null; k.px = null; k.dirW = null; k.fol = null; return null; }
   // (phase 4: the facing flipped - mawari's turn, a special's end, the fight turning him round: the last drawn channels
@@ -591,6 +599,9 @@ function ours(f, rg, gP, dt) {
   // as in the game)
   if (k.w >= 0.5) out.kilic = [1, 0, 0]; else delete out.kilic;
   out.kilicW = k.w;
+  // (fix 2: the picture as the new drawing left it, before the fight's own blade stop - js/mocap-duel.js bladeStop, run
+  // between this build and the drawing - turns it: Mo.draw below puts our blade back outside a strike window)
+  k.pre = { o: out, blade: out.blade, elR: out.elR, haR: out.haR, wrR: out.wrR };
   K.frames++;
   return out;
 }
@@ -656,15 +667,25 @@ function faceGuard(f, rg, P, kd) {
   const cut = f.state === 'atk' && f.atk && f.atk.active && f.st >= f.atk.active[0] - 0.02 && f.st <= f.atk.active[1] + 0.02;
   // (5b: outside a cut the blade never lies across its own torso, hips or thighs as drawn - ownPen below)
   const self = !cut && !K.ownOff;
+  // (fix 2: where the fight's own blade stop had to turn this blade - unStop put it back - the stop's zones are kept
+  // here instead: the other's head 20, throat 14, torso 25 round the spine, thighs 9, shins 7, the floor; for a few
+  // frames after, so the zones never flicker)
+  const stopZ = near && kd.stopMem > 0;
+  const LGZ = stopZ ? [['hipR', 'knR', 9], ['hipL', 'knL', 9], ['knR', 'ftR', 7], ['knL', 'ftL', 7]].filter(([a, b]) => Q[a] && Q[b]).map(([a, b, r]) => [Mo.project(ro, Q[a]), Mo.project(ro, Q[b]), r]) : null;
+  // (and a blade held off a body is never turned into hanging straight down from the hands - the limp stick the owner
+  // saw: within 0.55 rad of straight down, unless it was there already)
+  const a0 = Math.atan2(P.blade.u[1], P.blade.u[0]), down0 = Math.abs(wrapA(a0 - Math.PI / 2)) < 0.55;
   const bad = (u) => {
     let m = -1e9;
     for (let i = 1; i <= 12; i++) {
       const k = 4 + (BL - 4) * i / 12, q = Mo.project(rg, [h[0] + u[0] * k, h[1] + u[1] * k, h[2] + u[2] * k]);
       m = Math.max(m, 14 - Math.hypot(q.x - own.x, q.y - own.y));
-      if (near) m = Math.max(m, 15 - Math.hypot(q.x - hd.x, q.y - hd.y));
-      if (near && !cut && k > 24) m = Math.max(m, 17 - segD2(q, hp, nk));
+      if (near) m = Math.max(m, (stopZ ? 20 : 15) - Math.hypot(q.x - hd.x, q.y - hd.y));
+      if (near && !cut && k > (stopZ ? 20 : 24)) m = Math.max(m, (stopZ ? 25 : 17) - segD2(q, hp, nk));
+      if (stopZ) { m = Math.max(m, 14 - segD2(q, nk, hd), q.y + 2); for (const [a, b, r] of LGZ) m = Math.max(m, r - segD2(q, a, b)); }
     }
     if (self) m = Math.max(m, ownPen(P, h, u, BL, f));
+    if (!down0 && Math.abs(wrapA(Math.atan2(u[1], u[0]) - Math.PI / 2)) < 0.55) m = Math.max(m, 0.25);
     return m;
   };
   if (!near && !self) return;
@@ -673,15 +694,109 @@ function faceGuard(f, rg, P, kd) {
   if (bad(rotZ(u0, a)) > 0) {
     // (from last frame's turn, the least step that clears: its own side first; a fresh guard takes either side)
     const s0 = Math.sign(g0) || 1;
-    let got = null;
-    for (let i = 1; i <= 30 && got == null; i++) for (const sg of g0 ? [s0, -s0] : [1, -1]) { const c = (g0 ? Math.abs(g0) * s0 : 0) + sg * i * 0.04; if (Math.abs(c) <= 1.3 && bad(rotZ(u0, c)) <= 0) { got = c; break; } }
-    if (got == null) a = g0; else a = got;
+    let got = null, least = null, lv = Infinity;
+    for (let i = 1; i <= 36 && got == null; i++) for (const sg of g0 ? [s0, -s0] : [1, -1]) {
+      const c = (g0 ? Math.abs(g0) * s0 : 0) + sg * i * 0.04;
+      if (Math.abs(c) > 1.45) continue;
+      const v = bad(rotZ(u0, c));
+      if (v <= 0) { got = c; break; }
+      // (nothing clears: the least deep, never into the down band)
+      if (stopZ && v < lv) { lv = v; least = c; }
+    }
+    if (got == null) a = least != null && lv < bad(rotZ(u0, g0)) ? least : g0; else a = got;
     // (it grows at most 0.15 rad a frame - with the ease's own turn it stays under a visible jump: a blade swung fast at a
     // face may graze it for a frame, it never jumps)
     a = clamp(a, g0 - 0.15, g0 + 0.15);
   }
   kd.ga = a; kd.gaD = a - g0;
   if (a) { setBlade(P, rotZ(u0, a)); K.guarded = (K.guarded || 0) + 1; }
+}
+// (fix 2, 2026-11-20) The fight's own blade stop (js/mocap-duel.js bladeStop: the game's code, untouched) turns an
+// attacker's blade off the other's head and body by the least turn round the hand - often straight down, where it then
+// hung from the hands for a dozen frames (the limp stick), or a full turn in one frame. On a frame drawn new, outside a
+// strike window, its turn is put back (the hand it drew back is kept): faceGuard turns the blade off the same zones
+// instead, never into the down band, with its memory, and govern() eases what is left.
+function unStop(f, k, P) {
+  const q = k.pre;
+  k.stopMem = Math.max(0, (k.stopMem || 0) - 1);
+  if (!q || q.o !== P || !P.blade || !q.blade || P.blade === q.blade || !P.armed || P.inside) return;
+  if (strikeS(f, k, P)) return;
+  setBlade(P, q.blade.u);
+  k.stopMem = 8; K.unstop = (K.unstop || 0) + 1;
+}
+// (the strike window as the sword measure sees it - K.swordSample s: the fight's hit window +-0.02 s of the cut's clock,
+// or the drawn new move's own phases.active / hits / beat +-35 ms)
+function strikeS(f, k, P) {
+  if (f.state === 'atk' && f.atk) { const W = f.atk.hits || (f.atk.active ? [f.atk.active] : []); if (W.some((w) => f.st >= w[0] - 0.02 && f.st <= w[1] + 0.02)) return true; }
+  return !!(P && P.kilic && P.kilicW >= 0.999 && k && k.cur && MOVES[k.cur.id] && strikeAt(MOVES[k.cur.id], k.cur.t));
+}
+// (fix 2) The last word on the blade's turn, on EVERY frame of Akane and Kuro while this is on - the new picture and the
+// game's own (its old cuts, the air, the grab, the stop, the eases and guards added up): outside a strike window the
+// drawn screen angle turns at most GOV_W a frame from the last drawn one. Where what the drawing made is further than
+// that, the angle within that reach is taken that is nearest to it and clear - not in the other's head or along his
+// body, not across its own face, and (less weight) not across its own body: the guards' clearance is kept wherever it
+// can be within the reach. Turned round the sword hand, the back hand kept on the handle. In a strike it is what the
+// drawing made.
+const GOV_W = 0.26;
+function govBad(f, rg, P, u) {
+  const o = f.opp, ro = o && MD.rigOf(o), Q = ro && ro.P, BL = (f.wpn && f.wpn.blade) || LEN.blade, h = P.blade.h;
+  const own = P.head ? Mo.project(rg, P.head) : null;
+  const cut = f.state === 'atk' && f.atk && f.atk.active && f.st >= f.atk.active[0] - 0.02 && f.st <= f.atk.active[1] + 0.02;
+  const far = !Q || !Q.head || o.dead || o.hidden;
+  const hd = far ? null : Mo.project(ro, Q.head), nk = far ? null : Mo.project(ro, Q.neck), hp = far ? null : Mo.project(ro, Q.hip);
+  let m = -1e9;
+  for (let i = 1; i <= 10; i++) {
+    const k = 4 + (BL - 4) * i / 10, q = Mo.project(rg, [h[0] + u[0] * k, h[1] + u[1] * k, h[2] + u[2] * k]);
+    if (own) m = Math.max(m, 14 - Math.hypot(q.x - own.x, q.y - own.y));
+    if (hd) { m = Math.max(m, 15 - Math.hypot(q.x - hd.x, q.y - hd.y)); if (!cut && k > 24) m = Math.max(m, 17 - segD2(q, hp, nk)); }
+  }
+  // (its own body: behind() may still take the blade behind it, so it weighs less)
+  const ow = !cut && !K.ownOff && ownPen(P, h, u, BL, f) > 0 ? 1 : 0;
+  return m > 0 ? 2 + m : ow;
+}
+// (and the limp stick the owner saw - the blade hanging straight down from the hands, held: outside a strike it is kept
+// out of DOWN_W round straight down unless the new move itself draws it there (its own pose, or its declared sheath pose);
+// a blade that ends a cut down there leaves it at the reach's speed. The game's own stop, its old cuts and the guards no
+// longer leave it hanging.)
+const DOWN_W = 0.55, DOWN_V = 0.15;
+function govern(f, k, rg, P) {
+  if (!P || !P.blade || !P.blade.u || !P.armed || P.inside || f.dead || f.hidden) { k.gv = null; return; }
+  const u = P.blade.u, a = Math.atan2(u[1], u[0]);
+  let g = k.gv;
+  k.gvD = 0;
+  // (a facing flip starts it afresh on what is drawn: the turning moves draw the same picture across it, the game's own
+  // mirror is a whole-body flip anyway - carried over mirrored, it held a turned blade across its own body for 9 frames)
+  if (!g || strikeS(f, k, P) || g.dir !== rg.dir) { k.gv = { a, dir: rg.dir }; return; }
+  const d = wrapA(a - g.a);
+  const nw = P.kilic && k.cur && MOVES[k.cur.id];
+  const own = nw && k.pre && k.pre.o === P && k.pre.blade && k.pre.blade.u ? Math.atan2(k.pre.blade.u[1], k.pre.blade.u[0]) : null;
+  const okDown = nw && ((MOVES[k.cur.id].rest || []).some(([t0, t1]) => k.cur.t >= t0 && k.cur.t <= t1) || (own != null && Math.abs(wrapA(own - Math.PI / 2)) < DOWN_W));
+  // (held in the band is the fault, not passing through it: where what the drawing made lies outside the band, the blade
+  // may cross the band at speed - at least DOWN_V a frame and never turning back inside it; where it lies inside, the blade
+  // waits at the band's edge)
+  const inB = (c) => Math.abs(wrapA(c - Math.PI / 2)) < DOWN_W, tIn = !okDown && inB(a), v0 = g.v || 0;
+  const dpen = (c) => {
+    if (okDown || !inB(c)) return 0;
+    const st = wrapA(c - g.a);
+    if (!tIn && Math.abs(st) >= DOWN_V && !(inB(g.a) && Math.abs(v0) >= DOWN_V && Math.sign(st) !== Math.sign(v0))) return 0;
+    return 1 + 20 * (DOWN_W - Math.abs(wrapA(c - Math.PI / 2)));
+  };
+  if (Math.abs(d) <= GOV_W && !dpen(a)) { g.v = d; g.a = a; return; }
+  // (the reach sampled from the side toward the target: the nearest clear angle wins, a clash the least deep; out of the
+  // down band before nearness)
+  const sg = Math.sign(d) || 1;
+  let best = null, bs = Infinity;
+  for (let j = 0; j <= 12; j++) {
+    const c = g.a + sg * GOV_W - sg * (2 * GOV_W) * j / 12, uc = rotZ(u, wrapA(c - a)), b = govBad(f, rg, P, uc);
+    const sc = (b > 0 ? 100 * b : 0) + 10 * dpen(c) + Math.abs(wrapA(c - a));
+    if (sc < bs) { bs = sc; best = c; }
+  }
+  // (far behind a fast turn of the drawing with nothing clear in reach - held there it lay across a body for many frames:
+  // one step onto what is drawn instead)
+  if (bs >= 100 && Math.abs(d) > 1.2) { k.gv = { a, dir: rg.dir, v: 0 }; K.govSnap = (K.govSnap || 0) + 1; return; }
+  const dd = wrapA(best - a);
+  g.v = wrapA(best - g.a); g.a = best; k.gvD = dd;
+  setBlade(P, rotZ(u, dd)); if (P.gripL >= 0.999) onHandle(P, gripOf(f.wpn)); K.gov = (K.gov || 0) + 1;
 }
 // (5b) A blade that would still cross its own body outside a cut - a windup swinging back past the chest or the hips
 // (kiri-age, the backhand cuts, the turns), where no turn round the hand clears it - goes BEHIND the body, as 2D
@@ -704,12 +819,25 @@ function behind(f, rg, P, kd) {
   if (!(ownCross(P, h, u, BL, iai) || (was && zoneOwn(P, h, u, BL)))) return;
   const fr0 = Mo.bladeFront(P, h, u, BL);
   if (!fr0.T && !fr0.R && !fr0.L) { kd.beh = true; return; }
-  // (the point along its line of sight: z moved by the least step that puts the blade behind the torso and both legs)
-  const cam = Mo.cam, t0 = madd(h, u, BL), s0 = cam / (cam - t0[2]), X = t0[0] * s0, Y = t0[1] * s0;
+  // (along the same line of sight: the point moved in depth until it is behind the torso and both legs; K.behNew - tried in
+  // fix 2, not kept: the depth alone changed, the screen angle kept - it left more blade across the other's body)
+  if (!K.behNew) {
+    const cam = Mo.cam, t0 = madd(h, u, BL), s0 = cam / (cam - t0[2]), X = t0[0] * s0, Y = t0[1] * s0;
+    for (let i = 1; i <= 24; i++) for (const sg of [-1, 1]) {
+      const z = t0[2] + sg * i * 8, s1 = cam / (cam - z), p = [X / s1, Y / s1, z], d = sub(p, h), dl = V.len(d);
+      if (dl < 1e-3) continue;
+      const u1 = mul(d, 1 / dl), fr = Mo.bladeFront(P, h, u1, BL);
+      if (!fr.T && !fr.R && !fr.L) { setBlade(P, u1); kd.beh = true; K.behind = (K.behind || 0) + 1; return; }
+    }
+    return;
+  }
+  const a = Math.atan2(u[1], u[0]);
   for (let i = 1; i <= 24; i++) for (const sg of [-1, 1]) {
-    const z = t0[2] + sg * i * 8, s1 = cam / (cam - z), p = [X / s1, Y / s1, z], d = sub(p, h), dl = V.len(d);
-    if (dl < 1e-3) continue;
-    const u1 = mul(d, 1 / dl), fr = Mo.bladeFront(P, h, u1, BL);
+    const z = u[2] + sg * i * 0.04;
+    if (Math.abs(z) > 0.95) continue;
+    const u1 = fromScr(a, z);
+    if (drawnR(h, u1, BL) < 0.8) continue;
+    const fr = Mo.bladeFront(P, h, u1, BL);
     if (!fr.T && !fr.R && !fr.L) { setBlade(P, u1); kd.beh = true; K.behind = (K.behind || 0) + 1; return; }
   }
 }
@@ -753,7 +881,7 @@ function faceClear(k, P, grip) {
   at(d); k.fo = d;
   if (d[0] || d[1] || d[2]) K.faceMoved = (K.faceMoved || 0) + 1;
 }
-K.dbg = (f) => { const k = KS.get(f); if (!k) return null; const r = { ga: +(k.ga || 0).toFixed(2), gaD: +(k.gaD || 0).toFixed(2), sc: k.sc || 0, sr: k.sr, nd: k.nd || 0, dd: +(k.dd || 0).toFixed(2), tail: k.tail || 0, cur: k.cur ? k.cur.id : null, t: k.cur ? +k.cur.t.toFixed(0) : null, w: +(k.w || 0).toFixed(2), beh: !!k.beh, mw: +(k.mw || 0).toFixed(2) }; return r; };
+K.dbg = (f) => { const k = KS.get(f); if (!k) return null; const r = { ga: +(k.ga || 0).toFixed(2), gaD: +(k.gaD || 0).toFixed(2), sc: k.sc || 0, sr: k.sr, nd: k.nd || 0, dd: +(k.dd || 0).toFixed(2), tail: k.tail || 0, cur: k.cur ? k.cur.id : null, t: k.cur ? +k.cur.t.toFixed(0) : null, w: +(k.w || 0).toFixed(2), beh: !!k.beh, mw: +(k.mw || 0).toFixed(2), gv: +(k.gvD || 0).toFixed(2), stp: k.stopMem || 0 }; return r; };
 // (tools/kilic-fight.mjs, kilic-combo.mjs: the sword as DRAWN this frame, one sample for tools/kilic-sword-lib.mjs: its
 // drawn length share r, its screen angle a (the picture's own: x right, y down), s in a strike window (the fight's hit
 // window +-0.02 s of the cut's clock, or the drawn new move's phases.active / hits / beat +-35 ms), x nothing to measure
@@ -800,21 +928,30 @@ Mo.draw = function (ctx, rg, opt) {
   // (eased on the frames drawn new, and on the game's own frames for 0.15 s after them - the switch back has no pop
   // either; on the game's other frames only remembered, so the first frame of a switch to the new one is eased too)
   // (2026-11-20, the sword's motion: every frame of Akane and Kuro while this is on - the new picture and the game's own -
-  // draws the blade at least 0.82 of its length, its screen angle kept: moves.js flatDrawn)
-  if (P && P.blade && P.blade.u && P.blade.h && P.armed && !P.inside && rg.look && rg.look.ch && WHO[rg.look.ch.id]) {
-    try { const u1 = flatDrawn(P.blade.h, P.blade.u, (rg.look.wpn && rg.look.wpn.blade) || LEN.blade); if (u1 !== P.blade.u) { let e = sub(P.blade.e, mul(u1, dot(P.blade.e, u1))); e = V.len(e) > 1e-4 ? norm(e) : P.blade.e; P.blade = { h: P.blade.h, u: u1, e }; } } catch (e) { K.errors++; }
-  }
+  // draws the blade at least 0.82 of its length, its screen angle kept: moves.js flatDrawn; fix 2: measured with the
+  // fight's own projector - its vertical perspective pivots on the floor, so a low blade pointing at the camera was drawn
+  // a stub the measure round y -80 called long - and again after the turns below)
+  const flat = (rmin = 0.82) => { if (P && P.blade && P.blade.u && P.blade.h && P.armed && !P.inside && rg.look && rg.look.ch && WHO[rg.look.ch.id]) {
+    try { const u1 = flatDrawn(P.blade.h, P.blade.u, (rg.look.wpn && rg.look.wpn.blade) || LEN.blade, rmin, 0); if (u1 !== P.blade.u) { let e = sub(P.blade.e, mul(u1, dot(P.blade.e, u1))); e = V.len(e) > 1e-4 ? norm(e) : P.blade.e; P.blade = { h: P.blade.h, u: u1, e }; } } catch (e) { K.errors++; }
+  } };
+  flat();
   if (kd) { if (!(P && P.kilicW > 0)) kd.dbg = 'old '; dbgA(kd, 'f', P); }
   if (kd && P) {
     const fresh = P.kilicW > 0;
     if (fresh) kd.tail = 9; else if (kd.tail > 0) kd.tail--;
+    try { if (fresh && K.unstopOn) unStop(rg.look, kd, P); else kd.stopMem = 0; } catch (e) { K.errors++; }
     try { if (fresh || kd.tail > 0) settle(kd, rg.look, rg, P, 1 / 60, gripOf(rg.look.wpn)); else kd.so = P.blade ? { h: sub(P.haR, P.hip), u: P.blade.u, dir: rg.dir } : null; } catch (e) { K.errors++; }
     // (the ease remembers the blade before the guard's turn: the turn is its own, eased on its own memory - the two never
     // add up frame after frame)
     dbgA(kd, 's', P);
     try { if (fresh) faceClear(kd, P, gripOf(rg.look.wpn)); else kd.fo = null; } catch (e) { K.errors++; }
     try { if (fresh) faceGuard(rg.look, rg, P, kd); else kd.ga = 0; } catch (e) { K.errors++; }
+    try { if (!K.govOff) govern(rg.look, kd, rg, P); else kd.gv = null; } catch (e) { K.errors++; }
+    flat();
+    dbgA(kd, 'v', P);
     try { if (fresh) behind(rg.look, rg, P, kd); else kd.beh = false; } catch (e) { K.errors++; }
+    // (put behind the body, the blade may come out drawn short: not under 0.7 of its length, even if it shows in front)
+    if (kd.beh) flat(0.7);
     dbgA(kd, 'g', P);
   }
   if (P && P.kilic && P.kilicW >= 0.999 && rg.look) {

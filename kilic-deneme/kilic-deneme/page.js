@@ -80,6 +80,8 @@ const OLD = {
   renga: { atk: 'ak_s1', label: 'Kurenai renga (Akane\'s string 1)' },
   higan: { atk: 'ak_s2', label: 'Higanbana (Akane\'s string 2)' },
   issen: { atk: 'sp_akane', label: 'Kurenai issen (Akane\'s ki special)' },
+  kage: { atk: 'ak_kage', label: 'Kage-iai (Akane\'s → ← + LIGHT)' },
+  ryusei: { atk: 'ak_ryusei', label: 'Ryusei (Akane\'s → ← + HEAVY)' },
   yama: { label: 'Yama kudaki (Kuro\'s ki special, seen in the fight)' },
   airCut: { label: 'air chase cut (seen in the fight)' },
   airSpike: { label: 'air spike (seen in the fight)' },

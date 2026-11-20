@@ -79,17 +79,18 @@ export function flatU(u, zmax = ZMAX) {
   const r = Math.hypot(u[0], u[1]);
   return fromScr(r > 1e-6 ? Math.atan2(u[1], u[0]) : -Math.PI / 2, Math.sign(u[2]) * zmax);
 }
-// the drawn length share of a blade from h along u (js/depth25.js projector: perspective round x 0, y -80)
-export function drawnR(h, u, BL = LEN.blade) {
+// the drawn length share of a blade from h along u (js/depth25.js projector: perspective round x 0, y -80; py = 0: the
+// fight's own js/mocap.js projector, its vertical perspective pivoting on the floor)
+export function drawnR(h, u, BL = LEN.blade, py = 80) {
   const s0 = CAM / (CAM - h[2]), t = madd(h, u, BL), s1 = CAM / (CAM - t[2]);
-  return Math.hypot(t[0] * s1 - h[0] * s0, (t[1] + 80) * s1 - (h[1] + 80) * s0) / (BL * s0);
+  return Math.hypot(t[0] * s1 - h[0] * s0, (t[1] + py) * s1 - (h[1] + py) * s0) / (BL * s0);
 }
 // the depth share cut down (screen angle kept) until the blade is drawn at least rmin of its length
-export function flatDrawn(h, u, BL = LEN.blade, rmin = 0.82) {
-  if (drawnR(h, u, BL) >= rmin) return u;
+export function flatDrawn(h, u, BL = LEN.blade, rmin = 0.82, py = 80) {
+  if (drawnR(h, u, BL, py) >= rmin) return u;
   const a = Math.hypot(u[0], u[1]) > 1e-6 ? scrA(u) : -Math.PI / 2, sg = Math.sign(u[2]) || 1;
   let lo = 0, hi = Math.abs(u[2]);
-  for (let i = 0; i < 12; i++) { const m = (lo + hi) / 2; if (drawnR(h, fromScr(a, sg * m), BL) >= rmin) lo = m; else hi = m; }
+  for (let i = 0; i < 12; i++) { const m = (lo + hi) / 2; if (drawnR(h, fromScr(a, sg * m), BL, py) >= rmin) lo = m; else hi = m; }
   return fromScr(a, sg * lo);
 }
 // (a blade held near the screen's plane cannot dip its point under the floor: where the keys' low blade cleared the floor
@@ -1242,6 +1243,58 @@ export const MOVES = {
     ],
     phases: { windup: [0, 300], active: [300, 450], recovery: [450, 1000] },
   },
+  // (fix 2, 2026-11-20: the two combos the fight still drew the old way, from the saya - their blade spun round the hands)
+  // Kage-iai (Akane's → ← + LIGHT, the fight's 0.62 s laid on 0.7 s: its window 0.22-0.31 on 250-335; the blade in the saya
+  // to 0.19, a step back 0-0.1 and a long dash in 0.19-0.3): the hilt jabs forward as a feint (the blade still home), she
+  // steps back and sinks into a deep iai, then the blade whips out and on round the front in one level cut from the left,
+  // one-handed, as she dashes in (both feet off the floor), lands long and low, holds, the left hand back on the handle, the guard.
+  kage: {
+    name: 'Kage-iai (feint, step back, lunging draw-cut)', feet: { R: [44, 8], L: [-34, -7] }, ownFeet: [0, 470], saya: true, jump: [[212, 216]],
+    steps: [{ foot: 'R', t0: 480, t1: 600, dx: -20, dz: -2, h: 5 }, { foot: 'L', t0: 540, t1: 660, dx: 12, dz: 1, h: 4 }],
+    keys: [
+      at(0, { iai: true, d: 0, n: [0, -0.6, 0.8], pR: [-0.3, 0.9, 0.5], pL: [-0.2, 0.9, -0.6], lw: 0 }),
+      at(68, { hip: [5, -78, 0], py: 6, cy: 6, lean: 11, nod: 6, iai: true, d: 0.04, sby: -176, sel: -22, n: [0, -0.6, 0.8], pR: [-0.3, 0.8, 0.5], pL: [-0.2, 0.9, -0.6], lw: 0 }, 'out3'),
+      at(159, { hip: [-6, -69, 0], py: 6, cy: 8, lean: 16, nod: 7, iai: true, d: 0.2, sby: -168, sel: -14, n: [0, -0.6, 0.8], pR: [-0.3, 0.8, 0.5], pL: [-0.2, 0.9, -0.6], lw: 0 }, 'io'),
+      at(205, { hip: [-5, -66, -1], py: 4, cy: 4, lean: 18, nod: 7, iai: true, d: 0.3, sby: -162, sel: -11, n: [0, -0.6, 0.8], pR: [-0.3, 0.7, 0.6], pL: [-0.2, 0.9, -0.6], lw: 0, FR: [24, 0, 6], FL: [-22, 0, -6] }, 'in'),
+      at(212, { hip: [-5, -66, -1], py: 4, cy: 4, lean: 18, nod: 7, iai: true, d: 0.36, sby: -160, sel: -10, n: [0, -0.6, 0.8], pR: [-0.3, 0.7, 0.6], pL: [-0.2, 0.9, -0.6], lw: 0, FR: [24, -2, 6], FL: [-22, -1, -6] }, 'in'),
+      at(216, { ...IAI_OUT, FR: [24, -4, 6], FL: [-22, -3, -6] }, 'lin'),
+      at(236, { hip: [2, -67, -1], py: 3, cy: 3, lean: 18, nod: 7, R: [30, -96, -26], by: -138, el: -6, n: [0, -0.8, 0.6], pR: [-0.3, 0.6, 0.7], pL: [-0.2, 0.9, -0.6], lw: 0, FR: [34, -12, 7], FL: [-28, -9, -7] }, 'io'),
+      at(250, { hip: [10, -67, 0], py: 5, cy: 5, lean: 19, nod: 7, R: [50, -102, -32], by: -70, el: 0, n: [0, -1, 0], pL: [-0.2, 0.9, -0.6], lw: 0, FR: [40, -16, 8], FL: [-32, -12, -7] }, 'in'),
+      at(280, { hip: [16, -66, 0], py: 7, cy: 8, lean: 21, nod: 8, R: [70, -104, -4], by: 0, el: 2, n: [0, -1, 0], pL: [-0.2, 0.9, -0.6], lw: 0, FR: [44, -10, 8], FL: [-34, -10, -7] }, 'lin'),
+      at(335, { ...IAI2, R: [64, -102, 24], by: 55, el: 2, FR: [44, 0, 8], FL: [-34, 0, -7] }, 'out'),
+      at(420, { ...IAI2, hip: [17, -64.5, 0], R: [60, -101, 26], by: 56, el: 5, lw: 0.1, FR: [44, 0, 8], FL: [-34, 0, -7] }, 'io'),
+      at(560, { hip: [8, -74, 0], py: 15, cy: 24, lean: 9, nod: 5, R: [54, -104, 12], by: 22, el: 8, n: [0, -0.4, 0.92], FR: [44, 0, 8], FL: [-34, 0, -7] }, 'io'),
+      at(700, {}, 'io'),
+    ],
+    phases: { windup: [0, 250], active: [250, 335], recovery: [335, 700] },
+  },
+  // Ryusei (Akane's → ← + HEAVY, the fight's 0.84 s laid on 1.0 s: its window 0.28-0.38 on 380-500; the blade in the saya to
+  // 0.1): she sinks, the blade comes out of the saya and on up past her left side over the crown as she springs (both feet
+  // off the floor, tucked), hangs at the top with the blade back over the head, then drops onto him with the whole body in
+  // one shomen, landing in a deep long stance with the blade stopped level at his chest height, holds, rises to the guard.
+  ryusei: {
+    name: 'Ryusei (leaping draw, cut from above)', feet: { R: [44, 8], L: [-34, -7] }, ownFeet: [0, 560], saya: true, jump: [[128, 132]],
+    steps: [{ foot: 'R', t0: 600, t1: 720, dx: -20, dz: -2, h: 5 }, { foot: 'L', t0: 660, t1: 780, dx: 12, dz: 1, h: 4 }],
+    keys: [
+      at(0, { iai: true, d: 0, n: [0, -0.6, 0.8], pR: [-0.3, 0.9, 0.5], pL: [-0.2, 0.9, -0.6], lw: 0 }),
+      at(100, { hip: [-4, -70, 0], py: 6, cy: 8, lean: 14, nod: 7, iai: true, d: 0.24, sby: -168, sel: -14, n: [0, -0.6, 0.8], pR: [-0.3, 0.8, 0.5], pL: [-0.2, 0.9, -0.6], lw: 0 }, 'in'),
+      at(118, { hip: [-4, -69, -1], py: 5, cy: 6, lean: 15, nod: 7, iai: true, d: 0.32, sby: -162, sel: -11, n: [0, -0.6, 0.8], pR: [-0.3, 0.7, 0.6], pL: [-0.2, 0.9, -0.6], lw: 0, FR: [24, 0, 6], FL: [-22, 0, -6] }, 'in'),
+      at(128, { hip: [-4, -70, -1], py: 5, cy: 6, lean: 15, nod: 7, iai: true, d: 0.36, sby: -160, sel: -10, n: [0, -0.6, 0.8], pR: [-0.3, 0.7, 0.6], pL: [-0.2, 0.9, -0.6], lw: 0, FR: [24, -1, 6], FL: [-22, -1, -6] }, 'in'),
+      // (out of the saya on its own line, then the fists rise past the left side - the blade back and up, never across her)
+      at(132, { ...IAI_OUT, hip: [-4, -70, -1], FR: [24, -6, 6], FL: [-22, -5, -6] }, 'lin'),
+      at(190, { hip: [-3, -86, 0], py: 10, cy: 22, lean: 4, nod: 3, R: [24, -156, -8], by: -170, el: 58, n: [0, -0.6, 0.8], pR: [-0.4, 0.5, 0.75], pL: [-0.2, 0.9, -0.6], lw: 0, FR: [28, -16, 7], FL: [-24, -12, -6] }, 'io'),
+      at(262, { hip: [-3, -96, 0], py: 12, cy: 34, lean: 1, nod: 1, R: [30, -182, 2], by: 0, el: 100, n: [0, 0, 1], pR: [-1, -0.25, 0.3], pL: [-0.2, 0.9, -0.6], lw: 0, FR: [28, -27, 7], FL: [-22, -19, -6] }, 'io'),
+      at(326, { hip: [0, -95, 0], py: 11, cy: 36, lean: 1, nod: 1, R: [26, -186, 2], by: 0, el: 105, n: [0, 0, 1], pR: [-1, -0.25, 0.3], pL: [-0.2, 0.9, -0.6], lw: 0, FR: [30, -26, 7], FL: [-22, -18, -6] }, 'out'),
+      // the drop: the hips lead, the fists come over the top; the strike lands as the feet come down
+      at(380, { hip: [12, -86, 0], py: 5, cy: 18, lean: 8, nod: 4, R: [46, -178, 3], by: 0, el: 72, pR: [-0.3, 0.4, 0.85], pL: [-0.2, 0.9, -0.6], lw: 0, FR: [44, -14, 8], FL: [-34, -10, -7] }, 'in'),
+      at(440, { hip: [22, -66, 0], py: 0, cy: 2, lean: 12, nod: 6, R: [78, -120, 2], by: 0, el: -2, pL: [-0.2, 0.9, -0.6], lw: 0, FR: [44, 0, 8], FL: [-34, 0, -7] }, 'lin'),
+      at(500, { hip: [24, -62, 0], py: 0, cy: 2, lean: 14, nod: 7, R: [80, -106, 2], by: 0, el: -16, pL: [-0.2, 0.9, -0.6], lw: 0, FR: [44, 0, 8], FL: [-34, 0, -7] }, 'out'),
+      at(640, { hip: [23.5, -62.5, 0], py: 1, cy: 3, lean: 13.5, nod: 7, R: [79, -107, 2], by: 0, el: -13, pL: [-0.2, 0.9, -0.6], lw: 0.1, FR: [44, 0, 8], FL: [-34, 0, -7] }, 'io'),
+      at(840, { hip: [10, -74, 0], py: 9, cy: 14, lean: 8, nod: 5, R: [56, -110, 2], by: -1, el: 8, FR: [44, 0, 8], FL: [-34, 0, -7] }, 'io'),
+      at(1000, {}, 'io'),
+    ],
+    phases: { windup: [0, 380], active: [380, 500], recovery: [500, 1000] },
+  },
   // Yama kudaki (Kuro's ki special, 1.04 s; the fight lifts him 150 between 0.25 and 0.52 and carries him in; the blow
   // 0.45-0.56): a deep crouch with the blade low behind, the leap with the fists going up past the side of the head to
   // high over the crown (the face clear under them), the legs tucked, then down onto the floor in a deep stance as the
@@ -1347,7 +1400,7 @@ export const MOVES = {
     name: 'Mawari (duck past him, turn, cut)', feet: { R: [30, 7], L: [-30, -7] }, ownFeet: [0, 200], turnAt: 210,
     keys: [
       at(0, {}),
-      at(25, { hip: [2, -76, 0], lean: 12, nod: 6, R: [42, -100, 4], FR: [24, -5, 6], FL: [-22, -6, -6] }, 'io'),
+      at(25, { hip: [2, -76, 0], lean: 12, nod: 6, R: [32, -94, 12], el: -50, FR: [24, -5, 6], FL: [-22, -6, -6] }, 'io'),
       at(80, { ...MW_DUCKB, FR: [34, -10, 7], FL: [-26, -8, -7] }, 'io'),
       at(130, { ...MW_DUCKB, hip: [6, -58, 0], lean: 31, FR: [40, -12, 7], FL: [-30, -14, -7] }, 'io'),
       at(180, { ...yawK(MW_DUCKB, -20), FR: [30, -6, 7], FL: [-30, -6, -7] }, 'io'),
@@ -1548,7 +1601,7 @@ export const ORDER = ['idle', 'overhead', 'horizontal', 'diagonal', 'thrust', 'b
   'walkF', 'walkB', 'run', 'fall', 'downRise', 'throwL', 'parryUp', 'parryDown', 'parrySide', 'dodgeB', 'dodgeF', 'noto', 'nuki',
   'kakato', 'sweep', 'spinKick', 'snapKick', 'knee', 'nidan', 'kiriR', 'kiriL', 'sune',
   'lock', 'lockPush', 'shove', 'clash', 'bindDef', 'bindAtt', 'makiDef', 'flungAtt',
-  'stuck', 'dodgePost', 'tsubame', 'renga', 'higan', 'issen', 'yama', 'airCut', 'airSpike', 'sandan', 'mawari', 'kuruma',
+  'stuck', 'dodgePost', 'tsubame', 'renga', 'higan', 'issen', 'kage', 'ryusei', 'yama', 'airCut', 'airSpike', 'sandan', 'mawari', 'kuruma',
   'kzAge', 'kzTengu', 'kzIai', 'kasumi', 'hurtLow', 'launchUp', 'airHit'];
 export const durOf = (id) => MOVES[id].keys[MOVES[id].keys.length - 1].t;
 
