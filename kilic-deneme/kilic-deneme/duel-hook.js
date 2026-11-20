@@ -42,6 +42,12 @@ export const PLAY = {
   d_kesaH: 'gyakuS', d_nagare: 'gyakuS',
   // (the disarms and the rock splitter: maki-otoshi rises from the right, uchi-otoshi and iwa-kudaki come down from above)
   ak_maki: 'kiriR', kr_uchi: 'menS', kr_iwa: 'overhead',
+  // (phase 4) the strings and specials (several blows: phases.hits on the fight's own a.hits), the air chase, and the
+  // counters out of a deflection (js/fighter.js kaeshi: riposte..., sweep, mawari, kaeshiHeavy, finisher)
+  ak_tsubame: 'tsubame', ak_s1: 'renga', ak_s2: 'higan', sp_akane: 'issen', sp_kuro: 'yama', chase: 'airCut', chaseEnd: 'airSpike',
+  finisher: 'sandan', riposte: 'menS', riposte2: 'kiriL', riposte3: 'tsukiS', riposte4: 'horizontal', ak_rip: 'yokoL',
+  nd_riposte: 'menS', nd_riposte2: 'kiriL', nd_riposte3: 'tsukiS', nd_riposte4: 'horizontal',
+  sweep: 'sune', sweep2: 'sune', kaeshiHeavy: 'thrust', kaeshiHeavy2: 'overhead', mawari: 'mawari', mawari2: 'mawari', kr_kuruma: 'kuruma',
 };
 const WHO = { akane: 1, kuro: 1 };
 const FADE = 0.15, CHX = 0.09;
@@ -127,11 +133,14 @@ function playT(n, t) {
     const a = ATK[n], id = PLAY[n], ph = MOVES[id].phases, ks = a.keys || [];
     const end = a.dur || (ks.length ? ks[ks.length - 1][0] : (a.active ? a.active[1] * 2 : 0.5));
     const A = a.active || [end * 0.3, end * 0.5];
-    W = { X: [0, A[0], A[1], end], Y: [0, ph.active[0], ph.active[1], durOf(id)] }; WARP.set(n, W);
+    W = { X: [0, A[0], A[1], end], Y: [0, ph.active[0], ph.active[1], durOf(id)] };
+    // (phase 4: a move of several blows - its phases.hits against the fight's own a.hits, window by window)
+    if (ph.hits && a.hits && a.hits.length === ph.hits.length) { W.X = [0]; W.Y = [0]; a.hits.forEach((h, i) => { W.X.push(h[0], h[1]); W.Y.push(ph.hits[i][0], ph.hits[i][1]); }); W.X.push(end); W.Y.push(durOf(id)); }
+    WARP.set(n, W);
   }
-  const { X, Y } = W;
-  for (let i = 1; i < 4; i++) if (t <= X[i]) return Y[i - 1] + ((t - X[i - 1]) * (Y[i] - Y[i - 1])) / Math.max(1e-6, X[i] - X[i - 1]);
-  return Y[3];
+  const { X, Y } = W, L = X.length;
+  for (let i = 1; i < L; i++) if (t <= X[i]) return Y[i - 1] + ((t - X[i - 1]) * (Y[i] - Y[i - 1])) / Math.max(1e-6, X[i] - X[i - 1]);
+  return Y[L - 1];
 }
 K.PLAY = PLAY; K.playT = playT;
 K.why = (f) => { const k = KS.get(f); return k ? k.why || '' : ''; }; // (tools: why a frame kept the game's picture)
@@ -169,6 +178,24 @@ function gaitAt(k, rg, id, sp) {
   const at = (s) => (k.feet && k.feet[s] ? [k.feet[s].x, k.feet[s].z] : [rg.x + MOVES.idle.feet[s][0] * rg.dir, MOVES.idle.feet[s][1]]);
   return { id, t: G.u * durOf(id), feet: walkFeetLive(G.live || (G.live = {}), G.u, G.S, rg.x, rg.dir, at) };
 }
+// (phase 4) the arena moments drawn new (js/duel-env.js ACT: f.dz.env.a, its own clock c.t): the blade bitten by the
+// post and tugged free, the defender's hop round the post into a kick
+const ENV = { stuck: 'stuck', dodgePost: 'dodgePost' };
+function airMove(f) {
+  if (f.state === 'atk') { const id = PLAY[ATKID.get(f.atk)]; return !!(id && MOVES[id] && MOVES[id].air); }
+  if (f.state === 'denv') { const c = f.dz && f.dz.env, id = c && ENV[c.a]; return !!(id && MOVES[id].air); }
+  return false;
+}
+// (phase 4) the moves that turn round with the fight's own facing flip: mawari (turnAt - a.turn: its keys after the flip
+// are turned 180 more, so nothing moves in the picture; drawn on the right side of it by the flip itself, never between),
+// and the specials that end facing him (turnFrom: they turn round from there, only when he is behind - the fight then
+// flips the facing as the move ends; when he is not, the move waits at the start of the turn)
+function turnT(f, id, t) {
+  const M = MOVES[id];
+  if (M.turnAt != null) { if (!f.turned) return Math.min(t, M.turnAt - 1); if (!f.mem || !f.mem.flip) return null; return Math.max(t, M.turnAt + 1); }
+  if (M.turnFrom != null) { const o = f.opp; if (!o || (o.x >= f.x ? 1 : -1) === f.dir) return Math.min(t, M.turnFrom); }
+  return t;
+}
 function guardH(f) {
   const o = f.opp;
   if (o && o.state === 'atk' && D.threat) { const th = D.threat(o); if (th && th.h === 'high') return 'Hi'; if (th && th.h === 'low') return 'Low'; }
@@ -190,11 +217,27 @@ function choose(f, k, gP, dt, rg) {
   const fall = st === 'launch' || st === 'down' || st === 'getup';
   if (st !== 'move') k.g.x = null;
   k.why = '';
-  if (f.dead || f.hidden || (!fall && (!f.onGround || f.y < -2)) || f.roll || !f.dz || f.dz.armed === false) { k.why = f.roll ? 'roll' : !f.onGround || f.y < -2 ? 'air' : f.dz && f.dz.armed === false ? 'unarmed' : 'x'; return null; }
+  // (phase 4: a move of its own in the air - a jumping special, the air chase, the hop round the post: the fight's height
+  // carries the body, the move's own legs tuck)
+  const airOK = airMove(f);
+  if (f.dead || f.hidden || (!fall && !airOK && (!f.onGround || f.y < -2)) || f.roll || !f.dz || f.dz.armed === false) { k.why = f.roll ? 'roll' : !f.onGround || f.y < -2 ? 'air' : f.dz && f.dz.armed === false ? 'unarmed' : 'x'; return null; }
   // (after a finishing cut - the fight's zanshin, a counter's held pose (js/duel-fin.js 'dfinp': chiburi, then a stance
   // with the blade out that hung to the floor) - the striker's blade, while it is out: the new zanshin, then the guard)
+  // (phase 4: the bind - js/duel.js startBind, both in 'dbind' with the bind as their cinematic: its own clocks, the
+  // bind c.t then the strike c.t2; the hands and blade go to the fight's crossing through rg.ovr, aimOn below)
+  if (st === 'dbind' && out) {
+    const c = f.dz.cine;
+    if (c && !c.done && (c.def === f || c.att === f)) {
+      const isDef = c.def === f;
+      if (c.ph === 'bind') return { id: isDef ? 'bindDef' : 'bindAtt', t: c.t * 1000 };
+      if (c.ph === 'strike') return { id: isDef ? 'makiDef' : 'flungAtt', t: c.t2 * 1000 };
+    }
+  }
   const zan = (st === 'zanshin' || st === 'dfinp') && out && !(f.dz.cine && !f.dz.cine.done && f.dz.cine.A && f.dz.cine.A !== f);
-  if (!zan && (st === 'dseq' || (f.dz.cine && !f.dz.cine.done) || (D.finOf && (D.finOf(f) || (f.opp && D.finOf(f.opp)))) || (D.passing && (D.passing(f) || (f.opp && D.passing(f.opp)))))) { k.why = st === 'dseq' ? 'dseq' : f.dz.cine && !f.dz.cine.done ? 'cine' : D.finOf && (D.finOf(f) || (f.opp && D.finOf(f.opp))) ? 'fin' : 'pass'; return null; }
+  // (phase 4: the counter cinematics - js/duel-fin.js - play the fight's own states and moves on fixed clocks: the
+  // reactions, falls and cuts in them draw the new way too; only the market showpiece (dseq, props) and the dash past
+  // (a vault over him) keep the game's picture)
+  if (!zan && (st === 'dseq' || (D.passing && (D.passing(f) || (f.opp && D.passing(f.opp)))))) { k.why = st === 'dseq' ? 'dseq' : 'pass'; return null; }
   const thr = st === 'atk' && ATKID.get(f.atk) === 'throw';
   // (a fall, a walk and the throw draw the new way from any picture: the sword out, or home in the saya)
   // (knocked down, hit, staggered or the round won with the sword home in the saya: the game's picture shows it inside
@@ -202,22 +245,30 @@ function choose(f, k, gP, dt, rg) {
   // the hand on the hilt)
   const react = st === 'hurt' || st === 'stagger' || st === 'gbreak' || st === 'win';
   const shG = !!(f.wpn && f.wpn.iai && gP && gP.armed && gP.inside && (gP.bladeVis == null || gP.bladeVis < 10));
-  const shR = (fall || react) && !out && !!(f.wpn && f.wpn.iai) && (shG || (k.lastSh && k.w > 0.5));
-  const free = ((fall || st === 'move' || thr) && (out || shOK)) || shR || (st === 'win' && out);
+  const shR = (fall || react) && !out && !!(f.wpn && f.wpn.iai) && (sh || shG || (k.lastSh && k.w > 0.5));
+  const free = ((fall || st === 'move' || thr) && (out || shOK || (thr && sh))) || shR || (st === 'win' && out);
   // (the sword going home - the game's sheathe, 0.55 s from the moment f.sheathed() turns true: the new noto, then the
   // sheathed stance)
-  if (sh && k.shT <= 0.6 && (st === 'move' || st === 'land' || st === 'zanshin')) return { id: 'noto', t: k.shT * 1000 };
+  if (sh && k.shT <= 0.6 && (st === 'move' || st === 'land' || st === 'zanshin' || st === 'dfinp')) return { id: 'noto', t: k.shT * 1000 };
+  // (a cinematic's held pose with the sword home: her iai stance)
+  if (st === 'dfinp' && sh) return { id: 'idle', t: k.stT * 1000, sh: true };
+  // (a move that starts from the saya - phase 4's specials: their keys draw the blade themselves)
+  // (drawn all through - in the saya, the draw and out - whatever drew the frame before)
+  if (st === 'atk' && PLAY[ATKID.get(f.atk)] && MOVES[PLAY[ATKID.get(f.atk)]].saya) { const n = ATKID.get(f.atk), t = turnT(f, PLAY[n], playT(n, f.st)); return t == null ? null : { id: PLAY[n], t }; }
   // (Akane's nukitsuke from the saya: the new one-handed draw-cut on the same clock as the retimed ak_dNuki)
   if (st === 'atk' && k.startSh && ATKID.get(f.atk) === 'ak_dNuki' && f.wpn && f.wpn.iai) return { id: 'nuki', t: (f.st * 1000) / KF };
   if (!k.entryOut && !zan && !free) { k.why = 'entry'; return null; }
-  const fr = (T) => clamp(f.st / Math.max(0.05, T), 0, 1), shd = !out && (shOK || shR);
+  const fr = (T) => clamp(f.st / Math.max(0.05, T), 0, 1), shd = !out && (shOK || shR || (thr && sh));
   switch (st) {
     case 'atk': {
-      if (thr) { if (!free) return null; const a = f.atk, T = a.dur || (a.keys && a.keys.length ? a.keys[a.keys.length - 1][0] : 0.44); return { id: 'throwL', t: fr(T) * durOf('throwL'), sh: shd }; }
+      if (thr) { if (!free && !sh) return null; const a = f.atk, T = a.dur || (a.keys && a.keys.length ? a.keys[a.keys.length - 1][0] : 0.44); return { id: 'throwL', t: fr(T) * durOf('throwL'), sh: shd }; }
       const n = ATKID.get(f.atk), id = MAP[n]; if (id) return { id, t: (f.st * 1000) / KF };
       // (one that starts from the saya - a.sheath - with the sword home keeps the game's draw: these moves start drawn)
       if (k.startSh && f.atk.sheath) { k.why = 'saya'; return null; }
-      return PLAY[n] && MOVES[PLAY[n]] ? { id: PLAY[n], t: playT(n, f.st) } : null;
+      if (!PLAY[n] || !MOVES[PLAY[n]]) return null;
+      const t = turnT(f, PLAY[n], playT(n, f.st));
+      if (t == null) { k.why = 'noturn'; return null; }
+      return { id: PLAY[n], t };
     }
     // knocked off the feet: in the air (the fight's own height carries the body), then on the floor and up, one move on
     // the fight's clock ('down' 0.75 s, then 'getup' 0.46 s)
@@ -237,6 +288,11 @@ function choose(f, k, gP, dt, rg) {
     // the round won: the zanshin (flick, the point on him, back to guard) with the blade out; sheathed, her iai stance
     case 'win': return out ? { id: 'zanshin', t: k.stT * 1000 } : shd ? { id: 'idle', t: k.stT * 1000, sh: true } : null;
     case 'recoil': return { id: 'recoil', t: fr(f.rkEnd || 0.32) * durOf('recoil') };
+    // (phase 4) the lock (js/game.js: up to 2.8 s, the mash winner presses in), the shove that wins it (0.3 s), the clash
+    // (0.34 s: two cuts met, or the bind escaped)
+    case 'lock': return { id: f.lockWin ? 'lockPush' : 'lock', t: k.stT * 1000 };
+    case 'shove': return { id: 'shove', t: fr(0.3) * durOf('shove') };
+    case 'clash': return { id: 'clash', t: fr(0.34) * durOf('clash') };
     // (the recorded walk starts at 40 (js/mocap-duel.js direct); slower than that its idle played: the new one does)
     case 'move': {
       if (!(out || shOK)) return null;
@@ -245,6 +301,9 @@ function choose(f, k, gP, dt, rg) {
       return Object.assign(gaitAt(k, rg, sp > 260 ? 'run' : sp > 0 ? 'walkF' : 'walkB', sp), { sh: shd });
     }
     case 'zanshin': case 'dfinp': return zan ? { id: 'zanshin', t: k.stT * 1000 } : null;
+    // (phase 4) back on the floor after the air (js/fighter.js 'land', ~0.1 s): the guard stance
+    case 'land': return out ? { id: 'idle', t: k.stT * 1000 } : null;
+    case 'denv': { const c = f.dz.env, id = c && ENV[c.a]; return id && out ? { id, t: c.t * 1000 } : null; }
     default: return null;
   }
 }
@@ -424,11 +483,22 @@ function sayaFor(f, P, gP) {
   const d = sub(P.chest, gP.chest);
   return Object.assign({}, gP.saya, { a: add(gP.saya.a, d) });
 }
+const FLIPX = ['hx', 'hz', 'nx', 'nz', 'prx', 'prz', 'plx', 'plz', 'lx', 'lz', 'frx', 'frz', 'flx', 'flz'];
+function flipCh(c) {
+  const o = Object.assign({}, c);
+  o.py += 180; o.cy += 180; o.by += 180; o.raz += Math.PI; o.pt = -(o.pt || 0);
+  for (const n of FLIPX) o[n] = -o[n];
+  return o;
+}
 function ours(f, rg, gP, dt) {
   const k = ks(f);
   const want = choose(f, k, gP, dt, rg);
   k.w = clamp(k.w + ((want ? 1 : -1) * dt) / FADE, 0, 1);
-  if (!want && (k.w <= 0 || !k.cur)) { k.cur = null; k.feet = null; k.prevP = null; k.w = 0; k.so = null; k.px = null; return null; }
+  if (!want && (k.w <= 0 || !k.cur)) { k.cur = null; k.feet = null; k.prevP = null; k.w = 0; k.so = null; k.px = null; k.dirW = null; return null; }
+  // (phase 4: the facing flipped - mawari's turn, a special's end, the fight turning him round: the last drawn channels
+  // are turned 180 into the new facing - in the picture the same pose - and eased from there)
+  if (k.dirW != null && rg.dir !== k.dirW && k.lastCh) { k.lastCh = flipCh(k.lastCh); k.bl = { from: k.lastCh, t: 0 }; k.prevP = null; }
+  k.dirW = rg.dir;
   let ch;
   if (want) {
     const c = chAt(want.id, want.t);
@@ -509,11 +579,50 @@ function faceGuard(f, rg, P, kd) {
     let got = null;
     for (let i = 1; i <= 30 && got == null; i++) for (const sg of g0 ? [s0, -s0] : [1, -1]) { const c = (g0 ? Math.abs(g0) * s0 : 0) + sg * i * 0.04; if (Math.abs(c) <= 1.3 && bad(rotZ(u0, c)) <= 0) { got = c; break; } }
     if (got == null) a = g0; else a = got;
-    // (it grows at most 0.25 rad a frame: a blade swung fast at a face may graze it for a frame, it never jumps)
-    a = clamp(a, g0 - 0.25, g0 + 0.25);
+    // (it grows at most 0.15 rad a frame - with the ease's own turn it stays under a visible jump: a blade swung fast at a
+    // face may graze it for a frame, it never jumps)
+    a = clamp(a, g0 - 0.15, g0 + 0.15);
   }
   kd.ga = a; kd.gaD = a - g0;
   if (a) { setBlade(P, rotZ(u0, a)); K.guarded = (K.guarded || 0) + 1; }
+}
+// The face is never hidden by its own arms (owner's rule; the guard, block and recoil meet the other's blade, the
+// hitstop holds a windup): on a frame drawn new, the face (the front half of the head, a disc of 9 - tools/kilic-check.mjs
+// faceCover) more than 30% under an arm nearer the camera, both fists move down / forward by the least offset that clears
+// it. The offset has a memory (no pop): it grows by at most 6 a frame, shrinks by 4 and lets go only while the face stays clear.
+const FG = []; for (let x = -9; x <= 9; x += 2) for (let y = -9; y <= 9; y += 2) if (x * x + y * y <= 81) FG.push([x, y]);
+function coverOf(P) {
+  if (!P.head || !P.shR || !P.elR || !P.haR) return 0;
+  const c = [P.head[0] + 4 * (P.hf ? Math.sign(P.hf[0]) || 1 : 1), P.head[1] + 1], hz = P.head[2], sg = [];
+  for (const s of ['R', 'L']) { const sh = P['sh' + s], el = P['el' + s], ha = P['ha' + s]; if (!sh || !el || !ha) continue; if ((sh[2] + el[2]) / 2 > hz + 2) sg.push([sh, el, 8]); if ((el[2] + ha[2]) / 2 > hz + 2) sg.push([el, ha, 6.5]); if (ha[2] > hz + 2) sg.push([ha, ha, 5.5]); }
+  if (!sg.length) return 0;
+  const d2 = (q, a, e) => { const abx = e[0] - a[0], aby = e[1] - a[1], t = clamp(((q[0] - a[0]) * abx + (q[1] - a[1]) * aby) / Math.max(1e-9, abx * abx + aby * aby), 0, 1); return Math.hypot(q[0] - a[0] - abx * t, q[1] - a[1] - aby * t); };
+  let n = 0; for (const [x, y] of FG) { const q = [c[0] + x, c[1] + y]; if (sg.some(([a, e, r]) => d2(q, a, e) < r)) n++; }
+  return n / FG.length;
+}
+const FC_DIRS = [[0, 1, 0], [0.6, 0.8, 0], [1, 0, 0], [0.8, 0.6, 0], [-0.3, 0.95, 0]];
+function faceClear(k, P, grip) {
+  const o0 = k.fo || [0, 0, 0];
+  if (!P.armed || P.inside || !P.blade || !P.blade.u) { k.fo = [0, 0, 0]; return; }
+  const J = ['elR', 'wrR', 'haR', 'elL', 'wrL', 'haL', 'reachR', 'reachL'], base = {}; for (const j of J) base[j] = P[j]; base.blade = P.blade;
+  const two = P.gripL >= 0.999;
+  const at = (d) => { Object.assign(P, base); if (d[0] || d[1] || d[2]) { moveHands(P, d); if (two) onHandle(P, grip); } return coverOf(P); };
+  const L0 = V.len(o0), rel = L0 > 4 ? mul(o0, (L0 - 4) / L0) : [0, 0, 0];
+  let d = rel;
+  if (at(rel) > 0.3) {
+    if (at(o0) > 0.3) {
+      // (the least offset that clears, from where it was last frame; reached at 3 a frame)
+      let best = null, bl = Infinity, low = { d: o0, c: at(o0) };
+      for (let s = 2; s <= 28; s += 2) for (const u of FC_DIRS) for (const from of [o0, [0, 0, 0]]) {
+        const cd = madd(from, u, s), l = V.len(sub(cd, o0)); if (l >= bl) continue;
+        const c = at(cd); if (c <= 0.3) { best = cd; bl = l; } else if (c < low.c) low = { d: cd, c };
+      }
+      const tgt = best || low.d, dv = sub(tgt, o0), dl = V.len(dv);
+      d = dl > 6 ? madd(o0, dv, 6 / dl) : tgt;
+    } else d = o0;
+  }
+  at(d); k.fo = d;
+  if (d[0] || d[1] || d[2]) K.faceMoved = (K.faceMoved || 0) + 1;
 }
 K.dbg = (f) => { const k = KS.get(f); if (!k) return null; const r = { ga: +(k.ga || 0).toFixed(2), gaD: +(k.gaD || 0).toFixed(2), sc: k.sc || 0, sr: k.sr, nd: k.nd || 0, dd: +(k.dd || 0).toFixed(2), tail: k.tail || 0 }; return r; };
 K.dbgReset = (f) => { const k = KS.get(f); if (k) k.nd = 0; };
@@ -529,6 +638,7 @@ Mo.draw = function (ctx, rg) {
     try { if (fresh || kd.tail > 0) settle(kd, rg.look, rg, P, 1 / 60, gripOf(rg.look.wpn)); else kd.so = P.blade ? { h: sub(P.haR, P.hip), u: P.blade.u, dir: rg.dir } : null; } catch (e) { K.errors++; }
     // (the ease remembers the blade before the guard's turn: the turn is its own, eased on its own memory - the two never
     // add up frame after frame)
+    try { if (fresh) faceClear(kd, P, gripOf(rg.look.wpn)); else kd.fo = null; } catch (e) { K.errors++; }
     try { if (fresh) faceGuard(rg.look, rg, P, kd); else kd.ga = 0; } catch (e) { K.errors++; }
   }
   if (P && P.kilic && P.kilicW >= 0.999 && rg.look) {

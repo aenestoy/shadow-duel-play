@@ -64,6 +64,28 @@ const OLD = {
   kiriR: { atk: 'd_kiriUp', label: 'Kiri-age (forward + HEAVY)' },
   kiriL: { atk: 'ak_dKiri', label: 'Gyaku kiri-age (back + LIGHT)' },
   sune: { atk: 'd_suneR', label: 'Sune-gari (Kuro\'s back + LIGHT)' },
+  // phase 4: the bind, the lock, the post, the strings and specials, the air chase, the turning counters (the ones the
+  // fight cannot start here alone show only their label on the left)
+  lock: { label: 'blade lock (the game: its lock pose, seen in the fight)' },
+  lockPush: { label: 'blade lock, pressing in (seen in the fight)' },
+  shove: { label: 'the shove that wins the lock (seen in the fight)' },
+  clash: { label: 'two cuts met (seen in the fight)' },
+  bindDef: { label: 'the bind, defender (seen in the fight)' },
+  bindAtt: { label: 'the bind, attacker (seen in the fight)' },
+  makiDef: { label: 'the bind won: maki-otoshi (seen in the fight)' },
+  flungAtt: { label: 'the bind lost: the blade flung out (seen in the fight)' },
+  stuck: { label: 'blade stuck in the post (seen in the fight)' },
+  dodgePost: { label: 'round the post and kick (seen in the fight)' },
+  tsubame: { atk: 'ak_tsubame', label: 'Tsubame-gaeshi (Akane\'s string)' },
+  renga: { atk: 'ak_s1', label: 'Kurenai renga (Akane\'s string 1)' },
+  higan: { atk: 'ak_s2', label: 'Higanbana (Akane\'s string 2)' },
+  issen: { atk: 'sp_akane', label: 'Kurenai issen (Akane\'s ki special)' },
+  yama: { label: 'Yama kudaki (Kuro\'s ki special, seen in the fight)' },
+  airCut: { label: 'air chase cut (seen in the fight)' },
+  airSpike: { label: 'air spike (seen in the fight)' },
+  sandan: { atk: 'finisher', label: 'Sandan-giri (the counter finisher)' },
+  mawari: { atk: 'mawari', label: 'Mawari (the turning counter)' },
+  kuruma: { atk: 'kr_kuruma', label: 'Kuruma-giri (Kuro\'s wheel)' },
 };
 const LEAD = 0.15, TAIL = 0.45; // seconds before the move starts in each loop, and the still moment after it
 
@@ -187,7 +209,12 @@ function newPose(dt) {
     if (rg.y) for (const k of Object.keys(P)) { const q = P[k]; if (Array.isArray(q) && q.length === 3 && /^(hip|kn|ft|chest|neck|head|sh|el|wr|ha)/.test(k)) P[k] = [q[0], q[1] + rg.y, q[2]]; }
     if (rg.y && P.blade) P.blade = Object.assign({}, P.blade, { h: P.haR });
     if (rg.y && P.saya) P.saya = Object.assign({}, P.saya, { a: [P.saya.a[0], P.saya.a[1] + rg.y, P.saya.a[2]] });
-  } else P = poseAt(st.move, st.move === 'idle' ? t : Math.max(0, t), st.prevP);
+  } else {
+    P = poseAt(st.move, st.move === 'idle' ? t : Math.max(0, t), st.prevP);
+    // (phase 4: a move keyed through the fight's facing flip - mawari's turn, a special's end - is shown with the flip)
+    const M = MOVES[st.move];
+    rg.dir = (M.turnAt != null && t > M.turnAt) || (M.turnFrom != null && t >= durOf(st.move)) ? -1 : 1;
+  }
   st.prevP = P; rg.P = P; rg.t += dt;
   if (dt > 0) Mo.cloth(rg, dt);
 }
