@@ -25,6 +25,7 @@
 //     falls in the same moves with her hand on the hilt. A blade never rests in the other's head or body as drawn (the
 //     last pass before drawing), and blades that are not cutting keep out of the fight's blade-stop zones (no push).
 import { MOVES, chAt, blendCh, poseFromCh, layLeg, layArm, durOf, gaitFeet, walkFeetLive, strideOf, V, LEN } from './moves.js';
+import { installCombos } from './combos.js';
 const { add, sub, mul, madd, dot, norm, lerp } = V;
 
 const KF = 0.595; // fight seconds of a cut per real second at speed 1 (the duel's 0.85 time scale × its 0.7 cut speed)
@@ -48,6 +49,8 @@ export const PLAY = {
   finisher: 'sandan', riposte: 'menS', riposte2: 'kiriL', riposte3: 'tsukiS', riposte4: 'horizontal', ak_rip: 'yokoL',
   nd_riposte: 'menS', nd_riposte2: 'kiriL', nd_riposte3: 'tsukiS', nd_riposte4: 'horizontal',
   sweep: 'sune', sweep2: 'sune', kaeshiHeavy: 'thrust', kaeshiHeavy2: 'overhead', mawari: 'mawari', mawari2: 'mawari', kr_kuruma: 'kuruma',
+  // (phase 7) Akane's three new combos (combos.js): the rising kick, the air rising cut, the draw finisher, the low-high
+  kz_age: 'kzAge', kz_tengu: 'kzTengu', kz_iai: 'kzIai', kz_kasumi: 'kasumi',
 };
 const WHO = { akane: 1, kuro: 1 };
 const FADE = 0.15, CHX = 0.09;
@@ -60,6 +63,8 @@ const until = (f) => new Promise((res) => { const iv = setInterval(() => { let o
 await until(() => { const N = window.ND; return N && N.game && N.duel && N.duel.mocap && N.duel.mocap.rigOf && N.mocap && N.mocap.Rig && N.anim && N.anim.Pop && N.ATK; });
 const ND = window.ND, D = ND.duel, Mo = ND.mocap, g = ND.game, ATK = ND.ATK, MD = D.mocap;
 const K = (window.__kilic = { on: false, errors: 0, moves: 0, frames: 0, MAP });
+// (phase 7: the new combos' moves, routes, guard rule, AI and move list - before the ATK names are read just below)
+installCombos({ ND, D, K, ATK });
 // (the fight keeps the logical name - light1, heavy ... - in f.atkName; the cut itself is the ATK object)
 const ATKID = new Map(); for (const n in ATK) ATKID.set(ATK[n], n);
 K.atkId = (a) => ATKID.get(a) || '';
@@ -92,6 +97,7 @@ function apply(on) {
   for (const n in NEW) Object.assign(ATK[n], on ? NEW[n] : ORIG[n]);
   // (the near bamboo / posts drawn over the fight: js/duel-env.js D.fgHidden draws the front without that layer)
   D.fgHidden = on ? true : K.fgWas;
+  if (K.kzSet) K.kzSet(on);
 }
 K.fgWas = !!D.fgHidden;
 // the ink hit (js/scene.js fx.ink, the PEGI stand-in for blood): its brush stroke ('k', up to ~220 long and 14 wide), sumi
@@ -198,6 +204,7 @@ function turnT(f, id, t) {
 }
 function guardH(f) {
   const o = f.opp;
+  const kz = K.kzGuard && K.kzGuard(f); if (kz) return kz;
   if (o && o.state === 'atk' && D.threat) { const th = D.threat(o); if (th && th.h === 'high') return 'Hi'; if (th && th.h === 'low') return 'Low'; }
   return 'Mid';
 }
@@ -213,7 +220,13 @@ function choose(f, k, gP, dt, rg) {
     k.lastSt = st; k.stAtk = st === 'atk' ? f.atk : null; k.stT = 0; k.entryOut = out || (k.w > 0.5 && !!k.cur); k.startSh = sh || !!(k.lastSh && k.w > 0.5);
     if (st === 'block' || st === 'hurt') { const h = guardH(f); k.gh = h; k.hh = h === 'Hi' ? 'Hi' : 'Body'; }
     if (st === 'block' && k.cur && /^guard/.test(k.cur.id)) k.gh = k.cur.id.slice(5);
-  } else k.stT += dt;
+  } else {
+    k.stT += dt;
+    // (phase 7: the low-high's second blow blocked or landing restarts the state - its own height)
+    if ((st === 'block' || st === 'hurt') && f.st + 1e-6 < (k.pst || 0) && f.opp && K.kzId && K.kzId(f.opp.atk) === 'kz_kasumi') { const h = guardH(f); k.gh = h; k.hh = h === 'Hi' ? 'Hi' : 'Body'; }
+  }
+  k.pst = f.st;
+  if (st !== 'launch' && st !== 'hurt') f._kzR = null;
   const fall = st === 'launch' || st === 'down' || st === 'getup';
   if (st !== 'move') k.g.x = null;
   k.why = '';
@@ -272,7 +285,9 @@ function choose(f, k, gP, dt, rg) {
     }
     // knocked off the feet: in the air (the fight's own height carries the body), then on the floor and up, one move on
     // the fight's clock ('down' 0.75 s, then 'getup' 0.46 s)
-    case 'launch': return free ? { id: 'fall', t: k.stT * 1000, sh: shd } : null;
+    // (phase 7: kicked up by the rising kick, cut in the air by the air rising cut - their own reactions, on the state's
+    // clock from the blow: both end in the fall's held pose)
+    case 'launch': return free ? (f._kzR === 'launchUp' || f._kzR === 'airHit' ? { id: f._kzR, t: f.st * 1000, sh: shd } : { id: 'fall', t: k.stT * 1000, sh: shd }) : null;
     case 'down': return free ? { id: 'downRise', t: f.st * 1000, sh: shd } : null;
     case 'getup': return free ? { id: 'downRise', t: (0.75 + f.st) * 1000, sh: shd } : null;
     case 'guard': { const id = 'guard' + guardH(f), M = MOVES[id]; return { id, t: Math.min(k.stT * 1000, M.keys[M.hold].t) }; }
@@ -281,7 +296,7 @@ function choose(f, k, gP, dt, rg) {
     case 'dodge': return { id: f.back ? 'dodgeB' : 'dodgeF', t: fr(0.36) * durOf('dodgeB') };
     // the parry (0.2 s): one hard beat that sends his cut the way the fight's deflection does (f.pv.dir), back to guard
     case 'parry': { const d = f.pv && f.pv.dir, id = d === 'up' ? 'parryUp' : d === 'down' ? 'parryDown' : 'parrySide'; return { id, t: fr(0.2) * durOf(id) }; }
-    case 'hurt': return { id: 'hurt' + k.hh, t: fr(f.dur || 0.4) * durOf('hurtHi'), sh: shd };
+    case 'hurt': return { id: f._kzR === 'hurtLow' ? 'hurtLow' : 'hurt' + k.hh, t: fr(f.dur || 0.4) * durOf('hurtHi'), sh: shd };
     case 'stagger': return { id: 'stagger', t: fr(0.74) * durOf('stagger'), sh: shd };
     // the guard broken (1.2 s: knocked open by 0.15, held to 1.0, back by 1.2): the stagger with its held part stretched
     case 'gbreak': { const s = f.st, u = s < 0.15 ? (s / 0.15) * 0.1 : s < 1 ? 0.1 + ((s - 0.15) / 0.85) * 0.45 : 0.55 + Math.min(1, (s - 1) / 0.2) * 0.19; return { id: 'stagger', t: (u / 0.74) * durOf('stagger'), sh: shd }; }
@@ -370,7 +385,7 @@ function onHandle(P, grip) {
 // faces): in a guard, a block, standing, a hit reaction, the recoil and the zanshin the sword hand stays on its own side
 // of the middle (10 short of it) and the point stays 18 in front of the other's drawn head, neck and chest - the closer
 // the two stand, the more upright the blade. Both doing it, the blades cross between them. w eases it in and out.
-const MEET = { guardMid: 1, guardHi: 1, guardLow: 1, blockMid: 1, blockHi: 1, blockLow: 1, idle: 1, recoil: 1, stagger: 1, hurtHi: 1, hurtBody: 1, zanshin: 1, walkF: 1, walkB: 1, run: 1, throwL: 1, parryUp: 1, parryDown: 1, parrySide: 1, dodgeB: 1, dodgeF: 1 };
+const MEET = { guardMid: 1, guardHi: 1, guardLow: 1, blockMid: 1, blockHi: 1, blockLow: 1, idle: 1, recoil: 1, stagger: 1, hurtHi: 1, hurtBody: 1, hurtLow: 1, zanshin: 1, walkF: 1, walkB: 1, run: 1, throwL: 1, parryUp: 1, parryDown: 1, parrySide: 1, dodgeB: 1, dodgeF: 1 };
 // (front: the nearest joint centre of the other; zone: how far in front of the other's head, neck, chest, shoulders and
 // hips the fight's own blade-stop (js/mocap-duel.js bladeStop: head 22, neck point 26, torso 21 round the spine) starts to
 // push a blade - a point kept that far out is never pushed, so never jumps)
@@ -451,6 +466,7 @@ function clear(f, rg, P, BL, w) {
 }
 // the fight's own contact / aim (js/mocap-duel.js override: rg.ovr, local, by weight): the blocked cut onto the other's
 // blade, the landing one onto the body - js/mocap.js build does this for the game's picture; the new one takes it too
+const NOAIM = { kzAge: 1, kzTengu: 1, kzIai: 1, kasumi: 1 };
 function aimOn(rg, P) {
   const O = rg.ovr;
   if (!O || !(O.w > 0) || !P.armed) return;
@@ -520,7 +536,9 @@ function ours(f, rg, gP, dt) {
   }
   k.mw = clamp((k.mw || 0) + ((want ? MEET[want.id] : MEET[k.cur.id]) ? 1 : -1) * dt / 0.1, 0, 1);
   meet(f, rg, P, BL, smooth(k.mw));
-  aimOn(rg, P);
+  // (phase 7: the new strings' cuts are keyed onto him - the fight's aim, built from the game's own poses, would pull the
+  // hand there over the whole windup: the draw-cut's hand rose overhead through the pause; a blocked one keeps the contact)
+  if (!(NOAIM[k.cur.id] && !(f.opp && (f.opp.state === 'block' || f.opp.state === 'guard')))) aimOn(rg, P);
   if (f.state === 'atk' && f.atk && f.atk.active) { const w2 = clamp((f.st - f.atk.active[1]) / 0.03, 0, 1); if (w2 > 0) clear(f, rg, P, BL, smooth(w2)); }
   if (P.gripL >= 0.999) onHandle(P, grip);
   k.prevP = P;

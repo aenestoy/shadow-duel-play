@@ -1295,13 +1295,169 @@ export const MOVES = {
     ],
     phases: { windup: [0, 200], active: [200, 300], recovery: [300, 580] },
   },
+
+  // ---------------------------------------------------------------- phase 7: Akane's three new combos (?kilic=1 only)
+  // Keys in real ms at Akane's speed (the fight's clock maps its hit windows onto phases.active / phases.hits).
+  // TENGU OTOSHI (F, F, R, F): after the two light cuts a rising front kick (keage) lifts him off the floor under the
+  // chin; she leaps after him and cuts upward through him in the air; he lands knocked down.
+  // the rising kick: the sword goes low to the right hip (waki, as the snap kick: the arms below the face and behind the
+  // leg), the knee chambers, the leg snaps up nearly straight past his chin to head height and hangs, then comes back under
+  // the knee and down where it left (lifted: it never slides); a long recovery (open if he blocks it)
+  kzAge: {
+    name: 'Rising kick (keage, launcher)', feet: FEET, kick: 'R', kneeUp: 'R',
+    keys: [
+      at(0, {}),
+      at(50, { hip: [-3, -80, 0], py: 12, cy: 20, lean: 1, nod: 3, R: [24, -106, 12], by: 60, el: 6, n: [0, 1, 0], pR: [-0.3, 0.9, 0.5], pL: [-0.2, 0.9, -0.5], FR: [25, -10, 7] }, 'io'),
+      at(95, { hip: [-6, -81, 0], py: 11, cy: 19, lean: -2, nod: 2, R: [-6, -97, 22], by: 140, el: -14, n: [0, 1, 0], pR: [-0.6, 0.6, 0.6], pL: [0, 0.85, -0.6], FR: [28, -30, 9] }, 'io'),
+      at(135, { hip: [-8, -82, 0], py: 10, cy: 17, lean: -6, nod: 0, R: [-34, -100, 16], by: 178, el: -24, n: [0, 1, 0], pR: [-0.8, 0.3, 0.6], pL: [0.2, 0.8, -0.6], FR: [31, -54, 10] }, 'io'),
+      // the snap: the shin whips out and up into him (the hit), on up past the chin
+      at(180, { hip: [-11, -84, 0], py: 8, cy: 15, lean: -13, nod: -3, R: [-38, -99, 16], by: 180, el: -26, n: [0, 1, 0], pR: [-0.8, 0.3, 0.6], pL: [0.2, 0.8, -0.6], FR: [66, -116, 11] }, 'out'),
+      at(235, { hip: [-12.5, -85, 0], py: 7, cy: 15, lean: -18, nod: -5, R: [-40, -98, 16], by: 180, el: -26, n: [0, 1, 0], pR: [-0.8, 0.3, 0.6], pL: [0.2, 0.8, -0.6], FR: [52, -146, 12] }, 'out'),
+      at(300, { hip: [-12.5, -85, 0], py: 7, cy: 15, lean: -19, nod: -6, R: [-40, -98, 16], by: 180, el: -26, n: [0, 1, 0], pR: [-0.8, 0.3, 0.6], pL: [0.2, 0.8, -0.6], FR: [46, -150, 12] }, 'io'),
+      // back under the knee, then down onto the floor where it left
+      at(390, { hip: [-8, -82, 0], py: 10, cy: 17, lean: -6, nod: 0, R: [-30, -100, 17], by: 178, el: -24, n: [0, 1, 0], pR: [-0.8, 0.3, 0.6], pL: [0.2, 0.8, -0.6], FR: [34, -58, 10] }, 'io'),
+      at(480, { hip: [-3, -80, 0], py: 12, cy: 18, lean: 3, nod: 3, R: [-8, -96, 20], by: 172, el: -18, n: [0, 1, 0], pR: [-0.8, 0.3, 0.6], pL: [0.2, 0.8, -0.6], FR: [26, -12, 7] }, 'io'),
+      at(560, { hip: [-2, -79.5, 0], py: 12, cy: 19, lean: 5, nod: 3, R: [24, -100, 34], by: 110, el: -6, n: [0, 1, 0], pR: [-0.7, 0.4, 0.6], pL: [0, 0.85, -0.6], FR: [24, -4, 6] }, 'io'),
+      at(600, { hip: [-1, -79, 0], py: 13, cy: 20, lean: 6, nod: 4, R: [30, -103, 24], by: 70, el: 6, n: [0, 0.8, 0.6], pR: [-0.5, 0.6, 0.6], pL: [-0.1, 0.9, -0.5], FR: [24, 0, 6] }, 'out'),
+      at(680, { hip: [-0.5, -79, 0], py: 13, cy: 20, lean: 6, nod: 4, R: [38, -106, 6], by: 8, el: 22, n: [0, 0.5, 0.86], pR: [-0.2, 0.95, 0.6], pL: [-0.15, 1, -0.6] }, 'io'),
+      at(900, {}, 'io'),
+    ],
+    phases: { windup: [0, 170], active: [170, 300], recovery: [300, 900] },
+  },
+  // the air rising cut (the fight's air chase clock: it jumps her at him and steers her under him): the knees tuck, the
+  // blade goes low and back on the right (waki), then swings under and rises through him from below, edge up, on up over
+  // the head - the face clear under the arms; the legs hang for the landing
+  kzTengu: {
+    name: 'Tengu-giri (air rising cut)', feet: FEET, ownFeet: true, air: true,
+    keys: [
+      at(0, { FR: [24, -6, 6], FL: [-22, -8, -6] }),
+      at(60, { hip: [-3, -79, 1], py: 20, cy: 32, lean: 5, nod: 5, R: [4, -100, 28], by: 90, el: -16, n: [0, 0, -1], pR: [-0.2, 0.9, 0.4], pL: [-0.3, 0.8, -0.5], FR: [28, -24, 7], FL: [-14, -30, -7] }, 'io'),
+      at(130, { hip: [-5, -78, 1], py: 26, cy: 40, lean: 6, nod: 5, R: [-6, -96, 26], by: 160, el: -32, n: [0, 0, -1], pR: [-0.2, 0.9, 0.4], pL: [-0.3, 0.8, -0.5], FR: [30, -34, 7], FL: [-10, -42, -7] }, 'io'),
+      at(165, { hip: [-5.5, -77.5, 1], py: 27, cy: 41, lean: 6.5, nod: 5, R: [-7, -95, 26], by: 162, el: -33, n: [0, 0, -1], pR: [-0.2, 0.9, 0.4], pL: [-0.3, 0.8, -0.5], FR: [30, -35, 7], FL: [-10, -43, -7] }, 'out'),
+      at(188, { hip: [1, -77, 1], py: 18, cy: 30, lean: 8, nod: 6, R: [26, -100, 26], by: 120, el: -36, n: [0, 0, -1], pR: [-0.2, 0.9, 0.4], pL: [-0.3, 0.8, -0.5], FR: [31, -35, 7], FL: [-10, -42, -7] }, 'in'),
+      at(205, { hip: [6, -77, 0], py: 10, cy: 18, lean: 8, nod: 6, R: [50, -100, 16], by: 40, el: -30, n: [0, 0, -1], FR: [32, -34, 7], FL: [-10, -40, -7] }, 'in'),
+      at(228, { hip: [11, -78, 0], py: 4, cy: 8, lean: 6, nod: 4, R: [62, -118, 6], by: 4, el: 10, n: [0, 0, -1], FR: [32, -32, 7], FL: [-11, -38, -7] }, 'lin'),
+      at(270, { hip: [13, -80, 0], py: 0, cy: 2, lean: 2, nod: 0, R: [54, -148, -2], by: -6, el: 62, n: [0, 0, -1], pR: [-0.4, 0.5, 0.7], pL: [-0.5, 0.3, -0.8], FR: [30, -28, 7], FL: [-12, -34, -7] }, 'lin'),
+      at(330, { hip: [13, -80, 0], py: 0, cy: 2, lean: 0, nod: -1, R: [44, -164, -4], by: -8, el: 82, n: [0, 0, -1], pR: [-0.4, 0.5, 0.7], pL: [-0.5, 0.3, -0.8], FR: [28, -20, 7], FL: [-14, -26, -7] }, 'out'),
+      at(460, { hip: [6, -79, 0], py: 8, cy: 14, lean: 4, nod: 3, R: [50, -130, 2], by: -4, el: 46, pR: [-0.3, 0.7, 0.6], pL: [-0.3, 0.7, -0.6], FR: [26, -10, 7], FL: [-20, -12, -7] }, 'io'),
+    ],
+    phases: { windup: [0, 185], active: [185, 270], recovery: [270, 460] },
+  },
+  // SAYA-GAESHI (F, F, ← + G): out of the kesa's follow-through a hard flick (chiburi), the blade slides home (noto), the
+  // hips sink into the iai crouch - held, still, the hand on the hilt (the pause he can read) - then the nukitsuke: the
+  // blade whips out of the saya and cuts level through him as the body drives forward into a long stance; held, the
+  // left hand back to the handle, the guard. Its recovery is long: blocked, it is punished.
+  kzIai: {
+    name: 'Saya-gaeshi (sheathe, pause, draw-cut)', feet: FEET, jump: [[260.5, 263.5], [800, 804]], strikeFrom: 720,
+    steps: [{ foot: 'R', t0: 850, t1: 930, dx: 22, h: 6 }, { foot: 'R', t0: 1380, t1: 1500, dx: -22, h: 4 }],
+    keys: [
+      at(0, { hip: [17, -74, 0], py: -9, cy: -9, lean: 10, nod: 7, R: [60, -96, -10], by: -46, el: -39, n: [0, 0.6, 0.8] }),
+      // the chiburi: the blade flicks out low to the right, the left hand goes to the saya's mouth
+      at(130, { hip: [6, -77, 0], py: 12, cy: 20, lean: 7, nod: 6, R: [52, -100, 14], by: 26, el: -24, n: [0, 0.45, 0.9], pR: [-0.2, 0.9, 0.4], pL: [-0.2, 0.9, -0.6], lw: 0 }, 'out3'),
+      at(220, { hip: [0, -79, 0], py: 18, cy: 30, lean: 5, nod: 6, R: [46, -110, 2], by: -150, el: -20, n: [0, -0.6, 0.8], pR: [-0.3, 0.8, 0.5], pL: [-0.2, 0.9, -0.6], lw: 0 }, 'io'),
+      // (the point at the mouth, then in between two frames - as the noto)
+      at(260.5, { hip: [0, -79, 0], py: 18, cy: 30, lean: 5, nod: 6, iai: true, d: 0.36, sby: -172, sel: -30, n: [0, -0.6, 0.8], pR: [-0.3, 0.8, 0.5], pL: [-0.2, 0.9, -0.6], lw: 0, at: 1 }, 'out'),
+      at(263.5, { hip: [0, -79, 0], py: 18, cy: 30, lean: 5, nod: 6, iai: true, d: 0.36, sby: -172, sel: -30, n: [0, -0.6, 0.8], pR: [-0.3, 0.8, 0.5], pL: [-0.2, 0.9, -0.6], lw: 0 }, 'in'),
+      // home, the hips sinking into the crouch
+      at(400, { hip: [-2, -73, -1], py: 14, cy: 22, lean: 10, nod: 7, iai: true, d: 0.08, sby: -170, sel: -22, n: [0, -0.6, 0.8], pR: [-0.3, 0.8, 0.5], pL: [-0.2, 0.9, -0.6], lw: 0 }, 'io'),
+      at(470, { hip: [-3, -70, -1], py: 10, cy: 16, lean: 13, nod: 8, iai: true, d: 0, sby: -168, sel: -18, n: [0, -0.6, 0.8], pR: [-0.3, 0.8, 0.5], pL: [-0.2, 0.9, -0.6], lw: 0 }, 'out'),
+      // the pause: held, a breath
+      at(720, { hip: [-3.5, -69.5, -1], py: 9, cy: 15, lean: 13.5, nod: 8, iai: true, d: 0, sby: -168, sel: -18, n: [0, -0.6, 0.8], pR: [-0.3, 0.8, 0.5], pL: [-0.2, 0.9, -0.6], lw: 0 }, 'io'),
+      // the draw: the thumb breaks the saya open, the hilt goes forward along it, then the blade whips out
+      at(770, { hip: [-3, -70, 0], py: 6, cy: 10, lean: 12, nod: 7, iai: true, d: 0.26, sby: -168, sel: -14, n: [0, -0.6, 0.8], pR: [-0.3, 0.8, 0.5], pL: [-0.2, 0.9, -0.6], lw: 0 }, 'in'),
+      at(800, { hip: [-3, -70, -1], py: 4, cy: 4, lean: 14, nod: 6, iai: true, d: 0.36, sby: -160, sel: -10, n: [0, -0.6, 0.8], pR: [-0.3, 0.7, 0.6], pL: [-0.2, 0.9, -0.6], lw: 0 }, 'in'),
+      at(804, { hip: [-4, -70, -1], py: 4, cy: 4, lean: 12, nod: 5, R: [42, -85, -4], by: -152, el: -8, n: [0, -0.6, 0.8], pR: [-0.3, 0.7, 0.6], pL: [-0.2, 0.9, -0.6], lw: 0 }, 'lin'),
+      at(840, { hip: [-1, -71, -1.5], py: 2, cy: 2, lean: 11, nod: 5, R: [26, -97, -24], by: -146, el: -6, n: [0, -0.8, 0.6], pR: [-0.3, 0.6, 0.7], pL: [-0.2, 0.9, -0.6], lw: 0 }, 'io'),
+      at(890, { hip: [4, -71, -1], py: 4, cy: 4, lean: 12, nod: 5, R: [26, -99, -28], by: -128, el: -4, n: [0, -1, 0], pL: [-0.2, 0.9, -0.6], lw: 0 }, 'io'),
+      // the cut: level through him, the hips driving forward
+      at(910, { hip: [10, -70, 0], py: 6, cy: 6, lean: 13, nod: 6, R: [54, -103, -24], by: -70, el: 0, n: [0, -1, 0], pL: [-0.2, 0.9, -0.6], lw: 0 }, 'in'),
+      at(945, { hip: [16, -69, 0], py: 8, cy: 8, lean: 14, nod: 7, R: [74, -105, -4], by: 0, el: 2, n: [0, -1, 0], pL: [-0.2, 0.9, -0.6], lw: 0 }, 'lin'),
+      at(995, { hip: [18, -68, 0], py: 16, cy: 28, lean: 15, nod: 7, R: [68, -104, 22], by: 55, el: 2, n: [0, -1, 0], pL: [-0.2, 0.9, -0.6], lw: 0 }, 'out'),
+      at(1150, { hip: [17.5, -68.5, 0], py: 16, cy: 27, lean: 14.5, nod: 7, R: [66, -104, 21], by: 53, el: 4, n: [0, -1, 0], pL: [-0.2, 0.9, -0.6], lw: 0.2 }, 'io'),
+      at(1400, { hip: [7, -77, 0], py: 15, cy: 22, lean: 7, nod: 5, R: [52, -107, 10], by: 22, el: 10, n: [0, -0.4, 0.92] }, 'io'),
+      at(1700, {}, 'io'),
+    ],
+    // (the hit window opens as the blade comes round onto him, 928 - at 910 it still points into the picture)
+    phases: { windup: [0, 928], active: [928, 995], recovery: [995, 1700] },
+  },
+  // KASUMI-GAESHI (S + F, from the guard): a low cut at his shins from the right (he must guard low), the wrists roll low
+  // on the left and the blade rises over the left shoulder - the tell - and comes down high from the left (gyaku-kesa):
+  // only a guard raised again (a new press) stops it.
+  kasumi: {
+    name: 'Kasumi-gaeshi (low shin cut, then high)', feet: FEET,
+    keys: [
+      at(0, {}),
+      at(120, { hip: [-6, -74, 2], py: 30, cy: 46, lean: 10, nod: 8, R: [10, -98, 32], by: 170, el: -24, n: [0, 0.6, 0.8] }, 'io'),
+      at(160, { hip: [-6, -73.5, 2], py: 30, cy: 46, lean: 10, nod: 8, R: [10, -97, 32], by: 172, el: -24, n: [0, 1, 0] }, 'out'),
+      at(200, { hip: [4, -68, 1], py: 14, cy: 30, lean: 18, nod: 12, R: [30, -86, 30], by: 120, el: -28, n: [0, 1, 0] }, 'in'),
+      at(225, { hip: [12, -64, 0], py: 2, cy: 10, lean: 24, nod: 14, R: [58, -76, 14], by: 10, el: -26, n: [0, 1, 0] }, 'lin'),
+      at(275, { hip: [14, -64, 0], py: -8, cy: -8, lean: 24, nod: 14, R: [54, -76, -12], by: -50, el: -24, n: [0, 1, 0] }, 'out'),
+      // the wrists roll and the blade rises in front on the left, over the left shoulder (the gyaku-kesa's own raise: the
+      // elbows go up and back so the near arm passes behind the face)
+      at(330, { hip: [8, -74, 0], py: 4, cy: 6, lean: 12, nod: 7, R: [54, -110, -6], by: -40, el: 50, n: [0, -0.5, 0.87], pR: [-0.3, 0.4, 0.85], pL: [-0.1, 0.35, -0.9] }, 'io'),
+      at(365, { hip: [3, -79, -0.5], py: 10, cy: 14, lean: 3, nod: 3, R: [38, -146, 0], by: -30, el: 80, n: [0, -0.5, 0.87], pR: [-0.3, 0.4, 0.85], pL: [-0.1, 0.35, -0.9] }, 'io'),
+      at(390, { hip: [0, -81, -0.8], py: 9, cy: 12, lean: 2, nod: 2, R: [26, -166, -2], by: -75, el: 72, n: [0, -0.55, 0.84], pR: [-0.3, 0.6, 0.75], pL: [0.2, -0.1, -0.9] }, 'io'),
+      at(420, { hip: [-1, -81.2, -1], py: 8, cy: 10, lean: 1, nod: 1, R: [14, -179, -3], by: -120, el: 58, n: [0, -0.6, 0.8], ...UPEL, pL: [-0.75, -0.2, -0.65] }, 'io'),
+      at(455, { hip: [-2, -81.5, -1], py: 6, cy: 8, lean: 0, nod: 1, R: [0, -180, -4], by: -150, el: 50, n: [0, -0.6, 0.8], ...UPEL, pL: [-0.75, -0.2, -0.65] }, 'out'),
+      at(480, { hip: [1, -81, -1], py: 7, cy: 9, lean: 1, nod: 2, R: [6, -181, -3], by: -150, el: 46, n: [0, -0.6, 0.8], ...UPEL, pL: [-0.75, -0.2, -0.65] }, 'io'),
+      // down high from the left shoulder to the right hip
+      at(515, { hip: [10, -78, 0], py: 9, cy: 12, lean: 3, nod: 2, R: [47, -162, -2], by: -35, el: 40, n: [0, -0.6, 0.8], pR: [-0.55, 0.15, 0.85], pL: [-0.65, 0, -0.8] }, 'in'),
+      at(531, { hip: [13, -77, 0], py: 10, cy: 15, lean: 5, nod: 4, R: [60, -147, -4], by: -12, el: 10, n: [0, -0.6, 0.8], pR: [-0.25, 0.6, 0.75], pL: [-0.4, 0.5, -0.8] }, 'lin'),
+      at(547, { hip: [16, -76.5, 0], py: 12, cy: 20, lean: 7, nod: 6, R: [68, -128, 4], by: 14, el: -22, n: [0, -0.6, 0.8], pL: [-0.3, 0.7, -0.65] }, 'lin'),
+      at(600, { hip: [18, -74, 0], py: 16, cy: 26, lean: 10, nod: 7, R: [62, -100, 20], by: 46, el: -37, n: [0, -0.6, 0.8] }, 'out'),
+      at(650, { hip: [17.5, -74.5, 0], py: 16, cy: 25, lean: 9.5, nod: 7, R: [61, -100, 20], by: 45, el: -38, n: [0, -0.6, 0.8] }, 'io'),
+      at(820, { hip: [7, -78, 0], py: 15, cy: 21, lean: 7, nod: 5, R: [55, -106, 8], by: 18, el: 6, n: [0, -0.3, 0.95] }, 'io'),
+      at(1020, {}, 'io'),
+    ],
+    // (each hit window opens where the drawn blade reaches him: the shins at 212, the head and shoulder at 535)
+    phases: { windup: [0, 212], active: [212, 275], hits: [[212, 275], [535, 600]], recovery: [600, 1020] },
+  },
+  // Kuro's reactions to them. The shin cut: the front knee buckles - the foot comes up off the floor and back down where it
+  // was - the hips drop, the trunk folds over the leg, the hands go down, the tip sinks
+  hurtLow: {
+    name: 'Hit low (shin cut, the leg buckles)', feet: FEET, tail: 3,
+    keys: [
+      at(0, {}),
+      at(70, { hip: [-6, -73, 0], py: 18, cy: 26, lean: 14, nod: 12, R: [40, -94, 6], by: 4, el: -8, pR: [-0.2, 1, 0.5], pL: [-0.2, 1, -0.5], FR: [19, -14, 6] }, 'out3'),
+      at(170, { hip: [-8, -72, 0], py: 19, cy: 27, lean: 12, nod: 10, R: [38, -95, 6], by: 3, el: -2, pR: [-0.2, 1, 0.5], pL: [-0.2, 1, -0.5], FR: [21, -7, 6] }, 'io'),
+      at(280, { hip: [-4, -77, 0], py: 16, cy: 25, lean: 8, nod: 5, R: [35, -103, 4], by: -1, el: 14, FR: [24, 0, 6] }, 'io'),
+      at(400, {}, 'io'),
+    ],
+    phases: null,
+  },
+  // kicked up off the floor (the fight's 'launch' from the rising kick): the chin snaps up, the arms fly up and out (the
+  // sword arm out to the camera side, the blade up and back, clear of the body; the left hand lets go), the feet leave the
+  // floor and trail, then the body tips back into the fall's held pose (the landing and the rise go on from it)
+  launchUp: {
+    name: 'Kicked up into the air', feet: FEET, ownFeet: true,
+    keys: [
+      at(0, { hip: [-4, -80, 0], py: 16, cy: 26, lean: 2, nod: 0, R: [34, -112, 6], el: 30 }),
+      at(70, { hip: [-6, -84, 0], pitch: 6, py: 20, cy: 34, lean: -16, nod: -20, w: 1, R: [10, -148, 24], by: 120, el: 66, pR: [-0.4, 0.4, 0.8], pL: [0.2, 0.3, -0.9], lf: 1, L: [20, -156, -22], FR: [24, -12, 6], FL: [-22, -10, -6] }, 'out3'),
+      at(220, { hip: [-6, -78, 0], pitch: 30, py: 22, cy: 34, lean: -10, nod: 0, w: 1, R: [-14, -136, 30], by: 145, el: 40, pR: [-0.4, 0, 0.9], pL: [0.2, 0, -0.9], lf: 1, L: [6, -144, -26], FR: [30, -32, 6], FL: [14, -24, -6] }, 'io'),
+      at(420, { hip: [-6, -72, 0], pitch: 60, py: 22, cy: 32, lean: -4, nod: 12, w: 1, R: [-34, -116, 34], by: 158, el: 22, pR: [-0.4, -0.3, 0.9], pL: [0.2, -0.3, -0.9], lf: 1, L: [-10, -128, -28], FR: [36, -48, 6], FL: [28, -40, -6] }, 'out'),
+    ],
+    phases: null,
+  },
+  // cut in the air (the rising air cut): the body jack-knifes round the blow - the knees come up, the chin tucks - then
+  // opens back into the fall's held pose
+  airHit: {
+    name: 'Cut in the air (folds)', feet: FEET, ownFeet: true,
+    keys: [
+      at(0, { hip: [-6, -74, 0], pitch: 46, py: 22, cy: 34, lean: -6, nod: 6, w: 1, R: [-26, -126, 32], by: 150, el: 30, pR: [-0.4, -0.2, 0.9], pL: [0.2, -0.2, -0.9], lf: 1, L: [-4, -136, -26], FR: [30, -40, 6], FL: [20, -30, -6] }),
+      at(60, { hip: [-6, -74, 0], pitch: 36, py: 22, cy: 30, lean: 12, nod: 16, w: 1, R: [-10, -140, 40], by: 140, el: 34, pR: [-0.4, -0.2, 0.9], pL: [0.2, -0.2, -0.9], lf: 1, L: [0, -118, -26], FR: [34, -52, 6], FL: [26, -46, -6] }, 'out3'),
+      at(200, { hip: [-6, -73, 0], pitch: 50, py: 22, cy: 31, lean: 2, nod: 12, w: 1, R: [-28, -116, 32], by: 155, el: 22, pR: [-0.4, -0.3, 0.9], pL: [0.2, -0.3, -0.9], lf: 1, L: [-6, -124, -27], FR: [36, -50, 6], FL: [28, -43, -6] }, 'io'),
+      at(420, { hip: [-6, -72, 0], pitch: 60, py: 22, cy: 32, lean: -4, nod: 12, w: 1, R: [-34, -116, 34], by: 158, el: 22, pR: [-0.4, -0.3, 0.9], pL: [0.2, -0.3, -0.9], lf: 1, L: [-10, -128, -28], FR: [36, -48, 6], FL: [28, -40, -6] }, 'out'),
+    ],
+    phases: null,
+  },
 };
 export const ORDER = ['idle', 'overhead', 'horizontal', 'diagonal', 'thrust', 'block',
   'kesaS', 'gyakuS', 'menS', 'yokoL', 'tsukiS', 'guardMid', 'guardHi', 'guardLow', 'blockMid', 'blockHi', 'blockLow', 'hurtHi', 'hurtBody', 'stagger', 'recoil', 'zanshin',
   'walkF', 'walkB', 'run', 'fall', 'downRise', 'throwL', 'parryUp', 'parryDown', 'parrySide', 'dodgeB', 'dodgeF', 'noto', 'nuki',
   'kakato', 'sweep', 'spinKick', 'snapKick', 'knee', 'nidan', 'kiriR', 'kiriL', 'sune',
   'lock', 'lockPush', 'shove', 'clash', 'bindDef', 'bindAtt', 'makiDef', 'flungAtt',
-  'stuck', 'dodgePost', 'tsubame', 'renga', 'higan', 'issen', 'yama', 'airCut', 'airSpike', 'sandan', 'mawari', 'kuruma'];
+  'stuck', 'dodgePost', 'tsubame', 'renga', 'higan', 'issen', 'yama', 'airCut', 'airSpike', 'sandan', 'mawari', 'kuruma',
+  'kzAge', 'kzTengu', 'kzIai', 'kasumi', 'hurtLow', 'launchUp', 'airHit'];
 export const durOf = (id) => MOVES[id].keys[MOVES[id].keys.length - 1].t;
 
 // ------------------------------------------------------------------ the body of one key (joints, no arms yet)
