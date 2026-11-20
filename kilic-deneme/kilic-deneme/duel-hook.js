@@ -632,8 +632,44 @@ function stepBack(f, k, rg, want, ch, BL) {
   want.feet = { R: [fR[0] - hold, fR[1], fR[2]], L: [fL[0] - hold - (pr.L ? sb.s * (sb.s > 0.5 ? 1 : 0) : 0), fL[1], fL[2]] };
   K.sbN = (K.sbN || 0) + 1;
 }
+// (2026-11-21, the owner: "kılıç saldırıları hala çok kötü önce onları düzelt") Spacing: a cut lands at blade range, not
+// pressed body to body. The new cuts drive the hips forward through the contact and the follow-through (moves.js); when
+// the fight has the two close, the drawn pair is kept at least the attacker's blade + 36 apart, hip to hip, counting both
+// drawn drives: the one cut (or hurt, or blocking) gives way - most of it, 0.7 - and the attacker draws back the rest, so
+// the hit knocks him back instead of the two freezing glued together. The whole drawn body moves (hips, hands, blade); the
+// feet's places with it, so planFeet steps them (nothing slides). Eased in and out at SP_V a frame. Only the picture: the
+// fight's x, its timing and its hits are its own.
+const SPA = new Set(['overhead', 'horizontal', 'diagonal', 'thrust', 'kesaS', 'gyakuS', 'menS', 'yokoL', 'tsukiS', 'nuki', 'kiriR', 'kiriL', 'sune',
+  'tsubame', 'renga', 'oroshi', 'sandan', 'kasumi', 'kuruma', 'kzIai']);
+const SPR = new Set(['hurt', 'stagger', 'block', 'guard', 'recoil', 'parry']);
+const SP_PAD = 36, SP_MAX = 80, SP_V = 6, SP_VH = 7;
+// (from the cut on: the drive's start, 40 ms before the first strike window - the wind-up is the round-6 step back's)
+const inCut = (id, t) => { const ph = MOVES[id] && MOVES[id].phases; return !!ph && t >= ((ph.hits && ph.hits[0]) || ph.active)[0] - 40; };
+function spacing(f, k, rg, want, ch, BL) {
+  const o = f.opp, ro = o && MD.rigOf(o), ko = o && ks(o), M = MOVES[want.id];
+  k.hxRaw = ch.hx;
+  let tgt = 0;
+  if (o && ro && !o.dead && !o.hidden && !rg.y && !ro.y && !M.ownFeet && !K.spOff) {
+    const meAtk = f.state === 'atk' && SPA.has(want.id) && inCut(want.id, want.t), heAtk = o.state === 'atk' && ko && ko.cur && SPA.has(ko.cur.id) && inCut(ko.cur.id, ko.cur.t);
+    const meOk = meAtk || SPR.has(f.state), heOk = heAtk || SPR.has(o.state);
+    if ((meAtk || heAtk) && meOk && heOk) {
+      const BLa = meAtk ? BL : (o.wpn && o.wpn.blade) || LEN.blade, D = (ro.x - rg.x) * rg.dir;
+      const need = clamp(SP_PAD + BLa - (D - (ch.hx || 0) - (ko.hxRaw || 0)), 0, SP_MAX);
+      const share = meAtk && heAtk ? 0.5 : meAtk ? (SPR.has(o.state) ? 0.3 : 0.5) : (SPR.has(f.state) ? 0.7 : 0.5);
+      tgt = need * share;
+    }
+  }
+  const v = (SPR.has(f.state) && tgt > (k.sp || 0) ? SP_VH : SP_V) * Math.min(3, 60 * (K.dt || 1 / 60));
+  k.sp = (k.sp || 0) + clamp(tgt - (k.sp || 0), -v, v);
+  if (!(k.sp > 0.05)) { k.sp = 0; return; }
+  ch.hx -= k.sp;
+  if (M.ownFeet) return;
+  const fe = want.feet || { R: footAt(M, 'R', want.t), L: footAt(M, 'L', want.t) };
+  want.feet = { R: [fe.R[0] - k.sp, fe.R[1], fe.R[2]], L: [fe.L[0] - k.sp, fe.L[1], fe.L[2]] };
+}
 function ours(f, rg, gP, dt) {
   const k = ks(f);
+  K.dt = dt;
   const want = choose(f, k, gP, dt, rg);
   // (2026-11-20, fix 2: a fighter's very first frame in the match - nothing drawn new before, no game frame to come from
   // that the eye has seen move - starts fully new: faded in from the game's opening pose, the blade passed through
@@ -657,6 +693,7 @@ function ours(f, rg, gP, dt) {
     if (!k.fol) { k.fol = {}; if (k.lastCh && k.lastCh.bp != null) { k.fol.e = k.lastCh.bp - (k.lastCh.pt || 0) * Math.PI / 180; k.fol.lock = true; } }
     if (ch === c) ch = Object.assign({}, c);
     stepBack(f, k, rg, want, ch, (f.wpn && f.wpn.blade) || LEN.blade);
+    spacing(f, k, rg, want, ch, (f.wpn && f.wpn.blade) || LEN.blade);
     followCh(k.fol, ch, dt, strikeAt(MOVES[want.id], want.t));
     k.cur = want; k.lastCh = ch;
   } else ch = k.lastCh;

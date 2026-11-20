@@ -258,53 +258,65 @@ export const MOVES = {
     ],
     phases: null,
   },
+  // (2026-11-21, the owner: "kılıç saldırıları hala çok kötü önce onları düzelt") Every attack keyed in four phases with the
+  // whole body (kenjutsu / kendo mechanics), on the move's own startup / active / recovery times (unchanged):
+  //   anticipation: the blade raised clearly over / behind the head on its side, the hips back over the rear leg, the chest
+  //     turned open (coiled), held 2-4 frames so the cut reads;
+  //   cut: the hips drive first, the front foot steps in (fumikomi), hips and shoulders turn into it, the arms extend and the
+  //     blade runs a clear arc through the target line (2-4 frames);
+  //   follow-through: on past the target, ending low on the far side; the body leans into it over the bent front knee;
+  //   recovery: the front foot back, the hips over the stance, the point up to the throat line (chudan).
+  // kp: the four key poses (tools/kilic-poses.mjs pose sheet).
   overhead: {
     name: 'Overhead cut (shomen)', feet: FEET,
+    steps: [{ foot: 'R', t0: 425, t1: 525, dx: 18, h: 7 }, { foot: 'R', t0: 720, t1: 880, dx: -18, h: 4 }],
     keys: [
       at(0, {}),
-      // wind-up: the chest opens to the camera (3/4, never the back), the fists go up out in front, under the chin line
-      at(150, { hip: [-2, -80.5, 0], py: 14, cy: 30, lean: 3, nod: 3, R: [44, -140, 4], by: 0, el: 62, pR: [-0.5, 0.45, 0.75], pL: [-0.5, 0.45, -0.75] }, 'io'),
-      // the fists keep rising out in front with the elbows still low (the forearms stand clear of the face) ...
-      at(205, { hip: [-3, -81, 0], py: 13, cy: 34, lean: 2, nod: 2, R: [30, -162, 4], by: 0, el: 96, pR: [-0.2, 0.9, 0.4], pL: [-0.6, 0.3, -0.75] }, 'io'),
-      at(238, { hip: [-3.5, -81.2, 0], py: 12.5, cy: 36, lean: 2, nod: 2, R: [21, -171, 4], by: 0, el: 110, pR: [-0.3, 0.3, 0.9], pL: [-0.8, 0, -0.6] }, 'io'),
-      // ... then the elbows flick up and back so the near arm rises behind the face, the fists pass over the forehead
-      at(268, { hip: [-4, -81.5, 0], py: 12, cy: 38, lean: 2, nod: 2, R: [10, -180, 3], by: 0, el: 122, ...UPEL }, 'io'),
-      // furikaburi: fists high over the crown, the blade back over the head; the body tall, the face clear
-      at(340, { hip: [-5, -82, 0], py: 11, cy: 40, lean: 1, nod: 1, R: [-8, -185, 3], by: 0, el: 150, ...UPEL }, 'out'),
-      // the hips start forward first; the hands wait (the hips lead the cut)
-      at(430, { hip: [3, -81, 0], py: 7, cy: 36, lean: 3, nod: 2, R: [2, -184, 3], by: 0, el: 156, ...UPEL }, 'io'),
-      at(495, { hip: [11, -78, 0], py: 3, cy: 16, lean: 5, nod: 3, R: [44, -168, 3], by: 0, el: 70, pR: [-0.3, 0.4, 0.85], pL: [-0.5, 0.2, -0.85] }, 'in'),
-      // the strike: arms long (not locked), blade level at head height, hips and shoulders square, weight on the front foot
-      at(545, { hip: [17, -76, 0], py: 0, cy: 2, lean: 6, nod: 5, R: [72, -146, 2], by: 0, el: 0 }, 'lin'),
-      // follow-through and a controlled stop: the blade goes on down to chest height and the hands squeeze it still
-      at(610, { hip: [19, -74.5, 0], py: 0, cy: 2, lean: 8, nod: 6, R: [76, -126, 2], by: 0, el: -20 }, 'out'),
-      at(670, { hip: [18.5, -75, 0], py: 1, cy: 3, lean: 7.5, nod: 6, R: [74, -127, 2], by: 0, el: -15 }, 'io'),
-      // back to guard in one move: the hips come back over the stance, the blade rises to the centre line, the weight settles
-      at(830, { hip: [7, -78, 0], py: 9, cy: 14, lean: 6, nod: 5, R: [54, -113, 2], by: -1, el: 9 }, 'io'),
+      // the rise: the hips settle back over the rear leg, the fists go up out in front with the elbows low ...
+      at(120, { hip: [-4, -79.5, 0], py: 16, cy: 28, lean: 3, nod: 3, R: [44, -138, 4], by: 0, el: 60, pR: [-0.5, 0.45, 0.75], pL: [-0.5, 0.45, -0.75] }, 'io'),
+      at(190, { hip: [-7, -79.2, 0], py: 17, cy: 33, lean: 1, nod: 2, R: [28, -163, 4], by: 0, el: 98, pR: [-0.2, 0.9, 0.4], pL: [-0.6, 0.3, -0.75] }, 'io'),
+      at(240, { hip: [-8, -79.2, 0], py: 18, cy: 36, lean: 0, nod: 1, R: [16, -170, 3], by: 0, el: 112, pR: [-0.3, 0.3, 0.9], pL: [-0.8, 0, -0.6] }, 'io'),
+      // ... furikaburi (the anticipation): fists over the crown, the blade up and back over the head, the hips back and the
+      // chest open, a hair of arch - coiled; held
+      at(330, { hip: [-9.5, -79, 0], py: 20, cy: 40, lean: -3, nod: 0, R: [-7, -178, 3], by: 0, el: 124, ...UPEL }, 'out'),
+      at(395, { hip: [-10, -78.9, 0], py: 20, cy: 41, lean: -4, nod: 0, R: [-8, -178, 3], by: 0, el: 126, ...UPEL }, 'io'),
+      // the drive: the hips go first (the front foot steps in), the hands wait, then whip the blade over
+      at(450, { hip: [3, -77.5, 0], py: 11, cy: 32, lean: 1, nod: 1, R: [6, -180, 3], by: 0, el: 136, ...UPEL }, 'io'),
+      at(495, { hip: [8, -77, 0], py: 4, cy: 15, lean: 3, nod: 3, R: [42, -165, 3], by: 0, el: 86, pR: [-0.3, 0.4, 0.85], pL: [-0.5, 0.2, -0.85] }, 'in'),
+      // contact: arms long, the blade level at head height, hips square, the weight onto the bent front knee
+      at(530, { hip: [18, -74, 0], py: 0, cy: 2, lean: 7, nod: 6, R: [75, -141, 2], by: 0, el: -17 }, 'lin'),
+      // follow-through: on down through the line to waist height, the point forward; the body long over the front knee
+      at(600, { hip: [27, -69, 0], py: -4, cy: -4, lean: 18, nod: 9, R: [82, -102, 3], by: 0, el: -22 }, 'out'),
+      at(690, { hip: [26.5, -69.5, 0], py: -3, cy: -3, lean: 17, nod: 9, R: [81, -104, 3], by: 0, el: -19 }, 'io'),
+      // recovery: the front foot steps back, the hips come back over the stance, the point rises to the throat line
+      at(860, { hip: [8, -77, 0], py: 10, cy: 15, lean: 7, nod: 5, R: [52, -110, 2], by: -1, el: 10 }, 'io'),
       at(1010, {}, 'io'),
     ],
     phases: { windup: [0, 495], active: [495, 610], recovery: [610, 1010] },
+    kp: [['anticipation', 360], ['contact', 530], ['follow-through', 640], ['recovery', 1010]],
   },
   horizontal: {
     name: 'Horizontal cut (yoko, from the right)', feet: FEET,
+    steps: [{ foot: 'R', t0: 360, t1: 450, dx: 16, h: 6 }, { foot: 'R', t0: 640, t1: 800, dx: -16, h: 4 }],
     keys: [
       at(0, {}),
-      // wind-up: hips and shoulders turn right (open to the camera), the blade drawn back past the right hip, low
-      at(210, { hip: [-6, -79, 2], py: 32, cy: 50, lean: 4, nod: 3, R: [2, -104, 32], by: 172, el: -14, n: [0, 0.55, 0.84] }, 'io'),
-      at(300, { hip: [-6, -79, 2], py: 28, cy: 51, lean: 4, nod: 3, R: [1, -104, 32], by: 174, el: -12, n: [0, 0.6, 0.8] }, 'out'),
-      // the hips turn first; the edge rolls into the cut
-      at(365, { hip: [2, -78, 1], py: 10, cy: 40, lean: 6, nod: 4, R: [12, -108, 34], by: 150, el: -6, n: [0, 1, 0] }, 'io'),
-      at(415, { hip: [10, -77, 0], py: 0, cy: 20, lean: 7, nod: 5, R: [42, -110, 30], by: 80, el: 0, n: [0, 1, 0] }, 'in'),
-      // the strike: level through the target, both arms long, the hips square
-      at(455, { hip: [16, -76, 0], py: -6, cy: 2, lean: 8, nod: 6, R: [70, -112, 8], by: 6, el: 2, n: [0, 1, 0] }, 'lin'),
-      // follow-through to the far side and a stop: the hips close a little, the blade points past the left
-      at(520, { hip: [18, -76, 0], py: -12, cy: -14, lean: 8, nod: 6, R: [64, -110, -16], by: -52, el: 0, n: [0, 1, 0] }, 'out'),
-      at(580, { hip: [17.5, -76.5, 0], py: -11, cy: -13, lean: 8, nod: 6, R: [62, -110, -15], by: -50, el: 2, n: [0, 1, 0] }, 'io'),
-      // back to guard in one move: the blade comes back round the front to the centre line, the hips settle back
-      at(750, { hip: [8, -78, 0], py: 4, cy: 9, lean: 7, nod: 5, R: [52, -108, -4], by: -22, el: 10, n: [0, 0.6, 0.8] }, 'io'),
+      // anticipation: hips and shoulders wound right (open to the camera), the blade drawn back level past the right hip,
+      // pointing straight back; the hips back over the rear leg; held
+      at(150, { hip: [-4, -79.5, 1], py: 22, cy: 36, lean: 4, nod: 3, R: [18, -104, 24], by: 130, el: -6, n: [0, 0.55, 0.84] }, 'io'),
+      at(250, { hip: [-9, -78.5, 2], py: 34, cy: 54, lean: 3, nod: 3, R: [0, -106, 32], by: 174, el: 4, n: [0, 0.6, 0.8] }, 'out'),
+      at(330, { hip: [-9.5, -78.5, 2], py: 33, cy: 55, lean: 3, nod: 3, R: [-1, -106, 32], by: 176, el: 5, n: [0, 0.6, 0.8] }, 'io'),
+      // the cut: the hips turn and drive first, the edge rolls into it; level through the target, the arms long
+      at(385, { hip: [3, -77.5, 1], py: 14, cy: 40, lean: 6, nod: 4, R: [12, -108, 34], by: 150, el: 0, n: [0, 1, 0] }, 'io'),
+      at(425, { hip: [14, -75, 0], py: 2, cy: 18, lean: 9, nod: 5, R: [44, -110, 30], by: 80, el: 0, n: [0, 1, 0] }, 'in'),
+      at(460, { hip: [22, -72, 0], py: -6, cy: 0, lean: 12, nod: 6, R: [72, -112, 8], by: 6, el: 2, n: [0, 1, 0] }, 'lin'),
+      // follow-through out to the far side, the hips and chest closing past square
+      at(520, { hip: [25, -70.5, 0], py: -16, cy: -20, lean: 14, nod: 7, R: [66, -108, -18], by: -58, el: 0, n: [0, 1, 0] }, 'out'),
+      at(590, { hip: [24.5, -71, 0], py: -15, cy: -19, lean: 13, nod: 7, R: [64, -108, -17], by: -55, el: 2, n: [0, 1, 0] }, 'io'),
+      at(770, { hip: [8, -77, 0], py: 4, cy: 9, lean: 7, nod: 5, R: [52, -108, -4], by: -22, el: 10, n: [0, 0.6, 0.8] }, 'io'),
       at(930, {}, 'io'),
     ],
     phases: { windup: [0, 415], active: [415, 520], recovery: [520, 930] },
+    kp: [['anticipation', 290], ['contact', 460], ['follow-through', 545], ['recovery', 930]],
   },
   diagonal: {
     name: 'Diagonal cut (kesa-giri)', feet: FEET,
@@ -333,23 +345,25 @@ export const MOVES = {
   thrust: {
     name: 'Thrust (tsuki)', feet: FEET,
     // the front foot steps in with the thrust (lifted, set down: no slide) and back out in the recovery
-    steps: [{ foot: 'R', t0: 300, t1: 390, dx: 20, h: 7 }, { foot: 'R', t0: 505, t1: 625, dx: -20, h: 5 }],
+    steps: [{ foot: 'R', t0: 300, t1: 390, dx: 24, h: 7 }, { foot: 'R', t0: 520, t1: 660, dx: -24, h: 5 }],
     keys: [
       at(0, {}),
-      // coil: the hips sink and draw back, the fists come in to the belly, the tip rises a hair and stays on the line
-      at(200, { hip: [-8, -76, 0], py: 14, cy: 16, lean: 4, nod: 5, R: [28, -102, 2], by: -1, el: 9 }, 'io'),
-      at(290, { hip: [-9, -75.5, 0], py: 14, cy: 16, lean: 4, nod: 5, R: [27, -102, 2], by: -1, el: 8 }, 'out'),
-      // the drive: hips first, then the arms shoot the point straight down the line as the front foot lands
-      at(335, { hip: [6, -76, 0], py: 8, cy: 6, lean: 6, nod: 6, R: [52, -114, 2], by: 0, el: 3 }, 'in'),
-      at(390, { hip: [28, -73, 0], py: 2, cy: 0, lean: 10, nod: 7, R: [86, -126, 2], by: 0, el: 1 }, 'lin'),
-      // the point stops dead and holds (a hair of overshoot in the hands)
-      at(435, { hip: [29, -72.5, 0], py: 1, cy: 0, lean: 10.5, nod: 7, R: [88, -126.5, 2], by: 0, el: 0.5 }, 'out'),
-      at(490, { hip: [28.5, -72.6, 0], py: 1, cy: 1, lean: 10, nod: 7, R: [86, -125.5, 2], by: 0, el: 1 }, 'io'),
-      // pull back (hiki) in one move: the hips go back over the stance as the front foot steps out, the point stays on the line
-      at(650, { hip: [6, -78, 0], py: 10, cy: 14, lean: 7, nod: 5, R: [54, -112, 2], by: -1, el: 10 }, 'io'),
+      // anticipation (the coil): the hips sink and draw back over the rear leg, the fists come in to the belly, the point
+      // stays on his throat; held
+      at(200, { hip: [-11, -75, 0], py: 16, cy: 18, lean: 2, nod: 5, R: [24, -100, 2], by: -1, el: 8 }, 'io'),
+      at(290, { hip: [-12, -74.5, 0], py: 16, cy: 18, lean: 2, nod: 5, R: [23, -100, 2], by: -1, el: 7 }, 'out'),
+      // the drive: the hips first, then the arms shoot the point straight down the line as the front foot lands
+      at(335, { hip: [6, -74, 0], py: 8, cy: 6, lean: 7, nod: 6, R: [52, -112, 2], by: 0, el: 3 }, 'in'),
+      at(390, { hip: [29, -71, 0], py: 0, cy: -2, lean: 12, nod: 8, R: [88, -125, 2], by: 0, el: 1 }, 'lin'),
+      // the point stops dead past the target and holds, the body long over the front knee
+      at(435, { hip: [30, -70.5, 0], py: -1, cy: -2, lean: 12.5, nod: 8, R: [90, -125.5, 2], by: 0, el: 0.5 }, 'out'),
+      at(490, { hip: [29.5, -70.7, 0], py: -1, cy: -1, lean: 12, nod: 8, R: [88, -124.5, 2], by: 0, el: 1 }, 'io'),
+      // pull back (hiki): the hips go back over the stance as the front foot steps out, the point stays on the line
+      at(660, { hip: [6, -78, 0], py: 10, cy: 14, lean: 7, nod: 5, R: [54, -112, 2], by: -1, el: 10 }, 'io'),
       at(840, {}, 'io'),
     ],
     phases: { windup: [0, 335], active: [335, 435], recovery: [435, 840] },
+    kp: [['anticipation', 260], ['contact', 390], ['follow-through', 460], ['recovery', 840]],
   },
   block: {
     name: 'Block (overhead, against a cut to the head)', feet: FEET,
@@ -379,96 +393,118 @@ export const MOVES = {
   // class). Used by the light string (Akane: L1 yoko from the left, L2 kesa, L3 thrust; Kuro: kesa, gyaku-kesa, men).
   kesaS: {
     name: 'Light kesa (from the right shoulder)', feet: FEET,
+    steps: [{ foot: 'R', t0: 205, t1: 272, dx: 16, h: 6 }, { foot: 'R', t0: 420, t1: 560, dx: -16, h: 4 }],
     keys: [
       at(0, {}),
-      // the fists go up and back past the right ear with the elbows low, then the elbows flick up behind the face
+      // the fists go up past the right ear with the elbows low, then the elbows flick up behind the face
       at(85, K_UP1, 'io'),
       at(112, K_EAR, 'io'),
-      at(145, K_UP3, 'io'),
-      // the top, short: fists by the right side of the crown, blade back over the shoulder
-      at(175, { hip: [-4, -81.5, 1], py: 22, cy: 38, lean: 0, nod: 1, R: [-3, -182, 18], by: 158, el: 52, n: [0, 0.6, 0.8], ...UPEL, pL: [0.6, 0.6, -0.4] }, 'out'),
-      at(195, { hip: [0, -81, 1], py: 18, cy: 35, lean: 1, nod: 2, R: [0, -182, 20], by: 158, el: 48, n: [0, 0.6, 0.8], ...UPEL, pL: [0.6, 0.6, -0.4] }, 'io'),
-      at(238, { hip: [9, -78, 0], py: 7, cy: 18, lean: 3, nod: 2, R: [48, -160, 24], by: 35, el: 36, n: [0, 0.6, 0.8], pR: [-0.3, 0.4, 0.85], pL: [0.2, 0.8, -0.6] }, 'in'),
-      at(268, { hip: [15, -76.5, 0], py: -2, cy: 2, lean: 7, nod: 6, R: [68, -128, 4], by: -14, el: -22, n: [0, 0.6, 0.8] }, 'lin'),
-      at(320, { hip: [17, -74, 0], py: -9, cy: -9, lean: 10, nod: 7, R: [60, -96, -10], by: -46, el: -39, n: [0, 0.6, 0.8] }, 'out'),
-      at(365, { hip: [16.5, -74.5, 0], py: -8, cy: -8, lean: 9.5, nod: 7, R: [58, -98, -10], by: -45, el: -34, n: [0, 0.6, 0.8] }, 'io'),
-      at(530, { hip: [7, -78, 0], py: 5, cy: 9, lean: 7, nod: 5, R: [50, -106, -3], by: -18, el: 6, n: [0, 0.4, 0.92] }, 'io'),
+      at(142, { ...K_UP3, hip: [-6, -80, 1], py: 23, cy: 39, lean: 0 }, 'io'),
+      // anticipation: fists by the right side of the crown, the blade up and back over the right shoulder; the hips back,
+      // the chest wound open; held
+      at(172, { ...K_TOP, hip: [-8, -79.5, 1], py: 25, cy: 43, lean: -2, R: [2, -161, 22], by: 168, el: 28 }, 'out'),
+      at(200, { ...K_TOP, hip: [-8, -79.5, 1], py: 25, cy: 43, lean: -1.5, R: [1, -161, 22], by: 169, el: 29 }, 'io'),
+      // the cut: the hips drive and turn, the front foot steps in, the blade comes over the shoulder and down across him
+      at(243, { hip: [11, -76, 0], py: 4, cy: 14, lean: 5, nod: 3, R: [50, -160, 22], by: 35, el: 36, n: [0, 0.6, 0.8], pR: [-0.3, 0.4, 0.85], pL: [0.2, 0.8, -0.6] }, 'in'),
+      at(272, { hip: [20, -73, 0], py: -4, cy: -2, lean: 10, nod: 6, R: [71, -128, 6], by: -16, el: -42, n: [0, 0.6, 0.8] }, 'lin'),
+      // follow-through: from his right shoulder on down to her left hip, the point low and forward; the body over the knee
+      at(320, { hip: [25, -70, 0], py: -12, cy: -14, lean: 18, nod: 8, R: [58, -91, -14], by: -75, el: -46, n: [0, 0.6, 0.8] }, 'out'),
+      at(365, { hip: [24.5, -70.5, 0], py: -11, cy: -13, lean: 17, nod: 8, R: [58, -93, -14], by: -74, el: -43, n: [0, 0.6, 0.8] }, 'io'),
+      at(530, { hip: [8, -77, 0], py: 6, cy: 10, lean: 8, nod: 5, R: [50, -106, -3], by: -18, el: 6, n: [0, 0.4, 0.92] }, 'io'),
       at(700, {}, 'io'),
     ],
     phases: { windup: [0, 235], active: [235, 320], recovery: [320, 700] },
+    kp: [['anticipation', 190], ['contact', 272], ['follow-through', 340], ['recovery', 700]],
   },
   gyakuS: {
     name: 'Light gyaku-kesa (from the left shoulder)', feet: FEET,
+    steps: [{ foot: 'R', t0: 210, t1: 277, dx: 16, h: 6 }, { foot: 'R', t0: 425, t1: 565, dx: -16, h: 4 }],
     keys: [
       at(0, {}),
       // up over the left side of the crown: the elbows go up and back so the near arm passes behind the face
-      at(90, { hip: [-2, -80.5, -0.5], py: 10, cy: 14, lean: 3, nod: 3, R: [32, -148, 0], by: -30, el: 80, n: [0, -0.5, 0.87], pR: [-0.3, 0.4, 0.85], pL: [-0.1, 0.35, -0.9] }, 'io'),
-      at(115, { hip: [-2.5, -81, -0.8], py: 9, cy: 12, lean: 2, nod: 2, R: [24, -166, -2], by: -75, el: 72, n: [0, -0.55, 0.84], pR: [-0.3, 0.6, 0.75], pL: [0.2, -0.1, -0.9] }, 'io'),
-      at(145, { hip: [-3, -81.2, -1], py: 8, cy: 10, lean: 1, nod: 1, R: [14, -179, -3], by: -120, el: 58, n: [0, -0.6, 0.8], ...UPEL, pL: [-0.75, -0.2, -0.65] }, 'io'),
-      at(180, { hip: [-4, -81.5, -1], py: 6, cy: 8, lean: 0, nod: 1, R: [0, -180, -4], by: -150, el: 50, n: [0, -0.6, 0.8], ...UPEL, pL: [-0.75, -0.2, -0.65] }, 'out'),
-      at(205, { hip: [0, -81, -1], py: 7, cy: 9, lean: 1, nod: 2, R: [2, -180, -3], by: -150, el: 46, n: [0, -0.6, 0.8], ...UPEL, pL: [-0.75, -0.2, -0.65] }, 'io'),
-      at(240, { hip: [9, -78, 0], py: 9, cy: 12, lean: 3, nod: 2, R: [44, -162, -2], by: -35, el: 40, n: [0, -0.6, 0.8], pR: [-0.55, 0.15, 0.85], pL: [-0.65, 0, -0.8] }, 'in'),
-      // the strike crosses from the left shoulder to the right hip; the follow-through ends low on the near side
-      at(256, { hip: [12.5, -77, 0], py: 10, cy: 15, lean: 5, nod: 4, R: [60, -147, -4], by: -12, el: 10, n: [0, -0.6, 0.8], pR: [-0.25, 0.6, 0.75], pL: [-0.4, 0.5, -0.8] }, 'lin'),
-      at(272, { hip: [15, -76.5, 0], py: 12, cy: 20, lean: 7, nod: 6, R: [68, -128, 4], by: 14, el: -22, n: [0, -0.6, 0.8], pL: [-0.3, 0.7, -0.65] }, 'lin'),
-      at(325, { hip: [17, -74, 0], py: 16, cy: 26, lean: 10, nod: 7, R: [62, -100, 20], by: 46, el: -37, n: [0, -0.6, 0.8] }, 'out'),
-      at(370, { hip: [16.5, -74.5, 0], py: 16, cy: 25, lean: 9.5, nod: 7, R: [59, -100, 20], by: 45, el: -38, n: [0, -0.6, 0.8] }, 'io'),
-      at(540, { hip: [7, -78, 0], py: 15, cy: 21, lean: 7, nod: 5, R: [52, -106, 8], by: 18, el: 6, n: [0, -0.3, 0.95] }, 'io'),
+      at(75, { hip: [-3, -80, -0.5], py: 10, cy: 14, lean: 2, nod: 3, R: [32, -150, 0], by: -30, el: 80, n: [0, -0.5, 0.87], pR: [-0.3, 0.4, 0.85], pL: [-0.1, 0.35, -0.9] }, 'io'),
+      at(105, { hip: [-5, -79.8, -0.8], py: 8, cy: 10, lean: 1, nod: 2, R: [22, -167, -2], by: -75, el: 72, n: [0, -0.55, 0.84], pR: [-0.3, 0.6, 0.75], pL: [0.2, -0.1, -0.9] }, 'io'),
+      at(135, { hip: [-7, -79.4, -1], py: 4, cy: 4, lean: 0, nod: 1, R: [10, -179, -3], by: -125, el: 60, n: [0, -0.6, 0.8], ...UPEL, pL: [-0.75, -0.2, -0.65] }, 'io'),
+      // anticipation: fists by the left side of the crown, the blade up and back over the left shoulder, the chest closed
+      // (the left shoulder back), the hips back; held
+      at(165, { hip: [-9, -79, -1], py: 0, cy: -2, lean: -2, nod: 1, R: [2, -161, -6], by: -165, el: 28, n: [0, -0.6, 0.8], ...UPEL, pL: [-0.75, -0.2, -0.65] }, 'out'),
+      at(200, { hip: [-8.5, -79, -1], py: 1, cy: -1, lean: -1.5, nod: 1, R: [1, -161, -6], by: -166, el: 29, n: [0, -0.6, 0.8], ...UPEL, pL: [-0.75, -0.2, -0.65] }, 'io'),
+      // the cut: the hips drive and turn the other way, the front foot steps in, down across him from his left shoulder
+      at(228, { hip: [5, -77.5, 0], py: 6, cy: 6, lean: 3, nod: 2, R: [28, -164, -3], by: -120, el: 36, n: [0, -0.6, 0.8], pR: [-0.55, 0.15, 0.85], pL: [-0.65, 0, -0.8] }, 'io'),
+      at(252, { hip: [12, -75.5, 0], py: 10, cy: 14, lean: 6, nod: 3, R: [50, -157, -3], by: -30, el: 30, n: [0, -0.6, 0.8], pR: [-0.25, 0.6, 0.75], pL: [-0.4, 0.5, -0.8] }, 'in'),
+      at(275, { hip: [22, -72, 0], py: 14, cy: 22, lean: 13, nod: 6, R: [70, -129, 4], by: 16, el: -36, n: [0, -0.6, 0.8], pL: [-0.3, 0.7, -0.65] }, 'lin'),
+      // follow-through low on the near (right) side, the point forward; the body long over the front knee
+      at(325, { hip: [25, -70, 0], py: 22, cy: 32, lean: 18, nod: 8, R: [64, -93, 20], by: 46, el: -48, n: [0, -0.6, 0.8] }, 'out'),
+      at(370, { hip: [24.5, -70.5, 0], py: 21, cy: 31, lean: 17, nod: 8, R: [64, -95, 20], by: 45, el: -45, n: [0, -0.6, 0.8] }, 'io'),
+      at(540, { hip: [8, -77, 0], py: 15, cy: 21, lean: 7, nod: 5, R: [52, -106, 8], by: 18, el: 6, n: [0, -0.3, 0.95] }, 'io'),
       at(720, {}, 'io'),
     ],
     phases: { windup: [0, 240], active: [240, 325], recovery: [325, 720] },
+    kp: [['anticipation', 185], ['contact', 275], ['follow-through', 345], ['recovery', 720]],
   },
   menS: {
     name: 'Light men (small cut to the head)', feet: FEET,
+    steps: [{ foot: 'R', t0: 180, t1: 248, dx: 16, h: 6 }, { foot: 'R', t0: 400, t1: 540, dx: -16, h: 4 }],
     keys: [
       at(0, {}),
-      // kendo's small men: the fists rise only to the forehead, the blade a little past upright
-      at(80, { hip: [-1.5, -80.5, 0], py: 14, cy: 28, lean: 3, nod: 3, R: [42, -142, 4], by: 0, el: 66, pR: [-0.5, 0.45, 0.75], pL: [-0.5, 0.45, -0.75] }, 'io'),
-      at(140, { hip: [-3, -81, 0], py: 13, cy: 33, lean: 2, nod: 2, R: [32, -163, 4], by: 0, el: 100, pR: [-0.2, 0.9, 0.4], pL: [-0.6, 0.3, -0.75] }, 'io'),
-      at(170, { hip: [-3.5, -81, 0], py: 12.5, cy: 34, lean: 2, nod: 2, R: [28, -166, 4], by: 0, el: 108, pR: [-0.3, 0.3, 0.9], pL: [-0.8, 0, -0.6] }, 'io'),
-      at(205, { hip: [6, -79, 0], py: 6, cy: 18, lean: 4, nod: 3, R: [50, -160, 3], by: 0, el: 60, pR: [-0.3, 0.4, 0.85], pL: [-0.5, 0.2, -0.85] }, 'in'),
-      at(245, { hip: [15, -76.5, 0], py: 0, cy: 2, lean: 6, nod: 5, R: [69, -145, 2], by: 0, el: 0 }, 'lin'),
-      at(300, { hip: [17, -75, 0], py: 0, cy: 2, lean: 8, nod: 6, R: [73, -127, 2], by: 0, el: -18 }, 'out'),
-      at(345, { hip: [16.5, -75.5, 0], py: 1, cy: 3, lean: 7.5, nod: 6, R: [71, -128, 2], by: 0, el: -14 }, 'io'),
-      at(520, { hip: [6, -78, 0], py: 9, cy: 14, lean: 6, nod: 5, R: [54, -113, 2], by: -1, el: 9 }, 'io'),
+      // kendo's men: the fists rise to over the forehead, the blade back past upright (anticipation, held)
+      at(70, { hip: [-3, -80, 0], py: 15, cy: 28, lean: 3, nod: 3, R: [42, -142, 4], by: 0, el: 66, pR: [-0.5, 0.45, 0.75], pL: [-0.5, 0.45, -0.75] }, 'io'),
+      at(120, { hip: [-6, -79.5, 0], py: 16, cy: 34, lean: 1, nod: 1, R: [30, -164, 4], by: 0, el: 104, pR: [-0.2, 0.9, 0.4], pL: [-0.6, 0.3, -0.75] }, 'io'),
+      at(150, { hip: [-6, -79.3, 0], py: 16, cy: 36, lean: -1, nod: 1, R: [28, -164, 4], by: 0, el: 116, pR: [-0.3, 0.3, 0.9], pL: [-0.8, 0, -0.6] }, 'out'),
+      at(180, { hip: [-5.5, -79.3, 0], py: 16, cy: 36, lean: -1, nod: 1, R: [27, -164, 4], by: 0, el: 117, pR: [-0.3, 0.3, 0.9], pL: [-0.8, 0, -0.6] }, 'io'),
+      // the cut: the hips and the front foot drive in, the blade comes over onto his head
+      at(208, { hip: [5, -78, 0], py: 6, cy: 17, lean: 2, nod: 3, R: [45, -160, 3], by: 0, el: 80, pR: [-0.3, 0.4, 0.85], pL: [-0.5, 0.2, -0.85] }, 'in'),
+      at(245, { hip: [15, -75, 0], py: 0, cy: 2, lean: 6, nod: 6, R: [72, -138, 2], by: 0, el: -9 }, 'lin'),
+      // follow-through down to waist height, the point forward, the body long
+      at(300, { hip: [24, -70, 0], py: -3, cy: -2, lean: 17, nod: 8, R: [80, -104, 2], by: 0, el: -22 }, 'out'),
+      at(345, { hip: [23.5, -70.5, 0], py: -2, cy: -1, lean: 16, nod: 8, R: [79, -106, 2], by: 0, el: -19 }, 'io'),
+      at(520, { hip: [7, -78, 0], py: 9, cy: 14, lean: 6, nod: 5, R: [54, -113, 2], by: -1, el: 9 }, 'io'),
       at(680, {}, 'io'),
     ],
     phases: { windup: [0, 205], active: [205, 300], recovery: [300, 680] },
+    kp: [['anticipation', 165], ['contact', 245], ['follow-through', 320], ['recovery', 680]],
   },
   yokoL: {
     name: 'Light yoko (from the left, backhand)', feet: FEET,
+    steps: [{ foot: 'R', t0: 220, t1: 285, dx: 16, h: 6 }, { foot: 'R', t0: 430, t1: 570, dx: -16, h: 4 }],
     keys: [
       at(0, {}),
-      // the blade is taken back past the left hip (the far side), edge out, the hips turn a little away
-      at(100, { hip: [-3, -79.5, -1], py: 8, cy: 10, lean: 4, nod: 3, R: [26, -102, -14], by: -110, el: -6, n: [0, -0.55, 0.84], pR: [-0.2, 0.8, 0.6], pL: [-0.4, 0.7, -0.6] }, 'io'),
-      at(160, { hip: [-5, -79, -2], py: 2, cy: 2, lean: 4, nod: 3, R: [10, -100, -24], by: -165, el: -8, n: [0, -0.6, 0.8] }, 'io'),
-      at(195, { hip: [-5.5, -79, -2], py: 0, cy: 0, lean: 4, nod: 3, R: [9, -100, -25], by: -168, el: -8, n: [0, -0.6, 0.8] }, 'out'),
-      // the hips turn first, the edge rolls into the cut; level through the target, out to the near side, stopped
-      at(225, { hip: [2, -78, -1], py: 4, cy: 4, lean: 6, nod: 4, R: [18, -106, -28], by: -140, el: -4, n: [0, -1, 0] }, 'io'),
-      at(250, { hip: [8, -77, 0], py: 6, cy: 6, lean: 7, nod: 5, R: [50, -110, -24], by: -30, el: 0, n: [0, -1, 0] }, 'in'),
-      at(280, { hip: [15, -76, 0], py: 8, cy: 8, lean: 8, nod: 6, R: [66, -112, -4], by: 0, el: 2, n: [0, -1, 0] }, 'lin'),
-      at(335, { hip: [17, -76, 0], py: 16, cy: 28, lean: 8, nod: 6, R: [62, -110, 22], by: 55, el: 2, n: [0, -1, 0] }, 'out'),
-      at(380, { hip: [16.5, -76.5, 0], py: 16, cy: 27, lean: 8, nod: 6, R: [61, -110, 21], by: 53, el: 4, n: [0, -1, 0] }, 'io'),
-      at(540, { hip: [7, -78, 0], py: 15, cy: 22, lean: 7, nod: 5, R: [52, -108, 10], by: 22, el: 10, n: [0, -0.4, 0.92] }, 'io'),
+      // anticipation: the blade taken back past the left hip (the far side), level, pointing back, the chest wound away;
+      // the hips back over the rear leg; held
+      at(90, { hip: [-4, -79.5, -1], py: 6, cy: 6, lean: 4, nod: 3, R: [24, -104, -14], by: -110, el: -2, n: [0, -0.55, 0.84], pR: [-0.2, 0.8, 0.6], pL: [-0.4, 0.7, -0.6] }, 'io'),
+      at(150, { hip: [-8, -78.5, -2], py: -4, cy: -8, lean: 5, nod: 3, R: [6, -103, -26], by: -168, el: 6, n: [0, -0.6, 0.8] }, 'out'),
+      at(215, { hip: [-8.5, -78.5, -2], py: -5, cy: -9, lean: 5, nod: 3, R: [5, -103, -26], by: -170, el: 7, n: [0, -0.6, 0.8] }, 'io'),
+      // the cut: the hips turn and drive first, the front foot steps in, the edge rolls into it; level through the target
+      at(235, { hip: [4, -77.5, -1], py: 2, cy: 0, lean: 6, nod: 4, R: [18, -106, -28], by: -140, el: 0, n: [0, -1, 0] }, 'io'),
+      at(255, { hip: [14, -75, 0], py: 6, cy: 6, lean: 9, nod: 5, R: [52, -110, -22], by: -30, el: 0, n: [0, -1, 0] }, 'in'),
+      at(280, { hip: [22, -72, 0], py: 10, cy: 12, lean: 12, nod: 6, R: [70, -112, -2], by: 0, el: 2, n: [0, -1, 0] }, 'lin'),
+      // follow-through out to the near side, the chest opening past square; held
+      at(335, { hip: [25, -70.5, 0], py: 22, cy: 36, lean: 14, nod: 7, R: [62, -108, 24], by: 62, el: 0, n: [0, -1, 0] }, 'out'),
+      at(380, { hip: [24.5, -71, 0], py: 21, cy: 35, lean: 13, nod: 7, R: [61, -108, 23], by: 60, el: 2, n: [0, -1, 0] }, 'io'),
+      at(540, { hip: [8, -77, 0], py: 15, cy: 22, lean: 7, nod: 5, R: [52, -108, 10], by: 22, el: 10, n: [0, -0.4, 0.92] }, 'io'),
       at(700, {}, 'io'),
     ],
     phases: { windup: [0, 250], active: [250, 335], recovery: [335, 700] },
+    kp: [['anticipation', 185], ['contact', 280], ['follow-through', 355], ['recovery', 700]],
   },
   tsukiS: {
     name: 'Light thrust (tsuki, quick)', feet: FEET,
-    steps: [{ foot: 'R', t0: 150, t1: 215, dx: 18, h: 6 }, { foot: 'R', t0: 330, t1: 440, dx: -18, h: 4 }],
+    steps: [{ foot: 'R', t0: 150, t1: 215, dx: 22, h: 6 }, { foot: 'R', t0: 330, t1: 450, dx: -22, h: 4 }],
     keys: [
       at(0, {}),
-      at(110, { hip: [-7, -76.5, 0], py: 14, cy: 16, lean: 4, nod: 5, R: [29, -102, 2], by: -1, el: 9 }, 'io'),
-      at(150, { hip: [-8, -76, 0], py: 14, cy: 16, lean: 4, nod: 5, R: [28, -102, 2], by: -1, el: 8 }, 'out'),
-      at(180, { hip: [5, -76, 0], py: 8, cy: 6, lean: 6, nod: 6, R: [50, -113, 2], by: 0, el: 3 }, 'in'),
-      at(215, { hip: [25, -73.5, 0], py: 2, cy: 0, lean: 10, nod: 7, R: [84, -125, 2], by: 0, el: 1 }, 'lin'),
-      at(250, { hip: [26, -73, 0], py: 1, cy: 0, lean: 10.5, nod: 7, R: [86, -125.5, 2], by: 0, el: 0.5 }, 'out'),
-      at(290, { hip: [25.5, -73.1, 0], py: 1, cy: 1, lean: 10, nod: 7, R: [84, -124.5, 2], by: 0, el: 1 }, 'io'),
-      at(430, { hip: [6, -78, 0], py: 10, cy: 14, lean: 7, nod: 5, R: [54, -112, 2], by: -1, el: 10 }, 'io'),
+      // anticipation (the coil): the hips sink back over the rear leg, the fists in to the belly, the point on his throat
+      at(100, { hip: [-10, -75.5, 0], py: 16, cy: 18, lean: 2, nod: 5, R: [25, -100, 2], by: -1, el: 8 }, 'io'),
+      at(150, { hip: [-11, -75, 0], py: 16, cy: 18, lean: 2, nod: 5, R: [24, -100, 2], by: -1, el: 7 }, 'out'),
+      // the drive: hips first, the front foot steps in, the arms shoot the point down the line
+      at(180, { hip: [6, -74, 0], py: 8, cy: 6, lean: 7, nod: 6, R: [52, -112, 2], by: 0, el: 3 }, 'in'),
+      at(215, { hip: [26, -71.5, 0], py: 0, cy: -2, lean: 12, nod: 8, R: [86, -124, 2], by: 0, el: 1 }, 'lin'),
+      at(250, { hip: [27, -71, 0], py: -1, cy: -2, lean: 12.5, nod: 8, R: [88, -124.5, 2], by: 0, el: 0.5 }, 'out'),
+      at(290, { hip: [26.5, -71.2, 0], py: -1, cy: -1, lean: 12, nod: 8, R: [86, -123.5, 2], by: 0, el: 1 }, 'io'),
+      at(440, { hip: [6, -78, 0], py: 10, cy: 14, lean: 7, nod: 5, R: [54, -112, 2], by: -1, el: 10 }, 'io'),
       at(580, {}, 'io'),
     ],
     phases: { windup: [0, 180], active: [180, 255], recovery: [255, 580] },
+    kp: [['anticipation', 150], ['contact', 215], ['follow-through', 270], ['recovery', 580]],
   },
 
   // ---------------------------------------------------------------- guards (held while GUARD is down) and their blocks
@@ -968,7 +1004,7 @@ export const MOVES = {
       at(420, { hip: [8, -76, 0], py: 10, cy: 18, lean: 8, nod: 6, R: [52, -100, 16], by: 40, el: -30, n: [0, 0, -1] }, 'in'),
       at(454, { hip: [14, -77, 0], py: 4, cy: 8, lean: 6, nod: 4, R: [64, -118, 6], by: 4, el: 10, n: [0, 0, -1] }, 'lin'),
       at(538, { hip: [16, -79, 0], py: 0, cy: 2, lean: 2, nod: 0, R: [56, -148, -2], by: -6, el: 62, n: [0, 0, -1], pR: [-0.4, 0.5, 0.7], pL: [-0.5, 0.3, -0.8] }, 'lin'),
-      at(639, { hip: [16, -80, 0], py: 0, cy: 2, lean: 0, nod: -1, R: [46, -164, -4], by: -8, el: 82, n: [0, 0, -1], pR: [-0.4, 0.5, 0.7], pL: [-0.5, 0.3, -0.8] }, 'out'),
+      at(639, { hip: [16, -80, 0], py: 0, cy: 2, lean: 0, nod: -1, R: [40, -168, -4], by: -8, el: 112, n: [0, 0, -1], pR: [-0.4, 0.5, 0.7], pL: [-0.5, 0.3, -0.8] }, 'out'),
       at(800, { hip: [8, -79, 0], py: 8, cy: 14, lean: 4, nod: 3, R: [50, -130, 2], by: -4, el: 46, pR: [-0.3, 0.7, 0.6], pL: [-0.3, 0.7, -0.6] }, 'io'),
       at(1076, {}, 'io'),
     ],
@@ -984,7 +1020,7 @@ export const MOVES = {
       at(230, { hip: [5, -77, 0], py: 6, cy: 8, lean: 7, nod: 5, R: [54, -98, -4], by: -40, el: -32, n: [0, 0, -1] }, 'in'),
       at(261, { hip: [12, -77, 0], py: 8, cy: 12, lean: 6, nod: 4, R: [66, -114, 2], by: -4, el: 8, n: [0, 0, -1] }, 'lin'),
       at(328, { hip: [15, -79, 0], py: 12, cy: 20, lean: 2, nod: 0, R: [56, -148, 4], by: 8, el: 62, n: [0, 0, -1], pR: [-0.4, 0.5, 0.7], pL: [-0.5, 0.3, -0.8] }, 'lin'),
-      at(412, { hip: [15, -80, 0], py: 13, cy: 22, lean: 0, nod: -1, R: [46, -162, 6], by: 10, el: 82, n: [0, 0, -1], pR: [-0.4, 0.5, 0.7], pL: [-0.5, 0.3, -0.8] }, 'out'),
+      at(412, { hip: [15, -80, 0], py: 13, cy: 22, lean: 0, nod: -1, R: [40, -166, 6], by: 10, el: 110, n: [0, 0, -1], pR: [-0.4, 0.5, 0.7], pL: [-0.5, 0.3, -0.8] }, 'out'),
       at(600, { hip: [7, -79, 0], py: 13, cy: 20, lean: 4, nod: 3, R: [50, -128, 4], by: 2, el: 44, pR: [-0.3, 0.7, 0.6], pL: [-0.3, 0.7, -0.6] }, 'io'),
       at(891, {}, 'io'),
     ],
@@ -1642,6 +1678,45 @@ export const MOVES = {
     phases: null,
   },
 };
+// (2026-11-21, the owner: "kılıç saldırıları hala çok kötü önce onları düzelt") The whole body into the cuts not keyed
+// above in the four phases: the rising cuts, the low cut, the draw cut, the strings and the wheel cut. Their arm and blade
+// paths stay as they are; the body is laid over them on the move's own phases (times unchanged):
+//   coil   the hips draw back over the rear leg into the anticipation (and the chest a hair back), released as the cut starts;
+//   drive  from the cut's start the hips (and the fists with them) go forward, reaching full by the first contact and held
+//          through the follow-through (the last hit + 40 ms), then given back over the recovery;
+//   lean   the body leans further into the cut over the bent front knee with the drive; sink: the hips lower with it;
+//   step   the front foot steps in with the drive (lifted and set down: no slide) and back out in the recovery.
+const BODY = {
+  kiriR: { coil: 0, drive: 9, lean: 7, sink: 3, step: 16 },
+  kiriL: { coil: 0, drive: 9, lean: 7, sink: 3, step: 16 },
+  sune: { coil: 2, drive: 6, lean: 2, sink: 1, step: 18 },
+  nuki: { coil: 3, drive: 8, lean: 6, sink: 3, step: 16 },
+  tsubame: { coil: 0, drive: 4, lean: 0, sink: 0, step: 16 },
+  renga: { coil: 1, drive: 7, lean: 5, sink: 2, step: 16 },
+  oroshi: { coil: 1, drive: 4, lean: 3, sink: 1, step: 16 },
+  sandan: { coil: 1, drive: 6, lean: 3, sink: 2, step: 16 },
+  kasumi: { coil: 3, drive: 4, lean: 1, sink: 1, step: 0 },
+  kuruma: { coil: 0, drive: 6, lean: 5, sink: 2, step: 0 },
+};
+const sstep = (a, b, t) => { const u = clamp((t - a) / Math.max(1e-6, b - a), 0, 1); return u * u * (3 - 2 * u); };
+for (const [id, B] of Object.entries(BODY)) {
+  const M = MOVES[id], ph = M.phases, hits = ph.hits || [ph.active], A0 = hits[0][0], A1 = hits[0][1], Ae = hits[hits.length - 1][1];
+  const T = M.keys[M.keys.length - 1].t, ta = Math.max(A0 * 0.55, A0 - 90);
+  const coilW = (t) => sstep(A0 * 0.25, ta, t) * (1 - sstep(A0 - 25, A0 + 10, t));
+  const driveW = (t) => sstep(A0 - 25, A0 + (A1 - A0) * 0.6, t) * (1 - sstep(Ae + 40, Ae + 40 + (T - Ae - 40) * 0.75, t));
+  for (const k of M.keys) {
+    if (k.t <= 0 || k.t >= T) continue;
+    const dx = B.drive * driveW(k.t) - B.coil * coilW(k.t);
+    k.hip = [k.hip[0] + dx, k.hip[1] + B.sink * driveW(k.t), k.hip[2]];
+    if (!k.iai && !k.w) k.R = [k.R[0] + dx, k.R[1] + B.sink * driveW(k.t), k.R[2]];
+    k.lean += B.lean * driveW(k.t) - 1.5 * coilW(k.t);
+  }
+  if (B.step && !M.steps && !M.ownFeet) {
+    const back0 = Math.min(Ae + 120, T - 220);
+    M.steps = [{ foot: 'R', t0: A0 - 35, t1: A0 + 40, dx: B.step, h: 6 }, { foot: 'R', t0: back0, t1: back0 + 150, dx: -B.step, h: 4 }];
+  }
+  M.kp = [['anticipation', Math.round(ta)], ['contact', Math.round(A0 + (A1 - A0) * 0.6)], ['follow-through', Math.round(Ae + 30)], ['recovery', T]];
+}
 export const ORDER = ['idle', 'overhead', 'horizontal', 'diagonal', 'thrust', 'block',
   'kesaS', 'gyakuS', 'menS', 'yokoL', 'tsukiS', 'guardMid', 'guardHi', 'guardLow', 'blockMid', 'blockHi', 'blockLow', 'hurtHi', 'hurtBody', 'stagger', 'recoil', 'zanshin',
   'walkF', 'walkB', 'run', 'fall', 'downRise', 'throwL', 'parryUp', 'parryDown', 'parrySide', 'dodgeB', 'dodgeF', 'noto', 'nuki',
