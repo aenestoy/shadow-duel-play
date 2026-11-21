@@ -419,6 +419,7 @@ export const MOVES = {
     ],
     phases: { windup: [0, 235], active: [235, 320], recovery: [320, 700] },
     kp: [['anticipation', 190], ['contact', 272], ['follow-through', 340], ['recovery', 700]],
+    bzFar: [200, 272],
   },
   gyakuS: {
     name: 'Light gyaku-kesa (from the left shoulder)', feet: FEET,
@@ -1014,6 +1015,9 @@ export const MOVES = {
       at(1076, {}, 'io'),
     ],
     phases: { windup: [0, 370], active: [370, 538], recovery: [538, 1076] },
+    // (2026-11-21: the blade's own way down to the waki passes straight down - the last-word governor follows it through
+    // instead of waiting at the down band's edge and then crossing late, past the thighs; it may not stop in the band)
+    downPass: [[60, 200]],
   },
   // kiri-age from the left (Akane's light, backhand): low on the left side, up through him to high on the right
   kiriL: {
@@ -1932,7 +1936,7 @@ export function govStep(g, a, o) {
   const bad = o.bad || (() => 0), p = g.a, v0 = g.v || 0;
   // (a target in the down band: its edge on the side the blade comes from - crossed only on the way to beyond it)
   let t = a;
-  if (!o.okDown && inDown(t)) { const sp = wrapA(p - Math.PI / 2), sd = Math.abs(sp) > 1e-3 ? Math.sign(sp) : Math.sign(wrapA(t - Math.PI / 2)) || 1; t = Math.PI / 2 + sd * (DOWN_W + 0.02); }
+  if (!o.okDown && !o.downPass && inDown(t)) { const sp = wrapA(p - Math.PI / 2), sd = Math.abs(sp) > 1e-3 ? Math.sign(sp) : Math.sign(wrapA(t - Math.PI / 2)) || 1; t = Math.PI / 2 + sd * (DOWN_W + 0.02); }
   let d = wrapA(t - p);
   const lowBack = (q) => { const w = wrapA(q); return w > Math.PI / 2 + 0.1 || w < -Math.PI + 0.35; };
   // (fix 6, o.backUp: a blade low behind whose target is held at the down band's edge goes on slowly up the back - it is
@@ -1951,8 +1955,14 @@ export function govStep(g, a, o) {
     // (and never turned straight back inside the beat after a swing - see back below; the way round the back is kept)
     if (g.bu) { /* kept */ } else if (g.dir && Math.sign(pick) !== g.dir && g.legS === g.dir && g.legAmp >= 0.45 && g.legAge <= 10 && (g.slow || 0) < REV_HOLD) pick = g.dir === Math.sign(d) ? d : dl;
     else if (g.dir && Math.sign(pick) !== g.dir) { const keep = g.dir === Math.sign(d) ? d : dl, ck = keep === d ? cs : cl; if (ck <= Math.min(cs, cl) + 1.5) pick = keep; }
+    // (2026-11-21: no spin to meet a target) the short way blocked by the other fighter, the long way round would be a
+    // spin of more than 4 rad - past its own legs and round the back (seed 9 kiri-age after the yoko) - while the drawing
+    // is about to sweep through where the blade already is: the blade waits there instead, clear and out of the down
+    // band, up to 10 frames, for the target to come round to it
+    if (!g.bu && !o.backUp && !g.dir && Math.abs(pick) > 4 && (g.wl || 0) < 10 && (o.okDown || !inDown(p)) && !(bad(p) > 0)) { g.wl = (g.wl || 0) + 1; g.v = 0; return p; }
+    if (Math.abs(pick) <= 4) g.wl = 0;
     d = pick; g.dir = Math.sign(d);
-  } else g.dir = 0;
+  } else { g.dir = 0; g.wl = 0; }
   const sg = Math.sign(d);
   // (the beat before a swing back)
   const back = (st) => g.legS && Math.sign(st) === -g.legS && Math.abs(st) >= 0.03 && g.legAmp >= 0.45 && g.legAge <= 10 && (g.slow || 0) < REV_HOLD;
@@ -1960,6 +1970,21 @@ export function govStep(g, a, o) {
   // (inside the band only at speed and never turning back there; a step that would stop in it stops before it)
   const bandOK = (c, st) => o.okDown || !inDown(c) || (Math.abs(st) >= DOWN_V && !(inDown(p) && v0 && Math.sign(st) !== Math.sign(v0) && Math.abs(v0) >= DOWN_V * 0.5));
   const ok = (st) => bandOK(p + st, st) && !back(st);
+  // (2026-11-21: never resting in him) the blade left lying in the other's head or body outside its cut, with what the
+  // drawing gives (the fight's own picture holding it on him after the hit) in him too: a blade that was swinging (0.3 or
+  // more, still moving) goes on through at full speed the way it was swinging, out of him - not crept along inside him
+  if (o.inOpp && g.legS && g.legAmp >= 0.3 && (g.slow || 0) <= 2 && o.inOpp(p) && o.inOpp(t)) { const st = g.legS * GOV_W; if (bandOK(p + st, st)) { g.v = st; g.a = p + st; g.dir = g.legS; return g.a; } }
+  // (2026-11-21: no beat's stall inside a swing) a swing of 0.45 or more just made, where this frame would leave the blade
+  // standing or turn it back a hair, while the move's own drawing (o.raw: before the fight's blade stop pushed it) goes on
+  // the same way: the blade goes on with the drawing, half of what is left a frame (0.04 at least), where that is clear -
+  // never parked by the stop for a beat and then on again the same way (a stutter)
+  if (o.raw != null && !g.bu && g.legS && g.legAmp >= 0.45 && (g.slow || 0) <= 2 && !(sg === g.legS && Math.abs(d) >= 0.03)) {
+    const dr = wrapA(o.raw - p);
+    if (Math.sign(dr) === g.legS && Math.abs(dr) >= 0.06) {
+      const st = g.legS * clamp(Math.abs(dr) * 0.5, 0.04, GOV_W);
+      if (bandOK(p + st, st) && !(bad(p + st) > 0)) { g.v = st; g.a = p + st; g.dir = g.legS; return g.a; }
+    }
+  }
   // (a target already swinging this way at speed: the blade waits for it rather than meeting it and turning back with it)
   // (not on the way round the back, o.backUp: the drawing sweeps the other way through the front there)
   if (!g.bu && Math.abs(tv) >= 0.1 && Math.sign(tv) === -sg && Math.abs(d) > Math.abs(tv) && bandOK(p, 0) && !(bad(p) > 0) && !back(0)) { g.v = 0; return p; }
@@ -2059,9 +2084,18 @@ function bpTable(id, C, BL) {
   }
   for (let i = 1; i < n; i++) need[i] = Math.max(need[i], need[i - 1] - rate);
   for (let i = n - 2; i >= 0; i--) need[i] = Math.max(need[i], need[i + 1] - rate);
-  const bz = new Float64Array(n);
-  for (let i = 0; i < n; i++) bz[i] = Rs[i] && need[i] > Kz[i] ? need[i] : NaN;
-  return { bp: out, bz };
+  // (M.bzFar [t0, t1], 2026-11-21: Kuro's kesa follow-through - the fists out on the far side of the body, the point back
+  // past the far hip: taken toward the camera his nodachi crossed his own torso and thigh. With the long blade only, from t0
+  // to t1 the depth it needs swings over to the far side, the way the blade already points - through the screen's plane,
+  // never a flip - and stays there; flatDrawn keeps it drawn long)
+  const bz = new Float64Array(n), ov = new Uint8Array(n);
+  for (let i = 0; i < n; i++) {
+    bz[i] = Rs[i] && need[i] > Kz[i] ? need[i] : NaN;
+    if (!M.bzFar || BL < 110 || !Rs[i]) continue;
+    const t = i * BP_DT, wf = smooth01((t - M.bzFar[0]) / (M.bzFar[1] - M.bzFar[0]));
+    if (wf > 0) { const zc = Math.max(Kz[i], need[i]), zf = Math.min(Kz[i], -Math.max(0, need[i])); bz[i] = zc + (zf - zc) * wf; ov[i] = 1; }
+  }
+  return { bp: out, bz, ov };
 }
 const BZ_RATE = 0.07;
 function sampleCh(C, t) {
@@ -2076,7 +2110,7 @@ function sampleCh(C, t) {
     o.bp = B[j] + (B[j + 1] - B[j]) * f; o.bv = (B[j + 1] - B[j]) / BP_DT;
     // (the floor's depth toward the camera, where it is deeper than the keyed one)
     const z0 = isNaN(Z[j]) ? o.bz : Z[j], z1 = isNaN(Z[j + 1]) ? o.bz : Z[j + 1];
-    if (!isNaN(Z[j]) || !isNaN(Z[j + 1])) o.bz = Math.max(o.bz, z0 + (z1 - z0) * f);
+    if (!isNaN(Z[j]) || !isNaN(Z[j + 1])) { const z = z0 + (z1 - z0) * f, V = C.bpT.ov; o.bz = V && (V[j] || V[j + 1]) ? z : Math.max(o.bz, z); }
   }
   return o;
 }

@@ -731,7 +731,9 @@ function ours(f, rg, gP, dt) {
   // (2026-11-21: nor in the wind-up of kesa / gyaku-kesa - the aim dragged the fists from over the crown down to the
   // shoulder while the blade was already back over it, so it lay across her own chest; from the drive on it aims. The
   // other cuts keep it: their wind-ups measured worse without)
-  const wind = f.state === 'atk' && (k.cur.id === 'kesaS' || k.cur.id === 'gyakuS') && !inCut(k.cur.id, k.cur.t);
+  // (and the men's: from a parry, the aim held the blade out where the parry left it, so the fight's stop pushed it down and
+  // the raise then swung it straight back up - a reversal; seed 2, frame 1785)
+  const wind = f.state === 'atk' && (k.cur.id === 'kesaS' || k.cur.id === 'gyakuS' || (k.cur.id === 'menS' && !K.menAim)) && !inCut(k.cur.id, k.cur.t);
   if (!wind && !(NOAIM[k.cur.id] && !(f.opp && (f.opp.state === 'block' || f.opp.state === 'guard')))) aimOn(rg, P);
   dbgA(k, 'a', P);
   k.clrW = Math.max(0, (k.clrW || 0) - 1);
@@ -961,6 +963,19 @@ function badAt(f, rg, P, BL, c, noOpp) {
   if (m > 0) return 1 + m / 10;
   return !cut && !K.ownOff && ownPen(P, h, u, BL, f) > 0 ? 0.3 : 0;
 }
+// (2026-11-21) the blade at screen angle c in the other's head (15) or along his body (17 round the spine, past 24 of the
+// blade), outside its cut - badAt's rule for the other alone
+function inOppAt(f, rg, P, BL, c) {
+  const o = f.opp, ro = o && MD.rigOf(o), Q = ro && ro.P;
+  if (!Q || !Q.head || !Q.neck || !Q.hip || o.dead || o.hidden) return false;
+  if (f.state === 'atk' && f.atk && f.atk.active && f.st >= f.atk.active[0] - 0.02 && f.st <= f.atk.active[1] + 0.02) return false;
+  const h = P.blade.h, u = rotToScr(h, P.blade.u, BL, c), hd = Mo.project(ro, Q.head), nk = Mo.project(ro, Q.neck), hp = Mo.project(ro, Q.hip);
+  for (let i = 1; i <= 10; i++) {
+    const k = 4 + (BL - 4) * i / 10, q = Mo.project(rg, [h[0] + u[0] * k, h[1] + u[1] * k, h[2] + u[2] * k]);
+    if (Math.hypot(q.x - hd.x, q.y - hd.y) < 15 || (k > 24 && segD2(q, hp, nk) < 17)) return true;
+  }
+  return false;
+}
 function govern2(f, k, rg, P) {
   if (!P || !P.blade || !P.blade.u || !P.blade.h || !P.armed || P.inside || f.dead || f.hidden) { k.g2 = null; return; }
   const BL = (f.wpn && f.wpn.blade) || LEN.blade, h = P.blade.h, a = scrP(h, P.blade.u, BL);
@@ -971,6 +986,9 @@ function govern2(f, k, rg, P) {
   if (!g) g = k.g2 = {};
   g.dir0 = rg.dir;
   const rest = !!(P.kilic && P.kilicW >= 0.999 && k.cur && MOVES[k.cur.id] && (MOVES[k.cur.id].rest || []).some(([t0, t1]) => k.cur.t >= t0 && k.cur.t <= t1));
+  const dPass = !!(P.kilic && P.kilicW >= 0.999 && k.cur && MOVES[k.cur.id] && (MOVES[k.cur.id].downPass || []).some(([t0, t1]) => k.cur.t >= t0 && k.cur.t <= t1));
+  // (2026-11-21) the move's own drawing before the fight's blade stop turned it - govStep's o.raw
+  const raw = P.kilic && P.kilicW >= 0.999 && k.pre && k.pre.o === P && k.pre.blade && k.pre.blade.u ? scrP(h, k.pre.blade.u, BL) : null;
   // (fix 3: a move's own one-frame jump - the blade out of the saya already turned forward, M.jump - is drawn as keyed on
   // the first frame after it: the governor had swung it round from the saya's line, back across her body)
   const J = P.kilic && P.kilicW >= 0.999 && k.cur && MOVES[k.cur.id] && MOVES[k.cur.id].jump;
@@ -982,7 +1000,7 @@ function govern2(f, k, rg, P) {
   // the back.
   const backUp = !K.backOff && !!(P.kilic && P.kilicW >= 0.999 && k.cur && SB[k.cur.id] && k.sb && k.sb.lb && k.sb.id === k.cur.id && f.state === 'atk' && k.cur.t < MOVES[k.cur.id].phases.active[0]);
   // (on that way round the blade passes its own body - behind() then draws it behind the torso: not a block there)
-  const c = govStep(g, a, { strike: strikeS(f, k, P) || jumpNow, okDown: rest, backUp, bad: (q) => { const b = badAt(f, rg, P, BL, q); return backUp && b < 0.5 ? 0 : b; },
+  const c = govStep(g, a, { strike: strikeS(f, k, P) || jumpNow, okDown: rest, downPass: dPass, backUp, raw: K.rawOff ? null : raw, inOpp: K.oppOff ? null : (q) => inOppAt(f, rg, P, BL, q), bad: (q) => { const b = badAt(f, rg, P, BL, q); return backUp && b < 0.5 ? 0 : b; },
     // (fix 3: the other fighter's head and body are crossed, never parked in: a raise to the overhead goes up past a close
     // opponent instead of waiting below him, the blade low through the whole windup)
     pass: (q) => badAt(f, rg, P, BL, q, true) === 0 });
