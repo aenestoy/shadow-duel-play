@@ -549,6 +549,15 @@
     EN.NUMWORDS = ['ศูนย์', 'หนึ่ง', 'สอง', 'สาม', 'สี่', 'ห้า', 'หก', 'เจ็ด', 'แปด', 'เก้า', 'สิบ', 'สิบเอ็ด', 'สิบสอง'];
 
 
+
+    merge(EN.PHRASES, {
+      "İki kesik, havaya kaldıran tekme ve havada kesik; yere serer, tekme bloklanırsa seri durur.": "ฟันสองครั้ง เตะเสย และฟันกลางอากาศ ทำให้ล้ม กันลูกเตะได้ชุดท่าจะหยุด",
+      "İki kesik, kına dönüş ve hızlı çekiş kesiği; yere serer, bloklanırsa açıkta kalır.": "ฟันสองครั้ง เก็บดาบเข้าฝัก แล้วชักดาบฟันอย่างรวดเร็ว ทำให้ล้ม ถ้าถูกกันไว้คุณจะเปิดช่อง",
+      "Gard tutarken alçak, sonra yüksek kesik; yere serer, alçak bloktan sonra yeniden gard tutan karşılar.": "ขณะตั้งการ์ด ฟันต่ำแล้วฟันสูง ทำให้ล้ม กดการ์ดอีกครั้งหลังกันฟันต่ำจะหยุดได้",
+      "Kesa’dan sonra bel hizasında geniş fırtına süpürmesi; yere serer, kesa bloklanırsa seri durur.": "หลังเคสะ กวาดพายุกว้างระดับเอว ทำให้ล้ม กันเคสะได้ชุดท่าจะหยุด",
+      "Kesa’dan sonra baş kesiği ve tepeden inen gard ezen darbe; yere serer, ilk kesiği savuşturan durdurur.": "หลังเคสะ ฟันศีรษะแล้วฟันลงจากเหนือหัวทำลายการ์ด ทำให้ล้ม ปัดการฟันแรกจะหยุดได้",
+      "Dürtüşten sonra uzun atılımlı ok dürtüşü; rakibi uzağa iter, hızlı bir kesik hazırlığını yener.": "หลังแทง แทงลูกศรไกลพุ่งยาว ผลักไปไกล การฟันเร็วชนะการเตรียมท่า",
+    });
     merge(EN.PHRASES, {
 
       'Gölge Düellosu': 'Shadow Duel',

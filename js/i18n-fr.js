@@ -561,6 +561,15 @@
     EN.NUMWORDS = ['Zéro', 'Un', 'Deux', 'Trois', 'Quatre', 'Cinq', 'Six', 'Sept', 'Huit', 'Neuf', 'Dix', 'Onze', 'Douze'];
 
 
+
+    merge(EN.PHRASES, {
+      "İki kesik, havaya kaldıran tekme ve havada kesik; yere serer, tekme bloklanırsa seri durur.": "Deux coupes, un coup de pied lanceur et une coupe aérienne ; met au sol, et bloquer le coup de pied arrête l'enchaînement.",
+      "İki kesik, kına dönüş ve hızlı çekiş kesiği; yere serer, bloklanırsa açıkta kalır.": "Deux coupes, le sabre au fourreau puis une coupe dégainée rapide ; met au sol, et bloquée, elle te laisse à découvert.",
+      "Gard tutarken alçak, sonra yüksek kesik; yere serer, alçak bloktan sonra yeniden gard tutan karşılar.": "En garde, une coupe basse puis une haute ; met au sol, et reprendre la garde après le blocage bas l'arrête.",
+      "Kesa’dan sonra bel hizasında geniş fırtına süpürmesi; yere serer, kesa bloklanırsa seri durur.": "Après le kesa, un large balayage tempête à hauteur de taille ; met au sol, et bloquer le kesa arrête l'enchaînement.",
+      "Kesa’dan sonra baş kesiği ve tepeden inen gard ezen darbe; yere serer, ilk kesiği savuşturan durdurur.": "Après le kesa, une coupe à la tête puis un coup d'en haut qui brise la garde ; met au sol, et dévier la première coupe l'arrête.",
+      "Dürtüşten sonra uzun atılımlı ok dürtüşü; rakibi uzağa iter, hızlı bir kesik hazırlığını yener.": "Après l'estoc, un long estoc de flèche en fente ; repousse loin, et une coupe rapide bat sa préparation.",
+    });
     merge(EN.PHRASES, {
 
       'Gölge Düellosu': 'Shadow Duel',

@@ -564,6 +564,15 @@
     EN.NUMWORDS = ['Null', 'Eins', 'Zwei', 'Drei', 'Vier', 'Fünf', 'Sechs', 'Sieben', 'Acht', 'Neun', 'Zehn', 'Elf', 'Zwölf'];
 
 
+
+    merge(EN.PHRASES, {
+      "İki kesik, havaya kaldıran tekme ve havada kesik; yere serer, tekme bloklanırsa seri durur.": "Zwei Schnitte, ein hebender Tritt und ein Luftschnitt; wirft zu Boden, den Tritt zu blocken stoppt die Kette.",
+      "İki kesik, kına dönüş ve hızlı çekiş kesiği; yere serer, bloklanırsa açıkta kalır.": "Zwei Schnitte, Klinge in die Scheide und ein schneller Ziehschnitt; wirft zu Boden, geblockt bist du offen.",
+      "Gard tutarken alçak, sonra yüksek kesik; yere serer, alçak bloktan sonra yeniden gard tutan karşılar.": "Aus der Deckung tief, dann hoch geschnitten; wirft zu Boden, erneute Deckung nach dem tiefen Block stoppt ihn.",
+      "Kesa’dan sonra bel hizasında geniş fırtına süpürmesi; yere serer, kesa bloklanırsa seri durur.": "Nach dem Kesa ein weiter Sturmfeger auf Hüfthöhe; wirft zu Boden, das Kesa zu blocken stoppt die Kette.",
+      "Kesa’dan sonra baş kesiği ve tepeden inen gard ezen darbe; yere serer, ilk kesiği savuşturan durdurur.": "Nach dem Kesa ein Kopfschnitt und ein deckungsbrechender Hieb von oben; wirft zu Boden, den ersten Schnitt zu parieren stoppt ihn.",
+      "Dürtüşten sonra uzun atılımlı ok dürtüşü; rakibi uzağa iter, hızlı bir kesik hazırlığını yener.": "Nach dem Stoß ein langer Pfeilstoß im Ausfall; treibt weit zurück, ein schneller Schnitt schlägt das Ausholen.",
+    });
     merge(EN.PHRASES, {
 
       'Gölge Düellosu': 'Shadow Duel',

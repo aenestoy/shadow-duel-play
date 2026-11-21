@@ -562,6 +562,15 @@
     EN.NUMWORDS = ['صفر', 'واحد', 'اثنان', 'ثلاثة', 'أربعة', 'خمسة', 'ستة', 'سبعة', 'ثمانية', 'تسعة', 'عشرة', 'أحد عشر', 'اثنا عشر'];
 
 
+
+    merge(EN.PHRASES, {
+      "İki kesik, havaya kaldıran tekme ve havada kesik; yere serer, tekme bloklanırsa seri durur.": "ضربتان وركلة رافعة وضربة في الجو؛ تُسقط الخصم، وصدّ الركلة يوقف السلسلة.",
+      "İki kesik, kına dönüş ve hızlı çekiş kesiği; yere serer, bloklanırsa açıkta kalır.": "ضربتان، ثم يعود السيف إلى غمده وضربة سحب سريعة؛ تُسقط الخصم، وإن صُدّت تبقى مكشوفًا.",
+      "Gard tutarken alçak, sonra yüksek kesik; yere serer, alçak bloktan sonra yeniden gard tutan karşılar.": "أثناء الحماية ضربة منخفضة ثم عالية؛ تُسقط الخصم، والحماية مجددًا بعد صد المنخفضة توقفها.",
+      "Kesa’dan sonra bel hizasında geniş fırtına süpürmesi; yere serer, kesa bloklanırsa seri durur.": "بعد الكيسا كنسة عاصفة واسعة بمستوى الخصر؛ تُسقط الخصم، وصدّ الكيسا يوقف السلسلة.",
+      "Kesa’dan sonra baş kesiği ve tepeden inen gard ezen darbe; yere serer, ilk kesiği savuşturan durdurur.": "بعد الكيسا ضربة إلى الرأس ثم ضربة من الأعلى تكسر الحماية؛ تُسقط الخصم، وتحويل الضربة الأولى يوقفها.",
+      "Dürtüşten sonra uzun atılımlı ok dürtüşü; rakibi uzağa iter, hızlı bir kesik hazırlığını yener.": "بعد الطعنة طعنة السهم البعيد باندفاع طويل؛ تدفع الخصم بعيدًا، وضربة سريعة تتغلب على تحضيرها.",
+    });
     merge(EN.PHRASES, {
 
       'Gölge Düellosu': 'Shadow Duel',

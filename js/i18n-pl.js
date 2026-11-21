@@ -576,6 +576,15 @@
     EN.NUMWORDS = ['Zero', 'Jeden', 'Dwa', 'Trzy', 'Cztery', 'Pięć', 'Sześć', 'Siedem', 'Osiem', 'Dziewięć', 'Dziesięć', 'Jedenaście', 'Dwanaście'];
 
 
+
+    merge(EN.PHRASES, {
+      "İki kesik, havaya kaldıran tekme ve havada kesik; yere serer, tekme bloklanırsa seri durur.": "Dwa cięcia, podrzucające kopnięcie i cięcie w powietrzu; powala, a zablokowanie kopnięcia urywa serię.",
+      "İki kesik, kına dönüş ve hızlı çekiş kesiği; yere serer, bloklanırsa açıkta kalır.": "Dwa cięcia, miecz do pochwy i szybkie cięcie przy dobyciu; powala, a zablokowane zostawia cię odsłoniętym.",
+      "Gard tutarken alçak, sonra yüksek kesik; yere serer, alçak bloktan sonra yeniden gard tutan karşılar.": "Z gardy niskie, potem wysokie cięcie; powala, a ponowna garda po niskim bloku je zatrzymuje.",
+      "Kesa’dan sonra bel hizasında geniş fırtına süpürmesi; yere serer, kesa bloklanırsa seri durur.": "Po kesa szerokie zamiatanie burzy na wysokości pasa; powala, a zablokowanie kesa urywa serię.",
+      "Kesa’dan sonra baş kesiği ve tepeden inen gard ezen darbe; yere serer, ilk kesiği savuşturan durdurur.": "Po kesa cięcie w głowę i kruszący gardę cios z góry; powala, a sparowanie pierwszego cięcia go zatrzymuje.",
+      "Dürtüşten sonra uzun atılımlı ok dürtüşü; rakibi uzağa iter, hızlı bir kesik hazırlığını yener.": "Po pchnięciu długie pchnięcie strzały w wypadzie; odrzuca daleko, a szybkie cięcie pokonuje przygotowanie.",
+    });
     merge(EN.PHRASES, {
 
       'Gölge Düellosu': 'Shadow Duel',

@@ -25,8 +25,9 @@
 
 
 
+
   const hostSpeed = () => { const v = ND.AI_KNOBS && ND.AI_KNOBS.duelSpeed, d = ND.duel && ND.duel.SPEED0 || 0.85; return v >= 0.7 && v <= 1 ? v : d; };
-  const PROTO = /[?&]duel=0(&|$)/.test(location.search || '') ? 1 : 3;
+  const PROTO = /[?&]duel=0(&|$)/.test(location.search || '') ? 1 : 4;
   const ABC = 'ABCDEFGHJKMNPQRSTUVWXYZ';
   const ROOM_TTL = 10 * 60 * 1000;
   const FIND_MS = 8000, CONNECT_MS = 20000, PING_MS = 500;

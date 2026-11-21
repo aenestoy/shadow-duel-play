@@ -1386,12 +1386,25 @@
       lctx.globalCompositeOperation = 'source-over'; lctx.globalAlpha = 1;
 
       if (!gl) lctx.clearRect(0, 0, lc.width, lc.height);
-      const k = cam.k;
-      lctx.setTransform(k, 0, 0, k, cam.W / 2 - cam.x * k + cam.shx - sx0, cam.gy - cam.y * k + cam.shy - sy0);
+      const k = cam.k, tx = cam.W / 2 - cam.x * k + cam.shx - sx0, ty = cam.gy - cam.y * k + cam.shy - sy0;
+      lctx.setTransform(k, 0, 0, k, tx, ty);
       drawFn(lctx);
+
+
+
+
+      const t = !gl && f.drawnBox ? f.drawnBox() : null;
+      let qx = 0, qy = 0, qw = w, qh = h;
+      if (t) {
+        qx = Math.max(0, Math.floor(t[0] * k + tx)); qy = Math.max(0, Math.floor(t[1] * k + ty));
+        qw = Math.min(w, Math.ceil(t[2] * k + tx)) - qx; qh = Math.min(h, Math.ceil(t[3] * k + ty)) - qy;
+        if (qw <= 0 || qh <= 0) return;
+        lctx.save(); lctx.setTransform(1, 0, 0, 1, 0, 0); lctx.beginPath(); lctx.rect(qx, qy, qw, qh); lctx.clip(); lctx.setTransform(k, 0, 0, k, tx, ty);
+      }
       scene.lightFighter(lctx, f, b[0], b[1], b[2], b[3]);
+      if (t) lctx.restore();
       ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.drawImage(lc, 0, 0, w, h, sx0, sy0, w, h);
+      ctx.drawImage(lc, qx, qy, qw, qh, sx0 + qx, sy0 + qy, qw, qh);
     },
 
     render() {

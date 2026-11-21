@@ -28,7 +28,8 @@
   const C = ND.CONFIG || {};
 
 
-  const PROTO = /[?&]duel=0(&|$)/.test(location.search || '') ? 1 : 3;
+
+  const PROTO = /[?&]duel=0(&|$)/.test(location.search || '') ? 1 : 4;
   const POLL_MS = 2000, POLL_FIRST = 1500, POLL_MATCH = 1000, BEAT_MS = 15000, WARM_AFTER = 20000, QUEUE_MAX = 10 * 60 * 1000;
   const GATHER_MS = 1500, CONNECT_MS = 14000, RESULT_MS = 150000, VS_MS = 2600;
   const ARENAS = ['temple', 'rain', 'snow', 'village', 'market', 'waterfall', 'castle'];

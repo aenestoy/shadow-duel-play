@@ -552,6 +552,15 @@
     EN.NUMWORDS = ['शून्य', 'एक', 'दो', 'तीन', 'चार', 'पाँच', 'छह', 'सात', 'आठ', 'नौ', 'दस', 'ग्यारह', 'बारह'];
 
 
+
+    merge(EN.PHRASES, {
+      "İki kesik, havaya kaldıran tekme ve havada kesik; yere serer, tekme bloklanırsa seri durur.": "दो वार, उछालने वाली किक और हवा में वार; गिरा देता है, किक ब्लॉक करने से सीरीज़ रुकती है।",
+      "İki kesik, kına dönüş ve hızlı çekiş kesiği; yere serer, bloklanırsa açıkta kalır.": "दो वार, तलवार म्यान में और तेज़ खींचकर वार; गिरा देता है, ब्लॉक होने पर आप खुले रह जाते हैं।",
+      "Gard tutarken alçak, sonra yüksek kesik; yere serer, alçak bloktan sonra yeniden gard tutan karşılar.": "गार्ड रखते हुए नीचा, फिर ऊँचा वार; गिरा देता है, नीचे के ब्लॉक के बाद फिर गार्ड दबाने से रुकता है।",
+      "Kesa’dan sonra bel hizasında geniş fırtına süpürmesi; yere serer, kesa bloklanırsa seri durur.": "केसा के बाद कमर की ऊँचाई पर चौड़ा तूफ़ानी झाड़; गिरा देता है, केसा ब्लॉक करने से सीरीज़ रुकती है।",
+      "Kesa’dan sonra baş kesiği ve tepeden inen gard ezen darbe; yere serer, ilk kesiği savuşturan durdurur.": "केसा के बाद सिर पर वार और ऊपर से गार्ड तोड़ने वाला वार; गिरा देता है, पहला वार मोड़ने से रुकता है।",
+      "Dürtüşten sonra uzun atılımlı ok dürtüşü; rakibi uzağa iter, hızlı bir kesik hazırlığını yener.": "भोंक के बाद लंबी छलाँग वाला दूर-तीर भोंक; दूर धकेलता है, तेज़ वार उसकी तैयारी को हरा देता है।",
+    });
     merge(EN.PHRASES, {
 
       'Gölge Düellosu': 'Shadow Duel',

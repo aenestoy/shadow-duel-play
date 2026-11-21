@@ -549,6 +549,15 @@
     EN.NUMWORDS = ['〇', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '十一', '十二'];
 
 
+
+    merge(EN.PHRASES, {
+      "İki kesik, havaya kaldıran tekme ve havada kesik; yere serer, tekme bloklanırsa seri durur.": "二連斬り、浮かせ蹴り、空中斬りでダウンを奪う。蹴りを防げば連携は止まる。",
+      "İki kesik, kına dönüş ve hızlı çekiş kesiği; yere serer, bloklanırsa açıkta kalır.": "二連斬りから納刀し、素早い抜き打ちでダウンを奪う。防がれると隙だらけ。",
+      "Gard tutarken alçak, sonra yüksek kesik; yere serer, alçak bloktan sonra yeniden gard tutan karşılar.": "ガード中に下段、続けて上段斬りでダウンを奪う。下段を防いだ後に再ガードで止まる。",
+      "Kesa’dan sonra bel hizasında geniş fırtına süpürmesi; yere serer, kesa bloklanırsa seri durur.": "袈裟斬りの後、腰の高さへの大きな嵐の薙ぎでダウンを奪う。袈裟を防げば連携は止まる。",
+      "Kesa’dan sonra baş kesiği ve tepeden inen gard ezen darbe; yere serer, ilk kesiği savuşturan durdurur.": "袈裟斬りの後、面打ちから頭上よりガードを砕く斬り下ろしでダウンを奪う。一撃目を受け流せば止まる。",
+      "Dürtüşten sonra uzun atılımlı ok dürtüşü; rakibi uzağa iter, hızlı bir kesik hazırlığını yener.": "突きの後、長い踏み込みの遠矢の突きで大きく押し返す。素早い斬りで溜めを潰せる。",
+    });
     merge(EN.PHRASES, {
 
       'Gölge Düellosu': 'Shadow Duel',

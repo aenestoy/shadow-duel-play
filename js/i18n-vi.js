@@ -555,6 +555,15 @@
     EN.NUMWORDS = ['Không', 'Một', 'Hai', 'Ba', 'Bốn', 'Năm', 'Sáu', 'Bảy', 'Tám', 'Chín', 'Mười', 'Mười một', 'Mười hai'];
 
 
+
+    merge(EN.PHRASES, {
+      "İki kesik, havaya kaldıran tekme ve havada kesik; yere serer, tekme bloklanırsa seri durur.": "Hai nhát chém, cú đá hất lên và nhát chém trên không; hạ gục, đỡ cú đá thì chuỗi dừng.",
+      "İki kesik, kına dönüş ve hızlı çekiş kesiği; yere serer, bloklanırsa açıkta kalır.": "Hai nhát chém, tra kiếm vào vỏ rồi rút kiếm chém nhanh; hạ gục, nếu bị đỡ bạn sẽ hở sườn.",
+      "Gard tutarken alçak, sonra yüksek kesik; yere serer, alçak bloktan sonra yeniden gard tutan karşılar.": "Khi giữ thủ, chém thấp rồi chém cao; hạ gục, bấm thủ lại sau khi đỡ nhát thấp sẽ chặn được.",
+      "Kesa’dan sonra bel hizasında geniş fırtına süpürmesi; yere serer, kesa bloklanırsa seri durur.": "Sau kesa, cú quét bão rộng ngang hông; hạ gục, đỡ kesa thì chuỗi dừng.",
+      "Kesa’dan sonra baş kesiği ve tepeden inen gard ezen darbe; yere serer, ilk kesiği savuşturan durdurur.": "Sau kesa, nhát chém đầu và cú bổ từ trên phá thủ; hạ gục, gạt nhát đầu sẽ chặn được.",
+      "Dürtüşten sonra uzun atılımlı ok dürtüşü; rakibi uzağa iter, hızlı bir kesik hazırlığını yener.": "Sau cú đâm, cú đâm mũi tên với bước lao dài; đẩy ra xa, một nhát chém nhanh thắng phần chuẩn bị.",
+    });
     merge(EN.PHRASES, {
 
       'Gölge Düellosu': 'Shadow Duel',

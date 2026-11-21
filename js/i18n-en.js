@@ -549,6 +549,15 @@
     EN.NUMWORDS = ['Zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve'];
 
 
+
+    merge(EN.PHRASES, {
+      "İki kesik, havaya kaldıran tekme ve havada kesik; yere serer, tekme bloklanırsa seri durur.": "Two cuts, a launching kick and an air cut; knocks down, and blocking the kick stops it.",
+      "İki kesik, kına dönüş ve hızlı çekiş kesiği; yere serer, bloklanırsa açıkta kalır.": "Two cuts, a sheathe and a fast draw cut; knocks down, and leaves you open if blocked.",
+      "Gard tutarken alçak, sonra yüksek kesik; yere serer, alçak bloktan sonra yeniden gard tutan karşılar.": "From guard, a low cut then a high one; knocks down, and guarding again after the low block stops it.",
+      "Kesa’dan sonra bel hizasında geniş fırtına süpürmesi; yere serer, kesa bloklanırsa seri durur.": "After the kesa, a wide storm sweep at waist height; knocks down, and blocking the kesa stops it.",
+      "Kesa’dan sonra baş kesiği ve tepeden inen gard ezen darbe; yere serer, ilk kesiği savuşturan durdurur.": "After the kesa, a head cut and a guard-crushing drop from overhead; knocks down, and parrying the first cut stops it.",
+      "Dürtüşten sonra uzun atılımlı ok dürtüşü; rakibi uzağa iter, hızlı bir kesik hazırlığını yener.": "After the thrust, a long lunging arrow thrust; drives back, and a fast cut beats its wind-up.",
+    });
     merge(EN.PHRASES, {
 
       'Gölge Düellosu': 'Shadow Duel',

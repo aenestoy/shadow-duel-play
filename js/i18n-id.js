@@ -556,6 +556,15 @@
     EN.NUMWORDS = ['Nol', 'Satu', 'Dua', 'Tiga', 'Empat', 'Lima', 'Enam', 'Tujuh', 'Delapan', 'Sembilan', 'Sepuluh', 'Sebelas', 'Dua belas'];
 
 
+
+    merge(EN.PHRASES, {
+      "İki kesik, havaya kaldıran tekme ve havada kesik; yere serer, tekme bloklanırsa seri durur.": "Dua tebasan, tendangan pengangkat, dan tebasan udara; menjatuhkan, dan menangkis tendangan menghentikan rangkaian.",
+      "İki kesik, kına dönüş ve hızlı çekiş kesiği; yere serer, bloklanırsa açıkta kalır.": "Dua tebasan, pedang ke sarung, lalu tebasan cabut cepat; menjatuhkan, dan jika ditangkis kamu terbuka.",
+      "Gard tutarken alçak, sonra yüksek kesik; yere serer, alçak bloktan sonra yeniden gard tutan karşılar.": "Saat bertahan, tebasan rendah lalu tinggi; menjatuhkan, dan bertahan lagi setelah tangkisan rendah menghentikannya.",
+      "Kesa’dan sonra bel hizasında geniş fırtına süpürmesi; yere serer, kesa bloklanırsa seri durur.": "Setelah kesa, sapuan badai lebar setinggi pinggang; menjatuhkan, dan menangkis kesa menghentikan rangkaian.",
+      "Kesa’dan sonra baş kesiği ve tepeden inen gard ezen darbe; yere serer, ilk kesiği savuşturan durdurur.": "Setelah kesa, tebasan kepala dan hantaman dari atas yang menghancurkan pertahanan; menjatuhkan, dan menepis tebasan pertama menghentikannya.",
+      "Dürtüşten sonra uzun atılımlı ok dürtüşü; rakibi uzağa iter, hızlı bir kesik hazırlığını yener.": "Setelah tusukan, tusukan panah dengan terjangan panjang; mendorong jauh, dan tebasan cepat mengalahkan persiapannya.",
+    });
     merge(EN.PHRASES, {
 
       'Gölge Düellosu': 'Shadow Duel',

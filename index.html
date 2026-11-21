@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
     <meta name="robots" content="noindex, nofollow" />
-<meta name="nd-version" content="1.5.2">
-<script type="module" async crossorigin src="./assets/index-BesVJZE6.js"></script>
+<meta name="nd-version" content="1.6.0">
+<script type="module" async crossorigin src="./assets/index-p7e6kAJ-.js"></script>
 <link rel="stylesheet" crossorigin href="./assets/index-mO6PvHX0.css">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Shadow Duel</title>
@@ -2642,6 +2642,11 @@ try { (function (list) {
      mocap-test page) or the duel (?duel=1, unless ?mocap=0) runs it: the duel's fighters are then drawn from recorded motion -->
 <script  data-mocap type="text/plain" src="js/mocap.js"></script>
 <script  data-mocap type="text/plain" src="js/mocap-duel.js"></script>
+<!-- 1.6.0: the hand-keyed sword moves and the six combos in every duel fight (made behind ?kilic=1 in the trial branch
+     claude/sd-kilic-yeni; js/kilic-hook.js installs them as soon as it runs, before any fight can start) -->
+<script  data-mocap type="text/plain" src="js/kilic-moves.js"></script>
+<script  data-mocap type="text/plain" src="js/kilic-combos.js"></script>
+<script  data-mocap type="text/plain" src="js/kilic-hook.js"></script>
 <script>if(/[?&]mocap=1(&|$)/.test(location.search)||(!/[?&]duel=0(&|$)/.test(location.search)&&!/[?&]mocap=0(&|$)/.test(location.search)))for(const s of document.querySelectorAll('script[data-mocap]')){const e=document.createElement('script');e.src=s.getAttribute('src');e.async=false;document.body.appendChild(e);}</script>
 <!-- online "play with a friend" (docs/SHADOW-DUEL-ONLINE.md): the match loop and the rooms. data-online: left out of the
      offline portal builds (Yandex, Playgama; vite.config.ts), so they carry no online code or address -->

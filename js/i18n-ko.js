@@ -553,6 +553,15 @@
     EN.NUMWORDS = ['영', '한', '두', '세', '네', '다섯', '여섯', '일곱', '여덟', '아홉', '열', '열한', '열두'];
 
 
+
+    merge(EN.PHRASES, {
+      "İki kesik, havaya kaldıran tekme ve havada kesik; yere serer, tekme bloklanırsa seri durur.": "두 번 베기, 띄우는 발차기, 공중 베기; 다운시키며, 발차기를 막으면 연계가 끊긴다.",
+      "İki kesik, kına dönüş ve hızlı çekiş kesiği; yere serer, bloklanırsa açıkta kalır.": "두 번 베고 칼을 칼집에 넣은 뒤 빠른 발도 베기; 다운시키며, 막히면 빈틈이 생긴다.",
+      "Gard tutarken alçak, sonra yüksek kesik; yere serer, alçak bloktan sonra yeniden gard tutan karşılar.": "가드 중 낮게, 이어 높게 벤다; 다운시키며, 낮은 베기를 막은 뒤 다시 가드하면 막힌다.",
+      "Kesa’dan sonra bel hizasında geniş fırtına süpürmesi; yere serer, kesa bloklanırsa seri durur.": "케사 다음, 허리 높이의 넓은 폭풍 휩쓸기; 다운시키며, 케사를 막으면 연계가 끊긴다.",
+      "Kesa’dan sonra baş kesiği ve tepeden inen gard ezen darbe; yere serer, ilk kesiği savuşturan durdurur.": "케사 다음, 머리 베기와 가드를 부수는 내려치기; 다운시키며, 첫 베기를 흘려내면 막힌다.",
+      "Dürtüşten sonra uzun atılımlı ok dürtüşü; rakibi uzağa iter, hızlı bir kesik hazırlığını yener.": "찌르기 다음, 길게 파고드는 먼 화살 찌르기; 멀리 밀어내며, 빠른 베기로 준비 동작을 이긴다.",
+    });
     merge(EN.PHRASES, {
 
       'Gölge Düellosu': 'Shadow Duel',

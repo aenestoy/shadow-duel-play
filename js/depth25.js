@@ -490,7 +490,7 @@
     const j = jointsFor(f, S, pr);
     const shF2 = pr(S.shF, W), shB2 = pr(S.shB, -W);
 
-    const jF = Object.assign({}, j, { sh: { x: shF2.x, y: shF2.y } }), jB = Object.assign({}, j, { sh: { x: shB2.x, y: shB2.y } });
+    const jF = { ...j, sh: { x: shF2.x, y: shF2.y } }, jB = { ...j, sh: { x: shB2.x, y: shB2.y } };
     K.updLight();
     const D0 = K.pal(c);
     const X = { ropes: f.ropeList(), wpn, acc, glint: 0 };

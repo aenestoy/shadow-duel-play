@@ -557,6 +557,15 @@
     EN.NUMWORDS = ['Zero', 'Uno', 'Due', 'Tre', 'Quattro', 'Cinque', 'Sei', 'Sette', 'Otto', 'Nove', 'Dieci', 'Undici', 'Dodici'];
 
 
+
+    merge(EN.PHRASES, {
+      "İki kesik, havaya kaldıran tekme ve havada kesik; yere serer, tekme bloklanırsa seri durur.": "Due tagli, un calcio che solleva e un taglio aereo; atterra, e parare il calcio ferma la serie.",
+      "İki kesik, kına dönüş ve hızlı çekiş kesiği; yere serer, bloklanırsa açıkta kalır.": "Due tagli, la spada nel fodero e un rapido taglio sfoderato; atterra, e se parato resti scoperto.",
+      "Gard tutarken alçak, sonra yüksek kesik; yere serer, alçak bloktan sonra yeniden gard tutan karşılar.": "In guardia, un taglio basso poi uno alto; atterra, e rimettersi in guardia dopo la parata bassa lo ferma.",
+      "Kesa’dan sonra bel hizasında geniş fırtına süpürmesi; yere serer, kesa bloklanırsa seri durur.": "Dopo il kesa, un'ampia spazzata tempesta all'altezza della vita; atterra, e parare il kesa ferma la serie.",
+      "Kesa’dan sonra baş kesiği ve tepeden inen gard ezen darbe; yere serer, ilk kesiği savuşturan durdurur.": "Dopo il kesa, un taglio alla testa e un colpo dall'alto che spezza la guardia; atterra, e deviare il primo taglio lo ferma.",
+      "Dürtüşten sonra uzun atılımlı ok dürtüşü; rakibi uzağa iter, hızlı bir kesik hazırlığını yener.": "Dopo l'affondo, un lungo affondo della freccia in slancio; spinge lontano, e un taglio rapido batte la sua carica.",
+    });
     merge(EN.PHRASES, {
 
       'Gölge Düellosu': 'Shadow Duel',

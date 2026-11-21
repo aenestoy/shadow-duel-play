@@ -574,6 +574,15 @@
     EN.NUMWORDS = ['Ноль', 'Один', 'Два', 'Три', 'Четыре', 'Пять', 'Шесть', 'Семь', 'Восемь', 'Девять', 'Десять', 'Одиннадцать', 'Двенадцать'];
 
 
+
+    merge(EN.PHRASES, {
+      "İki kesik, havaya kaldıran tekme ve havada kesik; yere serer, tekme bloklanırsa seri durur.": "Два удара, подбрасывающий пинок и удар в воздухе; сбивает с ног, а блок пинка прерывает серию.",
+      "İki kesik, kına dönüş ve hızlı çekiş kesiği; yere serer, bloklanırsa açıkta kalır.": "Два удара, меч в ножны и быстрый удар с выхватыванием; сбивает с ног, а если заблокируют, вы открыты.",
+      "Gard tutarken alçak, sonra yüksek kesik; yere serer, alçak bloktan sonra yeniden gard tutan karşılar.": "Из защиты низкий, затем высокий удар; сбивает с ног, а повторная защита после низкого блока его останавливает.",
+      "Kesa’dan sonra bel hizasında geniş fırtına süpürmesi; yere serer, kesa bloklanırsa seri durur.": "После кэса — широкий буревой размах на уровне пояса; сбивает с ног, а блок кэса прерывает серию.",
+      "Kesa’dan sonra baş kesiği ve tepeden inen gard ezen darbe; yere serer, ilk kesiği savuşturan durdurur.": "После кэса — удар в голову и ломающий защиту удар сверху; сбивает с ног, а отвод первого удара его останавливает.",
+      "Dürtüşten sonra uzun atılımlı ok dürtüşü; rakibi uzağa iter, hızlı bir kesik hazırlığını yener.": "После укола — длинный укол стрелы в выпаде; отбрасывает далеко, а быстрый удар перебивает подготовку.",
+    });
     merge(EN.PHRASES, {
 
       'Gölge Düellosu': 'Дуэль теней',

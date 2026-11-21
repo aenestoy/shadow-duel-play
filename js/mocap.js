@@ -261,7 +261,7 @@
       if (!(isFinite(P.hip[1]) && isFinite(P.haR[0]) && isFinite(P.ftR[1]) && isFinite(P.ftL[1]) && isFinite(P.head[0]))) {
         Mo.stats.nan = (Mo.stats.nan || 0) + 1;
         if (this.goodP) this.P = this.goodP;
-      } else this.goodP = JSON.parse(JSON.stringify(P));
+      } else this.goodP = jsonCopy(P);
       Mo.stats.poses++;
 
 
@@ -941,10 +941,31 @@
   }
 
 
+
+
+  function jsonCopy(v) {
+    if (v === null) return null;
+    const t = typeof v;
+    if (t === 'number') return isFinite(v) ? (v === 0 ? 0 : v) : null;
+    if (t === 'string' || t === 'boolean') return v;
+    if (t !== 'object') return undefined;
+    if (typeof v.toJSON === 'function') return JSON.parse(JSON.stringify(v));
+    if (Array.isArray(v)) {
+      const n = v.length, a = new Array(n);
+      for (let i = 0; i < n; i++) { const x = v[i], tx = typeof x; a[i] = x === undefined || tx === 'function' || tx === 'symbol' ? null : jsonCopy(x); }
+      return a;
+    }
+    const o = {}, ks = Object.keys(v);
+    for (let i = 0; i < ks.length; i++) { const x = v[ks[i]], tx = typeof x; if (x === undefined || tx === 'function' || tx === 'symbol') continue; o[ks[i]] = jsonCopy(x); }
+    return o;
+  }
+  Mo.jsonCopy = jsonCopy;
+
+
   function zDraw(P) { const z0 = P.hip[2]; return P.mir ? (q) => 2 * z0 - q[2] : (q) => q[2]; }
 
   function armJoints(j, front, side, P, pr, rg) {
-    const JA = Object.assign({}, j);
+    const JA = { ...j };
     if (!front) JA.sh = j.shB;
     const haK = front ? 'haF' : 'haB';
     const holding = side === 'R' ? P.armed : P.gripL > 0.5 && P.armed;
