@@ -1,1 +1,0 @@
-2026-11-21 16:46  1c373345c  1.6.0: yeni kilic hareketleri ve 6 kombo oyunda (bayraksiz), hiz duzeltmeleri
