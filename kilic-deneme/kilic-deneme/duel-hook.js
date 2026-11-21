@@ -51,6 +51,8 @@ export const PLAY = {
   sweep: 'sune', sweep2: 'sune', kaeshiHeavy: 'thrust', kaeshiHeavy2: 'overhead', mawari: 'mawari', mawari2: 'mawari', kr_kuruma: 'kuruma',
   // (phase 7) Akane's three new combos (combos.js): the rising kick, the air rising cut, the draw finisher, the low-high
   kz_age: 'kzAge', kz_tengu: 'kzTengu', kz_iai: 'kzIai', kz_kasumi: 'kasumi',
+  // (phase 7b, 2026-11-21) Kuro's three combos (combos.js installKuro): the storm sweep, the tile split, the far-arrow thrust
+  kr_arashi: 'krArashi', kr_kawara: 'krKawara', kr_toya: 'krToya',
   // (fix 2, 2026-11-20) the last cuts the fight drew the old way: Akane's two combos from the saya, and Kuro's str1
   // (Yama-oroshi: the katana family's string ender js/specials.js fk_s1 - ATK.str1 is that object; two blows, as renga)
   ak_kage: 'kage', ak_ryusei: 'ryusei', str1: 'oroshi', fk_s1: 'oroshi',
@@ -478,7 +480,14 @@ function clear(f, rg, P, BL, w) {
   if (!P.armed) return;
   const F = frontOf(f, rg);
   if (!F || !(F.d > 10 && F.d < BL + 160)) return;
+  // (2026-11-21, Kuro's three combos: their follow-through is meant to end low past him - a point pointing well down passes
+  // under his hips, so it is left where the keys put it (lifting it round the back flicked it up for two frames after the
+  // tile-split's second blow); the rule comes in smoothly as the point rises in the recovery, and there the fists are
+  // drawn back first (the recovery's pull-back, up to 30) before the point is turned - Toya's recovery dipped and rose)
+  const kr = f.state === 'atk' && ks(f).cur && KRX.has(ks(f).cur.id);
+  if (kr) { w *= smooth(clamp((0.62 - P.blade.u[1]) / 0.27, 0, 1)); if (!(w > 0)) return; }
   if (P.haR[0] > F.front - 12) moveHands(P, [(F.front - 12 - P.haR[0]) * w, 0, 0]);
+  if (kr) { const ex = P.blade.u[0] - (Math.min(F.front - 6, F.zone + 6) - P.haR[0]) / BL; if (ex > 0) moveHands(P, [-Math.min(30, ex * BL) * w, 0, 0]); }
   const u = P.blade.u, lim = (Math.min(F.front - 6, F.zone + 6) - P.haR[0]) / BL;
   if (u[0] > 0 && u[0] > lim) {
     // (2026-11-20, the sword's motion: never left hanging straight down from the hands like a limp stick after the high
@@ -506,7 +515,7 @@ function wrapA(d) { return Math.atan2(Math.sin(d), Math.cos(d)); }
 // blade, the landing one onto the body - js/mocap.js build does this for the game's picture; the new one takes it too
 // (fix 3: Kage-iai too - the fight's aim swung the drawn blade up and down across her front after the cut, the owner's
 // "vertical sweep"; the keyed level cut already runs through him)
-const NOAIM = { kzAge: 1, kzTengu: 1, kzIai: 1, kasumi: 1, kage: 1 };
+const NOAIM = { kzAge: 1, kzTengu: 1, kzIai: 1, kasumi: 1, kage: 1, krArashi: 1, krKawara: 1, krToya: 1 };
 function aimOn(rg, P) {
   const O = rg.ovr;
   if (!O || !(O.w > 0) || !P.armed) return;
@@ -640,7 +649,8 @@ function stepBack(f, k, rg, want, ch, BL) {
 // feet's places with it, so planFeet steps them (nothing slides). Eased in and out at SP_V a frame. Only the picture: the
 // fight's x, its timing and its hits are its own.
 const SPA = new Set(['overhead', 'horizontal', 'diagonal', 'thrust', 'kesaS', 'gyakuS', 'menS', 'yokoL', 'tsukiS', 'nuki', 'kiriR', 'kiriL', 'sune',
-  'tsubame', 'renga', 'oroshi', 'sandan', 'kasumi', 'kuruma', 'kzIai']);
+  'tsubame', 'renga', 'oroshi', 'sandan', 'kasumi', 'kuruma', 'kzIai',
+  'krArashi', 'krKawara', 'krToya']);
 const SPR = new Set(['hurt', 'stagger', 'block', 'guard', 'recoil', 'parry']);
 // (2026-11-21, coordinator review of the seed 9 fight: after a counter hit the two stood glued for a second - the attacker
 // in her next move's wind-up, the struck one in hitstun, its blade held straight up by the governor because every lower
@@ -651,29 +661,37 @@ const SPR = new Set(['hurt', 'stagger', 'block', 'guard', 'recoil', 'parry']);
 // 2026-11-21, six variants over the four seeds)
 const REACT = new Set(['hurt', 'stagger', 'block', 'down', 'getup']);
 const SP_PAD = 36, SP_MAX = 80, SP_V = 6, SP_VH = 7;
+// (phase 7b: Kuro's three combos - the long blade's sweep, men and thrust are drawn at length through him, so from the cut
+// on the pair is held at blade range whatever the struck one is doing - walking, rocked back, launched - and twice as fast;
+// only these three: every other move keeps the rule above)
+const KRX = new Set(['krArashi', 'krKawara', 'krToya']), KR_PAD = 30;
+// (and further apart - the pad +30 - and while he is in the air too, knocked off his feet: their follow-throughs go on low
+// past where he stood, and the fight's clear rule lifts a point left inside his reach up and round)
 // (from the cut on: the drive's start, 40 ms before the first strike window - the wind-up is the round-6 step back's)
 const inCut = (id, t) => { const ph = MOVES[id] && MOVES[id].phases; return !!ph && t >= ((ph.hits && ph.hits[0]) || ph.active)[0] - 40; };
 function spacing(f, k, rg, want, ch, BL) {
   const o = f.opp, ro = o && MD.rigOf(o), ko = o && ks(o), M = MOVES[want.id];
   k.hxRaw = ch.hx;
   let tgt = 0;
-  if (o && ro && !o.dead && !o.hidden && !rg.y && !ro.y && !M.ownFeet && !K.spOff) {
+  const krA = f.state === 'atk' && KRX.has(want.id);
+  if (o && ro && !o.dead && !o.hidden && !rg.y && (!ro.y || krA) && !M.ownFeet && !K.spOff) {
     const meAtk = f.state === 'atk' && SPA.has(want.id) && inCut(want.id, want.t), heAtk = o.state === 'atk' && ko && ko.cur && SPA.has(ko.cur.id) && inCut(ko.cur.id, ko.cur.t);
-    const meOk = meAtk || SPR.has(f.state), heOk = heAtk || SPR.has(o.state);
+    const kr = meAtk && KRX.has(want.id);
+    const meOk = meAtk || SPR.has(f.state), heOk = heAtk || SPR.has(o.state) || kr;
     const cut = (meAtk || heAtk) && meOk && heOk, meR = REACT.has(f.state), heR = REACT.has(o.state);
     if (cut || meR || heR) {
       const oBL = (o.wpn && o.wpn.blade) || LEN.blade;
       // (held after a hit: the longer of the two blades - the struck one's point, lowered, must clear the other too)
       const BLa = cut ? (meAtk ? BL : oBL) : Math.max(BL, oBL), D = (ro.x - rg.x) * rg.dir;
-      const need = clamp(SP_PAD + BLa - (D - (ch.hx || 0) - ((ko && ko.hxRaw) || 0)), 0, SP_MAX);
+      const need = clamp(SP_PAD + (kr ? KR_PAD : 0) + BLa - (D - (ch.hx || 0) - ((ko && ko.hxRaw) || 0)), 0, SP_MAX);
       // (the other gives his share only when he is drawn new, on the floor and on the fight's feet)
       const oM = ko && ko.cur && ko.w >= 0.5 && MOVES[ko.cur.id], oCan = !!oM && !oM.ownFeet;
-      const share = !oCan ? 1 : cut ? (meAtk && heAtk ? 0.5 : meAtk ? (SPR.has(o.state) ? 0.3 : 0.5) : (SPR.has(f.state) ? 0.7 : 0.5)) : meR && heR ? 0.5 : meR ? 0.7 : 0.3;
+      const share = !oCan || (kr && !heAtk && !SPR.has(o.state)) ? 1 : cut ? (meAtk && heAtk ? 0.5 : meAtk ? (SPR.has(o.state) ? 0.3 : 0.5) : (SPR.has(f.state) ? 0.7 : 0.5)) : meR && heR ? 0.5 : meR ? 0.7 : 0.3;
       tgt = need * share;
       k.spT = +need.toFixed(0);
     } else k.spT = 0;
   }
-  const v = (SPR.has(f.state) && tgt > (k.sp || 0) ? SP_VH : SP_V) * Math.min(3, 60 * (K.dt || 1 / 60));
+  const v = (SPR.has(f.state) && tgt > (k.sp || 0) ? SP_VH : SP_V) * Math.min(3, 60 * (K.dt || 1 / 60)) * (f.state === 'atk' && KRX.has(want.id) ? 2 : 1);
   k.sp = (k.sp || 0) + clamp(tgt - (k.sp || 0), -v, v);
   if (!(k.sp > 0.05)) { k.sp = 0; return; }
   ch.hx -= k.sp;
@@ -869,6 +887,18 @@ function unStop(f, k, P) {
   if (strikeS(f, k, P)) return;
   setBlade(P, q.blade.u);
   k.stopMem = 8; K.unstop = (K.unstop || 0) + 1;
+}
+// (2026-11-21, Kuro's three combos) Once the last blow has landed - its hit window begun and the other hit by it, hurt or
+// knocked up and away - the fight's own blade stop (unStop above is off by default) no longer turns the follow-through:
+// it flicked the tile-split's low follow-through up for two frames as he flew, and held the far-arrow's sinking point up
+// over him. The keyed blade is put back (the hand the stop drew back is kept); the follow-through passes low past him.
+function krKeep(f, k, P) {
+  if (!(k && k.cur && KRX.has(k.cur.id) && f.state === 'atk' && f.atk && f.opp && (f.opp.state === 'hurt' || f.opp.state === 'launch'))) return;
+  const W = f.atk.hits || (f.atk.active ? [f.atk.active] : []);
+  if (!(W.length > 0 && f.st >= W[W.length - 1][0])) return;
+  const q = k.pre;
+  if (!q || q.o !== P || !P.blade || !q.blade || P.blade === q.blade || !P.armed || P.inside) return;
+  setBlade(P, q.blade.u);
 }
 // (the strike window as the sword measure sees it - K.swordSample s: the fight's hit window +-0.02 s of the cut's clock,
 // or the drawn new move's own phases.active / hits / beat +-35 ms)
@@ -1092,7 +1122,7 @@ function faceClear(k, P, grip) {
   at(d); k.fo = d;
   if (d[0] || d[1] || d[2]) K.faceMoved = (K.faceMoved || 0) + 1;
 }
-K.dbg = (f) => { const k = KS.get(f); if (!k) return null; const r = { ga: +(k.ga || 0).toFixed(2), gaD: +(k.gaD || 0).toFixed(2), sc: k.sc || 0, sr: k.sr, nd: k.nd || 0, dd: +(k.dd || 0).toFixed(2), tail: k.tail || 0, cur: k.cur ? k.cur.id : null, t: k.cur ? +k.cur.t.toFixed(0) : null, w: +(k.w || 0).toFixed(2), beh: !!k.beh, mw: +(k.mw || 0).toFixed(2), gv: +(k.gvD || 0).toFixed(2), stp: k.stopMem || 0, sp: +(k.sp || 0).toFixed(1), sb: k.sb ? +(k.sb.Xp || 0).toFixed(1) : 0, spT: k.spT || 0 }; return r; };
+K.dbg = (f) => { const k = KS.get(f); if (!k) return null; const r = { ga: +(k.ga || 0).toFixed(2), gaD: +(k.gaD || 0).toFixed(2), sc: k.sc || 0, sr: k.sr, nd: k.nd || 0, dd: +(k.dd || 0).toFixed(2), tail: k.tail || 0, cur: k.cur ? k.cur.id : null, t: k.cur ? +k.cur.t.toFixed(0) : null, w: +(k.w || 0).toFixed(2), beh: !!k.beh, mw: +(k.mw || 0).toFixed(2), gv: +(k.gvD || 0).toFixed(2), stp: k.stopMem || 0, sp: +(k.sp || 0).toFixed(1), sb: k.sb ? +(k.sb.Xp || 0).toFixed(1) : 0, spT: k.spT || 0, s: k.dbg || '' }; return r; };
 // (tools/kilic-fight.mjs, kilic-combo.mjs: the sword as DRAWN this frame, one sample for tools/kilic-sword-lib.mjs: its
 // drawn length share r, its screen angle a (the picture's own: x right, y down), s in a strike window (the fight's hit
 // window +-0.02 s of the cut's clock, or the drawn new move's phases.active / hits / beat +-35 ms), x nothing to measure
@@ -1149,6 +1179,7 @@ Mo.draw = function (ctx, rg, opt) {
       if (u1 !== u0 && !K.gov1) u1 = rotToScr(P.blade.h, u1, BLf, scrP(P.blade.h, u0, BLf));
       if (u1 !== P.blade.u) { let e = sub(P.blade.e, mul(u1, dot(P.blade.e, u1))); e = V.len(e) > 1e-4 ? norm(e) : P.blade.e; P.blade = { h: P.blade.h, u: u1, e }; } } catch (e) { K.errors++; }
   } };
+  if (kd && P && P.kilicW > 0) { try { krKeep(rg.look, kd, P); } catch (e) { K.errors++; } }
   flat();
   if (kd) { if (!(P && P.kilicW > 0)) kd.dbg = 'old '; dbgA(kd, 'f', P); }
   // (fix 3: the legs back on their planted feet and the back hand on the handle BEFORE the last turns - they were laid

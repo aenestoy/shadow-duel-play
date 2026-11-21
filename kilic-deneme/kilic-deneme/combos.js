@@ -198,12 +198,155 @@ export function installCombos({ ND, D, K, ATK }) {
     row('Kasumi-gaeshi', 'S + F', [['guard', 'light']], 'From the guard: a low cut at the shins, then a high cut from the left. To block the high cut, press S again after blocking the low one.', ['command', 'knockdown']),
   ];
   const CN = ND.COMBO_NAMES && ND.COMBO_NAMES.akane, NAMES = { kz_tengu: 'TENGU OTOSHI', kz_iai: 'SAYA-GAESHI', kz_kasumi: 'KASUMI-GAESHI' };
+  const KR = installKuro({ ND, D, K, ATK, rnd, mapRows, row });
   K.kzSet = (on) => {
-    const L = ND.MOVELIST && ND.MOVELIST.akane;
-    if (L) {
-      for (let i = L.length - 1; i >= 0; i--) if (L[i] && L[i].kz) L.splice(i, 1);
-      if (on) { let i = L.findIndex((m) => m && m.input === 'F, F, G'); i = i < 0 ? L.length : i + 1; L.splice(i, 0, ...ROWS); }
+    for (const [id, rows, cn, names] of [['akane', ROWS, CN, NAMES], ['kuro', KR.ROWS, KR.CN, KR.NAMES]]) {
+      const L = ND.MOVELIST && ND.MOVELIST[id];
+      if (L) {
+        for (let i = L.length - 1; i >= 0; i--) if (L[i] && L[i].kz) L.splice(i, 1);
+        if (on) { let i = L.findIndex((m) => m && m.input === 'F, F, G'); i = i < 0 ? L.length : i + 1; L.splice(i, 0, ...rows); }
+      }
+      if (cn) for (const k in names) { if (on) cn[k] = names[k]; else delete cn[k]; }
     }
-    if (CN) for (const k in NAMES) { if (on) CN[k] = NAMES[k]; else delete CN[k]; }
   };
+}
+
+// ==================================================================== Kuro's three combos (2026-11-21, ?kilic=1 only)
+// The nodachi's strings: short (two presses) and heavy - a long, readable wind-up, a big step in, a long recovery.
+//   ARASHI-BARAI  F, → + F     the kesa, then the storm sweep from the right: low round under the line and level through
+//                              him at the waist, the long blade's reach; knocks down (kr_arashi)
+//   KAWARA-WARI   F, ← + G     the kesa, then two blows down the centre: a short men, the blade straight back up into the
+//                              full raise (held: the tell), then down through the guard - the second crushes it, knocks
+//                              down (kr_kawara)
+//   TOYA-ZUKI     → + F, → + F the thrust, then the far-arrow thrust: the coil back (held), a long lunge, the nodachi's point
+//                              at full length; drives him far back (kr_toya)
+// The hit geometry rides on the game's own poses of cuts it has (the running yoko, the light men + the big men, the
+// leaping thrust), retimed onto the keyed moves' windows (moves.js krArashi, krKawara, krToya; duel-hook.js PLAY).
+// Blocked, each leaves him open: his attacks stay locked past a plain cut's 0.45 s (ATK_LOCK) - the defender's punish.
+// Counterplay (named in the move list): each string needs its opener to land - block or parry the kesa / the thrust and it
+// stops there. Arashi - the sweep alone (a held wind-up, then the step in) is blocked and punished, or stepped back out of;
+// Kawara - parry the first men (the whole thing stops), or step back during the held raise: blocking both lets the second
+// eat the guard; Toya - the coil is long: a fast cut into it beats it, or block and punish.
+function installKuro({ ND, D, K, ATK, rnd, mapRows, row }) {
+  const FP = ND.Fighter.prototype, g = ND.game;
+  const SK = 0.476; // attack-clock seconds per real second for Kuro (KF 0.595 × his speed 0.8): the moves' ms ↔ the ATKs
+  const at = (ms) => +(ms / 1000 * SK).toFixed(4);
+  // a cut's own times laid piecewise onto new ones: [0, active start, active end, end] → Y (the keys, z3, lunge ...)
+  const warp = (A, Y) => {
+    const X = [0, A.active[0], A.active[1], A.dur];
+    return (t) => { if (t <= 0) return t; for (let i = 1; i < 4; i++) if (t <= X[i] + 1e-9) return Y[i - 1] + ((t - X[i - 1]) * (Y[i] - Y[i - 1])) / Math.max(1e-6, X[i] - X[i - 1]); return Y[3]; };
+  };
+  const cut = (A, Y, o) => {
+    const m = warp(A, Y), kz = (A.keys || []).map((q) => [m(q[0]), ...q.slice(1)]);
+    return Object.assign({}, A, { keys: kz, z3: mapRows(A.z3, m), dur: Y[3], active: [Y[1], Y[2]], tw: undefined, sheath: undefined, chain: null, hits: undefined }, o);
+  };
+  // the storm sweep: the running yoko's poses (from the right, level), slower, a big step in; knocks down
+  ATK.kr_arashi = cut(ATK.d_dashR, [0, at(430), at(505), at(1100)], {
+    dmg: 32, post: 34, kb: 430, stun: 0.6, knock: true, heavyClass: true, sc: true, pw: 1.5,
+    lunge: [at(330), at(450), 40], glint: [at(190), at(350)], sw: at(395),
+  });
+  // the tile split: the light men's poses for the first blow, the big men's for the second, one move of two blows (no
+  // scaling between them); the first keeps him in reach and reeling, the second crushes a guard and knocks down
+  {
+    const L = ATK.d_shomen, H = ATK.d_men, h1 = [at(330), at(400)], h2 = [at(800), at(870)], end = at(1400);
+    const mL = warp(L, [0, h1[0], h1[1], at(470)]), mH = warp(H, [at(470), h2[0], h2[1], end]);
+    const kl = L.keys.slice(0, -1).map((q) => [mL(q[0]), ...q.slice(1)]), kh = H.keys.map((q) => [mH(q[0]), ...q.slice(1)]);
+    const zl = (L.z3 || []).slice(0, -1).map((r) => [mL(r[0]), ...r.slice(1)]), zh = (H.z3 || []).slice(1).map((r) => [mH(r[0]), ...r.slice(1)]);
+    ATK.kr_kawara = {
+      keys: kl.concat(kh), z3: zl.length && zh.length ? zl.concat(zh) : undefined, dur: end,
+      active: h1.slice(), hits: [h1, h2], sides: [0, 0],
+      dmg: 5, post: 14, kb: 60, stun: 0.55, knockLast: true, lastHit: { dmg: 18, kb: 420, post: 44, stun: 0.6, gcrush: 1.6 },
+      lunge: [at(280), at(345), 60], lunge2: [at(720), at(820), 60], glint: [at(560), at(700)], sw: at(300), pw: 1.5,
+      kind: 'blade', sc: true, chain: null, heavyClass: true, dz3: { side: 0, v: 'down', dir: 'shomen' },
+    };
+  }
+  // the far-arrow thrust: the leaping thrust's poses, the coil held, a long lunge; drives him far back
+  ATK.kr_toya = cut(ATK.d_tobikomi, [0, at(390), at(470), at(1050)], {
+    dmg: 29, post: 30, kb: 560, stun: 0.55, reach: 300, pw: 1.4,
+    lunge: [at(335), at(430), 60], glint: [at(170), at(335)], sw: at(370),
+  });
+  // (after a landed opener he stays reeling until the blow reaches him - as Saya-gaeshi's draw: the held wind-up is his to
+  // take on a hit, not a gap; blocked, the opener stops the string and the finisher alone is the punishable part. It also
+  // keeps the struck one in a state the picture's spacing holds at blade range, so the long blade is drawn through him at
+  // its length, not across a body pressed against him - duel-hook.js spacing)
+  const hold = (f, a, o) => { if (o && o.state === 'hurt') { const r = f.ch.spd * (f.aspd || 1); o.dur = Math.max(o.dur, o.st + (a.active[0] - f.st) / r + 0.05); } };
+  ATK.kr_arashi.ev = [[0.004, hold]]; ATK.kr_toya.ev = [[0.004, hold]];
+  const KRM = new Map([[ATK.kr_arashi, 'kr_arashi'], [ATK.kr_kawara, 'kr_kawara'], [ATK.kr_toya, 'kr_toya']]);
+  const kz0 = K.kzId; K.kzId = (a) => kz0(a) || KRM.get(a) || '';
+  const isKu = (f) => !!(K.on && f && f.ch && f.ch.id === 'kuro' && f.dz && f.dz.armed);
+
+  // ------------------------------------------------------------------ the buttons
+  // from the kesa (light1): → + F the sweep, ← + G the tile split; from the thrust (fLight): → + F the far-arrow thrust
+  // (direction-held routes: the plain F and G after them stay as they were)
+  const R0 = ND.ROUTES_BASE, R_L1 = Object.assign({}, R0.light1, { fLight: 'kr_arashi', bHeavy: 'kr_kawara' }), R_FL = Object.assign({}, R0.fLight, { fLight: 'kr_toya' });
+  const rf0 = ND.routesFor;
+  ND.routesFor = (f, name) => {
+    if (!K.krOff && isKu(f)) { if (name === 'light1') return R_L1; if (name === 'fLight') return R_FL; }
+    return rf0(f, name);
+  };
+
+  // ------------------------------------------------------------------ blocked: he is left open
+  // (his attacks stay locked longer than after a plain cut - js/fighter.js ATK_LOCK.block 0.45 s - the defender's punish;
+  // the tile split's first blow blocked: nothing extra, the second still comes)
+  const XL = { kr_arashi: 0.22, kr_toya: 0.14 };
+  const bl0 = FP.blocked;
+  FP.blocked = function (a, x, y, isKick, fromX) {
+    const o = this.opp, id = K.on && this.state === 'atk' ? KRM.get(this.atk) : null, hi = this.hitIdx;
+    const r = bl0.call(this, a, x, y, isKick, fromX);
+    if (!id || !o) return r;
+    K.kzLog && K.kzLog.push({ t: +ND.simClock.toFixed(3), ev: 'blocked', id, hit: hi, ost: o.state });
+    const xl = id === 'kr_kawara' ? (hi === 1 ? 0.28 : 0) : XL[id];
+    if (xl && o.state === 'block' && g.clock != null) this.atkLock = Math.max(this.atkLock || 0, g.clock + ND.ATK_LOCK.block + xl);
+    return r;
+  };
+  const tk0 = FP.takeHit;
+  FP.takeHit = function (raw, a, from) {
+    const id = K.on && from && from.state === 'atk' ? KRM.get(from.atk) : null, hi = from ? from.hitIdx : -1, hp0 = this.hp;
+    const r = tk0.apply(this, arguments);
+    if (id && K.kzLog) K.kzLog.push({ t: +ND.simClock.toFixed(3), ev: 'hit', id, hit: hi, dmg: +(hp0 - this.hp).toFixed(1), st: this.state });
+    return r;
+  };
+
+  // ------------------------------------------------------------------ the computer's Kuro uses them (now and then)
+  // str: a decision that opens with the kesa meant to end in the sweep or the tile split; tsuki: one that opens with the
+  // thrust meant to end in the far-arrow thrust; arashi / kawara / toya: the share at the chain window (after a landed
+  // opener; in a string opened for them - a third of it otherwise; the tile split also into a guard, now and then).
+  // K.krOff (tools: kilic-fight --kflags krOff): none of this runs and nothing draws from the fight's random numbers - the
+  // fight as it was before these three.
+  K.krRate = { str: 0.22, tsuki: 0.14, arashi: 0.45, kawara: 0.45, toya: 0.6, guard: 0.15 };
+  K.krN = { str: 0, tsuki: 0, arashi: 0, kawara: 0, toya: 0 };
+  const AP = ND.AI.prototype;
+  const cp0 = AP.chainPick;
+  AP.chainPick = function (me, o, fwd) {
+    if (!K.krOff && isKu(me)) {
+      const hit = me.mem.landed != null, R = K.krRate, og = o.state === 'block' || o.state === 'guard';
+      if (me.atkName === 'light1') {
+        const m = this._krStr ? 1 : 1 / 3; this._krStr = false;
+        if (hit && !og) { const r = rnd(); if (r < R.arashi * m) { K.krN.arashi++; return this.dirTap('light', fwd); } if (r < (R.arashi + R.kawara) * m) { K.krN.kawara++; return this.dirTap('heavy', -fwd); } }
+        else if (og && rnd() < R.guard * m) { K.krN.kawara++; return this.dirTap('heavy', -fwd); }
+      } else if (me.atkName === 'fLight') {
+        const m = this._krTsu ? 1 : 1 / 3; this._krTsu = false;
+        if (hit && !og && rnd() < R.toya * m) { K.krN.toya++; return this.dirTap('light', fwd); }
+      }
+    }
+    return cp0.call(this, me, o, fwd);
+  };
+  const dc0 = AP.decide;
+  AP.decide = function (dist, fwd) {
+    const me = this.me, o = me && me.opp;
+    if (!K.krOff && isKu(me) && (me.state === 'move' || me.state === 'land') && o && o.onGround && !o.dead && o.state !== 'down' && o.state !== 'getup' && o.state !== 'atk') {
+      const sm = 0.5 + 0.5 * ((this.lv && this.lv.smart) || 0.5);
+      if (dist < 200 && rnd() < K.krRate.str * sm) { this.releaseAll(); this._krStr = true; K.krN.str++; this.dirTap('light', 0); return; }
+      if (dist >= 170 && dist < 270 && rnd() < K.krRate.tsuki * sm) { this.releaseAll(); this._krTsu = true; K.krN.tsuki++; this.dirTap('light', fwd); return; }
+    }
+    return dc0.apply(this, arguments);
+  };
+
+  // ------------------------------------------------------------------ the move list and the combo names
+  const ROWS = [
+    row('Arashi-barai', 'F, → + F', [['light'], ['fwd', 'light']], 'The kesa, then a storm sweep from the right: low round under his guard line and level through him at the waist, with the nodachi\'s full reach; it knocks down. Counter: block the kesa and the string stops; the sweep alone is slow - block it and punish, or step back.', ['string', 'knockdown']),
+    row('Kawara-wari', 'F, ← + G', [['light'], ['back', 'heavy']], 'The kesa, then two blows down the centre: a short cut to the head, the blade straight back up (the tell), then down through the guard - the second crushes it and knocks down. Counter: parry the first cut, or step back during the raise; blocking both wears the guard.', ['string', 'guard crush', 'knockdown']),
+    row('Toya-zuki', '→ + F, → + F', [['fwd', 'light'], ['fwd', 'light']], 'The thrust, then the far-arrow thrust: the coil back, a long lunge and the point at full length; it drives him far back. Counter: block the first thrust and the string stops; the coil is long - a fast cut beats it.', ['string', 'long reach']),
+  ];
+  return { ROWS, CN: ND.COMBO_NAMES && ND.COMBO_NAMES.kuro, NAMES: { kr_arashi: 'ARASHI-BARAI', kr_kawara: 'KAWARA-WARI', kr_toya: 'TOYA-ZUKI' } };
 }

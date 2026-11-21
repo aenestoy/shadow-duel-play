@@ -1686,6 +1686,111 @@ export const MOVES = {
     ],
     phases: null,
   },
+
+  // ---------------------------------------------------------------- 2026-11-21: Kuro's three new combos (?kilic=1 only)
+  // Keys in real ms at Kuro's speed (0.8; the fight's clock maps its hit windows onto phases.active / phases.hits). The
+  // nodachi (blade 126, fists 27 apart) is heavy: each move has a long, clear anticipation held 3-4 frames, a big step in
+  // (both feet travel: the front foot lands far, the rear foot follows), a follow-through that ends low past the target
+  // over a deep front knee, and a long recovery back to chudan - the opening he leaves when it is blocked.
+  // ARASHI-BARAI (F, → + F): after the kesa, the storm sweep from the right: the long blade drawn far back past the right
+  // hip, the hips coiled (held); the hips turn and drive, the front foot lands far in, the rear foot follows, and the blade
+  // sweeps down and round under the line (it never points at the camera: the low pass is how a level sweep reads from the
+  // side) and level through him at the waist, on round to the far side with the body low over the front knee.
+  krArashi: {
+    name: 'Arashi-barai (storm sweep from the right)', feet: FEET, strikeFrom: 350,
+    steps: [{ foot: 'R', t0: 350, t1: 445, dx: 26, h: 7 }, { foot: 'L', t0: 415, t1: 515, dx: 10, h: 4 }, { foot: 'R', t0: 790, t1: 960, dx: -26, h: 4 }, { foot: 'L', t0: 840, t1: 970, dx: -10, h: 3 }],
+    keys: [
+      at(0, {}),
+      // anticipation: the blade drawn back past the right hip, level, pointing straight back; the hips coiled back over the
+      // rear leg, the chest wound open to the camera; held
+      at(170, { hip: [-5, -79, 1], py: 24, cy: 40, lean: 4, nod: 3, R: [18, -104, 26], by: 135, el: -4, n: [0, 0.55, 0.84] }, 'io'),
+      at(290, { hip: [-12, -77, 2], py: 38, cy: 60, lean: 2, nod: 3, R: [-2, -106, 34], by: 176, el: 5, n: [0, 0.6, 0.8] }, 'out'),
+      at(350, { hip: [-12.5, -77, 2], py: 37, cy: 61, lean: 2, nod: 3, R: [-3, -106, 34], by: 178, el: 6, n: [0, 0.6, 0.8] }, 'io'),
+      // the cut: the hips turn and drive first, the front foot lands far in; the blade sweeps down and round under the
+      // line, the edge leading, the arms lengthening, and comes level through him at the waist
+      at(382, { hip: [-2, -76.5, 1.5], py: 28, cy: 52, lean: 4, nod: 3, R: [2, -105, 36], by: 165, el: -20, n: [0, 0.8, 0.6] }, 'io'),
+      at(408, { hip: [6, -75.5, 1], py: 18, cy: 40, lean: 7, nod: 4, R: [18, -104, 36], by: 140, el: -40, n: [0, 1, 0] }, 'io'),
+      at(430, { hip: [13, -74, 0.5], py: 10, cy: 26, lean: 9, nod: 5, R: [38, -104, 30], by: 100, el: -46, n: [0, 1, 0] }, 'io'),
+      at(450, { hip: [19, -72, 0], py: 2, cy: 12, lean: 11, nod: 5, R: [58, -105, 20], by: 42, el: -36, n: [0, 1, 0] }, 'io'),
+      at(472, { hip: [25, -70, 0], py: -6, cy: 0, lean: 13, nod: 6, R: [74, -106, 6], by: 8, el: -8, n: [0, 1, 0] }, 'lin'),
+      // follow-through: on round to the far side past him, the chest closed past square, the body low over the bent front
+      // knee, the point dropping low past him (steep, and only a little round to the far side: the fight's projector draws a low
+      // point turned far away as rising, and its clear rule lifts a point left level inside his reach); held
+      at(545, { hip: [29, -66, 0], py: -18, cy: -24, lean: 18, nod: 8, R: [64, -96, -14], by: -28, el: -38, n: [0, 1, 0] }, 'out'),
+      at(650, { hip: [28.5, -66.5, 0], py: -17, cy: -23, lean: 17, nod: 8, R: [62, -97, -13], by: -27, el: -40, n: [0, 1, 0] }, 'io'),
+      // recovery: the feet step back, the hips settle over the stance, the point comes up round the front to the throat
+      at(870, { hip: [9, -76, 0], py: 4, cy: 8, lean: 8, nod: 5, R: [52, -106, -4], by: -22, el: 8, n: [0, 0.6, 0.8] }, 'io'),
+      at(1100, {}, 'io'),
+    ],
+    phases: { windup: [0, 430], active: [430, 505], recovery: [505, 1100] },
+    kp: [['anticipation', 320], ['contact', 472], ['follow-through', 600], ['recovery', 1100]],
+  },
+  // KAWARA-WARI (F, ← + G): after the kesa, two blows straight down the centre: a short men from the forehead, then the
+  // blade goes straight back up into the full furikaburi (held: the tell) and comes down through his guard with a big
+  // step in, on down low past him over a deep knee - the tile split.
+  krKawara: {
+    name: 'Kawara-wari (two downward smashes, the second breaks the guard)', feet: FEET, strikeFrom: 270,
+    steps: [{ foot: 'R', t0: 290, t1: 350, dx: 12, h: 5 }, { foot: 'R', t0: 700, t1: 790, dx: 22, h: 7 }, { foot: 'L', t0: 750, t1: 840, dx: 8, h: 4 },
+      { foot: 'R', t0: 1070, t1: 1250, dx: -34, h: 4 }, { foot: 'L', t0: 1110, t1: 1240, dx: -8, h: 3 }],
+    keys: [
+      at(0, {}),
+      // anticipation 1 (short): the fists rise to over the forehead, the blade back past upright; held
+      at(110, { hip: [-4, -79.5, 0], py: 15, cy: 28, lean: 3, nod: 3, R: [42, -142, 4], by: 0, el: 66, pR: [-0.5, 0.45, 0.75], pL: [-0.5, 0.45, -0.75] }, 'io'),
+      at(200, { hip: [-7, -79.2, 0], py: 16, cy: 34, lean: 0, nod: 1, R: [28, -166, 4], by: 0, el: 112, pR: [-0.3, 0.3, 0.9], pL: [-0.8, 0, -0.6] }, 'out'),
+      at(270, { hip: [-7.5, -79.2, 0], py: 16, cy: 35, lean: -0.5, nod: 1, R: [27, -166, 4], by: 0, el: 114, pR: [-0.3, 0.3, 0.9], pL: [-0.8, 0, -0.6] }, 'io'),
+      // cut 1: the hips and the front foot drive in, the blade comes over onto his head and stops there
+      at(305, { hip: [5, -78, 0], py: 6, cy: 17, lean: 2, nod: 3, R: [45, -160, 3], by: 0, el: 80, pR: [-0.3, 0.4, 0.85], pL: [-0.5, 0.2, -0.85] }, 'in'),
+      at(345, { hip: [14, -75, 0], py: 0, cy: 2, lean: 6, nod: 6, R: [72, -138, 2], by: 0, el: -9 }, 'lin'),
+      at(390, { hip: [16, -74, 0], py: -1, cy: 0, lean: 8, nod: 6, R: [76, -128, 2], by: 0, el: -16 }, 'out'),
+      // anticipation 2: the blade goes straight back up over the head, higher - the fists over the crown, the blade back
+      // past the head, the hips back, the chest open, a hair of arch; held
+      at(470, { hip: [6, -77, 0], py: 12, cy: 24, lean: 3, nod: 3, R: [50, -150, 4], by: 0, el: 70, pR: [-0.5, 0.45, 0.75], pL: [-0.5, 0.45, -0.75] }, 'io'),
+      at(545, { hip: [-2, -78.8, 0], py: 17, cy: 34, lean: 0, nod: 1, R: [18, -172, 3], by: 0, el: 116, pR: [-0.3, 0.3, 0.9], pL: [-0.8, 0, -0.6] }, 'io'),
+      at(625, { hip: [-3, -77.8, 0], py: 20, cy: 41, lean: -4, nod: 0, R: [-8, -179, 3], by: 0, el: 128, ...UPEL }, 'out'),
+      at(695, { hip: [-3.5, -77.7, 0], py: 20, cy: 42, lean: -5, nod: 0, R: [-9, -179, 3], by: 0, el: 130, ...UPEL }, 'io'),
+      // cut 2: the hips go first with a big step in, then the blade comes over and down through him (the fists travel
+      // up and forward, well in front of the face, as the blade passes upright)
+      at(745, { hip: [6, -76.8, 0], py: 13, cy: 34, lean: 0, nod: 1, R: [6, -181, 3], by: 0, el: 134, ...UPEL }, 'io'),
+      at(765, { hip: [10, -76.3, 0], py: 9, cy: 26, lean: 2, nod: 2, R: [28, -178, 3], by: 0, el: 110, pR: [-0.5, 0.2, 0.85], pL: [-0.7, 0, -0.7] }, 'io'),
+      at(785, { hip: [12, -75.5, 0], py: 5, cy: 16, lean: 4, nod: 3, R: [64, -162, 3], by: 0, el: 70, pR: [-0.3, 0.4, 0.85], pL: [-0.5, 0.2, -0.85] }, 'io'),
+      at(805, { hip: [17, -73.5, 0], py: 2, cy: 6, lean: 7, nod: 5, R: [80, -142, 2], by: 0, el: 20, pR: [-0.25, 0.7, 0.7], pL: [-0.35, 0.6, -0.75] }, 'io'),
+      at(825, { hip: [23, -71, 0], py: 0, cy: 2, lean: 10, nod: 7, R: [88, -124, 2], by: 0, el: -18 }, 'lin'),
+      // follow-through: on down low past him, the point forward and low, the knees deep; held
+      at(890, { hip: [30, -64, 0], py: -4, cy: -4, lean: 22, nod: 10, R: [72, -92, 3], by: 0, el: -60 }, 'out'),
+      at(1010, { hip: [29.5, -64.5, 0], py: -3, cy: -3, lean: 21, nod: 10, R: [71, -94, 3], by: 0, el: -58 }, 'io'),
+      // recovery: the feet step back, the hips rise over the stance, the point to the throat line
+      at(1210, { hip: [9, -76, 0], py: 10, cy: 15, lean: 8, nod: 5, R: [54, -110, 2], by: -1, el: 9 }, 'io'),
+      at(1400, {}, 'io'),
+    ],
+    phases: { windup: [0, 330], active: [330, 400], hits: [[330, 400], [800, 870]], recovery: [870, 1400] },
+    kp: [['anticipation', 660], ['contact', 810], ['follow-through', 930], ['recovery', 1400]],
+  },
+  // TOYA-ZUKI (→ + F, → + F): after the thrust, the far-arrow thrust: the hips sink and draw well back, the fists come back
+  // to the right hip with the long blade along the line (held), then the hips drive, the front foot lands far in, the
+  // rear foot follows, and the arms shoot the nodachi's point to its full length; it sinks past him and holds.
+  krToya: {
+    name: 'Toya-zuki (far-arrow thrust)', feet: FEET, strikeFrom: 335,
+    steps: [{ foot: 'R', t0: 335, t1: 425, dx: 34, h: 8 }, { foot: 'L', t0: 395, t1: 485, dx: 18, h: 5 }, { foot: 'R', t0: 700, t1: 880, dx: -34, h: 5 }, { foot: 'L', t0: 730, t1: 860, dx: -18, h: 3 }],
+    keys: [
+      at(0, {}),
+      // anticipation (the coil): the hips sink and draw back over the rear leg, the fists back beside the right hip, the
+      // point still on his throat; held
+      at(170, { hip: [-12, -75, 1], py: 22, cy: 30, lean: 1, nod: 5, R: [18, -99, 8], by: -2, el: 6 }, 'io'),
+      at(265, { hip: [-16, -73, 1.5], py: 26, cy: 36, lean: 0, nod: 5, R: [12, -98, 12], by: -3, el: 5 }, 'out'),
+      at(335, { hip: [-16.5, -72.8, 1.5], py: 26, cy: 36, lean: 0, nod: 5, R: [11, -98, 12], by: -3, el: 5 }, 'io'),
+      // the drive: hips first, the front foot lands far in, then the arms shoot the point down the line to full length
+      at(375, { hip: [8, -72, 0], py: 10, cy: 8, lean: 8, nod: 6, R: [48, -108, 4], by: 0, el: 3 }, 'in'),
+      at(425, { hip: [38, -68, 0], py: 0, cy: -4, lean: 15, nod: 9, R: [98, -120, 2], by: 0, el: 1 }, 'lin'),
+      // follow-through: the point on past him, sinking, the body long over the bent front knee; held
+      at(480, { hip: [41, -66, 0], py: -2, cy: -5, lean: 17, nod: 9, R: [97, -112, 2], by: 0, el: -42 }, 'out'),
+      at(580, { hip: [40.5, -66.5, 0], py: -2, cy: -4, lean: 16, nod: 9, R: [86, -108, 2], by: 0, el: -56 }, 'io'),
+      // recovery: pull back (hiki), the feet step back, the point rises to the throat line
+      at(820, { hip: [8, -77, 0], py: 10, cy: 14, lean: 7, nod: 5, R: [54, -112, 2], by: -1, el: 10 }, 'io'),
+      at(1050, {}, 'io'),
+    ],
+    phases: { windup: [0, 390], active: [390, 470], recovery: [470, 1050] },
+    kp: [['anticipation', 300], ['contact', 425], ['follow-through', 530], ['recovery', 1050]],
+  },
 };
 // (2026-11-21, the owner: "kılıç saldırıları hala çok kötü önce onları düzelt") The whole body into the cuts not keyed
 // above in the four phases: the rising cuts, the low cut, the draw cut, the strings and the wheel cut. Their arm and blade
@@ -1732,7 +1837,7 @@ export const ORDER = ['idle', 'overhead', 'horizontal', 'diagonal', 'thrust', 'b
   'kakato', 'sweep', 'spinKick', 'snapKick', 'knee', 'nidan', 'kiriR', 'kiriL', 'sune',
   'lock', 'lockPush', 'shove', 'clash', 'bindDef', 'bindAtt', 'makiDef', 'flungAtt',
   'stuck', 'dodgePost', 'tsubame', 'renga', 'oroshi', 'higan', 'issen', 'kage', 'ryusei', 'yama', 'airCut', 'airSpike', 'sandan', 'mawari', 'kuruma',
-  'kzAge', 'kzTengu', 'kzIai', 'kasumi', 'hurtLow', 'launchUp', 'airHit'];
+  'kzAge', 'kzTengu', 'kzIai', 'kasumi', 'hurtLow', 'launchUp', 'airHit', 'krArashi', 'krKawara', 'krToya'];
 export const durOf = (id) => MOVES[id].keys[MOVES[id].keys.length - 1].t;
 
 // ------------------------------------------------------------------ the body of one key (joints, no arms yet)
