@@ -642,6 +642,14 @@ function stepBack(f, k, rg, want, ch, BL) {
 const SPA = new Set(['overhead', 'horizontal', 'diagonal', 'thrust', 'kesaS', 'gyakuS', 'menS', 'yokoL', 'tsukiS', 'nuki', 'kiriR', 'kiriL', 'sune',
   'tsubame', 'renga', 'oroshi', 'sandan', 'kasumi', 'kuruma', 'kzIai']);
 const SPR = new Set(['hurt', 'stagger', 'block', 'guard', 'recoil', 'parry']);
+// (2026-11-21, coordinator review of the seed 9 fight: after a counter hit the two stood glued for a second - the attacker
+// in her next move's wind-up, the struck one in hitstun, its blade held straight up by the governor because every lower
+// angle ran into her body) After any hit or block the pair is held at blade range for as long as one of them is struck,
+// blocking, rocked back, down or rising - whatever the other is doing (a wind-up, a recovery, a walk): REACT. The one
+// in it gives way 0.7, the other 0.3; one that cannot move (down, rising: its own feet) gives none and the other all.
+// (the parry and its recoil keep the fight's own distance: held apart there too, the blades and bodies measured worse -
+// 2026-11-21, six variants over the four seeds)
+const REACT = new Set(['hurt', 'stagger', 'block', 'down', 'getup']);
 const SP_PAD = 36, SP_MAX = 80, SP_V = 6, SP_VH = 7;
 // (from the cut on: the drive's start, 40 ms before the first strike window - the wind-up is the round-6 step back's)
 const inCut = (id, t) => { const ph = MOVES[id] && MOVES[id].phases; return !!ph && t >= ((ph.hits && ph.hits[0]) || ph.active)[0] - 40; };
@@ -652,12 +660,18 @@ function spacing(f, k, rg, want, ch, BL) {
   if (o && ro && !o.dead && !o.hidden && !rg.y && !ro.y && !M.ownFeet && !K.spOff) {
     const meAtk = f.state === 'atk' && SPA.has(want.id) && inCut(want.id, want.t), heAtk = o.state === 'atk' && ko && ko.cur && SPA.has(ko.cur.id) && inCut(ko.cur.id, ko.cur.t);
     const meOk = meAtk || SPR.has(f.state), heOk = heAtk || SPR.has(o.state);
-    if ((meAtk || heAtk) && meOk && heOk) {
-      const BLa = meAtk ? BL : (o.wpn && o.wpn.blade) || LEN.blade, D = (ro.x - rg.x) * rg.dir;
-      const need = clamp(SP_PAD + BLa - (D - (ch.hx || 0) - (ko.hxRaw || 0)), 0, SP_MAX);
-      const share = meAtk && heAtk ? 0.5 : meAtk ? (SPR.has(o.state) ? 0.3 : 0.5) : (SPR.has(f.state) ? 0.7 : 0.5);
+    const cut = (meAtk || heAtk) && meOk && heOk, meR = REACT.has(f.state), heR = REACT.has(o.state);
+    if (cut || meR || heR) {
+      const oBL = (o.wpn && o.wpn.blade) || LEN.blade;
+      // (held after a hit: the longer of the two blades - the struck one's point, lowered, must clear the other too)
+      const BLa = cut ? (meAtk ? BL : oBL) : Math.max(BL, oBL), D = (ro.x - rg.x) * rg.dir;
+      const need = clamp(SP_PAD + BLa - (D - (ch.hx || 0) - ((ko && ko.hxRaw) || 0)), 0, SP_MAX);
+      // (the other gives his share only when he is drawn new, on the floor and on the fight's feet)
+      const oM = ko && ko.cur && ko.w >= 0.5 && MOVES[ko.cur.id], oCan = !!oM && !oM.ownFeet;
+      const share = !oCan ? 1 : cut ? (meAtk && heAtk ? 0.5 : meAtk ? (SPR.has(o.state) ? 0.3 : 0.5) : (SPR.has(f.state) ? 0.7 : 0.5)) : meR && heR ? 0.5 : meR ? 0.7 : 0.3;
       tgt = need * share;
-    }
+      k.spT = +need.toFixed(0);
+    } else k.spT = 0;
   }
   const v = (SPR.has(f.state) && tgt > (k.sp || 0) ? SP_VH : SP_V) * Math.min(3, 60 * (K.dt || 1 / 60));
   k.sp = (k.sp || 0) + clamp(tgt - (k.sp || 0), -v, v);
@@ -714,7 +728,11 @@ function ours(f, rg, gP, dt) {
   meet(f, rg, P, BL, smooth(k.mw)); dbgA(k, 'm', P);
   // (phase 7: the new strings' cuts are keyed onto him - the fight's aim, built from the game's own poses, would pull the
   // hand there over the whole windup: the draw-cut's hand rose overhead through the pause; a blocked one keeps the contact)
-  if (!(NOAIM[k.cur.id] && !(f.opp && (f.opp.state === 'block' || f.opp.state === 'guard')))) aimOn(rg, P);
+  // (2026-11-21: nor in the wind-up of kesa / gyaku-kesa - the aim dragged the fists from over the crown down to the
+  // shoulder while the blade was already back over it, so it lay across her own chest; from the drive on it aims. The
+  // other cuts keep it: their wind-ups measured worse without)
+  const wind = f.state === 'atk' && (k.cur.id === 'kesaS' || k.cur.id === 'gyakuS') && !inCut(k.cur.id, k.cur.t);
+  if (!wind && !(NOAIM[k.cur.id] && !(f.opp && (f.opp.state === 'block' || f.opp.state === 'guard')))) aimOn(rg, P);
   dbgA(k, 'a', P);
   k.clrW = Math.max(0, (k.clrW || 0) - 1);
   if (f.state === 'atk' && f.atk && f.atk.active) { const w2 = clamp((f.st - f.atk.active[1]) / 0.03, 0, 1); if (w2 > 0) clear(f, rg, P, BL, smooth(w2)); dbgA(k, 'c', P); }
@@ -1056,7 +1074,7 @@ function faceClear(k, P, grip) {
   at(d); k.fo = d;
   if (d[0] || d[1] || d[2]) K.faceMoved = (K.faceMoved || 0) + 1;
 }
-K.dbg = (f) => { const k = KS.get(f); if (!k) return null; const r = { ga: +(k.ga || 0).toFixed(2), gaD: +(k.gaD || 0).toFixed(2), sc: k.sc || 0, sr: k.sr, nd: k.nd || 0, dd: +(k.dd || 0).toFixed(2), tail: k.tail || 0, cur: k.cur ? k.cur.id : null, t: k.cur ? +k.cur.t.toFixed(0) : null, w: +(k.w || 0).toFixed(2), beh: !!k.beh, mw: +(k.mw || 0).toFixed(2), gv: +(k.gvD || 0).toFixed(2), stp: k.stopMem || 0 }; return r; };
+K.dbg = (f) => { const k = KS.get(f); if (!k) return null; const r = { ga: +(k.ga || 0).toFixed(2), gaD: +(k.gaD || 0).toFixed(2), sc: k.sc || 0, sr: k.sr, nd: k.nd || 0, dd: +(k.dd || 0).toFixed(2), tail: k.tail || 0, cur: k.cur ? k.cur.id : null, t: k.cur ? +k.cur.t.toFixed(0) : null, w: +(k.w || 0).toFixed(2), beh: !!k.beh, mw: +(k.mw || 0).toFixed(2), gv: +(k.gvD || 0).toFixed(2), stp: k.stopMem || 0, sp: +(k.sp || 0).toFixed(1), sb: k.sb ? +(k.sb.Xp || 0).toFixed(1) : 0, spT: k.spT || 0 }; return r; };
 // (tools/kilic-fight.mjs, kilic-combo.mjs: the sword as DRAWN this frame, one sample for tools/kilic-sword-lib.mjs: its
 // drawn length share r, its screen angle a (the picture's own: x right, y down), s in a strike window (the fight's hit
 // window +-0.02 s of the cut's clock, or the drawn new move's phases.active / hits / beat +-35 ms), x nothing to measure
